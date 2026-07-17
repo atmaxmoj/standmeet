@@ -13,6 +13,7 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
 import { lookupPreset, PRESETS, type InferencePreset } from '@/lib/inference/presets';
@@ -79,25 +80,24 @@ export function BYOAIPanel({ hook }: Props) {
 }
 
 function BYOAIHeadline() {
+  const t = useTranslations('gate');
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3 flex items-baseline gap-2">
-        <span>no code?</span>
+        <span>{t('common.noCode')}</span>
         <span className="text-(--color-faint)">·</span>
         <span className="text-(--color-accent)">BYOAI</span>
       </div>
       <h2 className="font-serif text-(--color-ink) text-[28px] font-normal tracking-[-0.015em] leading-[1.1]">
-        Bring your own AI<span className="text-(--color-accent)">.</span>
+        {t('byoai.headline')}<span className="text-(--color-accent)">.</span>
       </h2>
       <p className="reading text-(--color-muted) mt-3 text-[15.5px]">
-        Use your own key against the owner&rsquo;s public corpus. Pick any
-        OpenAI-compatible provider, or point at your own self-hosted endpoint.
-        Private topics return &ldquo;need a code&rdquo;.
+        {t('byoai.lede')}
       </p>
       <ul className="mt-5 mono text-[10.5px] tracking-[0.06em] leading-[1.85] text-(--color-muted)">
-        <li><span className="text-(--color-faint)">·</span> your key never touches our server &mdash; stored encrypted in your browser only</li>
-        <li><span className="text-(--color-faint)">·</span> owner pays for retrieval, you pay for inference</li>
-        <li><span className="text-(--color-faint)">·</span> private topics return &ldquo;ask for a code&rdquo;</li>
+        <li><span className="text-(--color-faint)">·</span> {t('byoai.bulletKey')}</li>
+        <li><span className="text-(--color-faint)">·</span> {t('byoai.bulletPays')}</li>
+        <li><span className="text-(--color-faint)">·</span> {t('byoai.bulletPrivate')}</li>
       </ul>
     </div>
   );
@@ -172,10 +172,11 @@ function keyPlaceholder(keyPrefix: string): string {
 }
 
 function ProviderRow({ value, onChange }: { value: string; onChange: (p: string) => void }) {
+  const t = useTranslations('gate.byoai');
   return (
     <>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        choose a model
+        {t('chooseModel')}
       </div>
       <select
         value={value}
@@ -194,10 +195,11 @@ function ProviderRow({ value, onChange }: { value: string; onChange: (p: string)
 function EndpointRow({
   value, onChange, placeholder,
 }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  const t = useTranslations('gate.byoai');
   return (
     <>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        endpoint
+        {t('endpoint')}
       </div>
       <div className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1 mb-5">
         <input
@@ -225,10 +227,11 @@ function ModelRow({
   value: string; onChange: (v: string) => void;
   models: ModelListHook; onLoad: () => void; loadDisabled: boolean;
 }) {
+  const t = useTranslations('gate.byoai');
   return (
     <>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        model
+        {t('model')}
       </div>
       <ModelLoaderRow
         value={value} onChange={onChange}
@@ -249,12 +252,13 @@ function KeyRow({
   reveal: boolean; onToggleReveal: () => void;
   placeholder: string;
 }) {
+  const t = useTranslations('gate.byoai');
   return (
     <>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2 flex items-baseline justify-between">
-        <span>api key</span>
+        <span>{t('apiKey')}</span>
         <span className="text-(--color-faint) lowercase tracking-[0.06em] text-[10px]">
-          never uploaded &middot; stored encrypted in your browser
+          {t('keyNote')}
         </span>
       </div>
       <div className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1">
@@ -273,7 +277,7 @@ function KeyRow({
           onClick={onToggleReveal}
           className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-ink) shrink-0"
         >
-          {reveal ? 'hide' : 'reveal'}
+          {reveal ? t('hide') : t('reveal')}
         </button>
       </div>
     </>
@@ -298,9 +302,10 @@ function isValid(key: string, endpoint: string, model: string): boolean {
 }
 
 function ReadyHint({ valid, apiKey }: { valid: boolean; apiKey: string }) {
+  const t = useTranslations('gate.byoai');
   return valid
-    ? <span>ready · using <MaskedKey value={apiKey} /></span>
-    : <span className="text-(--color-faint)">fill endpoint, model + key to unlock the public chat.</span>;
+    ? <span>{t('readyUsing')} <MaskedKey value={apiKey} /></span>
+    : <span className="text-(--color-faint)">{t('fillHint')}</span>;
 }
 
 function MaskedKey({ value }: { value: string }) {
@@ -314,6 +319,7 @@ function MaskedKey({ value }: { value: string }) {
 }
 
 function SubmitButton({ disabled, busy }: { disabled: boolean; busy: boolean }) {
+  const t = useTranslations('gate.byoai');
   return (
     <button
       type="submit"
@@ -321,7 +327,7 @@ function SubmitButton({ disabled, busy }: { disabled: boolean; busy: boolean }) 
       data-testid="byoai-submit"
       className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 hover:bg-(--color-accent) transition-colors disabled:opacity-40 shrink-0"
     >
-      {busy ? 'warming up…' : 'start public chat ↗'}
+      {busy ? t('warmingUp') : t('submit')}
     </button>
   );
 }

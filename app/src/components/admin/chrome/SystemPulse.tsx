@@ -4,9 +4,12 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { useCorpusGrowth, pulseView } from '@/lib/admin/use-corpus-growth';
 
 export function SystemPulse() {
+  const t = useTranslations('adminShell.pulse');
   const { growth } = useCorpusGrowth();
   const v = pulseView(growth);
   return (
@@ -17,7 +20,7 @@ export function SystemPulse() {
       <span className="ch-tl" /><span className="ch-br" />
       <div className="flex items-baseline justify-between mb-3">
         <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted)">
-          corpus pulse · 14d
+          {t('title')}
         </div>
         <div className="mono text-[10px] tracking-[0.12em] text-(--color-accent)">{v.delta}</div>
       </div>

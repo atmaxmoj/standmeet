@@ -4,6 +4,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
@@ -28,6 +29,7 @@ import { useAction } from '@/lib/ui/use-action';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
 export function WritingsSection() {
+  const t = useTranslations('adminCorpus.writings');
   const hook = useWritings();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AdminWritingView | null>(null);
@@ -38,7 +40,7 @@ export function WritingsSection() {
         kicker="corpus · writing"
         title="writings"
         count={titleCount(hook)}
-        action={<Btn kind="primary" onClick={() => setCreating(true)}>＋ new writing</Btn>}
+        action={<Btn kind="primary" onClick={() => setCreating(true)}>{t('newWriting')}</Btn>}
       />
       <Intro />
       <ObsidianBar onImported={() => hook.refresh()} />
@@ -64,10 +66,10 @@ function formatWritingCount(writings: WritingsHook['writings']): string {
 }
 
 function Intro() {
+  const t = useTranslations('adminCorpus.writings');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Owner-curated writings. Use the block editor below — type `/` for a block menu,
-      or hand off to Claude via the `writing_create` MCP tool. Saved as canonical markdown either way.
+      {t('intro')}
     </p>
   );
 }
@@ -85,13 +87,14 @@ function InlineOrList({ hook, editing, setEditing }: {
 function InlineEditor({ writing, hook, onClose }: {
   writing: AdminWritingView; hook: WritingsHook; onClose: () => void;
 }) {
+  const t = useTranslations('adminCorpus.writings');
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
       <div className="border border-(--color-rule) rounded-[3px] p-5 min-h-[580px]" data-testid="inline-editor">
         <div className="flex justify-between items-baseline mb-4">
-          <div className="sm-smallcaps">composer · {writing.slug}</div>
+          <div className="sm-smallcaps">{t('composer', { slug: writing.slug })}</div>
           <button type="button" onClick={onClose} className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)">
-            ← back to list
+            {t('backToList')}
           </button>
         </div>
         <WritingEditModal
@@ -118,9 +121,10 @@ function WritingsListReady({ hook, onEdit }: { hook: WritingsHook; onEdit: EditF
 }
 
 function EmptyState() {
+  const t = useTranslations('adminCorpus.writings');
   return (
     <p className="reading italic text-(--color-muted)" data-testid="writing-list">
-      No writings yet.
+      {t('empty')}
     </p>
   );
 }

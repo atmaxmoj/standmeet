@@ -5,6 +5,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
@@ -28,16 +29,7 @@ export function RolesSection() {
         kicker="access · personas"
         title="roles"
         count={titleCount(hook)}
-        action={
-          <button
-            type="button"
-            data-testid="role-new"
-            onClick={() => setCreating(true)}
-            className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors"
-          >
-            + new role
-          </button>
-        }
+        action={<NewRoleBtn onClick={() => setCreating(true)} />}
       />
       <Intro />
       <RolesBody hook={hook} />
@@ -47,6 +39,20 @@ export function RolesSection() {
         createRole={hook.createRole}
       />
     </>
+  );
+}
+
+function NewRoleBtn({ onClick }: { onClick: () => void }) {
+  const t = useTranslations('adminAccess');
+  return (
+    <button
+      type="button"
+      data-testid="role-new"
+      onClick={onClick}
+      className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors"
+    >
+      {t('roles.new')}
+    </button>
   );
 }
 
@@ -76,12 +82,10 @@ function titleCount(hook: RolesHook): string {
 }
 
 function Intro() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      A role bundles a prompt (persona), a positive list of corpus URIs the agent can read,
-      a set of skills, and which MCP servers it may call. Codes don&rsquo;t carry permissions
-      directly — every code <em>assumes</em> a role at issue time and that snapshot is frozen
-      for that session. Edit a role and only future sessions feel it.
+      {t.rich('roles.intro', { em: (chunks) => <em>{chunks}</em> })}
     </p>
   );
 }
@@ -109,9 +113,10 @@ function RoleList({ hook }: { hook: RolesHook }) {
 }
 
 function EmptyRoles() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading italic text-(--color-muted)" data-testid="role-list">
-      No roles yet — public is normally seeded on owner claim.
+      {t('roles.empty')}
     </p>
   );
 }
@@ -137,6 +142,7 @@ function RoleCard({
 // updateRole 全量回写（PUT），useAction 成功/失败都 toast（改没生效 owner 要知道）。之前卡片只有
 // delete，看不到也改不了挂的 prompt。
 function RolePromptRow({ role }: { role: RoleView }) {
+  const t = useTranslations('adminAccess');
   const hook = usePrompts();
   const roles = useRoles();
   const run = useAction();
@@ -150,7 +156,7 @@ function RolePromptRow({ role }: { role: RoleView }) {
   return (
     <label className="grid grid-cols-[90px_1fr] gap-x-3 items-baseline mt-1.5">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint)">
-        prompt
+        {t('common.prompt')}
       </span>
       <RolePromptSelect role={role} prompts={hook.prompts} onPick={onPick} />
     </label>
@@ -164,6 +170,7 @@ function RolePromptSelect({
   prompts: readonly PromptView[];
   onPick: (promptID: string) => void;
 }) {
+  const t = useTranslations('adminAccess');
   return (
     <select
       className="mono text-[11px] bg-(--color-paper) border border-(--color-rule) px-2 py-1"
@@ -171,7 +178,7 @@ function RolePromptSelect({
       onChange={(e) => onPick(e.target.value)}
       data-testid={`role-prompt-${role.name}`}
     >
-      <option value="">— none —</option>
+      <option value="">{t('common.noneDash')}</option>
       {prompts.map((p) => (
         <option key={p.id} value={p.id}>{p.name}</option>
       ))}
@@ -195,6 +202,7 @@ function roleWriteInput(role: RoleView, promptID: string): WriteRoleInput {
 function RoleCardHead({
   role, onDelete,
 }: { role: RoleView; onDelete: (id: string) => Promise<void> }) {
+  const t = useTranslations('adminAccess');
   return (
     <div className="flex justify-between items-baseline gap-2.5">
       <div className="flex items-baseline gap-2 flex-wrap">
@@ -204,7 +212,7 @@ function RoleCardHead({
             className="mono text-[9px] tracking-[0.18em] uppercase text-(--color-violet)"
             data-testid="role-system-pill"
           >
-            [system]
+            {t('common.systemPill')}
           </span>
         )}
       </div>
@@ -216,6 +224,7 @@ function RoleCardHead({
 function RoleDeleteBtn({
   role, onDelete,
 }: { role: RoleView; onDelete: (id: string) => Promise<void> }) {
+  const t = useTranslations('adminAccess');
   const run = useAction();
   // delete 是一键破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：删除没生效 owner 必须知道）。
   const handleDelete = useCallback(
@@ -229,7 +238,7 @@ function RoleDeleteBtn({
       onClick={() => void handleDelete()}
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
     >
-      delete
+      {t('common.delete')}
     </button>
   );
 }

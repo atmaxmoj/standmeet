@@ -7,6 +7,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import type { ReactNode } from 'react';
 
 import { ModalShell } from '@/components/admin/modals/ModalShell';
 import { useCodeTest, type CodeTestHook } from '@/lib/admin/use-code-test';
@@ -33,15 +35,17 @@ export function VisitorPreviewModal({ code, onClose }: Props) {
   );
 }
 
+const accentTag = (chunks: ReactNode) => <span className="text-(--color-accent)">{chunks}</span>;
+
 function Greeting({ label }: { label: string }) {
+  const t = useTranslations('adminShell.visitorPreview');
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
-        owner&apos;s ai · ready
+        {t('ownerAiReady')}
       </div>
       <p className="reading-tight text-(--color-ink) text-[17px]">
-        Welcome. You&apos;ve come in on <span className="text-(--color-accent)">{label}</span>.
-        Before we start — is this you, or someone new?
+        {t.rich('welcome', { label, accent: accentTag })}
       </p>
     </div>
   );
@@ -50,41 +54,49 @@ function Greeting({ label }: { label: string }) {
 function SuggestedList({ items }: { items: readonly string[] }) {
   return items.length === 0
     ? <EmptySuggested />
-    : (
+    : <SuggestedItems items={items} />;
+}
+
+function SuggestedItems({ items }: { items: readonly string[] }) {
+  const t = useTranslations('adminShell.visitorPreview');
+  return (
       <div>
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-          suggested questions
+          {t('suggestedQuestions')}
         </div>
         <ul className="space-y-1 font-serif italic text-(--color-muted) text-[15px]">
           {items.slice(0, 5).map((q, i) => <li key={i}>&ldquo;{q}&rdquo;</li>)}
         </ul>
       </div>
-    );
+  );
 }
 
 function EmptySuggested() {
+  const t = useTranslations('adminShell.visitorPreview');
   return (
     <div className="mono text-[11px] text-(--color-faint) border border-dashed border-(--color-rule) px-4 py-3 rounded-sm">
-      no suggested questions set for this code
+      {t('noSuggested')}
     </div>
   );
 }
 
 function RoleNote({ roleID, code }: { roleID: string; code: string }) {
+  const t = useTranslations('adminShell.visitorPreview');
   return (
     <div className="pt-4 border-t border-(--color-rule)/70 mono text-[10px] tracking-[0.12em] text-(--color-faint) leading-[1.7]">
-      <div>this code assumes role <span className="text-(--color-muted)">{roleID.slice(0, 8)}…</span></div>
-      <div>code · {code}</div>
+      <div>{t('assumesRole')} <span className="text-(--color-muted)">{roleID.slice(0, 8)}…</span></div>
+      <div>{t('codeLine', { code })}</div>
     </div>
   );
 }
 
 function SelfTest({ code }: { code: CodeView }) {
+  const t = useTranslations('adminShell.visitorPreview');
   const hook = useCodeTest();
   return (
     <div className="pt-4 border-t border-(--color-rule)/70 space-y-3">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        test this code
+        {t('testThisCode')}
       </div>
       <SelfTestBody code={code.code} hook={hook} />
     </div>

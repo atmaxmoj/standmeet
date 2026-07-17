@@ -3,6 +3,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
 type Props = {
@@ -40,6 +41,7 @@ export function ModalShell({ onClose, kicker, title, maxWidth = 540, children }:
 function ModalHeader({
   kicker, title, onClose,
 }: { kicker?: string; title: string; onClose: () => void }) {
+  const t = useTranslations('adminShell.modal');
   return (
     <div className="shrink-0 flex items-baseline justify-between px-7 py-5 border-b border-(--color-rule)">
       <ModalTitle kicker={kicker} title={title} />
@@ -48,7 +50,7 @@ function ModalHeader({
         onClick={onClose}
         className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
       >
-        close ✕
+        {t('close')}
       </button>
     </div>
   );

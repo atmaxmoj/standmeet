@@ -12,6 +12,8 @@
 // pass `scale` — the component wraps itself in a transform: scale wrapper
 // so it occupies the smaller box without losing pixel ratios inside.
 
+import { useTranslations } from 'next-intl';
+
 import {
   formatPeriod, longDate, stripScheme, today,
 } from '@/components/admin/resume-page/format';
@@ -72,11 +74,12 @@ function PageInner({ content, job, qrURL, pageIndex }: ResumePageProps) {
 
 function ResumeFront(props: { content: ResumeContent; job: JobContext; qrURL: string }) {
   const { content, job, qrURL } = props;
+  const t = useTranslations('adminJobs');
   return (
     <>
       <HeaderStrip identity={content.identity} job={job} qrURL={qrURL}
         socials={content.social ?? []} />
-      <SectionHead>summary</SectionHead>
+      <SectionHead>{t('resume.summary')}</SectionHead>
       <p className={styles.summary}>{content.summary}</p>
       <div className={styles.body}>
         <LeftRail content={content} company={job.company} />
@@ -116,11 +119,15 @@ function NameBlock({ name }: { name: string }) {
 }
 
 function RoleLine({ job }: { job: JobContext }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className={styles.roleLine}>
-      {job.role}
-      <span className={styles.dotSep}>·</span>
-      for <span className={styles.roleCompany}>{job.company}</span>
+      {t.rich('resume.roleLine', {
+        role: job.role,
+        company: job.company,
+        sep: (chunks) => <span className={styles.dotSep}>{chunks}</span>,
+        co: (chunks) => <span className={styles.roleCompany}>{chunks}</span>,
+      })}
     </div>
   );
 }
@@ -189,9 +196,10 @@ function flattenSkills(sets: ResumeContent['skills'] | undefined): readonly stri
 }
 
 function SkillsRail({ items }: { items: readonly string[] }) {
+  const t = useTranslations('adminJobs');
   return (
     <>
-      <div className={styles.label}>skills</div>
+      <div className={styles.label}>{t('resume.skills')}</div>
       <ul className={styles.skillList}>
         {items.map((s) => (
           <li key={s} className={styles.skillItem}>
@@ -204,9 +212,10 @@ function SkillsRail({ items }: { items: readonly string[] }) {
 }
 
 function EducationRail({ educations }: { educations: readonly ResumeContent['educations'][number][] }) {
+  const t = useTranslations('adminJobs');
   return (
     <>
-      <div className={styles.labelMt}>education</div>
+      <div className={styles.labelMt}>{t('resume.education')}</div>
       <div className={styles.eduList}>
         {educations.map((e) => (
           <div key={e.school + e.degree}>
@@ -221,11 +230,14 @@ function EducationRail({ educations }: { educations: readonly ResumeContent['edu
 }
 
 function AlsoRail({ company }: { company: string }) {
+  const t = useTranslations('adminJobs');
   return (
     <>
-      <div className={styles.labelMt}>also</div>
+      <div className={styles.labelMt}>{t('resume.also')}</div>
       <div className={styles.alsoText}>
-        The QR is a live chat with my AI · grounded in my corpus · scoped for {company || 'this conversation'}.
+        {t('resume.alsoText', {
+          company: company || t('resume.alsoFallbackCompany'),
+        })}
       </div>
     </>
   );
@@ -246,9 +258,10 @@ function CustomRail({ customs }: { customs: NonNullable<ResumeContent['custom']>
 }
 
 function MainColumn(props: { works: ResumeContent['works'] }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className={styles.mainColumn}>
-      <div className={styles.label}>experience</div>
+      <div className={styles.label}>{t('resume.experience')}</div>
       <div className={styles.workList}>
         {props.works.slice(0, 2).map((w) => (
           <WorkEntry key={w.company + w.title} work={w} />
@@ -285,13 +298,18 @@ function WorkEntry({ work }: { work: ResumeContent['works'][number] }) {
 }
 
 function FrontFooter({ qrURL }: { qrURL: string }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className={styles.footer}>
       <div className={styles.footerLeft}>
-        <div className={styles.footerLine1}>scan or visit · {stripScheme(qrURL)}</div>
-        <div className={styles.footerLine2}>this resume is a snapshot · sent {today()}</div>
+        <div className={styles.footerLine1}>
+          {t('resume.footerScan', { url: stripScheme(qrURL) })}
+        </div>
+        <div className={styles.footerLine2}>
+          {t('resume.footerSnapshot', { date: today() })}
+        </div>
       </div>
-      <div className={styles.footerPageNum}>page 1 / 2</div>
+      <div className={styles.footerPageNum}>{t('resume.page1')}</div>
     </div>
   );
 }
@@ -299,16 +317,21 @@ function FrontFooter({ qrURL }: { qrURL: string }) {
 function CoverBack(props: { content: ResumeContent; job: JobContext; qrURL: string }) {
   const { content, job, qrURL } = props;
   const firstName = content.identity.name.split(' ')[0] ?? content.identity.name;
+  const t = useTranslations('adminJobs');
   return (
     <>
       <div className={styles.coverHeader}>
         <div>
-          <div className={styles.label}>letter</div>
+          <div className={styles.label}>{t('resume.letter')}</div>
           <h1 className={styles.coverTitle}>
-            To {job.company}<span className={styles.accentDot}>.</span>
+            {t('resume.coverTitle', { company: job.company })}
+            <span className={styles.accentDot}>.</span>
           </h1>
           <div className={styles.coverRe}>
-            re · <span className={styles.metaInk}>{job.role}</span>
+            {t.rich('resume.coverRe', {
+              role: job.role,
+              ink: (chunks) => <span className={styles.metaInk}>{chunks}</span>,
+            })}
           </div>
         </div>
         <div className={styles.coverDateBlock}>
@@ -322,13 +345,15 @@ function CoverBack(props: { content: ResumeContent; job: JobContext; qrURL: stri
       <div className={styles.coverBody}>{content.coverLetter}</div>
       <div className={styles.coverSig}>
         <div className={styles.coverSigName}>— {firstName}</div>
-        <div className={styles.coverSigMeta}>continue the conversation · {stripScheme(qrURL)}</div>
+        <div className={styles.coverSigMeta}>
+          {t('resume.coverSigMeta', { url: stripScheme(qrURL) })}
+        </div>
       </div>
       <div className={styles.footer}>
         <div className={styles.footerLeft}>
           {content.identity.name.toLowerCase()} · {content.identity.email}
         </div>
-        <div className={styles.footerPageNum}>page 2 / 2</div>
+        <div className={styles.footerPageNum}>{t('resume.page2')}</div>
       </div>
     </>
   );

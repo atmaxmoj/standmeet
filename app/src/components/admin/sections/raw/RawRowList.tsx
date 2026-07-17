@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import { Chip } from '@/components/admin/atoms/Chip';
@@ -45,10 +46,11 @@ export function RawRowList({ rows }: Props) {
 }
 
 function EmptyState() {
+  const t = useTranslations('adminCorpus.raw');
   return (
     <div data-testid="raw-list" className="border-t border-(--color-rule)/70">
       <p className="py-8 reading italic text-(--color-muted) text-center">
-        No raw entries yet. Push one from an MCP client (raw_dump tool).
+        {t('empty')}
       </p>
     </div>
   );
@@ -95,7 +97,7 @@ function RawSourceLine({
   return (
     <div className="flex items-baseline gap-2 mono text-[10px] tracking-[0.1em] text-(--color-faint) mb-1 min-w-0">
       <span className="uppercase text-(--color-muted) truncate">{prettySource(source)}</span>
-      {hasChildren ? <span className="text-(--color-faint) shrink-0" aria-hidden>▾</span> : null}
+      {hasChildren ? <span className="text-(--color-faint) shrink-0" aria-hidden>{'▾'}</span> : null}
       <span className="shrink-0 tabular-nums normal-case tracking-[0.04em]">{formatRawDate(createdAt)}</span>
     </div>
   );
@@ -145,8 +147,9 @@ function RawRowBody({
 }
 
 function PrivateBadge({ on }: { on: boolean }) {
+  const t = useTranslations('adminCorpus.raw');
   return on
-    ? <span className="mono text-[10px] tracking-[0.14em] uppercase ml-1 text-(--color-accent)">· flagged private</span>
+    ? <span className="mono text-[10px] tracking-[0.14em] uppercase ml-1 text-(--color-accent)">{t('flaggedPrivateBadge')}</span>
     : null;
 }
 
@@ -158,6 +161,7 @@ interface RowActionsProps {
 }
 
 function RawRowActions(props: RowActionsProps) {
+  const t = useTranslations('adminCorpus.raw');
   const toast = useToast();
   const onArchive = () => confirm('Archive this raw entry?')
     ? void runWith(
@@ -174,7 +178,7 @@ function RawRowActions(props: RowActionsProps) {
         data-testid={`raw-promote-${props.row.id}`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) disabled:opacity-40"
       >
-        promote → wiki ↗
+        {t('promoteToWiki')}
       </button>
       <button
         type="button"
@@ -183,7 +187,7 @@ function RawRowActions(props: RowActionsProps) {
         data-testid={`raw-edit-${props.row.id}`}
         className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:opacity-40"
       >
-        edit
+        {t('edit')}
       </button>
       <button
         type="button"
@@ -192,7 +196,7 @@ function RawRowActions(props: RowActionsProps) {
         data-testid={`raw-archive-${props.row.id}`}
         className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent) disabled:opacity-40"
       >
-        {props.row.archived ? 'archived' : 'archive'}
+        {props.row.archived ? t('archived') : t('archive')}
       </button>
     </div>
   );
@@ -261,10 +265,11 @@ function EditRow(props: EditRowProps) {
 function EditBodyField({
   value, onChange, testid,
 }: { value: string; onChange: (v: string) => void; testid: string }) {
+  const t = useTranslations('adminCorpus.common');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        body
+        {t('body')}
       </span>
       <textarea
         rows={4} value={value} onChange={(e) => onChange(e.target.value)}
@@ -278,10 +283,11 @@ function EditBodyField({
 function EditTagsField({
   value, onChange, testid,
 }: { value: string; onChange: (v: string) => void; testid: string }) {
+  const t = useTranslations('adminCorpus.common');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        tags (comma-separated)
+        {t('tagsLabel')}
       </span>
       <input
         type="text" value={value} onChange={(e) => onChange(e.target.value)}
@@ -295,13 +301,14 @@ function EditTagsField({
 function EditPrivateField({
   on, onChange, testid,
 }: { on: boolean; onChange: (b: boolean) => void; testid: string }) {
+  const t = useTranslations('adminCorpus.raw');
   return (
     <label className="flex items-baseline gap-2 mono text-[10.5px] tracking-[0.06em]">
       <input
         type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)}
         data-testid={testid}
       />
-      <span>flagged private (excluded from public chat)</span>
+      <span>{t('flaggedPrivateField')}</span>
     </label>
   );
 }
@@ -315,20 +322,21 @@ interface EditActionsProps {
 }
 
 function EditActions(props: EditActionsProps) {
+  const t = useTranslations('adminCorpus.common');
   return (
     <div className="flex items-baseline gap-3 justify-end pt-2">
       <button
         type="button" onClick={props.onCancel} disabled={props.busy}
         className="mono text-[10px] tracking-[0.12em] text-(--color-faint) hover:text-(--color-accent) disabled:opacity-50"
       >
-        cancel
+        {t('cancel')}
       </button>
       <button
         type="button" onClick={props.onSave} disabled={props.busy || !props.canSave}
         data-testid={`${props.testidPrefix}-submit`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) disabled:opacity-40"
       >
-        {props.busy ? 'saving…' : 'save'}
+        {props.busy ? t('saving') : t('save')}
       </button>
     </div>
   );

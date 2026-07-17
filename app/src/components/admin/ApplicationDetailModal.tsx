@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import {
   APPLICATION_STATUSES,
@@ -44,10 +45,11 @@ export function ApplicationDetailModal({ app, onClose }: Props) {
 }
 
 function ModalHeader({ app, onClose }: { app: Application; onClose: () => void }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="sm-app-modal-head">
       <div>
-        <div className="sm-smallcaps">application · {app.id}</div>
+        <div className="sm-smallcaps">{t('detail.kicker', { id: app.id })}</div>
         <div className="sm-app-modal-title">
           {app.role} <span className="text-(--color-muted)">· {app.company}</span>
         </div>
@@ -57,7 +59,7 @@ function ModalHeader({ app, onClose }: { app: Application; onClose: () => void }
         className="sm-btn sm-btn-ghost"
         data-testid="application-detail-close"
       >
-        close ✕
+        {t('detail.close')}
       </button>
     </div>
   );
@@ -93,9 +95,10 @@ function LeftCol({
 }
 
 function Timeline({ events }: { events: TimelineEvent[] }) {
+  const t = useTranslations('adminJobs');
   return (
     <section>
-      <div className="sm-smallcaps">timeline</div>
+      <div className="sm-smallcaps">{t('detail.timeline')}</div>
       <div className="sm-app-timeline">
         <div className="sm-app-timeline-rail" />
         {events.map((e, i) => <TimelineRow key={i} event={e} />)}
@@ -121,12 +124,13 @@ function dotTextCls(kind: TimelineEvent['kind']): string {
 }
 
 function ContactBlock({ contact }: { contact: string }) {
+  const t = useTranslations('adminJobs');
   return (
     <section className="mt-5 pt-3.5 border-t border-(--color-rule)">
-      <div className="sm-smallcaps">contact</div>
+      <div className="sm-smallcaps">{t('detail.contact')}</div>
       <div className="font-serif text-[15px] mt-1">{contact}</div>
       <button type="button" className="sm-btn sm-btn-outline sm-btn-sm mt-2">
-        ping in chat ↗
+        {t('detail.pingInChat')}
       </button>
     </section>
   );
@@ -135,9 +139,10 @@ function ContactBlock({ contact }: { contact: string }) {
 function NotesBlock({
   notes, onNotes,
 }: { notes: string; onNotes: (v: string) => void }) {
+  const t = useTranslations('adminJobs');
   return (
     <section className="mt-5 pt-3.5 border-t border-(--color-rule)">
-      <div className="sm-smallcaps">private notes</div>
+      <div className="sm-smallcaps">{t('detail.privateNotes')}</div>
       <textarea
         value={notes} rows={3}
         onChange={(e) => onNotes(e.target.value)}
@@ -165,13 +170,14 @@ function RightCol({
 }
 
 function ResumeSnapshot({ app }: { app: Application }) {
+  const t = useTranslations('adminJobs');
   return (
     <section>
-      <div className="sm-smallcaps">resume sent · snapshot</div>
+      <div className="sm-smallcaps">{t('detail.snapshotHead')}</div>
       <div className="sm-app-snapshot mt-1.5">
-        <div className="font-serif text-[18px] font-medium">resume</div>
+        <div className="font-serif text-[18px] font-medium">{t('detail.resume')}</div>
         <div className="mono text-[9px] text-(--color-muted) tracking-[0.06em] mt-0.5">
-          tailored for {app.company} · {app.role}
+          {t('detail.tailoredFor', { company: app.company, role: app.role })}
         </div>
         <hr className="border-(--color-rule) my-2.5" />
         <p className="font-serif italic text-(--color-accent) text-[12px] leading-[1.4]">
@@ -183,10 +189,11 @@ function ResumeSnapshot({ app }: { app: Application }) {
 }
 
 function SnapshotActions() {
+  const t = useTranslations('adminJobs');
   return (
     <div className="flex items-baseline gap-1.5 mt-2">
-      <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">view full ↗</button>
-      <button type="button" className="sm-btn sm-btn-ghost sm-btn-sm">download pdf</button>
+      <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">{t('detail.viewFull')}</button>
+      <button type="button" className="sm-btn sm-btn-ghost sm-btn-sm">{t('detail.downloadPdf')}</button>
     </div>
   );
 }
@@ -194,9 +201,10 @@ function SnapshotActions() {
 function StatusBlock({
   status, onStatus,
 }: { status: ApplicationStatus; onStatus: (s: ApplicationStatus) => void }) {
+  const t = useTranslations('adminJobs');
   return (
     <section className="mt-4 px-3 py-2.5 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
-      <div className="sm-smallcaps">status</div>
+      <div className="sm-smallcaps">{t('detail.status')}</div>
       <StatusSegmented value={status} onChange={onStatus} />
     </section>
   );
@@ -222,15 +230,16 @@ function StatusSegmented({
 }
 
 function ModalFooter({ app, onClose }: { app: Application; onClose: () => void }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="sm-app-modal-foot">
       <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
-        sent {app.sentAt} · {app.method}
+        {t('detail.footMeta', { sentAt: app.sentAt, method: app.method })}
       </span>
       <div className="flex items-baseline gap-2">
-        <button type="button" className="sm-btn sm-btn-danger sm-btn-sm">withdraw</button>
-        <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">log update</button>
-        <button type="button" onClick={onClose} className="sm-btn sm-btn-solid sm-btn-sm">close</button>
+        <button type="button" className="sm-btn sm-btn-danger sm-btn-sm">{t('detail.withdraw')}</button>
+        <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">{t('detail.logUpdate')}</button>
+        <button type="button" onClick={onClose} className="sm-btn sm-btn-solid sm-btn-sm">{t('detail.closeAction')}</button>
       </div>
     </div>
   );

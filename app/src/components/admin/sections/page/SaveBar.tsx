@@ -2,6 +2,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 type Props = {
   dirty: boolean;
   savedAt: number | null;
@@ -41,18 +43,23 @@ function StatusLabel({
   return saving ? <SavingTxt /> : <RestingLabel dirty={dirty} savedAt={savedAt} />;
 }
 
-function SavingTxt() { return <span className="text-(--color-muted)">saving…</span>; }
+function SavingTxt() {
+  const t = useTranslations('adminPages.saveBar');
+  return <span className="text-(--color-muted)">{t('saving')}</span>;
+}
 
 function RestingLabel({ dirty, savedAt }: { dirty: boolean; savedAt: number | null }) {
-  return dirty ? <span className="text-(--color-accent)">unsaved changes</span>
+  const t = useTranslations('adminPages.saveBar');
+  return dirty ? <span className="text-(--color-accent)">{t('unsaved')}</span>
     : savedAt !== null
-      ? <span className="text-(--color-muted)" data-testid="saved">saved</span>
-      : <span className="text-(--color-muted)">in sync</span>;
+      ? <span className="text-(--color-muted)" data-testid="saved">{t('saved')}</span>
+      : <span className="text-(--color-muted)">{t('inSync')}</span>;
 }
 
 function SaveActions({
   dirty, saving, onSave, onRevert,
 }: { dirty: boolean; saving: boolean; onSave: () => void; onRevert: () => void }) {
+  const t = useTranslations('adminPages.saveBar');
   return (
     <div className="flex items-center gap-3">
       <RevertBtn shown={dirty && !saving} onRevert={onRevert} />
@@ -63,20 +70,21 @@ function SaveActions({
         disabled={!dirty || saving}
         className="mono text-[11px] tracking-[0.16em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-30"
       >
-        save
+        {t('save')}
       </button>
     </div>
   );
 }
 
 function RevertBtn({ shown, onRevert }: { shown: boolean; onRevert: () => void }) {
+  const t = useTranslations('adminPages.saveBar');
   return shown ? (
     <button
       type="button"
       onClick={onRevert}
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent) transition-colors"
     >
-      revert
+      {t('revert')}
     </button>
   ) : null;
 }

@@ -4,6 +4,8 @@
 // Brand-visible at scanner distance without tanking scanner contrast
 // (Reed-Solomon recovery handles the color split).
 
+import { useTranslations } from 'next-intl';
+
 import {
   buildQRGrid, type QRCell, type QRGrid,
 } from '@/lib/admin/qr-modules';
@@ -66,13 +68,14 @@ function QRRect({ cd, cell, offset }: { cd: QRCell; cell: number; offset: number
 }
 
 function QRFallback({ size }: { size: number }) {
+  const t = useTranslations('adminJobs');
   return (
     <div
       className={styles.fallback}
       // eslint-disable-next-line no-restricted-syntax -- size is a prop, runtime-dynamic
       style={{ width: size, height: size }}
     >
-      qr…
+      {t('qr.fallback')}
     </div>
   );
 }

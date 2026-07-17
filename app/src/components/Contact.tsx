@@ -3,6 +3,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import type { PageContact } from '@/lib/api/public';
 
 import { DeckHeader } from '@/components/page/DeckHeader';
@@ -27,6 +29,7 @@ export function Contact({ contact, onFocusChat }: Props) {
 }
 
 function ChatLine({ line, onFocusChat }: { line: string; onFocusChat: () => void }) {
+  const t = useTranslations('page');
   return (
     <p>
       {line}{' '}
@@ -35,16 +38,17 @@ function ChatLine({ line, onFocusChat }: { line: string; onFocusChat: () => void
         onClick={onFocusChat}
         className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-accent) border-b border-(--color-accent)/40 hover:border-(--color-accent) transition-colors ml-1"
       >
-        jump to chat ↑
+        {t('contact.jumpToChat')}
       </button>
     </p>
   );
 }
 
 function DirectLine({ email }: { email: string }) {
+  const t = useTranslations('page');
   return (
     <p>
-      Or directly:{' '}
+      {t('contact.orDirectly')}{' '}
       <a
         href={`mailto:${email}`}
         className="mono text-(--color-accent) border-b border-(--color-accent)/40 hover:border-(--color-accent) transition-colors text-[15.5px]"

@@ -13,6 +13,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import type { TreeLoader, TreeNode } from '@/lib/corpus/tree';
 import { useTreeLayer } from '@/lib/corpus/use-lazy-tree';
@@ -26,9 +27,10 @@ interface LazyTreeProps {
 }
 
 export function LazyTree({ load, renderLabel, openPaths }: LazyTreeProps) {
+  const t = useTranslations('reader');
   const roots = useTreeLayer(load, '', true);
   return roots === null
-    ? <div className={styles['loading']} data-testid="tree-loading">loading…</div>
+    ? <div className={styles['loading']} data-testid="tree-loading">{t('tree.loading')}</div>
     : <NodeList nodes={roots} load={load} renderLabel={renderLabel} openPaths={openPaths} />;
 }
 

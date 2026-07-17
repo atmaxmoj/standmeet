@@ -5,6 +5,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { useCorpusForm, type CorpusFormHook } from '@/lib/admin/use-corpus-form';
 import type { CorpusEntryInput, PromoteInput } from '@/lib/admin/use-corpus-actions';
 
@@ -84,10 +86,11 @@ export function PromoteForm(props: PromoteFormProps) {
 // ─── fields ────────────────────────────────────────────────
 
 function TitleField({ form, testid }: { form: CorpusFormHook; testid: string }) {
+  const t = useTranslations('adminCorpus.form');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        title
+        {t('title')}
       </span>
       <input
         type="text"
@@ -102,10 +105,11 @@ function TitleField({ form, testid }: { form: CorpusFormHook; testid: string }) 
 }
 
 function BodyField({ form, testid }: { form: CorpusFormHook; testid: string }) {
+  const t = useTranslations('adminCorpus.common');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        body
+        {t('body')}
       </span>
       <textarea
         rows={5}
@@ -120,10 +124,11 @@ function BodyField({ form, testid }: { form: CorpusFormHook; testid: string }) {
 }
 
 function TagsField({ form, testid }: { form: CorpusFormHook; testid: string }) {
+  const t = useTranslations('adminCorpus.common');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        tags (comma-separated)
+        {t('tagsLabel')}
       </span>
       <input
         type="text"
@@ -141,10 +146,11 @@ function TagsField({ form, testid }: { form: CorpusFormHook; testid: string }) {
 function ParentField({
   form, testid, options,
 }: { form: CorpusFormHook; testid: string; options: readonly CorpusParentOption[] }) {
+  const t = useTranslations('adminCorpus');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        parent node (optional)
+        {t('form.parent')}
       </span>
       <select
         value={form.parentID}
@@ -152,7 +158,7 @@ function ParentField({
         data-testid={`${testid}-parent`}
         className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
       >
-        <option value="">— none (root) —</option>
+        <option value="">{t('common.noneRoot')}</option>
         {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
       </select>
     </label>
@@ -170,6 +176,7 @@ interface ActionsProps {
 }
 
 function FormActions(props: ActionsProps) {
+  const t = useTranslations('adminCorpus.common');
   const disabled = props.form.submitDisabledReason(props.busy, props.bodyVisible);
   return (
     <div className="flex items-baseline gap-3 justify-end pt-2">
@@ -179,7 +186,7 @@ function FormActions(props: ActionsProps) {
         disabled={props.busy}
         className="mono text-[10px] tracking-[0.12em] text-(--color-faint) hover:text-(--color-accent) disabled:opacity-50"
       >
-        cancel
+        {t('cancel')}
       </button>
       <button
         type="button"
@@ -188,24 +195,19 @@ function FormActions(props: ActionsProps) {
         data-testid={`${props.testid}-submit`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        {props.busy ? 'saving…' : props.submitLabel}
+        {props.busy ? t('saving') : props.submitLabel}
       </button>
     </div>
   );
 }
 
-// CITABLE_HELP —— 这两件事**不是一回事**，UI 必须讲明白，否则 owner 只会看到一个没有语境的勾。
-//   读到（能不能进 AI 的上下文）—— 由 role/code 的 corpus URI 决定（/admin/roles）。
-//   引用（答案下面列不列出处）—— 就是这个勾。
-// 关掉它 ≠ 藏起来：AI 照样读得到、照样会用它来回答，只是**不署名**。真要不让 AI 读，去 role/code
-// 上把它的 URI 收回。
-const CITABLE_HELP =
-  '关掉后 AI 仍然读得到这条、也仍然会用它来组织回答 —— 只是答案末尾的「引用」里不列它。'
-  + '这是「署名」开关，不是「保密」开关：要让 AI 根本读不到，得去 /admin/roles 或那张码上'
-  + '把它的 corpus URI 收回。';
-
 // CitableField —— show_as_source（AI 读了之后，答案里列不列出处）。
+//
+// 文案在 i18n/messages/en.json 的 corpus.citable.*。那段 help 不是装饰：读到（能不能进 AI 的
+// 上下文，由 role/code 的 corpus URI 决定）和引用（答案下面列不列出处，就是这个勾）**不是一回事**，
+// 不讲明白，owner 面对的就是一个没有语境的勾，只会猜错。
 function CitableField({ form, testid }: { form: CorpusFormHook; testid: string }) {
+  const t = useTranslations('adminCorpus.citable');
   return (
     <div className="flex flex-col gap-1">
       <label className="flex items-baseline gap-2 mono text-[10.5px] tracking-[0.06em]">
@@ -215,9 +217,9 @@ function CitableField({ form, testid }: { form: CorpusFormHook; testid: string }
           onChange={(e) => form.setCitable(e.target.checked)}
           data-testid={`${testid}-citable`}
         />
-        <span>citable —— 出现在答案的引用里</span>
+        <span>{t('label')}</span>
       </label>
-      <p className="reading-tight text-[11px] text-(--color-muted) pl-5">{CITABLE_HELP}</p>
+      <p className="reading-tight text-[11px] text-(--color-muted) pl-5">{t('help')}</p>
     </div>
   );
 }

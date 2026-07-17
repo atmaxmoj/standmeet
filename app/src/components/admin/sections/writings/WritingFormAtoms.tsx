@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
@@ -44,18 +45,19 @@ function toCoverHue(s: string): CoverHue { return COVER_HUES.find((h) => h === s
 export function CoverHueSelect({
   value, onChange,
 }: { value: CoverHue; onChange: (v: CoverHue) => void }) {
+  const t = useTranslations('adminCorpus.writings');
   return (
     <label className="flex flex-col gap-1">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">cover hue</span>
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{t('coverHue')}</span>
       <select
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
         value={value}
         onChange={(e) => onChange(toCoverHue(e.target.value))}
         data-testid="writing-field-cover-hue"
       >
-        <option value="amber">amber</option>
-        <option value="violet">violet</option>
-        <option value="acid">acid</option>
+        <option value="amber">{t('hueAmber')}</option>
+        <option value="violet">{t('hueViolet')}</option>
+        <option value="acid">{t('hueAcid')}</option>
       </select>
     </label>
   );
@@ -66,10 +68,11 @@ export function CoverHueSelect({
 export function ParentSelect({
   value, options, onChange,
 }: { value: string; options: { id: string; title: string }[]; onChange: (v: string) => void }) {
+  const t = useTranslations('adminCorpus');
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        parent (reader tree)
+        {t('writings.parent')}
       </span>
       <select
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
@@ -77,7 +80,7 @@ export function ParentSelect({
         onChange={(e) => onChange(e.target.value)}
         data-testid="writing-field-parent"
       >
-        <option value="">— none (root) —</option>
+        <option value="">{t('common.noneRoot')}</option>
         {options.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
       </select>
     </label>
@@ -92,10 +95,11 @@ export function WritingBodyField({
   assetURLs?: Record<string, string>;
   onPending?: (p: PendingFile) => void;
 }) {
+  const t = useTranslations('adminCorpus.common');
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        body
+        {t('body')}
       </span>
       <WritingEditor value={value} onChange={onChange}
         assetURLs={assetURLs} onPending={onPending} />
@@ -112,11 +116,12 @@ export function WritingFormFooter({
   onClose: () => void;
   onSubmit: () => void;
 }) {
+  const t = useTranslations('adminCorpus.common');
   return (
     <div className="flex justify-between items-baseline mt-2">
       <div>{footerLeft}</div>
       <div className="flex gap-3">
-        <Btn kind="ghost" onClick={onClose}>cancel</Btn>
+        <Btn kind="ghost" onClick={onClose}>{t('cancel')}</Btn>
         <button
           type="button"
           data-testid={submitTestId}
@@ -133,6 +138,7 @@ export function WritingFormFooter({
 export function PublishToggle({
   publish, onTogglePublish,
 }: { publish: boolean; onTogglePublish: () => void }) {
+  const t = useTranslations('adminCorpus.writings');
   return (
     <label className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) flex items-baseline gap-2">
       <input
@@ -141,7 +147,7 @@ export function PublishToggle({
         onChange={onTogglePublish}
         data-testid="writing-field-publish"
       />
-      publish immediately
+      {t('publishImmediately')}
     </label>
   );
 }

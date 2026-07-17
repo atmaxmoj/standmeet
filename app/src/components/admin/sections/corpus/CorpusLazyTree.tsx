@@ -6,6 +6,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState, type ReactNode } from 'react';
 
 import { useCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
@@ -30,10 +31,11 @@ interface LazyProps<T extends TreeRow> extends Common<T> {
 }
 
 export function CorpusLazyTree<T extends TreeRow>({ load, testid, rowTestid, renderCard }: LazyProps<T>) {
+  const t = useTranslations('adminCorpus.common');
   const epoch = useCorpusEpoch();
   const roots = useAdminTreeLayer(load, '', true, epoch);
   return roots === null
-    ? <div className={styles['loading']} data-testid={testid}>loading…</div>
+    ? <div className={styles['loading']} data-testid={testid}>{t('loading')}</div>
     : (
       <ul className={styles['list']} data-testid={testid}>
         {roots.map((n) => (

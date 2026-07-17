@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import type { ConnectorEntry, ConnectorField } from '@/lib/admin/connector-registry';
 
@@ -67,6 +68,7 @@ function FieldRender({ field, value, onChange }: {
 }
 
 function OauthBtn({ field }: { field: ConnectorField }) {
+  const t = useTranslations('adminShell.connectorConfig');
   return (
     <div className="sm-field">
       <span className="sm-field-label">{field.label}</span>
@@ -76,7 +78,7 @@ function OauthBtn({ field }: { field: ConnectorField }) {
       >
         {field.label}
       </button>
-      <span className="sm-field-hint">opens provider OAuth in a new tab</span>
+      <span className="sm-field-hint">{t('oauthHint')}</span>
     </div>
   );
 }
@@ -86,6 +88,7 @@ function SelectField({ field, value, onChange }: {
   value: string;
   onChange: (v: string) => void;
 }) {
+  const t = useTranslations('adminShell.connectorConfig');
   return (
     <label className="sm-field">
       <span className="sm-field-label">{field.label}</span>
@@ -94,7 +97,7 @@ function SelectField({ field, value, onChange }: {
         className="sm-field-input sm-mono"
         data-testid={`connector-field-${field.k}`}
       >
-        <option value="">choose…</option>
+        <option value="">{t('choose')}</option>
         {field.options!.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
@@ -127,19 +130,20 @@ function textFieldCls(secret: boolean): string {
 }
 
 function FormActions({ onCancel }: { onCancel: () => void }) {
+  const t = useTranslations('adminShell.connectorConfig');
   return (
     <div className="flex items-center justify-between gap-3 pt-3">
       <button
         type="button" onClick={onCancel}
         className="sm-btn sm-btn-ghost"
       >
-        ← back to catalog
+        {t('backToCatalog')}
       </button>
       <button
         type="submit" className="sm-btn sm-btn-accent"
         data-testid="connector-config-save"
       >
-        connect →
+        {t('connect')}
       </button>
     </div>
   );

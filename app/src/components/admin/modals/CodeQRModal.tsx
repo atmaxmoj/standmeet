@@ -2,6 +2,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { Btn } from '@/components/admin/atoms/Btn';
 import { QRCode } from '@/components/admin/atoms/QRCode';
 import { ModalShell } from '@/components/admin/modals/ModalShell';
@@ -37,22 +39,24 @@ function QRMeta({ code, link }: { code: string; link: string }) {
 }
 
 function QRActions({ link }: { link: string }) {
+  const t = useTranslations('adminShell.codeQr');
   const copy = () => {
     typeof navigator !== 'undefined' && void navigator.clipboard?.writeText(link);
   };
   return (
     <div className="flex items-center gap-3 mt-6">
-      <Btn kind="outline" onClick={copy}>copy link</Btn>
-      <Btn kind="outline" onClick={() => window.print()}>print qr ↗</Btn>
+      <Btn kind="outline" onClick={copy}>{t('copyLink')}</Btn>
+      <Btn kind="outline" onClick={() => window.print()}>{t('printQr')}</Btn>
     </div>
   );
 }
 
 function QRRoleStatus({ roleID, status }: { roleID: string; status: string }) {
+  const t = useTranslations('adminShell.codeQr');
   return (
     <div className="mt-7 pt-5 border-t border-(--color-rule) w-full mono text-[10px] tracking-[0.12em] text-(--color-faint) leading-[1.7] text-center">
-      <div>role · <span className="text-(--color-muted)">{roleID.slice(0, 8)}…</span></div>
-      <div className="text-(--color-faint)">status · {status}</div>
+      <div>{t('roleLabel')} <span className="text-(--color-muted)">{roleID.slice(0, 8)}…</span></div>
+      <div className="text-(--color-faint)">{t('statusLine', { status })}</div>
     </div>
   );
 }

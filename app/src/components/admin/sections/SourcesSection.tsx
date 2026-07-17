@@ -7,6 +7,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
@@ -83,24 +85,28 @@ function fmtLast(iso: string | null | undefined): string {
 // contradicted this page's own copy — job sources are registered via the jobs.register_source
 // MCP tool (Claude Code), not an admin form. Removed; the Intro + empty state direct to MCP.
 
+// mono —— t.rich 的 <mono> 标签：把 MCP 工具名渲染成等宽 ink。
+const mono = (chunks: React.ReactNode) => (
+  <span className="mono text-(--color-ink)">{chunks}</span>
+);
+
 function Intro() {
+  const t = useTranslations('adminJobs');
   return (
     <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]">
-      Where the loop pulls listings from. Greenhouse / Lever / Wellfound are first-class; RSS and HTML scrapers
-      are also supported. Each source is scanned every 30 minutes. Register sources via MCP{' '}
-      <span className="mono text-(--color-ink)">jobs.register_source</span>.
+      {t.rich('sources.intro', { mono })}
     </p>
   );
 }
 
 function EmptyState() {
+  const t = useTranslations('adminJobs');
   return (
     <div className="border border-dashed border-(--color-rule) rounded-[3px] p-9 text-center">
-      <div className="sm-smallcaps mb-1.5">no sources registered</div>
-      <div className="font-serif text-[18px] text-(--color-ink)">Connect a job board or RSS feed.</div>
+      <div className="sm-smallcaps mb-1.5">{t('sources.emptyKicker')}</div>
+      <div className="font-serif text-[18px] text-(--color-ink)">{t('sources.emptyTitle')}</div>
       <p className="reading text-[14px] text-(--color-muted) max-w-[36em] mx-auto mt-2">
-        Ask Claude to run <span className="mono text-(--color-ink)">jobs.register_source</span> with
-        a Greenhouse / Lever / RSS URL — it shows up here automatically.
+        {t.rich('sources.emptyHint', { mono })}
       </p>
     </div>
   );

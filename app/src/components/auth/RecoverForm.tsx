@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
@@ -14,6 +15,7 @@ import { useRecoverForm, type RecoverFormHook } from '@/lib/auth/use-recover-for
 export function RecoverForm() {
   const router = useRouter();
   const form = useRecoverForm();
+  const t = useTranslations('auth.recover');
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await form.submit();
@@ -22,21 +24,20 @@ export function RecoverForm() {
   return (
     <section className="rise max-w-[480px]">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
-        account recovery
+        {t('eyebrow')}
       </div>
       <h1 className="font-serif text-(--color-ink) text-[clamp(38px,5vw,56px)] font-normal tracking-[-0.02em] leading-none">
-        Recover your<br />access<span className="text-(--color-accent)">.</span>
+        {t('headingA')}<br />{t('headingB')}<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="reading italic text-(--color-muted) mt-4 text-lg leading-relaxed">
-        Enter your email and the recovery phrase we emailed you. It signs you back in once — then
-        set a new password.
+        {t('lede')}
       </p>
       <RecoverBody form={form} onSubmit={onSubmit} />
       <a
         href="/login"
         className="mono text-[11px] tracking-[0.06em] text-(--color-muted) hover:text-(--color-ink) mt-6 inline-block"
       >
-        ← back to sign in
+        {t('backLink')}
       </a>
     </section>
   );

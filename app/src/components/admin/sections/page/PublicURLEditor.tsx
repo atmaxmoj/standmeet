@@ -8,6 +8,8 @@
 
 import { useState } from 'react';
 
+import { useTranslations } from 'next-intl';
+
 import {
   usePublicURL, sanitizePublicURL, publicURLHint,
   canSavePublicURL, commitPublicURL,
@@ -25,13 +27,14 @@ export function PublicURLEditor({ current, onChanged }: Props) {
 }
 
 function DisplayRow({ current, onEdit }: { current: string; onEdit: () => void }) {
+  const t = useTranslations('adminPages.publicUrl');
   return (
     <div className="flex items-baseline gap-3 flex-wrap" data-testid="public-url-display">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        public URL
+        {t('label')}
       </span>
       <span className="font-serif text-(--color-ink) text-[18px] font-medium tracking-[-0.005em]">
-        {current || <em className="text-(--color-faint)">unset</em>}
+        {current || <em className="text-(--color-faint)">{t('unset')}</em>}
       </span>
       <ChangeBtn onClick={onEdit} />
     </div>
@@ -39,6 +42,7 @@ function DisplayRow({ current, onEdit }: { current: string; onEdit: () => void }
 }
 
 function ChangeBtn({ onClick }: { onClick: () => void }) {
+  const t = useTranslations('adminPages.publicUrl');
   return (
     <button
       type="button"
@@ -46,7 +50,7 @@ function ChangeBtn({ onClick }: { onClick: () => void }) {
       data-testid="public-url-change-btn"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) hover:text-(--color-accent)"
     >
-      change ↗
+      {t('change')} ↗
     </button>
   );
 }
@@ -83,6 +87,7 @@ function EditingRow({
 }
 
 function CancelBtn({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  const t = useTranslations('adminPages.publicUrl');
   return (
     <button
       type="button"
@@ -90,7 +95,7 @@ function CancelBtn({ onClick, disabled }: { onClick: () => void; disabled: boole
       disabled={disabled}
       className="mono text-[10px] tracking-[0.12em] text-(--color-faint) hover:text-(--color-accent) disabled:opacity-50"
     >
-      cancel
+      {t('cancel')}
     </button>
   );
 }

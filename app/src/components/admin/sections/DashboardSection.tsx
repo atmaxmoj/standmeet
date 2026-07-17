@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import Link from 'next/link';
 
@@ -91,10 +92,11 @@ function MiddleRow({ stats }: { stats: DashboardStats }) {
 }
 
 function CorpusPulse({ stats }: { stats: DashboardStats }) {
+  const t = useTranslations('adminShell.dashboard');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <GroupHeader title="corpus pulse · 14d" action={
-        <span className="mono text-[10px] text-(--color-accent)">↑ corpus active</span>
+        <span className="mono text-[10px] text-(--color-accent)">{t('corpusActive')}</span>
       } />
       <div className="flex items-end gap-6 mt-2">
         <div>
@@ -102,13 +104,13 @@ function CorpusPulse({ stats }: { stats: DashboardStats }) {
             {stats.rawCount.toLocaleString()}
           </div>
           <div className="mono text-[10px] text-(--color-muted) tracking-[0.06em] mt-1">
-            entries · total
+            {t('entriesTotal')}
           </div>
         </div>
         <div className="flex-1">
           <CorpusSparkline />
           <div className="mono text-[9.5px] text-(--color-faint) tracking-[0.06em] mt-1 flex justify-between">
-            <span>14d ago</span><span>today</span>
+            <span>{t('daysAgo14')}</span><span>{t('today')}</span>
           </div>
         </div>
       </div>
@@ -123,26 +125,27 @@ function CorpusSparkline() {
 }
 
 function JobsHeat() {
+  const t = useTranslations('adminShell.dashboard');
   const { sent } = useApplicationCount();
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <GroupHeader title="jobs · active loop" action={
         <Link href="/admin/listings" className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)">
-          view all →
+          {t('viewAll')}
         </Link>
       } />
       <div className="grid grid-cols-2 gap-3 mt-2">
         <div>
-          <div className="sm-smallcaps mb-1">shortlist</div>
+          <div className="sm-smallcaps mb-1">{t('shortlist')}</div>
           <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">0</div>
         </div>
         <div>
-          <div className="sm-smallcaps mb-1">sent</div>
+          <div className="sm-smallcaps mb-1">{t('sent')}</div>
           <StatCount state={sent} testid="dash-applications-sent" />
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-(--color-rule)/60">
-        <div className="sm-smallcaps mb-1">top match</div>
+        <div className="sm-smallcaps mb-1">{t('topMatch')}</div>
         <JobsTopMatch />
       </div>
     </div>
@@ -180,13 +183,14 @@ function StatCount({ state, testid }: { state: CountState; testid: string }) {
 }
 
 function JobsTopMatch() {
+  const t = useTranslations('adminShell.dashboard');
   return (
     <>
       <div className="font-serif text-[16px] text-(--color-muted) italic">
-        register sources to start matching
+        {t('registerSources')}
       </div>
       <div className="mono text-[10px] text-(--color-faint) tracking-[0.06em] mt-1">
-        /admin/sources → fetch → listings ranked by corpus match
+        {t('sourcesHint')}
       </div>
     </>
   );
@@ -202,12 +206,13 @@ function BottomRow({ stats }: { stats: DashboardStats }) {
 }
 
 function RecentVisitors() {
+  const t = useTranslations('adminShell.dashboard');
   const { rows } = useRecentConversations();
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <GroupHeader title="recent visitors" action={
         <Link href="/admin/conversations" className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)">
-          all →
+          {t('all')}
         </Link>
       } />
       <RecentVisitorsList rows={rows} />
@@ -228,16 +233,17 @@ function useRecentConversations(): { rows: DashboardRecentRow[] | null } {
 }
 
 function RecentVisitorsList({ rows }: { rows: readonly DashboardRecentRow[] | null }) {
+  const t = useTranslations('adminShell.dashboard');
   return rows === null ? (
     <div
       className="mono text-[11px] text-(--color-accent) tracking-[0.06em] mt-2"
       data-testid="dash-recent-error"
     >
-      Couldn’t load recent visitors. Reload and retry.
+      {t('recentError')}
     </div>
   ) : rows.length === 0 ? (
     <div className="mono text-[11px] text-(--color-faint) tracking-[0.06em] mt-2">
-      no conversations yet — visitors will appear here once they start chatting
+      {t('noConversations')}
     </div>
   ) : (
     <div className="flex flex-col">
@@ -247,12 +253,13 @@ function RecentVisitorsList({ rows }: { rows: readonly DashboardRecentRow[] | nu
 }
 
 function RecentVisitorRow({ row }: { row: DashboardRecentRow }) {
+  const t = useTranslations('adminShell.dashboard');
   return (
     <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
       <div>
         <div className="font-serif text-[15px] text-(--color-ink)">{row.visitor}</div>
         <div className="mono text-[10px] text-(--color-muted) mt-0.5">
-          {row.code_label} · {row.turns} turns · {row.last}
+          {t('visitorMeta', { label: row.code_label, turns: row.turns, last: row.last })}
         </div>
       </div>
       <RecentVisitorFlags hits={row.private_hits} />
@@ -261,8 +268,9 @@ function RecentVisitorRow({ row }: { row: DashboardRecentRow }) {
 }
 
 function RecentVisitorFlags({ hits }: { hits: number }) {
+  const t = useTranslations('adminShell.dashboard');
   return hits > 0
-    ? <span className="mono text-[9.5px] tracking-[0.14em] text-(--color-accent)">{hits} priv</span>
+    ? <span className="mono text-[9.5px] tracking-[0.14em] text-(--color-accent)">{t('privHits', { n: hits })}</span>
     : null;
 }
 
@@ -289,14 +297,16 @@ function NeedsList({ items }: { items: ActionItem[] }) {
 }
 
 function EmptyAction() {
+  const t = useTranslations('adminShell.dashboard');
   return (
     <p className="reading text-(--color-muted) text-[14px]">
-      Nothing pending — corpus is current.
+      {t('nothingPending')}
     </p>
   );
 }
 
 function NeedRow({ item }: { item: ActionItem }) {
+  const t = useTranslations('adminShell.dashboard');
   return (
     <li className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
       <div>
@@ -304,7 +314,7 @@ function NeedRow({ item }: { item: ActionItem }) {
         <div className="mono text-[10px] tracking-[0.06em] text-(--color-muted) mt-0.5">{item.sub}</div>
       </div>
       <Link href={item.href} className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) hover:text-(--color-ink)">
-        <span data-testid={`dashboard-jump-${item.key}`}>review →</span>
+        <span data-testid={`dashboard-jump-${item.key}`}>{t('review')}</span>
       </Link>
     </li>
   );

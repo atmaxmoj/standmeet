@@ -6,6 +6,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { NewlyCreatedBanner } from '@/components/admin/sections/api/NewlyCreatedBanner';
 import { NewTokenInline } from '@/components/admin/sections/api/NewTokenInline';
@@ -66,21 +68,22 @@ function Ready({ hook }: { hook: TokensHook }) {
 }
 
 function Intro() {
+  const t = useTranslations('adminIntegrations.api');
   return (
     <p className="reading-tight text-(--color-muted) text-[15px] max-w-[54em]">
-      MCP keys let AI clients (Claude, Cursor, custom scripts) push raw entries into your corpus,
-      promote them, manage codes. Each key is an Ed25519 keypair — server stores only the public
-      half; you save the private PEM in <code className="mono text-[12.5px]">~/.standmeet/credentials.json</code>{' '}
-      and the client signs per request.
+      {t.rich('intro', {
+        code: (chunks) => <code className="mono text-[12.5px]">{chunks}</code>,
+      })}
     </p>
   );
 }
 
 function TokensBlock({ hook }: { hook: TokensHook }) {
+  const t = useTranslations('adminIntegrations.api');
   return (
     <div>
       <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) mb-3 pb-2 border-b border-(--color-rule)">
-        mcp keys
+        {t('keysHeading')}
       </h3>
       <NewlyCreatedBanner created={bannerView(hook.justCreated)} dismiss={hook.dismissCreated} />
       <NewTokenInline createToken={hook.createToken} error={hook.error} />
@@ -112,9 +115,10 @@ function TokenList({
 }
 
 function EmptyTokens() {
+  const t = useTranslations('adminIntegrations.api');
   return (
     <div data-testid="token-list" className="mono text-[11px] text-(--color-faint) border border-dashed border-(--color-rule) px-4 py-6 rounded-sm text-center">
-      no keys yet · generate one to wire up your first AI client
+      {t('empty')}
     </div>
   );
 }

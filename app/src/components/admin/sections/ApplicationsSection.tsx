@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
@@ -46,11 +47,10 @@ function titleCount(n: number, loading: boolean): string {
 }
 
 function Intro() {
+  const t = useTranslations('adminJobs');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Every committed application — frozen resume snapshot + auto-issued AccessCode.
-      Recruiters scan the QR on the PDF and land directly in your chat. Click a card
-      to review timeline + status + private notes.
+      {t('applications.intro')}
     </p>
   );
 }
@@ -72,9 +72,10 @@ function ListBody(props: {
 }
 
 function Loading() {
+  const t = useTranslations('adminJobs');
   return (
     <p className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted)">
-      loading…
+      {t('applications.loading')}
     </p>
   );
 }
@@ -91,11 +92,12 @@ function LoadError({ msg }: { msg: string }) {
 }
 
 function EmptyState() {
+  const t = useTranslations('adminJobs');
   return (
     <div className="p-6 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/40 text-center">
-      <p className="font-serif text-(--color-ink) text-[18px]">No applications sent yet.</p>
+      <p className="font-serif text-(--color-ink) text-[18px]">{t('applications.emptyTitle')}</p>
       <p className="reading text-(--color-muted) text-[14px] mt-1.5 max-w-[34em] mx-auto">
-        Draft a resume from a shortlisted job listing, then send to commit it here.
+        {t('applications.emptyHint')}
       </p>
     </div>
   );
@@ -154,14 +156,15 @@ function Row({
 }
 
 function AppCardFooter({ contact, notes, onOpen }: { contact: string; notes: string; onOpen: () => void }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="grid grid-cols-3 gap-3 px-4 py-3 border-t border-(--color-rule)/60">
       <div className="min-w-0">
-        <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">contact</div>
+        <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">{t('applications.contact')}</div>
         <div className="mono text-[11px] text-(--color-muted) truncate">{contact}</div>
       </div>
       <div className="min-w-0">
-        <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">notes</div>
+        <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">{t('applications.notes')}</div>
         <div className="reading text-[12px] text-(--color-muted) truncate">{notes || '—'}</div>
       </div>
       <div className="flex items-center justify-end">
@@ -169,7 +172,7 @@ function AppCardFooter({ contact, notes, onOpen }: { contact: string; notes: str
           type="button" onClick={onOpen}
           className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-accent) hover:underline"
         >
-          open ›
+          {t('applications.open')}
         </button>
       </div>
     </div>
@@ -193,11 +196,12 @@ function RowHead({ row }: { row: AdminApplicationRow }) {
 }
 
 function RowMeta({ row }: { row: AdminApplicationRow }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) flex items-baseline gap-3 flex-wrap mt-2">
-      <span>sent {formatDate(row.submitted_at)}</span>
+      <span>{t('applications.metaSent', { date: formatDate(row.submitted_at) })}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>created {formatDate(row.created_at)}</span>
+      <span>{t('applications.metaCreated', { date: formatDate(row.created_at) })}</span>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 // badge 动态计数。border-left accent 标 active。
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
 import { sidebarBadgeFor } from '@/lib/admin/sidebar-badge-for';
@@ -113,10 +114,11 @@ function Groups({ active, badges }: { active: AdminSlug; badges?: SidebarBadges 
 }
 
 function Group({ group, active, badges }: { group: NavGroup; active: AdminSlug; badges?: SidebarBadges }) {
+  const t = useTranslations('adminShell.sidebar');
   return (
     <div className="py-1.5">
       <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-(--color-faint) px-4 py-1">
-        ── {group.label}
+        {t('groupPrefix')} {group.label}
       </div>
       {group.items.map((s) => (
         <SidebarItem key={s.slug} section={s} active={s.slug === active} badge={sidebarBadgeFor(s.slug, badges)} />
@@ -158,10 +160,11 @@ function Badge({ count, testId }: { count: number | null; testId?: string }) {
 }
 
 function SidebarFooter() {
+  const t = useTranslations('adminShell.sidebar');
   return (
     <div className="mt-auto px-4 pt-4 border-t border-(--color-rule) mono text-[9.5px] tracking-[0.06em] text-(--color-faint) leading-[1.6]">
-      <div>instance · <span className="text-(--color-muted)">standmeet</span></div>
-      <div>uptime · <span className="text-(--color-muted)">—</span></div>
+      <div>{t('instanceLabel')} <span className="text-(--color-muted)">{t('instanceName')}</span></div>
+      <div>{t('uptimeLabel')} <span className="text-(--color-muted)">—</span></div>
     </div>
   );
 }

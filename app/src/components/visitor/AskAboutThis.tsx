@@ -10,6 +10,7 @@
 // docs/design/project/wiki.js sticky ask bar (250-278)。
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 type Kind = 'essay' | 'wiki' | 'output';
 
@@ -31,20 +32,23 @@ export function AskAboutThis({ title, kind = 'essay' }: Props) {
 }
 
 function AskHeader({ title, kind }: { title: string; kind: Kind }) {
+  const t = useTranslations('visitor.askAboutThis');
   return (
     <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3 flex items-baseline gap-3 flex-wrap">
-      <span className="text-(--color-ink)">ask the AI about this {labelFor(kind)}</span>
+      <span className="text-(--color-ink)">{t('header', { label: t(labelKeyFor(kind)) })}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>context: &ldquo;{title.toLowerCase()}&rdquo;</span>
+      <span>{t('context', { title: title.toLowerCase() })}</span>
     </div>
   );
 }
 
-function labelFor(kind: Kind): string {
+// labelKeyFor —— kind → 词条 key(essay / entry / piece),catalog 里取真词。
+function labelKeyFor(kind: Kind): 'essay' | 'entry' | 'piece' {
   return kind === 'essay' ? 'essay' : kind === 'wiki' ? 'entry' : 'piece';
 }
 
 function AskForm({ placeholderTitle }: { placeholderTitle: string }) {
+  const t = useTranslations('visitor.askAboutThis');
   return (
     <form
       method="get"
@@ -65,18 +69,19 @@ function AskForm({ placeholderTitle }: { placeholderTitle: string }) {
         type="submit"
         className="mono text-[11px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) transition-colors shrink-0"
       >
-        ask ↵
+        {t('ask')}
       </button>
     </form>
   );
 }
 
 function AskStarters({ title, kind }: { title: string; kind: Kind }) {
+  const t = useTranslations('visitor.common');
   const starters = startersFor(title, kind);
   return (
     <div className="mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mr-3 pt-0.5">
-        try
+        {t('try')}
       </span>
       {starters.map((s, i) => (
         <StarterLink key={s} text={s} sep={i < starters.length - 1} />

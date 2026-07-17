@@ -2,6 +2,10 @@
 // Tiptap editor 右侧三卡：crosslinks (outgoing/incoming) + keyboard shortcuts。
 // publish card 已在 WritingFormFooter 里（PublishToggle + 按钮），不重复。
 
+'use client';
+
+import { useTranslations } from 'next-intl';
+
 function countCrosslinks(bodyMD: string): { outgoing: string[]; count: number } {
   const matches = bodyMD.match(/\[\[([^\]]+)\]\]/g) ?? [];
   const slugs = matches.map((m) => m.slice(2, -2));
@@ -19,11 +23,12 @@ export function EditorSideRail({ bodyMD }: { bodyMD: string }) {
 }
 
 function CrosslinksCard({ xref }: { xref: { outgoing: string[]; count: number } }) {
+  const t = useTranslations('adminCorpus.sideRail');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <div className="sm-smallcaps mb-2">cross-links</div>
+      <div className="sm-smallcaps mb-2">{t('crosslinks')}</div>
       <div className="mono text-[10px] tracking-[0.06em] text-(--color-muted) mb-1.5">
-        outgoing · {xref.count}
+        {t('outgoing', { count: xref.count })}
       </div>
       <OutgoingList slugs={xref.outgoing} />
     </div>
@@ -31,9 +36,10 @@ function CrosslinksCard({ xref }: { xref: { outgoing: string[]; count: number } 
 }
 
 function OutgoingList({ slugs }: { slugs: readonly string[] }) {
+  const t = useTranslations('adminCorpus.sideRail');
   return slugs.length === 0 ? (
     <div className="mono text-[10.5px] text-(--color-faint)">
-      none yet · type [[ to add
+      {t('noneYet')}
     </div>
   ) : (
     <div className="flex flex-col gap-1">
@@ -45,15 +51,16 @@ function OutgoingList({ slugs }: { slugs: readonly string[] }) {
 }
 
 function KeyboardCard() {
+  const t = useTranslations('adminCorpus.sideRail');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <div className="sm-smallcaps mb-2">keyboard</div>
+      <div className="sm-smallcaps mb-2">{t('keyboard')}</div>
       <div className="mono text-[10.5px] text-(--color-muted) tracking-[0.04em] leading-[1.95]">
-        <Row keys="/" label="insert block" />
-        <Row keys="[[" label="cross-link picker" />
-        <Row keys="⌘V" label="paste image inline" />
-        <Row keys="⌘K" label="add inline link" />
-        <Row keys="esc" label="close menu" />
+        <Row keys="/" label={t('keyInsertBlock')} />
+        <Row keys="[[" label={t('keyCrossLinkPicker')} />
+        <Row keys="⌘V" label={t('keyPasteImage')} />
+        <Row keys="⌘K" label={t('keyInlineLink')} />
+        <Row keys="esc" label={t('keyCloseMenu')} />
       </div>
     </div>
   );

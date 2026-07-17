@@ -6,6 +6,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import type { ReactNode } from 'react';
 
 import type { AuthField, AuthForms, AuthScheme } from '@/lib/admin/use-connector-ingest';
 
@@ -46,10 +48,11 @@ function SchemePickerBody({
 function SchemeSelectMaybe({
   forms, value, onChange,
 }: { forms: AuthScheme[]; value: string; onChange: (s: string) => void }) {
+  const t = useTranslations('adminShell.connectorCred');
   return forms.length <= 1 ? null : (
     <label className="block mb-3">
       <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
-        authentication
+        {t('authentication')}
       </span>
       <select
         data-testid="connector-scheme-select"
@@ -74,26 +77,40 @@ function SchemeBody({ form }: { form: AuthScheme }) {
   );
 }
 
+const codeTag = (chunks: ReactNode) => <code className="mono">{chunks}</code>;
+
 function ApiKeyHint({ form }: { form: AuthScheme }) {
-  return form.type === 'apikey' ? (
+  return form.type === 'apikey' ? <ApiKeyHintBody form={form} /> : null;
+}
+
+function ApiKeyHintBody({ form }: { form: AuthScheme }) {
+  const t = useTranslations('adminShell.connectorCred');
+  return (
     <p className="reading-tight text-[12px] text-(--color-muted)">
-      Sent in the {form.in} as <code className="mono">{form.param_name}</code>.
+      {t.rich('apiKeyHint', { where: form.in ?? '', name: form.param_name ?? '', code: codeTag })}
     </p>
-  ) : null;
+  );
 }
 
 function DiscoveryHint({ form }: { form: AuthScheme }) {
-  return (form.discovery_url ?? '') === '' ? null : (
+  const url = form.discovery_url ?? '';
+  return url === '' ? null : <DiscoveryHintBody url={url} />;
+}
+
+function DiscoveryHintBody({ url }: { url: string }) {
+  const t = useTranslations('adminShell.connectorCred');
+  return (
     <p className="reading-tight text-[12px] text-(--color-muted)">
-      Discovery: <code className="mono">{form.discovery_url}</code>
+      {t.rich('discoveryHint', { url, code: codeTag })}
     </p>
   );
 }
 
 function ConnectMaybe({ form }: { form: AuthScheme }) {
+  const t = useTranslations('adminShell.connectorCred');
   return form.needs_dance ? (
     <button type="button" data-testid="connector-connect-button" className="sm-btn sm-btn-solid sm-btn-sm">
-      Connect →
+      {t('connect')}
     </button>
   ) : null;
 }
@@ -105,10 +122,11 @@ function CredField({ field }: { field: AuthField }) {
 }
 
 function ScopeField({ field }: { field: AuthField }) {
+  const t = useTranslations('adminShell.connectorCred');
   return (
     <div>
       <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
-        scopes
+        {t('scopes')}
       </span>
       <div data-testid={`connector-field-${field.key}`} className="flex flex-wrap gap-1.5">
         {(field.scopes ?? []).map((s) => (

@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 import { useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { CorpusConstellation } from '@/components/admin/chrome/CorpusConstellation';
 import { Pill } from '@/components/admin/atoms/Pill';
@@ -30,11 +31,12 @@ export function TopBar({ handle, email, buildTag = DEFAULT_BUILD }: Props) {
 }
 
 function TopBarBrand({ handle }: { handle: string }) {
+  const t = useTranslations('adminShell.topBar');
   return (
     <div className="flex items-baseline gap-3 mono text-[11px] tracking-[0.14em] uppercase shrink-0">
-      <span className="text-(--color-ink)">standmeet</span>
+      <span className="text-(--color-ink)">{t('brand')}</span>
       <span className="text-(--color-faint)">/</span>
-      <span className="text-(--color-muted)">admin</span>
+      <span className="text-(--color-muted)">{t('admin')}</span>
       <span className="text-(--color-faint)">·</span>
       <span className="text-(--color-muted)">{handle}</span>
       <LiveDot />
@@ -43,10 +45,11 @@ function TopBarBrand({ handle }: { handle: string }) {
 }
 
 function LiveDot() {
+  const t = useTranslations('adminShell.topBar');
   return (
     <span className="inline-flex items-center gap-1.5 ml-2">
       <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-accent) live-dot" />
-      <span className="text-(--color-faint) text-[9.5px] tracking-[0.18em]">live</span>
+      <span className="text-(--color-faint) text-[9.5px] tracking-[0.18em]">{t('live')}</span>
     </span>
   );
 }
@@ -54,6 +57,7 @@ function LiveDot() {
 function TopBarMeta({
   email, buildTag, onSignOut,
 }: { email: string; buildTag: string; onSignOut: () => void }) {
+  const t = useTranslations('adminShell.topBar');
   return (
     <div className="flex items-baseline gap-4 shrink-0">
       <Pill tone="muted">{buildTag}</Pill>
@@ -61,7 +65,7 @@ function TopBarMeta({
         href="/"
         className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent) transition-colors"
       >
-        view public ↗
+        {t('viewPublic')}
       </Link>
       <span className="mono text-[10.5px] text-(--color-muted) hidden md:inline">{email}</span>
       <button
@@ -70,7 +74,7 @@ function TopBarMeta({
         data-testid="signout"
         className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent) transition-colors"
       >
-        sign out
+        {t('signOut')}
       </button>
     </div>
   );

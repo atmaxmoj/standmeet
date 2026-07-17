@@ -2,7 +2,10 @@
 // hero 宽 + index lead 窄都 render 正常。radial gradient 三色 hue。
 // owner 上传了 cover image → <img> 背景；没传 → 纯 typographic + gradient。
 
+'use client';
+
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 
 import type { WritingView } from '@/lib/api/public';
 
@@ -63,14 +66,18 @@ function CoverLockOverlayMaybe({ locked }: { locked?: boolean }) {
 function CoverRule() { return <div className={styles.rule} />; }
 function CoverHeadline({ text }: { text: string }) { return <span className={styles.headline}>{text}</span>; }
 function CoverSub({ text }: { text: string }) { return <span className={styles.sub}>{text}</span>; }
-function CoverTag() { return <span className={styles.tag}>essay · standmeet</span>; }
+function CoverTag() {
+  const t = useTranslations('writings.cover');
+  return <span className={styles.tag}>{t('tag')}</span>;
+}
 function CoverNumber({ text }: { text: string }) { return <span className={styles.number}>{text}</span>; }
 
 function CoverLockOverlay() {
+  const t = useTranslations('writings.cover');
   return (
     <div className={styles.lockOverlay}>
       <span className="mono text-[11px] tracking-[0.2em] uppercase text-(--color-accent)">
-        private · code-gated
+        {t('locked')}
       </span>
     </div>
   );

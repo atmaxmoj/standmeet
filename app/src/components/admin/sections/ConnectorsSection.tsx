@@ -8,6 +8,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConnectorAddModal } from '@/components/admin/ConnectorAddModal';
@@ -91,31 +92,45 @@ function CatalogCards({ catalog }: { catalog: ConnectorCatalogHook }) {
 
 // CatalogLoadError —— 目录没拉到时的提示（§2：空 vs 加载失败要分得清）。
 function CatalogLoadError({ show }: { show: boolean }) {
+  const t = useTranslations('adminIntegrations.connectors');
   return show ? (
     <p data-testid="connector-catalog-error" className="mono text-[11px] text-(--color-accent)">
-      Couldn’t load the connector catalog — reload and retry.
+      {t('catalogError')}
     </p>
   ) : null;
 }
 
 function OverwriteConfirm({ hook }: { hook: ConnectorUploadHook }) {
-  return hook.pending === null ? null : (
+  return hook.pending === null
+    ? null
+    : <OverwriteConfirmBody category={hook.pending.category} onConfirm={hook.confirmOverwrite} />;
+}
+
+function OverwriteConfirmBody({
+  category, onConfirm,
+}: { category: string; onConfirm: () => void }) {
+  const t = useTranslations('adminIntegrations.connectors');
+  return (
     <div className="mb-6 border border-(--color-accent)/50 rounded-sm p-3 bg-(--color-accent)/5">
       <p className="text-[13px] text-(--color-ink) mb-2">
-        A <span className="mono">{hook.pending.category}</span> connector already exists. Overwrite it?
+        {t.rich('overwritePrompt', {
+          category,
+          mono: (chunks) => <span className="mono">{chunks}</span>,
+        })}
       </p>
       <button
-        type="button" onClick={hook.confirmOverwrite}
+        type="button" onClick={onConfirm}
         data-testid="connector-overwrite-confirm"
         className="sm-btn sm-btn-solid sm-btn-sm"
       >
-        Overwrite
+        {t('overwrite')}
       </button>
     </div>
   );
 }
 
 function AddBtn({ onOpen }: { onOpen: () => void }) {
+  const t = useTranslations('adminIntegrations.connectors');
   return (
     <button
       type="button"
@@ -123,16 +138,16 @@ function AddBtn({ onOpen }: { onOpen: () => void }) {
       data-testid="connector-add-open"
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
-      + add connector
+      {t('add')}
     </button>
   );
 }
 
 function Intro() {
+  const t = useTranslations('adminIntegrations.connectors');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Connectors let the agent reach external services — Calendar and Mail are live below,
-      and you can upload your own (OpenAPI / protocol) connector to add more.
+      {t('intro')}
     </p>
   );
 }

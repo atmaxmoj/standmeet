@@ -5,6 +5,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { useSpecAssemble } from '@/lib/admin/use-assemble';
 import { useProtocolConnect, type ProtocolConnectHook } from '@/lib/admin/use-protocol-connect';
@@ -33,10 +34,11 @@ function AssembleBody({ category, openapiID }: { category: string; openapiID: st
 }
 
 function SpecUpload({ spec }: { spec: ReturnType<typeof useSpecAssemble> }) {
+  const t = useTranslations('adminIntegrations.assemble');
   return (
     <div className="border-b border-(--color-rule)/60 pb-5">
       <p className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) mb-2">
-        upload an OpenAPI connector
+        {t('uploadLabel')}
       </p>
       <textarea
         data-testid="connector-spec-input"
@@ -51,7 +53,7 @@ function SpecUpload({ spec }: { spec: ReturnType<typeof useSpecAssemble> }) {
           data-testid="connector-spec-submit"
           className="sm-btn sm-btn-solid sm-btn-sm"
         >
-          Upload spec →
+          {t('uploadSubmit')}
         </button>
         <SpecError error={spec.error} />
       </div>
@@ -102,6 +104,7 @@ function TextField({ field, onChange }: { field: AssembleField; onChange: (v: st
 
 // ConnectRow —— 协议路的 Connect 按钮 + 状态/错误。save() 建连接器+存凭据，随后真连接测试。
 function ConnectRow({ hook, onConnect }: { hook: ProtocolConnectHook; onConnect: () => void }) {
+  const t = useTranslations('adminIntegrations.common');
   return (
     <div className="pt-2 space-y-2">
       <button
@@ -110,7 +113,7 @@ function ConnectRow({ hook, onConnect }: { hook: ProtocolConnectHook; onConnect:
         onClick={() => { onConnect(); hook.connect(); }}
         className="sm-btn sm-btn-solid sm-btn-sm"
       >
-        Connect
+        {t('connect')}
       </button>
       <p data-testid="connector-status" className="mono text-[11px] text-(--color-muted)">
         {protoStatusText(hook.status)}

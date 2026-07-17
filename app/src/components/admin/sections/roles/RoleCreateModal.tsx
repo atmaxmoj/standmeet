@@ -4,6 +4,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
@@ -42,6 +43,7 @@ function RoleCreateModalShell({
   onClose: () => void;
   onCreate: (input: WriteRoleInput) => Promise<RoleView | null>;
 }) {
+  const t = useTranslations('adminAccess');
   const [form, setForm] = useState<WriteRoleInput>({
     name: '', description: '', greeting: '', prompt_id: null,
     corpus_uris: [], skill_ids: [], mcp_server_ids: [],
@@ -52,7 +54,7 @@ function RoleCreateModalShell({
       data-testid="role-create-modal"
     >
       <div className="bg-(--color-paper) border border-(--color-rule) max-w-[680px] w-[92vw] p-7 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
-        <h2 className="font-serif text-[22px]">new role</h2>
+        <h2 className="font-serif text-[22px]">{t('roleCreate.title')}</h2>
         <RoleField
           label="name"
           value={form.name}
@@ -124,16 +126,17 @@ function RolePromptDropdown({
   value: string | null;
   onChange: (v: string | null) => void;
 }) {
+  const t = useTranslations('adminAccess');
   return (
     <label className="flex flex-col gap-1">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">prompt</span>
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{t('common.prompt')}</span>
       <select
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
         data-testid="role-field-prompt"
       >
-        <option value="">(none)</option>
+        <option value="">{t('roleCreate.promptNone')}</option>
         {prompts.map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
@@ -145,6 +148,7 @@ function RolePromptDropdown({
 function RoleCorpusURIsField({
   value, onChange,
 }: { value: string[]; onChange: (v: string[]) => void }) {
+  const t = useTranslations('adminAccess');
   const text = value.join('\n');
   const onTextChange = useCallback((next: string) => {
     onChange(next.split('\n').map((s) => s.trim()).filter((s) => s !== ''));
@@ -152,7 +156,7 @@ function RoleCorpusURIsField({
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        corpus uris · one per line
+        {t('roleCreate.corpusLabel')}
       </span>
       <textarea
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[13px] font-mono min-h-[100px]"
@@ -162,7 +166,7 @@ function RoleCorpusURIsField({
         data-testid="role-field-corpus-uris"
       />
       <span className="mono text-[9.5px] text-(--color-faint)">
-        raw://** is always denied to visitors regardless of this list
+        {t('common.rawDenied')}
       </span>
     </label>
   );
@@ -177,6 +181,7 @@ function RoleMultiSelect({
   onChange: (v: string[]) => void;
   testid: string;
 }) {
+  const t = useTranslations('adminAccess');
   const toggle = useCallback((id: string) => {
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
   }, [value, onChange]);
@@ -186,7 +191,7 @@ function RoleMultiSelect({
         {label}
       </legend>
       {options.length === 0 && (
-        <p className="mono text-[10.5px] text-(--color-faint) italic">none configured yet</p>
+        <p className="mono text-[10.5px] text-(--color-faint) italic">{t('roleCreate.noneConfigured')}</p>
       )}
       <div className="flex flex-wrap gap-1.5">
         {options.map((o) => (
@@ -232,6 +237,7 @@ function RoleModalFooter({
   onClose: () => void;
   onCreate: (input: WriteRoleInput) => Promise<RoleView | null>;
 }) {
+  const t = useTranslations('adminAccess');
   const toast = useToast();
   const submit = useCallback(async () => {
     const created = await onCreate(form);
@@ -241,7 +247,7 @@ function RoleModalFooter({
   const disabled = form.name === '';
   return (
     <div className="flex justify-end gap-3 mt-2">
-      <Btn kind="ghost" onClick={onClose}>cancel</Btn>
+      <Btn kind="ghost" onClick={onClose}>{t('common.cancel')}</Btn>
       <button
         type="button"
         data-testid="role-create-submit"
@@ -249,7 +255,7 @@ function RoleModalFooter({
         onClick={() => void submit()}
         className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        create
+        {t('common.create')}
       </button>
     </div>
   );

@@ -3,6 +3,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { Chip } from '@/components/admin/atoms/Chip';
 import { EditField } from '@/components/admin/sections/page/EditField';
 import { useBYOAI, type BYOAIProvider, type BYOAIHook } from '@/lib/admin/use-byoai';
@@ -83,14 +85,15 @@ function MasterToggle({ hook }: { hook: BYOAIHook }) {
 }
 
 function ToggleCopy({ enabled }: { enabled: boolean }) {
+  const t = useTranslations('adminPages.byoai');
   return (
     <div className="min-w-0">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1.5 flex items-baseline gap-2">
-        <span>byoai mode</span>
+        <span>{t('modeLabel')}</span>
         <ToggleFlag enabled={enabled} />
       </div>
       <p className="reading-tight text-(--color-muted) text-[14.5px] max-w-[46em]">
-        When on, the gate page shows a &quot;bring your own AI&quot; option below the code entry.
+        {t('modeHelp')}
       </p>
     </div>
   );
@@ -125,10 +128,11 @@ function ProviderPicker({ hook }: { hook: BYOAIHook }) {
 function ProviderChips({
   providers, toggle,
 }: { providers: readonly BYOAIProvider[]; toggle: (p: BYOAIProvider) => void }) {
+  const t = useTranslations('adminPages.byoai');
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        accepted providers
+        {t('acceptedProviders')}
       </div>
       <div className="flex flex-wrap gap-2">
         {ALL_PROVIDERS.map((p) => (

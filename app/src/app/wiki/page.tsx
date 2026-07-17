@@ -5,6 +5,7 @@
 // 数据:GET /api/v1/wiki-tree(无 parent = 根),公开(无 token)只返 published。
 
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
@@ -16,8 +17,9 @@ import { fetchWikiTree, fetchWikiTreeStats } from '@/lib/api/public';
 export const dynamic = 'force-dynamic';
 
 export default async function WikiIndexPage() {
-  const [roots, instance, stats] = await Promise.all([
+  const [roots, instance, stats, t] = await Promise.all([
     fetchWikiTree('', ''), fetchInstance(), fetchWikiTreeStats(),
+    getTranslations('reader'),
   ]);
   return (
     <div>
@@ -25,9 +27,9 @@ export default async function WikiIndexPage() {
       <SessionStrip />
       <ReaderLayout mainTestId="wiki-index" aside={<WikiTreeView activePath="" stats={stats} />}>
         <div className="max-w-[920px] mx-auto pt-10 pb-24">
-          <div className="smallcaps mb-2">wiki</div>
+          <div className="smallcaps mb-2">{t('wiki.indexKicker')}</div>
           <h1 className="font-serif text-(--color-ink) text-[clamp(32px,4vw,48px)] font-[380] tracking-[-0.02em] leading-[1.05] mb-8 text-pretty">
-            The corpus, by entry
+            {t('wiki.indexHeading')}
           </h1>
           <ul className="flex flex-col gap-3 list-none p-0 m-0" data-testid="wiki-index-roots">
             {roots.map((n) => (

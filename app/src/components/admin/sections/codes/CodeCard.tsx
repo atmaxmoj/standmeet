@@ -3,6 +3,7 @@
 
 import { CodeCorpusConfig } from '@/components/admin/sections/codes/CodeCorpusConfig';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { MetaPair } from '@/components/admin/atoms/MetaPair';
@@ -54,16 +55,18 @@ function CodeCardHeader({ code, onEdit, onPreview, onRevoke }: HeaderProps) {
 }
 
 function CodeCardActions({ code, onEdit, onPreview, onRevoke }: HeaderProps) {
+  const t = useTranslations('adminAccess');
   return (
     <div className="flex items-center gap-2 shrink-0">
-      <Btn size="sm" kind="ghost" onClick={() => onPreview(code)}>preview ↗</Btn>
-      <Btn size="sm" kind="outline" onClick={() => onEdit(code)}>edit</Btn>
+      <Btn size="sm" kind="ghost" onClick={() => onPreview(code)}>{t('codeCard.preview')}</Btn>
+      <Btn size="sm" kind="outline" onClick={() => onEdit(code)}>{t('codeCard.edit')}</Btn>
       <RevokeBtn code={code} onRevoke={onRevoke} />
     </div>
   );
 }
 
 function RevokeBtn({ code, onRevoke }: { code: CodeView; onRevoke: (c: CodeView) => void }) {
+  const t = useTranslations('adminAccess');
   return code.status === 'active' ? (
     <button
       type="button"
@@ -71,7 +74,7 @@ function RevokeBtn({ code, onRevoke }: { code: CodeView; onRevoke: (c: CodeView)
       onClick={() => onRevoke(code)}
       className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent)"
     >
-      revoke
+      {t('codeCard.revoke')}
     </button>
   ) : null;
 }
@@ -187,12 +190,13 @@ function RoleLink({ roleID }: { roleID: string }) {
 }
 
 function RoleFrozenLine() {
+  const t = useTranslations('adminAccess');
   return (
     <div
       className="mono text-[9.5px] tracking-[0.04em] text-(--color-faint) mt-1"
       data-testid="code-role-frozen"
     >
-      issued with role (frozen)
+      {t('codeCard.roleFrozen')}
     </div>
   );
 }
@@ -215,11 +219,12 @@ function QRCol({ code }: { code: CodeView }) {
 }
 
 function QuotaBar({ code }: { code: CodeView }) {
+  const t = useTranslations('adminAccess');
   const sessions = quotaSummary(code.max_members, 'names');
   const turns = quotaSummary(code.max_turns_per_session, 'turns');
   return (
     <div className="col-span-full" data-testid={`code-quotas-${code.code}`}>
-      <div className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) mb-1.5">quota</div>
+      <div className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) mb-1.5">{t('codeCard.quota')}</div>
       <div className="flex items-center gap-3">
         <div className="flex-1 h-[4px] bg-(--color-rule) rounded-full overflow-hidden">
           <div className="h-full bg-(--color-ink) rounded-full w-0" />
@@ -253,9 +258,10 @@ function CodeCardFooter({ code, link }: { code: CodeView; link: string }) {
 function FooterTop({ status, link, expiresAt }: {
   status: string; link: string; expiresAt?: string;
 }) {
+  const t = useTranslations('adminAccess');
   return (
     <div className="mono text-[10px] tracking-[0.12em] text-(--color-faint) flex items-baseline justify-between gap-3 flex-wrap">
-      <span>status · {status}<ExpiryText iso={expiresAt} /></span>
+      <span>{t('codeCard.status', { status })}<ExpiryText iso={expiresAt} /></span>
       <span className="truncate min-w-0">{link}</span>
     </div>
   );
@@ -272,12 +278,13 @@ function ExpiryText({ iso }: { iso?: string }) {
 }
 
 function ConversationsLink({ code }: { code: string }) {
+  const t = useTranslations('adminAccess');
   return (
     <Link
       href={`/admin/conversations?code=${encodeURIComponent(code)}`}
       className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent) mt-3 inline-block"
     >
-      view conversations →
+      {t('codeCard.viewConversations')}
     </Link>
   );
 }

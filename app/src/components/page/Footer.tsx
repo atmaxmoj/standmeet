@@ -6,6 +6,7 @@
 // 现在 props 可选，缺省 fallback 到不带数字的版本。
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 type Props = {
   corpusSize?: number | null;
@@ -13,16 +14,17 @@ type Props = {
 };
 
 export function Footer({ corpusSize, lastUpdated }: Props) {
+  const t = useTranslations('page');
   return (
     <footer className="border-t border-(--color-rule) mt-28">
       <div className="max-w-[760px] mx-auto px-6 md:px-0 py-9 mono text-[11px] leading-[1.7] text-(--color-muted) flex flex-col md:flex-row md:items-baseline md:justify-between gap-2">
         <FooterStats corpusSize={corpusSize} lastUpdated={lastUpdated} />
         <div className="flex items-baseline gap-3">
-          <span className="text-(--color-faint)">standmeet</span>
+          <span className="text-(--color-faint)">{t('brand')}</span>
           {/* 没有 admin 链接：访客 / recruiter 不该看到 admin 入口；owner
               自己输 /admin（书签）。e2e fixture 用 adminPage 模拟同一行为。 */}
           <Link className="hover:text-(--color-ink) transition-colors" href="/gate">
-            request access ↗
+            {t('footer.requestAccess')}
           </Link>
         </div>
       </div>
@@ -31,11 +33,12 @@ export function Footer({ corpusSize, lastUpdated }: Props) {
 }
 
 function FooterStats({ corpusSize, lastUpdated }: Props) {
+  const t = useTranslations('page');
   return (
     <div>
       <CorpusCount n={corpusSize} />
       <UpdatedAt at={lastUpdated} />
-      <span>grounded retrieval, no open-web fallback</span>
+      <span>{t('footer.grounded')}</span>
     </div>
   );
 }

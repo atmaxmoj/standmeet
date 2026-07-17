@@ -8,6 +8,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import { ChatMarkdown } from '@/components/page/markdown';
 import { CorpusContent } from '@/components/page/CorpusContent';
@@ -18,12 +19,13 @@ import { useSessionScopedDoc } from '@/lib/visitor/use-session-doc';
 
 export function RestrictedDoc({ genre, slug }: { genre: 'wiki' | 'output'; slug: string }) {
   const { loading, doc } = useSessionScopedDoc(slug);
+  const t = useTranslations('visitor.restrictedDoc');
   return (
     <>
       <SessionStrip />
       <main className="pb-24">
         {loading
-          ? <Centered>opening…</Centered>
+          ? <Centered>{t('opening')}</Centered>
           : <Resolved genre={genre} slug={slug} doc={doc} />}
       </main>
       <FloatingChatDock />
@@ -61,6 +63,7 @@ function DocContent({ genre, slug, title, body }: {
 }
 
 function Locked({ genre, slug }: { genre: string; slug: string }) {
+  const t = useTranslations('visitor.restrictedDoc');
   return (
     <div className="mx-auto max-w-2xl px-6 py-24 text-center">
       <Home />
@@ -68,17 +71,16 @@ function Locked({ genre, slug }: { genre: string; slug: string }) {
         {genre} · {slug}
       </div>
       <h2 className="font-serif text-[28px] text-(--color-ink) font-normal mb-4">
-        This {genre === 'output' ? 'output' : 'entry'} requires an access code
+        {t('lockedTitle', { kind: genre === 'output' ? t('kindOutput') : t('kindEntry') })}
       </h2>
       <p className="reading text-(--color-muted) text-[16px] max-w-[36em] mx-auto mb-8">
-        The owner has restricted this entry. Enter an access code on the gate to
-        view the full content.
+        {t('lockedBody')}
       </p>
       <Link
         href="/gate"
         className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 inline-block hover:bg-(--color-accent) transition-colors"
       >
-        enter access code →
+        {t('enterCode')}
       </Link>
     </div>
   );
@@ -93,10 +95,11 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 function Home() {
+  const t = useTranslations('visitor.restrictedDoc');
   return (
     <header className="mb-8">
       <Link href="/" className="mono text-[10.5px] tracking-[0.12em] text-(--color-muted) hover:text-(--color-accent)">
-        ← home
+        {t('home')}
       </Link>
     </header>
   );

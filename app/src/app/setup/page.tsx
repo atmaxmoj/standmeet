@@ -8,6 +8,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
@@ -31,16 +32,19 @@ function SetupBodyWithParams() {
 }
 
 function SetupLoading() {
-  return <p className="mono text-(--color-muted)">loading…</p>;
+  const t = useTranslations('auth.setupPage');
+  return <p className="mono text-(--color-muted)">{t('loading')}</p>;
 }
 
 function MissingToken() {
+  const t = useTranslations('auth.setupPage');
   return (
     <section className="max-w-md">
-      <h1 className="reading text-2xl mb-4">Missing setup token</h1>
+      <h1 className="reading text-2xl mb-4">{t('missingHeading')}</h1>
       <p className="reading text-(--color-muted)">
-        The setup URL is printed in the backend log when the instance starts.
-        Look for a line containing <code className="mono">setup?t=…</code>.
+        {t.rich('missingHelp', {
+          code: (chunks) => <code className="mono">{chunks}</code>,
+        })}
       </p>
     </section>
   );

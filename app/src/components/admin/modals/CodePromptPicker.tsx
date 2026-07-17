@@ -2,6 +2,8 @@
 // 引集中管理的 prompts 库；'' = 不挂（persona 只有 role 那份）。拆出来守
 // CreateCodeFields.tsx 的 max-lines，跟 CodeRolePicker 同款结构。
 
+import { useTranslations } from 'next-intl';
+
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
@@ -19,6 +21,7 @@ export function CodePromptPicker({ form }: Props) {
 function CodePromptSelect({
   form, prompts,
 }: { form: CodeFormHook; prompts: readonly PromptView[] }) {
+  const t = useTranslations('adminShell.codeModal');
   return (
     <select
       className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px] w-full"
@@ -26,7 +29,7 @@ function CodePromptSelect({
       onChange={(e) => form.setPromptID(e.target.value)}
       data-testid="code-field-prompt"
     >
-      <option value="">— none —</option>
+      <option value="">{t('promptNone')}</option>
       {prompts.map((p) => (
         <option key={p.id} value={p.id}>{p.name}</option>
       ))}

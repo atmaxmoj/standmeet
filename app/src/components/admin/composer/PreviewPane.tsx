@@ -10,6 +10,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { ResumePage } from '@/components/admin/resume-page/ResumePage';
 import {
   draftToJobContext,
@@ -84,9 +86,10 @@ function PreviewToolbar({
   pageCount: number;
   fileName: string;
 }) {
+  const t = useTranslations('adminShell.previewPane');
   return (
     <div className={styles.toolbar}>
-      <span className={styles.fileName}>preview · {fileName}</span>
+      <span className={styles.fileName}>{t('fileName', { name: fileName })}</span>
       <div className={styles.right}>
         <span className={styles.pageCount}>{pageCount} {pageCount === 1 ? 'page' : 'pages'}</span>
         <span className={styles.dot}>·</span>

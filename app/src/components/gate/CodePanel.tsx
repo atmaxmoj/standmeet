@@ -13,8 +13,9 @@
 
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 import type { GateHook } from '@/lib/gate/use-gate';
 import {
@@ -125,6 +126,7 @@ function inputCls(error: boolean): string {
 }
 
 function CodeEnterBtn({ busy, enabled }: { busy: boolean; enabled: boolean }) {
+  const t = useTranslations('gate.common');
   return (
     <button
       type="submit"
@@ -132,24 +134,26 @@ function CodeEnterBtn({ busy, enabled }: { busy: boolean; enabled: boolean }) {
       data-testid="gate-code-submit"
       className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-3.5 py-2.5 hover:bg-(--color-accent) disabled:opacity-40 transition-colors shrink-0"
     >
-      {busy ? 'checking…' : <CodeEnterLabel />}
+      {busy ? t('checking') : <CodeEnterLabel />}
     </button>
   );
 }
 
 function CodeEnterLabel() {
+  const t = useTranslations('gate.codePanel');
   return (
     <>
-      enter <span className="text-[12px]">↵</span>
+      {t('enter')} <span className="text-[12px]">↵</span>
     </>
   );
 }
 
 function NameRow({ name, setName }: { name: string; setName: (v: string) => void }) {
+  const t = useTranslations('gate.common');
   return (
     <div className="flex items-baseline gap-3 py-2 border-b border-(--color-rule)">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) shrink-0">
-        your name
+        {t('yourName')}
       </span>
       <input
         type="text"
@@ -165,26 +169,29 @@ function NameRow({ name, setName }: { name: string; setName: (v: string) => void
   );
 }
 
+// sample —— hint 里示例码 "OAEN-3K2" 的 rich tag。
+const sample = (chunks: ReactNode) => <span className="text-(--color-muted)">{chunks}</span>;
+
 function Hint({ busy, error }: { busy: boolean; error: boolean }) {
+  const t = useTranslations('gate.codePanel');
   return (
     <div className="mono text-[10.5px] tracking-[0.12em] mt-4 leading-[1.7] max-w-[44em]">
       <HintStatus busy={busy} error={error} />
       <p className="text-(--color-faint)">
-        codes look like <span className="text-(--color-muted)">OAEN-3K2</span> · the owner bakes
-        them into a QR code or link · case doesn&rsquo;t matter · paste the whole thing (with
-        or without the dash) and press enter.
+        {t.rich('hint', { sample })}
       </p>
       <p className="text-(--color-faint) mt-1">
-        your name lets the owner separate visitors who share the same code.
+        {t('nameHint')}
       </p>
     </div>
   );
 }
 
 function HintStatus({ busy, error }: { busy: boolean; error: boolean }) {
+  const t = useTranslations('gate');
   return error ? (
-    <p className="text-(--color-accent) mb-1 tracking-[0.16em] uppercase" data-testid="gate-error">unknown code</p>
+    <p className="text-(--color-accent) mb-1 tracking-[0.16em] uppercase" data-testid="gate-error">{t('codePanel.unknownCode')}</p>
   ) : busy ? (
-    <p className="text-(--color-muted) mb-1 tracking-[0.16em] uppercase">checking…</p>
+    <p className="text-(--color-muted) mb-1 tracking-[0.16em] uppercase">{t('common.checking')}</p>
   ) : null;
 }

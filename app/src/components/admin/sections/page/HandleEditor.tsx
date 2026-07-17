@@ -7,6 +7,8 @@
 
 import { useState } from 'react';
 
+import { useTranslations } from 'next-intl';
+
 import {
   useHandle, sanitizeHandle, handleHint, canSaveHandle, commitHandle,
   type HandleHook,
@@ -23,10 +25,11 @@ export function HandleEditor({ current, onChanged }: Props) {
 }
 
 function DisplayRow({ current, onEdit }: { current: string; onEdit: () => void }) {
+  const t = useTranslations('adminPages.handle');
   return (
     <div className="flex items-baseline gap-3 flex-wrap" data-testid="handle-display">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        handle
+        {t('label')}
       </span>
       <span className="font-serif text-(--color-ink) text-[18px] font-medium tracking-[-0.005em]">
         @<span className="text-(--color-accent)">{current}</span>
@@ -37,6 +40,7 @@ function DisplayRow({ current, onEdit }: { current: string; onEdit: () => void }
 }
 
 function ChangeBtn({ onClick }: { onClick: () => void }) {
+  const t = useTranslations('adminPages.handle');
   return (
     <button
       type="button"
@@ -44,7 +48,7 @@ function ChangeBtn({ onClick }: { onClick: () => void }) {
       data-testid="handle-change-btn"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) hover:text-(--color-accent)"
     >
-      change ↗
+      {t('change')} ↗
     </button>
   );
 }
@@ -81,6 +85,7 @@ function EditingRow({
 }
 
 function CancelBtn({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  const t = useTranslations('adminPages.handle');
   return (
     <button
       type="button"
@@ -88,7 +93,7 @@ function CancelBtn({ onClick, disabled }: { onClick: () => void; disabled: boole
       disabled={disabled}
       className="mono text-[10px] tracking-[0.12em] text-(--color-faint) hover:text-(--color-accent) disabled:opacity-50"
     >
-      cancel
+      {t('cancel')}
     </button>
   );
 }

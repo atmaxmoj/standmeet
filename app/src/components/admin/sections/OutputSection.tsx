@@ -6,6 +6,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
@@ -62,20 +63,26 @@ function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHoo
   );
 }
 
+// Intro —— `slugPath` 走 ICU 参数而不是 rich tag：文案里那段是字面的 `<slug>`，
+// 直接写进 message 会被 rich-tag 解析器当成标签吃掉（catalog 里那一条用 ICU
+// 单引号转义 `'<'` 才能吐出字面的尖括号）。
 function Intro() {
+  const t = useTranslations('adminCorpus.output');
   return (
     <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]">
-      Outputs are public-facing artifacts assembled from your wiki entries — downloadable PDFs,
-      standalone web essays, investor decks. Each gets its own SEO landing at{' '}
-      <span className="mono text-(--color-ink)">/output/&lt;slug&gt;</span>. Three visibilities:{' '}
-      <span className="mono text-(--color-ink)">public</span> (open to anyone, in sitemap),{' '}
-      <span className="mono text-(--color-amber)">unlisted</span> (only visible with a code),{' '}
-      <span className="mono text-(--color-violet)">private</span> (specific code scopes only, never indexed).
+      {t.rich('intro', {
+        slugPath: t('slugPath'),
+        code: (c) => <span className="mono text-(--color-ink)">{c}</span>,
+        ink: (c) => <span className="mono text-(--color-ink)">{c}</span>,
+        amber: (c) => <span className="mono text-(--color-amber)">{c}</span>,
+        violet: (c) => <span className="mono text-(--color-violet)">{c}</span>,
+      })}
     </p>
   );
 }
 
 function NewBtnGroup({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  const t = useTranslations('adminCorpus.output');
   return (
     <div className="flex items-baseline gap-2">
       <button
@@ -83,14 +90,14 @@ function NewBtnGroup({ onClick, disabled }: { onClick: () => void; disabled: boo
         data-testid="output-new-btn"
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        + pdf lead-magnet
+        {t('newPdf')}
       </button>
       <button
         type="button" onClick={onClick} disabled={disabled}
         data-testid="output-new-essay-btn"
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) border border-(--color-rule) px-2.5 py-1 hover:text-(--color-ink) hover:border-(--color-ink) transition-colors disabled:opacity-40"
       >
-        + web essay
+        {t('newEssay')}
       </button>
     </div>
   );
@@ -155,10 +162,10 @@ function ErrorBlock({ message }: { message: string }) {
 }
 
 function EmptyState() {
+  const t = useTranslations('adminCorpus.output');
   return (
     <p className="reading-tight italic text-(--color-muted) mt-8">
-      No output entries yet. Use + new output, promote from /admin/wiki, or call MCP{' '}
-      <span className="mono">promote_wiki_to_output</span>.
+      {t.rich('empty', { tool: (c) => <span className="mono">{c}</span> })}
     </p>
   );
 }
@@ -183,10 +190,11 @@ function OutputCard({
 }
 
 function CoverStrip({ entry, visibility }: { entry: OutputSummary; visibility: Visibility }) {
+  const t = useTranslations('adminCorpus.output');
   return (
     <div className={`relative h-[100px] border-b border-(--color-rule) overflow-hidden ${styles.coverGradient}`}>
       <span className="mono absolute top-2.5 left-3 text-[9.5px] tracking-[0.18em] uppercase text-(--color-muted)">
-        output · {visibility}
+        {t('coverKicker', { visibility })}
       </span>
       <span className="font-serif absolute bottom-3 left-3 text-[22px] text-(--color-ink) leading-tight pr-20 line-clamp-1">
         {entry.title}
@@ -221,11 +229,12 @@ function CardBody({
 }
 
 function StatsRow() {
+  const t = useTranslations('adminCorpus.output');
   return (
     <div className="mono text-[10px] tracking-[0.06em] text-(--color-faint) mt-2 flex items-baseline gap-2">
-      <span>0 views</span>
+      <span>{t('views')}</span>
       <span>·</span>
-      <span>0 downloads</span>
+      <span>{t('downloads')}</span>
     </div>
   );
 }
@@ -242,9 +251,10 @@ function CardFoot({
 }
 
 function FootSlug({ entry }: { entry: OutputSummary }) {
+  const t = useTranslations('adminCorpus.output');
   return (
     <span className="mono text-[9.5px] tracking-[0.04em] text-(--color-faint)">
-      /output/{entry.path ?? entry.id}
+      {t('pathPrefix')}{entry.path ?? entry.id}
     </span>
   );
 }
@@ -252,13 +262,14 @@ function FootSlug({ entry }: { entry: OutputSummary }) {
 function FootActions({
   entry, actions, onEdit,
 }: { entry: OutputSummary; actions: CorpusActionsHook; onEdit: () => void }) {
+  const t = useTranslations('adminCorpus.output');
   return (
     <div className="flex items-baseline gap-2 mono text-[10px] tracking-[0.12em] uppercase">
       <button
         type="button" onClick={onEdit} data-testid={`output-edit-${entry.id}`}
         className="text-(--color-muted) hover:text-(--color-accent)"
       >
-        edit
+        {t('edit')}
       </button>
       <ViewLiveLink path={entry.path} indexed={entry.published} />
       <DeleteBtn entry={entry} actions={actions} />
@@ -278,18 +289,20 @@ function Tags({ tags }: { tags: readonly string[] }) {
 }
 
 function ViewLiveLink({ path, indexed }: { path?: string | null; indexed: boolean }) {
+  const t = useTranslations('adminCorpus.output');
   return indexed && path ? (
     <a
       href={`/output/${path}`} target="_blank" rel="noreferrer"
       data-testid="output-view-live"
       className="text-(--color-accent) hover:underline"
     >
-      preview ↗
+      {t('previewLive')}
     </a>
   ) : null;
 }
 
 function DeleteBtn({ entry, actions }: { entry: OutputSummary; actions: CorpusActionsHook }) {
+  const t = useTranslations('adminCorpus.common');
   const toast = useToast();
   const onClick = () => confirm(`Delete output "${entry.title}"? This cannot be undone.`)
     ? void runWith(
@@ -302,7 +315,7 @@ function DeleteBtn({ entry, actions }: { entry: OutputSummary; actions: CorpusAc
       type="button" onClick={onClick} data-testid={`output-delete-${entry.id}`}
       className="text-(--color-faint) hover:text-(--color-accent)"
     >
-      delete ×
+      {t('deleteX')}
     </button>
   );
 }
@@ -310,6 +323,7 @@ function DeleteBtn({ entry, actions }: { entry: OutputSummary; actions: CorpusAc
 function EditForm({
   entry, actions, onDone,
 }: { entry: OutputSummary; actions: CorpusActionsHook; onDone: () => void }) {
+  const t = useTranslations('adminCorpus.common');
   const toast = useToast();
   const detail = useOutputDetail(entry.id, actions);
   const onSubmit = (input: CorpusEntryInput) => void runWith(
@@ -321,7 +335,7 @@ function EditForm({
       {detail ? (
         <EditFormBody entry={entry} detail={detail} actions={actions} onSubmit={onSubmit} onDone={onDone} />
       ) : (
-        <p className="mono text-[10.5px] text-(--color-muted)">loading…</p>
+        <p className="mono text-[10.5px] text-(--color-muted)">{t('loading')}</p>
       )}
     </div>
   );

@@ -6,6 +6,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import type { MarketSkillView } from '@/lib/admin/agent-skills-types';
 
 import styles from '@/components/admin/sections/agent-skills/MarketplaceCard.module.css';
@@ -40,6 +42,7 @@ export function MarketplaceCard({
 }
 
 function CardHead({ skill }: { skill: MarketSkillView }) {
+  const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <header className={styles.head}>
       <div className={styles.titleRow}>
@@ -50,7 +53,7 @@ function CardHead({ skill }: { skill: MarketSkillView }) {
           {skill.marketplace}
         </span>
       </div>
-      <span className={styles.stars}>★ {skill.stars}</span>
+      <span className={styles.stars}>{t('stars', { stars: String(skill.stars) })}</span>
     </header>
   );
 }
@@ -58,9 +61,10 @@ function CardHead({ skill }: { skill: MarketSkillView }) {
 function CardFoot({
   skill, installed, installing, onInstall,
 }: { skill: MarketSkillView; installed: boolean; installing: boolean; onInstall: () => void }) {
+  const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <footer className={styles.foot}>
-      <span className={styles.author}>{skill.author} · v{skill.version}</span>
+      <span className={styles.author}>{t('author', { author: skill.author, version: skill.version })}</span>
       {installed
         ? <InstalledPill />
         : <InstallBtn installing={installing} onInstall={onInstall} />}
@@ -69,7 +73,8 @@ function CardFoot({
 }
 
 function InstalledPill() {
-  return <span className={styles.installedPill}>✓ installed</span>;
+  const t = useTranslations('adminIntegrations.marketplaceCard');
+  return <span className={styles.installedPill}>{t('installed')}</span>;
 }
 
 function InstallBtn({
@@ -89,9 +94,10 @@ function InstallBtn({
 }
 
 function MissingHint({ missing }: { missing: readonly string[] }) {
+  const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <div className={styles.missing}>
-      needs {missing.join(' + ')}
+      {t('needs', { missing: missing.join(' + ') })}
     </div>
   );
 }

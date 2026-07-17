@@ -13,7 +13,7 @@ type Props = {
 export function DeckHeader({ kicker, count, action }: Props) {
   return (
     <div className="flex items-baseline gap-3 mb-8 pb-3 border-b border-(--color-rule)">
-      <span className="mono text-(--color-faint) shrink-0">──</span>
+      <span className="mono text-(--color-faint) shrink-0">{'──'}</span>
       <span className="mono text-[10.5px] tracking-[0.22em] uppercase text-(--color-ink)">{kicker}</span>
       {count !== undefined && (
         <span className="mono text-[10px] tracking-[0.14em] text-(--color-faint) tabular-nums ml-1">

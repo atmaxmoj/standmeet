@@ -4,6 +4,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
@@ -26,16 +27,7 @@ export function PromptsSection() {
         kicker="access · personas"
         title="prompts"
         count={titleCount(hook)}
-        action={
-          <button
-            type="button"
-            data-testid="prompt-new"
-            onClick={() => setCreating(true)}
-            className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors"
-          >
-            + new prompt
-          </button>
-        }
+        action={<NewPromptBtn onClick={() => setCreating(true)} />}
       />
       <Intro />
       <PromptsBody hook={hook} />
@@ -46,15 +38,29 @@ export function PromptsSection() {
   );
 }
 
+function NewPromptBtn({ onClick }: { onClick: () => void }) {
+  const t = useTranslations('adminAccess');
+  return (
+    <button
+      type="button"
+      data-testid="prompt-new"
+      onClick={onClick}
+      className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors"
+    >
+      {t('prompts.new')}
+    </button>
+  );
+}
+
 function titleCount(hook: PromptsHook): string {
   return hook.status === 'ready' ? `${hook.prompts.length}` : '';
 }
 
 function Intro() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Library of personas. Owner-scoped, no categories. Each one is a piece of writing —
-      the agent becomes whoever you tell it to be here. Used by roles.
+      {t('prompts.intro')}
     </p>
   );
 }
@@ -82,9 +88,10 @@ function PromptList({ hook }: { hook: PromptsHook }) {
 }
 
 function EmptyPrompts() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading italic text-(--color-muted)" data-testid="prompt-list">
-      No prompts yet — public is normally seeded on owner claim.
+      {t('prompts.empty')}
     </p>
   );
 }
@@ -106,6 +113,7 @@ function PromptCard({
 function PromptCardHead({
   prompt, onDelete,
 }: { prompt: PromptView; onDelete: (id: string) => Promise<void> }) {
+  const t = useTranslations('adminAccess');
   return (
     <div className="flex justify-between items-baseline gap-2.5">
       <div className="flex items-baseline gap-2 flex-wrap">
@@ -115,7 +123,7 @@ function PromptCardHead({
             className="mono text-[9px] tracking-[0.18em] uppercase text-(--color-violet)"
             data-testid="prompt-system-pill"
           >
-            [system]
+            {t('common.systemPill')}
           </span>
         )}
       </div>
@@ -127,6 +135,7 @@ function PromptCardHead({
 function PromptDeleteBtn({
   prompt, onDelete,
 }: { prompt: PromptView; onDelete: (id: string) => Promise<void> }) {
+  const t = useTranslations('adminAccess');
   const run = useAction();
   // 一键破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：删没生效 owner 必须知道）。
   const handleDelete = useCallback(
@@ -140,7 +149,7 @@ function PromptDeleteBtn({
       onClick={() => void handleDelete()}
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
     >
-      delete
+      {t('common.delete')}
     </button>
   );
 }
@@ -160,6 +169,7 @@ function PromptCreateModal({
   onClose: () => void;
   onCreate: (input: WritePromptInput) => Promise<PromptView>;
 }) {
+  const t = useTranslations('adminAccess');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [body, setBody] = useState('');
@@ -169,7 +179,7 @@ function PromptCreateModal({
       data-testid="prompt-create-modal"
     >
       <div className="bg-(--color-paper) border border-(--color-rule) max-w-[640px] w-[92vw] p-7 flex flex-col gap-4">
-        <h2 className="font-serif text-[22px]">new prompt</h2>
+        <h2 className="font-serif text-[22px]">{t('prompts.modalTitle')}</h2>
         <PromptField label="name" value={name} onChange={setName} placeholder="e.g. recruiter-facing" />
         <PromptField
           label="description"
@@ -208,9 +218,10 @@ function PromptField({
 }
 
 function PromptBodyField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('adminAccess');
   return (
     <label className="flex flex-col gap-1">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">body</span>
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{t('prompts.bodyLabel')}</span>
       <textarea
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14.5px] font-serif min-h-[220px]"
         value={value}
@@ -231,6 +242,7 @@ function PromptModalFooter({
   onClose: () => void;
   onCreate: (input: WritePromptInput) => Promise<PromptView>;
 }) {
+  const t = useTranslations('adminAccess');
   const toast = useToast();
   const report = useReportError();
   // 成功 → toast + 关；失败 → report + **保持开着**（让 owner 看见错、改了重试，不静默关掉像成功了）。
@@ -246,7 +258,7 @@ function PromptModalFooter({
   const disabled = name === '' || body === '';
   return (
     <div className="flex justify-end gap-3 mt-2">
-      <Btn kind="ghost" onClick={onClose}>cancel</Btn>
+      <Btn kind="ghost" onClick={onClose}>{t('common.cancel')}</Btn>
       <button
         type="button"
         data-testid="prompt-create-submit"
@@ -254,7 +266,7 @@ function PromptModalFooter({
         onClick={() => void submit()}
         className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        create
+        {t('common.create')}
       </button>
     </div>
   );

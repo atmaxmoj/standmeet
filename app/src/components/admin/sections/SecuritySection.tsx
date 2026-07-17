@@ -5,6 +5,8 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import type { ReactNode } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
@@ -29,18 +31,19 @@ export function SecuritySection() {
   );
 }
 
+const monoTag = (chunks: ReactNode) => <span className="mono text-(--color-ink)">{chunks}</span>;
+
 function Intro() {
+  const t = useTranslations('adminShell.ipBans');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat,
-      sessions, access requests. Find offending IPs in{' '}
-      <span className="mono text-(--color-ink)">conversations</span> (each row shows the
-      visitor&apos;s IP). Bans can be lifted any time.
+      {t.rich('intro', { mono: monoTag })}
     </p>
   );
 }
 
 function BanForm({ onBan }: { onBan: IPBansHook['banIP'] }) {
+  const t = useTranslations('adminShell.ipBans');
   const [ip, setIP] = useState('');
   const [reason, setReason] = useState('');
   const run = useAction();
@@ -61,7 +64,7 @@ function BanForm({ onBan }: { onBan: IPBansHook['banIP'] }) {
         onClick={() => void submit()}
         className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        ban ip
+        {t('banIp')}
       </button>
     </div>
   );
@@ -106,9 +109,10 @@ function BansList({ hook }: { hook: IPBansHook }) {
 }
 
 function EmptyBans() {
+  const t = useTranslations('adminShell.ipBans');
   return (
     <p className="reading italic text-(--color-muted)" data-testid="ip-bans-list">
-      No IPs banned. The public surface is open (still rate-limited per IP).
+      {t('empty')}
     </p>
   );
 }
@@ -129,6 +133,7 @@ function BanRow({ ban, onUnban }: { ban: BanView; onUnban: IPBansHook['unbanIP']
 
 function UnbanBtn({ ban, onUnban }: { ban: BanView; onUnban: IPBansHook['unbanIP'] }) {
   // 一键 unban → run 收尾：成功 toast，失败 report（不再静默 —— unban 没生效 owner 必须知道）。
+  const t = useTranslations('adminShell.ipBans');
   const run = useAction();
   const handle = useCallback(
     () => run(() => onUnban(ban.id), { success: 'IP unbanned' }),
@@ -141,7 +146,7 @@ function UnbanBtn({ ban, onUnban }: { ban: BanView; onUnban: IPBansHook['unbanIP
       onClick={() => void handle()}
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent) shrink-0"
     >
-      unban
+      {t('unban')}
     </button>
   );
 }

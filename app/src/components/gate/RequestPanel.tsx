@@ -7,7 +7,8 @@
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 
 import type { AccessRequestInput, GateHook } from '@/lib/gate/use-gate';
 
@@ -58,17 +59,17 @@ export function RequestPanel({ handle, hook }: Props) {
 function RequestHeadline({
   handle, open, sent, onOpen,
 }: { handle: string; open: boolean; sent: boolean; onOpen: () => void }) {
+  const t = useTranslations('gate');
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
-        no code?
+        {t('common.noCode')}
       </div>
       <h2 className="font-serif text-(--color-ink) text-[28px] font-normal tracking-[-0.015em] leading-[1.1]">
-        Tell {handle} who you are<span className="text-(--color-accent)">.</span>
+        {t('request.headline', { handle })}<span className="text-(--color-accent)">.</span>
       </h2>
       <p className="reading text-(--color-muted) mt-3 text-[15.5px]">
-        A short note. If it&rsquo;s useful to talk — through the AI or in person — they may send
-        you a code. Read by hand, not a queue.
+        {t('request.lede')}
       </p>
       <OpenButton show={!open && !sent} onOpen={onOpen} />
     </div>
@@ -76,13 +77,14 @@ function RequestHeadline({
 }
 
 function OpenButton({ show, onOpen }: { show: boolean; onOpen: () => void }) {
+  const t = useTranslations('gate.request');
   return show ? (
     <button
       type="button"
       onClick={onOpen}
       className="mt-5 mono text-[11px] tracking-[0.16em] uppercase text-(--color-ink) border border-(--color-ink) px-3.5 py-2 hover:bg-(--color-ink) hover:text-(--color-paper) transition-colors"
     >
-      write a note ↘
+      {t('openButton')}
     </button>
   ) : null;
 }
@@ -121,8 +123,9 @@ function isValid(form: FormState): boolean {
 }
 
 function NameField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('gate.common');
   return (
-    <RequestField label="your name" required>
+    <RequestField label={t('yourName')} required>
       <TextInput
         value={value} onChange={onChange} testid="request-name" placeholder="first + last is fine"
       />
@@ -131,8 +134,9 @@ function NameField({ value, onChange }: { value: string; onChange: (v: string) =
 }
 
 function OrgField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('gate.request');
   return (
-    <RequestField label="where you work">
+    <RequestField label={t('orgLabel')}>
       <TextInput
         value={value} onChange={onChange} testid="request-org" placeholder="company / lab / project"
       />
@@ -141,8 +145,9 @@ function OrgField({ value, onChange }: { value: string; onChange: (v: string) =>
 }
 
 function EmailField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('gate.request');
   return (
-    <RequestField label="email" required>
+    <RequestField label={t('emailLabel')} required>
       <TextInput
         value={value} onChange={onChange} testid="request-email" placeholder="for the code" type="email"
       />
@@ -151,8 +156,9 @@ function EmailField({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 function WhyField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('gate.request');
   return (
-    <RequestField label="why you want to talk" required>
+    <RequestField label={t('whyLabel')} required>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -178,10 +184,11 @@ function CharCount({ value }: { value: string }) {
 }
 
 function FormFooter({ why: _why, busy, valid }: { why: string; busy: boolean; valid: boolean }) {
+  const t = useTranslations('gate.request');
   return (
     <div className="flex items-center justify-between pt-2">
       <span className="mono text-[10px] tracking-[0.12em] text-(--color-faint)">
-        goes straight to the owner · read by hand
+        {t('footerNote')}
       </span>
       <button
         type="submit"
@@ -189,25 +196,26 @@ function FormFooter({ why: _why, busy, valid }: { why: string; busy: boolean; va
         data-testid="request-submit"
         className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 hover:bg-(--color-accent) transition-colors disabled:opacity-30"
       >
-        {busy ? 'sending…' : 'send ↵'}
+        {busy ? t('sending') : t('send')}
       </button>
     </div>
   );
 }
 
+// accent —— sent 文案里 email 的 rich tag。
+const accent = (chunks: ReactNode) => <span className="text-(--color-accent)">{chunks}</span>;
+
 function SentConfirmation({ name, email }: { name: string; email: string }) {
-  const first = name.split(' ')[0] || 'visitor';
+  const t = useTranslations('gate.request');
+  const first = name.split(' ')[0] || t('anonVisitor');
   return (
     <div className="rise" data-testid="request-sent">
-      <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-accent) mb-3">sent</div>
+      <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-accent) mb-3">{t('sent')}</div>
       <p className="reading text-(--color-ink) text-[17px]">
-        Thanks, {first}. The owner reads these by hand &mdash; no bot, no queue.
-        {' '}If it&rsquo;s a fit, they&rsquo;ll reach out to{' '}
-        <span className="text-(--color-accent)">{email}</span> themselves with a code and which
-        slice of the corpus it opens.
+        {t.rich('sentBody', { name: first, email, accent })}
       </p>
       <p className="reading text-(--color-muted) mt-4 text-[15.5px]">
-        Not every note gets a reply. If you don&rsquo;t hear back in a week, that&rsquo;s the reply.
+        {t('sentTail')}
       </p>
     </div>
   );

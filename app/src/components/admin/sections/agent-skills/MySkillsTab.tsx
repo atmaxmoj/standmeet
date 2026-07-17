@@ -4,6 +4,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { InstalledCard } from '@/components/admin/sections/agent-skills/InstalledCard';
 import type { AgentSkillsHook } from '@/lib/admin/use-agent-skills';
 
@@ -26,9 +28,10 @@ function SkillGrid({ hook }: { hook: AgentSkillsHook }) {
 }
 
 function Empty() {
+  const t = useTranslations('adminIntegrations.mySkills');
   return (
     <p className={styles.group} data-testid="installed-skills-empty">
-      No skills yet — install one from the marketplace tab, or add your own under Skills.
+      {t('empty')}
     </p>
   );
 }

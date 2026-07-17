@@ -8,6 +8,7 @@
 'use client';
 
 import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import type { SlashItem } from '@/components/writings/editor/slash-items';
 
@@ -82,8 +83,9 @@ function Rows({
 }
 
 function Empty() {
+  const t = useTranslations('writings.editor');
   return (
-    <div className="px-3 py-2 mono text-[11px] text-(--color-muted)">no match</div>
+    <div className="px-3 py-2 mono text-[11px] text-(--color-muted)">{t('slashNoMatch')}</div>
   );
 }
 

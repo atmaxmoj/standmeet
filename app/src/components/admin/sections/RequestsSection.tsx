@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
@@ -42,23 +43,26 @@ export function RequestsSection() {
 }
 
 function MailHint({ mailConnected }: { mailConnected: boolean }) {
-  return mailConnected ? null : (
+  return mailConnected ? null : <MailHintText />;
+}
+
+function MailHintText() {
+  const t = useTranslations('adminAccess');
+  return (
     <p
       className="mono text-[11.5px] text-(--color-accent) mb-5"
       data-testid="requests-mail-hint"
     >
-      No verified mail connector — configure and test SMTP under Connectors to issue + email
-      access codes. Until then you can only mark requests replied/closed by hand.
+      {t('requests.mailHint')}
     </p>
   );
 }
 
 function Intro() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading text-(--color-muted) mb-5 text-[14.5px] max-w-[54em]">
-      Submissions from the gate&apos;s &ldquo;no code&rdquo; path. Mark replied
-      once you&apos;ve issued a code or written back; close to archive. Owner
-      reads every one personally — that&apos;s the point.
+      {t('requests.intro')}
     </p>
   );
 }
@@ -108,9 +112,10 @@ function ErrorBlock({ message }: { message: string }) {
 }
 
 function EmptyState({ filter }: { filter: RequestStatusFilter }) {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading-tight italic text-(--color-muted) mt-8">
-      No {filter === 'all' ? '' : `${filter} `}requests.
+      {t('requests.empty', { filter: filter === 'all' ? '' : `${filter} ` })}
     </p>
   );
 }
@@ -151,13 +156,18 @@ function ApproveOutcomeView({ outcome }: { outcome: ApproveOutcome | null }) {
     : <ApproveOutcomeLine outcome={outcome} />;
 }
 
+function IssuedLine({ code }: { code: string | undefined }) {
+  const t = useTranslations('adminAccess');
+  return (
+    <p className="mono text-[11.5px] text-(--color-accent) mt-3" data-testid="approve-issued-code">
+      {t('requests.issued', { code: code ?? '' })}
+    </p>
+  );
+}
+
 function ApproveOutcomeLine({ outcome }: { outcome: ApproveOutcome }) {
   return outcome.ok
-    ? (
-      <p className="mono text-[11.5px] text-(--color-accent) mt-3" data-testid="approve-issued-code">
-        issued {outcome.code} — emailed to the requester
-      </p>
-    )
+    ? <IssuedLine code={outcome.code} />
     : (
       <p className="mono text-[11.5px] text-(--color-accent) mt-3" data-testid="approve-error">
         {outcome.error}
@@ -202,6 +212,7 @@ function RequestActions(props: ActionsProps) {
 }
 
 function ActiveActions({ req, hook, mailConnected, onApproved }: ActionsProps) {
+  const t = useTranslations('adminAccess');
   const run = useAction();
   // decline 是状态变更 → 成功/失败都用 toast 收尾（失败不再静默：没标上 owner 必须知道）。
   const onDecline = () => run(() => hook.mark(req.id, 'closed'), { success: 'Request declined' });
@@ -209,7 +220,7 @@ function ActiveActions({ req, hook, mailConnected, onApproved }: ActionsProps) {
     <div className="flex items-baseline gap-2 mt-4 flex-wrap" data-testid={`request-approve-${req.id}`}>
       <ApproveControl id={req.id} hook={hook} mailConnected={mailConnected} onApproved={onApproved} />
       <Btn kind="outline" size="sm" onClick={() => { void onDecline(); }}>
-        decline
+        {t('requests.decline')}
       </Btn>
     </div>
   );
@@ -218,18 +229,19 @@ function ActiveActions({ req, hook, mailConnected, onApproved }: ActionsProps) {
 function ApproveControl({
   id, hook, mailConnected, onApproved,
 }: { id: string; hook: RequestsHook; mailConnected: boolean; onApproved: (o: ApproveOutcome) => void }) {
+  const t = useTranslations('adminAccess');
   return mailConnected
     ? (
       <Btn
         kind="primary" size="sm"
         onClick={() => { void runApprove(hook, id, onApproved); }}
       >
-        approve · issue + email code →
+        {t('requests.approve')}
       </Btn>
     )
     : (
       <span className="mono text-[10.5px] tracking-[0.10em] uppercase text-(--color-faint)">
-        connect mail to issue codes
+        {t('requests.connectMail')}
       </span>
     );
 }

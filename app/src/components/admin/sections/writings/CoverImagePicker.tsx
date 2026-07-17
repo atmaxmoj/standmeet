@@ -7,7 +7,10 @@
 // edit 模式：caller 把已存 asset 的 id + presigned URL 传进来 (value 字段)，
 // 不动 onPending。
 
+'use client';
+
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 
 import type { useToast } from '@/lib/ui/toast';
 import { newPendingID, type PendingFile } from '@/lib/writings/upload-asset';
@@ -22,10 +25,11 @@ interface Props {
 }
 
 export function CoverImagePicker({ value, onChange, onPending, toast }: Props) {
+  const t = useTranslations('adminCorpus.writings');
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        cover image (optional)
+        {t('coverImage')}
       </span>
       <Row value={value} onChange={onChange} onPending={onPending} toast={toast} />
     </label>
@@ -64,9 +68,10 @@ function PreviewImg({ url }: { url: string }) {
 }
 
 function PreviewEmpty() {
+  const t = useTranslations('adminCorpus.writings');
   return (
     <div className="w-20 h-12 border border-(--color-rule) flex items-center justify-center mono text-[9px] text-(--color-faint) uppercase">
-      no img
+      {t('noImg')}
     </div>
   );
 }
@@ -121,13 +126,14 @@ function ClearMaybe({
 }
 
 function ClearBtn({ onChange }: { onChange: (v: CoverAssetState) => void }) {
+  const t = useTranslations('adminCorpus.writings');
   return (
     <button
       type="button"
       onClick={() => onChange({ id: '', url: '' })}
       className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
     >
-      clear
+      {t('clear')}
     </button>
   );
 }

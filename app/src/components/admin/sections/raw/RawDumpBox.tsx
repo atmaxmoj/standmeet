@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
@@ -52,15 +53,16 @@ function SourcePicker({ active, onPick }: { active: SourceOption; onPick: (s: So
 }
 
 function RawDumpHead() {
+  const t = useTranslations('adminCorpus.raw');
   return (
     <div className="flex items-center justify-between mb-2">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) flex items-baseline gap-2">
-        <span>quick dump</span>
+        <span>{t('quickDump')}</span>
         <span className="text-(--color-faint)">·</span>
-        <span className="text-(--color-faint)">paste a thought · then promote</span>
+        <span className="text-(--color-faint)">{t('dumpHint')}</span>
       </div>
       <span className="mono text-[9.5px] tracking-[0.16em] uppercase text-(--color-faint)">
-        admin · or mcp
+        {t('dumpOrigin')}
       </span>
     </div>
   );
@@ -87,15 +89,16 @@ type FooterProps = {
 };
 
 function RawDumpFooter({ disabled, submitting, error, onAdd }: FooterProps) {
+  const t = useTranslations('adminCorpus.raw');
   return (
     <div className="flex items-center justify-between mt-3 gap-3">
       <FooterHint error={error} />
       <div className="flex items-baseline gap-3">
         <span className="mono text-[10px] tracking-[0.12em] text-(--color-muted) cursor-pointer hover:text-(--color-accent)">
-          attach media
+          {t('attachMedia')}
         </span>
         <Btn kind="primary" onClick={onAdd} disabled={disabled}>
-          {submitting ? 'dumping…' : 'dump ↵'}
+          {submitting ? t('dumping') : t('dump')}
         </Btn>
       </div>
     </div>
@@ -103,9 +106,10 @@ function RawDumpFooter({ disabled, submitting, error, onAdd }: FooterProps) {
 }
 
 function FooterHint({ error }: { error: string | null }) {
+  const t = useTranslations('adminCorpus.raw');
   return error
     ? <span className="mono text-[10px] text-(--color-accent) tracking-[0.06em]">{error}</span>
     : <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
-        raw stays unindexed until promoted
+        {t('unindexedHint')}
       </span>;
 }

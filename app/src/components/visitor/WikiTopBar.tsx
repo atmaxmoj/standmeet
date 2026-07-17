@@ -8,6 +8,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import { useTheme } from '@/lib/page/use-theme';
 import { useVisitorSessionStore, type VisitorSession } from '@/lib/visitor/session-store';
@@ -18,6 +19,7 @@ const NAV_CLS =
 
 export function WikiTopBar({ handle, reading }: { handle: string; reading?: string }) {
   const { dark, toggle } = useTheme();
+  const t = useTranslations('visitor.wikiTopBar');
   return (
     <header
       className="flex items-center justify-between pt-[18px] pb-[14px] px-6 lg:px-8 border-b border-(--color-rule)"
@@ -25,8 +27,8 @@ export function WikiTopBar({ handle, reading }: { handle: string; reading?: stri
     >
       <Brand handle={handle} reading={reading} />
       <nav className="flex items-baseline gap-6">
-        <Link href="/writings" className={NAV_CLS}>writing</Link>
-        <Link href="/" className={NAV_CLS}>chat</Link>
+        <Link href="/writings" className={NAV_CLS}>{t('writing')}</Link>
+        <Link href="/" className={NAV_CLS}>{t('chat')}</Link>
         <button
           type="button"
           onClick={toggle}
@@ -42,13 +44,14 @@ export function WikiTopBar({ handle, reading }: { handle: string; reading?: stri
 }
 
 function Brand({ handle, reading }: { handle: string; reading?: string }) {
+  const t = useTranslations('visitor.wikiTopBar');
   return (
     <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3">
-      <Link href="/" className="text-(--color-ink) no-underline">standmeet</Link>
+      <Link href="/" className="text-(--color-ink) no-underline">{t('brand')}</Link>
       <span className="text-(--color-faint)">/</span>
       <Link href="/" className="text-(--color-muted) no-underline">{handle}</Link>
       <span className="text-(--color-faint)">·</span>
-      <Link href="/wiki" className="text-(--color-accent) no-underline">wiki</Link>
+      <Link href="/wiki" className="text-(--color-accent) no-underline">{t('wiki')}</Link>
       <ReadingTag reading={reading} />
       <UnlockedTag />
     </div>

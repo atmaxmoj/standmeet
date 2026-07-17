@@ -10,6 +10,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
@@ -33,17 +34,17 @@ export function SeoSection() {
 }
 
 function Intro() {
+  const t = useTranslations('adminCorpus.seo');
   return (
     <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]">
-      Defaults applied across the public site. Per-output / per-post SEO lives with the individual
-      entry. Site title is edited here; the social description and canonical host mirror your page
-      tagline and domain — edit those where they live.
+      {t('intro')}
     </p>
   );
 }
 
 function LoadingNote() {
-  return <p className="mono text-[12px] text-(--color-faint)">loading…</p>;
+  const t = useTranslations('adminCorpus.common');
+  return <p className="mono text-[12px] text-(--color-faint)">{t('loading')}</p>;
 }
 
 function SeoBody({ settings, stats, save }: {
@@ -63,9 +64,10 @@ function SeoBody({ settings, stats, save }: {
 function DefaultsCard({ form, setForm, onSave }: {
   form: SEOSettings; setForm: (s: SEOSettings) => void; onSave: () => void;
 }) {
+  const t = useTranslations('adminCorpus');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 flex flex-col gap-4">
-      <div className="sm-smallcaps">defaults</div>
+      <div className="sm-smallcaps">{t('seo.defaults')}</div>
       <LabeledInput label="site title" testid="seo-site-title" value={form.site_title}
         onChange={(v) => setForm({ ...form, site_title: v })} placeholder="Your public site title" />
       <LabeledInput label="og template" testid="seo-og-template" value={form.og_template}
@@ -76,7 +78,7 @@ function DefaultsCard({ form, setForm, onSave }: {
       <CanonicalMirror />
       <div>
         <button type="button" data-testid="seo-save" className="sm-btn sm-btn-primary sm-btn-sm"
-          onClick={onSave}>save</button>
+          onClick={onSave}>{t('common.save')}</button>
       </div>
     </div>
   );
@@ -97,24 +99,26 @@ function LabeledInput({ label, testid, value, onChange, placeholder }: {
 }
 
 function RobotsToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  const t = useTranslations('adminCorpus.seo');
   return (
     <button type="button" data-testid="seo-robots" onClick={onToggle}
       className="flex items-center gap-2 text-[13px] text-(--color-ink)">
       <span className="mono text-[11px]">{on ? '[x]' : '[ ]'}</span>
-      <span>index, follow (robots)</span>
+      <span>{t('robots')}</span>
     </button>
   );
 }
 
 // DescriptionMirror —— og:description 复用 page.tagline，只读 + 跳 /admin/page 编辑。
 function DescriptionMirror() {
+  const t = useTranslations('adminCorpus.seo');
   return (
     <div data-testid="seo-description">
-      <div className="sm-smallcaps mb-1">og:description</div>
+      <div className="sm-smallcaps mb-1">{t('ogDescription')}</div>
       <p className="reading text-[13px] text-(--color-muted)">
-        Uses your page tagline.{' '}
+        {t('usesTagline')}{' '}
         <a data-testid="seo-description-edit" href="/admin/page"
-          className="text-(--color-accent) underline">edit on the Page section →</a>
+          className="text-(--color-accent) underline">{t('editOnPage')}</a>
       </p>
     </div>
   );
@@ -122,15 +126,16 @@ function DescriptionMirror() {
 
 // CanonicalMirror —— canonical host = owner.public_url，只读 + 跳 /admin/domain 编辑。
 function CanonicalMirror() {
+  const t = useTranslations('adminCorpus.seo');
   const session = useAdminSession();
   const host = session.kind === 'ready' ? session.session.public_url : '';
   return (
     <div data-testid="seo-canonical">
-      <div className="sm-smallcaps mb-1">canonical host</div>
+      <div className="sm-smallcaps mb-1">{t('canonicalHost')}</div>
       <p className="mono text-[12px] text-(--color-muted)">
         {host || '—'}{' '}
         <a data-testid="seo-canonical-edit" href="/admin/domain"
-          className="text-(--color-accent) underline">edit on the Domain section →</a>
+          className="text-(--color-accent) underline">{t('editOnDomain')}</a>
       </p>
     </div>
   );
@@ -156,6 +161,7 @@ function tierRow(
 
 // IndexingCard —— 真计数 + owner 选统计范围（默认三 tier 全含），总数按 scope 求和。
 function IndexingCard({ stats }: { stats: SEOStats | null }) {
+  const t = useTranslations('adminCorpus.seo');
   const [scope, setScope] = useState<Record<string, boolean>>(
     { wiki: true, outputs: true, writings: true },
   );
@@ -165,12 +171,12 @@ function IndexingCard({ stats }: { stats: SEOStats | null }) {
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50"
       data-testid="seo-indexing">
-      <div className="sm-smallcaps mb-3">indexing · published</div>
+      <div className="sm-smallcaps mb-3">{t('indexing')}</div>
       <div className="grid grid-cols-3 gap-3">
         {rows.map((r) => <IndexStat key={r.key} row={r} onToggle={() => toggle(r.key)} />)}
       </div>
       <div className="mono text-[11px] text-(--color-muted) mt-3" data-testid="seo-stat-total">
-        total in scope: {total}
+        {t('totalInScope', { total })}
       </div>
     </div>
   );

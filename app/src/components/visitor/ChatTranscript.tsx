@@ -9,6 +9,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { useThinkingWord } from '@/lib/page/thinking-words';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
@@ -31,10 +33,11 @@ export function ChatTranscript({ dialogs, onAsk, conversationID }: {
 function DialogCard({ dialog, onAsk, conversationID }: {
   dialog: Dialog; onAsk: (q: string) => void; conversationID?: string;
 }) {
+  const t = useTranslations('visitor.chatTranscript');
   return (
     <article className="pt-10 pb-10 border-b border-(--color-rule)">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase mb-3 flex items-baseline gap-3">
-        <span className="text-(--color-ink)">you</span>
+        <span className="text-(--color-ink)">{t('you')}</span>
       </div>
       <VisitorQuestion q={dialog.q} />
       <ToolCallCards
@@ -97,9 +100,10 @@ function ThinkingDots({ retrying, tool }: { retrying: boolean; tool: ToolThrobbe
 }
 
 function AnswerView({ answer }: { answer: Dialog['answer'] }) {
+  const t = useTranslations('visitor.chatTranscript');
   return (
     <div data-testid="answer-body">
-      <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">ai</div>
+      <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">{t('ai')}</div>
       {answer.paras.map((p, i) => (
         <div key={i} className="reading mb-4 last:mb-0 text-[18px]">
           <ChatMarkdown source={p} />
@@ -113,10 +117,11 @@ function AnswerView({ answer }: { answer: Dialog['answer'] }) {
 // CitationsList —— 答案下一条安静的 "references · N" 折叠行(normal-AI-chat 风),
 // 展开是来源列表;每条跳那篇 document 的公开页。
 function CitationsList({ citations }: { citations?: readonly Citation[] }) {
+  const t = useTranslations('visitor.chatTranscript');
   return citations && citations.length > 0 ? (
     <details className="group mt-6" data-testid="citations">
       <summary className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) cursor-pointer list-none marker:hidden select-none hover:text-(--color-accent) transition-colors inline-flex items-baseline gap-1.5">
-        references · {citations.length}
+        {t('references', { count: String(citations.length) })}
         <span className="text-(--color-faint) group-open:rotate-90 transition-transform">›</span>
       </summary>
       <ul className="flex flex-col gap-1 mt-2">

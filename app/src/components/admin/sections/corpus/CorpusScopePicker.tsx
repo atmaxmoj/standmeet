@@ -16,6 +16,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { useAdminTreeLayer } from '@/lib/admin/use-admin-tree-layer';
@@ -51,12 +52,13 @@ export function CorpusScopePicker({ value, onChange, testid }: PickerProps) {
 
 // ForeignGlobs —— 树表达不了的那些。列出来（而不是藏起来）：owner 得看得见自己这份授权里还有什么。
 function ForeignGlobs({ globs, prefix }: { globs: readonly string[]; prefix: string }) {
+  const t = useTranslations('adminCorpus.scope');
   return globs.length === 0 ? null : (
     <div
       className="mono text-[10px] text-(--color-muted) mt-1"
       data-testid={`${prefix}-foreign-globs`}
     >
-      <span className="text-(--color-faint)">kept as written (not on the tree): </span>
+      <span className="text-(--color-faint)">{t('kept')}</span>
       {globs.join('  ')}
     </div>
   );
@@ -73,6 +75,7 @@ interface BlockProps {
 
 // GenreBlock —— 一个 genre：整棵的勾 + 可展开的树。
 function GenreBlock({ genre, selected, toggle, prefix }: BlockProps) {
+  const t = useTranslations('adminCorpus.scope');
   const [open, setOpen] = useState(false);
   const whole = genreGlob(genre);
   return (
@@ -95,7 +98,7 @@ function GenreBlock({ genre, selected, toggle, prefix }: BlockProps) {
             data-testid={`${prefix}-genre-${genre}`}
           />
           <span className="text-(--color-ink)">{genre}</span>
-          <span className="text-(--color-faint)">— all of it ({whole})</span>
+          <span className="text-(--color-faint)">{t('allOfIt', { glob: whole })}</span>
         </label>
       </div>
       {open ? (
@@ -111,10 +114,11 @@ interface LevelProps extends BlockProps {
 
 // ScopeLevel —— 懒加载一层（复用 admin 树那套：一次一层，大 corpus 不会整棵拉下来）。
 function ScopeLevel({ genre, parentID, selected, toggle, prefix }: LevelProps) {
+  const t = useTranslations('adminCorpus.common');
   const load = useCallback((p: string) => loadScopeLayer(genre, p), [genre]);
   const nodes = useAdminTreeLayer(load, parentID, true, 0);
   return nodes === null ? (
-    <p className="mono text-[10px] text-(--color-faint) pl-5">loading…</p>
+    <p className="mono text-[10px] text-(--color-faint) pl-5">{t('loading')}</p>
   ) : (
     <ul className="pl-5">
       {nodes.map((n) => (
@@ -127,6 +131,7 @@ function ScopeLevel({ genre, parentID, selected, toggle, prefix }: LevelProps) {
 
 // ScopeRow —— 一行。勾它 = 它自己（有子节点时再加它的整棵子树，见文件头第 2 条）。
 function ScopeRow({ genre, node, selected, toggle, prefix }: BlockProps & { node: ScopeNode }) {
+  const t = useTranslations('adminCorpus.scope');
   const [open, setOpen] = useState(false);
   const globs = globsFor(genre, node);
   const hasKids = node.has_children === true;
@@ -143,7 +148,7 @@ function ScopeRow({ genre, node, selected, toggle, prefix }: BlockProps & { node
             data-testid={`${prefix}-node-${uriOf(genre, node)}`}
           />
           <span className="text-(--color-ink)">{node.title}</span>
-          {hasKids ? <span className="text-(--color-faint)">+ everything under it</span> : null}
+          {hasKids ? <span className="text-(--color-faint)">{t('everythingUnder')}</span> : null}
         </label>
       </div>
       {open ? (

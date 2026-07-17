@@ -13,6 +13,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import Markdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
@@ -41,6 +42,7 @@ function isLocked(writing: WritingView): boolean {
 }
 
 function UnlockedView({ writing }: { writing: WritingView }) {
+  const t = useTranslations('writings.article');
   const assetURLs = writing.asset_urls ?? {};
   return (
     <div className="min-h-screen bg-(--color-paper) text-(--color-ink) font-serif">
@@ -52,7 +54,7 @@ function UnlockedView({ writing }: { writing: WritingView }) {
           <Cover
             cover={writing}
             assetURLs={assetURLs}
-            no={formatDate(writing.published_at) + ' · essay'}
+            no={t('coverNo', { date: formatDate(writing.published_at) })}
           />
         </div>
         <ArticleHeader writing={writing} />
@@ -68,13 +70,14 @@ function UnlockedView({ writing }: { writing: WritingView }) {
 // Backlinks —— "linked from" section；列举其它 published writing 通过 [[X]]
 // 引到本篇的来源。空就不渲染。
 function Backlinks({ refs }: { refs: BacklinkRef[] }) {
+  const t = useTranslations('writings.article');
   return refs.length === 0 ? null : (
     <aside
       className="max-w-[680px] mx-auto px-6 lg:px-0 mt-16 pt-8 border-t border-(--color-rule)"
       data-testid="writing-article-backlinks"
     >
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
-        linked from
+        {t('linkedFrom')}
       </div>
       <ul className="font-serif text-[18px] leading-[1.55] space-y-2">
         {refs.map((r) => (
@@ -93,25 +96,27 @@ function Backlinks({ refs }: { refs: BacklinkRef[] }) {
 }
 
 function ArticleTopBar() {
+  const t = useTranslations('writings.common');
   return (
     <header className="flex items-center justify-between px-6 lg:px-10 pt-6 pb-4">
       <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3">
-        <Link href="/" className="text-(--color-ink)">standmeet</Link>
+        <Link href="/" className="text-(--color-ink)">{t('brand')}</Link>
         <span className="text-(--color-faint) mx-1">·</span>
-        <Link href="/writings" className="text-(--color-accent)">writings</Link>
+        <Link href="/writings" className="text-(--color-accent)">{t('writings')}</Link>
       </div>
     </header>
   );
 }
 
 function Breadcrumb() {
+  const t = useTranslations('writings.common');
   return (
     <div className="max-w-[920px] mx-auto px-6 lg:px-0 pt-10">
       <Link
         href="/writings"
         className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-ink)"
       >
-        ← back to writings
+        {t('backToWritings')}
       </Link>
     </div>
   );
@@ -135,11 +140,12 @@ function ArticleHeader({ writing }: { writing: WritingView }) {
 }
 
 function ArticleMeta({ writing }: { writing: WritingView }) {
+  const t = useTranslations('writings.common');
   return (
     <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-4 flex items-baseline gap-3 flex-wrap">
       <span>{formatDate(writing.published_at)}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>{writing.read_minutes} min read</span>
+      <span>{t('readMinutes', { minutes: writing.read_minutes })}</span>
       {writing.tags.map((t) => <TagLink key={t} tag={t} />)}
     </div>
   );
@@ -182,17 +188,18 @@ function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string,
 }
 
 function LockedView({ writing }: { writing: WritingView }) {
+  const t = useTranslations('writings.article');
   return (
     <div className="min-h-screen bg-(--color-paper) text-(--color-ink) font-serif">
       <main className="max-w-[760px] mx-auto px-6 lg:px-0 py-20 text-center">
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
-          private essay
+          {t('privateEssay')}
         </div>
         <h1 className="font-serif text-(--color-ink) text-[clamp(36px,5vw,56px)] font-[380] tracking-[-0.018em] leading-[1.05]">
           {writing.title}<span className="text-(--color-accent)">.</span>
         </h1>
         <p className="text-(--color-muted) mt-6 max-w-[34em] mx-auto text-[18px]">
-          {writing.locked_body ?? 'This essay is gated; ask for an invite code.'}
+          {writing.locked_body ?? t('lockedBody')}
         </p>
         <LockedActions />
       </main>
@@ -201,19 +208,20 @@ function LockedView({ writing }: { writing: WritingView }) {
 }
 
 function LockedActions() {
+  const t = useTranslations('writings');
   return (
     <div className="mt-8 flex flex-wrap items-baseline justify-center gap-4">
       <Link
         href="/gate#request"
         className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 hover:bg-(--color-accent) transition-colors"
       >
-        request an invite code →
+        {t('article.requestInvite')}
       </Link>
       <Link
         href="/writings"
         className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
       >
-        ← back to writings
+        {t('common.backToWritings')}
       </Link>
     </div>
   );

@@ -9,6 +9,7 @@
 
 import { useCallback } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import { LazyTree } from '@/components/corpus/LazyTree';
 import type { TreeNode } from '@/lib/corpus/tree';
@@ -18,6 +19,7 @@ import { loadWikiChildren } from '@/lib/visitor/load-wiki-children';
 import styles from '@/components/visitor/WikiTreeView.module.css';
 
 export function WikiTreeView({ activePath, stats }: { activePath: string; stats: WikiTreeStats }) {
+  const t = useTranslations('visitor.wikiTreeView');
   const openPaths = prefixSet(activePath);
   const renderLabel = useCallback(
     (node: TreeNode) => <WikiLabel node={node} active={node.path === activePath} />,
@@ -26,7 +28,7 @@ export function WikiTreeView({ activePath, stats }: { activePath: string; stats:
   return (
     <nav className={styles['aside']} data-testid="wiki-tree" aria-label="wiki tree">
       <div className={styles['head']}>
-        <span className={styles['headLabel']}>wiki tree</span>
+        <span className={styles['headLabel']}>{t('head')}</span>
       </div>
       <LazyTree load={loadWikiChildren} renderLabel={renderLabel} openPaths={openPaths} />
       <TreeStats stats={stats} />
@@ -36,11 +38,14 @@ export function WikiTreeView({ activePath, stats }: { activePath: string; stats:
 
 // TreeStats —— 侧栏脚定位计数(纯 COUNT 聚合,不拉树、不破坏懒加载)。
 function TreeStats({ stats }: { stats: WikiTreeStats }) {
+  const t = useTranslations('visitor.wikiTreeView');
   return (
     <div className={styles['stats']} data-testid="wiki-tree-stats">
-      <span className={styles['statNum']}>{stats.entries}</span> entries{' · '}
-      <span className={styles['statNum']}>{stats.roots}</span> roots{' · '}
-      <span className={styles['statNum']}>{stats.gated}</span> gated
+      {/* 计数用 String() 传:ICU 会给 number 加千分位(1,234),原 JSX 直出 1234。 */}
+      {t.rich('stats', {
+        entries: String(stats.entries), roots: String(stats.roots), gated: String(stats.gated),
+        num: (c) => <span className={styles['statNum']}>{c}</span>,
+      })}
     </div>
   );
 }

@@ -7,6 +7,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { useMCPServers, type CreateMCPServerInput, type MCPServersHook, type MCPServerView } from '@/lib/admin/use-mcp-servers';
 import { useAction } from '@/lib/ui/use-action';
@@ -37,21 +38,22 @@ export function MCPServersPanel() {
 }
 
 function Head({ count }: { count: number }) {
+  const t = useTranslations('adminIntegrations.mcpServers');
   return (
     <div className="flex items-baseline justify-between mb-2">
       <h3 className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted)">
-        External MCP servers
+        {t('heading')}
       </h3>
-      <span className="mono text-[10.5px] text-(--color-faint)">{count} registered</span>
+      <span className="mono text-[10.5px] text-(--color-faint)">{t('count', { count: String(count) })}</span>
     </div>
   );
 }
 
 function Intro() {
+  const t = useTranslations('adminIntegrations.mcpServers');
   return (
     <p className="reading-tight text-[12.5px] text-(--color-muted) italic mb-4">
-      MCP servers the visitor agent can call as tools. Add one you got from anywhere — its
-      URL and an optional auth header — then attach it to a role under codes.
+      {t('intro')}
     </p>
   );
 }
@@ -60,7 +62,7 @@ function ServerList({
   servers, onRemove,
 }: { servers: readonly MCPServerView[]; onRemove: (id: string) => Promise<void> }) {
   return servers.length === 0
-    ? <p className="mono text-[11.5px] text-(--color-faint) mb-4">none yet</p>
+    ? <ServerListEmpty />
     : (
       <ul className="space-y-2 mb-5" data-testid="mcp-servers-list">
         {servers.map((s) => <ServerRow key={s.id} server={s} onRemove={onRemove} />)}
@@ -68,9 +70,15 @@ function ServerList({
     );
 }
 
+function ServerListEmpty() {
+  const t = useTranslations('adminIntegrations.mcpServers');
+  return <p className="mono text-[11.5px] text-(--color-faint) mb-4">{t('empty')}</p>;
+}
+
 function ServerRow({
   server, onRemove,
 }: { server: MCPServerView; onRemove: (id: string) => Promise<void> }) {
+  const t = useTranslations('adminIntegrations.mcpServers');
   return (
     <li
       className="flex items-baseline justify-between gap-3 border-b border-(--color-rule)/50 pb-1.5"
@@ -87,16 +95,19 @@ function ServerRow({
         data-testid={`mcp-server-delete-${server.id}`}
         className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-accent) hover:underline shrink-0"
       >
-        remove
+        {t('remove')}
       </button>
     </li>
   );
 }
 
 function AuthBadge({ name }: { name: string }) {
-  return name === ''
-    ? null
-    : <span className="mono text-[10px] text-(--color-faint) ml-2">auth: {name}</span>;
+  return name === '' ? null : <AuthBadgeText name={name} />;
+}
+
+function AuthBadgeText({ name }: { name: string }) {
+  const t = useTranslations('adminIntegrations.mcpServers');
+  return <span className="mono text-[10px] text-(--color-faint) ml-2">{t('authBadge', { name })}</span>;
 }
 
 function AddForm({ hook }: { hook: MCPServersHook }) {
@@ -147,6 +158,7 @@ function toInput(form: FormState): CreateMCPServerInput {
 }
 
 function AddButton({ disabled, onAdd }: { disabled: boolean; onAdd: () => void }) {
+  const t = useTranslations('adminIntegrations.mcpServers');
   return (
     <button
       type="button"
@@ -155,7 +167,7 @@ function AddButton({ disabled, onAdd }: { disabled: boolean; onAdd: () => void }
       data-testid="mcp-server-add"
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
-      Add MCP server
+      {t('add')}
     </button>
   );
 }

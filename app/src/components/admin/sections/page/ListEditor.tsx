@@ -3,6 +3,8 @@
 
 import type { ReactNode } from 'react';
 
+import { useTranslations } from 'next-intl';
+
 export interface ListEditorRender<T> {
   empty: () => T;
   row: (item: T, patch: (p: Partial<T>) => void) => ReactNode;
@@ -40,6 +42,7 @@ export function ListEditor<T>(props: Props<T>) {
 function ListHeader({
   label, renderHint, onAdd,
 }: { label: string; renderHint?: string; onAdd: () => void }) {
+  const t = useTranslations('adminPages.listEditor');
   return (
     <div className="flex items-baseline justify-between mb-3">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{label}</div>
@@ -50,7 +53,7 @@ function ListHeader({
           onClick={onAdd}
           className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
         >
-          ＋ add
+          {t('add')}
         </button>
       </div>
     </div>
@@ -64,9 +67,10 @@ function Hint({ text }: { text?: string }) {
 }
 
 function Empty({ shown }: { shown: boolean }) {
+  const t = useTranslations('adminPages.listEditor');
   return shown ? (
     <div className="mono text-[11px] text-(--color-faint) border border-dashed border-(--color-rule) px-4 py-3 rounded-sm">
-      empty · add to get going
+      {t('empty')}
     </div>
   ) : null;
 }
@@ -91,6 +95,7 @@ function RowControls({
   idx: number; count: number;
   onMove: (delta: number) => void; onRemove: () => void;
 }) {
+  const t = useTranslations('adminPages.listEditor');
   return (
     <div className="flex items-baseline justify-between mb-2">
       <span className="mono text-[9.5px] tracking-[0.18em] uppercase text-(--color-faint) tabular-nums">
@@ -99,7 +104,7 @@ function RowControls({
       <div className="flex items-center gap-2 mono text-[10px] tracking-[0.1em] text-(--color-muted)">
         <button type="button" onClick={() => onMove(-1)} disabled={idx === 0} className="hover:text-(--color-ink) disabled:opacity-30">↑</button>
         <button type="button" onClick={() => onMove(1)} disabled={idx === count - 1} className="hover:text-(--color-ink) disabled:opacity-30">↓</button>
-        <button type="button" onClick={onRemove} className="text-(--color-faint) hover:text-(--color-accent) ml-1">remove</button>
+        <button type="button" onClick={onRemove} className="text-(--color-faint) hover:text-(--color-accent) ml-1">{t('remove')}</button>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import { useMembers, type MembersHook } from '@/lib/admin/use-members';
@@ -59,7 +60,8 @@ function NonReadyState({ state }: { state: MembersHook['state'] }) {
 }
 
 function Loading() {
-  return <p className="mono text-[10.5px] text-(--color-faint) mt-2">loading members…</p>;
+  const t = useTranslations('adminAccess');
+  return <p className="mono text-[10.5px] text-(--color-faint) mt-2">{t('members.loading')}</p>;
 }
 
 function ErrorMsg({ msg }: { msg: string }) {
@@ -70,16 +72,26 @@ function Rows({
   members, code,
 }: { members: readonly MemberView[]; code: string }) {
   return members.length === 0
-    ? (
-      <p className="mono text-[10.5px] text-(--color-faint) mt-2">
-        no visitor has used this code yet.
-      </p>
-    )
+    ? <NoMembers />
     : (
       <ul className="mt-2 space-y-1" data-testid={`members-list-${code}`}>
         {members.map((m) => <MemberRow key={m.id} m={m} />)}
       </ul>
     );
+}
+
+function NoMembers() {
+  const t = useTranslations('adminAccess');
+  return (
+    <p className="mono text-[10.5px] text-(--color-faint) mt-2">
+      {t('members.none')}
+    </p>
+  );
+}
+
+function AnonymousName() {
+  const t = useTranslations('adminAccess');
+  return <i>{t('members.anonymous')}</i>;
 }
 
 function MemberRow({ m }: { m: MemberView }) {
@@ -89,7 +101,7 @@ function MemberRow({ m }: { m: MemberView }) {
       className="reading-tight text-[13px] py-1 border-b border-(--color-rule)/40"
     >
       <span className="min-w-0 truncate">
-        {m.display_name || <i>anonymous</i>}
+        {m.display_name || <AnonymousName />}
       </span>
     </li>
   );

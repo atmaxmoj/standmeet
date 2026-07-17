@@ -5,9 +5,12 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { useGhostTelemetryView, pct, type WaypointStat } from '@/lib/admin/use-ghost-telemetry';
 
 export function GhostTelemetryPanel() {
+  const t = useTranslations('adminAccess');
   const { visible, waypoints, totals } = useGhostTelemetryView();
   return visible ? (
     <div
@@ -15,15 +18,15 @@ export function GhostTelemetryPanel() {
       className="mb-5 border border-(--color-rule) rounded-sm bg-(--color-surface)/20 px-3 py-2.5"
     >
       <div className="mono text-[9.5px] tracking-[0.2em] uppercase text-(--color-muted) mb-2">
-        ghost steering · per-waypoint funnel
+        {t('ghostTelemetry.title')}
       </div>
       <table className="w-full border-collapse">
         <thead>
           <tr className="mono text-[9px] tracking-[0.16em] uppercase text-(--color-faint)">
-            <th className="text-left px-1 py-1 font-normal">waypoint</th>
-            <th className="text-right px-1 py-1 font-normal">shown</th>
-            <th className="text-right px-1 py-1 font-normal">accepted</th>
-            <th className="text-right px-1 py-1 font-normal">rate</th>
+            <th className="text-left px-1 py-1 font-normal">{t('ghostTelemetry.thWaypoint')}</th>
+            <th className="text-right px-1 py-1 font-normal">{t('ghostTelemetry.thShown')}</th>
+            <th className="text-right px-1 py-1 font-normal">{t('ghostTelemetry.thAccepted')}</th>
+            <th className="text-right px-1 py-1 font-normal">{t('ghostTelemetry.thRate')}</th>
           </tr>
         </thead>
         <tbody>
@@ -47,9 +50,10 @@ function WaypointRow({ wp }: { wp: WaypointStat }) {
 }
 
 function TotalsRow({ shown, accepted, rate }: { shown: number; accepted: number; rate: number }) {
+  const t = useTranslations('adminAccess');
   return (
     <tr className="border-t border-(--color-rule)">
-      <td className="px-1 pt-1.5 mono text-[9px] tracking-[0.16em] uppercase text-(--color-faint)">all</td>
+      <td className="px-1 pt-1.5 mono text-[9px] tracking-[0.16em] uppercase text-(--color-faint)">{t('ghostTelemetry.all')}</td>
       <td className="px-1 pt-1.5 text-right mono text-[11.5px] tabular-nums text-(--color-ink)">{shown}</td>
       <td className="px-1 pt-1.5 text-right mono text-[11.5px] tabular-nums text-(--color-ink)">{accepted}</td>
       <td className="px-1 pt-1.5 text-right mono text-[11.5px] tabular-nums text-(--color-ink)">{pct(rate)}</td>

@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
@@ -82,24 +83,26 @@ function ChatRoomHeader({ handle }: { handle: string }) {
 }
 
 function HeaderLeft({ handle }: { handle: string }) {
+  const t = useTranslations('visitor.chatRoom');
   return (
     <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3 shrink-0">
-      <span className="text-(--color-ink)">standmeet</span>
+      <span className="text-(--color-ink)">{t('brand')}</span>
       <span className="text-(--color-faint)">/</span>
       <span className="text-(--color-muted)">{handle}</span>
       <span className="ml-2 inline-flex items-center gap-1.5">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-accent) sm-live-dot" />
-        <span className="text-(--color-faint) text-[10px] tracking-[0.16em]">live</span>
+        <span className="text-(--color-faint) text-[10px] tracking-[0.16em]">{t('live')}</span>
       </span>
     </div>
   );
 }
 
 function HeaderRight() {
+  const t = useTranslations('visitor.chatRoom');
   return (
     <div className="flex items-center gap-5 shrink-0">
       <Link href="/" className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink) transition-colors">
-        full page →
+        {t('fullPage')}
       </Link>
     </div>
   );
@@ -108,10 +111,11 @@ function HeaderRight() {
 // ── welcome ────────────────────────────────────────────────
 
 function ChatWelcome({ owner, d }: { owner: PublicOwnerView; d: ReturnType<typeof useChatRoomDerived> }) {
+  const t = useTranslations('visitor.chatRoom');
   return (
     <article className="pt-10 pb-10 border-b border-(--color-rule)" data-testid="chat-welcome">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">
-        {owner.handle}&apos;s ai · ready
+        {t('ready', { handle: owner.handle })}
       </div>
       <div className="reading text-(--color-ink) text-[17px] max-w-[54ch]">
         {d.mode === 'coded'
@@ -122,24 +126,26 @@ function ChatWelcome({ owner, d }: { owner: PublicOwnerView; d: ReturnType<typeo
   );
 }
 
+const accentTag = (c: React.ReactNode) => <span className="text-(--color-accent)">{c}</span>;
+
 function CodedWelcome({ handle, visitor, codeLabel }: { handle: string; visitor: string | null; codeLabel: string }) {
+  const t = useTranslations('visitor.chatRoom');
   const greeting = visitor ? `Hi, ${visitor.split(' ')[0]}` : 'Hi';
   return (
     <>
-      <p>{greeting}. I&apos;m an AI grounded in {handle}&apos;s curated corpus.
-        You&apos;ve come in on the <span className="text-(--color-accent)">{codeLabel}</span> slice.</p>
-      <p className="mt-4">Private topics outside this code&apos;s scope are redacted. {handle} reads transcripts afterward.</p>
-      <p className="mt-4">Ask anything. Starters below if you need a way in.</p>
+      <p>{t.rich('codedWelcome', { greeting, handle, codeLabel, accent: accentTag })}</p>
+      <p className="mt-4">{t('codedRedaction', { handle })}</p>
+      <p className="mt-4">{t('codedStarters')}</p>
     </>
   );
 }
 
 function ByoaiWelcome({ handle, provider }: { handle: string; provider: string }) {
+  const t = useTranslations('visitor.chatRoom');
   return (
     <>
-      <p>Hi. I&apos;m an AI grounded in {handle}&apos;s curated corpus. You&apos;re running
-        on your own <span className="text-(--color-accent)">{provider}</span> key — public slice only.</p>
-      <p className="mt-4">Work, projects, public takes — fair game. Private topics return a &ldquo;need a code&rdquo; response.</p>
+      <p>{t.rich('byoaiWelcome', { handle, provider, accent: accentTag })}</p>
+      <p className="mt-4">{t('byoaiScope')}</p>
     </>
   );
 }
@@ -219,12 +225,13 @@ function isComposerReady(msg: string, pending: boolean, exhausted: boolean): boo
 }
 
 function ComposerAction({ pending, exhausted }: { pending: boolean; exhausted: boolean }) {
+  const t = useTranslations('visitor.chatRoom');
   return exhausted ? (
-    <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) shrink-0 pt-1">session full</span>
+    <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) shrink-0 pt-1">{t('sessionFull')}</span>
   ) : (
     <button type="submit" disabled={pending}
       className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 pt-1">
-      ask <span className="text-[14px]">↵</span>
+      {t.rich('ask', { big: (c) => <span className="text-[14px]">{c}</span> })}
     </button>
   );
 }
@@ -232,9 +239,10 @@ function ComposerAction({ pending, exhausted }: { pending: boolean; exhausted: b
 function StarterChips({ starters, onPick, pending }: {
   starters: readonly string[]; onPick: (q: string) => void; pending: boolean;
 }) {
+  const t = useTranslations('visitor.common');
   return (
     <div className="flex flex-wrap gap-x-1 gap-y-2 mb-3 overflow-x-auto" data-testid="starter-chips">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mr-3 shrink-0 pt-0.5">try</span>
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mr-3 shrink-0 pt-0.5">{t('try')}</span>
       {starters.map((q, i) => (
         <StarterChip key={q} q={q} last={i === starters.length - 1} onPick={onPick} pending={pending} />
       ))}
@@ -318,12 +326,15 @@ function capState(
 // ── footnote ───────────────────────────────────────────────
 
 function ChatFootnote({ handle, mode }: { handle: string; mode: string }) {
+  const t = useTranslations('visitor.chatRoom');
   return (
     <p className="mono text-[10px] leading-[1.7] text-(--color-faint) mt-3 mb-10">
-      <span className="text-(--color-muted)">how this works</span> · answers come from {handle}&apos;s curated corpus.
-      private topics return a redaction rather than a guess.
-      {mode === 'coded' && <> {handle} reads the transcript afterward.</>}
-      {mode === 'byoai' && <> your api key never leaves the browser.</>}
+      {t.rich('footnote', {
+        handle,
+        muted: (c) => <span className="text-(--color-muted)">{c}</span>,
+      })}
+      {mode === 'coded' && t('footnoteCoded', { handle })}
+      {mode === 'byoai' && t('footnoteByoai')}
     </p>
   );
 }

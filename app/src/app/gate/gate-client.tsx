@@ -3,7 +3,8 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { TopBar } from '@/components/page/TopBar';
 import { BYOAIPanel } from '@/components/gate/BYOAIPanel';
@@ -60,22 +61,21 @@ function Hero({
 function HeroBody({
   handle, hook, canEmailCodes,
 }: { handle: string; hook: ReturnType<typeof useGate>; canEmailCodes: boolean }) {
+  const t = useTranslations('gate.hero');
   return (
     <div>
       <div className="mono text-[10.5px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
-        you&rsquo;ve reached {handle}&rsquo;s corpus
+        {t('reached', { handle })}
       </div>
       <h1 className="font-serif text-(--color-ink) text-[clamp(42px,5.8vw,64px)] font-normal tracking-[-0.02em] leading-none">
-        This isn&rsquo;t open<span className="text-(--color-accent)">.</span>
+        {t('headline')}<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="font-serif italic text-(--color-muted) mt-4 text-[18.5px] leading-[1.45] font-[380] max-w-[32em]">
-        {handle} gives out codes when there&rsquo;s a reason to talk — a hiring loop, an investor call,
-        an advisor scoping, a piece of press. If you have a code, drop it in. Otherwise — bring your
-        own AI to chat with the public corpus{canEmailCodes ? ', or leave a note' : ''}.
+        {t('lede', { handle, note: canEmailCodes ? t('ledeNote') : '' })}
       </p>
       <div className="mt-9">
         <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
-          have a code?
+          {t('haveCode')}
         </div>
         <CodePanel hook={hook} />
       </div>
@@ -87,26 +87,29 @@ function Sep() {
   return <div className="mt-14 pt-12 border-t border-(--color-rule)" aria-hidden="true" />;
 }
 
+// muted —— footnote 里 "how this works" 那半句的 rich tag。
+const muted = (chunks: ReactNode) => <span className="text-(--color-muted)">{chunks}</span>;
+
 function Footnote({ handle }: { handle: string }) {
+  const t = useTranslations('gate.footnote');
   return (
     <p className="mono text-[10px] leading-[1.7] text-(--color-faint) mt-20 max-w-[44em]">
-      <span className="text-(--color-muted)">how this works</span> · standmeet replaces a résumé /
-      linkedin / cold-email reply with a scoped, on-the-record conversation. it isn&rsquo;t a chatbot
-      demo. every code is hand-issued and every transcript is reviewed by {handle}.
+      {t.rich('text', { handle, muted })}
     </p>
   );
 }
 
 function GateFooter() {
+  const t = useTranslations('gate.footer');
   return (
     <footer className="border-t border-(--color-rule)">
       <div className="max-w-[920px] mx-auto px-6 lg:px-10 py-8 mono text-[11px] leading-[1.7] text-(--color-muted) flex flex-col md:flex-row md:items-baseline md:justify-between gap-2">
         <div>
-          <span className="text-(--color-ink)">standmeet</span>
+          <span className="text-(--color-ink)">{t('brand')}</span>
           <span className="text-(--color-faint) mx-2">·</span>
-          <span>private corpus retrieval</span>
+          <span>{t('retrieval')}</span>
           <span className="text-(--color-faint) mx-2">·</span>
-          <span>by hand, not by feed</span>
+          <span>{t('byHand')}</span>
         </div>
       </div>
     </footer>

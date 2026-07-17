@@ -1,6 +1,8 @@
 // CodeRolePicker —— code create modal 里的 role dropdown。A.3-IAM。
 // 拆出来守 CreateCodeFields.tsx 的 max-lines。
 
+import { useTranslations } from 'next-intl';
+
 import { useRoles, type RoleView } from '@/lib/admin/use-roles';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
@@ -18,6 +20,7 @@ export function CodeRolePicker({ form }: Props) {
 function CodeRolePickerSelect({
   form, roles,
 }: { form: CodeFormHook; roles: readonly RoleView[] }) {
+  const t = useTranslations('adminShell.codeModal');
   return (
     <select
       className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px] w-full"
@@ -25,7 +28,7 @@ function CodeRolePickerSelect({
       onChange={(e) => form.setAssumedRoleID(e.target.value)}
       data-testid="code-field-role"
     >
-      <option value="">— default —</option>
+      <option value="">{t('roleDefault')}</option>
       {roles.map((r) => (
         <option key={r.id} value={r.id}>{r.name}</option>
       ))}

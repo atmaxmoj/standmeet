@@ -5,6 +5,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import {
   originOf, type ConnectorListHook, type ConnectorRow,
@@ -33,9 +34,10 @@ export function ConnectorList({ hook }: { hook: ConnectorListHook }) {
 
 // LoadError —— 列表没拉到时的提示（§2：空列表 vs 加载失败要分得清）。
 function LoadError({ show }: { show: boolean }) {
+  const t = useTranslations('adminIntegrations.connectorList');
   return show ? (
     <p data-testid="connector-list-error" className="mono text-[11px] text-(--color-accent)">
-      Couldn’t load your connectors — reload and retry.
+      {t('loadError')}
     </p>
   ) : null;
 }
@@ -84,12 +86,14 @@ function StatusLine({ connected }: { connected: boolean }) {
 // strict-mode 冲突）；确认按钮文案 "Delete" 才匹配测试的 getByRole(name:/delete/)。
 function DeleteControl({ onDelete }: { onDelete: () => void }) {
   const [confirming, setConfirming] = useState(false);
+  const t = useTranslations('adminIntegrations.connectorList');
+  const tc = useTranslations('adminIntegrations.common');
   return confirming ? (
     <button
       type="button" onClick={onDelete}
       className="shrink-0 sm-btn sm-btn-solid sm-btn-sm"
     >
-      Delete
+      {t('delete')}
     </button>
   ) : (
     <button
@@ -99,7 +103,7 @@ function DeleteControl({ onDelete }: { onDelete: () => void }) {
       onClick={() => setConfirming(true)}
       className="shrink-0 mono text-[13px] text-(--color-muted) hover:text-(--color-accent) transition-colors"
     >
-      ✕
+      {tc('close')}
     </button>
   );
 }

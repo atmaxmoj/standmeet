@@ -7,6 +7,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useRef } from 'react';
 
 import { webkitDirectoryRef } from '@/lib/admin/webkitdirectory-ref';
@@ -45,17 +46,19 @@ export function ObsidianBar({ onImported }: Props) {
 }
 
 function ExportBtn() {
+  const t = useTranslations('adminCorpus.obsidianBar');
   return (
     <Btn kind="ghost" onClick={() => triggerExport()}>
-      ↓ export to Obsidian
+      {t('export')}
     </Btn>
   );
 }
 
 function ImportBtn({ busy, onPick }: { busy: boolean; onPick: () => void }) {
+  const t = useTranslations('adminCorpus.obsidianBar');
   return (
     <Btn kind="ghost" disabled={busy} onClick={onPick}>
-      {busy ? 'importing…' : '↑ import from Obsidian'}
+      {busy ? t('importing') : t('import')}
     </Btn>
   );
 }
@@ -83,21 +86,25 @@ function handlePick(files: FileList | null, onFiles: (f: FileList) => Promise<vo
 }
 
 function Status({ busy, result }: { busy: boolean; result: ImportResult | null }) {
+  const t = useTranslations('adminCorpus.obsidianBar');
   return busy
-    ? <span className="mono text-[10px] text-(--color-muted)">working…</span>
+    ? <span className="mono text-[10px] text-(--color-muted)">{t('working')}</span>
     : (result ? <StatusDone result={result} /> : null);
 }
 
 function StatusDone({ result }: { result: ImportResult }) {
+  const t = useTranslations('adminCorpus.obsidianBar');
   return (
     <span
       className="mono text-[10px] text-(--color-muted)"
       data-testid="obsidian-import-result"
     >
-      {result.created} new · {result.updated} updated · {result.skipped} skipped
+      {t('result', {
+        created: result.created, updated: result.updated, skipped: result.skipped,
+      })}
       {result.errors.length > 0 && (
         <span className="text-(--color-accent) ml-2">
-          · {result.errors.length} error{result.errors.length === 1 ? '' : 's'}
+          {t('errors', { count: result.errors.length })}
         </span>
       )}
     </span>

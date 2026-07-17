@@ -73,7 +73,7 @@ function InsightThesis({ text }: { text: string }) {
 function InsightContext({ context, open }: { context: string; open: boolean }) {
   return (
     <p className="mono text-(--color-faint) mt-1.5 text-[11px] tracking-[0.04em]">
-      ── {context}
+      {'── '}{context}
       <span
         className={`ml-3 transition-colors ${open ? 'text-(--color-accent)' : 'text-(--color-faint) group-hover:text-(--color-muted)'}`}
       >

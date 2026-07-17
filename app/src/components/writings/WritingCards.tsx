@@ -4,6 +4,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import type { WritingView } from '@/lib/api/public';
 import { Cover } from '@/components/writings/Cover';
@@ -11,6 +12,7 @@ import { Cover } from '@/components/writings/Cover';
 export function WritingCardLead({
   writing, onPickTag,
 }: { writing: WritingView; onPickTag: (t: string) => void }) {
+  const t = useTranslations('writings.cards');
   return (
     <article
       className="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-10 lg:gap-12 mb-20 group"
@@ -20,7 +22,7 @@ export function WritingCardLead({
         <Cover
           cover={writing}
           assetURLs={writing.asset_urls ?? {}}
-          no={'no. 01 · ' + formatDate(writing.published_at)}
+          no={t('leadNo', { date: formatDate(writing.published_at) })}
         />
       </Link>
       <WritingCardLeadMeta writing={writing} onPickTag={onPickTag} />
@@ -48,25 +50,27 @@ function WritingCardLeadMeta({
 }
 
 function WritingCardLeadKicker({ writing }: { writing: WritingView }) {
+  const t = useTranslations('writings');
   return (
     <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3 flex items-baseline gap-3 flex-wrap">
-      <span className="text-(--color-ink)">latest</span>
+      <span className="text-(--color-ink)">{t('cards.latest')}</span>
       <span className="text-(--color-faint)">·</span>
       <span>{formatDate(writing.published_at)}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>{writing.read_minutes} min read</span>
+      <span>{t('common.readMinutes', { minutes: writing.read_minutes })}</span>
     </div>
   );
 }
 
 function WritingCardLeadTagRow({
   writing, onPickTag,
-}: { writing: WritingView; onPickTag: (t: string) => void }) {
+}: { writing: WritingView; onPickTag: (tag: string) => void }) {
+  const t = useTranslations('writings.common');
   return (
     <div className="mt-6 flex flex-wrap items-baseline gap-1.5">
-      {writing.tags.map((t) => <TagPill key={t} tag={t} onClick={() => onPickTag(t)} />)}
+      {writing.tags.map((tag) => <TagPill key={tag} tag={tag} onClick={() => onPickTag(tag)} />)}
       <span className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) ml-auto pt-1">
-        read →
+        {t('read')}
       </span>
     </div>
   );
@@ -85,6 +89,7 @@ function TagPill({ tag, onClick }: { tag: string; onClick: () => void }) {
 }
 
 export function WritingRow({ writing, idx }: { writing: WritingView; idx: number }) {
+  const t = useTranslations('writings');
   return (
     <Link
       href={`/writings/${writing.slug}`}
@@ -94,23 +99,24 @@ export function WritingRow({ writing, idx }: { writing: WritingView; idx: number
         data-writing-card={writing.slug}
         className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) tabular-nums pt-2"
       >
-        no. {String(idx).padStart(2, '0')}
+        {t('cards.no', { n: String(idx).padStart(2, '0') })}
       </div>
       <WritingRowBody writing={writing} />
       <div className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-muted) group-hover:text-(--color-accent) pt-2 shrink-0">
-        read →
+        {t('common.read')}
       </div>
     </Link>
   );
 }
 
 function WritingRowBody({ writing }: { writing: WritingView }) {
+  const t = useTranslations('writings.cards');
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2 flex items-baseline gap-3 flex-wrap">
         <span>{formatDate(writing.published_at)}</span>
         <span className="text-(--color-faint)">·</span>
-        <span>{writing.read_minutes} min</span>
+        <span>{t('readMinutesShort', { minutes: writing.read_minutes })}</span>
       </div>
       <h3 className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors text-[24px] leading-[1.2] tracking-[-0.005em] font-normal">
         {writing.title}

@@ -13,6 +13,7 @@
 'use client';
 
 import type { FormEvent, RefObject } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { dispatchGhostKey, pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
 
@@ -81,6 +82,7 @@ function isLocked(props: Props): boolean {
 }
 
 function AskAction({ props, locked }: { props: Props; locked: boolean }) {
+  const t = useTranslations('page');
   return locked ? (
     <span
       className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) shrink-0 pt-1"
@@ -94,7 +96,7 @@ function AskAction({ props, locked }: { props: Props; locked: boolean }) {
       disabled={props.disabled || props.value.trim() === ''}
       className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 pt-1"
     >
-      ask <span className="text-[14px]">↵</span>
+      {t('askInput.ask')} <span className="text-[14px]">↵</span>
     </button>
   );
 }

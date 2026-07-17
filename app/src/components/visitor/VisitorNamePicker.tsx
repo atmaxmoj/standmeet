@@ -9,6 +9,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import {
@@ -71,6 +72,7 @@ async function settleOutcome(
 
 // PickerHeader —— access kicker → owner 设的「这是什么」greeting → "Who's reading?"。
 function PickerHeader({ code, greeting }: { code: string | null; greeting: string }) {
+  const t = useTranslations('visitor.visitorNamePicker');
   return (
     <div className="sm-visitor-name-head">
       <div className="sm-smallcaps">
@@ -81,7 +83,7 @@ function PickerHeader({ code, greeting }: { code: string | null; greeting: strin
           {greeting}
         </p>
       )}
-      <div className="sm-visitor-name-h1">Who&apos;s reading?</div>
+      <div className="sm-visitor-name-h1">{t('whosReading')}</div>
     </div>
   );
 }
@@ -108,20 +110,20 @@ function PickerBody(props: BodyProps) {
 
 // PickerFull —— 这张码名字数满了:进不来,讲清楚 + 让 visitor 找分享码的人。
 function PickerFull() {
+  const t = useTranslations('visitor.visitorNamePicker');
   return (
     <p className="sm-reading sm-visitor-name-blurb" data-testid="visitor-name-full">
-      This code is full — it&rsquo;s reached its limit of names. Ask whoever
-      shared it with you for a fresh one.
+      {t('full')}
     </p>
   );
 }
 
 function PickerPrompt(props: BodyProps) {
+  const t = useTranslations('visitor.visitorNamePicker');
   return (
     <>
       <p className="sm-reading sm-visitor-name-blurb">
-        One last thing before the chat starts — the owner sees this on your
-        transcript later. Pick a short name; a handle is fine.
+        {t('prompt')}
       </p>
       <p
         className="sm-reading sm-visitor-name-blurb sm-visitor-name-note"
@@ -129,11 +131,8 @@ function PickerPrompt(props: BodyProps) {
       >
         {props.capacityLine !== ''
           ? props.capacityLine
-          : 'More than one person can use this code.'}{' '}
-        Keep using the <strong>same name</strong> and your chats stay grouped as
-        you; a <strong>different name</strong> reads as a new person and starts a
-        separate conversation. Passing the code to someone else? Have them scan
-        it and pick their own name.
+          : t('capacityDefault')}{' '}
+        {t.rich('capacityNote', { strong: (c) => <strong>{c}</strong> })}
       </p>
       <PickerForm {...props} />
       {props.going && <PickerGoing />}
@@ -142,6 +141,7 @@ function PickerPrompt(props: BodyProps) {
 }
 
 function PickerForm(props: BodyProps) {
+  const t = useTranslations('visitor.visitorNamePicker');
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); props.onSubmit(); }}
@@ -171,7 +171,7 @@ function PickerForm(props: BodyProps) {
         className="sm-btn sm-btn-ghost"
         data-testid="visitor-name-submit"
       >
-        start ↵
+        {t('start')}
       </button>
       <button
         type="button"
@@ -179,16 +179,17 @@ function PickerForm(props: BodyProps) {
         className="sm-btn sm-btn-danger"
         data-testid="visitor-name-skip"
       >
-        skip
+        {t('skip')}
       </button>
     </form>
   );
 }
 
 function PickerGoing() {
+  const t = useTranslations('visitor.visitorNamePicker');
   return (
     <div className="sm-visitor-name-going sm-smallcaps">
-      starting chat
+      {t('starting')}
       <span className="sm-dot">·</span>
       <span className="sm-dot">·</span>
       <span className="sm-dot">·</span>

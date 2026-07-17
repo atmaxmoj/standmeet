@@ -5,6 +5,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
@@ -74,13 +75,14 @@ function Header({ hook, actions }: { hook: WikiHook; actions: CorpusActionsHook 
 }
 
 function NewBtn({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  const t = useTranslations('adminCorpus.wiki');
   return (
     <button
       type="button" onClick={onClick} disabled={disabled}
       data-testid="wiki-new-btn"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
     >
-      + new entry
+      {t('newEntry')}
     </button>
   );
 }
@@ -166,9 +168,10 @@ function TagFilterRow({
   activeTag: string | null;
   setActiveTag: (t: string | null) => void;
 }) {
+  const msg = useTranslations('adminCorpus.wiki');
   return (
     <div className="flex items-baseline gap-1.5 flex-wrap" data-testid="wiki-tag-filter">
-      <Chip active={activeTag === null} onClick={() => setActiveTag(null)}>all</Chip>
+      <Chip active={activeTag === null} onClick={() => setActiveTag(null)}>{msg('all')}</Chip>
       {tags.map((t) => (
         <Chip key={t} active={activeTag === t} onClick={() => setActiveTag(activeTag === t ? null : t)}>
           {t}
@@ -187,10 +190,10 @@ function ErrorBlock({ message }: { message: string }) {
 }
 
 function EmptyState() {
+  const t = useTranslations('adminCorpus.wiki');
   return (
     <p className="reading-tight italic text-(--color-muted) mt-8">
-      No wiki entries yet. Use + new entry, promote from /admin/raw, or call MCP{' '}
-      <span className="mono">promote_to_wiki</span>.
+      {t.rich('empty', { tool: (c) => <span className="mono">{c}</span> })}
     </p>
   );
 }
@@ -237,7 +240,7 @@ function WikiHead({
         {entry.title}
         {hasChildren ? (
           <span className="ml-2 mono text-[9.5px] tracking-[0.08em] text-(--color-faint) align-middle">
-            ▾ {childCount}
+            {'▾'} {childCount}
           </span>
         ) : null}
       </h3>
@@ -254,10 +257,12 @@ function WikiExcerpt({ excerpt, preview }: { excerpt: string; preview: string })
 }
 
 function VisibilityDot({ indexed }: { indexed: boolean }) {
-  const label = indexed ? 'public' : 'private';
+  const t = useTranslations('adminCorpus.wiki');
   const tone = indexed ? 'text-(--color-muted)' : 'text-(--color-accent)';
   return (
-    <span className={`mono text-[9.5px] tracking-[0.16em] uppercase ${tone}`}>● {label}</span>
+    <span className={`mono text-[9.5px] tracking-[0.16em] uppercase ${tone}`}>
+      {indexed ? t('dotPublic') : t('dotPrivate')}
+    </span>
   );
 }
 
@@ -306,11 +311,12 @@ function ActionRow({
   entry: WikiSummary; actions: CorpusActionsHook;
   setMode: (m: RowMode) => void; childCount: number;
 }) {
+  const t = useTranslations('adminCorpus.wiki');
   return (
     <div className="mt-3 flex items-baseline gap-3 mono text-[10px] tracking-[0.12em] uppercase">
-      <RowBtn label="edit" testid={`wiki-edit-${entry.id}`} onClick={() => setMode('edit')} />
+      <RowBtn label={t('edit')} testid={`wiki-edit-${entry.id}`} onClick={() => setMode('edit')} />
       <RowBtn
-        label="promote → output"
+        label={t('promoteToOutput')}
         testid={`wiki-promote-${entry.id}`}
         onClick={() => setMode('promote')}
       />
@@ -321,24 +327,26 @@ function ActionRow({
 }
 
 function ViewLiveLink({ path, indexed }: { path?: string | null; indexed: boolean }) {
+  const t = useTranslations('adminCorpus.wiki');
   return indexed && path ? (
     <a
       href={`/wiki/${path}`} target="_blank" rel="noreferrer"
       data-testid="wiki-view-live"
       className="text-(--color-muted) hover:text-(--color-accent)"
     >
-      view ↗
+      {t('viewLive')}
     </a>
   ) : null;
 }
 
+// RowBtn —— label 已由调用方本地化（含 ↗ 后缀），这里只渲染。
 function RowBtn({ label, onClick, testid }: { label: string; onClick: () => void; testid: string }) {
   return (
     <button
       type="button" onClick={onClick} data-testid={testid}
       className="text-(--color-muted) hover:text-(--color-accent)"
     >
-      {label} ↗
+      {label}
     </button>
   );
 }
@@ -346,6 +354,7 @@ function RowBtn({ label, onClick, testid }: { label: string; onClick: () => void
 function DeleteBtn({
   entry, actions, childCount,
 }: { entry: WikiSummary; actions: CorpusActionsHook; childCount: number }) {
+  const t = useTranslations('adminCorpus.common');
   const toast = useToast();
   const onClick = () => confirm(deleteWikiPrompt(entry.title, childCount))
     ? void runWith(
@@ -358,7 +367,7 @@ function DeleteBtn({
       type="button" onClick={onClick} data-testid={`wiki-delete-${entry.id}`}
       className="text-(--color-faint) hover:text-(--color-accent)"
     >
-      delete ×
+      {t('deleteX')}
     </button>
   );
 }

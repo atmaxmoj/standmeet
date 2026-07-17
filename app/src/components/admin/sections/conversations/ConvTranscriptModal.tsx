@@ -4,6 +4,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { ModalShell } from '@/components/admin/modals/ModalShell';
 import {
   deriveGhostView,
@@ -51,7 +53,8 @@ function TranscriptBody({ transcript }: { transcript: ConvTranscript }) {
 }
 
 function Loading() {
-  return <p className="reading-tight italic text-(--color-muted)">loading transcript…</p>;
+  const t = useTranslations('adminAccess');
+  return <p className="reading-tight italic text-(--color-muted)">{t('transcript.loading')}</p>;
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -59,9 +62,10 @@ function ErrorBlock({ message }: { message: string }) {
 }
 
 function EmptyState() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading-tight italic text-(--color-muted)">
-      No messages in this conversation.
+      {t('transcript.empty')}
     </p>
   );
 }
@@ -137,6 +141,7 @@ function CitedTail({
   wikiRefs: Record<string, string>;
   outputRefs: Record<string, string>;
 }) {
+  const t = useTranslations('adminAccess');
   const items = [
     ...outputIds.map((id) => ({ kind: 'output' as const, id, title: outputRefs[id] })),
     ...wikiIds.map((id) => ({ kind: 'wiki' as const, id, title: wikiRefs[id] })),
@@ -149,7 +154,7 @@ function CitedTail({
       {items.map((c) => (
         <li key={`${c.kind}:${c.id}`} className="flex items-baseline gap-2">
           <span className={c.kind === 'output' ? 'text-(--color-accent)' : 'text-(--color-faint)'}>
-            cited · {c.kind}
+            {t('transcript.cited', { kind: c.kind })}
           </span>
           <span className="reading-tight italic text-(--color-muted) normal-case tracking-[0.04em]">
             {c.title}
@@ -169,10 +174,11 @@ function formatTime(iso: string): string {
 // 才会有；其他 mode 空数组 → block 整段不渲。每行：text · source ·
 // shown_at · accepted? (accepted 时显勾 + 时间，否则灰 dash)。
 function GhostsBlock({ ghosts }: { ghosts: readonly GhostLog[] }) {
+  const t = useTranslations('adminAccess');
   return ghosts.length === 0 ? null : (
     <section className="mt-8 pt-6 border-t border-(--color-rule)" data-testid="transcript-ghosts">
       <h3 className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
-        ghost text shown
+        {t('transcript.ghostsTitle')}
       </h3>
       <ul className="space-y-2">
         {ghosts.map((s) => (

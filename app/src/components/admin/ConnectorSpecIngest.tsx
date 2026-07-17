@@ -5,6 +5,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { useConnectorIngest, type AuthForms } from '@/lib/admin/use-connector-ingest';
 import { ConnectorCredForm } from '@/components/admin/ConnectorCredForm';
@@ -61,13 +62,14 @@ function CredFormMaybe({ auth }: { auth: AuthForms | null }) {
 }
 
 function SpecHeading() {
+  const t = useTranslations('adminShell.specIngest');
   return (
     <div className="mb-2">
       <div className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted)">
-        paste an OpenAPI spec
+        {t('heading')}
       </div>
       <p className="reading-tight text-[12.5px] text-(--color-muted) mt-1">
-        Any OpenAPI 3.0 spec (JSON or YAML). We derive the credential form + category from it.
+        {t('blurb')}
       </p>
     </div>
   );
@@ -87,13 +89,14 @@ function SpecTextarea({ onText, onBlur }: { onText: (t: string) => void; onBlur:
 }
 
 function SubmitButton({ onClick }: { onClick: () => void }) {
+  const t = useTranslations('adminShell.specIngest');
   return (
     <button
       type="button" onClick={onClick}
       data-testid="connector-spec-submit"
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
-      use this spec
+      {t('useThisSpec')}
     </button>
   );
 }
@@ -111,12 +114,13 @@ function FileInput({ onFile }: { onFile: (f: File) => void }) {
 }
 
 function SpecUrlRow({ onFetch }: { onFetch: (url: string) => void }) {
+  const t = useTranslations('adminShell.specIngest');
   const [url, setUrl] = useState('');
   return (
     <div className="flex gap-2 mt-3 items-end">
       <label className="block flex-1">
         <span className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) block mb-1">
-          …or fetch from a URL
+          {t('orFetchFromUrl')}
         </span>
         <input
           type="text"
@@ -132,7 +136,7 @@ function SpecUrlRow({ onFetch }: { onFetch: (url: string) => void }) {
         data-testid="connector-spec-fetch-button"
         className="sm-btn sm-btn-ghost sm-btn-sm"
       >
-        fetch
+        {t('fetch')}
       </button>
     </div>
   );
@@ -150,13 +154,14 @@ function SpecError({ message }: { message: string }) {
 }
 
 function SpecCandidate({ title }: { title: string }) {
+  const t = useTranslations('adminShell.specIngest');
   return (
     <div
       data-testid="connector-candidate"
       className="mt-3 border border-(--color-accent)/50 rounded-sm p-3 bg-(--color-accent)/5"
     >
       <div className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted)">
-        connector candidate
+        {t('candidate')}
       </div>
       <div className="text-[14px] mt-0.5">{title}</div>
     </div>

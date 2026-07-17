@@ -10,6 +10,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ResumeComposer } from '@/components/admin/ResumeComposer';
@@ -54,12 +55,16 @@ function titleCount(n: number, loading: boolean): string {
   return loading ? 'loading…' : `${n} pending`;
 }
 
+// ink —— t.rich 的 <ink> 标签：把句中要强调的词提到 ink 色。
+const ink = (chunks: React.ReactNode) => (
+  <span className="text-(--color-ink)">{chunks}</span>
+);
+
 function Intro() {
+  const t = useTranslations('adminJobs');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Tailored resumes Claude drafted for jobs you said yes to. Open the composer to
-      edit + preview; <span className="text-(--color-ink)">send</span> freezes the
-      snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.
+      {t.rich('drafts.intro', { ink })}
     </p>
   );
 }
@@ -81,9 +86,10 @@ function DraftListBody(props: {
 }
 
 function Loading() {
+  const t = useTranslations('adminJobs');
   return (
     <p className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted)">
-      loading…
+      {t('drafts.loading')}
     </p>
   );
 }
@@ -100,12 +106,14 @@ function LoadError({ msg }: { msg: string }) {
 }
 
 function EmptyState() {
+  const t = useTranslations('adminJobs');
   return (
     <div className="p-6 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/40 text-center">
-      <p className="font-serif text-(--color-ink) text-[18px]">No drafts pending.</p>
+      <p className="font-serif text-(--color-ink) text-[18px]">{t('drafts.emptyTitle')}</p>
       <p className="reading text-(--color-muted) text-[14px] mt-1.5 max-w-[36em] mx-auto">
-        Ask Claude to draft a resume from a shortlisted job listing
-        (MCP <code className="mono">resume.draft</code>) — it shows up here.
+        {t.rich('drafts.emptyHint', {
+          code: (chunks) => <code className="mono">{chunks}</code>,
+        })}
       </p>
     </div>
   );
@@ -167,11 +175,12 @@ function DraftStatusPill({ status }: { status?: AdminDraftRow['status'] }) {
 }
 
 function DraftCardMeta({ updatedAt, forJob }: { updatedAt: string; forJob: string }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) flex items-baseline gap-3 flex-wrap mb-4">
-      <span>updated {formatDate(updatedAt)}</span>
+      <span>{t('drafts.metaUpdated', { date: formatDate(updatedAt) })}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>job · <span className="text-(--color-ink)">{forJob}</span></span>
+      <span>{t.rich('drafts.metaJob', { job: forJob, ink })}</span>
     </div>
   );
 }
@@ -199,6 +208,7 @@ function DraftCardActions({ onOpen, draftId, actionKind }: { onOpen: () => void;
 }
 
 function ReviewingActions({ onOpen, draftId }: { onOpen: () => void; draftId: string }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="flex items-baseline gap-3">
       <button
@@ -206,19 +216,20 @@ function ReviewingActions({ onOpen, draftId }: { onOpen: () => void; draftId: st
         className="sm-btn sm-btn-outline sm-btn-sm"
         data-testid={`draft-open-${draftId}`}
       >
-        open composer →
+        {t('drafts.openComposer')}
       </button>
       <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) hover:text-(--color-accent)">
-        edit
+        {t('drafts.edit')}
       </button>
       <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)">
-        regenerate
+        {t('drafts.regenerate')}
       </button>
     </div>
   );
 }
 
 function DraftActions({ onOpen, draftId }: { onOpen: () => void; draftId: string }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="flex items-baseline gap-3" data-testid={`draft-actions-${draftId}`}>
       <button
@@ -226,23 +237,24 @@ function DraftActions({ onOpen, draftId }: { onOpen: () => void; draftId: string
         className="sm-btn sm-btn-outline sm-btn-sm"
         data-testid={`draft-open-${draftId}`}
       >
-        open composer →
+        {t('drafts.openComposer')}
       </button>
       <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)">
-        discard
+        {t('drafts.discard')}
       </button>
     </div>
   );
 }
 
 function SentActions({ draftId }: { draftId: string }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="flex items-baseline gap-3" data-testid={`draft-sent-${draftId}`}>
       <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) hover:text-(--color-accent)">
-        view application
+        {t('drafts.viewApplication')}
       </button>
       <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)">
-        view pdf
+        {t('drafts.viewPdf')}
       </button>
     </div>
   );

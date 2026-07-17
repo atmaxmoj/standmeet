@@ -7,6 +7,8 @@
 
 import { useCallback, useState } from 'react';
 
+import { useTranslations } from 'next-intl';
+
 import {
   useDomain, type DomainStatus,
   domainBadge, domainHint, domainEffectiveHost,
@@ -49,34 +51,37 @@ function currentHost(): string {
 function DefaultCard({
   status, sanitized,
 }: { status: DomainStatus; sanitized: string }) {
+  const t = useTranslations('adminPages.domain');
   const using = !sanitized || status !== 'verified';
   return (
     <div className={`border ${using ? 'border-(--color-ink)' : 'border-(--color-rule)'} p-4 rounded-sm bg-(--color-surface)/40`}>
       <div className="flex items-baseline justify-between mb-2">
-        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">default</div>
+        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{t('defaultLabel')}</div>
         <InUseFlag shown={using} />
       </div>
       <div className="font-serif text-(--color-ink) text-[18px] font-medium tracking-[-0.005em]">
         <span className="text-(--color-accent)">{currentHost()}</span>
       </div>
-      <div className="mono text-[10.5px] tracking-[0.04em] text-(--color-faint) mt-1">no setup · always available</div>
+      <div className="mono text-[10.5px] tracking-[0.04em] text-(--color-faint) mt-1">{t('defaultHint')}</div>
     </div>
   );
 }
 
 function InUseFlag({ shown }: { shown: boolean }) {
+  const t = useTranslations('adminPages.domain');
   return shown
-    ? <span className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-accent)">● in use</span>
+    ? <span className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-accent)">{t('inUse')}</span>
     : null;
 }
 
 function CustomCard({
   hook, onVerify, error,
 }: { hook: ReturnType<typeof useDomain>; onVerify: () => void; error: string | null }) {
+  const t = useTranslations('adminPages.domain');
   return (
     <div className={`border ${hook.status === 'verified' ? 'border-(--color-ink)' : 'border-(--color-rule)'} p-4 rounded-sm bg-(--color-surface)/40`}>
       <div className="flex items-baseline justify-between mb-2">
-        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">custom domain</div>
+        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{t('customLabel')}</div>
         <StatusBadge status={hook.status} hasDomain={Boolean(hook.domain)} />
       </div>
       <DomainInputRow hook={hook} />
@@ -96,9 +101,10 @@ function VerifyError({ message }: { message: string | null }) {
 }
 
 function DomainInputRow({ hook }: { hook: ReturnType<typeof useDomain> }) {
+  const t = useTranslations('adminPages.domain');
   return (
     <div className="flex items-baseline gap-2 border-b border-(--color-rule) pb-1">
-      <span className="mono text-(--color-faint)">https://</span>
+      <span className="mono text-(--color-faint)">{t('schemePrefix')}</span>
       <input
         type="text"
         value={hook.domain}
@@ -114,13 +120,14 @@ function DomainInputRow({ hook }: { hook: ReturnType<typeof useDomain> }) {
 }
 
 function ClearBtn({ shown, onClick }: { shown: boolean; onClick: () => void }) {
+  const t = useTranslations('adminPages.domain');
   return shown ? (
     <button
       type="button"
       onClick={onClick}
       className="mono text-[10px] tracking-[0.12em] text-(--color-faint) hover:text-(--color-accent)"
     >
-      clear
+      {t('clear')}
     </button>
   ) : null;
 }
@@ -166,12 +173,13 @@ function StatusBadge({
 function EffectiveLine({
   handle, domain, status,
 }: { handle: string; domain: string; status: DomainStatus }) {
+  const t = useTranslations('adminPages.domain');
   const effective = domainEffectiveHost(handle, domain, status);
   return (
     <div className="mono text-[10.5px] tracking-[0.12em] text-(--color-faint) flex items-baseline gap-2 flex-wrap">
-      <span>effective share host ·</span>
+      <span>{t('effectiveHost')}</span>
       <span className="text-(--color-ink)">{effective}</span>
-      <span className="text-(--color-faint)">· used by code share links, QRs, gate footer.</span>
+      <span className="text-(--color-faint)">{t('effectiveHostNote')}</span>
     </div>
   );
 }

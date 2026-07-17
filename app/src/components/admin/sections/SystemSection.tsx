@@ -4,6 +4,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
@@ -13,13 +15,14 @@ import {
 } from '@/lib/admin/use-system-info';
 
 export function SystemSection() {
+  const t = useTranslations('adminShell.system');
   const { info } = useSystemInfo();
   return (
     <>
       <SectionHeader
         kicker="settings · runtime"
         title="system"
-        action={<button className="sm-btn sm-btn-outline sm-btn-sm" type="button">check for updates</button>}
+        action={<button className="sm-btn sm-btn-outline sm-btn-sm" type="button">{t('checkForUpdates')}</button>}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <DeploymentBlock info={info} />
@@ -34,27 +37,29 @@ export function SystemSection() {
 }
 
 function DeploymentBlock({ info }: { info: SystemInfo | null }) {
+  const t = useTranslations('adminShell.system');
   const d = deployView(info);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-terminal">
-      <div className="sm-smallcaps mb-3">deployment</div>
+      <div className="sm-smallcaps mb-3">{t('deployment')}</div>
       <div className="border border-(--color-rule) rounded-[3px] p-3 bg-[color-mix(in_oklab,var(--color-ink)_6%,var(--color-paper))] mono text-[11.5px] leading-[1.7] text-(--color-muted)">
-        <div><span className="text-(--color-accent)">$</span> standmeet status</div>
-        <div><span className="text-(--color-faint)">├─</span> version <span className="text-(--color-ink)" data-testid="system-version">{d.version}</span></div>
-        <div><span className="text-(--color-faint)">├─</span> cpus <span className="text-(--color-ink)">{d.cpus}</span></div>
-        <div><span className="text-(--color-faint)">├─</span> uptime <span className="text-(--color-ink)" data-testid="system-uptime">{d.uptime}</span></div>
-        <div><span className="text-(--color-faint)">└─</span> migrations <span className="text-(--color-ink)">0 pending</span></div>
-        <div className="mt-2"><span className="text-(--color-accent)">$</span> ready<span className="animate-pulse">_</span></div>
+        <div><span className="text-(--color-accent)">$</span> {t('statusCmd')}</div>
+        <div><span className="text-(--color-faint)">{t('treeBranch')}</span> {t('version')} <span className="text-(--color-ink)" data-testid="system-version">{d.version}</span></div>
+        <div><span className="text-(--color-faint)">{t('treeBranch')}</span> {t('cpus')} <span className="text-(--color-ink)">{d.cpus}</span></div>
+        <div><span className="text-(--color-faint)">{t('treeBranch')}</span> {t('uptime')} <span className="text-(--color-ink)" data-testid="system-uptime">{d.uptime}</span></div>
+        <div><span className="text-(--color-faint)">{t('treeLast')}</span> {t('migrations')} <span className="text-(--color-ink)">{t('migrationsPending')}</span></div>
+        <div className="mt-2"><span className="text-(--color-accent)">$</span> {t('ready')}<span className="animate-pulse">_</span></div>
       </div>
     </div>
   );
 }
 
 function ResourcesBlock({ info }: { info: SystemInfo | null }) {
+  const t = useTranslations('adminShell.system');
   const stats = resourceStats(info);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-resources">
-      <div className="sm-smallcaps mb-3">resources · host + runtime</div>
+      <div className="sm-smallcaps mb-3">{t('resources')}</div>
       <div className="grid grid-cols-2 gap-3">
         {stats.map((s) => (
           <ResourceStat key={s.label} label={s.label} value={s.value} sub={s.sub} />
@@ -75,18 +80,19 @@ function ResourceStat({ label, value, sub }: { label: string; value: string; sub
 }
 
 function JobsTable() {
+  const t = useTranslations('adminShell.system');
   const { jobs } = useScheduledJobs();
   const rows = jobRowViews(jobs);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2" data-testid="system-jobs">
-      <div className="sm-smallcaps mb-3">background jobs</div>
+      <div className="sm-smallcaps mb-3">{t('backgroundJobs')}</div>
       <table className="w-full border-collapse">
         <thead>
           <tr className="mono text-[9.5px] tracking-[0.2em] uppercase text-(--color-muted)">
-            <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">job</th>
-            <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">schedule</th>
-            <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">last</th>
-            <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">status</th>
+            <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">{t('colJob')}</th>
+            <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">{t('colSchedule')}</th>
+            <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">{t('colLast')}</th>
+            <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">{t('colStatus')}</th>
           </tr>
         </thead>
         <tbody>
@@ -100,21 +106,23 @@ function JobsTable() {
 }
 
 function JobRow({ name, schedule, last, status }: { name: string; schedule: string; last: string; status: string }) {
+  const t = useTranslations('adminShell.system');
   const tone = status === 'ok' ? 'text-(--color-accent)' : 'text-(--color-amber)';
   return (
     <tr className="hover:bg-(--color-surface)/30">
       <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 font-serif text-[15px]">{name}</td>
       <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11.5px] tabular-nums text-(--color-muted)">{schedule}</td>
       <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11.5px] tabular-nums text-(--color-muted)">{last}</td>
-      <td className={`px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[10px] tracking-[0.14em] uppercase ${tone}`}>● {status}</td>
+      <td className={`px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[10px] tracking-[0.14em] uppercase ${tone}`}>{t('statusDot')} {status}</td>
     </tr>
   );
 }
 
 function HealthChecks({ info }: { info: SystemInfo | null }) {
+  const t = useTranslations('adminShell.system');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2" data-testid="system-health">
-      <div className="sm-smallcaps mb-3">health checks</div>
+      <div className="sm-smallcaps mb-3">{t('healthChecks')}</div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {healthList(info).map((c) => (
           <HealthRow key={c.name} name={c.name} status={c.ok ? 'ok' : 'down'} detail={c.detail} />

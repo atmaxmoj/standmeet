@@ -4,6 +4,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { ConnectorConfigForm } from '@/components/admin/ConnectorConfigForm';
 import { useProtocolConnect } from '@/lib/admin/use-protocol-connect';
 import type { ConnectorEntry } from '@/lib/admin/connector-registry';
@@ -21,6 +23,7 @@ export function ProtocolConnectorForm({ entry, onClose }: { entry: ConnectorEntr
 function ConnectStep({
   saved, status, error, onConnect,
 }: { saved: boolean; status: string; error: string; onConnect: () => void }) {
+  const t = useTranslations('adminShell.protocolConnector');
   return saved ? (
     <div className="border-t border-(--color-rule)/60 pt-4 mt-4 space-y-2">
       <button
@@ -28,7 +31,7 @@ function ConnectStep({
         data-testid="connector-connect-button"
         className="sm-btn sm-btn-solid sm-btn-sm"
       >
-        Test connection →
+        {t('testConnection')}
       </button>
       <StatusLine status={status} />
       <ErrorLine error={error} />

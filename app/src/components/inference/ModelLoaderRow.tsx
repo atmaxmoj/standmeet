@@ -11,6 +11,8 @@
 //   - select:   `{prefix}-model-select`
 //   - load btn: `{prefix}-load-models`
 
+import { useTranslations } from 'next-intl';
+
 import type { ModelListHook } from '@/lib/inference/use-model-list';
 
 const MODEL_PLACEHOLDER = 'type model id, or click Load models';
@@ -89,6 +91,7 @@ function ModelSelect({
   options: readonly string[];
   prefix: ModelTestidPrefix; inputClassName: string;
 }) {
+  const t = useTranslations('visitor.modelLoader');
   return (
     <select
       value={value}
@@ -96,7 +99,7 @@ function ModelSelect({
       data-testid={`${prefix}-model-select`}
       className={`${inputClassName} cursor-pointer`}
     >
-      <option value="">pick a model…</option>
+      <option value="">{t('pickModel')}</option>
       {options.map((m) => <option key={m} value={m}>{m}</option>)}
     </select>
   );
@@ -153,6 +156,7 @@ function DropdownActions({
   onLoad: () => void; onReset: () => void;
   loading: boolean; prefix: ModelTestidPrefix; loadDisabled: boolean;
 }) {
+  const t = useTranslations('visitor.modelLoader');
   return (
     <span className="flex items-baseline gap-2 shrink-0">
       <button
@@ -170,7 +174,7 @@ function DropdownActions({
         onClick={onReset}
         className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-ink)"
       >
-        type
+        {t('type')}
       </button>
     </span>
   );

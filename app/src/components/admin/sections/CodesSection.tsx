@@ -4,6 +4,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
@@ -59,9 +60,10 @@ export function CodesSection() {
 }
 
 function NewCodeBtn({ open }: { open: () => void }) {
+  const t = useTranslations('adminAccess');
   // Btn 把 onClick 调时会传 MouseEvent；openCreate(existing?) 不能把
   // 事件当成 existing 传进去（会让 modal 以为是 edit）。包一层裸调用。
-  return <Btn kind="primary" onClick={() => open()}>＋ new code</Btn>;
+  return <Btn kind="primary" onClick={() => open()}>{t('codes.new')}</Btn>;
 }
 
 function titleCount(hook: CodesHook): string {
@@ -75,11 +77,10 @@ function countActive(codes: readonly CodeView[]): number {
 }
 
 function Intro() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Each code gates a slice of your wiki for a known recipient — a hiring loop, an investor intro,
-      or a single press call. Multiple people can share one code; when someone enters it, the AI asks
-      who they are and assigns them to the code&apos;s member list. Each card carries a QR.
+      {t('codes.intro')}
     </p>
   );
 }
@@ -135,9 +136,10 @@ function CodeGrid({
 }
 
 function EmptyState() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading italic text-(--color-muted)" data-testid="code-list">
-      No codes yet.
+      {t('codes.empty')}
     </p>
   );
 }

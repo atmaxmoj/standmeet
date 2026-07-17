@@ -9,6 +9,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { ModalShell } from '@/components/admin/modals/ModalShell';
@@ -68,11 +69,12 @@ function useSubmit(
 function ModalFooter({
   editing, disabled, onClose,
 }: { editing: boolean; disabled: boolean; onClose: () => void }) {
+  const t = useTranslations('adminShell.codeModal');
   const label = editing ? 'save quotas' : 'create code';
   const testid = editing ? 'code-save' : 'code-create';
   return (
     <div className="flex items-center justify-end gap-3 border-t border-(--color-rule) pt-4">
-      <Btn kind="ghost" onClick={onClose}>cancel</Btn>
+      <Btn kind="ghost" onClick={onClose}>{t('cancel')}</Btn>
       <button
         type="submit"
         data-testid={testid}

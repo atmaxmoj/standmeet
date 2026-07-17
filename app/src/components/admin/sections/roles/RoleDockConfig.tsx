@@ -2,6 +2,7 @@
 // 每位 = 能力下拉（label 透传 MCP title）+ 触发词输入。存 → updateRole 全量回写 dock_buttons，
 // 冻进后续 session。空 slot（没选能力）存时丢掉。
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useCapabilities, type CapabilityRow } from '@/lib/admin/use-capabilities';
@@ -12,11 +13,8 @@ import { useAction } from '@/lib/ui/use-action';
 
 type Slot = { capability_id: string; trigger: string };
 
-const DOCK_HELP =
-  '触发词 —— 点这个按钮时，系统替访客发出的一句话；AI 当访客的提问来处理。' +
-  '例如「帮我总结到目前为止的对话」，访客点按钮就等于打了这句。';
-
 export function RoleDockConfig({ role }: { role: RoleView }) {
+  const t = useTranslations('adminAccess');
   const caps = useCapabilities();
   const roles = useRoles();
   const run = useAction();
@@ -38,11 +36,11 @@ export function RoleDockConfig({ role }: { role: RoleView }) {
   return (
     <div className="mt-2 grid grid-cols-[90px_1fr] gap-x-3 gap-y-2 items-start">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) pt-1.5">
-        dock
+        {t('roleDock.label')}
       </span>
       <div className="flex flex-col gap-2">
         <p className="reading-tight text-[11px] text-(--color-muted)" data-testid="role-dock-help">
-          {DOCK_HELP}
+          {t('roleDock.help')}
         </p>
         {slots.map((slot, i) => (
           <DockSlotRow key={i} idx={i} slot={slot} options={options} onSlot={setSlot} />
@@ -61,6 +59,7 @@ function DockSlotRow({
   options: readonly CapabilityRow[];
   onSlot: (i: number, patch: Partial<Slot>) => void;
 }) {
+  const t = useTranslations('adminAccess');
   return (
     <div className="flex gap-2">
       <select
@@ -69,7 +68,7 @@ function DockSlotRow({
         onChange={(e) => onSlot(idx, { capability_id: e.target.value })}
         data-testid={`role-dock-cap-${idx}`}
       >
-        <option value="">— none —</option>
+        <option value="">{t('common.noneDash')}</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>{o.title}</option>
         ))}
@@ -79,7 +78,7 @@ function DockSlotRow({
         className="flex-1 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13px]"
         value={slot.trigger}
         onChange={(e) => onSlot(idx, { trigger: e.target.value })}
-        placeholder="触发词 (e.g. 帮我总结这段对话)"
+        placeholder={t('roleDock.triggerPlaceholder')}
         data-testid={`role-dock-trigger-${idx}`}
       />
     </div>
@@ -87,6 +86,7 @@ function DockSlotRow({
 }
 
 function DockSaveBtn({ role, onSave }: { role: RoleView; onSave: () => Promise<void> }) {
+  const t = useTranslations('adminAccess');
   return (
     <button
       type="button"
@@ -94,7 +94,7 @@ function DockSaveBtn({ role, onSave }: { role: RoleView; onSave: () => Promise<v
       data-testid="role-dock-save"
       className="self-start mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
     >
-      save dock · {role.name}
+      {t('roleDock.save', { name: role.name })}
     </button>
   );
 }

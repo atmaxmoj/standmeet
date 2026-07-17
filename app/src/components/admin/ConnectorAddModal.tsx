@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import {
   CONNECTOR_CATEGORIES,
@@ -75,18 +76,19 @@ function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClos
 }
 
 function ModalHead({ onClose }: { onClose: () => void }) {
+  const t = useTranslations('adminShell.connectorAdd');
   return (
     <div className="sm-connector-modal-head">
       <div>
-        <div className="sm-smallcaps">add connector · {catalogSize()} in catalog</div>
-        <div className="sm-connector-modal-title">Extend the corpus surface.</div>
+        <div className="sm-smallcaps">{t('catalogCount', { n: catalogSize() })}</div>
+        <div className="sm-connector-modal-title">{t('tagline')}</div>
       </div>
       <button
         type="button" onClick={onClose}
         className="sm-btn sm-btn-ghost"
         data-testid="connector-modal-close"
       >
-        close ✕
+        {t('close')}
       </button>
     </div>
   );
@@ -181,9 +183,10 @@ function CardHead({ entry, installed }: { entry: ConnectorEntry; installed: bool
 }
 
 function CardBadge({ entry, installed }: { entry: ConnectorEntry; installed: boolean }) {
+  const t = useTranslations('adminShell.connectorAdd');
   return installed
-    ? <span className="sm-pill is-accent"><span className="sm-dot-mark" />installed</span>
+    ? <span className="sm-pill is-accent"><span className="sm-dot-mark" />{t('installed')}</span>
     : entry.builtin
-      ? <span className="sm-pill"><span className="sm-dot-mark" />built-in</span>
+      ? <span className="sm-pill"><span className="sm-dot-mark" />{t('builtIn')}</span>
       : null;
 }

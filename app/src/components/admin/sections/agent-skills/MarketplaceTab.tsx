@@ -6,6 +6,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { MarketplaceCard } from '@/components/admin/sections/agent-skills/MarketplaceCard';
 import {
@@ -60,6 +61,7 @@ function ManualInstall({ hook }: { hook: AgentSkillsHook }) {
 
 function ManualForm({ hook }: { hook: AgentSkillsHook }) {
   const run = useAction();
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   const [md, setMd] = useState('');
   const [name, setName] = useState('');
   const onInstall = () => {
@@ -69,9 +71,9 @@ function ManualForm({ hook }: { hook: AgentSkillsHook }) {
   return (
     <div>
       <p className={styles.manualHint}>
-        Found a skill somewhere else? Paste its <span className={styles.introInk}>SKILL.md</span>{' '}
-        (YAML frontmatter + body). It installs as a local copy you own — no
-        marketplace, no network fetch.
+        {t.rich('manualHint', {
+          ink: (chunks) => <span className={styles.introInk}>{chunks}</span>,
+        })}
       </p>
       <div className={styles.manualForm}>
         <textarea
@@ -96,7 +98,7 @@ function ManualForm({ hook }: { hook: AgentSkillsHook }) {
             className={styles.manualInstall}
             data-testid="marketplace-manual-install"
           >
-            install
+            {t('manualInstall')}
           </button>
         </div>
       </div>
@@ -105,6 +107,7 @@ function ManualForm({ hook }: { hook: AgentSkillsHook }) {
 }
 
 function LoadMore({ hook }: { hook: AgentSkillsHook }) {
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   return hook.hasMoreMarket ? (
     <button
       type="button"
@@ -112,30 +115,28 @@ function LoadMore({ hook }: { hook: AgentSkillsHook }) {
       data-testid="marketplace-load-more"
       className={styles.segmentBtn}
     >
-      load more
+      {t('loadMore')}
     </button>
   ) : null;
 }
 
 function Intro() {
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   return (
     <p className={styles.intro}>
-      Skills aggregate from two sources — the open{' '}
-      <span className={styles.introInk}>anthropics/skills</span> GitHub repo
-      (anyone can fork + PR) and{' '}
-      <span className={styles.introInk}>SkillsMP</span> (commercial channel).
-      Installing fetches the skill’s SKILL.md, parses its frontmatter, and writes
-      a local copy you fully own — edit the prompt or allowed-tools after,
-      decoupled from the marketplace.
+      {t.rich('intro', {
+        ink: (chunks) => <span className={styles.introInk}>{chunks}</span>,
+      })}
     </p>
   );
 }
 
 function SearchBar({ hook }: { hook: AgentSkillsHook }) {
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   return (
     <div className={styles.searchRow}>
       <div className={styles.search}>
-        <span className={styles.searchIcon}>⌕</span>
+        <span className={styles.searchIcon}>{t('searchIcon')}</span>
         <input
           value={hook.query}
           onChange={(e) => hook.setQuery(e.target.value)}
@@ -211,10 +212,10 @@ function ResultsGrid({
 }
 
 function EmptyState() {
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   return (
     <p className={styles.empty} data-testid="marketplace-empty">
-      No skills match. Try a different term, or switch source — the GitHub repo
-      and SkillsMP are queried in parallel.
+      {t('empty')}
     </p>
   );
 }

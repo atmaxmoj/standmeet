@@ -9,6 +9,7 @@ import {
   useImperativeHandle,
   useState,
 } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { handlePickerKey } from '@/lib/writings/crosslink-picker-keys';
 import type { PostSlugEntry } from '@/lib/writings/post-slug-index';
@@ -59,18 +60,20 @@ function Body({
 }
 
 function Header({ query }: { query: string }) {
+  const t = useTranslations('writings.editor');
   return (
     <div className="sm-smallcaps px-3.5 pt-2 pb-1">
-      cross-link
+      {t('crosslink')}
       <span className="text-(--color-faint) ml-2">[[{query}]]</span>
     </div>
   );
 }
 
 function EmptyHint() {
+  const t = useTranslations('writings.editor');
   return (
     <div className="px-3.5 py-2 mono text-[11px] text-(--color-faint)">
-      no match · type a slug to create
+      {t('crosslinkNoMatch')}
     </div>
   );
 }
@@ -121,10 +124,11 @@ function Row({
 }
 
 function Footer() {
+  const t = useTranslations('writings.editor');
   return (
     <div className="px-3.5 py-1.5 border-t border-(--color-rule) flex items-baseline justify-between">
       <span className="mono text-[9.5px] text-(--color-faint) tracking-[0.04em]">
-        ↑↓ navigate · ↵ insert · esc to cancel
+        {t('crosslinkHint')}
       </span>
     </div>
   );

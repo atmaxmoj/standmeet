@@ -14,6 +14,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import type { PublicSessionToolSpec } from '@standmeet/sdk-core';
 
 import { McpAppCard } from '@/components/page/McpAppCard';
@@ -66,11 +67,12 @@ function otherCards(
 // RetrievalSummary —— 折叠后的检索行:一行、原地,不随检索次数堆叠(UX-10)。
 // 「读到的具体内容」在 citations footer;这里只报「搜/读了多少次」的透明度。
 function RetrievalSummary({ counts }: { counts: RetrievalCounts }) {
+  const t = useTranslations('page');
   return (
     <div className={styles['retrievalSummary']} data-testid="retrieval-summary">
-      <span className={styles['kicker']}>searched {counts.searches}</span>
+      <span className={styles['kicker']}>{t('toolCalls.searched', { count: counts.searches })}</span>
       <span aria-hidden>·</span>
-      <span className={styles['kicker']}>read {counts.reads}</span>
+      <span className={styles['kicker']}>{t('toolCalls.read', { count: counts.reads })}</span>
     </div>
   );
 }

@@ -10,6 +10,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import {
   useGCal, toggledWeekdays, type BookingPolicy, type WeekdayT,
@@ -37,10 +38,11 @@ export function CalendarConnectorPanel() {
 }
 
 function Header({ status }: { status: ReturnType<typeof useGCal>['status'] }) {
+  const t = useTranslations('adminIntegrations.calendar');
   return (
     <div className="flex items-baseline justify-between mb-4">
       <h3 className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted)">
-        Google Calendar
+        {t('heading')}
       </h3>
       <StatusBadge status={status} />
     </div>
@@ -109,10 +111,10 @@ function CredentialsForm({ hook }: { hook: ReturnType<typeof useGCal> }) {
 }
 
 function CredentialsHint() {
+  const t = useTranslations('adminIntegrations.calendar');
   return (
     <p className="reading-tight text-[12.5px] text-(--color-muted) italic">
-      Google Cloud console → APIs &amp; Services → Credentials → OAuth client
-      ID (Desktop). Owner&apos;s own client; no global StandMeet OAuth.
+      {t('credentialsHint')}
     </p>
   );
 }
@@ -148,6 +150,7 @@ function SaveCredsButton({
   hook, clientID, clientSecret,
 }: { hook: ReturnType<typeof useGCal>; clientID: string; clientSecret: string }) {
   const report = useReportError();
+  const t = useTranslations('adminIntegrations.calendar');
   const disabled = clientID.trim() === '' || clientSecret.trim() === '';
   return (
     <button
@@ -157,7 +160,7 @@ function SaveCredsButton({
       onClick={() => { void hook.saveCredentials(clientID, clientSecret).catch(report); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
-      Save credentials
+      {t('saveCredentials')}
     </button>
   );
 }
@@ -182,6 +185,7 @@ function ConnectButtonsRow({ hook }: { hook: ReturnType<typeof useGCal> }) {
 
 function AuthorizeBtn({ hook }: { hook: ReturnType<typeof useGCal> }) {
   const report = useReportError();
+  const t = useTranslations('adminIntegrations.calendar');
   return (
     <button
       type="button"
@@ -189,13 +193,14 @@ function AuthorizeBtn({ hook }: { hook: ReturnType<typeof useGCal> }) {
       onClick={() => { void hook.authorize().catch(report); }}
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
-      Authorize on Google →
+      {t('authorize')}
     </button>
   );
 }
 
 function DisconnectBtn({ hook }: { hook: ReturnType<typeof useGCal> }) {
   const run = useAction();
+  const t = useTranslations('adminIntegrations.calendar');
   return (
     <button
       type="button"
@@ -203,7 +208,7 @@ function DisconnectBtn({ hook }: { hook: ReturnType<typeof useGCal> }) {
       onClick={() => { void run(() => hook.disconnect(), { success: 'Disconnected' }); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
-      Disconnect (keeps credentials)
+      {t('disconnect')}
     </button>
   );
 }
@@ -218,10 +223,11 @@ function PolicyEditor({ hook }: { hook: ReturnType<typeof useGCal> }) {
 function PolicyEditorBody({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
+  const t = useTranslations('adminIntegrations.calendar');
   return (
     <div className="border-t border-(--color-rule)/60 pt-4 mt-2 space-y-3">
       <h4 className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted)">
-        Booking policy
+        {t('policyHeading')}
       </h4>
       <PolicyHoursRow policy={policy} hook={hook} />
       <PolicyLeadBufferRow policy={policy} hook={hook} />
@@ -286,13 +292,14 @@ function PolicyTimezoneRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
   const report = useReportError();
+  const t = useTranslations('adminIntegrations.calendar');
   // No saved timezone → default the picker to the viewer's own zone, not option[0]
   // (American Samoa) which would silently book slots in the wrong zone (UX-11).
   const shownTz = policy.timezone || detectedTimezone();
   return (
     <label className="block">
       <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
-        timezone (IANA)
+        {t('timezone')}
       </span>
       <select
         data-testid="gcal-timezone"
@@ -340,10 +347,11 @@ function PolicyWeekdaysRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
   const report = useReportError();
+  const t = useTranslations('adminIntegrations.calendar');
   return (
     <div>
       <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) block mb-2">
-        allowed weekdays
+        {t('weekdays')}
       </span>
       <div className="flex flex-wrap gap-1.5" data-testid="gcal-weekdays-picker">
         {ALL_WEEKDAYS.map((d) => (

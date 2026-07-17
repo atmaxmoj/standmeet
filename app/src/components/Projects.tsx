@@ -31,7 +31,7 @@ function ProjectHead({ name, tagline }: { name: string; tagline: string }) {
       <h3 className="font-serif text-(--color-ink) text-[24px] font-medium tracking-[-0.012em] leading-[1.1]">
         {name}
       </h3>
-      <span className="mono text-(--color-faint)">──</span>
+      <span className="mono text-(--color-faint)">{'──'}</span>
       <span className="font-serif italic text-(--color-muted) text-[17px] leading-[1.3]">
         {tagline}
       </span>

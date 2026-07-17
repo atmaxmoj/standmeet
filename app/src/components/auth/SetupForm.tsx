@@ -5,6 +5,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
@@ -48,19 +49,19 @@ export function SetupForm({ setupToken }: Props) {
 }
 
 function SetupHeader({ step }: { step: 1 | 2 | 3 | 4 }) {
+  const t = useTranslations('auth.setup');
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3 flex items-baseline gap-3">
-        <span>first-run setup</span>
+        <span>{t('eyebrow')}</span>
         <span className="text-(--color-faint)">·</span>
-        <span className="text-(--color-faint)">step {step} of 4</span>
+        <span className="text-(--color-faint)">{t('stepOf', { step })}</span>
       </div>
       <h1 className="font-serif text-(--color-ink) text-[clamp(38px,5vw,56px)] font-normal tracking-[-0.02em] leading-none">
-        Claim this<br />instance<span className="text-(--color-accent)">.</span>
+        {t('headingA')}<br />{t('headingB')}<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="reading italic text-(--color-muted) mt-4 text-lg leading-relaxed">
-        Nobody has claimed this deployment yet. The first person to sign up becomes
-        the owner. Everything lives in your own database.
+        {t('lede')}
       </p>
     </div>
   );
@@ -172,6 +173,7 @@ function StepCredentials({ form }: { form: SetupFormHook }) {
 }
 
 function StepProvider({ form }: { form: SetupFormHook }) {
+  const t = useTranslations('auth.setup');
   return (
     <div className="space-y-5 rise">
       <ProviderIntro />
@@ -179,21 +181,21 @@ function StepProvider({ form }: { form: SetupFormHook }) {
       <ProviderKeyField form={form} />
       <ProviderModelField form={form} />
       <p className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
-        you can skip this for now and configure later under admin → account.
+        {t('providerSkip')}
       </p>
     </div>
   );
 }
 
 function ProviderIntro() {
+  const t = useTranslations('auth.setup');
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        ai provider
+        {t('providerEyebrow')}
       </div>
       <p className="reading text-(--color-muted) text-[14px] max-w-[40em] mb-3">
-        Used to power your visitor chat. The key stays in your instance only;
-        visitors with BYOAI bring their own.
+        {t('providerIntro')}
       </p>
     </div>
   );
@@ -271,14 +273,14 @@ function StepVerify({ form }: { form: SetupFormHook }) {
 }
 
 function VerifyIntro() {
+  const t = useTranslations('auth.setup');
   return (
     <>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        verify you&rsquo;re human
+        {t('verifyEyebrow')}
       </div>
       <p className="reading text-(--color-muted) text-[14px] max-w-[40em]">
-        Self-hosted instances still attract drive-by bots. One quick check before
-        you become the owner.
+        {t('verifyIntro')}
       </p>
     </>
   );
@@ -340,12 +342,13 @@ function SetupNav({ form }: { form: SetupFormHook }) {
 }
 
 function BackBtn({ step, onBack, busy }: { step: 1 | 2 | 3 | 4; onBack: () => void; busy: boolean }) {
+  const t = useTranslations('auth.setup');
   return step === 1 ? <span /> : (
     <button
       type="button" onClick={onBack} disabled={busy}
       className="mono text-[10.5px] tracking-[0.12em] text-(--color-muted) hover:text-(--color-ink)"
     >
-      ← back
+      {t('back')}
     </button>
   );
 }
@@ -366,7 +369,8 @@ function PrimaryBtn({
 }
 
 function PrimaryBtnLabel({ busy, final }: { busy: boolean; final: boolean }) {
-  return busy ? <>claiming…</> : final ? <>claim instance ↵</> : <>next →</>;
+  const t = useTranslations('auth.setup');
+  return busy ? <>{t('claiming')}</> : final ? <>{t('claim')}</> : <>{t('next')}</>;
 }
 
 function FormError({ message }: { message: string | null }) {

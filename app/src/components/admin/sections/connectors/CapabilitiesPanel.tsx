@@ -6,6 +6,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 import {
   useCapabilities, dependencyHint,
@@ -31,16 +32,15 @@ export function CapabilitiesPanel() {
 }
 
 function Header() {
+  const t = useTranslations('adminIntegrations.capabilities');
   return (
     <div className="mb-4">
       <p className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted)">
-        availability
+        {t('kicker')}
       </p>
-      <h3 className="mt-1 text-lg text-(--color-ink)">capabilities</h3>
+      <h3 className="mt-1 text-lg text-(--color-ink)">{t('heading')}</h3>
       <p className="mt-1 text-sm text-(--color-muted)">
-        Turn a capability off and its tools vanish from every visitor session.
-        Built-in capabilities can be disabled but not deleted; only the ones you
-        authored can be removed.
+        {t('intro')}
       </p>
     </div>
   );
@@ -156,6 +156,7 @@ function EnableToggle({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHoo
 
 function DeleteBtn({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHook }) {
   const run = useAction();
+  const t = useTranslations('adminIntegrations.common');
   return row.deletable
     ? (
       <button
@@ -165,7 +166,7 @@ function DeleteBtn({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHook }
         onClick={() => { void run(() => hook.remove(row.id), { success: 'Capability removed' }); }}
         className="w-6 shrink-0 text-(--color-muted) hover:text-(--color-accent) transition-colors"
       >
-        ✕
+        {t('close')}
       </button>
     )
     : <span className="w-6 shrink-0" aria-hidden />;

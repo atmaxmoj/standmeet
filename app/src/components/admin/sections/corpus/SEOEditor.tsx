@@ -5,6 +5,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import type { SEOUpdateInput } from '@/lib/admin/use-corpus-actions';
@@ -52,18 +53,20 @@ function useSEOState(initial: SEOEditorInitial): SEOState {
 }
 
 function Heading() {
+  const t = useTranslations('adminCorpus.seoEditor');
   return (
     <h4 className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-      public landing (url is tree-derived from the title)
+      {t('heading')}
     </h4>
   );
 }
 
 function DescriptionField({ state, testid }: { state: SEOState; testid: string }) {
+  const t = useTranslations('adminCorpus.seoEditor');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        meta description
+        {t('description')}
       </span>
       <textarea
         rows={2}
@@ -79,6 +82,7 @@ function DescriptionField({ state, testid }: { state: SEOState; testid: string }
 }
 
 function IndexedField({ state, testid }: { state: SEOState; testid: string }) {
+  const t = useTranslations('adminCorpus.seoEditor');
   return (
     <label className="flex items-baseline gap-2 mono text-[10.5px] tracking-[0.06em]">
       <input
@@ -87,7 +91,7 @@ function IndexedField({ state, testid }: { state: SEOState; testid: string }) {
         onChange={(e) => state.setIndexed(e.target.checked)}
         data-testid={`${testid}-seo-indexed`}
       />
-      <span>include in sitemap.xml (let search engines find this)</span>
+      <span>{t('indexed')}</span>
     </label>
   );
 }
@@ -99,6 +103,7 @@ interface ActionsProps {
 }
 
 function Actions(props: ActionsProps) {
+  const t = useTranslations('adminCorpus.common');
   return (
     <div className="flex items-baseline justify-end pt-2">
       <button
@@ -108,7 +113,7 @@ function Actions(props: ActionsProps) {
         data-testid={`${props.testid}-seo-save`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        {props.busy ? 'saving…' : 'save'}
+        {props.busy ? t('saving') : t('save')}
       </button>
     </div>
   );

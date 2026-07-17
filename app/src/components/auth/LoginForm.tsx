@@ -2,6 +2,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
@@ -38,16 +39,17 @@ interface ShellProps {
 }
 
 function LoginShell({ form, captcha, onSubmit }: ShellProps) {
+  const t = useTranslations('auth.login');
   return (
     <section className="rise max-w-[480px]">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
-        sign in
+        {t('eyebrow')}
       </div>
       <h1 className="font-serif text-(--color-ink) text-[clamp(38px,5vw,56px)] font-normal tracking-[-0.02em] leading-none">
-        Sign in to your<br />corpus<span className="text-(--color-accent)">.</span>
+        {t('headingA')}<br />{t('headingB')}<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="reading italic text-(--color-muted) mt-4 text-lg leading-relaxed">
-        This is your own deployment. Authenticate as the owner.
+        {t('lede')}
       </p>
       <LoginFormBody form={form} captcha={captcha} onSubmit={onSubmit} />
       <a
@@ -55,7 +57,7 @@ function LoginShell({ form, captcha, onSubmit }: ShellProps) {
         data-testid="recover-link"
         className="mono text-[11px] tracking-[0.06em] text-(--color-muted) hover:text-(--color-ink) mt-6 inline-block"
       >
-        Locked out? Recover with a phrase →
+        {t('recoverLink')}
       </a>
     </section>
   );

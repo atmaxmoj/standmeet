@@ -5,6 +5,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { MCP_CLIENTS, type MCPClient } from '@/lib/admin/use-tokens';
 
@@ -34,11 +35,12 @@ function pickClient(id: MCPClient['id']): MCPClient {
 }
 
 function PanelHead() {
+  const t = useTranslations('adminIntegrations.mcpClient');
   return (
     <div className="flex items-baseline justify-between mb-4 gap-4 flex-wrap">
-      <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink)">mcp setup</h3>
+      <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink)">{t('heading')}</h3>
       <span className="mono text-[10.5px] tracking-[0.06em] text-(--color-faint)">
-        save credentials.json + paste config into your client
+        {t('subhead')}
       </span>
     </div>
   );
@@ -75,9 +77,10 @@ function ClientTab({
 }
 
 function PathRow({ path }: { path: string }) {
+  const t = useTranslations('adminIntegrations.mcpClient');
   return (
     <div>
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">file path</div>
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">{t('filePath')}</div>
       <div className="mono text-[12.5px] text-(--color-ink) truncate mb-3">{path}</div>
     </div>
   );
@@ -95,10 +98,10 @@ function SnippetBlock({ snippet }: { snippet: string }) {
 }
 
 function PanelFoot() {
+  const t = useTranslations('adminIntegrations.mcpClient');
   return (
     <div className="mt-4 mono text-[10px] tracking-[0.06em] text-(--color-faint) leading-[1.7]">
-      after pasting + saving credentials.json (mode 0600), restart your client. each request signs
-      a short-lived sigv1 challenge — server never sees your private key.
+      {t('foot')}
     </div>
   );
 }

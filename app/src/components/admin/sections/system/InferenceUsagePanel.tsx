@@ -3,9 +3,12 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { useInferenceUsage, type UsageRow } from '@/lib/admin/use-inference-usage';
 
 export function InferenceUsagePanel() {
+  const t = useTranslations('adminShell.inferenceUsage');
   const usage = useInferenceUsage();
   return (
     <div
@@ -13,7 +16,7 @@ export function InferenceUsagePanel() {
       data-testid="inference-usage-panel"
     >
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mb-3">
-        inference usage · last 7 days
+        {t('title')}
       </div>
       <UsageTotals
         calls={usage.total.calls}
@@ -23,11 +26,11 @@ export function InferenceUsagePanel() {
       <table className="w-full mono text-[11px] mt-3" data-testid="inference-usage-table">
         <thead className="text-(--color-faint)">
           <tr className="text-left">
-            <th className="py-1 font-normal">date</th>
-            <th className="py-1 font-normal">model</th>
-            <th className="py-1 font-normal text-right">calls</th>
-            <th className="py-1 font-normal text-right">in</th>
-            <th className="py-1 font-normal text-right">out</th>
+            <th className="py-1 font-normal">{t('colDate')}</th>
+            <th className="py-1 font-normal">{t('colModel')}</th>
+            <th className="py-1 font-normal text-right">{t('colCalls')}</th>
+            <th className="py-1 font-normal text-right">{t('colIn')}</th>
+            <th className="py-1 font-normal text-right">{t('colOut')}</th>
           </tr>
         </thead>
         <tbody>
@@ -38,7 +41,7 @@ export function InferenceUsagePanel() {
       </table>
       {usage.rows.length === 0 && (
         <p className="mono text-[11px] text-(--color-faint) mt-2" data-testid="inference-usage-empty">
-          no owner-key LLM calls in the last 7 days
+          {t('empty')}
         </p>
       )}
     </div>
@@ -46,11 +49,12 @@ export function InferenceUsagePanel() {
 }
 
 function UsageTotals({ calls, inTok, outTok }: { calls: number; inTok: number; outTok: number }) {
+  const t = useTranslations('adminShell.inferenceUsage');
   return (
     <div className="flex gap-6 mono text-[13px]" data-testid="inference-usage-total">
-      <span>{calls} <span className="text-(--color-faint) text-[10px]">calls</span></span>
-      <span>{inTok.toLocaleString()} <span className="text-(--color-faint) text-[10px]">in</span></span>
-      <span>{outTok.toLocaleString()} <span className="text-(--color-faint) text-[10px]">out</span></span>
+      <span>{calls} <span className="text-(--color-faint) text-[10px]">{t('colCalls')}</span></span>
+      <span>{inTok.toLocaleString()} <span className="text-(--color-faint) text-[10px]">{t('colIn')}</span></span>
+      <span>{outTok.toLocaleString()} <span className="text-(--color-faint) text-[10px]">{t('colOut')}</span></span>
     </div>
   );
 }

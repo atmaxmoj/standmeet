@@ -11,6 +11,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { ComposerPanel } from '@/components/admin/composer/ComposerPanels';
 import { PreviewPane } from '@/components/admin/composer/PreviewPane';
@@ -120,6 +121,7 @@ function ComposerTopBar({
 }
 
 function ComposerCrumb({ model, onClose }: { model: DraftModel; onClose: () => void }) {
+  const t = useTranslations('adminShell.composer');
   return (
     <div className="flex items-baseline gap-3 min-w-0">
       <button
@@ -127,7 +129,7 @@ function ComposerCrumb({ model, onClose }: { model: DraftModel; onClose: () => v
         className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink) bg-transparent"
         data-testid="composer-back"
       >
-        ← drafts
+        {t('backToDrafts')}
       </button>
       <span className="text-(--color-faint)">/</span>
       <span className="mono text-[11px] tracking-[0.06em] text-(--color-ink) truncate">
@@ -140,6 +142,7 @@ function ComposerCrumb({ model, onClose }: { model: DraftModel; onClose: () => v
 function ComposerActions({
   matchPct, savedLabel, onSend,
 }: { matchPct: number; savedLabel: string; onSend: () => void }) {
+  const t = useTranslations('adminShell.composer');
   return (
     <div className="flex items-center gap-3">
       <MatchGauge pct={matchPct} />
@@ -150,26 +153,27 @@ function ComposerActions({
         type="button"
         className="sm-btn sm-btn-outline sm-btn-sm"
       >
-        regenerate ⌖
+        {t('regenerate')}
       </button>
       <button
         type="button" onClick={onSend}
         className="sm-btn sm-btn-solid sm-btn-sm"
         data-testid="composer-send"
       >
-        send →
+        {t('send')}
       </button>
     </div>
   );
 }
 
 function MatchGauge({ pct }: { pct: number }) {
+  const t = useTranslations('adminShell.composer');
   return (
-    <div className="sm-session-strip-gauge" title="match against the job description">
+    <div className="sm-session-strip-gauge" title={t('matchTitle')}>
       <span className="sm-session-strip-gauge-text">
-        match
+        {t('match')}
         <span className="sm-session-strip-used ml-2">{pct}</span>
-        <span className="ml-1">/ 100</span>
+        <span className="ml-1">{t('matchOutOf')}</span>
       </span>
       <MatchGaugeBar pct={pct} />
     </div>
@@ -234,31 +238,30 @@ function PanelRail({
 function ConfirmModal({
   model, onCancel, onSend,
 }: { model: DraftModel; onCancel: () => void; onSend: () => void }) {
+  const t = useTranslations('adminShell.composer');
   return (
     <div className="sm-fadein sm-composer-confirm-overlay" onClick={onCancel}>
       <div
         className="sm-composer-confirm-card sm-rise"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sm-smallcaps">freeze + send</div>
+        <div className="sm-smallcaps">{t('freezeAndSend')}</div>
         <h3 className="font-serif text-[22px] text-(--color-ink) font-normal mt-1.5">
-          Send this draft to {model.company}?
+          {t('confirmTitle', { company: model.company })}
         </h3>
         <p className="sm-reading text-(--color-muted) text-[14.5px] mt-2">
-          Sending will freeze the resume + cover letter snapshot, render the final
-          PDF (with QR), and write an application row. The auto-issued AccessCode
-          will be 180 days, 10 sessions, 50 turns.
+          {t('confirmBody')}
         </p>
         <div className="flex items-center justify-end gap-3 mt-5">
           <button type="button" onClick={onCancel} className="sm-btn sm-btn-ghost">
-            ← keep editing
+            {t('keepEditing')}
           </button>
           <button
             type="button" onClick={onSend}
             className="sm-btn sm-btn-accent"
             data-testid="composer-confirm-send"
           >
-            send →
+            {t('send')}
           </button>
         </div>
       </div>

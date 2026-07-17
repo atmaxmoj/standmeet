@@ -8,6 +8,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 
 import type { WritingView } from '@/lib/api/public';
@@ -55,20 +56,19 @@ export function WritingsIndex({ initialWritings, initialCursor }: Props) {
 // `/` 直接跟 AI 聊；只有有文章时才显示（空 corpus 不引）。design 源:
 // docs/design/project/blog.js IndexView 末段 (366-388)。
 function AskCorpusCTA({ hasWritings }: { hasWritings: boolean }) {
+  const t = useTranslations('writings.index');
   return hasWritings ? (
     <section className="mt-24 pt-10 border-t border-(--color-rule)">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-10 items-baseline">
         <div>
           <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-            or skip the reading
+            {t('orSkipTheReading')}
           </div>
           <h3 className="font-serif text-(--color-ink) text-[30px] leading-[1.15] tracking-[-0.012em] font-normal">
-            Ask the AI directly<span className="text-(--color-accent)">.</span>
+            {t('askHeading')}<span className="text-(--color-accent)">.</span>
           </h3>
           <p className="reading text-(--color-muted) mt-3 text-[17px]">
-            Everything you&apos;d read here, said back to you in the owner&apos;s voice.
-            The chat covers ground he hasn&apos;t written up yet, and answers from the
-            corpus rather than the archive.
+            {t('askBody')}
           </p>
         </div>
         <div className="md:pl-10">
@@ -76,7 +76,7 @@ function AskCorpusCTA({ hasWritings }: { hasWritings: boolean }) {
             href="/"
             className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-ink) border border-(--color-ink) px-4 py-3 inline-block hover:bg-(--color-ink) hover:text-(--color-paper) transition-colors"
           >
-            <span data-testid="writings-ask-cta">open the chat →</span>
+            <span data-testid="writings-ask-cta">{t('openTheChat')}</span>
           </Link>
         </div>
       </div>
@@ -85,11 +85,12 @@ function AskCorpusCTA({ hasWritings }: { hasWritings: boolean }) {
 }
 
 function RecommendedRail({ writings }: { writings: WritingView[] }) {
+  const t = useTranslations('writings.index');
   const recommended = writings.slice(0, 2);
   return recommended.length >= 2 ? (
     <section className="mt-16 pt-8 border-t border-(--color-rule)">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-5">
-        if you only read two
+        {t('ifYouOnlyReadTwo')}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {recommended.map((w) => (
@@ -101,6 +102,7 @@ function RecommendedRail({ writings }: { writings: WritingView[] }) {
 }
 
 function RecommendedCard({ writing }: { writing: WritingView }) {
+  const t = useTranslations('writings.common');
   return (
     <Link
       href={`/writings/${writing.slug}`}
@@ -111,7 +113,7 @@ function RecommendedCard({ writing }: { writing: WritingView }) {
       </h4>
       <p className="reading text-[14px] text-(--color-muted) line-clamp-2">{writing.excerpt}</p>
       <div className="mono text-[10px] tracking-[0.12em] text-(--color-faint) mt-3">
-        {writing.read_minutes} min read
+        {t('readMinutes', { minutes: writing.read_minutes })}
       </div>
     </Link>
   );
@@ -136,18 +138,19 @@ function navigateTag(router: ReturnType<typeof useRouter>, tag: string | null) {
 }
 
 function WritingsTopBar() {
+  const t = useTranslations('writings');
   return (
     <header className="flex items-center justify-between px-6 lg:px-10 pt-6 pb-4">
       <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3">
-        <Link href="/" className="text-(--color-ink)">standmeet</Link>
+        <Link href="/" className="text-(--color-ink)">{t('common.brand')}</Link>
         <span className="text-(--color-faint) mx-1">·</span>
-        <span className="text-(--color-accent)">writings</span>
+        <span className="text-(--color-accent)">{t('common.writings')}</span>
       </div>
       <Link
         href="/"
         className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
       >
-        chat
+        {t('index.chat')}
       </Link>
     </header>
   );
@@ -175,15 +178,15 @@ function WritingsIndexHeader({
 }
 
 function WritingsTitleBlock() {
+  const t = useTranslations('writings.index');
   return (
     <>
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-5">essays</div>
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-5">{t('essays')}</div>
       <h1 className="font-serif text-(--color-ink) text-[clamp(48px,7vw,80px)] font-[380] tracking-[-0.022em] leading-[0.98]">
-        Writings<span className="text-(--color-accent)">.</span>
+        {t('title')}<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="italic text-(--color-muted) mt-5 max-w-[34em] text-[21px] leading-[1.45] font-[380]">
-        The corpus, surfaced. Each essay is the expanded version of something I&apos;ve been
-        thinking through — you can ask the AI about any of these directly.
+        {t('lede')}
       </p>
     </>
   );
@@ -197,10 +200,11 @@ function WritingsTagBar({
   filteredCount: number;
   onPickTag: (t: string | null) => void;
 }) {
+  const t = useTranslations('writings.index');
   return (
     <div className="mt-8">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3 flex items-baseline justify-between flex-wrap gap-2">
-        <span>browse by tag</span>
+        <span>{t('browseByTag')}</span>
         <ClearTagButton
           activeTag={activeTag}
           filteredCount={filteredCount}
@@ -221,13 +225,14 @@ function ClearTagButton({
   totalCount: number;
   onClear: () => void;
 }) {
+  const t = useTranslations('writings.index');
   return activeTag ? (
     <button
       type="button"
       onClick={onClear}
       className="text-(--color-faint) hover:text-(--color-ink) lowercase tracking-[0.06em] text-[10px]"
     >
-      × clear · showing {filteredCount} of {totalCount}
+      {t('clear', { filtered: filteredCount, total: totalCount })}
     </button>
   ) : null;
 }
@@ -239,21 +244,22 @@ function TagChipRow({
   active: string | null;
   onPick: (t: string | null) => void;
 }) {
+  const t = useTranslations('writings.index');
   const counts = countTags(writings);
-  const tags = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t);
+  const tags = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
   return (
     <div className="flex flex-wrap items-baseline gap-1.5" data-testid="writings-tag-row">
       <ChipButton active={!active} onClick={() => onPick(null)}>
-        all <span className="ml-1 opacity-60 tabular-nums">{writings.length}</span>
+        {t('all')} <span className="ml-1 opacity-60 tabular-nums">{writings.length}</span>
       </ChipButton>
-      {tags.map((t) => (
+      {tags.map((tag) => (
         <ChipButton
-          key={t}
-          active={active === t}
-          testid={`writings-tag-${t}`}
-          onClick={() => onPick(active === t ? null : t)}
+          key={tag}
+          active={active === tag}
+          testid={`writings-tag-${tag}`}
+          onClick={() => onPick(active === tag ? null : tag)}
         >
-          {t} <span className="ml-1 opacity-60 tabular-nums">{counts.get(t) ?? 0}</span>
+          {tag} <span className="ml-1 opacity-60 tabular-nums">{counts.get(tag) ?? 0}</span>
         </ChipButton>
       ))}
     </div>
@@ -297,9 +303,10 @@ function WritingsIndexBody({
 }
 
 function EmptyState() {
+  const t = useTranslations('writings.index');
   return (
     <section className="py-20 text-center" data-testid="writings-empty">
-      <p className="italic text-(--color-muted) text-[18px]">No essays yet.</p>
+      <p className="italic text-(--color-muted) text-[18px]">{t('empty')}</p>
     </section>
   );
 }
@@ -333,16 +340,17 @@ function LeadAndArchiveContent({
 }: {
   lead: WritingView;
   rest: WritingView[];
-  onPickTag: (t: string) => void;
+  onPickTag: (tag: string) => void;
 }) {
+  const t = useTranslations('writings.index');
   return (
     <>
       <section className="pt-12">
-        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-7">most recent</div>
+        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-7">{t('mostRecent')}</div>
         <WritingCardLead writing={lead} onPickTag={onPickTag} />
       </section>
       <section className="mt-4">
-        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">archive</div>
+        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">{t('archive')}</div>
         {rest.map((w, i) => <WritingRow key={w.slug} writing={w} idx={i + 2} />)}
       </section>
     </>
@@ -350,14 +358,15 @@ function LeadAndArchiveContent({
 }
 
 function FilteredList({ tag, writings }: { tag: string; writings: WritingView[] }) {
+  const t = useTranslations('writings.index');
   return (
     <section className="pt-10">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2 flex items-baseline gap-3">
-        <span>filtered by</span>
+        <span>{t('filteredBy')}</span>
         <span className="text-(--color-accent)">#{tag}</span>
         <span className="text-(--color-faint)">·</span>
         <span className="tabular-nums">
-          {writings.length} essay{writings.length === 1 ? '' : 's'}
+          {t('essayCount', { count: writings.length })}
         </span>
       </div>
       <div>

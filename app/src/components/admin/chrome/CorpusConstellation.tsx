@@ -4,9 +4,12 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { useCorpusGraph } from '@/lib/admin/use-corpus-graph';
 
 export function CorpusConstellation() {
+  const t = useTranslations('adminShell.constellation');
   const nodes = useCorpusGraph();
   return (
     <div
@@ -14,7 +17,7 @@ export function CorpusConstellation() {
       className="ticker-host flex-1 min-w-0 overflow-hidden mx-6 flex gap-4 items-center"
     >
       {nodes.length === 0
-        ? <span className="mono text-[10px] tracking-[0.14em] text-(--color-faint)">no links yet</span>
+        ? <span className="mono text-[10px] tracking-[0.14em] text-(--color-faint)">{t('empty')}</span>
         : nodes.map((n) => (
           <span
             key={n.id}

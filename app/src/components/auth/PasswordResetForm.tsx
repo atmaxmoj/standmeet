@@ -8,6 +8,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
@@ -30,17 +31,23 @@ export function PasswordResetForm() {
 }
 
 function MissingToken() {
+  const t = useTranslations('auth.reset');
   return (
     <section className="rise max-w-[480px]">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
-        password reset
+        {t('eyebrow')}
       </div>
       <h1 className="font-serif text-(--color-ink) text-[40px] tracking-[-0.02em] leading-none">
-        Missing token<span className="text-(--color-accent)">.</span>
+        {t('missingHeading')}<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="reading italic text-(--color-muted) mt-4 text-lg leading-relaxed">
-        Run <code className="mono text-(--color-ink) bg-(--color-surface) px-1.5 py-0.5">
-        make password-reset</code> on the host to get a fresh one-time link.
+        {t.rich('missingHelp', {
+          code: (chunks) => (
+            <code className="mono text-(--color-ink) bg-(--color-surface) px-1.5 py-0.5">
+              {chunks}
+            </code>
+          ),
+        })}
       </p>
     </section>
   );
@@ -52,16 +59,17 @@ interface ResetUIProps {
 }
 
 function ResetUI({ hook, onSubmit }: ResetUIProps) {
+  const t = useTranslations('auth.reset');
   return (
     <section className="rise max-w-[480px]">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
-        password reset
+        {t('eyebrow')}
       </div>
       <h1 className="font-serif text-(--color-ink) text-[clamp(38px,5vw,56px)] font-normal tracking-[-0.02em] leading-none">
-        Set a new<br />password<span className="text-(--color-accent)">.</span>
+        {t('headingA')}<br />{t('headingB')}<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="reading italic text-(--color-muted) mt-4 text-lg leading-relaxed">
-        Token good for 30 minutes after the host CLI issued it.
+        {t('lede')}
       </p>
       <ResetFormBody hook={hook} onSubmit={onSubmit} />
     </section>

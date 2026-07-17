@@ -14,6 +14,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
@@ -80,9 +81,10 @@ function DialogCard({ idx, dialog, ownerHandle, onAsk, conversationID, cardRef }
 }
 
 function VisitorLabel({ time }: { time: string }) {
+  const t = useTranslations('page');
   return (
     <div className="mono text-[10.5px] tracking-[0.18em] uppercase mb-3 flex items-baseline gap-3">
-      <span className="text-(--color-ink)">you</span>
+      <span className="text-(--color-ink)">{t('conversation.you')}</span>
       <span className="text-(--color-faint) normal-case tracking-[0.06em]">· {time}</span>
     </div>
   );
@@ -144,9 +146,10 @@ function AnswerOrError({ dialog, ownerHandle, onAsk, conversationID }: {
 }
 
 function AssistantLabel({ ownerHandle }: { ownerHandle: string }) {
+  const t = useTranslations('page');
   return (
     <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">
-      {ownerHandle}&rsquo;s ai
+      {t('conversation.assistantLabel', { handle: ownerHandle })}
     </div>
   );
 }
@@ -196,10 +199,11 @@ function AnswerParas({ answer }: { answer: Answer }) {
 // default (like a normal AI chat's sources). Click to expand the list; each row
 // expands again to its source body. Keeps the answer the main thing to read.
 function Citations({ citations }: { citations: readonly Citation[] }) {
+  const t = useTranslations('page');
   return citations.length === 0 ? null : (
     <details className="group mt-6" data-testid="citations">
       <summary className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) cursor-pointer list-none marker:hidden select-none hover:text-(--color-accent) transition-colors inline-flex items-baseline gap-1.5">
-        references · {citations.length}
+        {t('conversation.references', { count: citations.length })}
         <span className="text-(--color-faint) group-open:rotate-90 transition-transform">›</span>
       </summary>
       <ul className="space-y-1 mt-2">

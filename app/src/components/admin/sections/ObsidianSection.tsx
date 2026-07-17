@@ -6,10 +6,13 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ObsidianBar } from '@/components/admin/sections/writings/ObsidianBar';
 
 export function ObsidianSection() {
+  const t = useTranslations('adminCorpus.obsidian');
   return (
     <>
       <SectionHeader
@@ -17,17 +20,15 @@ export function ObsidianSection() {
         title="obsidian"
         action={
           <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-faint)">
-            ○ manual mode
+            {t('manualMode')}
           </span>
         }
       />
       <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 max-w-[640px]">
-        <div className="sm-smallcaps mb-3">import / export</div>
+        <div className="sm-smallcaps mb-3">{t('importExport')}</div>
         <ObsidianBar onImported={() => { /* no corpus list to refresh on this page */ }} />
         <p className="mono text-[10px] text-(--color-faint) tracking-[0.06em] mt-1 max-w-[42em]">
-          import picks your Obsidian vault folder (wiki / subjectivity / raw / writings) and upserts
-          the matching corpus notes by their vault path. export downloads your corpus as a vault of
-          markdown + frontmatter. No live sync / file watcher — two manual actions.
+          {t('help')}
         </p>
       </div>
     </>

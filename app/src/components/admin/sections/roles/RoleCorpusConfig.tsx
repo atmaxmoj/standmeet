@@ -13,18 +13,15 @@
 //
 // 形态照抄 RoleDockConfig：卡上 inline 编辑 → 全量 PUT 回写（只有 corpus_uris 变），冻进后续 session。
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { CorpusScopePicker } from '@/components/admin/sections/corpus/CorpusScopePicker';
 import { useRoles, type RoleView, type WriteRoleInput } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
-const CORPUS_HELP =
-  'agent 能读到的 corpus URI 正列表，一行一条。match-any：命中任一条即可读，所以粒度任意细 —— '
-  + '`wiki://thinking/**` 授整棵子树，`subjectivity://standpoint` 只授这一条。'
-  + '空列表 = 什么都不给。改动只影响之后新发的 session（role 在发码时冻结）。';
-
 export function RoleCorpusConfig({ role }: { role: RoleView }) {
+  const t = useTranslations('adminAccess');
   const roles = useRoles();
   const run = useAction();
   const [text, setText] = useState(() => role.corpus_uris.join('\n'));
@@ -38,11 +35,11 @@ export function RoleCorpusConfig({ role }: { role: RoleView }) {
   return (
     <div className="mt-2 grid grid-cols-[90px_1fr] gap-x-3 gap-y-2 items-start">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) pt-1.5">
-        corpus
+        {t('common.corpus')}
       </span>
       <div className="flex flex-col gap-2">
         <p className="reading-tight text-[11px] text-(--color-muted)" data-testid="role-corpus-help">
-          {CORPUS_HELP}
+          {t('roleCorpus.help')}
         </p>
         {/*
           从真树上勾（F-A-14）。手写框留着并并排同步显示 —— picker 认不出来的 glob（树上没有哪一行
@@ -54,7 +51,7 @@ export function RoleCorpusConfig({ role }: { role: RoleView }) {
           testid={`role-corpus-picker-${role.name}`}
         />
         <span className="mono text-[9.5px] text-(--color-faint) mt-1">
-          or write them by hand:
+          {t('common.byHand')}
         </span>
         <textarea
           className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[13px] font-mono min-h-[84px]"
@@ -65,7 +62,7 @@ export function RoleCorpusConfig({ role }: { role: RoleView }) {
           spellCheck={false}
         />
         <span className="mono text-[9.5px] text-(--color-faint)">
-          raw://** is always denied to visitors regardless of this list
+          {t('common.rawDenied')}
         </span>
         <CorpusSaveBtn role={role} onSave={onSave} />
       </div>
@@ -93,6 +90,7 @@ function corpusPayload(role: RoleView, uris: string[]): WriteRoleInput {
 }
 
 function CorpusSaveBtn({ role, onSave }: { role: RoleView; onSave: () => void }) {
+  const t = useTranslations('adminAccess');
   return (
     <div className="flex justify-end">
       <button
@@ -101,7 +99,7 @@ function CorpusSaveBtn({ role, onSave }: { role: RoleView; onSave: () => void })
         data-testid={`role-corpus-save-${role.name}`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent)"
       >
-        save corpus
+        {t('common.saveCorpus')}
       </button>
     </div>
   );

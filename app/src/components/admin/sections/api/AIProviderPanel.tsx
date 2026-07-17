@@ -14,6 +14,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
 import { InlineSkeleton } from '@/components/skeletons/InlineSkeleton';
@@ -33,11 +34,12 @@ import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function AIProviderPanel() {
   const hook = useAIProvider();
+  const t = useTranslations('adminIntegrations.aiProvider');
   useEffectErrorToast(hook.state.error);
   return (
     <div data-testid="ai-provider-panel">
       <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) mb-3 pb-2 border-b border-(--color-rule)">
-        owner&apos;s ai
+        {t('heading')}
       </h3>
       <Intro />
       <PanelBody hook={hook} />
@@ -46,12 +48,10 @@ export function AIProviderPanel() {
 }
 
 function Intro() {
+  const t = useTranslations('adminIntegrations.aiProvider');
   return (
     <p className="reading-tight text-(--color-muted) text-[14.5px] max-w-[54em] mb-4">
-      The provider visitors talk to. Pick a preset or point at your own
-      self-hosted OpenAI-compatible endpoint (ollama / vllm / lm-studio).
-      Key is encrypted at rest with INSTANCE_SECRET and never read back to
-      this page.
+      {t('intro')}
     </p>
   );
 }
@@ -164,9 +164,10 @@ function ProviderRow({
   presets: readonly AIProviderPresetView[];
   onChange: (name: string) => void;
 }) {
+  const t = useTranslations('adminIntegrations.aiProvider');
   return (
     <div>
-      <Label>provider</Label>
+      <Label>{t('provider')}</Label>
       <div className="flex gap-2 flex-wrap">
         {presets.map((p) => (
           <ProviderBtn
@@ -205,9 +206,10 @@ function ProviderBtn({
 function EndpointRow({
   value, onChange,
 }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('adminIntegrations.aiProvider');
   return (
     <div>
-      <Label>endpoint</Label>
+      <Label>{t('endpoint')}</Label>
       <input
         type="url"
         value={value}
@@ -232,9 +234,10 @@ function ModelRow({
   value: string; onChange: (v: string) => void;
   models: ModelListHook; onLoad: () => void;
 }) {
+  const t = useTranslations('adminIntegrations.aiProvider');
   return (
     <div>
-      <Label>model</Label>
+      <Label>{t('model')}</Label>
       <ModelLoaderRow
         value={value} onChange={onChange}
         models={models} onLoad={onLoad}
@@ -249,9 +252,10 @@ function ModelRow({
 function KeyRow({
   keyText, setKey, configured,
 }: { keyText: string; setKey: (v: string) => void; configured: boolean }) {
+  const t = useTranslations('adminIntegrations.aiProvider');
   return (
     <div>
-      <Label>api key</Label>
+      <Label>{t('apiKey')}</Label>
       <input
         type="password"
         value={keyText}
@@ -342,6 +346,7 @@ function ClearBtn({
   toast: ReturnType<typeof useToast>;
   resetKey: () => void;
 }) {
+  const t = useTranslations('adminIntegrations.aiProvider');
   const onClear = () => void runClear(hook, toast, resetKey);
   return hook.state.keyConfigured ? (
     <button
@@ -350,7 +355,7 @@ function ClearBtn({
       data-testid="ai-provider-clear"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-faint) hover:text-(--color-accent)"
     >
-      clear key ×
+      {t('clearKey')}
     </button>
   ) : null;
 }

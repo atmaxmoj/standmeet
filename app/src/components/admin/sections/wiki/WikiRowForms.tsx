@@ -3,6 +3,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { CorpusEntryForm, PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
 import { useWikiDetail } from '@/lib/admin/use-corpus-detail';
@@ -19,6 +21,7 @@ import type { WikiSummary } from '@/lib/admin/use-wiki';
 export function WikiEditForm({
   entry, actions, onDone,
 }: { entry: WikiSummary; actions: CorpusActionsHook; onDone: () => void }) {
+  const t = useTranslations('adminCorpus.common');
   const toast = useToast();
   const detail = useWikiDetail(entry.id, actions);
   const onSubmit = (input: CorpusEntryInput) => void runWith(
@@ -57,7 +60,7 @@ export function WikiEditForm({
           />
         </div>
       ) : (
-        <p className="mono text-[10.5px] text-(--color-muted)">loading…</p>
+        <p className="mono text-[10.5px] text-(--color-muted)">{t('loading')}</p>
       )}
     </div>
   );

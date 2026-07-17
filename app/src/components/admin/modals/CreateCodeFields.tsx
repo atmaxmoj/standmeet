@@ -2,6 +2,8 @@
 // assumed_role_id；老 permissions / skills / agent-skills picker 全删，
 // ACL / capability gating 全部从 role 推断。
 
+import { useTranslations } from 'next-intl';
+
 import { CodePromptPicker } from '@/components/admin/modals/CodePromptPicker';
 import { CodeRolePicker } from '@/components/admin/modals/CodeRolePicker';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
@@ -158,6 +160,7 @@ function QuestionsField({ form }: Props) {
 }
 
 function QuestionsHead({ form }: Props) {
+  const t = useTranslations('adminShell.codeModal');
   return (
     <div className="flex items-baseline justify-between mb-2">
       <FieldKicker text="suggested questions" />
@@ -166,7 +169,7 @@ function QuestionsHead({ form }: Props) {
         onClick={form.addQ}
         className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
       >
-        ＋ add
+        {t('addQuestion')}
       </button>
     </div>
   );

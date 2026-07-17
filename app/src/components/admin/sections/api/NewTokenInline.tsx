@@ -3,6 +3,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { useReportError } from '@/lib/ui/use-report-error';
 
@@ -44,10 +45,11 @@ async function submit(
 }
 
 function NameField({ name, onChange }: { name: string; onChange: (v: string) => void }) {
+  const t = useTranslations('adminIntegrations.newToken');
   return (
     <label className="block">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        generate key
+        {t('label')}
       </div>
       <input
         type="text"
@@ -66,13 +68,14 @@ function ErrorBox({ message }: { message: string | null }) {
 }
 
 function SubmitBtn() {
+  const t = useTranslations('adminIntegrations.newToken');
   return (
     <button
       type="submit"
       data-testid="token-create"
       className="mono text-xs tracking-widest uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5"
     >
-      generate
+      {t('submit')}
     </button>
   );
 }

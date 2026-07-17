@@ -11,6 +11,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 
 import { ChatMarkdown } from '@/components/page/markdown';
 import { CorpusContent } from '@/components/page/CorpusContent';
@@ -117,15 +118,18 @@ function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
 
 // MetaStrip —— cover 下的文章抬头:smallcaps(日期 · by owner 全名 · tag chips)
 // + 大 serif h1 + italic excerpt。对齐设计 metadata strip。
-function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }) {
+async function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }) {
+  const t = await getTranslations('reader');
   return (
     <header className="mt-8 mb-9" data-testid="wiki-meta">
       <div className="smallcaps flex items-baseline gap-2.5 flex-wrap mb-3">
         <span>{formatDate(entry.updated_at)}</span>
         <span className="text-(--color-faint)">·</span>
-        <span>by <span className="text-(--color-ink)">{ownerName}</span></span>
+        <span>{t('wiki.by')} <span className="text-(--color-ink)">{ownerName}</span></span>
         <span className="text-(--color-faint)">·</span>
-        <span data-testid="wiki-sources-count">{entry.sources_count} corpus sources</span>
+        <span data-testid="wiki-sources-count">
+          {t('wiki.sourcesCount', { count: entry.sources_count })}
+        </span>
         {entry.tags.map((t) => (
           <Link key={t} href={`/writings?tag=${encodeURIComponent(t)}`} className="ml-1.5 no-underline">
             <span className="mono text-[10px] tracking-[0.1em] text-(--color-muted) border border-(--color-rule) rounded-[2px] px-1.5 py-0.5 hover:text-(--color-ink)">
@@ -149,24 +153,27 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
 // Breadcrumb —— ← wiki ▸ 祖先链 ▸ 当前条。祖先来自 context(scope 过滤,gated
 // 祖先不出现),每个可点回各自 landing;当前条纯文字。「← wiki」回 wiki 自己的
 // index —— 每种 document 返回自己那类(owner 要求),不再统一回 writing。
-function Breadcrumb({ ancestors, current, updatedAt, sourcesCount }: {
+async function Breadcrumb({ ancestors, current, updatedAt, sourcesCount }: {
   ancestors: TreeNode[]; current: string; updatedAt: string; sourcesCount: number;
 }) {
+  const t = await getTranslations('reader');
   return (
     <nav
       className="flex items-baseline justify-between gap-4 flex-wrap mb-6"
       data-testid="wiki-breadcrumb"
     >
       <div className="smallcaps flex items-baseline gap-1.5 flex-wrap">
-        <Link href="/wiki" className="text-(--color-muted) hover:text-(--color-ink)">← wiki</Link>
+        <Link href="/wiki" className="text-(--color-muted) hover:text-(--color-ink)">
+          {t('wiki.backToWiki')}
+        </Link>
         {ancestors.map((a) => <Crumb key={a.id} node={a} />)}
-        <span className="text-(--color-faint)">▸</span>
+        <span className="text-(--color-faint)">{'▸'}</span>
         <span className="font-serif italic text-[13px] normal-case tracking-normal text-(--color-ink)">
           {current}
         </span>
       </div>
       <span className="mono text-[10.5px] text-(--color-muted) tracking-[0.06em]">
-        {formatDate(updatedAt)} · {sourcesCount} sources cited
+        {t('wiki.crumbMeta', { date: formatDate(updatedAt), count: sourcesCount })}
       </span>
     </nav>
   );
@@ -175,7 +182,7 @@ function Breadcrumb({ ancestors, current, updatedAt, sourcesCount }: {
 function Crumb({ node }: { node: TreeNode }) {
   return (
     <>
-      <span className="text-(--color-faint)">▸</span>
+      <span className="text-(--color-faint)">{'▸'}</span>
       <Link
         href={`/wiki/${node.path}`}
         className="font-serif italic text-[13px] normal-case tracking-normal text-(--color-muted) hover:text-(--color-ink)"
@@ -187,10 +194,11 @@ function Crumb({ node }: { node: TreeNode }) {
 }
 
 // SubEntriesRail —— 当前条目的直接子条目(树派生),没有则不渲染。
-function SubEntriesRail({ nodes }: { nodes: TreeNode[] }) {
+async function SubEntriesRail({ nodes }: { nodes: TreeNode[] }) {
+  const t = await getTranslations('reader');
   return nodes.length > 0 ? (
     <div className="mt-12" data-testid="wiki-subentries">
-      <div className="smallcaps mb-3">sub-entries</div>
+      <div className="smallcaps mb-3">{t('wiki.subEntries')}</div>
       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 list-none p-0 m-0">
         {nodes.map((c) => (
           <li key={c.id}>
@@ -245,14 +253,13 @@ function WikiBody({ body, cssClasses }: {
   );
 }
 
-function TrustBox({ handle }: { handle: string }) {
+async function TrustBox({ handle }: { handle: string }) {
+  const t = await getTranslations('reader');
   return (
     <div className="mt-12 px-4 py-3 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
-      <div className="smallcaps mb-1.5">about this entry</div>
+      <div className="smallcaps mb-1.5">{t('wiki.aboutHeading')}</div>
       <p className="reading text-(--color-muted) text-[13.5px] m-0">
-        One of {handle}&apos;s wiki entries. The AI on this site is grounded in the same
-        corpus, so you can ask follow-ups below and get answers in his voice with
-        citations back to entries like this one.
+        {t('wiki.aboutBody', { handle })}
       </p>
     </div>
   );

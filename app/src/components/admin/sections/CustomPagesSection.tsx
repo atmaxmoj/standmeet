@@ -11,6 +11,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
@@ -39,11 +40,10 @@ export function CustomPagesSection() {
 }
 
 function Intro() {
+  const t = useTranslations('adminPages.customPages');
   return (
     <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]">
-      Custom pages live at <span className="mono text-(--color-ink)">/p/&lt;slug&gt;</span>.
-      Each binds a template to data from your corpus and renders with the same chrome
-      as the public site. Build via MCP — owner drives the lifecycle from Claude.
+      {t('intro.before')} <span className="mono text-(--color-ink)">{t('intro.slugPath')}</span>{t('intro.after')}
     </p>
   );
 }
@@ -67,13 +67,14 @@ function ErrorBlock({ message }: { message: string }) {
 }
 
 function EmptyState() {
+  const t = useTranslations('adminPages.customPages');
   return (
     <p className="reading-tight italic text-(--color-muted) mt-8">
-      No custom pages yet. Owner creates / builds / promotes via MCP{' '}
-      (<span className="mono">custom_page.create</span>,{' '}
-      <span className="mono">.write_file</span>,{' '}
-      <span className="mono">.build</span>,{' '}
-      <span className="mono">.promote_to_live</span>).
+      {t('empty.lead')}{' '}
+      (<span className="mono">{t('empty.toolCreate')}</span>,{' '}
+      <span className="mono">{t('empty.toolWriteFile')}</span>,{' '}
+      <span className="mono">{t('empty.toolBuild')}</span>,{' '}
+      <span className="mono">{t('empty.toolPromote')}</span>).
     </p>
   );
 }
@@ -92,15 +93,16 @@ function CustomPagesTable({ rows }: { rows: readonly CustomPageSummary[] }) {
 }
 
 function TableHead() {
+  const t = useTranslations('adminPages.customPages.columns');
   return (
     <thead className="bg-(--color-surface)/60 mono text-[9.5px] tracking-[0.16em] uppercase text-(--color-muted)">
       <tr>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">page</th>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">template</th>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">visibility</th>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">views</th>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">updated</th>
-        <th className="text-right px-4 py-2.5 border-b border-(--color-rule) font-normal">actions</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('page')}</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('template')}</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('visibility')}</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('views')}</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('updated')}</th>
+        <th className="text-right px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('actions')}</th>
       </tr>
     </thead>
   );
@@ -128,10 +130,11 @@ function TemplateCell() {
 }
 
 function VisibilityCell({ hasLive, hasStaging }: { hasLive: boolean; hasStaging: boolean }) {
+  const t = useTranslations('adminPages.customPages.visibilityState');
   const view = buildView(hasLive, hasStaging);
   return (
     <td className={`px-4 py-3 mono text-[10px] tracking-[0.12em] uppercase ${view.tone}`}>
-      {view.label}
+      {t(view.key)}
     </td>
   );
 }
@@ -145,24 +148,27 @@ function ViewsCell() {
 }
 
 function PageCell({ page }: { page: CustomPageSummary }) {
+  const t = useTranslations('adminPages.customPages');
   return (
     <td className="px-4 py-3">
       <div className="font-serif text-[16px] text-(--color-ink)">{page.title}</div>
-      <div className="mono text-[10px] text-(--color-faint) mt-0.5">/p/{page.slug}</div>
+      <div className="mono text-[10px] text-(--color-faint) mt-0.5">{t('slugPath', { slug: page.slug })}</div>
     </td>
   );
 }
 
 
-function buildView(hasLive: boolean, hasStaging: boolean): { label: string; tone: string } {
-  const key = hasLive ? 'live' : (hasStaging ? 'staging' : 'none');
-  return BUILD_VIEW_MAP[key];
+type BuildKey = keyof typeof BUILD_TONE_MAP;
+
+function buildView(hasLive: boolean, hasStaging: boolean): { key: BuildKey; tone: string } {
+  const key: BuildKey = hasLive ? 'live' : (hasStaging ? 'staging' : 'none');
+  return { key, tone: BUILD_TONE_MAP[key] };
 }
 
-const BUILD_VIEW_MAP = {
-  live: { label: 'live', tone: 'text-(--color-ink)' },
-  staging: { label: 'staging', tone: 'text-(--color-amber)' },
-  none: { label: 'none', tone: 'text-(--color-faint)' },
+const BUILD_TONE_MAP = {
+  live: 'text-(--color-ink)',
+  staging: 'text-(--color-amber)',
+  none: 'text-(--color-faint)',
 } as const;
 
 function DateCell({ iso }: { iso: string }) {
@@ -182,35 +188,34 @@ function ActionsCell({ page }: { page: CustomPageSummary }) {
 }
 
 function ViewLiveLink({ page }: { page: CustomPageSummary }) {
+  const t = useTranslations('adminPages.customPages');
   return page.has_live ? (
     <Link
       href={`/p/${page.slug}`}
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline"
     >
-      view live ↗
+      {t('viewLive')} ↗
     </Link>
   ) : (
     <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint)">
-      no live build
+      {t('noLiveBuild')}
     </span>
   );
 }
 
-const TEMPLATES = [
-  { id: 'press-kit', label: 'press-kit', desc: 'photo · bio variants · downloads' },
-  { id: 'list-prose', label: 'list-with-prose', desc: 'list above, prose explanation below' },
-  { id: 'menu', label: 'menu', desc: 'numbered service / offer rows' },
-  { id: 'auto-now', label: 'auto-now', desc: 'AI-summarized latest entries · /now' },
-] as const;
+const TEMPLATE_IDS = ['press-kit', 'list-prose', 'menu', 'auto-now'] as const;
 
 function TemplatesBlock() {
+  const t = useTranslations('adminPages.customPages');
   return (
     <div className="mt-6 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/30 p-4">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        templates available
+        {t('templatesAvailable')}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {TEMPLATES.map((t) => <TemplateCard key={t.id} label={t.label} desc={t.desc} />)}
+        {TEMPLATE_IDS.map((id) => (
+          <TemplateCard key={id} label={t(`templates.${id}.label`)} desc={t(`templates.${id}.desc`)} />
+        ))}
       </div>
     </div>
   );

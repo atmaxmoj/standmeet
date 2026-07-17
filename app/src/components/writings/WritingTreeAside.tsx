@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import { LazyTree } from '@/components/corpus/LazyTree';
 import type { TreeNode } from '@/lib/corpus/tree';
@@ -15,13 +16,14 @@ import { fetchWritingTree } from '@/lib/api/public';
 import styles from '@/components/writings/WritingTreeAside.module.css';
 
 export function WritingTreeAside({ activeSlug }: { activeSlug: string }) {
+  const t = useTranslations('writings.tree');
   const renderLabel = useCallback(
     (node: TreeNode) => <WritingLabel node={node} active={node.path === activeSlug} />,
     [activeSlug],
   );
   return (
     <nav className={styles['aside']} data-testid="writing-tree" aria-label="writing tree">
-      <div className={styles['head']}>writing</div>
+      <div className={styles['head']}>{t('head')}</div>
       <LazyTree load={fetchWritingTree} renderLabel={renderLabel} />
     </nav>
   );

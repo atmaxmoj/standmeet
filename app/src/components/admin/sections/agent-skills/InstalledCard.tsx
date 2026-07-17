@@ -5,6 +5,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import type { AgentSkillView } from '@/lib/admin/use-agent-skills';
 
 import styles from '@/components/admin/sections/agent-skills/InstalledCard.module.css';
@@ -15,6 +17,7 @@ interface Props {
 }
 
 export function InstalledCard({ skill, onToggle }: Props) {
+  const t = useTranslations('adminIntegrations.installedCard');
   return (
     <article
       className={skill.on ? styles.card : styles.cardDim}
@@ -23,7 +26,7 @@ export function InstalledCard({ skill, onToggle }: Props) {
       <CardHead skill={skill} onToggle={onToggle} />
       <p className={styles.blurb}>{skill.description}</p>
       <footer className={styles.foot}>
-        <span className={styles.id}>source · {skill.source}</span>
+        <span className={styles.id}>{t('source', { source: skill.source })}</span>
       </footer>
     </article>
   );
@@ -32,11 +35,12 @@ export function InstalledCard({ skill, onToggle }: Props) {
 function CardHead({
   skill, onToggle,
 }: { skill: AgentSkillView; onToggle: (on: boolean) => void }) {
+  const t = useTranslations('adminIntegrations.installedCard');
   return (
     <header className={styles.head}>
       <div className={styles.titleRow}>
         <h4 className={styles.name}>{skill.name}</h4>
-        {skill.isBuiltin ? <span className={styles.mpBadge}>· builtin</span> : null}
+        {skill.isBuiltin ? <span className={styles.mpBadge}>{t('builtin')}</span> : null}
       </div>
       <ToggleBtn on={skill.on} onToggle={onToggle} />
     </header>

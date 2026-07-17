@@ -6,6 +6,7 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 
 import { fetchWriting, fetchWritingContext } from '@/lib/api/public';
 import { WritingArticle } from '@/components/writings/WritingArticle';
@@ -41,15 +42,16 @@ export default async function WritingArticlePage({ params }: PageProps) {
 
 // ReaderBreadcrumb —— ← writing / writing ▸ 祖先链 ▸ 当前篇。祖先来自 context
 // (published 树),每个可点回各自文章;当前篇纯文字。
-function ReaderBreadcrumb({ ancestors, current }: { ancestors: TreeNode[]; current: string }) {
+async function ReaderBreadcrumb({ ancestors, current }: { ancestors: TreeNode[]; current: string }) {
+  const t = await getTranslations('writings.breadcrumb');
   return (
     <nav
       className="smallcaps flex items-baseline gap-2 flex-wrap pt-10"
       data-testid="writing-breadcrumb"
     >
-      <Link href="/writings" className="text-(--color-muted) hover:text-(--color-ink)">← writing</Link>
+      <Link href="/writings" className="text-(--color-muted) hover:text-(--color-ink)">{t('back')}</Link>
       {ancestors.map((a) => <Crumb key={a.id} node={a} />)}
-      <span className="text-(--color-faint)">▸</span>
+      <span className="text-(--color-faint)">{'▸'}</span>
       <span className="text-(--color-ink)">{current}</span>
     </nav>
   );
@@ -58,7 +60,7 @@ function ReaderBreadcrumb({ ancestors, current }: { ancestors: TreeNode[]; curre
 function Crumb({ node }: { node: TreeNode }) {
   return (
     <>
-      <span className="text-(--color-faint)">▸</span>
+      <span className="text-(--color-faint)">{'▸'}</span>
       <Link href={`/writings/${node.path}`} className="text-(--color-muted) hover:text-(--color-ink)">
         {node.title}
       </Link>

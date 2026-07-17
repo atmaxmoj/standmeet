@@ -1,14 +1,22 @@
 // SkillsSection —— /admin/skills。design 源 admin.js SkillsSection (1949-1969)。
-// 两块：
-//   (1) corpus-inferred skill heat graph（2-col grid heat-bar + role labels）——
-//       design 画的那个，用于 job loop 匹配。当前无 corpus 统计 endpoint，
-//       先用 owner 已有的 skills list 模拟 heat 值。
+//
+//   (1) corpus-inferred skill heat graph —— design 画了，**但至今没有 corpus 统计 endpoint**，
+//       所以它现在只渲染「还没有数据」的空态。
+//
+//       它曾经不是空的，而是**编的**：`deriveHeat(index, total) = 95 - (index/(total-1))*70`
+//       —— 所谓"热度"就是这条 skill 在列表里的下标，然后据此贴上 core / strong / maintained /
+//       developing / dormant。第一条永远 core，最后一条永远 dormant，跟 corpus 没有半点关系。
+//       一张自称 "corpus-inferred" 的图表，宣称了它根本没有测量过的事实 —— 而 owner 会拿它
+//       给 job loop 做匹配决定。没有图，owner 会去要；一张假图，owner 会信。
+//       接上真 endpoint 之前，空态是唯一诚实的形态。
+//
 //   (2) AI-persona skill CRUD cards（现有功能，spec 覆盖 skills.spec.ts /
 //       skill-scripts.spec.ts）—— design 没画但是真实产品功能，保留。
 
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
@@ -21,6 +29,7 @@ import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 export function SkillsSection() {
   const hook = useSkills();
   const [creating, setCreating] = useState(false);
+  const t = useTranslations('adminIntegrations.skills');
   useEffectErrorToast(hook.error);
   return (
     <>
@@ -30,13 +39,13 @@ export function SkillsSection() {
         count={titleCount(hook)}
         action={
           <div className="flex gap-2">
-            <Btn kind="outline">rebuild from corpus</Btn>
-            <Btn kind="primary" onClick={() => setCreating(true)}>+ new skill</Btn>
+            <Btn kind="outline">{t('rebuild')}</Btn>
+            <Btn kind="primary" onClick={() => setCreating(true)}>{t('new')}</Btn>
           </div>
         }
       />
       <Intro />
-      <CorpusHeatGraph hook={hook} />
+      <CorpusHeatGraph />
       <PersonaSkillsBlock hook={hook} />
       {creating && (
         <SkillCreateModal
@@ -53,85 +62,40 @@ function titleCount(hook: SkillsHook): string {
 }
 
 function Intro() {
+  const t = useTranslations('adminIntegrations.skills');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Inferred from your corpus by tag frequency and writing recency. &ldquo;Heat&rdquo; measures how
-      active a skill is in recent thinking; role buckets by maturity. The job loop uses this to score
-      listings. Below: persona skills attached to invite codes.
+      {t('intro')}
     </p>
   );
 }
 
 // ─── corpus heat graph (design 1949-1969) ─────────────────────
 
-function CorpusHeatGraph({ hook }: { hook: SkillsHook }) {
-  const loading = hook.status === 'idle' || hook.status === 'loading';
-  return loading ? <CardGridSkeleton /> : <HeatGrid hook={hook} />;
+// CorpusHeatGraph —— 真 corpus 统计 endpoint 到位之前，这里只能是空态（见文件头）。
+// 不接 hook：没有任何输入能诚实地喂它。
+function CorpusHeatGraph() {
+  return <HeatEmpty />;
 }
 
-function HeatGrid({ hook }: { hook: SkillsHook }) {
-  return hook.skills.length === 0 ? (
+function HeatEmpty() {
+  const t = useTranslations('adminIntegrations.skills');
+  return (
     <p className="mono text-[11px] text-(--color-faint) mb-8">
-      no skills tracked yet — create a skill or run &ldquo;rebuild from corpus&rdquo;.
+      {t('heatEmpty')}
     </p>
-  ) : (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-5 mb-10">
-      {hook.skills.map((s, i) => <HeatRow key={s.id} skill={s} index={i} total={hook.skills.length} />)}
-    </div>
   );
-}
-
-function HeatRow({ skill, index, total }: { skill: SkillView; index: number; total: number }) {
-  const heat = deriveHeat(index, total);
-  const role = deriveRole(heat);
-  return (
-    <div>
-      <div className="flex justify-between items-baseline mb-1">
-        <span className="font-serif text-[15px] text-(--color-ink)">{skill.name}</span>
-        <span className="mono text-[10px] tracking-[0.06em] text-(--color-muted)">
-          {role}
-        </span>
-      </div>
-      <HeatBar pct={heat} />
-    </div>
-  );
-}
-
-function HeatBar({ pct }: { pct: number }) {
-  return (
-    <div className="relative h-[6px] w-full bg-(--color-surface) border border-(--color-rule) rounded-[1px] overflow-hidden">
-      <HeatBarFill pct={pct} />
-    </div>
-  );
-}
-
-function HeatBarFill({ pct }: { pct: number }) {
-  return (
-    <div className={`h-full rounded-[1px] sm-heat-fill [--fill:${pct}%]`} />
-  );
-}
-
-function deriveHeat(index: number, total: number): number {
-  return total <= 1 ? 80 : Math.round(95 - (index / (total - 1)) * 70);
-}
-
-const ROLE_THRESHOLDS: readonly [number, string][] = [
-  [85, 'core'], [70, 'strong'], [50, 'maintained'], [30, 'developing'],
-];
-
-function deriveRole(heat: number): string {
-  const match = ROLE_THRESHOLDS.find(([threshold]) => heat >= threshold);
-  return match ? match[1] : 'dormant';
 }
 
 // ─── persona skills CRUD (existing product functionality) ─────
 
 function PersonaSkillsBlock({ hook }: { hook: SkillsHook }) {
   const loading = hook.status === 'idle' || hook.status === 'loading';
+  const t = useTranslations('adminIntegrations.skills');
   return (
     <div className="mt-2 pt-6 border-t border-(--color-rule)">
       <h3 className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-ink) mb-4">
-        persona skills · attached to codes
+        {t('personaHeading')}
       </h3>
       {loading ? <CardGridSkeleton /> : <PersonaList hook={hook} />}
     </div>
@@ -153,9 +117,10 @@ function PersonaList({ hook }: { hook: SkillsHook }) {
 }
 
 function SkillsEmpty() {
+  const t = useTranslations('adminIntegrations.skills');
   return (
     <p className="reading italic text-(--color-muted)" data-testid="skill-list">
-      No skills yet.
+      {t('personaEmpty')}
     </p>
   );
 }
@@ -186,6 +151,7 @@ function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
 function SkillHead({
   skill, onToggle,
 }: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<void> }) {
+  const t = useTranslations('adminIntegrations.skills');
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className="flex items-baseline gap-3 min-w-0">
@@ -195,7 +161,7 @@ function SkillHead({
             className="mono text-[9px] tracking-[0.18em] uppercase text-(--color-accent)"
             data-testid="skill-builtin-badge"
           >
-            builtin
+            {t('builtin')}
           </span>
         )}
       </span>
@@ -223,9 +189,10 @@ function SkillToggle({
 }
 
 function SkillPromptDetails({ prompt }: { prompt: string }) {
+  const t = useTranslations('adminIntegrations.skills');
   return (
     <details className="mono text-[12px] text-(--color-faint)">
-      <summary className="cursor-pointer hover:text-(--color-ink)">show prompt</summary>
+      <summary className="cursor-pointer hover:text-(--color-ink)">{t('showPrompt')}</summary>
       <pre className="whitespace-pre-wrap mt-2 px-3 py-2 bg-(--color-rule)/30 text-(--color-ink)">
         {prompt}
       </pre>
@@ -237,6 +204,7 @@ function SkillDeleteRow({
   skill, onDelete,
 }: { skill: SkillView; onDelete: (id: string) => Promise<void> }) {
   const run = useAction();
+  const t = useTranslations('adminIntegrations.skills');
   // delete 是一键破坏性动作 → 成功 toast / 失败 report 都由 run 收尾（不再静默）。
   const handleDelete = useCallback(
     () => run(() => onDelete(skill.id), { success: `Skill ${skill.name} deleted` }),
@@ -250,7 +218,7 @@ function SkillDeleteRow({
         onClick={() => void handleDelete()}
         className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
       >
-        delete
+        {t('delete')}
       </button>
     </div>
   );
@@ -267,13 +235,14 @@ function SkillCreateModal({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [prompt, setPrompt] = useState('');
+  const t = useTranslations('adminIntegrations.skills');
   return (
     <div
       className="fixed inset-0 bg-(--color-ink)/40 flex items-center justify-center z-40"
       data-testid="skill-create-modal"
     >
       <div className="bg-(--color-paper) border border-(--color-rule) max-w-[640px] w-[92vw] p-7 flex flex-col gap-4">
-        <h2 className="font-serif text-[22px]">new skill</h2>
+        <h2 className="font-serif text-[22px]">{t('modalTitle')}</h2>
         <SkillField label="name" value={name} onChange={setName} placeholder="e.g. patent-review" />
         <SkillField
           label="description"
@@ -305,6 +274,7 @@ function SkillModalFooter({
 }) {
   const toast = useToast();
   const report = useReportError();
+  const t = useTranslations('adminIntegrations.skills');
   // modal：成功 → toast + 关；失败 → report + 保持开着，让 owner 看见错、改了重试。
   const submit = useCallback(async () => {
     try {
@@ -318,7 +288,7 @@ function SkillModalFooter({
   const disabled = name === '' || prompt === '';
   return (
     <div className="flex justify-end gap-3 mt-2">
-      <Btn kind="ghost" onClick={onClose}>cancel</Btn>
+      <Btn kind="ghost" onClick={onClose}>{t('cancel')}</Btn>
       <button
         type="button"
         data-testid="skill-create-submit"
@@ -326,7 +296,7 @@ function SkillModalFooter({
         onClick={() => void submit()}
         className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        create
+        {t('create')}
       </button>
     </div>
   );
@@ -352,10 +322,11 @@ function SkillField({
 }
 
 function SkillPromptField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('adminIntegrations.skills');
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        prompt
+        {t('promptLabel')}
       </span>
       <textarea
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[13px] font-mono min-h-[180px]"

@@ -4,6 +4,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface CreatedToken { plaintext: string; name: string; id: string }
 
 type Props = { created: CreatedToken | null; dismiss: () => void };
@@ -13,10 +15,11 @@ export function NewlyCreatedBanner({ created, dismiss }: Props) {
 }
 
 function Card({ created, dismiss }: { created: CreatedToken; dismiss: () => void }) {
+  const t = useTranslations('adminIntegrations.newlyCreated');
   return (
     <div className="border border-(--color-accent) p-4 space-y-3 mb-4" data-testid="new-token">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-accent)">
-        save these now — the private key is shown only once
+        {t('warning')}
       </div>
       <div className="reading-tight text-sm text-(--color-muted)">{created.name}</div>
       <KeyIDRow keyID={created.id} />
@@ -27,10 +30,11 @@ function Card({ created, dismiss }: { created: CreatedToken; dismiss: () => void
 }
 
 function KeyIDRow({ keyID }: { keyID: string }) {
+  const t = useTranslations('adminIntegrations.newlyCreated');
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">
-        key id
+        {t('keyId')}
       </div>
       <code data-testid="key-id" className="mono text-[13px] break-all block text-(--color-ink)">
         {keyID}
@@ -40,11 +44,12 @@ function KeyIDRow({ keyID }: { keyID: string }) {
 }
 
 function PEMBlock({ pem, fileName }: { pem: string; fileName: string }) {
+  const t = useTranslations('adminIntegrations.newlyCreated');
   const dataURL = `data:application/x-pem-file;base64,${btoa(pem)}`;
   return (
     <div>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">
-        private key (pem)
+        {t('pem')}
       </div>
       <code
         data-testid="key-pem"
@@ -58,20 +63,21 @@ function PEMBlock({ pem, fileName }: { pem: string; fileName: string }) {
         data-testid="key-pem-download"
         className="inline-block mt-2 mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-ink) underline underline-offset-4 hover:text-(--color-accent)"
       >
-        download .pem
+        {t('download')}
       </a>
     </div>
   );
 }
 
 function DismissBtn({ dismiss }: { dismiss: () => void }) {
+  const t = useTranslations('adminIntegrations.newlyCreated');
   return (
     <button
       type="button"
       onClick={dismiss}
       className="mono text-[10.5px] tracking-[0.12em] text-(--color-muted) hover:text-(--color-ink)"
     >
-      dismiss
+      {t('dismiss')}
     </button>
   );
 }

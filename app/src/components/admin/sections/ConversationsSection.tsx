@@ -7,6 +7,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConvTranscriptModal } from '@/components/admin/sections/conversations/ConvTranscriptModal';
@@ -40,24 +41,26 @@ export function ConversationsSection() {
 }
 
 function PrivateHitsHint({ hook }: { hook: ConversationsHook }) {
+  const t = useTranslations('adminAccess');
   const count = hook.rows.filter((r) => r.private_hits > 0).length;
   return count === 0 ? null : (
     <span className="mono text-[10.5px] tracking-[0.06em] text-(--color-muted)">
-      <span className="text-(--color-accent)">●</span>{' '}
-      {count} session{count === 1 ? '' : 's'} hit private topics
+      <span className="text-(--color-accent)">{'●'}</span>{' '}
+      {t('conversations.privateHits', { count })}
     </span>
   );
 }
 
 function FilterChip({ code }: { code: string | undefined }) {
+  const t = useTranslations('adminAccess');
   return code ? (
     <div
       data-testid="conv-filter-chip"
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) mb-3 flex items-baseline gap-3"
     >
-      <span>filter · code · {code}</span>
+      <span>{t('conversations.filterChip', { code })}</span>
       <Link href="/admin/conversations" className="text-(--color-faint) hover:text-(--color-accent)">
-        clear ×
+        {t('conversations.clear')}
       </Link>
     </div>
   ) : null;
@@ -77,18 +80,24 @@ function ConvTableReady({ hook }: { hook: ConversationsHook }) {
   return hook.rows.length === 0 ? <EmptyState /> : <ReadyTable hook={hook} />;
 }
 
+const HEAD_KEYS = [
+  'thVisitor', 'thViaCode', 'thIp', 'thTurns', 'thSentiment', 'thFlags', 'thLast',
+] as const;
+
 function ReadyTable({ hook }: { hook: ConversationsHook }) {
+  const t = useTranslations('adminAccess');
   return (
     <table className="w-full border-collapse" data-testid="conv-table">
       <thead>
         <tr className="mono text-[9.5px] tracking-[0.2em] uppercase text-(--color-muted)">
-          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">visitor</th>
-          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">via code</th>
-          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">ip</th>
-          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">turns</th>
-          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">sentiment</th>
-          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">flags</th>
-          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">last</th>
+          {HEAD_KEYS.map((k) => (
+            <th
+              key={k}
+              className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal"
+            >
+              {t(`conversations.${k}`)}
+            </th>
+          ))}
         </tr>
       </thead>
       <tbody>
@@ -150,14 +159,24 @@ function SentimentCell({ sentiment }: { sentiment: string }) {
 
 function FlagsCell({ hits }: { hits: number }) {
   return hits > 0
-    ? <span className="mono text-[10px] tracking-[0.14em] text-(--color-accent)">{hits} priv</span>
+    ? <PrivFlag hits={hits} />
     : <span className="mono text-[10px] text-(--color-faint)">—</span>;
 }
 
+function PrivFlag({ hits }: { hits: number }) {
+  const t = useTranslations('adminAccess');
+  return (
+    <span className="mono text-[10px] tracking-[0.14em] text-(--color-accent)">
+      {t('conversations.privFlag', { hits })}
+    </span>
+  );
+}
+
 function EmptyState() {
+  const t = useTranslations('adminAccess');
   return (
     <p className="reading-tight italic text-(--color-muted) mt-8">
-      No conversations yet. Once visitors chat through a code or BYOAI session, you&apos;ll see them here.
+      {t('conversations.empty')}
     </p>
   );
 }

@@ -4,6 +4,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import {
   fetchReport, downloadReportPDF, type ReportLoadState,
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function ReportArtifactPage({ reportID }: Props) {
+  const t = useTranslations('page');
   const [state, setState] = useState<ReportLoadState>({ kind: 'loading' });
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -30,7 +32,7 @@ export function ReportArtifactPage({ reportID }: Props) {
   return (
     <div className={styles['shell']} data-testid="report-page">
       <header className={styles['bar']}>
-        <span className={styles['title']}>report · {reportID.slice(0, 8)}</span>
+        <span className={styles['title']}>{t('report.title', { id: reportID.slice(0, 8) })}</span>
         <DownloadBtn reportID={reportID} ready={state.kind === 'ready'} />
         <PrintBtn iframeRef={iframeRef} ready={state.kind === 'ready'} />
       </header>
@@ -42,13 +44,14 @@ export function ReportArtifactPage({ reportID }: Props) {
 function PrintBtn({ iframeRef, ready }: {
   iframeRef: React.RefObject<HTMLIFrameElement | null>; ready: boolean;
 }) {
+  const t = useTranslations('page');
   return (
     <button
       type="button" className={styles['printBtn']}
       disabled={!ready} onClick={() => triggerPrint(iframeRef)}
       data-testid="report-print"
     >
-      print ↗
+      {t('report.print')}
     </button>
   );
 }

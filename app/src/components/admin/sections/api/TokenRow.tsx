@@ -4,6 +4,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { Chip } from '@/components/admin/atoms/Chip';
 import { type TokenItem } from '@/lib/admin/use-tokens';
 import { useAction } from '@/lib/ui/use-action';
@@ -23,6 +25,7 @@ export function TokenRow({ token, deleteToken }: Props) {
 }
 
 function TokenRowHead({ token, deleteToken }: Props) {
+  const t = useTranslations('adminIntegrations.tokenRow');
   return (
     <div className="flex items-baseline justify-between gap-4 flex-wrap">
       <div>
@@ -30,11 +33,14 @@ function TokenRowHead({ token, deleteToken }: Props) {
           {token.name}
         </div>
         <div className="mono text-[10.5px] tracking-[0.06em] text-(--color-faint) mt-0.5">
-          created {token.created_at} · last used {token.last_used_at ?? 'never'}
+          {t('meta', {
+            created: token.created_at,
+            lastUsed: token.last_used_at ?? t('never'),
+          })}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <Chip>ed25519</Chip>
+        <Chip>{t('algo')}</Chip>
         <RevokeBtn token={token} deleteToken={deleteToken} />
       </div>
     </div>
@@ -44,6 +50,7 @@ function TokenRowHead({ token, deleteToken }: Props) {
 function RevokeBtn({ token, deleteToken }: Props) {
   // 一键破坏性动作 → useAction 收尾（成功 toast / 失败 report），删失败不再静默。
   const run = useAction();
+  const t = useTranslations('adminIntegrations.tokenRow');
   return (
     <button
       type="button"
@@ -51,15 +58,16 @@ function RevokeBtn({ token, deleteToken }: Props) {
       data-testid={`token-delete-${token.name}`}
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent)"
     >
-      revoke
+      {t('revoke')}
     </button>
   );
 }
 
 function KeyIDRow({ keyID }: { keyID: string }) {
+  const t = useTranslations('adminIntegrations.tokenRow');
   return (
     <div className="flex items-baseline gap-3 border-t border-(--color-rule)/70 pt-3 mt-2">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) shrink-0">key id</span>
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) shrink-0">{t('keyId')}</span>
       <code className="mono flex-1 min-w-0 truncate text-[13px] text-(--color-muted)">
         {keyID}
       </code>

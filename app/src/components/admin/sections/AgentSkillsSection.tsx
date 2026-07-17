@@ -8,8 +8,16 @@
 //   MARKETPLACE — searchable aggregate of GitHub anthropics/skills +
 //               SkillsMP, with install button per card
 //
-// Pass-1 ships with mock data — see use-agent-skills.ts. Pass-2 swaps
-// the hook's inner store for REST fetches without touching this layer.
+// 这里曾经写着 "Pass-1 ships with mock data"。**那已经不是真的**：#48-5 换上了真 endpoint
+// （GET /skills/ + /marketplace/search|install|install-manual），mock 早就没了
+// （见 use-agent-skills.ts 第一行）。一条过时的注释比没有注释更糟 —— 它会让下一个人以为这块还没接。
+//
+// ⚠️ 语义重叠（未解决）：MY SKILLS 读的就是 /admin/skills 那份**同一个 registry**
+// （use-agent-skills 的 installed 直接来自 use-skills，marketplace install 后端写的也是
+// h.SkillsAdmin.Skills.Skills）。一个概念、一份数据、两个顶层入口、两个几乎同名的侧栏标签
+// （`skills` 在 access 组、`agent skills` 在 integrations 组）。owner 得在两个地方管同一批东西，
+// 而界面上没有任何线索说它们是同一批。合并成一个 /admin/skills（marketplace 作为它的 tab）是
+// 该走的方向 —— 见 docs/rot-sweep.md。
 
 'use client';
 

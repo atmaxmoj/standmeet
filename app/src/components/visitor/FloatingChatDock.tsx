@@ -19,6 +19,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
@@ -107,11 +108,12 @@ function ChatTrigger({
 }
 
 function ChatTriggerLabel({ open, pending }: { open: boolean; pending: boolean }) {
+  const t = useTranslations('visitor.floatingChatDock');
   return open
-    ? <span>close ✕</span>
+    ? <span>{t('close')}</span>
     : pending
-      ? <span className="sm-floating-chat-pending">thinking<span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span></span>
-      : <span>ask <span className="text-[14px]">›</span></span>;
+      ? <span className="sm-floating-chat-pending">{t('thinking')}<span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span></span>
+      : <span>{t('ask')}<span className="text-[14px]">›</span></span>;
 }
 
 interface PanelProps {
@@ -128,13 +130,14 @@ interface PanelProps {
 }
 
 function ChatPanel(props: PanelProps) {
+  const t = useTranslations('visitor.floatingChatDock');
   return (
     <div
       className="sm-floating-chat-panel sm-rise"
       data-testid="floating-chat-panel"
     >
       <header className="sm-floating-chat-head">
-        <span className="sm-smallcaps">ask the AI</span>
+        <span className="sm-smallcaps">{t('askTheAI')}</span>
       </header>
       <div className="sm-floating-chat-transcript sm-floating-chat-compact">
         <FloatingTranscript
@@ -168,10 +171,10 @@ function FloatingTranscript({ dialogs, pending, onAsk, conversationID }: {
 }
 
 function EmptyHint() {
+  const t = useTranslations('visitor.floatingChatDock');
   return (
     <p className="sm-floating-chat-empty">
-      Ask about this page — answered in the owner&rsquo;s voice, grounded in the
-      corpus. A separate thread, but the AI still sees your other conversations.
+      {t('emptyHint')}
     </p>
   );
 }

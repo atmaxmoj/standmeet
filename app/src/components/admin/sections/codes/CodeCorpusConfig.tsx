@@ -9,27 +9,24 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { CorpusScopePicker } from '@/components/admin/sections/corpus/CorpusScopePicker';
 import { fetchCodeCorpus, saveCodeCorpus } from '@/lib/admin/use-code-corpus';
 import { useAction } from '@/lib/ui/use-action';
 
-const CORPUS_HELP =
-  '这张码在 role 授权基础上**收回**的 URI，一行一条。只能减不能加 —— role 没授的，这里写什么都不会开。'
-  + '典型用法：role 授了 subjectivity://**（观点都给），这张码收回 subjectivity://cv（履历不给）。'
-  + '改动只影响之后新发的 session（role 在发码时冻结）。';
-
 // CorpusLoadFailed —— 没拉到就说没拉到，**并且不出编辑器**：granted 未知时那个列表只会误导，而
 // denied 未知时保存会把 owner 没看见的收回列表清掉。宁可这张卡少一块，不可给一块假的。
 function CorpusLoadFailed({ codeLabel }: { codeLabel: string }) {
+  const t = useTranslations('adminAccess');
   return (
     <div className="mt-2 flex flex-col gap-1" data-testid={`code-corpus-error-${codeLabel}`}>
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint)">
-        corpus
+        {t('common.corpus')}
       </span>
       <p className="reading-tight text-[11px] text-(--color-accent)">
-        Couldn’t load this code’s corpus scope. Reload and retry.
+        {t('codeCorpus.loadError')}
       </p>
     </div>
   );
@@ -86,16 +83,18 @@ function useCodeCorpusState(codeID: string): CorpusState {
 // GrantedList —— 继承来的 role 正列表。只有在**确实拉到了**的时候才会渲染，所以
 // 「(role grants nothing)」在这里永远是真话（见 useCodeCorpusState 的 error 分支）。
 function GrantedList({ granted }: { granted: readonly string[] }) {
+  const t = useTranslations('adminAccess');
   return (
     <ul className="mono text-[10.5px] text-(--color-muted) flex flex-wrap gap-x-3">
       {granted.length === 0
-        ? <li className="italic">(role grants nothing)</li>
+        ? <li className="italic">{t('codeCorpus.grantsNothing')}</li>
         : granted.map((g) => <li key={g}>{g}</li>)}
     </ul>
   );
 }
 
 export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLabel: string }) {
+  const t = useTranslations('adminAccess');
   const run = useAction();
   const { granted, text, setText, loaded, error } = useCodeCorpusState(codeID);
   const onSave = useCallback(
@@ -108,20 +107,20 @@ export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLa
   return error ? <CorpusLoadFailed codeLabel={codeLabel} /> : loaded ? (
     <div className="mt-2 flex flex-col gap-1.5" data-testid={`code-corpus-${codeLabel}`}>
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint)">
-        corpus · inherited from role
+        {t('codeCorpus.inherited')}
       </span>
       <GrantedList granted={granted} />
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mt-1">
-        taken back on this code
+        {t('codeCorpus.takenBack')}
       </span>
-      <p className="reading-tight text-[11px] text-(--color-muted)">{CORPUS_HELP}</p>
+      <p className="reading-tight text-[11px] text-(--color-muted)">{t('codeCorpus.help')}</p>
       {/* 收回和授权是同一种语言（一组 glob），所以是同一个 picker（F-A-14）。 */}
       <CorpusScopePicker
         value={text.split('\n').map((s) => s.trim()).filter((s) => s !== '')}
         onChange={(next) => setText(next.join('\n'))}
         testid={`code-corpus-picker-${codeLabel}`}
       />
-      <span className="mono text-[9.5px] text-(--color-faint) mt-1">or write them by hand:</span>
+      <span className="mono text-[9.5px] text-(--color-faint) mt-1">{t('common.byHand')}</span>
       <textarea
         className="border border-(--color-rule) px-2.5 py-1.5 bg-(--color-paper) text-[12.5px] font-mono min-h-[54px]"
         value={text}
@@ -137,7 +136,7 @@ export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLa
           data-testid={`code-corpus-save-${codeLabel}`}
           className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent)"
         >
-          save corpus
+          {t('common.saveCorpus')}
         </button>
       </div>
     </div>

@@ -6,6 +6,8 @@
 
 import { useCallback, useState } from 'react';
 
+import { useTranslations } from 'next-intl';
+
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { FormSkeleton } from '@/components/skeletons/FormSkeleton';
 import { Block } from '@/components/admin/sections/page/Block';
@@ -80,10 +82,10 @@ function readyView(state: Exclude<PageEditorState, { kind: 'loading' | 'error' }
 }
 
 function Intro() {
+  const t = useTranslations('adminPages.page');
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Author the blocks visitors land on. Hero is the prose paragraph + chat input. Below: insights
-      (bold theses), projects, where you are, and how to reach you. Changes persist via PUT /admin/page.
+      {t('intro')}
     </p>
   );
 }

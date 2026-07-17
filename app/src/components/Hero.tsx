@@ -5,6 +5,7 @@
 // 同一个 onAsk callback 把问题塞进 conversation。
 
 import type { RefObject } from 'react';
+import { useTranslations } from 'next-intl';
 
 import type { PageContent, PublicOwnerView } from '@/lib/api/public';
 
@@ -65,10 +66,11 @@ function HeroProse({ prose }: { prose: string }) {
 }
 
 function Examples({ items, onPick }: { items: readonly string[]; onPick: (q: string) => void }) {
+  const t = useTranslations('page');
   return items.length === 0 ? null : (
     <div className="mt-6">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-faint) mb-3">
-        some examples
+        {t('hero.someExamples')}
       </div>
       <ul className="space-y-1.5">
         {items.map((q) => (

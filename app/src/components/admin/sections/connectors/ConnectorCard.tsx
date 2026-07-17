@@ -4,6 +4,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { useConnectorCard, type ConnectorCardHook } from '@/lib/admin/use-connector-card';
 import type { CatalogEntry } from '@/lib/admin/use-connector-catalog';
 
@@ -111,6 +113,7 @@ function Scopes({ hook }: { hook: ConnectorCardHook }) {
 }
 
 function Actions({ hook }: { hook: ConnectorCardHook }) {
+  const t = useTranslations('adminIntegrations.common');
   return (
     <div className="flex gap-2">
       <button
@@ -118,7 +121,7 @@ function Actions({ hook }: { hook: ConnectorCardHook }) {
         data-testid="connector-connect-button"
         className="sm-btn sm-btn-solid sm-btn-sm"
       >
-        Connect
+        {t('connect')}
       </button>
       <DisconnectButton hook={hook} />
     </div>
@@ -126,13 +129,14 @@ function Actions({ hook }: { hook: ConnectorCardHook }) {
 }
 
 function DisconnectButton({ hook }: { hook: ConnectorCardHook }) {
+  const t = useTranslations('adminIntegrations.connectorCard');
   return hook.connected ? (
     <button
       type="button" onClick={hook.disconnect}
       data-testid="connector-disconnect-button"
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
-      Disconnect
+      {t('disconnect')}
     </button>
   ) : null;
 }

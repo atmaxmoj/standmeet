@@ -7,6 +7,7 @@
 'use client';
 
 import { useCallback, useState, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import {
@@ -61,9 +62,10 @@ function AcctBlock({ title, blurb, children }: { title: string; blurb?: string; 
 }
 
 function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType<typeof useAdminSession> }) {
+  const t = useTranslations('adminShell.account');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <div className="sm-smallcaps mb-3">profile</div>
+      <div className="sm-smallcaps mb-3">{t('profile')}</div>
       <FullNameBlock hook={hook} initialValue={pickFullName(session)} />
       <EmailBlock hook={hook} initialValue={pickEmail(session)} />
     </div>
@@ -71,10 +73,11 @@ function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType
 }
 
 function SecurityCard({ hook }: { hook: AccountHook }) {
+  const t = useTranslations('adminShell.account');
   const mailConnected = useMail().status?.connected ?? false;
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <div className="sm-smallcaps mb-3">security</div>
+      <div className="sm-smallcaps mb-3">{t('security')}</div>
       <PasswordBlock hook={hook} />
       <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-(--color-rule)/60">
         <RecoveryRow mailConnected={mailConnected} />
@@ -153,20 +156,21 @@ function InfoDot({ note }: { note: string }) {
 }
 
 function InferenceCard() {
+  const t = useTranslations('adminShell.account');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <div className="sm-smallcaps mb-3">inference</div>
+      <div className="sm-smallcaps mb-3">{t('inference')}</div>
       <div className="flex flex-col gap-3">
         <div>
-          <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">default provider</div>
-          <div className="mono text-[12px] text-(--color-ink)">configured in /admin/api-mcp</div>
+          <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">{t('defaultProvider')}</div>
+          <div className="mono text-[12px] text-(--color-ink)">{t('configuredIn')}</div>
         </div>
         <div className="flex items-baseline justify-between gap-3 py-2 border-t border-(--color-rule)/60">
           <div>
-            <div className="font-serif text-[15px] text-(--color-ink)">30-day spend</div>
-            <div className="mono text-[10px] text-(--color-faint) mt-0.5">your inference key · owner pays</div>
+            <div className="font-serif text-[15px] text-(--color-ink)">{t('spend30d')}</div>
+            <div className="mono text-[10px] text-(--color-faint) mt-0.5">{t('spendSub')}</div>
           </div>
-          <span className="mono text-[16px] text-(--color-ink)">$—</span>
+          <span className="mono text-[16px] text-(--color-ink)">{t('spendUnknown')}</span>
         </div>
       </div>
     </div>

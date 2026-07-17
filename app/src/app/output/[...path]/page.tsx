@@ -6,6 +6,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 
 import { ChatMarkdown } from '@/components/page/markdown';
 import { CorpusContent } from '@/components/page/CorpusContent';
@@ -69,64 +70,67 @@ function OutputLandingContent({ out, handle, slug }: {
   );
 }
 
-function OutputCoverHero({ title, handle, updatedAt }: {
+async function OutputCoverHero({ title, handle, updatedAt }: {
   title: string; handle: string; updatedAt: string;
 }) {
+  const t = await getTranslations('reader');
   return (
     <div className="border-b border-(--color-rule) bg-(--color-surface)/40 py-16 px-6">
       <div className="mx-auto max-w-2xl">
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-4 flex items-baseline gap-2">
-          <span>output · from {handle}&apos;s corpus</span>
-          <span className="border border-(--color-rule) px-1.5 py-0.5 text-[9px]">polished</span>
+          <span>{t('output.kicker', { handle })}</span>
+          <span className="border border-(--color-rule) px-1.5 py-0.5 text-[9px]">{t('output.polished')}</span>
         </div>
         <h1 className="font-serif text-[clamp(36px,5vw,56px)] text-(--color-ink) font-normal tracking-[-0.02em] leading-[1.05] mb-4">
           {title}
         </h1>
         <p className="mono text-[10px] tracking-[0.12em] text-(--color-faint) mt-2">
-          updated {updatedAt.slice(0, 10)}
+          {t('output.updated', { date: updatedAt.slice(0, 10) })}
         </p>
       </div>
     </div>
   );
 }
 
-function PDFPreviewCard() {
+async function PDFPreviewCard() {
+  const t = await getTranslations('reader');
   return (
     <div className="border border-(--color-rule) rounded-[3px] bg-(--color-surface)/60 mb-10 aspect-[8.5/11] max-w-[280px] mx-auto flex items-center justify-center">
-      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint)">PDF preview</span>
+      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint)">{t('output.pdfPreview')}</span>
     </div>
   );
 }
 
-function Breadcrumb({ slug }: { slug: string }) {
+async function Breadcrumb({ slug }: { slug: string }) {
+  const t = await getTranslations('reader');
   return (
     <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-6 flex items-baseline gap-2 flex-wrap">
-      <Link href="/writings" className="hover:text-(--color-ink)">writings</Link>
+      <Link href="/writings" className="hover:text-(--color-ink)">{t('output.writings')}</Link>
       <span className="text-(--color-faint)">/</span>
-      <span className="text-(--color-ink)">output · {slug}</span>
+      <span className="text-(--color-ink)">{t('output.breadcrumbCurrent', { slug })}</span>
     </div>
   );
 }
 
-function TrustBox({ handle }: { handle: string }) {
+async function TrustBox({ handle }: { handle: string }) {
+  const t = await getTranslations('reader');
   return (
     <div className="mt-12 px-4 py-3 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1.5">about this piece</div>
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1.5">{t('output.aboutHeading')}</div>
       <p className="reading text-(--color-muted) text-[13.5px] m-0">
-        Polished output from {handle}&apos;s corpus — wiki entries promoted to a
-        public-facing draft. The AI uses the same corpus, so follow-ups below
-        will quote this and related entries directly.
+        {t('output.aboutBody', { handle })}
       </p>
     </div>
   );
 }
 
-function PageHeader() {
+async function PageHeader() {
   // #39: document 页统一返回 writing index,不再「← home」回 /。
+  const t = await getTranslations('reader');
   return (
     <header className="mb-10">
       <Link href="/writings" className="mono text-[10.5px] tracking-[0.12em] text-(--color-muted) hover:text-(--color-accent)">
-        ← writing
+        {t('output.backToWriting')}
       </Link>
     </header>
   );

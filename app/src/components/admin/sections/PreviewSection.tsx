@@ -8,12 +8,14 @@
 
 import { useState } from 'react';
 
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { useCodes, type CodesHook, type CodeView } from '@/lib/admin/use-codes';
 
 export function PreviewSection() {
+  const t = useTranslations('adminPages.preview');
   const hook = useCodes();
   const firstCode = deriveFirstCode(hook);
   const [selected, setSelected] = useState<string>(firstCode);
@@ -24,7 +26,7 @@ export function PreviewSection() {
         title="preview"
         action={
           <Link href="/" target="_blank" className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)">
-            open public ↗
+            {t('openPublic')} ↗
           </Link>
         }
       />
@@ -40,22 +42,24 @@ function deriveFirstCode(hook: CodesHook): string {
 function PreviewBody({ hook, selected, setSelected }: {
   hook: CodesHook; selected: string; setSelected: (s: string) => void;
 }) {
+  const t = useTranslations('adminPages.preview');
   return hook.status === 'ready' ? (
     <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
       <CodePicker codes={hook.codes} selected={selected} onPick={setSelected} />
       <PreviewFrame codes={hook.codes} selected={selected} />
     </div>
   ) : (
-    <div className="mono text-[11px] text-(--color-muted)">loading codes…</div>
+    <div className="mono text-[11px] text-(--color-muted)">{t('loading')}</div>
   );
 }
 
 function CodePicker({ codes, selected, onPick }: {
   codes: readonly CodeView[]; selected: string; onPick: (s: string) => void;
 }) {
+  const t = useTranslations('adminPages.preview');
   return (
     <div className="flex flex-col gap-1.5" data-testid="code-picker">
-      <div className="sm-smallcaps mb-1">see-as · code</div>
+      <div className="sm-smallcaps mb-1">{t('seeAsCode')}</div>
       {codes.map((c) => (
         <CodePickerCard key={c.id} code={c} active={selected === c.id} onClick={() => onPick(c.id)} />
       ))}
@@ -65,6 +69,7 @@ function CodePicker({ codes, selected, onPick }: {
 }
 
 function CodePickerCard({ code, active, onClick }: { code: CodeView; active: boolean; onClick: () => void }) {
+  const t = useTranslations('adminPages.preview');
   return (
     <button
       type="button" onClick={onClick}
@@ -76,13 +81,14 @@ function CodePickerCard({ code, active, onClick }: { code: CodeView; active: boo
     >
       <div className="font-serif text-[15px] text-(--color-ink)">{code.label}</div>
       <div className="mono text-[10px] text-(--color-muted) mt-0.5">
-        {code.code} · role {code.assumed_role_id.slice(0, 8)}…
+        {t('cardCodeRole', { code: code.code, role: code.assumed_role_id.slice(0, 8) })}
       </div>
     </button>
   );
 }
 
 function ByoaiPickerCard({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const t = useTranslations('adminPages.preview');
   return (
     <button
       type="button" onClick={onClick}
@@ -92,16 +98,17 @@ function ByoaiPickerCard({ active, onClick }: { active: boolean; onClick: () => 
           : 'border-(--color-rule) bg-transparent hover:border-(--color-ink)/40'
       }`}
     >
-      <div className="font-serif text-[15px] text-(--color-ink)">BYOAI · anonymous</div>
-      <div className="mono text-[10px] text-(--color-muted) mt-0.5">public scope only</div>
+      <div className="font-serif text-[15px] text-(--color-ink)">{t('byoaiCardTitle')}</div>
+      <div className="mono text-[10px] text-(--color-muted) mt-0.5">{t('byoaiCardScope')}</div>
     </button>
   );
 }
 
 function PreviewFrame({ codes, selected }: { codes: readonly CodeView[]; selected: string }) {
+  const t = useTranslations('adminPages.preview');
   return (
     <div className="border border-(--color-rule) rounded-[3px] bg-(--color-paper) p-6 min-h-[240px]" data-testid="preview-frame">
-      <div className="sm-smallcaps mb-4">preview · visitor view</div>
+      <div className="sm-smallcaps mb-4">{t('frameTitle')}</div>
       {selected === 'byoai'
         ? <ByoaiPreview />
         : <CodedPreview code={codes.find((c) => c.id === selected) ?? null} />}
@@ -110,36 +117,37 @@ function PreviewFrame({ codes, selected }: { codes: readonly CodeView[]; selecte
 }
 
 function ByoaiPreview() {
+  const t = useTranslations('adminPages.preview');
   return (
     <>
       <PreviewBanner>
-        <span className="text-(--color-accent)">byoai mode</span>
+        <span className="text-(--color-accent)">{t('byoaiBannerMode')}</span>
         <BannerDot />
-        <span>model · visitor-supplied</span>
+        <span>{t('byoaiBannerModel')}</span>
         <BannerDot />
-        <span>public scope</span>
+        <span>{t('byoaiBannerScope')}</span>
       </PreviewBanner>
       <p className="font-serif text-[17px] text-(--color-ink) mt-4 leading-[1.55] max-w-[48em]">
-        Hi. You&apos;re running on your own API key — pay for inference, public slice only.
-        Private topics return a &ldquo;need a code&rdquo; response.
+        {t('byoaiWelcome')}
       </p>
     </>
   );
 }
 
 function CodedPreview({ code }: { code: CodeView | null }) {
+  const t = useTranslations('adminPages.preview');
   return code === null ? (
-    <p className="mono text-[11px] text-(--color-faint)">select a code from the left</p>
+    <p className="mono text-[11px] text-(--color-faint)">{t('selectCode')}</p>
   ) : (
     <>
       <PreviewBanner>
         <span className="text-(--color-accent)">{code.label}</span>
         <BannerDot />
-        <span>code · {code.code}</span>
+        <span>{t('codedBannerCode', { code: code.code })}</span>
       </PreviewBanner>
       <p className="font-serif text-[17px] text-(--color-ink) mt-4 leading-[1.55] max-w-[48em]">
-        Welcome. You&apos;ve come in on <span className="text-(--color-accent)">{code.label}</span>.
-        {' '}This code assumes role <span className="mono text-[14px]">{code.assumed_role_id.slice(0, 8)}…</span>.
+        {t('codedWelcomeBefore')} <span className="text-(--color-accent)">{code.label}</span>.
+        {' '}{t('codedWelcomeMiddle')} <span className="mono text-[14px]">{code.assumed_role_id.slice(0, 8)}…</span>.
       </p>
       <SuggestedBlock questions={code.ghosts} />
     </>
@@ -147,9 +155,10 @@ function CodedPreview({ code }: { code: CodeView | null }) {
 }
 
 function SuggestedBlock({ questions }: { questions?: string[] }) {
+  const t = useTranslations('adminPages.preview');
   return questions && questions.length > 0 ? (
     <div className="mt-5">
-      <div className="sm-smallcaps mb-1.5">suggested by you</div>
+      <div className="sm-smallcaps mb-1.5">{t('suggestedByYou')}</div>
       <ul className="flex flex-col gap-1 list-none p-0 m-0">
         {questions.slice(0, 4).map((q, i) => (
           <li key={i} className="font-serif italic text-[15px] text-(--color-muted)">

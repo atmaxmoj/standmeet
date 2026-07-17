@@ -6,6 +6,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { attachmentLabel, splitComposedMessage, type Attachment } from '@/lib/visitor/composer-attachments';
 
 // AttachmentChips —— 长粘贴收成的附件,挂输入框上方;每枚显字数/行数/首行
@@ -21,18 +23,19 @@ export function AttachmentChips({ attachments, onRemove }: {
 }
 
 function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove: (id: string) => void }) {
+  const t = useTranslations('visitor.composerAttachments');
   return (
     <li
       className="flex items-center gap-3 px-3 py-2 border border-(--color-rule) text-(--color-muted)"
       data-testid="composer-attachment"
     >
-      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) shrink-0">pasted</span>
+      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) shrink-0">{t('pasted')}</span>
       <span className="mono text-[11px] truncate min-w-0 flex-1">{a.label}</span>
       <button
         type="button" onClick={() => onRemove(a.id)} aria-label="remove attachment"
         className="mono text-[12px] text-(--color-faint) hover:text-(--color-accent) transition-colors shrink-0"
       >
-        ✕
+        {t('remove')}
       </button>
     </li>
   );
@@ -55,10 +58,11 @@ export function VisitorQuestion({ q }: { q: string }) {
 }
 
 function PastedBlock({ content }: { content: string }) {
+  const t = useTranslations('visitor.composerAttachments');
   return (
     <details className="mt-3 border border-(--color-rule)" data-testid="pasted-block">
       <summary className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) cursor-pointer list-none marker:hidden px-3 py-2 hover:text-(--color-accent) transition-colors flex items-center gap-2">
-        <span className="text-(--color-accent)">pasted</span>
+        <span className="text-(--color-accent)">{t('pasted')}</span>
         <span className="truncate">{attachmentLabel(content)}</span>
       </summary>
       <pre className="reading text-[13px] whitespace-pre-wrap px-3 py-3 border-t border-(--color-rule) max-h-[40vh] overflow-y-auto">

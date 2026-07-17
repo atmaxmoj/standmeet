@@ -5,6 +5,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
@@ -78,25 +80,28 @@ function fmtMeta(job: AdminListingRow): string {
   return `${job.source_kind}${where}`;
 }
 
+// mono —— t.rich 的 <mono> 标签：把 MCP 工具名渲染成等宽 ink。
+const mono = (chunks: React.ReactNode) => (
+  <span className="mono text-(--color-ink)">{chunks}</span>
+);
+
 function Intro() {
+  const t = useTranslations('adminJobs');
   return (
     <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]">
-      Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them
-      against your corpus and draft a resume for the ones worth applying to. Pool TTL 1 day;
-      missed it, fetch again via MCP{' '}
-      <span className="mono text-(--color-ink)">jobs.fetch_new</span>.
+      {t.rich('listings.intro', { mono })}
     </p>
   );
 }
 
 function EmptyState() {
+  const t = useTranslations('adminJobs');
   return (
     <div className="border border-dashed border-(--color-rule) rounded-[3px] p-9 text-center">
-      <div className="sm-smallcaps mb-1.5">no listings in pool</div>
-      <div className="font-serif text-[18px] text-(--color-ink)">Fetch jobs from your sources first.</div>
+      <div className="sm-smallcaps mb-1.5">{t('listings.emptyKicker')}</div>
+      <div className="font-serif text-[18px] text-(--color-ink)">{t('listings.emptyTitle')}</div>
       <p className="reading text-[14px] text-(--color-muted) max-w-[36em] mx-auto mt-2">
-        Ask Claude to run <span className="mono text-(--color-ink)">jobs.fetch_new</span> —
-        results land here for a day until you draft or discard them.
+        {t.rich('listings.emptyHint', { mono })}
       </p>
     </div>
   );

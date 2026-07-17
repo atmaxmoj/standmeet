@@ -14,6 +14,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import {
   bindVisitorSessionSync,
@@ -75,9 +76,10 @@ function StripLeft({ s }: { s: VisitorSession }) {
 }
 
 function StripModeLabel({ s }: { s: VisitorSession }) {
+  const t = useTranslations('visitor.sessionStrip');
   return s.byoai ? (
     <span className="sm-session-strip-ai-mode">
-      byoai · {s.byoaiProvider}
+      {t('byoaiMode', { provider: s.byoaiProvider })}
     </span>
   ) : (
     <span className="sm-session-strip-label">
@@ -98,8 +100,10 @@ function StripVisitorBadge({ s }: { s: VisitorSession }) {
 // StripVisitorName —— code 模式下名字可点 = 换人:重开名字选择器,取新名字 =
 // 新 member = 新对话(同名则续上)。byoai 无 member 概念 → 纯文字不可点。
 function StripVisitorName({ s }: { s: VisitorSession }) {
+  const t = useTranslations('visitor.sessionStrip');
+  const you = t('you', { visitor: s.visitor ?? '' });
   return s.code === null ? (
-    <span className="sm-session-strip-meta">you · {s.visitor}</span>
+    <span className="sm-session-strip-meta">{you}</span>
   ) : (
     <button
       type="button"
@@ -108,12 +112,13 @@ function StripVisitorName({ s }: { s: VisitorSession }) {
       title="switch name — chat as someone else"
       onClick={() => { usePendingCodeStore.getState().setCode(s.code ?? ''); }}
     >
-      you · {s.visitor}
+      {you}
     </button>
   );
 }
 
 function StripRight({ s, pct, warn }: { s: VisitorSession; pct: number; warn: boolean }) {
+  const t = useTranslations('visitor.sessionStrip');
   return (
     <div className="sm-session-strip-right">
       <StripQuotaSlot s={s} pct={pct} />
@@ -121,16 +126,17 @@ function StripRight({ s, pct, warn }: { s: VisitorSession; pct: number; warn: bo
       <span className="sm-session-strip-sep">·</span>
       <StripWarnAction visible={warn && !s.byoai} />
       <Link href="/gate" className="sm-session-strip-link is-exit">
-        <span data-testid="session-strip-exit">exit session</span>
+        <span data-testid="session-strip-exit">{t('exit')}</span>
       </Link>
     </div>
   );
 }
 
 function StripQuotaSlot({ s, pct }: { s: VisitorSession; pct: number }) {
+  const t = useTranslations('visitor.sessionStrip');
   return s.byoai ? (
     <span className="sm-session-strip-gauge-text sm-session-strip-byoai-unlimited">
-      visitor-paid · unlimited
+      {t('byoaiUnlimited')}
     </span>
   ) : s.max > 0 ? (
     <StripGauge used={s.used} max={s.max} pct={pct} />
@@ -139,27 +145,30 @@ function StripQuotaSlot({ s, pct }: { s: VisitorSession; pct: number }) {
 
 // StripNamesSlot —— 这张码有名字上限时显 "N / M names"(几个人用了 / 共几个)。
 function StripNamesSlot({ s }: { s: VisitorSession }) {
+  const t = useTranslations('visitor.sessionStrip');
   return s.maxMembers > 0 ? (
     <>
       <span className="sm-session-strip-sep">·</span>
       <span className="sm-session-strip-gauge-text" data-testid="session-strip-names">
         <span className="sm-session-strip-members-used">{s.memberCount}</span>
         {' / '}{s.maxMembers}
-        <span className="sm-session-strip-turns-suffix">names</span>
+        <span className="sm-session-strip-turns-suffix">{t('names')}</span>
       </span>
     </>
   ) : null;
 }
 
 function StripWarnAction({ visible }: { visible: boolean }) {
+  const t = useTranslations('visitor.sessionStrip');
   return visible ? (
     <Link href="/gate#request" className="sm-session-strip-link is-request">
-      <span data-testid="session-strip-request-more">request more ↗</span>
+      <span data-testid="session-strip-request-more">{t('requestMore')}</span>
     </Link>
   ) : null;
 }
 
 function StripGauge({ used, max, pct }: { used: number; max: number; pct: number }) {
+  const t = useTranslations('visitor.sessionStrip');
   return (
     <span
       className="sm-session-strip-gauge"
@@ -170,7 +179,7 @@ function StripGauge({ used, max, pct }: { used: number; max: number; pct: number
         <span className="sm-session-strip-used">{used}</span>
         {' / '}
         <span>{max}</span>
-        <span className="sm-session-strip-turns-suffix">turns</span>
+        <span className="sm-session-strip-turns-suffix">{t('turns')}</span>
       </span>
       <span className="sm-session-strip-gauge-bar">
         <SessionStripGaugeFill pct={pct} />
