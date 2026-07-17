@@ -1,17 +1,20 @@
 # corpus-acl-editing — Corpus ACL: owner edits what each role / code may read + cite
 
-- **Status:** 🟡 ⑤ ran (2026-07-16). Checks 1 + 2 **PASS on the real prod GUI** (role grant editor
-  and per-code take-back both save, survive reload, and inherit correctly) — F-A-11 closed.
-  Two real bugs found and fixed during the pass, both re-verified on the GUI: **F-A-13** (a failed
-  load rendered as `(role grants nothing)` — the page showed no error at all) and the code card
-  printing a raw role UUID. Still open: **F-A-14** (the editor is a naked URI textarea — the owner
-  hand-types `subjectivity://cv`), whose picker needs **F-A-15** (subjectivity had no tree; the
-  backend half is now built). Checks 3-5 not yet driven.
+- **Status:** 🟢 ⑤ **done** (2026-07-16). Checks 1, 2, 3, 5 **PASS on the real prod GUI**; check 4 is
+  **partial** and says so (the form half passes; nobody has watched a real visitor turn omit a
+  non-citable note from its REFERENCES footer — that costs an LLM turn and is still owed).
+  Five real bugs found *during* the pass, every one fixed, guarded, and re-verified on the GUI:
+  **F-A-13** (a failed load rendered as `(role grants nothing)`, no error anywhere),
+  **F-A-17** (the wiki edit form spun an infinite fetch loop and never loaded, looking merely slow),
+  the code card printing a raw role UUID, **F-A-14** (the ACL editor made the owner hand-type URIs)
+  and **F-A-15** (subjectivity — where the CV lives — had no tree at all).
+  Verified last on prod: ticking `check-the-substrate-first` in the picker → save → the DB gains
+  `subjectivity://check-the-substrate-first` and nothing else moves. Not one character typed.
 - **Module:** the owner controls, from the admin GUI, **which corpus URIs each role may read**, **which of those each code takes back**, and **whether a note may be cited once read**. subjectivity is not special — wiki / output / writing / subjectivity are one glob mechanism.
 - **Surface:** `/admin/roles` (grant) · `/admin/codes` (per-code narrowing) · wiki/output entry form (citation).
 - **Real dep:** real prod stack; a code whose role grants a genre containing a note that code shouldn't see.
 - **Inherits:** `F-A-11` (corpus URIs had no owner editor — grants were write-once in the create modal).
-- **Backing e2e:** `code-corpus-narrowing` (4, incl. RED→GREEN) · `wiki-citation-toggle` (**4 green**,
+- **Backing e2e:** `role-corpus-picker` (3) · `code-corpus-narrowing` (4, incl. RED→GREEN) · `wiki-citation-toggle` (**4 green**,
   the 2 formerly-skipped now driving the real form; RED proven on F-A-12) ·
   `admin-load-failure-not-empty` (3, RED proven) · `admin-codes-with-role` (2, RED proven) ·
   domain: `corpus_scope_test` (6, RED→GREEN).
@@ -119,7 +122,9 @@ person. So, for any control:
   (`.catch(() => setRows([]))`). The rule is already written in `use-latest-list.ts` ("加载失败别静默
   成空列表：空 vs「没拉到」owner 得分得清") and has a correct implementation there to copy.
   Guard: `admin-load-failure-not-empty.spec.ts` (3 cases, route-forced 500).
-- **F-A-14** 🔴 — **the corpus ACL editor makes the owner hand-type URIs.** Both the role grant box and
+- **F-A-14** ✅ **CLOSED** (67b3999c; re-verified on prod: 17 real subjectivity notes tickable, tick →
+  save → DB).  Original finding:
+  **the corpus ACL editor makes the owner hand-type URIs.** Both the role grant box and
   the per-code take-back box are naked textareas: the owner must know the scheme and the exact
   server-side slug of a note (`subjectivity://cv`), with no discovery, no completion, no validation.
   A typo is silent — on the take-back side it silently costs reads; on the **grant** side it silently
@@ -128,13 +133,16 @@ person. So, for any control:
   the picker should be generated from that tree, emitting exactly `domain.FormatURI(genre, path)`.
   A raw-glob escape hatch must remain, and must **preserve** globs the tree can't represent
   (`wiki://**/draft`) rather than round-tripping them away.
-  **Status:** open. The tree it needs for subjectivity now exists server-side (F-A-15).
-  Note the glob dialect makes "this note **and** its subtree" two globs (`g://p` + `g://p/**`) —
-  `g://p/**` does not match `g://p` — so one checkbox per row must emit both when the row has
-  children. Decide that in the component, not in the matcher.
-- **F-A-15** 🟡 — **subjectivity has no owner-facing browse surface at all.** Backend built
-  (`NoteRepo.ListChildrenTree` + `GET /corpus/subjectivity/tree`, 5fe116d3); the admin UI that
-  browses it, and F-A-14's picker on top, are still owed.  Original finding: The tree route dispatches
+  **Resolution:** `CorpusScopePicker`, on both the role grant and the per-code take-back (same
+  language → same control), with the hand-written box kept alongside and in sync. The glob dialect
+  made "this note **and** its subtree" two globs (`g://p` + `g://p/**`, since `g://p/**` does not
+  match `g://p`), so a row with children emits both — decided in the component, not the matcher.
+  Globs the tree cannot express are kept verbatim and shown; `raw` gets no checkbox (it is
+  hardcoded-denied, so a tick would be a lie). Guard: `role-corpus-picker` (3).
+- **F-A-15** ✅ **CLOSED** (5fe116d3 + 67b3999c; `GET /corpus/subjectivity/tree` live on prod,
+  returning real notes with server-slugged paths, and the picker browses it). A standalone
+  admin *section* for subjectivity is still not built — the genre is now reachable through the ACL
+  picker, not through the corpus nav.  Original finding: The tree route dispatches
   `raw|wiki|output` only (`corpus.go:38`); `writing` has its own `/writings/tree`; **subjectivity has
   neither**, and `postgres.NoteRepo` has `ListChildren` but no `ListChildrenTree`. So the genre that
   holds the CV — the one this whole ACL exists to protect — cannot be listed, browsed, or picked from
