@@ -9,7 +9,7 @@ import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { expectAdminSidebarVisible } from '@/fixtures/navigate';
+import { expectAdminSidebarVisible, gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -35,6 +35,7 @@ test.describe('owner edits public page, visitor sees the change', () => {
 
   test('admin signs in, edits hero prose, save propagates to public page',
     async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'page');
       await navigateToPageEditor(page);
       await editHeroProse(page, NEW_HERO_PROSE);
       await expectPublicPageShows(page, NEW_HERO_PROSE);

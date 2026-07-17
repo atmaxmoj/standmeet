@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -266,8 +266,22 @@ sqlc-gen:
 # test —— 一键跑 e2e：先 dev-up（含 SDK build → app build → docker compose
 # --build --wait 增量 rebuild 改了的 service），再 playwright。conversation
 # 里跑 e2e 就一条 `make test`，不要分步。
+# test —— 全量。**跑完自动把失败现场归档**（见 archive-failures）：playwright 的
+# test-results/ 会被下一次 `make test-only` 整个覆盖，而修 bug 时第一件事就是跑单条 ——
+# 于是全量的现场在你需要它的前一秒被自己抹掉，只能靠重抓，而重抓是 SOP 明令的下策。
+# 归档是自动的：靠"记得先备份"就等于没有。
 test: dev-up
-	@cd e2e && pnpm exec playwright test
+	@cd e2e && pnpm exec playwright test; st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
+
+# archive-failures —— 把这一轮的失败现场复制到 e2e/test-results-archive/<UTC 时间戳>/。
+# 没有失败就什么都不做。归档目录带时间戳，所以历次全量互不覆盖。
+archive-failures:
+	@test -d e2e/test-results/playwright || exit 0
+	@ls e2e/test-results/playwright 2>/dev/null | grep -q . || exit 0
+	@d="e2e/test-results-archive/$$(date -u +%Y%m%dT%H%M%SZ)"; \
+		mkdir -p "$$d" && cp -R e2e/test-results/playwright "$$d"/ && \
+		docker logs standmeet-dev-backend-1 > "$$d/backend.log" 2>&1 || true; \
+		echo "[archive] failure artifacts → $$d/playwright ($$(ls e2e/test-results/playwright | wc -l | tr -d ' ') case dirs) + backend.log"
 
 # test-fresh —— 跟 test 一样，但先 clean (down -v) 让 db volume 重建从 schema.sql
 # 重新 apply。schema 改过 (db/schema.sql) 必须用这个；纯代码改用 `make test`。

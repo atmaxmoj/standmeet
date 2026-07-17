@@ -59,7 +59,8 @@ test.describe('first-run claim · 4-step wizard polish', () => {
       await page.getByTestId('next').click();
       await page.getByTestId('next').click(); // skip provider
       await answerCaptchaAndSubmit(page);
-      await page.waitForURL('**/admin/page', { timeout: 10_000 });
+      // /admin 落地 = dashboard（app/admin/page.tsx 的 server redirect）。
+      await page.waitForURL('**/admin/dashboard', { timeout: 10_000 });
     });
 
   test('wrong captcha → error, stays on /setup',

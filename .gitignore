@@ -80,3 +80,4 @@ infra/plugins/summarize/summarize
 infra/plugins/booker/booker
 infra/plugins/retrieval/retrieval
 render-*.png
+e2e/test-results-archive/

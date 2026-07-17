@@ -5,6 +5,8 @@
 // 这条补足"改了就生效"的整体保证。
 
 import { test, expect } from '@/fixtures/test';
+
+import { gotoAdminSection } from '@/fixtures/navigate';
 import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
@@ -34,6 +36,7 @@ test.describe('PageSection — non-hero fields round-trip', () => {
 
   test('owner edits where.location_line + contact.email → public page reflects both',
     async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'page');
       await fillEditField(page, 'where-location', NEW_LOCATION);
       await fillEditField(page, 'contact-email', NEW_EMAIL);
       await save(page);

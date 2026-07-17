@@ -31,7 +31,7 @@ test.describe('sync A · folder → genre routing', () => {
   // ── error / tolerance ──
   test('error: a bare .md at vault root (no genre folder) is skipped', rootBareFileSkipped);
   test('error: an unknown top folder (journal/) is skipped, not mis-routed', unknownTopFolderSkipped);
-  test('error: an empty vault → created 0, no crash', emptyVault);
+  test('a vault whose only note is publish:false → it still lands (F-L-8)', unpublishedStillLands);
 });
 
 async function wikiToGenre({ playwright }: Ctx): Promise<void> {
@@ -112,12 +112,21 @@ async function unknownTopFolderSkipped({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-async function emptyVault({ playwright }: Ctx): Promise<void> {
+// emptyVault —— 名不副实的历史遗留：这个 vault **不是空的**，它有一篇 publish:false 的笔记。
+//
+// 这条曾经断言 `created: 0`，守的是「publish:false 不入库」—— 那个语义已经被 **F-L-8 明确推翻**
+// （见 sync-d-publish.spec.ts 的头注释）：`publish` 是**可见性**闸，不是入库闸。vault 里路由进来的
+// .md 一律落库，published=false 只意味着「要 code 才能看」。旧语义的代价是真实的：223 篇 wiki 里
+// 没有一篇写了 `publish:`，于是 173 篇叶子永远进不了 corpus。
+//
+// 所以 created **必须**是 1。两条 spec 曾经直接互相矛盾，而矛盾的那一条还绿着 —— 它测的是一个
+// 已经不存在的产品。这里改成守新语义里真正要紧的那件事：入库了，且没有崩。
+async function unpublishedStillLands({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   const result = await uploadVault(request, OWNER, [
     { rel: 'wiki/only-draft.md', body: makeVaultMD({ publish: false }, 'draft') },
   ]);
-  expect(result.created, 'nothing published → created 0, no crash').toBe(0);
+  expect(result.created, 'publish is a VISIBILITY gate, not an intake gate (F-L-8)').toBe(1);
   expect(result.errors, 'no errors').toEqual([]);
   await request.dispose();
 }

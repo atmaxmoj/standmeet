@@ -29,18 +29,27 @@ const CODE = 'NORM-ASM-1';
 // GOLDEN —— corpus-only role 装出来的 visitor tool 名单(排序后比,避免顺序噪声;
 // 顺序本身由 registry-snapshot 那条锁)。重构后必须一致。
 //   corpus_search/read/list/links —— corpus.retrieval (corpus_links = 1-hop backlinks, #172)
+//   corpus_map/resolve/peek       —— 同一个 corpus.retrieval 上后加的导航三件套
+//                                    (capreg_retrieval_socket_nav.go：skeleton / name→node / 批量
+//                                    stub)。**它们和前四个走同一条 ACL**：runner 拿的是
+//                                    `corpusScopeOf(req)`，即 role 的 grant 减去这张码的收回。
+//                                    这条 golden 一度没跟上它们仨 —— golden 的意义正是逼这个更新
+//                                    发生在明面上：**往这个名单里加一行 = 承认多给了访客一件工具**。
 //   ask_visitor / summarize_conversation —— 无授权门,所有 mode 暴露的基础能力
-const GOLDEN_CORPUS_TOOLS: readonly string[] = [
+const CORPUS_RETRIEVAL_TOOLS: readonly string[] = [
   'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
-  'ask_visitor', 'summarize_conversation',
+  'corpus_map', 'corpus_resolve', 'corpus_peek',
 ];
+const BASELINE_TOOLS: readonly string[] = ['ask_visitor', 'summarize_conversation'];
+
+const GOLDEN_CORPUS_TOOLS: readonly string[] = [...CORPUS_RETRIEVAL_TOOLS, ...BASELINE_TOOLS];
 
 // skill-granted role(fixture 默认也带 corpus)→ 锁 skill.runner 装配
 // (skill_use / skill_run_script 出现)+ corpus + 基础能力。
 const GOLDEN_SKILL_TOOLS: readonly string[] = [
-  'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
+  ...CORPUS_RETRIEVAL_TOOLS,
   'skill_use', 'skill_run_script',
-  'ask_visitor', 'summarize_conversation',
+  ...BASELINE_TOOLS,
 ];
 
 interface DiagSessionResp { tool_specs: Array<{ name: string }> }

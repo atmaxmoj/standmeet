@@ -282,6 +282,14 @@ test.describe('writings: set parent in editor → reader tree nesting', () => {
       });
       await adminPage.getByTestId('writing-field-parent').selectOption({ label: 'Tree Parent' });
       await adminPage.getByTestId('writing-create-submit').click();
+
+      // 子节点在树里**本来就是折叠的** —— 这条曾经断言它建完直接可见，那不是树该有的行为。
+      // 真正该守的是：父节点得**知道自己多了个孩子**（长出展开箭头），展开就能看到。
+      // 建的时候不 bump corpus epoch 的话，树的那一层是陈的：箭头不出现、子节点在界面上根本
+      // 够不着，而计数已经变成 2 —— owner 看到的是"我刚建的东西不见了"。
+      const parentRow = adminPage.getByTestId('writing-row-tree-parent');
+      await expect(parentRow).toBeVisible({ timeout: 5_000 });
+      await adminPage.getByTestId('tree-toggle-writing-row-tree-parent').click();
       await expect(adminPage.getByTestId('writing-row-tree-child')).toBeVisible({ timeout: 5_000 });
 
       const parentID = await adminWritingID(request, 'tree-parent');

@@ -101,7 +101,14 @@ async function createEntry(
     ? Promise.resolve()
     : adminPage.getByTestId('wiki-create-parent').selectOption(parentID));
   await adminPage.getByTestId('wiki-create-submit').click();
-  await expect(adminPage.getByText('Wiki created')).toBeVisible({ timeout: 5_000 });
+  // 等**这一条真的存在**，而不是等那个 toast。'Wiki created' 不带任何标识：建完父节点它还挂在
+  // 屏幕上，紧接着建子节点时这句断言会被**上一条**的 toast 瞬间满足 —— 于是测试以为建好了，转头
+  // 去读列表，其实请求还在飞。单跑够快看不出来，全量负载下就红（child.parent_id → undefined，
+  // 因为 child 根本还不在列表里）。一个不唯一的信号不能当完成凭据。
+  await expect
+    .poll(async () => (await wikiList(adminPage)).some((e) => e.title === title),
+      { message: `entry "${title}" must actually exist before the test moves on`, timeout: 10_000 })
+    .toBe(true);
 }
 
 async function initOwner(playwright: Playwright): Promise<void> {

@@ -8,6 +8,8 @@
 //   行刷成新的。后续 application.commit 生成的 PDF QR 也指向新 URL。
 
 import { test, expect } from '@/fixtures/test';
+
+import { gotoAdminSection } from '@/fixtures/navigate';
 import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
@@ -39,6 +41,7 @@ test.describe('owner edits public URL post-claim', () => {
 
   test('change public URL via site block; display row shows new value',
     async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'page');
       await expect(page.getByTestId('public-url-display')).toBeVisible();
       // 初始值就是 claim 时填的。
       await expect(page.getByTestId('public-url-display'))
@@ -51,6 +54,7 @@ test.describe('owner edits public URL post-claim', () => {
 
   test('invalid URL is rejected with inline hint',
     async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'page');
       await openEditor(page);
       await page.getByTestId('public-url-input').fill('not-a-url');
       // hint 出现 "must start with http(s)"；save 按钮 disabled

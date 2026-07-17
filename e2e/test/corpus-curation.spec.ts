@@ -44,8 +44,13 @@ test.describe('AI pushes raw insight via MCP; owner sees it in admin', () => {
   test('owner opens /admin/raw and sees the AI-pushed entry',
     async ({ adminPage: page }) => {
       await openRaw(page);
+      // 限定在列表里断言，不是"页面上任何角落有这句话"：侧栏的 corpus-constellation 跑马灯也会
+      // 显示同一条最近条目，全页 getByText 会同时命中它俩（strict mode violation）。
+      // 这条用例要证的是「owner 在 raw 列表里看得到它」，那就在列表里找。
       await expect(page.getByTestId('raw-list')).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByText(RAW_BODY, { exact: false })).toBeVisible();
+      await expect(
+        page.getByTestId('raw-list').getByText(RAW_BODY, { exact: false }),
+      ).toBeVisible();
     });
 });
 

@@ -69,10 +69,12 @@ async function fillVerifyStep(page: Page): Promise<void> {
   await page.getByTestId('submit').click();
 }
 
-// SetupForm 提交成功后 router.push('/admin') —— owner 部署完直接进 admin
-// 开始管理。/admin server 端 redirect 到 /admin/page；AdminShell 见到刚才
-// claim 流程写的 session cookie 即 ready，渲染 sidebar (含 "page" 链接)。
+// SetupForm 提交成功后 router.push('/admin') —— owner 部署完直接进 admin 开始管理。
+// /admin server 端 redirect 到 **/admin/dashboard**（见 app/admin/page.tsx：回访的 owner 要先看
+// 全局状态，而不是直接掉进 public-face 编辑器）。这条断言曾经写的是 /admin/page —— 产品改了落地页，
+// 测试没跟上，于是它守的是一个已经不存在的行为。
+// AdminShell 见到 claim 流程写的 session cookie 即 ready，渲染 sidebar（含 "page" 链接）。
 async function expectLandedOnAdmin(page: Page): Promise<void> {
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await page.waitForURL('**/admin/dashboard', { timeout: 10_000 });
   await expect(page.getByTestId('admin-nav-page')).toBeVisible();
 }

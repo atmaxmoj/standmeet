@@ -115,7 +115,8 @@ async function citableDefaultsOnAndIsExplained({ adminPage }: { adminPage: Page 
   await expect(citable, 'the form offers the citation control').toBeVisible();
   await expect(citable, 'and it defaults ON, matching the DB default').toBeChecked();
   // 解释必须在场：读 vs 引是两件事，没有这句话 owner 会以为关掉 = 藏起来。
-  await expect(adminPage.getByText(/仍然读得到/)).toBeVisible();
+  // 文案走 i18n（corpus.citable.help）—— 断言的是渲染出来的那句话，不是 key：owner 读到的是句子。
+  await expect(adminPage.getByText(/still reads this note/)).toBeVisible();
   await adminPage.getByTestId('wiki-create-submit').click();
   await expect(adminPage.getByText(TITLE).first()).toBeVisible({ timeout: 5_000 });
   expect(await citationOf(adminPage, TITLE), 'new entry is citable').toBe(true);

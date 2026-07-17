@@ -50,6 +50,11 @@ async function submitVisitorName(page: Page, name?: string): Promise<void> {
 // / sidebar 重排 影响。
 export async function gotoAdminSection(page: Page, slug: string): Promise<void> {
   await page.getByTestId(`admin-nav-${slug}`).click();
+  // 等 URL 真的落地，别只点了链接就走。以前多数测试第一步就找目标页专属的东西（自带等待），所以
+  // 这个缺口没露。落地页从 /admin/page 改成 /admin/dashboard 之后，**每个** gotoAdminSection 的
+  // 起点都是 dashboard —— 而 dashboard 的 h1（"dashboard · last refresh · now"）是立即可见的
+  // level-1 heading，于是任何"点 raw 然后断言 h1"的用例会抓到**旧页**那个抢跑的 h1（UX-12 就这么红）。
+  await page.waitForURL(`**/admin/${slug}`, { timeout: 10_000 });
 }
 
 // expectAdminSidebarVisible —— 'page' nav 链接可见即视为 sidebar healthy。

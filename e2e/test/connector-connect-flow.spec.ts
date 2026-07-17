@@ -47,8 +47,8 @@ const OAUTH2_CONNECTOR_ID = 'google-calendar';
 const NONDANCE_CONNECTOR_ID = 'bearer-api';
 
 // oauth2 scope 多选：勾选子集断言用。READ 勾、WRITE 不勾。
-const SCOPE_READ = 'calendar.readonly';
-const SCOPE_WRITE = 'calendar.events';
+const SCOPE_READ = 'https://www.googleapis.com/auth/calendar.readonly';
+const SCOPE_WRITE = 'https://www.googleapis.com/auth/calendar.events';
 
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 // MOCK_API —— spec 里写给后端容器用的地址（docker 网络名 + SSRF 白名单）；MOCK 是浏览器/node 用的
@@ -59,6 +59,7 @@ const DB_CONTAINER = 'standmeet-dev-db-1';
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 // ════════ happy 路 ════════════════════════════════════════════════
+test.describe.configure({ mode: 'serial' });
 test.describe('connector · connect flow happy (§8 area D)', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
@@ -118,6 +119,9 @@ test.describe('connector · connect flow happy (§8 area D)', () => {
       const clientID = 'scope-subset-client-id';
       await resetMockOAuthRecord(page);
       const card = await openConnectorCard(page, OAUTH2_CONNECTOR_ID);
+      // 前面的 happy 用例可能已经把这个 connector 连上了；scope 复选框只在**未连接**的卡上出现。
+      // 走 UI 断开（本文件的约定），让本用例从干净状态开始。
+      await ensureDisconnected(card);
       await fillOAuth2Creds(card, clientID, 'mock-client-secret');
 
       // 勾一个**子集**（READ 勾、WRITE 不勾），故意漏掉表单里其余可选 scope。
@@ -270,6 +274,13 @@ async function openConnectorCard(page: Page, id: string): Promise<Locator> {
   const card = page.getByTestId(`connector-row-${id}`);
   await expect(card).toBeVisible();
   return card;
+}
+
+// ensureDisconnected —— 若卡片当前是 connected，点 UI 的 disconnect 让它回到未连接。
+// 幂等：未连接时按钮不在，直接返回。
+async function ensureDisconnected(card: Locator): Promise<void> {
+  const btn = card.getByTestId('connector-disconnect-button');
+  await (await btn.count() > 0 ? btn.click() : Promise.resolve());
 }
 
 async function fillOAuth2Creds(

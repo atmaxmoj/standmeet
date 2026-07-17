@@ -69,15 +69,18 @@ test.describe('max_members: code caps how many names, with a clear full state', 
       await alice2Ctx.close();
     });
 
-  test('name is remembered in localStorage and pre-filled next time',
+  test('name is remembered in localStorage and pre-filled when a NEW code re-asks',
     async ({ browser }) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      // 第一次:选名 Dana 进来(用不限名额的码,免得撞 TEAM-2 满额)。
+      // 第一次:选名 Dana 进来(用不限名额的码)。名字落进 localStorage。
       await enterCodeSession(page, PREFILL_CODE, 'Dana');
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // 再扫一次(新 pending code → 名字选择器又弹)→ 输入框预填 Dana。
-      await goto(page, `/?code=${PREFILL_CODE}`);
+
+      // **同一张码**再扫不会重弹选择器 —— F-A-5 有意为之（absorbFromURL 的 alreadyInNamedSession）：
+      // 重开 ?code= 链接不该把身份选择器盖在活跃会话上。所以「预填」要在它真的会弹的场景里验：
+      // 换一张**新码**（新场景 → clearNameDismiss → 选择器重问），输入框预填上次的 Dana。
+      await goto(page, `/?code=${CODE}`);
       await expect(page.getByTestId('visitor-name-input')).toHaveValue('Dana');
       await ctx.close();
     });

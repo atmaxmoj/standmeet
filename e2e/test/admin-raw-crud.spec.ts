@@ -91,11 +91,15 @@ test.describe('admin raw CRUD operations', () => {
         hasText: 'Stage gating is genuinely necessary here.',
       });
       await expect(row).toBeVisible({ timeout: 5_000 });
-      // clean prose survives (heading text kept, sentence kept)…
-      await expect(row).toContainText('Necessity Heading');
-      // …but the structural markup is stripped from the preview.
+      // The preview is `usecases.LeadLine` —— **the first line of real prose**: frontmatter,
+      // headings, fences, `> Parent:` and wikilink-only lines are all skipped by design (F-R-1/2).
+      // This case used to assert `Necessity Heading` survived; that was the older intent, and the
+      // heading is structure, not prose. What this test is actually for is the next two lines:
+      // the raw markup must never reach the card.
       await expect(row).not.toContainText('Parent:');
       await expect(row).not.toContainText('tags:');
+      await expect(row).not.toContainText('#');
+      await expect(row).not.toContainText('[[');
     });
 
   test('view toggle → switches tree ⇄ grid, list stays rendered',

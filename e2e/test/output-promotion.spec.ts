@@ -42,8 +42,12 @@ test.describe('raw → wiki → output three-tier promote chain', () => {
   test('admin /admin/output lists the polished entry promoted from wiki',
     async ({ adminPage: page }) => {
       await openOutput(page);
+      // 限定在列表里断言（同 corpus-curation）：侧栏 corpus-constellation 也显示最近条目，
+      // 全页 getByText 会同时命中它，strict mode 直接报错。
       await expect(page.getByTestId('output-list')).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByText(outputTitle, { exact: false })).toBeVisible();
+      await expect(
+        page.getByTestId('output-list').getByText(outputTitle, { exact: false }),
+      ).toBeVisible();
     });
 });
 
