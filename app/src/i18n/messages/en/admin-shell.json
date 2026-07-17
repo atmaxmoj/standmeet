@@ -1,0 +1,185 @@
+{
+  "sidebar": {
+    "instanceLabel": "instance ·",
+    "instanceName": "standmeet",
+    "uptimeLabel": "uptime ·",
+    "groupPrefix": "──"
+  },
+  "topBar": {
+    "brand": "standmeet",
+    "admin": "admin",
+    "live": "live",
+    "viewPublic": "view public ↗",
+    "signOut": "sign out"
+  },
+  "pulse": {
+    "title": "corpus pulse · 14d"
+  },
+  "constellation": {
+    "empty": "no links yet"
+  },
+  "modal": {
+    "close": "close ✕"
+  },
+  "qr": {
+    "fallback": "qr…"
+  },
+  "previewPane": {
+    "fileName": "preview · {name}"
+  },
+  "application": {
+    "idLabel": "application · {id}",
+    "close": "close ✕",
+    "closeAction": "close",
+    "timeline": "timeline",
+    "contact": "contact",
+    "pingInChat": "ping in chat ↗",
+    "privateNotes": "private notes",
+    "resumeSnapshot": "resume sent · snapshot",
+    "resume": "resume",
+    "tailoredFor": "tailored for {company} · {role}",
+    "viewFull": "view full ↗",
+    "downloadPdf": "download pdf",
+    "status": "status",
+    "sentMeta": "sent {sentAt} · {method}",
+    "withdraw": "withdraw",
+    "logUpdate": "log update"
+  },
+  "connectorAdd": {
+    "catalogCount": "add connector · {n} in catalog",
+    "tagline": "Extend the corpus surface.",
+    "close": "close ✕",
+    "installed": "installed",
+    "builtIn": "built-in"
+  },
+  "connectorConfig": {
+    "oauthHint": "opens provider OAuth in a new tab",
+    "choose": "choose…",
+    "backToCatalog": "← back to catalog",
+    "connect": "connect →"
+  },
+  "connectorCred": {
+    "authentication": "authentication",
+    "apiKeyHint": "Sent in the {where} as <code>{name}</code>.",
+    "discoveryHint": "Discovery: <code>{url}</code>",
+    "connect": "Connect →",
+    "scopes": "scopes"
+  },
+  "protocolConnector": {
+    "testConnection": "Test connection →"
+  },
+  "specIngest": {
+    "heading": "paste an OpenAPI spec",
+    "blurb": "Any OpenAPI 3.0 spec (JSON or YAML). We derive the credential form + category from it.",
+    "useThisSpec": "use this spec",
+    "orFetchFromUrl": "…or fetch from a URL",
+    "fetch": "fetch",
+    "candidate": "connector candidate"
+  },
+  "composer": {
+    "backToDrafts": "← drafts",
+    "regenerate": "regenerate ⌖",
+    "send": "send →",
+    "match": "match",
+    "matchOutOf": "/ 100",
+    "matchTitle": "match against the job description",
+    "freezeAndSend": "freeze + send",
+    "confirmTitle": "Send this draft to {company}?",
+    "confirmBody": "Sending will freeze the resume + cover letter snapshot, render the final PDF (with QR), and write an application row. The auto-issued AccessCode will be 180 days, 10 sessions, 50 turns.",
+    "keepEditing": "← keep editing"
+  },
+  "codeModal": {
+    "cancel": "cancel",
+    "addQuestion": "＋ add",
+    "promptNone": "— none —",
+    "roleDefault": "— default —"
+  },
+  "codeQr": {
+    "copyLink": "copy link",
+    "printQr": "print qr ↗",
+    "roleLabel": "role ·",
+    "statusLine": "status · {status}"
+  },
+  "visitorPreview": {
+    "ownerAiReady": "owner's ai · ready",
+    "welcome": "Welcome. You've come in on <accent>{label}</accent>. Before we start — is this you, or someone new?",
+    "suggestedQuestions": "suggested questions",
+    "noSuggested": "no suggested questions set for this code",
+    "assumesRole": "this code assumes role",
+    "codeLine": "code · {code}",
+    "testThisCode": "test this code"
+  },
+  "dashboard": {
+    "corpusActive": "↑ corpus active",
+    "entriesTotal": "entries · total",
+    "daysAgo14": "14d ago",
+    "today": "today",
+    "viewAll": "view all →",
+    "all": "all →",
+    "shortlist": "shortlist",
+    "sent": "sent",
+    "topMatch": "top match",
+    "registerSources": "register sources to start matching",
+    "sourcesHint": "/admin/sources → fetch → listings ranked by corpus match",
+    "recentError": "Couldn’t load recent visitors. Reload and retry.",
+    "noConversations": "no conversations yet — visitors will appear here once they start chatting",
+    "visitorMeta": "{label} · {turns} turns · {last}",
+    "privHits": "{n} priv",
+    "nothingPending": "Nothing pending — corpus is current.",
+    "review": "review →"
+  },
+  "account": {
+    "profile": "profile",
+    "security": "security",
+    "inference": "inference",
+    "defaultProvider": "default provider",
+    "configuredIn": "configured in /admin/api-mcp",
+    "spend30d": "30-day spend",
+    "spendSub": "your inference key · owner pays",
+    "spendUnknown": "$—"
+  },
+  "ipBans": {
+    "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
+    "banIp": "ban ip",
+    "empty": "No IPs banned. The public surface is open (still rate-limited per IP).",
+    "unban": "unban"
+  },
+  "system": {
+    "checkForUpdates": "check for updates",
+    "deployment": "deployment",
+    "statusCmd": "standmeet status",
+    "treeBranch": "├─",
+    "treeLast": "└─",
+    "version": "version",
+    "cpus": "cpus",
+    "uptime": "uptime",
+    "migrations": "migrations",
+    "migrationsPending": "0 pending",
+    "ready": "ready",
+    "resources": "resources · host + runtime",
+    "backgroundJobs": "background jobs",
+    "colJob": "job",
+    "colSchedule": "schedule",
+    "colLast": "last",
+    "colStatus": "status",
+    "statusDot": "●",
+    "healthChecks": "health checks"
+  },
+  "inferenceUsage": {
+    "title": "inference usage · last 7 days",
+    "colDate": "date",
+    "colModel": "model",
+    "colCalls": "calls",
+    "colIn": "in",
+    "colOut": "out",
+    "empty": "no owner-key LLM calls in the last 7 days"
+  },
+  "sandbox": {
+    "title": "mcp sandbox · {n} active workspaces",
+    "sweepNow": "sweep now",
+    "colWorkspace": "session workspace",
+    "colAge": "age",
+    "empty": "no active workspaces",
+    "ageSecs": "{n}s"
+  }
+}

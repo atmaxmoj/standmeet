@@ -6,6 +6,8 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { Newsreader, JetBrains_Mono } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale } from 'next-intl/server';
 
 import '@/app/globals.css';
 import { ToastProvider, Toaster } from '@/lib/ui/toast';
@@ -29,14 +31,19 @@ export const metadata: Metadata = {
   description: 'A personal page that argues back.',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+// RootLayout —— async：locale 由 next-intl 的 request config 给（现在恒为 'en'）。
+// `<html lang>` 跟着它走，不写死 —— 写死的那一刻，加第二种语言就又多一处要记得改的地方。
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang="en" className={`${newsreader.variable} ${jetbrainsMono.variable}`}>
+    <html lang={locale} className={`${newsreader.variable} ${jetbrainsMono.variable}`}>
       <body>
-        <ToastProvider>
-          {children}
-          <Toaster />
-        </ToastProvider>
+        <NextIntlClientProvider>
+          <ToastProvider>
+            {children}
+            <Toaster />
+          </ToastProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

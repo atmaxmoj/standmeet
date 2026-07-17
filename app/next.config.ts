@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import createNextIntlPlugin from 'next-intl/plugin';
 import type { NextConfig } from 'next';
 
 // rewrites/proxies /api/* 到 backend，避免在浏览器配 CORS（dev + docker
@@ -66,4 +67,8 @@ const nextConfig: NextConfig = {
   // 加杠 redirect 会撞）。
 };
 
-export default nextConfig;
+// next-intl —— 指到 src/i18n/request.ts（**没有** locale 路由分段：只有一种语言，
+// 分段是给"选语言"用的，而选语言还不存在）。将来多语言改的是那个文件，不是这里，也不是组件。
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+
+export default withNextIntl(nextConfig);

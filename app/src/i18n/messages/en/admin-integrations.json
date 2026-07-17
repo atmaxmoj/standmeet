@@ -1,0 +1,129 @@
+{
+  "common": {
+    "connect": "Connect",
+    "close": "✕"
+  },
+  "api": {
+    "intro": "MCP keys let AI clients (Claude, Cursor, custom scripts) push raw entries into your corpus, promote them, manage codes. Each key is an Ed25519 keypair — server stores only the public half; you save the private PEM in <code>~/.standmeet/credentials.json</code> and the client signs per request.",
+    "keysHeading": "mcp keys",
+    "empty": "no keys yet · generate one to wire up your first AI client"
+  },
+  "aiProvider": {
+    "heading": "owner's ai",
+    "intro": "The provider visitors talk to. Pick a preset or point at your own self-hosted OpenAI-compatible endpoint (ollama / vllm / lm-studio). Key is encrypted at rest with INSTANCE_SECRET and never read back to this page.",
+    "provider": "provider",
+    "endpoint": "endpoint",
+    "model": "model",
+    "apiKey": "api key",
+    "clearKey": "clear key ×"
+  },
+  "mcpClient": {
+    "heading": "mcp setup",
+    "subhead": "save credentials.json + paste config into your client",
+    "filePath": "file path",
+    "foot": "after pasting + saving credentials.json (mode 0600), restart your client. each request signs a short-lived sigv1 challenge — server never sees your private key."
+  },
+  "mcpDownload": {
+    "heading": "connect your mcp client",
+    "badge": "Sigv1 · /mcp",
+    "intro": "Point your AI client at your instance’s MCP endpoint. Auth is the Ed25519 keypair you generate above (Sigv1). The endpoint aggregates your owner tools over MCP-over-HTTP.",
+    "note": "A pre-packaged stdio client wrapper for Claude Desktop / Cursor isn’t released yet — the endpoint speaks MCP-over-HTTP with Sigv1 today.",
+    "endpointLabel": "mcp endpoint"
+  },
+  "mcpServers": {
+    "heading": "External MCP servers",
+    "count": "{count} registered",
+    "intro": "MCP servers the visitor agent can call as tools. Add one you got from anywhere — its URL and an optional auth header — then attach it to a role under codes.",
+    "empty": "none yet",
+    "remove": "remove",
+    "authBadge": "auth: {name}",
+    "add": "Add MCP server"
+  },
+  "newToken": {
+    "label": "generate key",
+    "submit": "generate"
+  },
+  "newlyCreated": {
+    "warning": "save these now — the private key is shown only once",
+    "keyId": "key id",
+    "pem": "private key (pem)",
+    "download": "download .pem",
+    "dismiss": "dismiss"
+  },
+  "tokenRow": {
+    "meta": "created {created} · last used {lastUsed}",
+    "never": "never",
+    "algo": "ed25519",
+    "revoke": "revoke",
+    "keyId": "key id"
+  },
+  "connectors": {
+    "intro": "Connectors let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) connector to add more.",
+    "catalogError": "Couldn’t load the connector catalog — reload and retry.",
+    "overwritePrompt": "A <mono>{category}</mono> connector already exists. Overwrite it?",
+    "overwrite": "Overwrite",
+    "add": "+ add connector"
+  },
+  "assemble": {
+    "uploadLabel": "upload an OpenAPI connector",
+    "uploadSubmit": "Upload spec →"
+  },
+  "calendar": {
+    "heading": "Google Calendar",
+    "credentialsHint": "Google Cloud console → APIs & Services → Credentials → OAuth client ID (Desktop). Owner's own client; no global StandMeet OAuth.",
+    "saveCredentials": "Save credentials",
+    "authorize": "Authorize on Google →",
+    "disconnect": "Disconnect (keeps credentials)",
+    "policyHeading": "Booking policy",
+    "timezone": "timezone (IANA)",
+    "weekdays": "allowed weekdays"
+  },
+  "capabilities": {
+    "kicker": "availability",
+    "heading": "capabilities",
+    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed."
+  },
+  "connectorCard": {
+    "disconnect": "Disconnect"
+  },
+  "connectorList": {
+    "loadError": "Couldn’t load your connectors — reload and retry.",
+    "delete": "Delete"
+  },
+  "skills": {
+    "rebuild": "rebuild from corpus",
+    "new": "+ new skill",
+    "intro": "Inferred from your corpus by tag frequency and writing recency. “Heat” measures how active a skill is in recent thinking; role buckets by maturity. The job loop uses this to score listings. Below: persona skills attached to invite codes.",
+    "heatEmpty": "no skills tracked yet — create a skill or run “rebuild from corpus”.",
+    "personaHeading": "persona skills · attached to codes",
+    "personaEmpty": "No skills yet.",
+    "builtin": "builtin",
+    "showPrompt": "show prompt",
+    "delete": "delete",
+    "modalTitle": "new skill",
+    "promptLabel": "prompt",
+    "cancel": "cancel",
+    "create": "create"
+  },
+  "installedCard": {
+    "source": "source · {source}",
+    "builtin": "· builtin"
+  },
+  "marketplaceCard": {
+    "stars": "★ {stars}",
+    "author": "{author} · v{version}",
+    "installed": "✓ installed",
+    "needs": "needs {missing}"
+  },
+  "marketplaceTab": {
+    "intro": "Skills aggregate from two sources — the open <ink>anthropics/skills</ink> GitHub repo (anyone can fork + PR) and <ink>SkillsMP</ink> (commercial channel). Installing fetches the skill’s SKILL.md, parses its frontmatter, and writes a local copy you fully own — edit the prompt or allowed-tools after, decoupled from the marketplace.",
+    "manualHint": "Found a skill somewhere else? Paste its <ink>SKILL.md</ink> (YAML frontmatter + body). It installs as a local copy you own — no marketplace, no network fetch.",
+    "manualInstall": "install",
+    "loadMore": "load more",
+    "searchIcon": "⌕",
+    "empty": "No skills match. Try a different term, or switch source — the GitHub repo and SkillsMP are queried in parallel."
+  },
+  "mySkills": {
+    "empty": "No skills yet — install one from the marketplace tab, or add your own under Skills."
+  }
+}

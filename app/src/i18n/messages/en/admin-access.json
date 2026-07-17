@@ -1,0 +1,104 @@
+{
+  "common": {
+    "cancel": "cancel",
+    "create": "create",
+    "delete": "delete",
+    "systemPill": "[system]",
+    "corpus": "corpus",
+    "prompt": "prompt",
+    "saveCorpus": "save corpus",
+    "noneDash": "— none —",
+    "byHand": "or write them by hand:",
+    "rawDenied": "raw://** is always denied to visitors regardless of this list"
+  },
+  "codes": {
+    "new": "＋ new code",
+    "intro": "Each code gates a slice of your wiki for a known recipient — a hiring loop, an investor intro, or a single press call. Multiple people can share one code; when someone enters it, the AI asks who they are and assigns them to the code's member list. Each card carries a QR.",
+    "empty": "No codes yet."
+  },
+  "codeCard": {
+    "preview": "preview ↗",
+    "edit": "edit",
+    "revoke": "revoke",
+    "roleFrozen": "issued with role (frozen)",
+    "quota": "quota",
+    "status": "status · {status}",
+    "viewConversations": "view conversations →"
+  },
+  "codeCorpus": {
+    "loadError": "Couldn’t load this code’s corpus scope. Reload and retry.",
+    "grantsNothing": "(role grants nothing)",
+    "inherited": "corpus · inherited from role",
+    "takenBack": "taken back on this code",
+    "help": "The URIs this code takes back from what the role granted, one per line. It can only subtract, never add — whatever you write here will never open what the role didn't grant. Typical use: the role grants subjectivity://** (every opinion), and this code takes back subjectivity://cv (the résumé stays out). Changes only affect sessions issued from now on (the role is frozen when the code is issued)."
+  },
+  "members": {
+    "loading": "loading members…",
+    "none": "no visitor has used this code yet.",
+    "anonymous": "anonymous"
+  },
+  "conversations": {
+    "privateHits": "{count, plural, one {# session} other {# sessions}} hit private topics",
+    "filterChip": "filter · code · {code}",
+    "clear": "clear ×",
+    "thVisitor": "visitor",
+    "thViaCode": "via code",
+    "thIp": "ip",
+    "thTurns": "turns",
+    "thSentiment": "sentiment",
+    "thFlags": "flags",
+    "thLast": "last",
+    "privFlag": "{hits} priv",
+    "empty": "No conversations yet. Once visitors chat through a code or BYOAI session, you'll see them here."
+  },
+  "transcript": {
+    "loading": "loading transcript…",
+    "empty": "No messages in this conversation.",
+    "cited": "cited · {kind}",
+    "ghostsTitle": "ghost text shown"
+  },
+  "ghostTelemetry": {
+    "title": "ghost steering · per-waypoint funnel",
+    "thWaypoint": "waypoint",
+    "thShown": "shown",
+    "thAccepted": "accepted",
+    "thRate": "rate",
+    "all": "all"
+  },
+  "prompts": {
+    "new": "+ new prompt",
+    "intro": "Library of personas. Owner-scoped, no categories. Each one is a piece of writing — the agent becomes whoever you tell it to be here. Used by roles.",
+    "empty": "No prompts yet — public is normally seeded on owner claim.",
+    "modalTitle": "new prompt",
+    "bodyLabel": "body"
+  },
+  "requests": {
+    "mailHint": "No verified mail connector — configure and test SMTP under Connectors to issue + email access codes. Until then you can only mark requests replied/closed by hand.",
+    "intro": "Submissions from the gate's “no code” path. Mark replied once you've issued a code or written back; close to archive. Owner reads every one personally — that's the point.",
+    "empty": "No {filter}requests.",
+    "issued": "issued {code} — emailed to the requester",
+    "decline": "decline",
+    "approve": "approve · issue + email code →",
+    "connectMail": "connect mail to issue codes"
+  },
+  "roles": {
+    "new": "+ new role",
+    "intro": "A role bundles a prompt (persona), a positive list of corpus URIs the agent can read, a set of skills, and which MCP servers it may call. Codes don’t carry permissions directly — every code <em>assumes</em> a role at issue time and that snapshot is frozen for that session. Edit a role and only future sessions feel it.",
+    "empty": "No roles yet — public is normally seeded on owner claim."
+  },
+  "roleCreate": {
+    "title": "new role",
+    "promptNone": "(none)",
+    "corpusLabel": "corpus uris · one per line",
+    "noneConfigured": "none configured yet"
+  },
+  "roleCorpus": {
+    "help": "The positive list of corpus URIs the agent can read, one per line. Match-any: hitting any one line is enough to read, so the grain can be as fine as you like — wiki://thinking/** grants the whole subtree, subjectivity://standpoint grants that one note only. An empty list = nothing at all. Changes only affect sessions issued from now on (the role is frozen when the code is issued)."
+  },
+  "roleDock": {
+    "label": "dock",
+    "help": "Trigger phrase — the line the system sends on the visitor's behalf when this button is pressed; the AI handles it as a question from the visitor. For example “summarize the conversation so far”: pressing the button is the same as the visitor typing that line.",
+    "triggerPlaceholder": "trigger phrase (e.g. summarize this conversation)",
+    "save": "save dock · {name}"
+  }
+}

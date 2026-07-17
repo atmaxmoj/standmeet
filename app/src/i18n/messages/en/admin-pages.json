@@ -1,0 +1,111 @@
+{
+  "page": {
+    "intro": "Author the blocks visitors land on. Hero is the prose paragraph + chat input. Below: insights (bold theses), projects, where you are, and how to reach you. Changes persist via PUT /admin/page."
+  },
+  "saveBar": {
+    "saving": "saving…",
+    "unsaved": "unsaved changes",
+    "saved": "saved",
+    "inSync": "in sync",
+    "save": "save",
+    "revert": "revert"
+  },
+  "listEditor": {
+    "add": "＋ add",
+    "empty": "empty · add to get going",
+    "remove": "remove"
+  },
+  "handle": {
+    "label": "handle",
+    "change": "change",
+    "cancel": "cancel"
+  },
+  "publicUrl": {
+    "label": "public URL",
+    "unset": "unset",
+    "change": "change",
+    "cancel": "cancel"
+  },
+  "domain": {
+    "defaultLabel": "default",
+    "defaultHint": "no setup · always available",
+    "inUse": "● in use",
+    "customLabel": "custom domain",
+    "schemePrefix": "https://",
+    "clear": "clear",
+    "effectiveHost": "effective share host ·",
+    "effectiveHostNote": "· used by code share links, QRs, gate footer."
+  },
+  "byoai": {
+    "modeLabel": "byoai mode",
+    "modeHelp": "When on, the gate page shows a \"bring your own AI\" option below the code entry.",
+    "acceptedProviders": "accepted providers"
+  },
+  "preview": {
+    "openPublic": "open public",
+    "loading": "loading codes…",
+    "seeAsCode": "see-as · code",
+    "cardCodeRole": "{code} · role {role}…",
+    "byoaiCardTitle": "BYOAI · anonymous",
+    "byoaiCardScope": "public scope only",
+    "frameTitle": "preview · visitor view",
+    "byoaiBannerMode": "byoai mode",
+    "byoaiBannerModel": "model · visitor-supplied",
+    "byoaiBannerScope": "public scope",
+    "byoaiWelcome": "Hi. You're running on your own API key — pay for inference, public slice only. Private topics return a “need a code” response.",
+    "selectCode": "select a code from the left",
+    "codedBannerCode": "code · {code}",
+    "codedWelcomeBefore": "Welcome. You've come in on",
+    "codedWelcomeMiddle": "This code assumes role",
+    "suggestedByYou": "suggested by you"
+  },
+  "customPages": {
+    "intro": {
+      "before": "Custom pages live at",
+      "slugPath": "/p/<slug>",
+      "after": ". Each binds a template to data from your corpus and renders with the same chrome as the public site. Build via MCP — owner drives the lifecycle from Claude."
+    },
+    "empty": {
+      "lead": "No custom pages yet. Owner creates / builds / promotes via MCP",
+      "toolCreate": "custom_page.create",
+      "toolWriteFile": ".write_file",
+      "toolBuild": ".build",
+      "toolPromote": ".promote_to_live"
+    },
+    "columns": {
+      "page": "page",
+      "template": "template",
+      "visibility": "visibility",
+      "views": "views",
+      "updated": "updated",
+      "actions": "actions"
+    },
+    "visibilityState": {
+      "live": "live",
+      "staging": "staging",
+      "none": "none"
+    },
+    "slugPath": "/p/{slug}",
+    "viewLive": "view live",
+    "noLiveBuild": "no live build",
+    "templatesAvailable": "templates available",
+    "templates": {
+      "press-kit": {
+        "label": "press-kit",
+        "desc": "photo · bio variants · downloads"
+      },
+      "list-prose": {
+        "label": "list-with-prose",
+        "desc": "list above, prose explanation below"
+      },
+      "menu": {
+        "label": "menu",
+        "desc": "numbered service / offer rows"
+      },
+      "auto-now": {
+        "label": "auto-now",
+        "desc": "AI-summarized latest entries · /now"
+      }
+    }
+  }
+}

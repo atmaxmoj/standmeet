@@ -20,6 +20,7 @@ import tseslint from 'typescript-eslint';
 import nextPlugin from '@next/eslint-plugin-next';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import i18nextPlugin from 'eslint-plugin-i18next';
 
 export default tseslint.config(
   {
@@ -46,6 +47,7 @@ export default tseslint.config(
       '@next/next': nextPlugin,
       'react': reactPlugin,
       'react-hooks': reactHooksPlugin,
+      'i18next': i18nextPlugin,
     },
     languageOptions: {
       parserOptions: {
@@ -69,6 +71,26 @@ export default tseslint.config(
       ...reactPlugin.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
+
+      // i18n —— UI copy lives in the message catalog (src/i18n/messages/), never inline.
+      //
+      // 这条规则是**唯一**守得住它的东西：靠"记得用 t()"的约定，第一个赶时间的人就破了，而且破了
+      // 之后没有任何信号 —— 那句话照样显示，只是永远翻译不了。
+      //
+      // 形态取自 Otium / youteacher 两个已经跑通的项目（同插件、同 mode）。
+      //
+      // **它管到哪为止，说清楚**：`mode: 'jsx-only'` 会把属性也算进来，但那 571 处里约一半
+      // （testid / h / w / href / mainTestId…）根本不是话，而真正是话的那 ~304 处（label /
+      // placeholder / title / kicker / hint）有个前置障碍：好几个组件的 data-testid 是**从 label
+      // prop 推出来的**（WritingField 的 `writing-field-${label}`、SkillField 的
+      // `skill-field-${label}`）—— 把 label 换成 t()，testid 跟着变，测试全断。
+      // 所以属性那一刀要先解耦 testid，是独立的一刀，不是这一刀的边角。
+      //
+      // 于是这里是 `jsx-text-only`（markupOnly 的新名字）：**JSX 文本节点，管到底；属性，一个不管**。
+      // 别在这里列 ignoreAttribute —— 这个 mode 下它根本不生效（Otium / youteacher 里那张长长的
+      // 白名单是死配置，实测过：`placeholder="ask me anything"` 在它们那儿也照样放行）。
+      // 一句不成立的配置注释，跟一个不成立的空状态是同一种病。
+      'i18next/no-literal-string': ['error', { mode: 'jsx-text-only' }],
 
       // React Hooks —— set-state-in-effect / preserve-manual-memoization
       // 在 react-hooks v7 才有；v5（当前版本）只跑 recommended。升 v7 后再开。
