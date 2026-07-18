@@ -1,6 +1,5 @@
-// marketplace.go —— admin GET /api/admin/marketplace/search?q=&source=.
-// v1 surface is search-only; install / SKILL.md retrieval land in a
-// later phase (frontend still simulates install in client state).
+// marketplace.go —— admin marketplace routes: GET /search?q=&source= + POST /install +
+// /install-manual. Install + SKILL.md retrieval shipped (#48-3); nothing is simulated client-side.
 
 package admin
 
