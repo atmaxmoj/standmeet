@@ -39,7 +39,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'wiki', label: 'wiki' },
       { slug: 'writings', label: 'writings' },
       { slug: 'output', label: 'outputs' },
-      { slug: 'custom-pages', label: 'pages' },
+      { slug: 'custom-pages', label: 'custom pages' },
     ],
   },
   {
@@ -75,7 +75,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'settings',
     items: [
-      { slug: 'page', label: 'public page' },
+      { slug: 'page', label: 'landing page' },
       { slug: 'seo', label: 'seo' },
       { slug: 'ip-bans', label: 'ip bans' },
       { slug: 'account', label: 'account' },

@@ -134,7 +134,7 @@ function CanonicalMirror() {
       <div className="sm-smallcaps mb-1">{t('canonicalHost')}</div>
       <p className="mono text-[12px] text-(--color-muted)">
         {host || '—'}{' '}
-        <a data-testid="seo-canonical-edit" href="/admin/domain"
+        <a data-testid="seo-canonical-edit" href="/admin/page"
           className="text-(--color-accent) underline">{t('editOnDomain')}</a>
       </p>
     </div>

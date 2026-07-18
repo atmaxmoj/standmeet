@@ -4,8 +4,8 @@
 // /print route render. Two consequences:
 //   1. Visual fidelity is automatic — what owner sees scaled here is
 //      exactly what recruiter gets at scale=1.
-//   2. Until /api/admin/drafts/<id> exposes resume_content + job_snapshot,
-//      we use mockDraft() with the row's company / role / id grafted in
+//   2. /api/admin/drafts/<id> now exposes resume_content (#52); the FULL composer reads it. The
+//      thumbnail still uses mockDraft() with the row's company / role / id grafted in
 //      so the header strip + filename match what the card is labeled as
 //      (so the thumb feels per-draft, not a static stand-in).
 //

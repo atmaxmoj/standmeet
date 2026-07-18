@@ -2,8 +2,8 @@
 // around marketplace.Client so the admin REST layer doesn't reach
 // directly into the marketplace package (arch-lint convention).
 //
-// Install + SKILL.md fetch land in a later phase; this surface is
-// search-only.
+// Install + SKILL.md fetch shipped (#48-3): InstallSkill / InstallManualSkill live in this same
+// file. This is no longer search-only.
 
 package usecases
 

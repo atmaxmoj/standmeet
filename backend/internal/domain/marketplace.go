@@ -2,8 +2,9 @@
 // search-only proxy: backend fetches GitHub `anthropics/skills` repo +
 // SkillsMP HTTP API, normalizes into MarketSkill, returns the union.
 //
-// SKILL.md download + frontmatter parse + persistent install land in a
-// later phase; for now the frontend simulates install in client state.
+// SKILL.md download + frontmatter parse + persistent install shipped (#48-3): the frontend POSTs to
+// the real /marketplace/install and the backend fetches + parses the SKILL.md server-side.
+// Nothing is simulated in client state anymore.
 
 package domain
 

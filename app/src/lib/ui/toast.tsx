@@ -77,7 +77,7 @@ const noopToast: ToastAPI = {
 };
 
 // useToastList —— 给 Toaster 组件读当前 stack。其他人不该用。
-export function useToastList(): readonly ToastItem[] {
+function useToastList(): readonly ToastItem[] {
   return useContext(ToastListCtx);
 }
 

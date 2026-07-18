@@ -114,7 +114,7 @@
     "usesTagline": "Uses your page tagline.",
     "editOnPage": "edit on the Page section →",
     "canonicalHost": "canonical host",
-    "editOnDomain": "edit on the Domain section →",
+    "editOnDomain": "edit on the Page section →",
     "indexing": "indexing · published",
     "totalInScope": "total in scope: {total}"
   }

@@ -4,9 +4,9 @@
 // 设计源 docs/design/project/admin.js APPLICATIONS + ApplicationDetailModal
 // (1825-1908)。
 //
-// 现状：data 还是 mock fixture，等后端补 `GET /api/admin/applications`
-// 再切真 fetch（job loop memory: applications 已在表里）。
-// commit + send 走 MCP `applications.commit`，所以这层只读 + status PATCH。
+// 数据走真 fetch（use-admin-applications → GET /api/admin/applications，后端已挂）；本文件只有类型 +
+// 纯派生，没有 fixture。commit + send 走 MCP `applications.commit`。**status 目前没有持久化路径**
+// （后端 /applications 只 GET）——详见 rot-C1/D4：modal 的状态开关是 local-only。
 
 export type ApplicationStatus =
   | 'silent' | 'reviewing' | 'replied' | 'rejected' | 'offer';

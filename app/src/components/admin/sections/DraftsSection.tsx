@@ -3,9 +3,8 @@
 //
 // 设计源 docs/design/project/admin.js DraftsSection + DraftCard (1756-1822)。
 //
-// 数据走 GET /api/admin/drafts 真 fetch（后端 listResumeDraftsByOwner SQL
-// 已落）。Composer 打开的 model 仍走 mockDraft 占位 —— 详情 jsonb fetch +
-// patch endpoint 在后续 commit 上。
+// 数据走 GET /api/admin/drafts 真 fetch（后端 listResumeDraftsByOwner SQL 已落）。Composer 打开的
+// model 走 useDraftDetail → GET /api/admin/drafts/{id} 真详情 fetch（#52，替代了旧 mockDraft 占位）。
 
 'use client';
 
