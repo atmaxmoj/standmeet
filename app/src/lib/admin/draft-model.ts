@@ -135,34 +135,41 @@ export function mockDraft(id: string): DraftModel {
   };
 }
 
-// confidenceScore —— ResumeComposer 顶栏的 match% gauge。看 draft 全文里
-// 出现多少 "强信号关键词"，0.5 起步、每命中一次 +3pp、capped 98%。 这不
-// 是真 ML eval，只是一个反应式 UI proof — 帮 owner 知道 "edit 后 match
-// 是否在涨"。真 ML 评分在 job-loop 的 resume.draft 时已经算了，这里是
-// post-edit 的快速反馈。
-export function confidenceScore(model: DraftModel, keywords: readonly string[]): number {
-  const text = (
+// confidenceScore —— ResumeComposer 顶栏的 match% gauge：这份简历对**投递的那个职位**的覆盖度。
+//
+// rot-A2：它曾经拿一张**固定** buzzword 列表（retrieval/eval/llm/…）在简历里数命中、0.5 起步，
+// **根本不看投给谁**——tooltip 却写 "match against the job description"。于是换一家公司、换一个角色，
+// 分数纹丝不动。一个自称"对着 JD 打分"的表，量的其实是简历里有没有几个热词。
+//
+// 现在关键词从**投递职位本身**（role + company）派生：职位里的实词有多少在简历里出现 = match 信号。
+// 换职位 → 换关键词 → 换分。不是真 ML eval（模型里没有完整 JD 文本，只有 role/company），但它现在
+// 诚实地随"投给谁"变化，tooltip 名副其实。真 ML 评分在 job-loop 的 resume.draft 时已算过。
+export function confidenceScore(model: DraftModel): number {
+  const resume = (
     model.summary + ' '
     + model.skills.join(' ') + ' '
     + model.experience.flatMap((e) => [e.role, ...e.bullets]).join(' ') + ' '
     + model.coverLetter
   ).toLowerCase();
-  let hits = 0;
-  for (const k of keywords) {
-    if (text.includes(k.toLowerCase())) hits++;
-  }
-  return Math.min(0.98, 0.5 + hits * 0.03);
+  const jobTerms = jobKeywords(model.role, model.company);
+  if (jobTerms.length === 0) return 0.4;
+  const hits = jobTerms.filter((t) => resume.includes(t)).length;
+  return Math.min(0.98, 0.4 + (hits / jobTerms.length) * 0.58);
 }
 
-export const DEFAULT_KEYWORDS = [
-  'retrieval', 'eval', 'evaluation', 'llm', 'rag', 'brain', 'lucerna', 'launch',
-];
+const MATCH_STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'staff', 'member', 'technical', 'shift', 'role', 'team',
+  'senior', 'junior', 'lead', 'engineer', 'inc', 'llc', 'corp', 'company',
+]);
+
+// jobKeywords —— 从投递职位（role + company）抽出实词（≥3 字母、非停用词、去重）。
+function jobKeywords(role: string, company: string): string[] {
+  const words = `${role} ${company}`.toLowerCase().split(/[^a-z0-9]+/);
+  return [...new Set(words.filter((w) => w.length >= 3 && !MATCH_STOPWORDS.has(w)))];
+}
 
 export function useMatchPct(model: DraftModel): number {
-  return useMemo(
-    () => Math.round(confidenceScore(model, DEFAULT_KEYWORDS) * 100),
-    [model],
-  );
+  return useMemo(() => Math.round(confidenceScore(model) * 100), [model]);
 }
 
 // patchModel —— immutable 更新整 draft 的浅 patch。

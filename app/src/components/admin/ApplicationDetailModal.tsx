@@ -2,7 +2,7 @@
 // 左侧 timeline + contact + notes；右侧 resume snapshot + status segmented。
 //
 // 设计源 docs/design/project/admin.js ApplicationDetailModal (1825-1908)。
-// 当前是只读 mock 视图；status PATCH 走后端的 applications endpoint。
+// status 是只读展示（rot-C1：无持久化路径，写只走 MCP applications.commit）。
 
 'use client';
 
@@ -22,8 +22,10 @@ interface Props {
   onClose: () => void;
 }
 
+// status 是**只读**的（rot-C1）：它反映后端 application 行的真实生命周期，这个 modal 没有持久化
+// 路径（/applications 只 GET，写只走 MCP applications.commit）。曾经它是一个 local useState 的可点
+// 分段控件 —— 看着能改能存，一 reload 就变回去。那是"看着像存了、其实没存"的谎。现在只读展示。
 export function ApplicationDetailModal({ app, onClose }: Props) {
-  const [status, setStatus] = useState<ApplicationStatus>(app.status);
   const [notes, setNotes] = useState(app.notes);
   return (
     <div className="sm-app-modal-overlay sm-fadein" onClick={onClose}>
@@ -34,8 +36,8 @@ export function ApplicationDetailModal({ app, onClose }: Props) {
       >
         <ModalHeader app={app} onClose={onClose} />
         <ModalBody
-          app={{ ...app, status, notes }}
-          status={status} onStatus={setStatus}
+          app={{ ...app, notes }}
+          status={app.status}
           notes={notes} onNotes={setNotes}
         />
         <ModalFooter app={app} onClose={onClose} />
@@ -68,7 +70,6 @@ function ModalHeader({ app, onClose }: { app: Application; onClose: () => void }
 interface BodyProps {
   app: Application;
   status: ApplicationStatus;
-  onStatus: (s: ApplicationStatus) => void;
   notes: string;
   onNotes: (v: string) => void;
 }
@@ -77,7 +78,7 @@ function ModalBody(props: BodyProps) {
   return (
     <div className="sm-app-modal-body">
       <LeftCol app={props.app} notes={props.notes} onNotes={props.onNotes} />
-      <RightCol app={props.app} status={props.status} onStatus={props.onStatus} />
+      <RightCol app={props.app} status={props.status} />
     </div>
   );
 }
@@ -154,17 +155,16 @@ function NotesBlock({
 }
 
 function RightCol({
-  app, status, onStatus,
+  app, status,
 }: {
   app: Application;
   status: ApplicationStatus;
-  onStatus: (s: ApplicationStatus) => void;
 }) {
   return (
     <div>
       <ResumeSnapshot app={app} />
       <SnapshotActions />
-      <StatusBlock status={status} onStatus={onStatus} />
+      <StatusBlock status={status} />
     </div>
   );
 }
@@ -198,32 +198,29 @@ function SnapshotActions() {
   );
 }
 
-function StatusBlock({
-  status, onStatus,
-}: { status: ApplicationStatus; onStatus: (s: ApplicationStatus) => void }) {
+function StatusBlock({ status }: { status: ApplicationStatus }) {
   const t = useTranslations('adminJobs');
   return (
     <section className="mt-4 px-3 py-2.5 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
       <div className="sm-smallcaps">{t('detail.status')}</div>
-      <StatusSegmented value={status} onChange={onStatus} />
+      <StatusSegmented value={status} />
     </section>
   );
 }
 
-function StatusSegmented({
-  value, onChange,
-}: { value: ApplicationStatus; onChange: (s: ApplicationStatus) => void }) {
+// StatusSegmented —— **只读**分段：展示这条 application 的真实状态，不是一个能改能存的控件
+// （rot-C1：没有持久化路径）。用 span 而非 button —— 一个不落库的东西不该看起来能点。
+function StatusSegmented({ value }: { value: ApplicationStatus }) {
   return (
-    <div className="sm-seg mt-1.5" data-testid="application-status">
+    <div className="sm-seg mt-1.5" data-testid="application-status" aria-readonly="true">
       {APPLICATION_STATUSES.map((s) => (
-        <button
-          key={s} type="button"
-          onClick={() => onChange(s)}
+        <span
+          key={s}
           className={value === s ? 'is-on' : ''}
           data-testid={`status-${s}`}
         >
           {s}
-        </button>
+        </span>
       ))}
     </div>
   );

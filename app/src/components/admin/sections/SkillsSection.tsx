@@ -24,23 +24,31 @@ import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { MarketplaceTab } from '@/components/admin/sections/agent-skills/MarketplaceTab';
 import { SkillsTabs, type SkillsTab } from '@/components/admin/sections/skills/SkillsTabs';
 import { useAgentSkills } from '@/lib/admin/use-agent-skills';
+import { useConnectorList, type ConnectorRow } from '@/lib/admin/use-connector-list';
 import { useSkills, type SkillsHook, type SkillView, type CreateSkillInput } from '@/lib/admin/use-skills';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
-// CONNECTED_DEFAULT —— marketplace 卡「需要 X 连接器」的占位（沿用合并前 AgentSkillsSection 的值）。
-// rot-A4：这不是 owner 的真连接态，但那是另一条修（marketplace-needs-connector），这里只搬不改。
-const CONNECTED_DEFAULT: readonly string[] = ['Email', 'Calendar'];
+// connectorLabel —— 连接器行 → skill.needs 用的 label 词汇（'Calendar' / 'Email'）。
+// 一个 skill 声明 needs:['Calendar']，只有当 owner **真的**连了 calendar 连接器时才不该警告。
+function connectorLabel(row: ConnectorRow): string {
+  const key = `${row.category} ${row.kind}`.toLowerCase();
+  return key.includes('calendar') ? 'Calendar' : key.includes('mail') ? 'Email' : row.category;
+}
 
 export function SkillsSection() {
   const skills = useSkills();
   const agent = useAgentSkills();
+  const connectors = useConnectorList();
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<SkillsTab>('installed');
   useEffectErrorToast(skills.error);
   // install 完成 → 切回 my skills，owner 看着新 skill 落进列表。
   useEffect(() => { (agent.lastInstalledAt > 0) && setTab('installed'); }, [agent.lastInstalledAt]);
+  // connected —— owner **真正**连上的连接器 label（rot-A4：以前是硬编码 ['Email','Calendar']，于是
+  // 一个需要 Calendar 的 skill 即便 owner 没连 Calendar 也不警告）。空实例 → [] → 该警告的都警告。
+  const connected = connectors.connectors.filter((c) => c.connected).map(connectorLabel);
   return (
     <>
       <SectionHeader
@@ -49,7 +57,7 @@ export function SkillsSection() {
         count={titleCount(skills)}
         action={<HeaderActions tab={tab} setTab={setTab} onNew={() => setCreating(true)} />}
       />
-      <SkillsBody tab={tab} skills={skills} agent={agent} />
+      <SkillsBody tab={tab} skills={skills} agent={agent} connected={connected} />
       {creating && (
         <SkillCreateModal onClose={() => setCreating(false)} onCreate={skills.createSkill} />
       )}
@@ -71,10 +79,13 @@ function HeaderActions({
 
 // SkillsBody —— my skills（这份 registry 的 CRUD 列表）或 marketplace（搜索 + 安装）。
 function SkillsBody({
-  tab, skills, agent,
-}: { tab: SkillsTab; skills: SkillsHook; agent: ReturnType<typeof useAgentSkills> }) {
+  tab, skills, agent, connected,
+}: {
+  tab: SkillsTab; skills: SkillsHook;
+  agent: ReturnType<typeof useAgentSkills>; connected: readonly string[];
+}) {
   return tab === 'marketplace'
-    ? <MarketplaceTab hook={agent} connected={CONNECTED_DEFAULT} />
+    ? <MarketplaceTab hook={agent} connected={connected} />
     : <PersonaSkillsBlock hook={skills} />;
 }
 

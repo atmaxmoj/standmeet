@@ -24,6 +24,9 @@ const MarketSkillWireSchema = z.object({
   source_url: z.string(),
   source: z.enum(['github', 'skillsmp']),
   stars: z.number(),
+  // needs —— 这个 skill 依赖的连接器（label，如 'Calendar'/'Email'）。可空。
+  // rot-A4：以前 adapt() 把它硬编码成 []，于是「needs X connector」提示对任何真卡都不出现。
+  needs: z.array(z.string()).optional().default([]),
 });
 
 const MarketSkillsResponseSchema = z.array(MarketSkillWireSchema);
@@ -99,7 +102,7 @@ function adapt(w: MarketSkillWire): MarketSkillView {
     category: normalizeCategory(w.category),
     blurb: w.description,
     source_url: w.source_url,
-    needs: [],
+    needs: w.needs,
   };
 }
 

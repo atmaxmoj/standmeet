@@ -96,7 +96,7 @@ function InstallBtn({
 function MissingHint({ missing }: { missing: readonly string[] }) {
   const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
-    <div className={styles.missing}>
+    <div className={styles.missing} data-testid="marketplace-needs-hint">
       {t('needs', { missing: missing.join(' + ') })}
     </div>
   );
