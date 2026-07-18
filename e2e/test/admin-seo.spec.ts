@@ -74,7 +74,9 @@ test.describe('admin SEO section (real backend)', () => {
       // read-only: rendered as text/links, not editable inputs.
       await expect(adminPage.getByTestId('seo-description')).toBeVisible();
       await expect(adminPage.getByTestId('seo-description-edit')).toHaveAttribute('href', /\/admin\/page/);
-      await expect(adminPage.getByTestId('seo-canonical-edit')).toHaveAttribute('href', /\/admin\/domain/);
+      // rot-C2: both edit links go to /admin/page (where the public URL / domain is actually edited).
+      // This used to assert /admin/domain — a route that 404s. The fix repointed it; the test follows.
+      await expect(adminPage.getByTestId('seo-canonical-edit')).toHaveAttribute('href', /\/admin\/page/);
     });
 
   test('no regenerate-sitemap button, no twitter field',
