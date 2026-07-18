@@ -1,5 +1,5 @@
 // WikiSection —— /admin/wiki。raw → wiki → output 三层中第二层。
-// 设计源 docs/design/project/admin.js WikiSection (402-430)：tag-chip filter
+// 设计源 docs/design/project/admin.js WikiSection：tag-chip filter
 // 行 + 2-col grid card。每张 card 头部带 ● public/private visibility dot；
 // 底部 meta（sources count · last-edited）；hover/active 显 edit/promote/delete。
 

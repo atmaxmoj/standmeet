@@ -1,6 +1,6 @@
 // connector-registry —— admin connectors 加新种类的 plugin 数组。
 //
-// 设计源 docs/design/project/admin-data.js CONNECTOR_REGISTRY (304-364)。
+// 设计源 docs/design/project/admin-data.js CONNECTOR_REGISTRY。
 // 加新 connector 的工作量 = append 一条 entry 进 CONNECTOR_REGISTRY；
 // ConnectorAddModal + ConnectorConfigForm 会自动渲染。GCal booking
 // (memory:gcal-booking-future) 之后 = 给 calendar entry 加 oauth flow，

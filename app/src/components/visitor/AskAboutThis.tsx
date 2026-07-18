@@ -6,8 +6,8 @@
 // 三种 surface 共用：blog (essay) / wiki (corpus entry) / output (polished)。
 // kind 只影响 header 文案，结构 + 行为完全一致。
 //
-// 设计源 docs/design/project/blog.js AskAboutThis (490-540) +
-// docs/design/project/wiki.js sticky ask bar (250-278)。
+// 设计源 docs/design/project/blog.js AskAboutThis +
+// docs/design/project/wiki.js sticky ask bar。
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';

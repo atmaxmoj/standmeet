@@ -54,7 +54,7 @@ export function WritingsIndex({ initialWritings, initialCursor }: Props) {
 
 // AskCorpusCTA —— writings index 末尾的"or skip the reading"，引 visitor 回
 // `/` 直接跟 AI 聊；只有有文章时才显示（空 corpus 不引）。design 源:
-// docs/design/project/blog.js IndexView 末段 (366-388)。
+// docs/design/project/blog.js IndexView 末段。
 function AskCorpusCTA({ hasWritings }: { hasWritings: boolean }) {
   const t = useTranslations('writings.index');
   return hasWritings ? (

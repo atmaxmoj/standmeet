@@ -1,7 +1,7 @@
 // CustomPagesSection —— /admin/custom-pages。owner 通过 MCP 创建的 React
 // 子页 + 状态 + "view live ↗" 链接。
 //
-// 设计源 docs/design/project/admin.js PagesSection (514-571)：intro
+// 设计源 docs/design/project/admin.js PagesSection：intro
 // paragraph + 表格 (page · template · visibility · updated · actions) +
 // "templates available" 4-cell grid。模板字段 schema 还没有，先静态展示
 // 可选模板让 owner 知道下一步用哪种。

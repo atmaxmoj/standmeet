@@ -1,5 +1,5 @@
 // ChatRoom —— coded / BYOAI visitor 的 focused chat layout。design 源
-// app.js ChatRoom (826-913)。slim header + ChatWelcome + transcript +
+// app.js ChatRoom。slim header + ChatWelcome + transcript +
 // sticky ChatComposer。
 
 'use client';

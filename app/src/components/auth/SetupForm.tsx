@@ -1,7 +1,7 @@
 // SetupForm —— first-run claim wizard。4 步：identity / credentials /
 // ai-provider / verify。业务逻辑全在 useSetupForm hook 里；这里只组装 JSX。
 //
-// 设计源 docs/design/project/auth.js Setup (153-460)。
+// 设计源 docs/design/project/auth.js Setup。
 
 'use client';
 

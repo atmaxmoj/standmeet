@@ -1,4 +1,4 @@
-// AdminSidebar —— admin 左侧 nav。design 源 admin.js Sidebar (166-193) +
+// AdminSidebar —— admin 左侧 nav。design 源 admin.js Sidebar +
 // NAV_GROUPS (27-62)。mono 11.5px nav-link + "── group" headers + accent
 // badge 动态计数。border-left accent 标 active。
 

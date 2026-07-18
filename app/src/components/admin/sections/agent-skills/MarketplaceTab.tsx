@@ -1,7 +1,7 @@
 // MarketplaceTab —— search bar + source segmented + 2-col card grid.
 // Aggregates github + skillsmp; install button writes a local copy.
 //
-// Design source: docs/design/project/admin.js (2688-2738).
+// Design source: docs/design/project/admin.js.
 
 'use client';
 

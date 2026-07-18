@@ -2,7 +2,7 @@
 // SectionHeader (kicker + title + N unprocessed) + 4-tab status filter
 // (all/unprocessed/flagged-private/promoted) + DumpBox + RawRowList。
 //
-// 设计源 docs/design/project/admin.js RawSection (315-343)。
+// 设计源 docs/design/project/admin.js RawSection。
 // 删了 ListFilterBar (search + sort) —— inbox 是流式排空场景，filter chips
 // + 行级 archive 就够；search 在数量真大时再加。
 

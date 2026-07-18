@@ -2,7 +2,7 @@
 // metadata + install button (or "✓ installed" pill when present in the
 // local registry). Missing connector hint in vermillion.
 //
-// Design source: docs/design/project/admin.js (2711-2733).
+// Design source: docs/design/project/admin.js.
 
 'use client';
 

@@ -1,4 +1,4 @@
-// QuickAskDeck —— design 源 app.js QuickAskDeck (391-436)。
+// QuickAskDeck —— design 源 app.js QuickAskDeck。
 // 12 curated questions 的 3-col grid，按 section 分组，click → fire onAsk。
 // 已 asked 的条目 line-through 标灰。private 标签 accent 提醒需要 code。
 //

@@ -1,7 +1,7 @@
 // DraftsSection —— /admin/drafts。owner 看 job-loop 路径里 Claude 起的
 // resume drafts，每个 card 可"open composer →"进 ResumeComposer。
 //
-// 设计源 docs/design/project/admin.js DraftsSection + DraftCard (1756-1822)。
+// 设计源 docs/design/project/admin.js DraftsSection + DraftCard。
 //
 // 数据走 GET /api/admin/drafts 真 fetch（后端 listResumeDraftsByOwner SQL 已落）。Composer 打开的
 // model 走 useDraftDetail → GET /api/admin/drafts/{id} 真详情 fetch（#52，替代了旧 mockDraft 占位）。

@@ -3,7 +3,7 @@
 // education / social / custom / cover。改动通过 onPatch* 回传到
 // ResumeComposer 持的 draft model。
 //
-// 设计源 docs/design/project/admin.js ResumeComposer (1467-1680)。
+// 设计源 docs/design/project/admin.js ResumeComposer。
 // experience / education 的 add/remove 这一版先用 push-only（不删，
 // 改 bullets 用 split-by-newline）；先把 UX 跑通，后续再加 inline ✕ 按钮。
 

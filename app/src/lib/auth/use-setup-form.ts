@@ -1,6 +1,6 @@
 // use-setup-form —— first-run setup wizard 状态机。
 //
-// 设计源 docs/design/project/auth.js Setup (153-460)。4-step：
+// 设计源 docs/design/project/auth.js Setup。4-step：
 //   1. identity      —— name + handle + publicUrl
 //   2. credentials   —— email + password + confirm
 //   3. ai provider   —— provider chip + key + model（可跳，admin 后台可补）

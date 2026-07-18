@@ -1,5 +1,5 @@
 // OutputSection —— /admin/output。raw → wiki → output 三层最精炼那层。
-// 设计源 docs/design/project/admin.js OutputsSection (434-510)：2-col card
+// 设计源 docs/design/project/admin.js OutputsSection：2-col card
 // grid，每张 card 顶 cover-strip + visibility pill；底版面 provenance + actions。
 // visibility 用现有 schema 推导：published=true → public；!published &&
 // show_as_source → unlisted；其他 → private。

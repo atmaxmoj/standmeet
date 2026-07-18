@@ -2,7 +2,7 @@
 // editor。左侧 6-panel 表单 + 右侧 PDF-shape 预览（不 render 真 PDF，
 // 只 reflect 字距 / 段落 / smallcaps 让 owner 边编辑边看版式）。
 //
-// 设计源 docs/design/project/admin.js ResumeComposer (1467-1680)。
+// 设计源 docs/design/project/admin.js ResumeComposer。
 //
 // 注意：drafts 的真正 freeze + applications.commit 在 MCP 路径（job loop
 // memory），这里只是编辑层。"send →" 弹 confirm 模态 → 调 onSend

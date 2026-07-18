@@ -1,7 +1,7 @@
 // ConnectorAddModal —— admin connectors "+ add" 模态。
 // 分类 tab 过滤 catalog，点 connector tile 进入 ConnectorConfigForm。
 //
-// 设计源 docs/design/project/admin.js ConnectorAddModal (2053-2113)。
+// 设计源 docs/design/project/admin.js ConnectorAddModal。
 // installed: id[] 让 builtin / 已装的不弹"connect"。
 
 'use client';

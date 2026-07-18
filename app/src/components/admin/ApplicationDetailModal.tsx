@@ -1,7 +1,7 @@
 // ApplicationDetailModal —— /admin/applications 里点 card 弹的详情。
 // 左侧 timeline + contact + notes；右侧 resume snapshot + status segmented。
 //
-// 设计源 docs/design/project/admin.js ApplicationDetailModal (1825-1908)。
+// 设计源 docs/design/project/admin.js ApplicationDetailModal。
 // status 是只读展示（rot-C1：无持久化路径，写只走 MCP applications.commit）。
 
 'use client';

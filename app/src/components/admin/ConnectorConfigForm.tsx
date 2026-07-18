@@ -1,7 +1,7 @@
 // ConnectorConfigForm —— 按 ConnectorEntry.fields[] 动态渲染配置表单。
 // 字段类型：string / select (options) / secret (password) / oauth (按钮)。
 //
-// 设计源 docs/design/project/admin.js ConnectorConfigForm (2004-2051)。
+// 设计源 docs/design/project/admin.js ConnectorConfigForm。
 // 加新 connector 只需要给 registry 加一条 entry —— form 自动 render。
 
 'use client';

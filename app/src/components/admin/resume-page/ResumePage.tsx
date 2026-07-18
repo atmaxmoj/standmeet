@@ -3,7 +3,7 @@
 // truth for "what the recruiter sees" — Chromium renders this page,
 // gotenberg prints it.
 //
-// Design source: docs/design/project/admin.js ResumePage (1738-2044) +
+// Design source: docs/design/project/admin.js ResumePage +
 // chat1.md iteration 2026-05-28 (字号缩到真印刷比例 / 连续竖滚预览).
 //
 // Page geometry locked at 612×792pt = 612×792px (PDF point ≈ px at 96dpi
