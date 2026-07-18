@@ -1,6 +1,6 @@
 # chat-summarize — Visitor chat: summarize a conversation/report
 
-- **Status:** ⬜ not-run
+- **Status:** ⬜ not started (new round)
 - **Module:** the model produces a coherent, faithful summary of a real conversation or report, and it renders in the report artifact / `/report/[id]`.
 - **Surface:** visitor chat → report artifact (`/report/[id]`).
 - **Real dep:** real DeepSeek.
@@ -13,8 +13,7 @@
 - **Expected:** a coherent, faithful summary of what was actually said; PDF/report renders.
 - **⚠️ mock gap:** summarize is a backend-initiated generate call the mock matches by turn keys (`messages.go:97,160`) and answers with a scripted string; summary quality is never tested.
 - **Backing test:** `visitor-summarize-conversation.spec.ts:71`
-- **Result:** 🔴 manual-red (F-A-6)
-
+- **Result:** ⬜
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The report artifact renders the summary (not an empty/placeholder card); the `/report/[id]` view opens and paginates.
 

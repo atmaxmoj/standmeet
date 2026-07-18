@@ -1,6 +1,6 @@
 # ext-mcp — External MCP: register a real remote server + dispatch
 
-- **Status:** ✅ PASS (real, 2nd pass) — re-verify auth/SSE/large-schema legs
+- **Status:** ⬜ not started (new round)
 - **Module:** the owner registers a real 3rd-party MCP server by URL; the backend dials it over real HTTP transport, enumerates its real tools, gates them by role, honors upstream auth/SSE/large schemas, and a visitor call reaches the real upstream.
 - **Surface:** admin/api·mcp (register server) → visitor chat (`ext_<server>_<tool>`).
 - **Real dep:** a real reference MCP server (`@modelcontextprotocol/server-everything` or a small FastMCP server) over HTTP/SSE with a bearer token — a process StandMeet did not write. `[MCP]` in verify-creds.
@@ -15,20 +15,17 @@
 - **Expected:** the server appears connected; its real advertised tools are enumerated (not the fixed `echo`/`ping`/`boom` set the mock hands back).
 - **⚠️ mock gap:** the register form takes a **URL only** — no auth-token field is captured (`admin-mcp-servers.spec.ts:32`), because the mock requires none. A real bearer-gated server has nowhere to store its token today. **See check 4.**
 - **Backing test:** `admin-mcp-servers.spec.ts`
-- **Result:** ✅ (server-everything, streamable-http, 13 tools bound)
-
+- **Result:** ⬜
 ### 2 — Expose the server's tools to a role  (was §D2)
 - **Steps:** attach the registered server to a visitor role → issue an access code scoped to it → enter chat as that visitor.
 - **Expected:** the role's visitor sees `ext_<server>_<tool>`; a role without it does not.
 - **Backing test:** `tool-roles-mcp.spec.ts` · `external-mcp-tools.spec.ts`
-- **Result:** ✅
-
+- **Result:** ⬜
 ### 3 — dep-grant gate (lowest-trust loader gets no deps)  (was §D3)
 - **Steps:** confirm the registered external server is **not** auto-granted connector deps; a tool declaring `_meta.requires:[calendar]` stays gated until explicitly granted.
 - **Expected:** ungranted → refused with a friendly gate; granted → dispatches.
 - **Backing test:** `connector-ext-mcp-no-dep.spec.ts`
 - **Result:** ⬜
-
 ### 4 — Real auth + SSE transport + large schema ⭐  (was §D4)
 - **Steps (D4a, self-serve):** point at a **bearer-gated** server → a call without/with-wrong token refused upstream, with the correct token succeeds. Then run one over an **SSE-transport** server, and round-trip a tool with a **large/nested `inputSchema`** (arrays, nested objects, enums).
 - **Steps (D4b, `manual-only`):** an **OAuth-gated** MCP server (authorization-server metadata + token grant) — document the walkthrough, don't self-serve a full OAuth AS.
@@ -36,13 +33,11 @@
 - **⚠️ mock gap:** `mcp-server-mock` has **no `Authorization`, streamable-HTTP only (no SSE), trivial single-string schemas**. `mcp-auth.spec.ts` covers the backend's **own** inward `/mcp` Bearer — **not** the upstream external server's auth (wrong surface).
 - **Backing test:** `mcp-auth.spec.ts` (inward `/mcp` only); no backing spec for upstream bearer/SSE/large-schema (gap).
 - **Result:** ⬜
-
 ### 5 — Real tool invocation from visitor chat  (was §D5)
 - **Steps:** visitor asks something that routes to the real server's tool → backend MCP client dials the real upstream → real `tool_result` renders. Also exercise the per-tool HTTP endpoint (`ext_<server>_<tool>`) directly.
 - **Expected:** the visitor sees the real server's real output (not a mock echo); chat-path and direct-endpoint results match.
 - **Backing test:** `external-mcp-tools.spec.ts` · `tool-endpoint-ext-mcp.spec.ts`
-- **Result:** ✅ (agent called `ext_everything_echo("pineapple")` → real server handshake + result)
-
+- **Result:** ⬜
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The registered-servers **list renders** (name/URL/attached role); add-server fires and the new server appears; a bearer-gated server has a **place to store its token** (F: register form is URL-only).
 

@@ -1,6 +1,6 @@
 # chat-byoai — Visitor chat: BYOAI against a real provider
 
-- **Status:** 🟡 (2026-07-15 live) — gate BYOAI panel renders + accepts a key ✅; envelope+stream prior-✅ (2nd pass); the real-key streamed-answer + private-corpus-exclusion leg still pending (needs a BYOAI session with the real DeepSeek key)
+- **Status:** ⬜ not started (new round)
 - **Module:** a no-code gate visitor brings their own AI key; the backend HKDF-encrypts it, calls the visitor's *real* third-party provider, streams a real answer, and the public-slice ACL still excludes private corpus on that real model.
 - **Surface:** gate BYOAI panel → visitor chat (`/<handle>?byoai=1`).
 - **Real dep:** the DeepSeek key (`EVAL_KEY`) as the **visitor's own** BYOAI key (`https://api.deepseek.com`, `deepseek-v4-pro`). No owner-side AI provider. Seed a **private** entry alongside a **public** one so the exclusion check has something to catch.
@@ -19,7 +19,6 @@
 - **⚠️ mock gap:** `byoai-chat.spec.ts:64-65` repoints the endpoint at `llm-gateway:9300`, validating a *mocked* reply; no spec drives a real BYOAI upstream, and no BYOAI-specific spec asserts private-corpus exclusion on a real answer.
 - **Backing test:** `byoai-chat.spec.ts:39` (mock-pinned) · `chat-welcome.spec.ts:46` (BYOAI public-scope welcome) · `chat-book-byoai-denied.spec.ts:18` · `corpus-retrieval-excludes-raw.spec.ts:55` (owner-provider path). Real-upstream BYOAI + private-slice exclusion on a real answer → no backing spec (gap).
 - **Result:** ⬜
-
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The gate **BYOAI panel renders and accepts a key**; on submit it lands on `/<handle>?byoai=1`; the welcome states public scope; a real streamed answer renders token-by-token, not a stalled empty bubble.
 

@@ -1,6 +1,6 @@
 # custom-pages — Custom page hosting: create → build → promote → host
 
-- **Status:** ⬜ not-run
+- **Status:** ⬜ not started (new round)
 - **Module:** the owner authors a custom React page with the SDK; a sandboxed real Vite build produces static output hosted on the instance and served — and the admin create/build/promote flow actually works (not a dead button).
 - **Surface:** admin/page (custom-pages).
 - **Real dep:** prod stack (real sandbox build via the docker driver, see [[sandbox]]) + real storage/hosting.
@@ -15,14 +15,12 @@
 - **Note:** the build isolation itself is [[sandbox]] (K2 prod docker-driver); here we care that *storage + hosting* of the built artifact works on the prod stack.
 - **Backing test:** no dedicated custom-page-build storage spec (gap); nearest `custom-page.spec.ts` + sandbox specs.
 - **Result:** ⬜
-
 ### 2 — The create/build/promote flow is not dead ⭐  (was F-N-1)
 - **Steps:** on admin/page, click **"+ NEW PAGE"** → observe.
 - **Expected:** a real create flow opens (modal / navigation / feedback) — OR the button is removed and the MCP-driven copy stands. Not a button that fires nothing.
 - **⚠️ finding:** clicking "+ NEW PAGE" does nothing (no modal, no navigation, no feedback). The section's copy says the lifecycle is MCP-driven (`custom_page.create` / `.write_file` / `.build` / `.promote_to_live`) — so the button may have no GUI flow behind it. Same dead-affordance class as F-L-1 / UX-5. Either wire it to a real create flow, or remove it and let the MCP copy stand.
 - **Backing test:** no spec clicks `+ NEW PAGE` and asserts a page gets created (a dead button fires nothing, so nothing fails today) — step-3 adds one.
-- **Result:** 🔴 manual-red
-
+- **Result:** ⬜
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The page **list renders**; **"+ NEW PAGE" does something** (F-N-1); build/promote states are visible; a built page actually renders when opened.
 

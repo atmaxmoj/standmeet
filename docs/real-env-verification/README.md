@@ -11,27 +11,27 @@ Re-run, by hand, every path CI only ever validated against a mock — this time 
 
 One doc per **module** (a functional unit + the surface it owns). Grouped by product area; each carries its checks + a fresh-eyes **⚠️ LOOK** and names the historical `§`-findings it inherits.
 
-**Visitor chat (agent reasoning)** — [chat-grounding](items/chat-grounding.md) · [chat-subjectivity](items/chat-subjectivity.md) · [chat-voice-persistence](items/chat-voice-persistence.md) · [chat-injection-refusal](items/chat-injection-refusal.md) · [chat-ghost](items/chat-ghost.md) · [chat-summarize](items/chat-summarize.md) · [chat-redaction](items/chat-redaction.md) ✅ · [chat-byoai](items/chat-byoai.md) · [dock-buttons](items/dock-buttons.md)
+**Visitor chat (agent reasoning)** — [chat-grounding](items/chat-grounding.md) · [chat-subjectivity](items/chat-subjectivity.md) · [chat-voice-persistence](items/chat-voice-persistence.md) · [chat-injection-refusal](items/chat-injection-refusal.md) · [chat-ghost](items/chat-ghost.md) · [chat-summarize](items/chat-summarize.md) · [chat-redaction](items/chat-redaction.md) · [chat-byoai](items/chat-byoai.md) · [dock-buttons](items/dock-buttons.md)
 
-**Agent engine** — [agent-loop-robustness](items/agent-loop-robustness.md) · [agent-turn-boundary](items/agent-turn-boundary.md) 🟩
+**Agent engine** — [agent-loop-robustness](items/agent-loop-robustness.md) · [agent-turn-boundary](items/agent-turn-boundary.md)
 
 **Booking** — [calendar-connect](items/calendar-connect.md) · [booking-slots](items/booking-slots.md) · [booking-book](items/booking-book.md) · [booking-email](items/booking-email.md)
 
-**Mail** — [mail-connector](items/mail-connector.md) ✅
+**Mail** — [mail-connector](items/mail-connector.md)
 
 **Connectors** — [connector-assembly](items/connector-assembly.md) · [connector-security](items/connector-security.md)
 
-**Corpus / vault** — [vault-sync](items/vault-sync.md) 🟡 · [vault-links](items/vault-links.md) · [corpus-render](items/corpus-render.md) · [corpus-media](items/corpus-media.md) · [corpus-raw](items/corpus-raw.md) 🔴 · [corpus-search](items/corpus-search.md)
+**Corpus / vault** — [vault-sync](items/vault-sync.md) · [vault-links](items/vault-links.md) · [corpus-render](items/corpus-render.md) · [corpus-media](items/corpus-media.md) · [corpus-raw](items/corpus-raw.md) · [corpus-search](items/corpus-search.md)
 
-**MCP** — [ext-mcp](items/ext-mcp.md) ✅ · [owner-mcp](items/owner-mcp.md) ✅
+**MCP** — [ext-mcp](items/ext-mcp.md) · [owner-mcp](items/owner-mcp.md)
 
-**Jobs / applications** — [job-fetch](items/job-fetch.md) ✅ · [resume-draft](items/resume-draft.md) · [application-commit](items/application-commit.md) 🟡
+**Jobs / applications** — [job-fetch](items/job-fetch.md) · [resume-draft](items/resume-draft.md) · [application-commit](items/application-commit.md)
 
-**Facade / infra** — [marketplace](items/marketplace.md) 🟡 · [api-key-facade](items/api-key-facade.md) ✅ · [sandbox](items/sandbox.md) 🟡 · [deploy-forks](items/deploy-forks.md) ✅ · [resilience](items/resilience.md) · [custom-pages](items/custom-pages.md) 🔴
+**Facade / infra** — [marketplace](items/marketplace.md) · [api-key-facade](items/api-key-facade.md) · [sandbox](items/sandbox.md) · [deploy-forks](items/deploy-forks.md) · [resilience](items/resilience.md) · [custom-pages](items/custom-pages.md)
 
-**SDK / captcha** — [sdk-embed](items/sdk-embed.md) 🔴 · [captcha](items/captcha.md) ✅
+**SDK / captcha** — [sdk-embed](items/sdk-embed.md) · [captcha](items/captcha.md)
 
-**Visitor entry / admin shell** (the previously-homeless surfaces) — [access-codes](items/access-codes.md) 🔴 · [gate](items/gate.md) · [admin-shell](items/admin-shell.md) 🟩
+**Visitor entry / admin shell** (the previously-homeless surfaces) — [access-codes](items/access-codes.md) · [gate](items/gate.md) · [admin-shell](items/admin-shell.md)
 
 > **Two axes.** Modules above are the *feature* axis. The historical §A–§R was a *verification-substrate* axis ("which real dep to stand up") — it survives only as the `F-<letter>-<n>` finding IDs and in the first-pass results below. Each module's `Real dep:` header carries the substrate it needs, so runnability isn't lost.
 

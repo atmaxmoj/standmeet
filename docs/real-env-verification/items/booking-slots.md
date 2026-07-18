@@ -1,6 +1,6 @@
 # booking-slots — Booking: list_slots vs real freeBusy
 
-- **Status:** ⬜ not-run
+- **Status:** ⬜ not started (new round)
 - **Module:** the booker returns only genuinely-free slots inside the requested window, filtered against the account's real calendar busy/free.
 - **Surface:** visitor chat (slot listing) / booker tool.
 - **Real dep:** real `www.googleapis.com/calendar/v3` freeBusy on a connected account (see [[calendar-connect]]).
@@ -14,7 +14,6 @@
 - **⚠️ mock gap:** the mock ignores `timeMin/timeMax` (`gcal.go:390`) → window filtering never truly verified.
 - **Backing test:** `visitor-chat-list-slots.spec.ts`
 - **Result:** ⬜
-
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The slot list renders real times (not empty, not garbled); weekend/policy-excluded windows don't appear.
 

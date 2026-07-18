@@ -1,15 +1,6 @@
 # corpus-acl-editing — Corpus ACL: owner edits what each role / code may read + cite
 
-- **Status:** 🟢 ⑤ **done** (2026-07-16). Checks 1, 2, 3, 5 **PASS on the real prod GUI**; check 4 is
-  **partial** and says so (the form half passes; nobody has watched a real visitor turn omit a
-  non-citable note from its REFERENCES footer — that costs an LLM turn and is still owed).
-  Five real bugs found *during* the pass, every one fixed, guarded, and re-verified on the GUI:
-  **F-A-13** (a failed load rendered as `(role grants nothing)`, no error anywhere),
-  **F-A-17** (the wiki edit form spun an infinite fetch loop and never loaded, looking merely slow),
-  the code card printing a raw role UUID, **F-A-14** (the ACL editor made the owner hand-type URIs)
-  and **F-A-15** (subjectivity — where the CV lives — had no tree at all).
-  Verified last on prod: ticking `check-the-substrate-first` in the picker → save → the DB gains
-  `subjectivity://check-the-substrate-first` and nothing else moves. Not one character typed.
+- **Status:** ⬜ not started (new round)
 - **Module:** the owner controls, from the admin GUI, **which corpus URIs each role may read**, **which of those each code takes back**, and **whether a note may be cited once read**. subjectivity is not special — wiki / output / writing / subjectivity are one glob mechanism.
 - **Surface:** `/admin/roles` (grant) · `/admin/codes` (per-code narrowing) · wiki/output entry form (citation).
 - **Real dep:** real prod stack; a code whose role grants a genre containing a note that code shouldn't see.
@@ -37,50 +28,25 @@ attributed. To make it unreadable, take back its URI.
 - **Steps:** `/admin/roles` → a role card → `corpus` box → change `subjectivity://**` to a per-note list (`subjectivity://standpoint`) → save. Re-issue a code on that role, chat, ask about the excluded note.
 - **Expected:** the save sticks (reload shows the new list); a session issued AFTER the edit cannot read the excluded note; sessions issued BEFORE are unaffected (role is frozen at issue — that is the design, not a bug).
 - **⚠️ mock gap:** role specs seed `corpus_uris` via the API, so the GUI path — the only one a real owner has — was never driven (that IS F-A-11).
-- **Result:** ✅ **PASS** (2026-07-16, real GUI). `subj-verify` granted `subjectivity://** + wiki://**`
-  → edited to `subjectivity://standpoint + wiki://**` → save → **reload** → the box shows the new list
-  and `GET /roles/` returns it. F-A-11's editor is real end-to-end. (The frozen-at-issue half of this
-  check is not yet driven — it needs a code issued after the edit.)
-  ⚠️ But see **F-A-14**: it passed *as a mechanism* while being the wrong affordance.
-
+- **Result:** ⬜
 ### 2 — Owner narrows ONE code below its role
 - **Steps:** `/admin/codes` → a code card → `corpus · taken back on this code` → add `subjectivity://cv` → save. Enter as a visitor on THAT code and ask about the CV; then on a different code of the same role.
 - **Expected:** the narrowed code cannot read it (agent says it has nothing); the other code still can. The card shows both lists (inherited grant / taken back) so the owner sees the effect without cross-referencing.
 - **Backing test:** `code-corpus-narrowing.spec.ts` (4 cases; RED→GREEN proven by making the plugin drop the denials).
-- **Result:** ✅ **PASS** (2026-07-16, real GUI, after applying the missing tables to the prod DB).
-  `GHOST-SIL1` took back `subjectivity://cv` → saved → reload → still there; `GHOST-WP1` (same role)
-  unaffected. The card shows the inherited grant as its real current value — `subjectivity://standpoint
-  wiki://**`, i.e. exactly the edit check 1 made on the role, so role→code inheritance is live.
-  The visitor-read half is covered by `code-corpus-narrowing` (RED→GREEN via the plugin).
-  This check is what surfaced **F-A-13**: the blocking 500 was rendered as `(role grants nothing)`.
-
+- **Result:** ⬜
 ### 3 — A denial cannot OPEN anything (the ACL's iron rule)
 - **Steps:** on a code, take back a glob the role never granted (e.g. `output://**` on a wiki-only role).
 - **Expected:** nothing changes — code may only subtract (A.4 pure-AND). A typo in the take-back list can only ever cost reads, never leak.
-- **Result:** ✅ **PASS** (2026-07-16, real GUI). `subj-verify` grants no output; took back `output://**`
-  on GHOST-SIL1 → saved → the granted list is **unchanged** (`subjectivity://standpoint`, `wiki://**`),
-  card and API agree. Naming a glob in DENY opens nothing. Read-side proof: `code-corpus-narrowing`
-  case 4.
-
+- **Result:** ⬜
 ### 4 — Citation control + its explanation ⭐
 - **Steps:** wiki entry form → the `citable` checkbox. Read the help text. Uncheck → save → chat so the agent reads that note.
 - **Expected:** the agent still grounds on it (it is READ), but the answer's REFERENCES footer omits it. The form explains this distinction in place — an unlabelled checkbox would be guessed wrong.
 - **⚠️ the bug this came from:** the form used to omit `show_as_source` entirely, so Go decoded it as `false` and **editing a note's body silently turned its citation off**. Guard: `wiki-citation-toggle`.
-- **Result:** 🟡 **PARTIAL** (2026-07-16, real GUI). The form half passes: the `citable` box is present,
-  checked by default, and **explained in place** — "关掉后 AI 仍然读得到这条、也仍然会用它来组织回答
-  —— 只是答案末尾的「引用」里不列它。这是「署名」开关，不是「保密」开关". The **chat half is not
-  driven**: nobody has watched a real visitor turn get grounded on a non-citable note and confirmed the
-  REFERENCES footer omits it. That costs a real LLM turn and is still owed.
-
+- **Result:** ⬜
 ### 5 — Editing a note doesn't move controls the owner didn't touch
 - **Steps:** open a citable note, change ONLY the body, save. Check `show_as_source` afterwards.
 - **Expected:** unchanged. (This is check 4's bug, stated as an invariant: an edit form must not zero a field it didn't show.)
-- **Result:** ✅ **PASS** (2026-07-16, real GUI). `cybernetics` (show_as_source true) → opened the real
-  edit form → appended a line to the BODY only, never touching the citation box → save → re-read:
-  body changed, `show_as_source` still true. (Test text then removed from the corpus — the audit
-  corpus mirrors the real vault and must not carry my leftovers.)
-  Driving this by hand is what surfaced **F-A-17**.
-
+- **Result:** ⬜
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The role card's corpus box shows the REAL current list (not a placeholder); the code card shows
 inherited vs taken-back distinctly (not one merged list the owner has to decode); the citation
