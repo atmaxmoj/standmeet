@@ -86,8 +86,7 @@ test.describe('多 dialog citation 各自 link 到 document 公开页', () => {
       // 互不相干、都不再 inline 展开 body。
       await expect(lucernaRow).toHaveAttribute('href', `/wiki/${LUCERNA}`);
       await expect(familyRow).toHaveAttribute('href', `/wiki/${FAMILY}`);
-      await expect(lucernaRow.locator('[data-testid="citation-body"]')).toHaveCount(0);
-      await expect(familyRow.locator('[data-testid="citation-body"]')).toHaveCount(0);
+      // （移除 citation-body 重言，rot-E3：testid 已不存在，只由 href 证明两条引用各自外链。）
 
       await ctx.close();
     });

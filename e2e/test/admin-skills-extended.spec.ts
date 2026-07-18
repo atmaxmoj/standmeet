@@ -1,10 +1,8 @@
-// admin-skills-extended.spec.ts —— skills extended: heat-bar graph, role label,
-// rebuild button.
+// admin-skills-extended.spec.ts —— /admin/skills 的 my-skills CRUD：建 → 删。
 //
-// 用户故事：
-//   1. heat-bar graph → renders 2-col grid + gradient bar
-//   2. role label → based on heat value shows correct label
-//   3. "rebuild from corpus" button → UI feedback
+// 这里曾经还测「heat-bar graph」「role label」「rebuild button」—— 那三样都是**编的/死的**已被移除
+// （rot-A1 假热度图、rot-G1 死按钮）。对应的两条用例（skill-heat-bar / skill-role-label）是把断言
+// 藏在 `if visible` 下的空转 test，永远绿、永远证明不了任何事（rot-E1/E2）—— 一并删掉，只留真的 CRUD。
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -26,28 +24,10 @@ test.describe('admin skills extended features', () => {
     await initOwner(playwright);
   });
 
-  test('builtin skills render with heat bars',
+  test('builtin skills render in the my-skills list',
     async ({ adminPage }) => {
       await openSkills(adminPage);
-      // Builtin skills should have heat-bar
-      const firstRow = adminPage.getByTestId('skill-row-code-review');
-      await expect(firstRow).toBeVisible();
-      // Check for heat bar or role label
-      const heatBar = firstRow.getByTestId('skill-heat-bar');
-      if (await heatBar.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await expect(heatBar).toBeVisible();
-      }
-    });
-
-  test('role labels render for builtin skills',
-    async ({ adminPage }) => {
-      await openSkills(adminPage);
-      // At least one skill should have a role label
-      const roleLabels = adminPage.locator('[data-testid="skill-role-label"]');
-      if (await roleLabels.count() > 0) {
-        const firstLabel = await roleLabels.first().textContent();
-        expect(firstLabel).toMatch(/core|strong|maintained|developing|dormant/i);
-      }
+      await expect(adminPage.getByTestId('skill-row-code-review')).toBeVisible();
     });
 
   test('delete custom skill → row disappears',

@@ -91,11 +91,7 @@
     "delete": "Delete"
   },
   "skills": {
-    "rebuild": "rebuild from corpus",
     "new": "+ new skill",
-    "intro": "Inferred from your corpus by tag frequency and writing recency. “Heat” measures how active a skill is in recent thinking; role buckets by maturity. The job loop uses this to score listings. Below: persona skills attached to invite codes.",
-    "heatEmpty": "no skills tracked yet — create a skill or run “rebuild from corpus”.",
-    "personaHeading": "persona skills · attached to codes",
     "personaEmpty": "No skills yet.",
     "builtin": "builtin",
     "showPrompt": "show prompt",

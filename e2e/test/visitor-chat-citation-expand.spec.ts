@@ -76,7 +76,8 @@ test.describe('citation row 可点 + inline 展开原文', () => {
       // /<genre>/<树派生 path>,新标签打开。不再 inline 展开 body。
       await expect(row).toHaveAttribute('href', `/wiki/${TARGET_PATH}`);
       await expect(row).toHaveAttribute('target', '_blank');
-      await expect(row.locator('[data-testid="citation-body"]')).toHaveCount(0);
+      // （曾经这里断言 citation-body 不存在 —— 但那个 testid 早被移除，toHaveCount(0) 是永远为真的
+      // 重言 rot-E3。「引用是外链、不内联展开」已由上面的 href/target 证明。）
 
       await ctx.close();
     });

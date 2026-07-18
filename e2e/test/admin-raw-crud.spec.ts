@@ -39,16 +39,10 @@ test.describe('admin raw CRUD operations', () => {
         .toBeVisible({ timeout: 5_000 });
     });
 
-  test('filter toggle → unprocessed vs all',
-    async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'raw');
-      // Switch to "all" filter
-      const allFilter = adminPage.getByTestId('raw-filter-all');
-      if (await allFilter.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await allFilter.click();
-        await expect(adminPage.getByTestId('raw-list')).toBeVisible();
-      }
-    });
+  // rot-E4: removed a dead "filter toggle → unprocessed vs all" test — it guarded its only assertion
+  // behind `if raw-filter-all visible`, a testid that no longer exists (raw has no unprocessed/all
+  // filter, only the view toggle). It was a no-op that could never fail while its name promised a
+  // filter that isn't there.
 
   test('promote raw → wiki modal → fill title → wiki entry created',
     async ({ adminPage }) => {

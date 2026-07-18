@@ -1,105 +1,92 @@
-// SkillsSection —— /admin/skills。design 源 admin.js SkillsSection (1949-1969)。
+// SkillsSection —— /admin/skills。**owner 的 skill registry 的唯一入口**。
 //
-//   (1) corpus-inferred skill heat graph —— design 画了，**但至今没有 corpus 统计 endpoint**，
-//       所以它现在只渲染「还没有数据」的空态。
+// 曾经是两个页面：/admin/skills（这份 CRUD 列表）+ /admin/agent-skills（MY SKILLS + MARKETPLACE）。
+// 但它们是**同一份 registry**：use-agent-skills 的 installed 直接来自 use-skills，marketplace install
+// 后端写的也是同一张表。一个概念、一份数据、两个顶层入口、两个几乎同名的侧栏标签 —— owner 得在两个
+// 地方管同一批东西，界面上却没有线索说它们是同一批。那是腐化（rot-D1），现在合并成一个 tab 页。
 //
-//       它曾经不是空的，而是**编的**：`deriveHeat(index, total) = 95 - (index/(total-1))*70`
-//       —— 所谓"热度"就是这条 skill 在列表里的下标，然后据此贴上 core / strong / maintained /
-//       developing / dormant。第一条永远 core，最后一条永远 dormant，跟 corpus 没有半点关系。
-//       一张自称 "corpus-inferred" 的图表，宣称了它根本没有测量过的事实 —— 而 owner 会拿它
-//       给 job loop 做匹配决定。没有图，owner 会去要；一张假图，owner 会信。
-//       接上真 endpoint 之前，空态是唯一诚实的形态。
+//   tab「my skills」—— 这份 registry：手写建的 + 从 marketplace 装的（SkillCard 已按 is_builtin 区分）。
+//   tab「marketplace」—— 从 GitHub anthropics/skills + SkillsMP 搜索 + 安装。install 完 → 切回 my skills。
 //
-//   (2) AI-persona skill CRUD cards（现有功能，spec 覆盖 skills.spec.ts /
-//       skill-scripts.spec.ts）—— design 没画但是真实产品功能，保留。
+// 删掉的东西：`/admin/agent-skills` 那个门（重定向到这里）+ 它那份 InstalledCard（比 SkillCard 更弱的
+// 重复渲染，其「updates available 横幅」从来没实装）；还有曾经这里那张自称 "corpus-inferred" 的 skill
+// 热力图（**是编的** —— 热度=列表下标，rot-A1 类）+ 那个没有 onClick 的 "rebuild" 死按钮（rot-G1）。
+// 真的 corpus 热度要接真 endpoint —— 见 docs/real-env-verification/items/skill-corpus-heat.md。
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { MarketplaceTab } from '@/components/admin/sections/agent-skills/MarketplaceTab';
+import { SkillsTabs, type SkillsTab } from '@/components/admin/sections/skills/SkillsTabs';
+import { useAgentSkills } from '@/lib/admin/use-agent-skills';
 import { useSkills, type SkillsHook, type SkillView, type CreateSkillInput } from '@/lib/admin/use-skills';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
+// CONNECTED_DEFAULT —— marketplace 卡「需要 X 连接器」的占位（沿用合并前 AgentSkillsSection 的值）。
+// rot-A4：这不是 owner 的真连接态，但那是另一条修（marketplace-needs-connector），这里只搬不改。
+const CONNECTED_DEFAULT: readonly string[] = ['Email', 'Calendar'];
+
 export function SkillsSection() {
-  const hook = useSkills();
+  const skills = useSkills();
+  const agent = useAgentSkills();
   const [creating, setCreating] = useState(false);
-  const t = useTranslations('adminIntegrations.skills');
-  useEffectErrorToast(hook.error);
+  const [tab, setTab] = useState<SkillsTab>('installed');
+  useEffectErrorToast(skills.error);
+  // install 完成 → 切回 my skills，owner 看着新 skill 落进列表。
+  useEffect(() => { (agent.lastInstalledAt > 0) && setTab('installed'); }, [agent.lastInstalledAt]);
   return (
     <>
       <SectionHeader
-        kicker="jobs · skill graph"
+        kicker="ai · skills"
         title="skills"
-        count={titleCount(hook)}
-        action={
-          <div className="flex gap-2">
-            <Btn kind="outline">{t('rebuild')}</Btn>
-            <Btn kind="primary" onClick={() => setCreating(true)}>{t('new')}</Btn>
-          </div>
-        }
+        count={titleCount(skills)}
+        action={<HeaderActions tab={tab} setTab={setTab} onNew={() => setCreating(true)} />}
       />
-      <Intro />
-      <CorpusHeatGraph />
-      <PersonaSkillsBlock hook={hook} />
+      <SkillsBody tab={tab} skills={skills} agent={agent} />
       {creating && (
-        <SkillCreateModal
-          onClose={() => setCreating(false)}
-          onCreate={hook.createSkill}
-        />
+        <SkillCreateModal onClose={() => setCreating(false)} onCreate={skills.createSkill} />
       )}
     </>
   );
+}
+
+function HeaderActions({
+  tab, setTab, onNew,
+}: { tab: SkillsTab; setTab: (t: SkillsTab) => void; onNew: () => void }) {
+  const t = useTranslations('adminIntegrations.skills');
+  return (
+    <div className="flex items-center gap-3">
+      <SkillsTabs tab={tab} setTab={setTab} />
+      <Btn kind="primary" onClick={onNew}>{t('new')}</Btn>
+    </div>
+  );
+}
+
+// SkillsBody —— my skills（这份 registry 的 CRUD 列表）或 marketplace（搜索 + 安装）。
+function SkillsBody({
+  tab, skills, agent,
+}: { tab: SkillsTab; skills: SkillsHook; agent: ReturnType<typeof useAgentSkills> }) {
+  return tab === 'marketplace'
+    ? <MarketplaceTab hook={agent} connected={CONNECTED_DEFAULT} />
+    : <PersonaSkillsBlock hook={skills} />;
 }
 
 function titleCount(hook: SkillsHook): string {
   return hook.status === 'ready' ? `${hook.skills.length} tracked` : '';
 }
 
-function Intro() {
-  const t = useTranslations('adminIntegrations.skills');
-  return (
-    <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      {t('intro')}
-    </p>
-  );
-}
-
-// ─── corpus heat graph (design 1949-1969) ─────────────────────
-
-// CorpusHeatGraph —— 真 corpus 统计 endpoint 到位之前，这里只能是空态（见文件头）。
-// 不接 hook：没有任何输入能诚实地喂它。
-function CorpusHeatGraph() {
-  return <HeatEmpty />;
-}
-
-function HeatEmpty() {
-  const t = useTranslations('adminIntegrations.skills');
-  return (
-    <p className="mono text-[11px] text-(--color-faint) mb-8">
-      {t('heatEmpty')}
-    </p>
-  );
-}
-
-// ─── persona skills CRUD (existing product functionality) ─────
+// ─── my skills：这份 registry 的 CRUD 列表 ─────────────────────
 
 function PersonaSkillsBlock({ hook }: { hook: SkillsHook }) {
   const loading = hook.status === 'idle' || hook.status === 'loading';
-  const t = useTranslations('adminIntegrations.skills');
-  return (
-    <div className="mt-2 pt-6 border-t border-(--color-rule)">
-      <h3 className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-ink) mb-4">
-        {t('personaHeading')}
-      </h3>
-      {loading ? <CardGridSkeleton /> : <PersonaList hook={hook} />}
-    </div>
-  );
+  return loading ? <CardGridSkeleton /> : <PersonaList hook={hook} />;
 }
 
 function PersonaList({ hook }: { hook: SkillsHook }) {

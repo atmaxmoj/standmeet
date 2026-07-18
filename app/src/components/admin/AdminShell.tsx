@@ -32,7 +32,7 @@ const KNOWN_SLUGS: readonly AdminSlug[] = [
   'raw', 'wiki', 'output', 'conversations', 'codes', 'requests', 'connectors',
   'page', 'custom-pages', 'api-mcp', 'account', 'skills', 'writings', 'drafts',
   'applications', 'dashboard', 'sources', 'listings', 'seo', 'system',
-  'preview', 'obsidian', 'agent-skills', 'roles', 'prompts', 'ip-bans',
+  'preview', 'obsidian', 'roles', 'prompts', 'ip-bans',
 ];
 
 // adminActiveSlug —— /admin/<slug>/… → slug;未知/缺省 → dashboard。no-if 走 find + ??。
