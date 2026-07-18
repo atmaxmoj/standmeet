@@ -15,6 +15,9 @@ export interface DashboardStats {
   requestsNew: number;
   conversationsCount: number;
   draftsReviewing: number;
+  // pulse —— 近 14 天每天(UTC)的 corpus 新增，来自 /stats/growth 的真 series（rot-A1：曾经画的是
+  // 硬编码的 MOCK_14D，而这条真数据早就在同一个 endpoint 里，被 schema 丢掉了）。
+  pulse: readonly number[];
 }
 
 interface State {
@@ -25,7 +28,7 @@ interface State {
 
 const EMPTY_STATS: DashboardStats = {
   rawCount: 0, rawUnprocessed: 0, codesLive: 0,
-  requestsNew: 0, conversationsCount: 0, draftsReviewing: 0,
+  requestsNew: 0, conversationsCount: 0, draftsReviewing: 0, pulse: [],
 };
 
 // Counts come from the real COUNT(*) growth endpoint, NOT a paginated list length (F-L-4):
@@ -35,6 +38,9 @@ const GrowthSchema = z.object({
     raw: z.number(), wiki: z.number(), output: z.number(),
     raw_unprocessed: z.number().optional().default(0),
   }),
+  // series —— 近 14 天每天的新增（date_trunc GROUP BY）。之前 schema 没声明它，真数据被丢，
+  // 仪表盘改画 MOCK_14D（rot-A1）。现在解析它、喂给 corpus-pulse。
+  series: z.array(z.object({ day: z.string(), count: z.number() })).optional().default([]),
 });
 const CodeRowSchema = z.object({ id: z.string(), status: z.string() });
 const RequestRowSchema = z.object({ id: z.string(), status: z.string() });
@@ -93,6 +99,7 @@ async function load(setState: (s: State) => void): Promise<void> {
           || r.status === 'pending').length,
         conversationsCount: conversations.length,
         draftsReviewing: drafts.filter((d) => d.status !== 'sent').length,
+        pulse: growth.series.map((d) => d.count),
       },
       loading: false, error: null,
     });
