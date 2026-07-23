@@ -21,8 +21,8 @@ export function Contact({ contact, onFocusChat }: Props) {
       <div className="reading text-(--color-ink) space-y-5 text-[18px]">
         <ChatLine line={contact.chat_line} onFocusChat={onFocusChat} />
         <DirectLine email={contact.email} />
-        <p className="text-(--color-muted)">{contact.recruiter_prose}</p>
-        <p className="text-(--color-muted)">{contact.casual_prose}</p>
+        <MutedProse text={contact.recruiter_prose} />
+        <MutedProse text={contact.casual_prose} />
       </div>
     </section>
   );
@@ -44,9 +44,11 @@ function ChatLine({ line, onFocusChat }: { line: string; onFocusChat: () => void
   );
 }
 
+// DirectLine —— email 没配就整行不渲："Or directly:" 空挂着 + 空 mailto 是
+// 未配置实例给 visitor 看的空壳（F-A-21 同类）。
 function DirectLine({ email }: { email: string }) {
   const t = useTranslations('page');
-  return (
+  return email === '' ? null : (
     <p>
       {t('contact.orDirectly')}{' '}
       <a
@@ -57,4 +59,9 @@ function DirectLine({ email }: { email: string }) {
       </a>
     </p>
   );
+}
+
+// MutedProse —— 同上：空段落不渲。
+function MutedProse({ text }: { text: string }) {
+  return text === '' ? null : <p className="text-(--color-muted)">{text}</p>;
 }

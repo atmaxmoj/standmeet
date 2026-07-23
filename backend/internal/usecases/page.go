@@ -157,9 +157,14 @@ func buildDefaultPage(ownerID string) domain.PageContent {
 // owner 在 /admin/page 改任意 section 后就持久化覆盖。所有内容请保持泛化
 // 中立——这段会同时出现在所有自托管实例上，不要写真实个人信息。
 
-const defaultHeroProse = "" +
-	"This is your StandMeet page. Open /admin/page to introduce yourself, " +
-	"share what you work on, and tell visitors how to reach you."
+// defaultHeroProse —— EMPTY on purpose (F-A-21). The hero prose is **visitor-facing** page content;
+// its old default ("This is your StandMeet page. Open /admin/page to introduce yourself…") spoke to
+// the OWNER, telling them to open an admin route — nonsensical/leaky to a visitor (esp. one who
+// entered with a code and can't reach /admin). An unconfigured page shows no hero prose (visitors
+// see nothing rather than owner onboarding copy); the owner's "set this up" nudge lives in the
+// /admin/page editor, not on the public surface. og:description falls back to a neutral default
+// when this is empty.
+const defaultHeroProse = ""
 
 func defaultHeroExamples() []string {
 	return []string{
@@ -180,10 +185,14 @@ func defaultProjects() []domain.PageProject {
 	return []domain.PageProject{}
 }
 
+// defaultWhere —— EMPTY on purpose (F-A-21 sweep). Like the hero prose, the where/status copy is
+// visitor-facing; the old defaults ("Edit your location in /admin/page." / "Tell visitors what
+// you're up to right now.") spoke to the OWNER. An unconfigured section shows nothing; the owner's
+// nudge lives in the /admin/page editor.
 func defaultWhere() domain.PageWhere {
 	return domain.PageWhere{
-		LocationLine: "Edit your location in /admin/page.",
-		StatusProse:  "Tell visitors what you're up to right now.",
+		LocationLine: "",
+		StatusProse:  "",
 		LookingFor:   []string{},
 		Closing:      "",
 	}

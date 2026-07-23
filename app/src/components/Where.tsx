@@ -12,13 +12,19 @@ export function Where({ where }: { where: PageWhere }) {
     <section className="mt-24">
       <DeckHeader kicker="where I am" />
       <div className="reading text-(--color-ink) text-[18px]">
-        <p>{where.location_line}</p>
-        <p className="mt-4">{where.status_prose}</p>
+        <ProseLine text={where.location_line} />
+        <ProseLine text={where.status_prose} className="mt-4" />
         <LookingForList items={where.looking_for} />
-        <p className="font-serif italic text-(--color-muted) mt-6">{where.closing}</p>
+        <ProseLine text={where.closing} className="font-serif italic text-(--color-muted) mt-6" />
       </div>
     </section>
   );
+}
+
+// ProseLine —— 空串不渲：未配置的行不能给 visitor 留空白段落（F-A-21 同类，
+// 空壳占位也算泄漏）。
+function ProseLine({ text, className }: { text: string; className?: string }) {
+  return text === '' ? null : <p className={className}>{text}</p>;
 }
 
 function LookingForList({ items }: { items: readonly string[] }) {

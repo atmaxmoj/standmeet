@@ -80,6 +80,16 @@ async function expectOwnerPageRendered(page: Page): Promise<void> {
   await expect(page.getByText('What are you working on?')).toBeVisible();
   // insights / projects 默认空——owner 不填就不显内容，spec 不再 assert
   // 真实 insight 标题或 project 名字
+  // F-A-21: the page is visitor-facing, so an UNCONFIGURED instance (this fresh claim, no page
+  // config) must not show owner-onboarding copy to a visitor. The old default hero prose told the
+  // reader to "Open /admin/page", and defaultWhere leaked "Edit your location in /admin/page." —
+  // nonsensical/leaky to a visitor (esp. a coded one who can't reach /admin). Invariant (the class,
+  // not one string): a visitor-facing surface never references /admin at all.
+  await expect(page.getByText(/\/admin/)).toHaveCount(0);
+  await expect(page.getByText('This is your StandMeet page')).toHaveCount(0);
+  // Same class, frontend side: an unconfigured contact must not render the dangling
+  // "Or directly:" label (empty mailto) — empty fields render nothing, not scaffolding.
+  await expect(page.getByText('Or directly:')).toHaveCount(0);
 }
 
 async function visitorAsksAQuestion(page: Page, question: string): Promise<void> {
