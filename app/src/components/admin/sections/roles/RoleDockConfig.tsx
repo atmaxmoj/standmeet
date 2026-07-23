@@ -7,11 +7,18 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useCapabilities, type CapabilityRow } from '@/lib/admin/use-capabilities';
 import {
-  useRoles, type DockButtonConfig, type RoleView, type WriteRoleInput,
+  roleUpdatePayload, useRoles, type DockButtonConfig, type RoleView,
 } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
 type Slot = { capability_id: string; trigger: string };
+
+// DOCK_INELIGIBLE —— dock 按钮是**访客动作**(点了把 trigger 当访客消息发出去);grounding /
+// agent-internal 能力不是访客能"做"的动作,绝不能出现在 dock 下拉里(F-A-8)。`corpus.retrieval`
+// 是 agent 的检索工具 —— 把它当按钮 = 重建 F-A-2 删掉的 CorpusSearchBox(违反"a chat, not a page,
+// 永不逐字复述语料"的 thesis)。在**下拉源头**过滤,让这个违规结构上无法被点出来(而非只是没点)。
+// 新增的 grounding 能力应加进这里。
+const DOCK_INELIGIBLE = new Set(['corpus.retrieval']);
 
 export function RoleDockConfig({ role }: { role: RoleView }) {
   const t = useTranslations('adminAccess');
@@ -27,18 +34,20 @@ export function RoleDockConfig({ role }: { role: RoleView }) {
   }, []);
   const onSave = useCallback(
     () => run(
-      () => roles.updateRole(role.id, dockPayload(role, slotsToButtons(slots))),
+      () => roles.updateRole(role.id, roleUpdatePayload(role, {
+        dock_buttons: slotsToButtons(slots),
+      })),
       { success: `Dock buttons updated for ${role.name}` },
     ),
     [role, roles, run, slots],
   );
-  const options = caps.rows.filter((r) => r.title);
+  const options = caps.rows.filter((r) => r.title && !DOCK_INELIGIBLE.has(r.id));
   return (
-    <div className="mt-2 grid grid-cols-[90px_1fr] gap-x-3 gap-y-2 items-start">
+    <div className="mt-2 grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) pt-1.5">
         {t('roleDock.label')}
       </span>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 min-w-0">
         <p className="reading-tight text-[11px] text-(--color-muted)" data-testid="role-dock-help">
           {t('roleDock.help')}
         </p>
@@ -75,7 +84,7 @@ function DockSlotRow({
       </select>
       <input
         type="text"
-        className="flex-1 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13px]"
+        className="flex-1 min-w-0 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13px]"
         value={slot.trigger}
         onChange={(e) => onSlot(idx, { trigger: e.target.value })}
         placeholder={t('roleDock.triggerPlaceholder')}
@@ -118,16 +127,3 @@ function slotsToButtons(slots: readonly Slot[]): DockButtonConfig[] {
     .map((s) => ({ capability_id: s.capability_id, trigger: s.trigger }));
 }
 
-// dockPayload —— 从 RoleView + 新 dock_buttons 组全量 PUT 载荷（只有 dock 变，其余原样回写）。
-function dockPayload(role: RoleView, buttons: DockButtonConfig[]): WriteRoleInput {
-  return {
-    name: role.name,
-    description: role.description,
-    greeting: role.greeting,
-    prompt_id: role.prompt_id ?? null,
-    corpus_uris: role.corpus_uris,
-    skill_ids: role.skill_ids,
-    mcp_server_ids: role.mcp_server_ids,
-    dock_buttons: buttons,
-  };
-}

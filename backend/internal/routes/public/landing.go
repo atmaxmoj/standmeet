@@ -24,7 +24,11 @@ import (
 func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := chi.URLParam(r, "*")
-		view, err := loadWikiLandingView(r.Context(), h.Deps, slug)
+		// F-L-11 bearer-aware reader: a valid code bearer reads in-scope gated entries; anonymous
+		// (no/dead token) → published-only (SEO). Same scope predicate the wiki-tree/context use.
+		token, _ := bearerToken(r)
+		scope := usecases.WikiTreeScopeFor(r.Context(), h.Sessions, token)
+		view, err := loadWikiLandingView(r.Context(), h.Deps, slug, scope)
 		if err != nil {
 			handleLandingErr(h.Log, w, err)
 			return
@@ -53,9 +57,9 @@ type wikiLandingView struct {
 }
 
 func loadWikiLandingView(
-	ctx context.Context, deps usecases.SEODeps, slug string,
+	ctx context.Context, deps usecases.SEODeps, slug string, scope usecases.WikiTreeScope,
 ) (wikiLandingView, error) {
-	res, err := usecases.GetWikiLanding(ctx, deps, slug)
+	res, err := usecases.GetWikiLanding(ctx, deps, slug, scope)
 	if err != nil {
 		return wikiLandingView{}, err
 	}

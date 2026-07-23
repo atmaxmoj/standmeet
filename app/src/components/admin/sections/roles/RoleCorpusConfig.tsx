@@ -17,7 +17,7 @@ import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { CorpusScopePicker } from '@/components/admin/sections/corpus/CorpusScopePicker';
-import { useRoles, type RoleView, type WriteRoleInput } from '@/lib/admin/use-roles';
+import { roleUpdatePayload, useRoles, type RoleView } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
 export function RoleCorpusConfig({ role }: { role: RoleView }) {
@@ -27,13 +27,13 @@ export function RoleCorpusConfig({ role }: { role: RoleView }) {
   const [text, setText] = useState(() => role.corpus_uris.join('\n'));
   const onSave = useCallback(
     () => run(
-      () => roles.updateRole(role.id, corpusPayload(role, parseURIs(text))),
+      () => roles.updateRole(role.id, roleUpdatePayload(role, { corpus_uris: parseURIs(text) })),
       { success: `Corpus URIs updated for ${role.name}` },
     ),
     [role, roles, run, text],
   );
   return (
-    <div className="mt-2 grid grid-cols-[90px_1fr] gap-x-3 gap-y-2 items-start">
+    <div className="mt-2 grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) pt-1.5">
         {t('common.corpus')}
       </span>
@@ -73,20 +73,6 @@ export function RoleCorpusConfig({ role }: { role: RoleView }) {
 // parseURIs —— textarea → 正列表（一行一条，trim，丢空行）。同 RoleCreateModal 的解析。
 function parseURIs(text: string): string[] {
   return text.split('\n').map((s) => s.trim()).filter((s) => s !== '');
-}
-
-// corpusPayload —— 从 RoleView + 新 corpus_uris 组全量 PUT 载荷（只有 corpus 变，其余原样回写）。
-function corpusPayload(role: RoleView, uris: string[]): WriteRoleInput {
-  return {
-    name: role.name,
-    description: role.description,
-    greeting: role.greeting,
-    prompt_id: role.prompt_id ?? null,
-    corpus_uris: uris,
-    skill_ids: role.skill_ids,
-    mcp_server_ids: role.mcp_server_ids,
-    dock_buttons: role.dock_buttons,
-  };
 }
 
 function CorpusSaveBtn({ role, onSave }: { role: RoleView; onSave: () => void }) {

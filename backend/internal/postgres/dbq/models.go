@@ -9,21 +9,22 @@ import (
 )
 
 type AccessCode struct {
-	ID                 pgtype.UUID
-	OwnerID            pgtype.UUID
-	Code               string
-	Label              string
-	Purpose            string
-	Ghosts             []byte
-	ExpiresAt          pgtype.Timestamptz
-	Status             string
-	MaxTurnsPerSession *int32
-	MaxMembers         *int32
-	MaxBookings        *int32
-	CreatedAt          pgtype.Timestamptz
-	AssumedRoleID      pgtype.UUID
-	PromptID           pgtype.UUID
-	InlinePrompt       string
+	ID                   pgtype.UUID
+	OwnerID              pgtype.UUID
+	Code                 string
+	Label                string
+	Purpose              string
+	Ghosts               []byte
+	ExpiresAt            pgtype.Timestamptz
+	Status               string
+	MaxTurnsPerSession   *int32
+	MaxMembers           *int32
+	MaxBookings          *int32
+	RequireGhostEvidence *bool
+	CreatedAt            pgtype.Timestamptz
+	AssumedRoleID        pgtype.UUID
+	PromptID             pgtype.UUID
+	InlinePrompt         string
 }
 
 type AccessRequest struct {
@@ -485,6 +486,7 @@ type Role struct {
 	IsBuiltin            bool
 	NotifyOwnerOnBooking bool
 	DockButtons          []byte
+	RequireGhostEvidence bool
 	CreatedAt            pgtype.Timestamptz
 	UpdatedAt            pgtype.Timestamptz
 }

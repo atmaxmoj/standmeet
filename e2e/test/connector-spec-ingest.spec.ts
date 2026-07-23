@@ -3,7 +3,7 @@
 // 故事：owner 在 /admin/connectors 点 "add" → 贴 / 上传一份 OpenAPI spec →
 // 后端解析 → 显示一条「connector candidate」（品类 + 派生表单入口）。这是
 // spec-driven 装配的第一步：把任意作者搓的 spec 喂进来。摄入是错误/边界面
-// 最大的区——畸形 JSON、非 3.0 版本（2.0/3.1）、缺 servers/operations、URL
+// 最大的区——畸形 JSON、非法版本（Swagger 2.0）、缺 servers/operations、URL
 // 拉取失败，都要在 UI 上给 owner 人类可读的拒绝理由，不漏栈、不静默吞。
 //
 // 对齐 docs/design/connector.md §8 区 A + 目标接口草图：
@@ -95,7 +95,7 @@ test.describe('connector · area A spec ingest · err', () => {
     await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
   });
 
-  // err —— Swagger 2.0 → 拒，错误必须明确点出版本（决策：只收 3.0）。
+  // err —— Swagger 2.0 → 拒，错误必须明确点出版本（收 3.0/3.1,拒 2.0）。
   test('non-3.0 (Swagger 2.0) → rejected + version hint', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(swagger20Spec());
@@ -107,16 +107,17 @@ test.describe('connector · area A spec ingest · err', () => {
     await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
   });
 
-  // err —— 3.1 也拒（只收 3.0，3.1 schema 模型不同，不通吃）。
-  test('non-3.0 (OpenAPI 3.1) → rejected + version hint', async ({ adminPage: page }) => {
-    await openSpecPaste(page);
-    await page.getByTestId('connector-spec-input').fill(openapi31Spec());
-    await page.getByTestId('connector-spec-submit').click();
+  // happy —— OpenAPI 3.1 也收（F-H-1）。runtime 只读的子集（paths/operations、requestBody.required、
+  // securitySchemes、servers）在 3.0 与 3.1 里结构一致，所以 3.1 vendor spec（如 cal.com v2）能装。
+  test('valid 3.1 spec pasted → parsed → shows connector candidate (F-H-1)',
+    async ({ adminPage: page }) => {
+      await openSpecPaste(page);
+      await page.getByTestId('connector-spec-input').fill(openapi31Spec());
+      await page.getByTestId('connector-spec-submit').click();
 
-    const err = page.getByTestId('connector-spec-error');
-    await expect(err).toBeVisible();
-    await expect(err).toContainText(/3\.0|version|版本/i);
-  });
+      await expect(page.getByTestId('connector-candidate')).toBeVisible();
+      await expect(page.getByTestId('connector-spec-error')).toHaveCount(0);
+    });
 
   // err —— 没有 servers → 拒（runtime 拿不到 base URL，无法调 API）。
   test('missing servers → rejected + points out missing servers', async ({ adminPage: page }) => {
@@ -305,7 +306,7 @@ function swagger20Spec(): string {
   });
 }
 
-// openapi31Spec —— OpenAPI 3.1（`openapi: "3.1.0"`）→ 只收 3.0，必拒。
+// openapi31Spec —— OpenAPI 3.1（`openapi: "3.1.0"`）→ F-H-1 起也收（有 servers+operation → candidate）。
 function openapi31Spec(): string {
   return JSON.stringify({
     openapi: '3.1.0',

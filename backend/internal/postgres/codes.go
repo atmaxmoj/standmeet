@@ -214,6 +214,31 @@ func (r *CodeRepo) UpdateQuotas(
 	return toDomainCode(&row), nil
 }
 
+// SetGhostEvidence —— F-A-10 per-code 覆盖:nil = 继承 role 的开关;非 nil = 显式覆盖。返回新行。
+func (r *CodeRepo) SetGhostEvidence(
+	ctx context.Context, ownerID, codeID string, val *bool,
+) (domain.AccessCode, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return domain.AccessCode{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	codeUUID, err := parseUUID(codeID)
+	if err != nil {
+		return domain.AccessCode{}, fmt.Errorf(errParseCodeIDPrefix, err)
+	}
+	row, qerr := dbq.New(r.pool).SetAccessCodeGhostEvidence(ctx,
+		dbq.SetAccessCodeGhostEvidenceParams{
+			ID: codeUUID, OwnerID: ownerUUID, RequireGhostEvidence: val,
+		})
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return domain.AccessCode{}, domain.ErrCodeInvalid
+		}
+		return domain.AccessCode{}, fmt.Errorf("set access code ghost evidence: %w", qerr)
+	}
+	return toDomainCode(&row), nil
+}
+
 // Get/List/decode helpers 拆到 codes_query.go 守 max-lines。
 
 func ptrToTimestamptz(t *time.Time) pgtype.Timestamptz {

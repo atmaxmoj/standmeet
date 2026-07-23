@@ -17,6 +17,17 @@ export const DockButtonConfigSchema = z.object({
 });
 export type DockButtonConfig = z.infer<typeof DockButtonConfigSchema>;
 
+// WaypointConfig —— F-A-7 一个 ghost-steering 引导目的地。owner per-role 写:id + 描述 + 权重 +
+// 是否终点(booking/contact) + 支撑它的 corpus 证据 URI(空 = 无证据;配合 F-A-10 的「需证据」开关)。
+export const WaypointConfigSchema = z.object({
+  waypoint_id: z.string(),
+  description: z.string(),
+  evidence_refs: z.array(z.string()),
+  weight: z.number(),
+  is_terminal: z.boolean(),
+});
+export type WaypointConfig = z.infer<typeof WaypointConfigSchema>;
+
 export const RoleViewSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -27,6 +38,10 @@ export const RoleViewSchema = z.object({
   skill_ids: z.array(z.string()),
   mcp_server_ids: z.array(z.string()),
   dock_buttons: z.array(DockButtonConfigSchema).optional(),
+  // waypoints —— F-A-7: ghost-steering 引导目的地(owner per-role 写)。
+  waypoints: z.array(WaypointConfigSchema).optional(),
+  // require_ghost_evidence —— F-A-10: 内容型引导 ghost 是否要求语料证据(空证据非终点 waypoint 不提)。
+  require_ghost_evidence: z.boolean().optional(),
   active_codes: z.number(),
   is_builtin: z.boolean(),
   created_at: z.string(),
@@ -43,6 +58,30 @@ export interface WriteRoleInput {
   skill_ids: string[];
   mcp_server_ids: string[];
   dock_buttons?: DockButtonConfig[];
+  waypoints?: WaypointConfig[];
+  require_ghost_evidence?: boolean;
+}
+
+// roleUpdatePayload —— 从当前 RoleView 组一份全量 PUT 载荷,再叠加 overrides。**所有** role 卡上的
+// 局部保存(prompt / corpus / dock / ghost / description …)都必须走这里:每处只表达自己改的那一个
+// 字段,其余原样回写。集中一处 → 加新字段只改这里,结构上杜绝"某个保存漏带某字段把它清零"的 bug 类
+// (F-A-10 的 dock/corpus 保存曾清零 require_ghost_evidence)。
+export function roleUpdatePayload(
+  role: RoleView, overrides: Partial<WriteRoleInput> = {},
+): WriteRoleInput {
+  return {
+    name: role.name,
+    description: role.description,
+    greeting: role.greeting,
+    prompt_id: role.prompt_id ?? null,
+    corpus_uris: role.corpus_uris,
+    skill_ids: role.skill_ids,
+    mcp_server_ids: role.mcp_server_ids,
+    dock_buttons: role.dock_buttons,
+    waypoints: role.waypoints,
+    require_ghost_evidence: role.require_ghost_evidence,
+    ...overrides,
+  };
 }
 
 export interface RolesHook {

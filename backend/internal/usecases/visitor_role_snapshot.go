@@ -39,7 +39,10 @@ func buildRoleSnapshotForCode(
 		return domain.RoleSnapshot{}, werr
 	}
 	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID,
-		&codeOverlay{denials: denials, codePromptBody: codePrompt, waypoints: wps})
+		&codeOverlay{
+			denials: denials, codePromptBody: codePrompt, waypoints: wps,
+			requireGhostEvidence: code.RequireGhostEvidence,
+		})
 }
 
 // loadCodeWaypoints —— 读一张 code 的 waypoint 覆盖层。无 Codes port(eval facade / 老路径没接)
@@ -145,7 +148,10 @@ func buildRoleSnapshotForOwnerPublic(
 type codeOverlay struct {
 	codePromptBody string
 	denials        roleDenials
-	// waypoints —— 这张 code 的 ghost-steering 覆盖层（空 = 完全继承 role 的）。
+	// requireGhostEvidence —— F-A-10 per-code 覆盖（nil = 继承 role 的开关）。
+	requireGhostEvidence *bool
+	// waypoints —— 这张 code 的 ghost-steering 覆盖层（空 = 完全继承 role 的）。放末位:slice 尾部
+	// len/cap 无指针,让 GC 少扫 16 字节（fieldalignment）。
 	waypoints []domain.Waypoint
 }
 
@@ -192,7 +198,18 @@ func buildRoleSnapshotByID(
 		// 证据引导出来。evidence_refs 全越界的 waypoint 整条丢弃。
 		Waypoints: domain.FilterWaypointsByCorpus(
 			domain.MergeWaypoints(role.Waypoints(), overlay.waypoints), role.CorpusURIs()),
+		// F-A-10: 有效开关 = code 覆盖(非 nil)否则 role 值。冻进 snapshot,ghost 选择时用。
+		RequireGhostEvidence: effectiveGhostEvidence(
+			role.RequireGhostEvidence(), overlay.requireGhostEvidence),
 	}), nil
+}
+
+// effectiveGhostEvidence —— F-A-10 的 role/code 合并:code 显式覆盖(非 nil)则用 code,否则继承 role。
+func effectiveGhostEvidence(roleVal bool, codeOverride *bool) bool {
+	if codeOverride != nil {
+		return *codeOverride
+	}
+	return roleVal
 }
 
 // loadPromptBody —— role 没挂 prompt 或挂的 prompt 不存在 → 返空串（public

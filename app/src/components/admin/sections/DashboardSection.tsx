@@ -108,7 +108,7 @@ function CorpusPulse({ stats }: { stats: DashboardStats }) {
           </div>
         </div>
         <div className="flex-1">
-          <CorpusSparkline pulse={stats.pulse} />
+          <CorpusSparkline pulse={stats.pulse} days={stats.pulseDays} />
           <div className="mono text-[9.5px] text-(--color-faint) tracking-[0.06em] mt-1 flex justify-between">
             <span>{t('daysAgo14')}</span><span>{t('today')}</span>
           </div>
@@ -120,8 +120,8 @@ function CorpusPulse({ stats }: { stats: DashboardStats }) {
 
 // CorpusSparkline —— 画**真** series（rot-A1）。空实例 → 空 pulse → 平线，正是诚实的形态；
 // 曾经这里是硬编码的 MOCK_14D，一条永远不动、跟 corpus 无关的锯齿。
-function CorpusSparkline({ pulse }: { pulse: readonly number[] }) {
-  return <Sparkline data={pulse} width={260} height={48} label="corpus pulse · 14d" />;
+function CorpusSparkline({ pulse, days }: { pulse: readonly number[]; days: readonly string[] }) {
+  return <Sparkline data={pulse} labels={days} width={260} height={48} label="corpus pulse · 14d" />;
 }
 
 function JobsHeat() {

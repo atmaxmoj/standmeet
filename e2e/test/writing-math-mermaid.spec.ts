@@ -32,8 +32,12 @@ const OWNER = {
 };
 
 // MATH_MD —— 一段含 inline math + display math + mermaid 的 body。
-// 注意 display math `$$ ... $$` 必须换行 (remark-math v6+ 单行 `$$x$$`
-// 会被当 inline 处理；要 .katex-display 必须 fenced 风格)。
+// display math 有两种真实写法,BOTH 必须渲成 `.katex-display`(F-R-3):
+//   (1) fenced/多行 `$$`（`$$` 各占一行）—— 一直能渲。
+//   (2) **单行 `$$…$$`** —— Obsidian 把它当 display,真 vault(wiki/math/analysis/lagrangian
+//       的 6 个块、含一个 blockquote 内的)全是这种写法。remark-math v6+ 却把单行 `$$x$$`
+//       当 **inline** → `.katex-display`=0 → 高公式与文字重叠。修在共享管线
+//       (`markdown-helpers.promoteDisplayMath`):渲染前把单行 `$$…$$` 提成 fenced 形式。
 const MATH_MD = [
   'A quick energy identity: $E = mc^2$ inline.',
   '',
@@ -42,6 +46,13 @@ const MATH_MD = [
   '$$',
   '\\int_0^1 x\\,dx = \\frac{1}{2}',
   '$$',
+  '',
+  // (2) 单行 display —— Obsidian/真 vault 的写法。整行一个,和 blockquote 里一个。
+  'Single-line display (the Obsidian form the real vault uses):',
+  '',
+  '$$a^2 + b^2 = c^2$$',
+  '',
+  '> $$\\nabla_x L = 0$$',
   '',
   '## Sequence',
   '',
@@ -83,6 +94,24 @@ test.describe('writings · LaTeX + mermaid render · I.2', () => {
         .toBeVisible({ timeout: 5_000 });
       await expect(body.locator('.katex-display').first(), 'display math .katex-display')
         .toBeVisible({ timeout: 5_000 });
+
+      // F-R-3: BOTH the fenced block AND the two single-line `$$…$$` (whole-line + blockquote)
+      // must render as display. On the buggy pipeline single-line `$$x$$` is parsed inline →
+      // only the fenced block yields a `.katex-display` (count 1) → RED. After promoteDisplayMath
+      // it is 3. This is the exact shape of the real note wiki/math/analysis/lagrangian.
+      await expect
+        .poll(async () => body.locator('.katex-display').count(),
+          { message: 'single-line $$…$$ must render as display (Obsidian form)', timeout: 5_000 })
+        .toBeGreaterThanOrEqual(3);
+
+      // F-R-3 (visual): the display blocks must use the STANDARD katex.min.css layout —
+      // centered — not a cramping custom override (`text-align: left; margin: 0.6em`) that made
+      // tall equations (∑ with limits / \frac) overlap the adjacent text lines. Guards against
+      // re-introducing that override.
+      const align = await body.locator('.katex-display').first()
+        .evaluate((el) => getComputedStyle(el).textAlign);
+      expect(align, 'katex-display must use the standard centered layout, no left-align override')
+        .toBe('center');
 
       // #36/#40:货币金额按字面渲(不被当公式吃掉)。两个 $ 都还在文本里。
       await expect(body, 'currency $ rendered literally')

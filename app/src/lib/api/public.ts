@@ -352,12 +352,16 @@ export async function fetchWritingContext(slug: string): Promise<TreeContext> {
 }
 
 // fetchWikiContext —— GET /api/v1/wiki-tree/context?path=... —— breadcrumb 祖先
-// 链 + sub-rail 子节点。SSR 走匿名(public scope),坏响应 → 空上下文。
-export async function fetchWikiContext(path: string): Promise<TreeContext> {
+// 链 + sub-rail 子节点。token 非空带 Bearer(走 code 的 role scope,看到自己的 gated
+// 子条目/祖先);SSR 无 token → 匿名(只 published)。坏响应 → 空上下文。F-L-13:reader
+// 客户端拿 stored session token 再 fetch 一次,把 SSR 匿名的 children 升级成访客 scope。
+export async function fetchWikiContext(path: string, token = ''): Promise<TreeContext> {
   try {
+    const headers: Record<string, string> = token === ''
+      ? {} : { Authorization: `Bearer ${token}` };
     const res = await fetch(
       `${baseURL()}/api/v1/wiki-tree/context?path=${encodeURIComponent(path)}`,
-      { cache: 'no-store' },
+      { headers, cache: 'no-store' },
     );
     if (!res.ok) return EMPTY_TREE_CONTEXT;
     const parsed = TreeContextSchema.safeParse(await res.json());

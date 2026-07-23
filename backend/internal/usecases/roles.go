@@ -50,6 +50,8 @@ type RoleWriteInput struct {
 	ValidCapabilityIDs []string
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
 	NotifyOwnerOnBooking bool
+	// RequireGhostEvidence —— F-A-10 per-role 开关。
+	RequireGhostEvidence bool
 }
 
 // CreateRole 新建 role + 同步三组 join 表。
@@ -177,6 +179,7 @@ func updateRoleRow(
 		OwnerID: in.OwnerID, RoleID: in.RoleID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,
+		RequireGhostEvidence: in.RequireGhostEvidence,
 	})
 	if err != nil {
 		return domain.Role{}, fmt.Errorf("update role: %w", err)

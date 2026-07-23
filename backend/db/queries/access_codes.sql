@@ -41,6 +41,13 @@ SET max_turns_per_session = $3, max_members = $4
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
+-- name: SetAccessCodeGhostEvidence :one
+-- F-A-10 per-code 覆盖:NULL = 继承 role 的开关;true/false = 这张码显式覆盖。
+UPDATE access_codes
+SET require_ghost_evidence = $3
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
+
 -- name: CountCodeMembers :one
 -- max_members 强制用:这张码已经有几个不同名字(member)。
 SELECT count(*) FROM code_members WHERE code_id = $1;

@@ -43,6 +43,9 @@ type Role struct {
 	hasPrompt   bool
 	// notifyOnBooking —— #130: 这个 role 下约成后给 owner 自己发通知邮件。
 	notifyOnBooking bool
+	// requireGhostEvidence —— F-A-10: 开则「内容型引导 ghost」只提有 evidence_refs 的 waypoint
+	// (空证据的非终点 waypoint 不当 steering ghost);终点/工具 waypoint 不受影响。code 可覆盖。
+	requireGhostEvidence bool
 }
 
 // RoleInit —— 构造参数。
@@ -63,25 +66,28 @@ type RoleInit struct {
 	IsBuiltin    bool
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
 	NotifyOwnerOnBooking bool
+	// RequireGhostEvidence —— F-A-10 per-role 开关。
+	RequireGhostEvidence bool
 }
 
 // NewRole —— 从 Init 构造。容器字段 defensive clone；nil → 空切片。
 func NewRole(i *RoleInit) Role {
 	r := Role{
-		id:              i.ID,
-		ownerID:         i.OwnerID,
-		name:            i.Name,
-		description:     i.Description,
-		greeting:        i.Greeting,
-		isBuiltin:       i.IsBuiltin,
-		createdAt:       i.CreatedAt,
-		updatedAt:       i.UpdatedAt,
-		corpusURIs:      cloneStrings(i.CorpusURIs),
-		skillIDs:        cloneStrings(i.SkillIDs),
-		mcpServerIDs:    cloneStrings(i.MCPServerIDs),
-		waypoints:       cloneWaypoints(i.Waypoints),
-		dockButtons:     cloneDockButtons(i.DockButtons),
-		notifyOnBooking: i.NotifyOwnerOnBooking,
+		id:                   i.ID,
+		ownerID:              i.OwnerID,
+		name:                 i.Name,
+		description:          i.Description,
+		greeting:             i.Greeting,
+		isBuiltin:            i.IsBuiltin,
+		createdAt:            i.CreatedAt,
+		updatedAt:            i.UpdatedAt,
+		corpusURIs:           cloneStrings(i.CorpusURIs),
+		skillIDs:             cloneStrings(i.SkillIDs),
+		mcpServerIDs:         cloneStrings(i.MCPServerIDs),
+		waypoints:            cloneWaypoints(i.Waypoints),
+		dockButtons:          cloneDockButtons(i.DockButtons),
+		notifyOnBooking:      i.NotifyOwnerOnBooking,
+		requireGhostEvidence: i.RequireGhostEvidence,
 	}
 	if i.PromptID != nil {
 		r.promptID = *i.PromptID
@@ -145,6 +151,10 @@ func (r *Role) IsBuiltin() bool { return r.isBuiltin }
 
 // NotifyOwnerOnBooking —— #130: 约成后是否给 owner 自己发通知邮件。
 func (r *Role) NotifyOwnerOnBooking() bool { return r.notifyOnBooking }
+
+// RequireGhostEvidence —— F-A-10: 是否要求内容型引导 ghost 有语料证据(空证据的非终点 waypoint
+// 不当 steering ghost)。per-role,session freeze 时可被 code 覆盖。
+func (r *Role) RequireGhostEvidence() bool { return r.requireGhostEvidence }
 
 // CreatedAt —— 创建时间。
 func (r *Role) CreatedAt() time.Time { return r.createdAt }

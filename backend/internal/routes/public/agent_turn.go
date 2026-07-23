@@ -78,8 +78,9 @@ func (gr *ghostRun) run(ctx context.Context, lastMsg string) *inference.GhostFra
 // candidate —— unvisited 检查(空 → silence,不调 LLM)→ GhostPolicy(owner 单模型)→ 解析。
 // 沉默/失败/无效 → nil。
 func (gr *ghostRun) candidate(ctx context.Context, lastMsg string) *usecases.GhostCandidate {
-	unvisited := usecases.UnvisitedWaypoints(
-		gr.auth.Data.RoleSnapshot.Waypoints(), gr.auth.Data.VisitedWaypoints)
+	// F-A-10: 未访问的 waypoint,并按 role/code 的「需证据」开关剔除空证据的非终点 waypoint(终点保留)。
+	unvisited := usecases.SteeringCandidates(
+		gr.auth.Data.RoleSnapshot, gr.auth.Data.VisitedWaypoints)
 	if len(unvisited) == 0 {
 		return nil
 	}

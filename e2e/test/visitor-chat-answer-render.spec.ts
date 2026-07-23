@@ -106,6 +106,14 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
       // katex (inline + display)
       await expect(answer.locator('.katex').first()).toBeVisible();
       await expect(answer.locator('.katex-display').first()).toBeVisible();
+      // F-R-3 (root cause): this IS the sanitized ChatMarkdown path. rehype-katex lays out every
+      // equation via inline `style` on its struts/vlists (heights, sub/sup offsets); if
+      // rehype-sanitize runs AFTER katex it strips all of them → struts collapse to 0 → ∑ and
+      // sub/superscripts overflow and overlap. Assert katex's inline styles SURVIVE (0 = stripped
+      // = RED). writing-math-mermaid could not catch this: WritingArticle never sanitizes.
+      const styledKatex = await answer.locator('.katex-display [style]').count();
+      expect(styledKatex, 'katex inline styles (strut/vlist layout) must survive sanitize')
+        .toBeGreaterThan(0);
       // mermaid lazy svg
       await expect(answer.getByTestId('mermaid-svg').locator('svg').first())
         .toBeVisible({ timeout: 10_000 });

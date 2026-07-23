@@ -1,5 +1,5 @@
 // ingest.go —— #155 区 A：spec 摄入校验。owner 在 admin UI 贴/传一份 OpenAPI spec，这里给出
-// 人类可读的接受/拒绝判定（再走绑定/装配）。复用 ParseSpec（同一个 3.0 parser，JSON+YAML），
+// 人类可读的接受/拒绝判定（再走绑定/装配）。复用 ParseSpec（同一个 3.0/3.1 parser，JSON+YAML），
 // 叠加摄入特有的闸：尺寸上限、servers 必填、每个 operation 要有唯一 operationId、$ref 不得外部。
 // 错误文案直接给 owner 看（不漏栈），故用普通 error 文本而非 sentinel。
 
@@ -43,13 +43,13 @@ func checkIngestSemantics(spec *Spec, raw []byte) error {
 	return checkNoExternalRefs(raw)
 }
 
-// ingestParseError —— 把 ParseSpec 的错映成摄入文案：版本不符 → 点出只收 3.0；空 paths → 点出
+// ingestParseError —— 把 ParseSpec 的错映成摄入文案：版本不符 → 点出只收 3.0/3.1；空 paths → 点出
 // 无 operation；其余 → 无法解析。
 func ingestParseError(err error) error {
 	msg := err.Error()
 	switch {
 	case strings.Contains(msg, "unsupported openapi version"), strings.Contains(msg, "only 3.0"):
-		return errors.New("only OpenAPI 3.0.x is supported (not 2.0 / 3.1)")
+		return errors.New("only OpenAPI 3.0.x / 3.1.x is supported (not Swagger 2.0)")
 	case errors.Is(err, ErrSpecNoOperations):
 		return errors.New("the spec defines no operations (paths are empty)")
 	default:

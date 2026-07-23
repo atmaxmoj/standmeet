@@ -61,6 +61,30 @@ func UnvisitedWaypoints(waypoints []domain.Waypoint, visited []string) []domain.
 	return out
 }
 
+// SteeringCandidates —— 从冻结 snapshot 取本轮可推的 steering waypoints:先去掉已访问的,再(当
+// snapshot 要求证据时)剔除空证据的非终点 waypoint。F-A-10。开关读自 snapshot(role 值,code 可覆盖),
+// 不作 flag 形参穿过边界。
+func SteeringCandidates(snap *domain.RoleSnapshot, visited []string) []domain.Waypoint {
+	unvisited := UnvisitedWaypoints(snap.Waypoints(), visited)
+	if !snap.RequireGhostEvidence() {
+		return unvisited
+	}
+	return filterSteeringByEvidence(unvisited)
+}
+
+// filterSteeringByEvidence —— 把**非终点**(steering)且 evidence_refs 为空的 waypoint 剔除 —— 让
+// prompt 规则6("no refs → not proposable")从"写着不强制"变成真强制。**终点/工具 waypoint(预约)永远
+// 保留** —— 它们靠工具而非语料完成,本就没有语料证据。
+func filterSteeringByEvidence(waypoints []domain.Waypoint) []domain.Waypoint {
+	out := make([]domain.Waypoint, 0, len(waypoints))
+	for i := range waypoints {
+		if waypoints[i].IsTerminal || len(waypoints[i].EvidenceRefs) > 0 {
+			out = append(out, waypoints[i])
+		}
+	}
+	return out
+}
+
 // BuildGhostContext —— GhostPolicy 的 user 侧上下文:未访问 waypoints(id/描述/权重/terminal)+
 // 本轮末条 assistant 回复(COHERENCE 挂点)。system 侧是 GhostPolicyPrompt。
 func BuildGhostContext(unvisited []domain.Waypoint, lastMsg string) string {

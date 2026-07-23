@@ -100,5 +100,34 @@
     "help": "Trigger phrase — the line the system sends on the visitor's behalf when this button is pressed; the AI handles it as a question from the visitor. For example “summarize the conversation so far”: pressing the button is the same as the visitor typing that line.",
     "triggerPlaceholder": "trigger phrase (e.g. summarize this conversation)",
     "save": "save dock · {name}"
+  },
+  "roleGhost": {
+    "label": "ghost rule",
+    "help": "When on, the AI may only steer visitors toward waypoints that cite corpus evidence — empty-evidence steering prompts are dropped (booking and other terminal waypoints are unaffected). Frozen into each session; an access code can override this.",
+    "save": "save ghost rule · {name}"
+  },
+  "codeGhost": {
+    "label": "ghost evidence",
+    "inherit": "inherit role",
+    "on": "require evidence",
+    "off": "allow all"
+  },
+  "roleDesc": {
+    "label": "about",
+    "help": "A short line describing this role — who the visitor is and how the AI should treat them. Shown here only (owner-facing).",
+    "placeholder": "e.g. recruiters at Series-B startups",
+    "save": "save about · {name}"
+  },
+  "roleWaypoints": {
+    "label": "waypoints",
+    "help": "Destinations the AI may gently steer visitors toward — one per goal (e.g. “book a call”, “read the cybernetics note”). Each carries a weight (higher = preferred) and, optionally, the corpus evidence that backs it. Mark booking/contact goals as terminal. Frozen into each session; empty = the AI never steers.",
+    "idPlaceholder": "id (e.g. book-a-call)",
+    "descPlaceholder": "what this destination is",
+    "weightLabel": "weight",
+    "terminalLabel": "terminal",
+    "evidencePlaceholder": "evidence URIs, comma-separated (e.g. wiki://cybernetics)",
+    "add": "+ add waypoint",
+    "remove": "remove",
+    "save": "save waypoints · {name}"
   }
 }

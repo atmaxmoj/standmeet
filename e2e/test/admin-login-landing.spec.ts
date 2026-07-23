@@ -63,4 +63,26 @@ test.describe('login landing + auth-shell UX', () => {
     const ico = await page.request.get('/favicon.ico');
     expect(ico.status()).toBe(200);
   });
+
+  // F-C-4 — the version/build badge is ONE source of truth: the admin top-bar shows the SAME
+  // version string as the login page, and it is not a hardcoded env label. RED before the fix:
+  // `/login` showed "v1.0.0" (auth.json) while the admin banner hardcoded "v0.1 · dev"
+  // (`TopBar.tsx DEFAULT_BUILD`, buildTag never threaded) — two contradicting version strings
+  // and a fake "dev" env label shown even on prod. A name-that-lies: the badge tracks nothing.
+  test('admin build badge equals the login version and is not a hardcoded env label (F-C-4)',
+    async ({ page }) => {
+      // one page (no adminPage fixture — it shares a context and would deauth `page`):
+      // read the version on /login, then sign in on the same page and read the admin badge.
+      await navigateToOwnerLogin(page);
+      const loginVersion = (await page.getByTestId('app-version').innerText()).trim();
+      await page.getByTestId('email').fill(OWNER.email);
+      await page.getByTestId('password').fill(OWNER.password);
+      await page.getByTestId('submit').click();
+      await page.waitForURL('**/admin/**', { timeout: 10_000 });
+      const buildTag = (await page.getByTestId('build-tag').innerText()).trim();
+      expect(buildTag, 'admin banner version must equal the login version (one source of truth)')
+        .toBe(loginVersion);
+      expect(buildTag, 'the badge must not be a fixed env label like "dev"')
+        .not.toMatch(/\bdev\b/i);
+    });
 });

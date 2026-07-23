@@ -21,11 +21,17 @@ import {
   useVisitorSessionStore,
   type VisitorSession,
 } from '@/lib/visitor/session-store';
+import { validateVisitorSession } from '@/lib/visitor/validate-session';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 
 export function SessionStrip() {
   // mount 一次 bind storage / custom event listener。组件卸载 → unbind。
-  useEffect(() => bindVisitorSessionSync(), []);
+  // F-L-11: 同时探一下 stored token 还活着没(TTL 过期 → 401 → 清两个 store),
+  // 免得读者页拿着死 session 显假「unlocked」chrome + 空正文。
+  useEffect(() => {
+    void validateVisitorSession();
+    return bindVisitorSessionSync();
+  }, []);
   const session = useVisitorSessionStore((s) => s.session);
   return session ? <SessionStripGate s={session} /> : null;
 }

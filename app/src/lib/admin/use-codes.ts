@@ -27,6 +27,8 @@ export const CodeViewSchema = z.object({
   max_members: z.number().nullable().optional(),
   max_turns_per_session: z.number().nullable().optional(),
   max_bookings: z.number().nullable().optional(),
+  // require_ghost_evidence —— F-A-10 per-code 覆盖:null/缺 = 继承 role;true/false = 显式覆盖。
+  require_ghost_evidence: z.boolean().nullable().optional(),
   assumed_role_id: z.string(),
   prompt_id: z.string().nullable().optional(),
 });
@@ -57,6 +59,7 @@ export interface CodesHook {
   createCode: (input: CreateCodeInput) => Promise<void>;
   revokeCode: (id: string) => Promise<void>;
   updateQuotas: (id: string, input: QuotasInput) => Promise<void>;
+  setGhostEvidence: (id: string, value: boolean | null) => Promise<void>;
 }
 
 // codesStore —— module-singleton；一次 fetch、所有 component 共享。
@@ -78,6 +81,7 @@ export function useCodes(): CodesHook {
     createCode,
     revokeCode,
     updateQuotas,
+    setGhostEvidence,
   };
 }
 
@@ -95,6 +99,15 @@ async function revokeCode(id: string): Promise<void> {
 
 async function updateQuotas(id: string, input: QuotasInput): Promise<void> {
   const updated = await adminAPI.patch(`/codes/${id}/quotas`, input, CodeViewSchema);
+  codesStore.getState().mutate((prev) =>
+    (prev ?? []).map((c) => c.id === updated.id ? updated : c));
+}
+
+// setGhostEvidence —— F-A-10 per-code 覆盖:null = 继承 role;true/false = 显式覆盖(code 优先于 role)。
+async function setGhostEvidence(id: string, value: boolean | null): Promise<void> {
+  const updated = await adminAPI.patch(
+    `/codes/${id}/ghost-evidence`, { require_ghost_evidence: value }, CodeViewSchema,
+  );
   codesStore.getState().mutate((prev) =>
     (prev ?? []).map((c) => c.id === updated.id ? updated : c));
 }

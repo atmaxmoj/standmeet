@@ -39,6 +39,9 @@ interface GhostsState {
   markShown: (text: string, id: string) => void;
   // clear —— chat.reset 时清干净，避免老 ghost 污染新对话。
   clear: () => void;
+  // clearGhost —— F-A-9:policy 沉默的 turn 收尾时只清当前那条 ghost（留着 shownIDs 让在途的
+  // /shown 日志仍能反查),避免陈旧 steering ghost 挂在输入框上。
+  clearGhost: () => void;
 }
 
 export const useGhostsStore = create<GhostsState>((set, get) => ({
@@ -62,6 +65,7 @@ export const useGhostsStore = create<GhostsState>((set, get) => ({
     set({ shownIDs: { ...cur, [text]: id } });
   },
   clear: () => set({ ghost: null, shownIDs: {} }),
+  clearGhost: () => set({ ghost: null }),
 }));
 
 // useCurrentGhost —— React-friendly hook，组件 subscribe 当前那条（只要 text）。

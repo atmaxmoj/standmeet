@@ -85,12 +85,16 @@ export interface DialogAccumulator {
   // errorMsg —— backend 出 `error` 事件(含 stream-cut 兜底)时的人话消息;
   // 非空 → dialog 收尾渲成回答段落,而不是空白。
   errorMsg: string;
+  // ghostReceived —— 这一 turn 是否收到过 `ghost_received` 帧。F-A-9:policy 沉默(没帧)的 turn
+  // 收尾时要**清掉**上一条 ghost,否则输入框会一直挂着已访问 waypoint 的陈旧 ghost。
+  ghostReceived: boolean;
 }
 
 export function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedIDs: new Set(),
     currentTool: null, toolSeq: 0, toolCalls: [], retrying: false, errorMsg: '',
+    ghostReceived: false,
   };
 }
 
@@ -149,6 +153,7 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
   if (ev.type === 'ghost_received') {
     // Ghost P4: code-accessor 答完一轮，backend policy 出**单条** steering ghost；
     // 把输入框 ghost 换成这条（非 code visitor backend 不发，这里 dead branch）。
+    accum.ghostReceived = true;
     useGhostsStore.getState().setPolicy(ev.text, ev.ghostId, ev.targetWaypoint);
   }
 }

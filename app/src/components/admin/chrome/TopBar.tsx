@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl';
 
 import { CorpusConstellation } from '@/components/admin/chrome/CorpusConstellation';
 import { Pill } from '@/components/admin/atoms/Pill';
+import { APP_VERSION } from '@/lib/app-version';
 import { signOut } from '@/lib/admin/sign-out';
 
 type Props = {
@@ -17,7 +18,8 @@ type Props = {
   buildTag?: string;
 };
 
-const DEFAULT_BUILD = 'v0.1 · dev';
+// one source of truth (F-C-4) — same version the login page shows, no fake "· dev" env label.
+const DEFAULT_BUILD = APP_VERSION;
 
 export function TopBar({ handle, email, buildTag = DEFAULT_BUILD }: Props) {
   const onSignOut = useCallback(() => void signOut(), []);
@@ -60,7 +62,7 @@ function TopBarMeta({
   const t = useTranslations('adminShell.topBar');
   return (
     <div className="flex items-baseline gap-4 shrink-0">
-      <Pill tone="muted">{buildTag}</Pill>
+      <Pill tone="muted" testId="build-tag">{buildTag}</Pill>
       <Link
         href="/"
         className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent) transition-colors"

@@ -1,6 +1,6 @@
-// spec.go —— OpenAPI 3.0 spec 的最小解析。runtime 只需三样：server base URL、operationId →
+// spec.go —— OpenAPI 3.0.x / 3.1.x spec 的最小解析。runtime 只需三样：server base URL、operationId →
 // {method,path}、securitySchemes（派生凭据表单 + 注入认证）。自己解析这个子集 = 零重型依赖、
-// 最干净。JSON 也是合法 YAML 1.2，所以 owner 贴 JSON 或 YAML spec 都走这一个 parser；只认 3.0。
+// 最干净。JSON 也是合法 YAML 1.2，所以 owner 贴 JSON 或 YAML spec 都走这一个 parser；收 3.0.x / 3.1.x。
 
 package openapi
 
@@ -87,14 +87,17 @@ type resolvedOp struct {
 	Required []string // requestBody application/json schema.required（pre-flight 校验）
 }
 
-// ParseSpec —— 解析 spec 原文（JSON 或 YAML）。非 3.0.x → 错（版本闸在此）。
+// ParseSpec —— 解析 spec 原文（JSON 或 YAML）。非 3.0.x / 3.1.x → 错（版本闸在此）。runtime 只读
+// paths/operations、requestBody.required、securitySchemes、servers —— 这几样在 3.0 与 3.1 里结构一致
+// （bodySchema 只取 `required` 名单，3.1 的 `type: [..]` 数组落在未声明字段上被忽略），所以 3.1 安全放行。
 func ParseSpec(raw []byte) (*Spec, error) {
 	var s Spec
 	if err := yaml.Unmarshal(raw, &s); err != nil {
 		return nil, fmt.Errorf("parse openapi spec: %w", err)
 	}
-	if !strings.HasPrefix(s.OpenAPI, "3.0") {
-		return nil, fmt.Errorf("unsupported openapi version %q: only 3.0 is supported", s.OpenAPI)
+	if !strings.HasPrefix(s.OpenAPI, "3.0") && !strings.HasPrefix(s.OpenAPI, "3.1") {
+		return nil, fmt.Errorf(
+			"unsupported openapi version %q: only 3.0.x / 3.1.x is supported", s.OpenAPI)
 	}
 	if len(s.Paths) == 0 {
 		return nil, ErrSpecNoOperations

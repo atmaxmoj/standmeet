@@ -27,7 +27,7 @@ import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { expandURIsToURLs } from '@/lib/writings/asset-transforms';
-import { escapeCurrencyDollars } from '@/components/page/markdown-helpers';
+import { escapeCurrencyDollars, promoteDisplayMath } from '@/components/page/markdown-helpers';
 
 interface Props {
   writing: WritingView;
@@ -167,8 +167,9 @@ function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string,
   // react-markdown 默认 urlTransform 会 strip 非标准 scheme（XSS 保护）；先
   // 替成 https URL 不踩这条规则。orphan 追踪走 body_md（source-of-truth），
   // render 是 view-only 变换。
+  // promoteDisplayMath:单行 `$$…$$`(Obsidian/真 vault 写法)提成 fenced 形式 → display(F-R-3)。
   // escapeCurrencyDollars:$100/$200 等金额按字面渲,不被 remark-math 当公式吃掉。
-  const rendered = escapeCurrencyDollars(expandURIsToURLs(bodyMD, assetURLs));
+  const rendered = escapeCurrencyDollars(promoteDisplayMath(expandURIsToURLs(bodyMD, assetURLs)));
   return (
     <article
       className={`max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink) ${markdownStyles.body}`}

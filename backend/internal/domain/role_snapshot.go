@@ -48,45 +48,53 @@ type RoleSnapshot struct {
 	// waypoints —— ghost-steering 的引导目的地（冻结）。构造前经 FilterWaypointsByCorpus
 	// 过滤：evidence_refs 全越授权 glob 的 waypoint 在冻结那刻整条丢弃（feasibility floor）。
 	waypoints []Waypoint
+	// requireGhostEvidence —— F-A-10: 冻下的「内容型引导 ghost 需有证据」开关(role 值经 code 覆盖)。
+	// ghost 选择时据此把空证据的非终点 waypoint 从 steering 候选里剔除;终点/工具 waypoint 不受影响。
+	requireGhostEvidence bool
 }
 
 // RoleSnapshotInit —— NewRoleSnapshot 入参。
 type RoleSnapshotInit struct {
-	FrozenAt           time.Time
-	RoleID             string
-	RoleName           string
-	PromptBody         string
-	CodePromptBody     string
-	CorpusURIs         []string
-	SkillPrompts       []string
-	AllowedTools       []string
-	DeniedCapabilities []string
-	DeniedCorpusURIs   []string
-	SkillIDs           []string
-	MCPServerIDs       []string
-	DockButtons        []DockButtonConfig
-	Waypoints          []Waypoint
+	FrozenAt             time.Time
+	RoleID               string
+	RoleName             string
+	PromptBody           string
+	CodePromptBody       string
+	CorpusURIs           []string
+	SkillPrompts         []string
+	AllowedTools         []string
+	DeniedCapabilities   []string
+	DeniedCorpusURIs     []string
+	SkillIDs             []string
+	MCPServerIDs         []string
+	DockButtons          []DockButtonConfig
+	Waypoints            []Waypoint
+	RequireGhostEvidence bool
 }
 
 // NewRoleSnapshot —— 从 Init 构造。slice 字段 defensive clone；空 input → 空切片。
 func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 	return RoleSnapshot{
-		frozenAt:           i.FrozenAt,
-		roleID:             i.RoleID,
-		roleName:           i.RoleName,
-		promptBody:         i.PromptBody,
-		codePromptBody:     i.CodePromptBody,
-		corpusURIs:         cloneStrings(i.CorpusURIs),
-		skillPrompts:       cloneStrings(i.SkillPrompts),
-		allowedTools:       cloneStrings(i.AllowedTools),
-		deniedCapabilities: cloneStrings(i.DeniedCapabilities),
-		deniedCorpusURIs:   cloneStrings(i.DeniedCorpusURIs),
-		skillIDs:           cloneStrings(i.SkillIDs),
-		mcpServerIDs:       cloneStrings(i.MCPServerIDs),
-		dockButtons:        cloneDockButtons(i.DockButtons),
-		waypoints:          cloneWaypoints(i.Waypoints),
+		frozenAt:             i.FrozenAt,
+		roleID:               i.RoleID,
+		roleName:             i.RoleName,
+		promptBody:           i.PromptBody,
+		codePromptBody:       i.CodePromptBody,
+		corpusURIs:           cloneStrings(i.CorpusURIs),
+		skillPrompts:         cloneStrings(i.SkillPrompts),
+		allowedTools:         cloneStrings(i.AllowedTools),
+		deniedCapabilities:   cloneStrings(i.DeniedCapabilities),
+		deniedCorpusURIs:     cloneStrings(i.DeniedCorpusURIs),
+		skillIDs:             cloneStrings(i.SkillIDs),
+		mcpServerIDs:         cloneStrings(i.MCPServerIDs),
+		dockButtons:          cloneDockButtons(i.DockButtons),
+		waypoints:            cloneWaypoints(i.Waypoints),
+		requireGhostEvidence: i.RequireGhostEvidence,
 	}
 }
+
+// RequireGhostEvidence —— F-A-10: 冻下的开关。ghost 选择据此过滤空证据的非终点 waypoint。
+func (s *RoleSnapshot) RequireGhostEvidence() bool { return s.requireGhostEvidence }
 
 // Waypoints —— 冻下的引导目的地（defensive copy，evidence_refs 也各自 clone）。
 func (s *RoleSnapshot) Waypoints() []Waypoint { return cloneWaypoints(s.waypoints) }

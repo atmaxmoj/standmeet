@@ -42,6 +42,8 @@ type roleView struct {
 	IsBuiltin   bool                      `json:"is_builtin"`
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关(owner 看/设)。
 	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking"`
+	// RequireGhostEvidence —— F-A-10 per-role 开关(owner 看/设)。
+	RequireGhostEvidence bool `json:"require_ghost_evidence"`
 }
 
 type writeRoleRequest struct {
@@ -58,6 +60,8 @@ type writeRoleRequest struct {
 	DockButtons []domain.DockButtonConfig `json:"dock_buttons"`
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
 	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking"`
+	// RequireGhostEvidence —— F-A-10 per-role 开关。
+	RequireGhostEvidence bool `json:"require_ghost_evidence"`
 }
 
 // MountRoles 挂 /roles 子路由。
@@ -126,6 +130,7 @@ func toRoleView(rl *domain.Role, activeCodes int64) roleView {
 		DockButtons:          rl.DockButtons(),
 		IsBuiltin:            rl.IsBuiltin(),
 		NotifyOwnerOnBooking: rl.NotifyOwnerOnBooking(),
+		RequireGhostEvidence: rl.RequireGhostEvidence(),
 		ActiveCodes:          activeCodes,
 		CreatedAt:            rl.CreatedAt().UTC().Format(time.RFC3339),
 		UpdatedAt:            rl.UpdatedAt().UTC().Format(time.RFC3339),
@@ -151,6 +156,7 @@ func (h *Handlers) createRole() http.HandlerFunc {
 			Waypoints:   req.Waypoints,
 			DockButtons: req.DockButtons, ValidCapabilityIDs: h.dockCapIDs(),
 			NotifyOwnerOnBooking: req.NotifyOwnerOnBooking,
+			RequireGhostEvidence: req.RequireGhostEvidence,
 		})
 		if err != nil {
 			handleWriteRoleErr(h.Log, w, err, "create")
@@ -207,6 +213,7 @@ func (h *Handlers) updateRole() http.HandlerFunc {
 			Waypoints:   req.Waypoints,
 			DockButtons: req.DockButtons, ValidCapabilityIDs: h.dockCapIDs(),
 			NotifyOwnerOnBooking: req.NotifyOwnerOnBooking,
+			RequireGhostEvidence: req.RequireGhostEvidence,
 		})
 		if err != nil {
 			handleWriteRoleErr(h.Log, w, err, "update")

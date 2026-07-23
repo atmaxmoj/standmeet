@@ -232,6 +232,10 @@ CREATE TABLE access_codes (
     -- calendar.book skill 时也无意义；解锁了的话正整数 = 总配额，跨 visitor /
     -- session 累计 (从 code_bookings count)。耗尽后 tool 报 quota_exhausted。
     max_bookings              integer,
+    -- require_ghost_evidence —— F-A-10 的 **per-code 覆盖**(nullable):NULL = 继承 role 的开关;
+    -- true/false = 这张码显式覆盖。合并在 session 装配层(code 非 NULL 则用 code,否则用 role),
+    -- 冻进 RoleSnapshot。语义同 role 列:开 → 空证据的非终点 waypoint 不当 steering ghost。
+    require_ghost_evidence     boolean,
     created_at                timestamptz   NOT NULL DEFAULT now()
 );
 
@@ -346,6 +350,10 @@ CREATE TABLE roles (
     -- dock_buttons —— #109/#110 这个 role 的 ≤2 个 chat dock 按钮：[{capability_id, trigger}]。
     -- 访客点按钮 = 发触发词（快捷方式）。冻进 RoleSnapshot；title 解析 + code-deny 过滤在会话装配层。
     dock_buttons jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    -- require_ghost_evidence —— F-A-10: 开则「内容型引导 ghost」只提有 evidence_refs 的 waypoint;
+    -- 空证据的**非终点** waypoint 不当 steering ghost 提出(prompt 规则6从"写着不强制"变成真强制)。
+    -- **终点/工具 waypoint(预约)不受影响,永远可提**(它们本就没语料证据)。per-role,code 可覆盖。
+    require_ghost_evidence boolean NOT NULL DEFAULT false,
     created_at   timestamptz   NOT NULL DEFAULT now(),
     updated_at   timestamptz   NOT NULL DEFAULT now()
 );

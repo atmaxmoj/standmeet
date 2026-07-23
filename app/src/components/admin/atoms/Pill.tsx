@@ -11,11 +11,13 @@ const TONE_CLS = {
 type Props = {
   children: ReactNode;
   tone?: keyof typeof TONE_CLS;
+  testId?: string;
 };
 
-export function Pill({ children, tone = 'neutral' }: Props) {
+export function Pill({ children, tone = 'neutral', testId }: Props) {
   return (
     <span
+      data-testid={testId}
       className={
         `inline-flex items-center gap-1.5 px-2.5 py-0.5 border rounded-full ` +
         `mono text-[10px] tracking-[0.12em] uppercase ${TONE_CLS[tone]}`

@@ -18,6 +18,9 @@ export interface DashboardStats {
   // pulse —— 近 14 天每天(UTC)的 corpus 新增，来自 /stats/growth 的真 series（rot-A1：曾经画的是
   // 硬编码的 MOCK_14D，而这条真数据早就在同一个 endpoint 里，被 schema 丢掉了）。
   pulse: readonly number[];
+  // pulseDays —— 与 pulse 对齐的日期(每点的 x 标签)，让 sparkline 的 hover tooltip 显示
+  // 「日期 · 值」，owner 读得出具体哪天多少条（F-C-5：一条读不出数字的图等于只有形状）。
+  pulseDays: readonly string[];
 }
 
 interface State {
@@ -28,7 +31,7 @@ interface State {
 
 const EMPTY_STATS: DashboardStats = {
   rawCount: 0, rawUnprocessed: 0, codesLive: 0,
-  requestsNew: 0, conversationsCount: 0, draftsReviewing: 0, pulse: [],
+  requestsNew: 0, conversationsCount: 0, draftsReviewing: 0, pulse: [], pulseDays: [],
 };
 
 // Counts come from the real COUNT(*) growth endpoint, NOT a paginated list length (F-L-4):
@@ -72,9 +75,11 @@ export function allActionItems(stats: DashboardStats): ActionItem[] {
     { key: 'requests', count: stats.requestsNew,
       label: `${stats.requestsNew} access ${pluralize(stats.requestsNew, 'request', 'requests')}`,
       sub: 'visitors waiting on a code', href: '/admin/requests' },
+    // F-C-6: 原文案 "promote, edit, or archive" 撒谎 —— raw 没有 archive 功能;且把 raw 框成
+    // 待办队列。raw 是发酵池:放着不动是合法状态,文案要说出来。
     { key: 'raw', count: stats.rawUnprocessed,
       label: `${stats.rawUnprocessed} raw ${pluralize(stats.rawUnprocessed, 'entry', 'entries')} unprocessed`,
-      sub: 'promote, edit, or archive', href: '/admin/raw' },
+      sub: 'promote, edit, or let them ferment', href: '/admin/raw' },
     { key: 'drafts', count: stats.draftsReviewing ?? 0,
       label: 'resume drafts pending',
       sub: 'AI generated · awaiting your review', href: '/admin/drafts' },
@@ -100,6 +105,7 @@ async function load(setState: (s: State) => void): Promise<void> {
         conversationsCount: conversations.length,
         draftsReviewing: drafts.filter((d) => d.status !== 'sent').length,
         pulse: growth.series.map((d) => d.count),
+        pulseDays: growth.series.map((d) => d.day),
       },
       loading: false, error: null,
     });

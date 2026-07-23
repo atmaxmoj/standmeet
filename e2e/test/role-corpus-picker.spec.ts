@@ -41,7 +41,45 @@ test.describe('ACL · the corpus grant is picked from the real tree', () => {
   test('the picker offers every ACL genre — including subjectivity', offersGenres);
   test('ticking a genre writes its glob, and saving it sticks', tickGenreAndSave);
   test('a glob the tree cannot express is kept, not silently dropped', keepsForeignGlobs);
+  test('the dock-button picker never offers corpus.retrieval (F-A-8 thesis)',
+    dockPickerExcludesRetrieval);
+  test('the dock trigger input does not overflow its card (F-A-16 layout)',
+    dockTriggerFitsCard);
 });
+
+// dockTriggerFitsCard —— F-A-16: the dock config's trigger `<input>` is a flex-1 child with a long
+// placeholder; without `min-w-0` a flex item can't shrink below its content, so the input ran off
+// the right edge of the role card (owner-flagged live: "溢出了"). Assert its right edge stays inside
+// the card. RED before the fix: the input overflows by tens of px.
+async function dockTriggerFitsCard({ adminPage }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(adminPage, 'roles');
+  const input = adminPage.getByTestId('role-dock-trigger-0').first();
+  await expect(input).toBeVisible({ timeout: 10_000 });
+  const overflow = await input.evaluate((el) => {
+    const card = el.closest('article') ?? el.parentElement;
+    if (!card) return 999;
+    return Math.round(el.getBoundingClientRect().right - card.getBoundingClientRect().right);
+  });
+  expect(overflow, 'the dock trigger input must stay within its role card (min-w-0)')
+    .toBeLessThanOrEqual(1);
+}
+
+// dockPickerExcludesRetrieval —— F-A-8: a dock button is a visitor ACTION (its trigger is sent as a
+// visitor message); `corpus.retrieval` is the AGENT's grounding tool, not something a visitor "does".
+// Offering it re-creates exactly the `CorpusSearchBox` F-A-2 deleted (a "search the corpus" visitor
+// control violates the thesis — a chat, not a page). The dock cap dropdown must NOT list it, so the
+// violation is unbuildable, not merely un-built. RED before the fix: the `<select>` carried
+// `<option value="corpus.retrieval">Search the corpus</option>`.
+async function dockPickerExcludesRetrieval({ adminPage }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(adminPage, 'roles');
+  const select = adminPage.getByTestId('role-dock-cap-0').first();
+  await expect(select).toBeVisible({ timeout: 10_000 });
+  // wait for capabilities to populate the dropdown (a real visitor-action cap shows up)…
+  await expect(select.locator('option[value="summarize_conversation"]'))
+    .toHaveCount(1, { timeout: 10_000 });
+  // …then the grounding tool must be absent — never offerable as a visitor dock button.
+  await expect(select.locator('option[value="corpus.retrieval"]')).toHaveCount(0);
+}
 
 async function openRoles(page: Page) {
   await gotoAdminSection(page, 'roles');

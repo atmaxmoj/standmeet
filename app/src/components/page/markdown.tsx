@@ -19,7 +19,7 @@ import remarkMath from 'remark-math';
 
 import { remarkCallouts } from '@/components/page/markdown-callouts';
 import {
-  escapeCurrencyDollars, mermaidSource,
+  escapeCurrencyDollars, mermaidSource, promoteDisplayMath,
 } from '@/components/page/markdown-helpers';
 import styles from '@/components/page/ChatMarkdown.module.css';
 
@@ -114,10 +114,17 @@ export function ChatMarkdown(
     <div className={cls}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath, remarkCallouts]}
-        rehypePlugins={[rehypeKatex, [rehypeSanitize, SAFE_SCHEMA]]}
+        // ORDER MATTERS (F-R-3): sanitize FIRST, then katex. rehype-katex emits dozens of spans
+        // whose LAYOUT lives in inline `style` (strut heights, vlist offsets, sub/sup positions).
+        // rehype-sanitize strips `style` — so if it runs AFTER katex it guts every equation
+        // (struts collapse to 0 → ∑/sub/sup overflow and overlap). Sanitizing the USER content
+        // first, then letting the TRUSTED katex render into it, keeps katex's styles intact while
+        // still stripping any <script> the LLM/skill output carried. This is katex's own
+        // recommended sanitize order — do not swap it back.
+        rehypePlugins={[[rehypeSanitize, SAFE_SCHEMA], rehypeKatex]}
         components={{ code: MarkdownCode }}
       >
-        {escapeCurrencyDollars(source)}
+        {escapeCurrencyDollars(promoteDisplayMath(source))}
       </ReactMarkdown>
     </div>
   );

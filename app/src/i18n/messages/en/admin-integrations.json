@@ -27,7 +27,7 @@
     "heading": "connect your mcp client",
     "badge": "Sigv1 · /mcp",
     "intro": "Point your AI client at your instance’s MCP endpoint. Auth is the Ed25519 keypair you generate above (Sigv1). The endpoint aggregates your owner tools over MCP-over-HTTP.",
-    "note": "A pre-packaged stdio client wrapper for Claude Desktop / Cursor isn’t released yet — the endpoint speaks MCP-over-HTTP with Sigv1 today.",
+    "note": "Claude Desktop / Cursor connect through the stdio client in the config above (npx @standmeet/mcp-client), which speaks MCP-over-HTTP with Sigv1 to this endpoint under the hood.",
     "endpointLabel": "mcp endpoint"
   },
   "mcpServers": {

@@ -11,10 +11,15 @@ import { useCallback, useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { RoleCreateModal } from '@/components/admin/sections/roles/RoleCreateModal';
 import { RoleCorpusConfig } from '@/components/admin/sections/roles/RoleCorpusConfig';
+import { RoleDescriptionConfig } from '@/components/admin/sections/roles/RoleDescriptionConfig';
 import { RoleDockConfig } from '@/components/admin/sections/roles/RoleDockConfig';
+import { RoleGhostConfig } from '@/components/admin/sections/roles/RoleGhostConfig';
+import { RoleWaypointsConfig } from '@/components/admin/sections/roles/RoleWaypointsConfig';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
-import { useRoles, type RolesHook, type RoleView, type WriteRoleInput } from '@/lib/admin/use-roles';
+import {
+  roleUpdatePayload, useRoles, type RolesHook, type RoleView, type WriteRoleInput,
+} from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast } from '@/lib/ui/toast';
@@ -127,13 +132,13 @@ function RoleCard({
   return (
     <article className="border border-(--color-rule) p-5 flex flex-col gap-2">
       <RoleCardHead role={role} onDelete={onDelete} />
-      {role.description && (
-        <p className="reading-tight text-[13.5px] text-(--color-muted)">{role.description}</p>
-      )}
+      <RoleDescriptionConfig role={role} />
       <RoleMetaGrid role={role} />
       <RolePromptRow role={role} />
       <RoleCorpusConfig role={role} />
       <RoleDockConfig role={role} />
+      <RoleWaypointsConfig role={role} />
+      <RoleGhostConfig role={role} />
     </article>
   );
 }
@@ -148,13 +153,15 @@ function RolePromptRow({ role }: { role: RoleView }) {
   const run = useAction();
   const onPick = useCallback(
     (promptID: string) => run(
-      () => roles.updateRole(role.id, roleWriteInput(role, promptID)),
+      () => roles.updateRole(role.id, roleUpdatePayload(role, {
+        prompt_id: promptID === '' ? null : promptID,
+      })),
       { success: `Prompt updated for ${role.name}` },
     ),
     [role, roles, run],
   );
   return (
-    <label className="grid grid-cols-[90px_1fr] gap-x-3 items-baseline mt-1.5">
+    <label className="grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 items-baseline mt-1.5">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint)">
         {t('common.prompt')}
       </span>
@@ -184,19 +191,6 @@ function RolePromptSelect({
       ))}
     </select>
   );
-}
-
-// roleWriteInput —— 从当前 RoleView + 新 prompt_id 组全量 PUT 载荷（只有 prompt 变，其余原样回写）。
-function roleWriteInput(role: RoleView, promptID: string): WriteRoleInput {
-  return {
-    name: role.name,
-    description: role.description,
-    greeting: role.greeting,
-    prompt_id: promptID === '' ? null : promptID,
-    corpus_uris: role.corpus_uris,
-    skill_ids: role.skill_ids,
-    mcp_server_ids: role.mcp_server_ids,
-  };
 }
 
 function RoleCardHead({
@@ -251,7 +245,7 @@ function RoleMetaGrid({ role }: { role: RoleView }) {
     ['codes', `${role.active_codes} active`, role.active_codes > 0],
   ];
   return (
-    <div className="grid grid-cols-[90px_1fr] gap-x-3 gap-y-1.5 mt-3 pt-2.5 border-t border-(--color-rule)/60 items-baseline">
+    <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-1.5 mt-3 pt-2.5 border-t border-(--color-rule)/60 items-baseline">
       {cells.map(([label, value, highlight]) => (
         <RoleMetaCell key={label} label={label} value={value} highlight={highlight} />
       ))}

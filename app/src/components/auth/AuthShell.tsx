@@ -10,6 +10,7 @@
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
+import { APP_VERSION } from '@/lib/app-version';
 import { useInstanceHash } from '@/lib/auth/use-instance-hash';
 
 // showOffers —— the "what you get" pitch belongs on /setup (owner deciding to
@@ -56,7 +57,7 @@ function DeployStrip() {
         <span className="text-(--color-muted)">{t('selfHosted')}</span>
         <span className="ml-3 inline-flex items-center gap-1.5">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-accent) live-dot" />
-          <span className="text-(--color-faint) text-[10px]">{t('version')}</span>
+          <span data-testid="app-version" className="text-(--color-faint) text-[10px]">{APP_VERSION}</span>
         </span>
       </div>
       <div className="hidden md:flex items-baseline gap-4 text-(--color-faint)">

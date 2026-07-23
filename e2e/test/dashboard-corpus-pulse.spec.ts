@@ -63,6 +63,31 @@ async function pulseFollowsSeries({ adminPage: page }: { adminPage: Page }): Pro
     isNonIncreasing(ys),
     `a rising series must render as a falling line (higher count → lower y); got y=[${ys.map((y) => y.toFixed(0)).join(',')}] — a zigzag means the fixed MOCK_14D is still being drawn`,
   ).toBe(true);
+
+  // F-C-5 (rework): the pulse must be LEGIBLE, not just shaped — a REAL axis + a REAL hover
+  // tooltip. v1 used native SVG <title> on 1.6px markers (≈1s delay, stretched hit target, no
+  // visual) and the owner rejected it live twice ("没有轴，没有hover tooltip"). Now:
+  //   axis — y reference labels (max / mid / 0) render beside the gridlines;
+  //   tooltip — hovering ANYWHERE on the chart snaps to the nearest day and shows "<date> · <count>"
+  //   in an HTML tip box (plus a crosshair + highlight ring in the SVG).
+  // RED before the rework: no `sparkline-axis` node, and hovering produced no `sparkline-tooltip`.
+  // scope to the corpus-pulse box specifically — the dashboard hosts >1 sparkline (pulse + ingest),
+  // so a bare getByTestId('sparkline-box') would strict-mode-fail once both render.
+  const box = page.getByTestId('sparkline-box').filter({ has: pulse });
+  const axis = box.getByTestId('sparkline-axis');
+  await expect(axis, 'a real y-axis: the max reference value is visible').toContainText(String(RAMP.length));
+  await expect(axis, 'a real y-axis: the zero baseline is labeled').toContainText('0');
+  // hover the right edge → snaps to the LAST day; the tip must carry date · count.
+  const bb = await box.boundingBox();
+  const last = RAMP[RAMP.length - 1]!;
+  await page.mouse.move(bb!.x + bb!.width - 2, bb!.y + bb!.height / 2);
+  const tip = box.getByTestId('sparkline-tooltip');
+  await expect(tip, 'hovering shows a real tooltip with the day').toContainText(last.day);
+  await expect(tip, 'the tooltip carries the concrete count').toContainText(String(last.count));
+  await expect(box.getByTestId('sparkline-hover-mark'), 'the hovered point is highlighted').toBeVisible();
+  // leaving clears it — a lingering tooltip is its own small lie.
+  await page.mouse.move(bb!.x + bb!.width / 2, bb!.y - 40);
+  await expect(tip).toBeHidden();
 }
 
 // pulseYs —— 读 polyline 的 points，抽出 y 坐标序列。

@@ -82,6 +82,7 @@
   },
   "wikiTreeView": {
     "head": "wiki tree",
-    "stats": "<num>{entries}</num> entries · <num>{roots}</num> roots · <num>{gated}</num> gated"
+    "stats": "<num>{entries}</num> entries · <num>{roots}</num> roots · <num>{gated}</num> gated",
+    "gatedHint": "these entries are private — enter a code"
   }
 }

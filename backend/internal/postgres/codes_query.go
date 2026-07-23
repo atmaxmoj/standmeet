@@ -66,20 +66,21 @@ func (r *CodeRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.Ac
 
 func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 	out := domain.AccessCode{
-		ID:                 formatUUID(c.ID),
-		OwnerID:            formatUUID(c.OwnerID),
-		Code:               c.Code,
-		Label:              c.Label,
-		Purpose:            c.Purpose,
-		Status:             c.Status,
-		CreatedAt:          c.CreatedAt.Time,
-		MaxMembers:         c.MaxMembers,
-		MaxTurnsPerSession: c.MaxTurnsPerSession,
-		MaxBookings:        c.MaxBookings,
-		Ghosts:             DecodeStringJSON(c.Ghosts),
-		AssumedRoleID:      formatUUID(c.AssumedRoleID),
-		PromptID:           optUUIDStr(c.PromptID),
-		InlinePrompt:       c.InlinePrompt,
+		ID:                   formatUUID(c.ID),
+		OwnerID:              formatUUID(c.OwnerID),
+		Code:                 c.Code,
+		Label:                c.Label,
+		Purpose:              c.Purpose,
+		Status:               c.Status,
+		CreatedAt:            c.CreatedAt.Time,
+		MaxMembers:           c.MaxMembers,
+		MaxTurnsPerSession:   c.MaxTurnsPerSession,
+		MaxBookings:          c.MaxBookings,
+		RequireGhostEvidence: c.RequireGhostEvidence,
+		Ghosts:               DecodeStringJSON(c.Ghosts),
+		AssumedRoleID:        formatUUID(c.AssumedRoleID),
+		PromptID:             optUUIDStr(c.PromptID),
+		InlinePrompt:         c.InlinePrompt,
 	}
 	if c.ExpiresAt.Valid {
 		t := c.ExpiresAt.Time

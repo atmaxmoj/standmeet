@@ -49,18 +49,20 @@ type updateQuotasRequest struct {
 }
 
 type codeView struct {
-	CreatedAt          string   `json:"created_at"`
-	ExpiresAt          *string  `json:"expires_at,omitempty"`
-	MaxMembers         *int32   `json:"max_members,omitempty"`
-	MaxTurnsPerSession *int32   `json:"max_turns_per_session,omitempty"`
-	MaxBookings        *int32   `json:"max_bookings"`
-	PromptID           *string  `json:"prompt_id,omitempty"`
-	ID                 string   `json:"id"`
-	Code               string   `json:"code"`
-	Label              string   `json:"label"`
-	Status             string   `json:"status"`
-	AssumedRoleID      string   `json:"assumed_role_id"`
-	Ghosts             []string `json:"ghosts"`
+	CreatedAt          string  `json:"created_at"`
+	ExpiresAt          *string `json:"expires_at,omitempty"`
+	MaxMembers         *int32  `json:"max_members,omitempty"`
+	MaxTurnsPerSession *int32  `json:"max_turns_per_session,omitempty"`
+	MaxBookings        *int32  `json:"max_bookings"`
+	// RequireGhostEvidence —— F-A-10 per-code 覆盖(null = 继承 role)。owner 看/设。
+	RequireGhostEvidence *bool    `json:"require_ghost_evidence"`
+	PromptID             *string  `json:"prompt_id,omitempty"`
+	ID                   string   `json:"id"`
+	Code                 string   `json:"code"`
+	Label                string   `json:"label"`
+	Status               string   `json:"status"`
+	AssumedRoleID        string   `json:"assumed_role_id"`
+	Ghosts               []string `json:"ghosts"`
 }
 
 // MountCodes 挂 /codes 子路由。
@@ -69,6 +71,7 @@ func (h *Handlers) MountCodes(r chi.Router) {
 	r.Post("/", h.createCode())
 	r.Post("/{id}/revoke", h.revokeCode())
 	r.Patch("/{id}/quotas", h.updateCodeQuotas())
+	r.Patch("/{id}/ghost-evidence", h.setCodeGhostEvidence())
 	r.Get("/{id}/members", h.listCodeMembers())
 	// ACL code 层 deny（capability-acl-hierarchy.md）。kind 作路径参数，合并了原
 	// capability-denials / skill-denials 两套平行 URL。
@@ -112,18 +115,19 @@ func writeCodesList(
 
 func toCodeView(c *domain.AccessCode) codeView {
 	return codeView{
-		ID:                 c.ID,
-		Code:               c.Code,
-		Label:              c.Label,
-		Status:             c.Status,
-		Ghosts:             c.Ghosts,
-		CreatedAt:          c.CreatedAt.Format(time.RFC3339),
-		ExpiresAt:          rfc3339OrNil(c.ExpiresAt),
-		MaxMembers:         c.MaxMembers,
-		MaxTurnsPerSession: c.MaxTurnsPerSession,
-		MaxBookings:        c.MaxBookings,
-		AssumedRoleID:      c.AssumedRoleID,
-		PromptID:           c.PromptID,
+		ID:                   c.ID,
+		Code:                 c.Code,
+		Label:                c.Label,
+		Status:               c.Status,
+		Ghosts:               c.Ghosts,
+		CreatedAt:            c.CreatedAt.Format(time.RFC3339),
+		ExpiresAt:            rfc3339OrNil(c.ExpiresAt),
+		MaxMembers:           c.MaxMembers,
+		MaxTurnsPerSession:   c.MaxTurnsPerSession,
+		MaxBookings:          c.MaxBookings,
+		RequireGhostEvidence: c.RequireGhostEvidence,
+		AssumedRoleID:        c.AssumedRoleID,
+		PromptID:             c.PromptID,
 	}
 }
 

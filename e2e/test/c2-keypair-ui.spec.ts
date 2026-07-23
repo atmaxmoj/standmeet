@@ -92,4 +92,22 @@ test.describe('C-2 owner generates MCP keypair from admin UI', () => {
       // The old fake download artifacts must be gone.
       await expect(page.getByText(/standmeet-mcp_1\.0\.0_(darwin|linux|windows)/)).toHaveCount(0);
     });
+
+  // F-M-1: the page must not contradict itself about the stdio client. MCPClientPanel serves a
+  // working `npx @standmeet/mcp-client` stdio config (Claude Desktop / Cursor); MCPDownloadPanel's
+  // note used to say "a pre-packaged stdio client wrapper … isn't released yet" — false, and it
+  // contradicted the config two blocks up (an owner would think Claude Desktop can't connect while
+  // the config right there does exactly that). If it serves the stdio config, it must not claim the
+  // stdio client is unreleased.
+  test('does not claim the stdio client is unreleased while serving an npx stdio config (F-M-1)',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'api-mcp');
+      await page.waitForURL('**/admin/api-mcp', { timeout: 5_000 });
+      await expect(page.getByTestId('mcp-snippet'), 'precondition: serves the npx stdio client')
+        .toContainText('@standmeet/mcp-client');
+      await expect(
+        page.getByText(/isn.?t released yet/i),
+        'must not tell the owner the stdio client is unreleased while serving its config',
+      ).toHaveCount(0);
+    });
 });

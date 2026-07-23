@@ -25,14 +25,16 @@ type AccessCode struct {
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
 	MaxBookings        *int32
-	PromptID           *string
-	ID                 string
-	OwnerID            string
-	Code               string
-	Label              string
-	Purpose            string
-	Status             string
-	AssumedRoleID      string
+	// RequireGhostEvidence —— F-A-10 per-code 覆盖(nil = 继承 role 的开关)。
+	RequireGhostEvidence *bool
+	PromptID             *string
+	ID                   string
+	OwnerID              string
+	Code                 string
+	Label                string
+	Purpose              string
+	Status               string
+	AssumedRoleID        string
 	// InlinePrompt —— #104 扩展：随码内联的 per-code prompt。非空时冻进 RoleSnapshot.code_prompt_body
 	// （优先于 PromptID 库引用）。发码方（如 job-loop）随码带一段 persona 上下文用，不污染 prompt 库。
 	InlinePrompt string

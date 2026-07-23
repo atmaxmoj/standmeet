@@ -1,7 +1,9 @@
 // MCPDownloadPanel —— 把 owner 的真 MCP 端点交到手上(Claude Desktop / Cursor 指过去)。
 // 诚实修正:原先假装有可下载的 standmeet-mcp 二进制 —— 4 个平台链接全指向不存在的
 // github.com/standmeet/mcp-client,文件名/大小(11 MB 等)全是编的,点了是死链。端点本身是真的
-// (#143 as-MCP-server facade:/mcp,Sigv1 auth);打包 client 包装器尚未发布,如实说明。
+// (#143 as-MCP-server facade:/mcp,Sigv1 auth)。stdio 客户端(npx @standmeet/mcp-client)已发布
+// 并由上方 MCPClientPanel 的 config 使用,所以 note 如实说明它就是那条路径(F-M-1:原文案说
+// "wrapper 尚未发布",与同页服务的 config 自相矛盾)。
 
 'use client';
 

@@ -106,17 +106,25 @@
   margin: 1em 0;
 }
 
-/* KaTeX —— display block 居左（不居中），跟 reading flow 对齐。
-   CSS module :global 包，因为 .katex-display 是 rehype-katex 输出的全
-   局 class，不是 module-scoped。 */
-.body :global(.katex-display) {
-  text-align: left;
-  margin: 0.6em 0;
-}
+/* KaTeX display —— **完全用 katex.min.css 的标准**(globals.css 已 import):
+   `margin: 1em 0; text-align: center`。这里**不要任何自定义 override**:
+   - 原先的 `text-align: left; margin: 0.6em` 太挤 → 高公式压相邻行(F-R-3 第一半);
+   - 我一度加的 `overflow-y: hidden` 会**裁掉 ∑ 的上下限**,把大 Σ 切成一个小弧(F-R-3 第二半)。
+   标准本身就把居中、间距、大 operator 都处理好了 —— 不碰它就对。宽公式若溢出阅读列,
+   将来用**外层容器** `overflow-x` 处理,绝不在 .katex-display 自身设 overflow(会连带纵向裁切)。 */
 
-/* mermaid SVG —— 限宽避免溢出 760px chat column。MermaidBlock 内层
-   div 是 testid (全局)，CSS module 要 :global 穿透。 */
-.body :global([data-testid="mermaid-svg"]) svg {
+/* mermaid / tikz SVG figure —— 限宽避免溢出阅读列 + **居中**(F-R-3 同批:插图不居中)。
+   diagram 是图示,居中读起来才对。MermaidBlock / TikZBlock 内层 div 是全局 testid,
+   CSS module 要 :global 穿透。 */
+.body :global([data-testid="mermaid-svg"]),
+.body :global([data-testid="tikz-svg"]) {
+  text-align: center;
+  margin: 1.4em 0;
+}
+.body :global([data-testid="mermaid-svg"]) svg,
+.body :global([data-testid="tikz-svg"]) svg {
+  display: block;      /* SVG 默认 inline;设 block + margin auto 才能真正居中(text-align 管不到定宽 block) */
+  margin: 0 auto;
   max-width: 100%;
   height: auto;
 }
@@ -135,12 +143,13 @@
   border-radius: 2px;
 }
 
-/* image —— 罕见但 sanitize 没拦；限宽避免破布局。 */
+/* image / 插图 —— 限宽避免破布局,且**居中**(margin auto):vault 里的图基本是图示/
+   diagram,居中读起来才对(F-R-3 同批:原先 `margin: 0.6em 0` 左对齐)。 */
 .body img {
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 0.6em 0;
+  margin: 1.4em auto;
 }
 
 /* ── article variant (wiki / writing 长文) ───────────────────────────

@@ -181,6 +181,12 @@ async function runAsk(
     await runAgentForDialog(sess, byoai, refs.histRef, q,
       makeObserver(id, accum, setDialogs), deps.docContext);
     finalizeDialog(id, accum, setDialogs);
+    // F-A-9: policy 沉默(这轮没出 ghost 帧)→ 清掉上一条 steering ghost,别让已访问 waypoint 的
+    // 陈旧 ghost 挂在输入框上。出了新帧(ghostReceived)则 setPolicy 已替换,不清。非 code visitor
+    // ghost 恒 null,这里是无副作用的 no-op。
+    if (!accum.ghostReceived) {
+      useGhostsStore.getState().clearGhost();
+    }
     // backend 拥有这一轮:/agent/turn 流末端已把它 sink 进 conversation 表(#28),
     // 前端不再自落库。答完那条留在本地 transcript 显示,used 由 dialogs 派生(下面
     // mirror effect)自然 +1;真相在后端,刷新走 restoreSession 从 conversation 重建。

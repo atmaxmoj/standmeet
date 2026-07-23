@@ -76,11 +76,14 @@ type wikiRefSides struct {
 	CitedBy []WikiPathTitle
 }
 
-// GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 published=true）+
-// 渲染好的 body + read-next/cited-by。地址纯树派生:一次 load 全树,既定位目标条,
-// 又建 title→path 索引给双链解析用。
+// GetWikiLanding —— 公开 landing 查询：path → wiki entry + 渲染好的 body + read-next/cited-by。
+// 地址纯树派生:一次 load 全树,既定位目标条,又建 title→path 索引给双链解析用。
+//
+// scope 决定一条能不能被这个查看者读到（F-L-11 bearer-aware reader）:匿名 = PublicWikiScope
+// (只 published,给爬虫/SEO);带有效 code bearer = RoleWikiScope(该 code role 的 corpus glob 内
+// 的条目,不论 published) —— owner 的访问模型是「published(匿名)+ code(受邀 scope)」。
 func GetWikiLanding(
-	ctx context.Context, deps SEODeps, path string,
+	ctx context.Context, deps SEODeps, path string, scope WikiTreeScope,
 ) (WikiLanding, error) {
 	if path == "" {
 		return WikiLanding{}, domain.ErrWikiNotFound
@@ -95,14 +98,23 @@ func GetWikiLanding(
 	if err != nil {
 		return WikiLanding{}, fmt.Errorf("list wiki meta: %w", err)
 	}
-	return assembleWikiLanding(ctx, deps, owner.ID, metas, path)
+	return assembleWikiLanding(ctx, deps, owner.ID,
+		&landingLocate{scope: scope, path: path, metas: metas})
+}
+
+// landingLocate —— 定位一条 landing 的输入(全量 meta + 目标 path + 查看者 scope)。打包成一个入参
+// 让 assembleWikiLanding 守 argument-limit。字段序为 fieldalignment。
+type landingLocate struct {
+	scope WikiTreeScope
+	path  string
+	metas []postgres.WikiMeta
 }
 
 func assembleWikiLanding(
-	ctx context.Context, deps SEODeps, ownerID string, metas []postgres.WikiMeta, path string,
+	ctx context.Context, deps SEODeps, ownerID string, loc *landingLocate,
 ) (WikiLanding, error) {
-	paths := WikiMetaTreePaths(metas)
-	id, found := indexedWikiIDAtPath(metas, paths, path)
+	paths := WikiMetaTreePaths(loc.metas)
+	id, found := indexedWikiIDAtPath(loc.metas, paths, loc.path, loc.scope)
 	if !found {
 		return WikiLanding{}, domain.ErrWikiNotFound
 	}
@@ -110,7 +122,7 @@ func assembleWikiLanding(
 	if gerr != nil {
 		return WikiLanding{}, fmt.Errorf("get wiki: %w", gerr)
 	}
-	body := RewriteWikiCrossLinksForRender(w.Body(), wikiMetaPathTitleIndex(metas, paths))
+	body := RewriteWikiCrossLinksForRender(w.Body(), wikiMetaPathTitleIndex(loc.metas, paths))
 	sides, serr := loadWikiRefSides(ctx, deps, ownerID, id, paths)
 	if serr != nil {
 		return WikiLanding{}, serr
@@ -118,12 +130,13 @@ func assembleWikiLanding(
 	return WikiLanding{Body: body, Related: sides.Related, CitedBy: sides.CitedBy, Wiki: w}, nil
 }
 
-// indexedWikiIDAtPath —— 全量 meta + 派生 path 里挑 indexed 且 path 命中那条的 id。
+// indexedWikiIDAtPath —— 全量 meta + 派生 path 里挑 path 命中且**这个查看者能看到**的那条 id。
+// 可见性交给 scope(匿名 = 只 published;code = role glob 内),不再写死 published（F-L-11）。
 func indexedWikiIDAtPath(
-	metas []postgres.WikiMeta, paths map[string]string, path string,
+	metas []postgres.WikiMeta, paths map[string]string, path string, scope WikiTreeScope,
 ) (string, bool) {
 	for i := range metas {
-		if metas[i].Published && paths[metas[i].ID] == path {
+		if paths[metas[i].ID] == path && scope(metas[i].Published, path) {
 			return metas[i].ID, true
 		}
 	}

@@ -10,10 +10,12 @@ import { MetaPair } from '@/components/admin/atoms/MetaPair';
 import { QRCode } from '@/components/admin/atoms/QRCode';
 import { MembersBlock } from '@/components/admin/sections/codes/MembersBlock';
 import { buildShareLink } from '@/lib/admin/code-share';
+import { ghostFromSelect, ghostToSelect } from '@/lib/admin/code-ghost';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import { useRoles } from '@/lib/admin/use-roles';
+import { useAction } from '@/lib/ui/use-action';
 
-import type { CodeView } from '@/lib/admin/use-codes';
+import { useCodes, type CodeView } from '@/lib/admin/use-codes';
 
 type Props = {
   code: CodeView;
@@ -121,9 +123,36 @@ function CodeCardBody({ code }: { code: CodeView }) {
       <MembersCol codeID={code.id} code={code.code} />
       <RoleCol code={code} />
       <PromptCol code={code} />
+      <GhostEvidenceCol code={code} />
       <QRCol code={code} />
       <QuotaBar code={code} />
     </div>
+  );
+}
+
+// GhostEvidenceCol —— F-A-10 per-code 覆盖 ghost-evidence 规则。3 态:inherit(继承 role,null) /
+// require(强制带证据,true) / allow(全放行,false)。code 优先于 role。存 → PATCH /ghost-evidence。
+function GhostEvidenceCol({ code }: { code: CodeView }) {
+  const t = useTranslations('adminAccess');
+  const { setGhostEvidence } = useCodes();
+  const run = useAction();
+  const onPick = (v: string) => run(
+    () => setGhostEvidence(code.id, ghostFromSelect(v)),
+    { success: `Ghost rule updated for ${code.code}` },
+  );
+  return (
+    <MetaPair label={t('codeGhost.label')}>
+      <select
+        className="mono text-[11px] bg-(--color-paper) border border-(--color-rule) px-2 py-1 min-w-0 max-w-full"
+        value={ghostToSelect(code.require_ghost_evidence)}
+        onChange={(e) => void onPick(e.target.value)}
+        data-testid={`code-ghost-evidence-${code.code}`}
+      >
+        <option value="inherit">{t('codeGhost.inherit')}</option>
+        <option value="on">{t('codeGhost.on')}</option>
+        <option value="off">{t('codeGhost.off')}</option>
+      </select>
+    </MetaPair>
   );
 }
 

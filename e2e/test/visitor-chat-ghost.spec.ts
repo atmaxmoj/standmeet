@@ -89,6 +89,31 @@ test.describe('visitor chat ghost text · 单个 · P4', () => {
     await expect(input, '答完 → policy ghost(单数,target_waypoint 引导)')
       .toHaveAttribute('data-ghost', POLICY_GHOST.text, { timeout: 10_000 });
   });
+
+  // F-A-9: 一轮 policy 沉默(没出 ghost 帧)→ 上一条 steering ghost 必须被清掉(不靠 reload)。
+  // RED(修复前):client 在没帧的一轮不清 ghost,输入框一直挂着 POLICY_GHOST.text。
+  test('policy 沉默的一轮 → 陈旧 ghost 被清成空(不 reload)', async ({ page, playwright }) => {
+    const req = await playwright.request.newContext();
+    const ghostTag = await scriptMockGhost(req, POLICY_GHOST);
+    await req.dispose();
+
+    await enterChatWithCode(page);
+    const input = page.getByTestId('chat-input-field');
+    await expect(input).toHaveAttribute('data-ghost', INITIAL, { timeout: 5_000 });
+
+    // 轮1:带 tag → policy 出 ghost → 输入框换成 policy ghost。
+    await input.fill(`tell me about Alpha${ghostTag}`);
+    await input.press('Enter');
+    await expect(page.getByTestId('answer-body')).toHaveCount(1, { timeout: 20_000 });
+    await expect(input).toHaveAttribute('data-ghost', POLICY_GHOST.text, { timeout: 10_000 });
+
+    // 轮2:不带 tag → policy 沉默(unscripted 默认 null)→ 陈旧 ghost 必须被清成 ''。
+    await input.fill('and what else');
+    await input.press('Enter');
+    await expect(page.getByTestId('answer-body')).toHaveCount(2, { timeout: 20_000 });
+    await expect(input, 'silent turn → ghost cleared (RED: stays POLICY_GHOST.text)')
+      .toHaveAttribute('data-ghost', '', { timeout: 10_000 });
+  });
 });
 
 async function enterChatWithCode(page: Page): Promise<void> {

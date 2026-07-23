@@ -73,6 +73,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/inference/models", h.listInferenceModels())
 
 	// ── 需要访客 session(装饰器统一校验) ──
+	// F-L-11 liveness probe:读者/聊天 mount 时探一下 stored token 还活着没(TTL 过期 → 401),
+	// 让前端丢掉过期 session 的假「unlocked」chrome,而不是无限信任 localStorage。
+	r.Get("/session", h.withVisitorSession(h.getSessionInfo()))
 	// 刷新恢复:返回整个会话聚合(session + code + conversation),前端一次性
 	// hydrate。范围由 token 锁定(member → open chat),URL {id} 仅做 RESTful 形态。
 	r.Get("/conversations/{id}", h.withVisitorSession(h.getConversation()))
