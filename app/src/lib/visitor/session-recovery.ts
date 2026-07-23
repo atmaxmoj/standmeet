@@ -22,17 +22,28 @@ export function clearVisitorSession(): void {
   clearStoredSession();
 }
 
-// recoverFromDeadSession —— 清掉失效会话,按有没有 code 回到入口流程。code 优先
-// 从 localStorage 读;读不到再退到 pending store —— 同页可能有两个 chat 实例都
-// 跑 restore,第一个已清掉 localStorage 并把 code 塞进 pending,第二个只能从
-// pending 拿,否则会误判「没 code」错跳 /gate。
-export function recoverFromDeadSession(): void {
+// clearAndPreserveCode —— 清掉失效会话,但清之前先把 access code 抢救进 pending
+// (有的话),返回是否救回了 code。dead-session 的两个入口都必须走这个:
+//   1. mount 探针 validate-session(401 → 清)
+//   2. chat restore recoverFromDeadSession
+// 否则会竞态:探针「裸清」(不重塞 code)若先跑赢,code 就丢了 → 后跑的 restore
+// 从 localStorage / pending 都读不到 → 误判「没 code」错跳 /gate,而不是重弹名字
+// 选择器。code 优先从 localStorage 读,读不到退到 pending(同页两个实例都跑清理时,
+// 第一个已把 code 塞进 pending)。
+export function clearAndPreserveCode(): boolean {
   const code = peekStoredSession()?.code ?? usePendingCodeStore.getState().code ?? '';
   clearVisitorSession();
   if (code !== '') {
     usePendingCodeStore.getState().setCode(code);
-    return;
+    return true;
   }
+  return false;
+}
+
+// recoverFromDeadSession —— 清掉失效会话,按有没有 code 回到入口流程:有 code →
+// 重塞 pending(名字选择器重弹);没 code → 退回 /gate。
+export function recoverFromDeadSession(): void {
+  if (clearAndPreserveCode()) return;
   if (typeof window !== 'undefined') {
     window.location.href = '/gate';
   }
