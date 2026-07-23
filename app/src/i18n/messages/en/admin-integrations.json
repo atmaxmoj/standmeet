@@ -108,6 +108,7 @@
   "marketplaceCard": {
     "stars": "★ {stars}",
     "author": "{author} · v{version}",
+    "authorOnly": "{author}",
     "installed": "✓ installed",
     "needs": "needs {missing}"
   },

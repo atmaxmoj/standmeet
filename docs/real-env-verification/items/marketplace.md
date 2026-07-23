@@ -29,3 +29,7 @@ Search **results render** (not silently empty on a real match); the install butt
 (record here; also log `../findings.md`, ID `F-F-n` historical anchor)
 
 - Note the manual-install path also exists (paste a SKILL.md directly — commit ba54876).
+
+### F-F-2 — marketplace skillsmp results duplicated on the tab  (2026-07-23, full-suite)
+- **Observed:** running the full admin-agent-skills suite, the skillsmp source filter returns **6** cards from a **3**-skill fixture (`e2e/fixtures/marketplace/skillsmp.json`), and "all" is 23 (17 github + 6) not 20. The 3 skills are duplicated → 6. Surfaced by the full suite after the marketplace rework (d635d4e/444ec0a). Likely load-more re-appending the same page without cross-page dedup (there's no real pagination past the fixture). UX-13 residual "· v" blank-version FIXED separately (verified prod). 
+- **Status:** 🔴 open — backend-rebuild-blocked this round (unrelated page-pinning WIP fails `make lint`, blocking `make dev-up`/`prod-up`); the 2 count assertions (skillsmp=3, all→20) marked `test.fixme` referencing this finding until the dedup/pagination is fixed + rebuilt.

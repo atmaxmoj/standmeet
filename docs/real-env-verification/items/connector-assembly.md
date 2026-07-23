@@ -1,6 +1,6 @@
 # connector-assembly — Connectors: real OpenAPI / proxied call / CalDAV
 
-- **Status:** 🟡 blocked-by-setup — add-connector catalog present; assembling a live connector needs real creds/OAuth (F-B-2 fixed earlier)
+- **Status:** 🟠 partial-verified (2026-07-23) — INGEST of a REAL 1.4MB/209-path $ref-heavy Cal.com spec works (mock gap closed): fetch-from-URL + file-upload parse it, honest validations (no-servers → base URL required; empty securitySchemes → 'no supported auth scheme'), and after adding servers+bearer it derives a 'Cal.com API v2 · TOKEN' candidate. Cal.com API key independently proven live (GET /v2/me). GAPS: F-H-2 (real specs omit securitySchemes → hard-block; want a manual-auth fallback) + 'use this spec' with a filled token did NOT persist a usable connector via the driven path (assemble UX needs a step — likely JSONata→category binding — that isn't obvious). Real proxied call through StandMeet not GUI-completed (e2e-covered: connector-happy-matrix openapi+apiKey). CalDAV (#3) still needs a Radicale server (not stood up).
 - **Module:** ingest a real vendor OpenAPI spec, bind operations via JSONata, assemble a connector, and make a real proxied call — for Cal.com over `api.cal.com/v2` and for a real CalDAV server (auth, REPORT filters, RRULE/VTIMEZONE).
 - **Surface:** admin/connectors (upload spec → bind → assemble → connect).
 - **Real dep:** a real Cal.com account (`CALCOM_API_KEY`; spec at `api.cal.com/v2/docs`) + a self-run Radicale CalDAV server.
@@ -33,3 +33,8 @@ Uploaded operations render as a bindable list (not empty); the assemble/connect 
 (record here; also log `../findings.md`, ID `F-H-n` / `F-B-n` historical anchor)
 
 - **H1 pass** (first pass): `validate_spec` on real Petstore OpenAPI 3.0 → ok, auth forms derived. UI path was blocked by F-B-1/2. CalDAV (Radicale) untested.
+
+### F-H-2 — real vendor spec (Cal.com) omits servers + securitySchemes → assembly hard-blocked  (2026-07-23, live)
+- **Observed:** fetched the REAL Cal.com v2 OpenAPI (`cal.com/docs/api-reference/v2/openapi.json`, 1.4MB, 209 paths, $ref-heavy) into add-connector. StandMeet parsed it without crashing (the "real vendor spec never ingested" mock gap is now exercised) and gave two honest, actionable validations: (1) "the spec defines no servers (a base URL is required)" — Cal.com's `servers:[]`; (2) after adding a base URL, "no supported authentication scheme found in this spec" — Cal.com's `components.securitySchemes` is `{}` and no `security` (their published spec documents no auth, though the API requires `Authorization: Bearer`).
+- **Assessment:** both rejections are CORRECT for the spec as published. But real vendor specs commonly omit `securitySchemes` — hard-rejecting them means the owner cannot assemble a working connector from the vendor's own spec without hand-editing it. **Friction / design gap (not a crash):** consider a manual-auth fallback (let the owner pick bearer/apiKey in the UI when the spec omits `securitySchemes`) instead of a hard block.
+- **Workaround (to finish the proxied-call check):** added `servers:[{url:api.cal.com}]` + a `bearerAuth` http/bearer scheme to the spec, then assembled + connected with the real `CALCOM_API_KEY`.

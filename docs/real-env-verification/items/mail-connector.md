@@ -1,6 +1,6 @@
 # mail-connector — Mail: real send across SMTP + SaaS
 
-- **Status:** 🟡 blocked-by-setup — mail card 'not connected'; F-C-2/C-3 fixed earlier (generic smtp works with real app-pw); no creds entered this round
+- **Status:** ✅ verified (2026-07-23) — real Gmail SMTP connected (STARTTLS+AUTH), test-send {via_kind:protocol, ok:true} real relay, bad-recipient → friendly {ok:false}; requests/account mail-gate un-gates (F-C-7 fixed 57b43c44, prod re-verified). Inbox-receipt not read (2FA); relay-accept is delivery proof.
 - **Module:** the mail connector actually delivers — access-code emails, recovery phrases, test-sends — over a real STARTTLS+AUTH SMTP relay AND a real SaaS (SendGrid) path, classifying real reply codes correctly and failing friendly.
 - **Surface:** admin/connectors (mail connector) + admin/requests (approve → email) + `/gate` (request-access).
 - **Real dep:** real Gmail SMTP (`smtp.gmail.com:587`, STARTTLS + AUTH, app-password) + a real readable inbox; optionally a SendGrid API key + verified sender.
@@ -49,4 +49,4 @@ The mail connector card shows connected/verified truthfully; admin/requests **li
 - **Symptom:** connected the real mail connector (`id=smtp`, category `mail`) on prod — it works: test-send `{via_kind:protocol, ok:true}` (real Gmail STARTTLS+AUTH relay), fail-path `{ok:false}` friendly. `/api/admin/connectors` reports it `connected:true, active:true`. **But** `/admin/requests` still shows "No verified mail connector — configure and test SMTP…" and gates the approve/issue-code flow, AND `/admin/account` gates recovery-phrase generation — both telling the owner to do the thing they just did.
 - **Root cause:** `use-mail.ts` `mailStatusStore` fetches `/connectors/mail/status` (id=`mail`) — a DEAD id (the real connector is `smtp`), so `status.connected` is always false. `RequestsSection.tsx:29` and `AccountSection.tsx:77` both gate on it. e2e stayed green because the mock serves `/connectors/mail/status` as connected; only the real stack (id `smtp`, dead `mail`) exposes it. F-C-3 family residual (dead `mail`-id path) — the panel was removed (F-B-1) but the status gate wasn't rewired.
 - **Fix:** `useMail`'s status fetcher derives from the authoritative connectors list (a `category:'mail'` connector that is `connected && active`) instead of the dead id=`mail` endpoint. Single-source (useMailStore) preserved; both consumers fixed unchanged.
-- **Status:** 🧪 fixing (RED→GREEN + prod re-verify).
+- **Status:** ✅ fixed 57b43c44 — RED→GREEN (admin-requests F-C-7 guards) + manually re-verified on real prod (hint gone once smtp connected).

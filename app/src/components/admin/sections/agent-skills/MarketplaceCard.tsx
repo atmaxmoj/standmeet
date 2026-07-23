@@ -64,7 +64,11 @@ function CardFoot({
   const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <footer className={styles.foot}>
-      <span className={styles.author}>{t('author', { author: skill.author, version: skill.version })}</span>
+      <span className={styles.author} data-testid="market-skill-author">
+        {skill.version
+          ? t('author', { author: skill.author, version: skill.version })
+          : t('authorOnly', { author: skill.author })}
+      </span>
       {installed
         ? <InstalledPill />
         : <InstallBtn installing={installing} onInstall={onInstall} />}
