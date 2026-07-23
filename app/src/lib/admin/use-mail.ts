@@ -37,9 +37,32 @@ const MailStatusSchema = z.object({
 });
 export type MailStatus = z.infer<typeof MailStatusSchema>;
 
+// The real mail connector's canonical id is `smtp` (category `mail`), NOT `mail` —
+// `/connectors/mail/status` resolves a dead id and always reports connected:false, so the
+// requests approve-gate + account recovery-gate stayed locked even with a working, delivering
+// SMTP connector (F-C-7). Derive `connected` from the authoritative connectors list instead:
+// a `category:'mail'` connector that is connected and active.
+const MailConnRowSchema = z.object({
+  category: z.string(),
+  has_credentials: z.boolean().nullish(),
+  connected: z.boolean(),
+  active: z.boolean().nullish(),
+});
+const ConnectorsListSchema = z.object({
+  connectors: z.array(MailConnRowSchema).nullish(),
+});
+
 const mailStatusStore = createResourceStore<MailStatus>({
   name: 'mail-status',
-  fetcher: () => adminAPI.get('/connectors/mail/status', MailStatusSchema),
+  fetcher: async () => {
+    const list = await adminAPI.get('/connectors', ConnectorsListSchema);
+    const rows = (list.connectors ?? []).filter((c) => c.category === 'mail');
+    const live = rows.find((c) => c.connected && (c.active ?? true));
+    return MailStatusSchema.parse({
+      connected: Boolean(live),
+      has_credentials: rows.some((c) => c.has_credentials ?? false),
+    });
+  },
 });
 
 export interface MailCredsInput {

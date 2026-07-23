@@ -44,3 +44,9 @@ The mail connector card shows connected/verified truthfully; admin/requests **li
 (record here; also log `../findings.md`, ID `F-C-n` historical anchor)
 
 - **✅ now works** (first pass): F-C-1 ✅fixed, F-C-2 ✅fixed (protocol credential-form). Verified real send: Gmail app-pw via generic `/connectors/smtp/*` → connect (real handshake) → activate → `/mail/test-send` → `{ok:true}`, a real email out.
+
+### F-C-7 — connected+active SMTP not recognized by the requests/account mail-gate  (2026-07-23, live)
+- **Symptom:** connected the real mail connector (`id=smtp`, category `mail`) on prod — it works: test-send `{via_kind:protocol, ok:true}` (real Gmail STARTTLS+AUTH relay), fail-path `{ok:false}` friendly. `/api/admin/connectors` reports it `connected:true, active:true`. **But** `/admin/requests` still shows "No verified mail connector — configure and test SMTP…" and gates the approve/issue-code flow, AND `/admin/account` gates recovery-phrase generation — both telling the owner to do the thing they just did.
+- **Root cause:** `use-mail.ts` `mailStatusStore` fetches `/connectors/mail/status` (id=`mail`) — a DEAD id (the real connector is `smtp`), so `status.connected` is always false. `RequestsSection.tsx:29` and `AccountSection.tsx:77` both gate on it. e2e stayed green because the mock serves `/connectors/mail/status` as connected; only the real stack (id `smtp`, dead `mail`) exposes it. F-C-3 family residual (dead `mail`-id path) — the panel was removed (F-B-1) but the status gate wasn't rewired.
+- **Fix:** `useMail`'s status fetcher derives from the authoritative connectors list (a `category:'mail'` connector that is `connected && active`) instead of the dead id=`mail` endpoint. Single-source (useMailStore) preserved; both consumers fixed unchanged.
+- **Status:** 🧪 fixing (RED→GREEN + prod re-verify).

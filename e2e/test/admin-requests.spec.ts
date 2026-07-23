@@ -14,6 +14,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { configureMailConnector } from '@/fixtures/mail';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -102,6 +103,51 @@ test.describe('admin requests management', () => {
       expect(body.connected).toBe(false);
       expect(body.error.length).toBeGreaterThan(0);
       await request.dispose();
+    });
+});
+
+// F-C-7: once a real mail connector (id `smtp`, category `mail`) is connected+active, the
+// requests approve-gate AND the account recovery-gate must un-gate. Regression caught on real
+// prod: the gates read the DEAD `/connectors/mail/status` (id `mail`) so they stayed locked
+// even with a working, delivering SMTP connector. The mock served id=`mail` as connected, so
+// no prior spec exercised the real id split — this drives the GUI gate with a real connect.
+const MAIL_OWNER = {
+  email: 'requests-mailon@example.com',
+  password: 'correct-horse-battery-staple',
+  handle: 'requestsmailon',
+  fullName: 'Requests MailOn Owner',
+};
+
+test.describe('admin requests · mail connected un-gates approve (F-C-7)', () => {
+  test.use({ ownerCredentials: { email: MAIL_OWNER.email, password: MAIL_OWNER.password } });
+
+  test.beforeAll(async ({ playwright }) => {
+    resetInstance();
+    const request = await playwright.request.newContext();
+    await claim(request, findSetupToken(), {
+      email: MAIL_OWNER.email, password: MAIL_OWNER.password,
+      handle: MAIL_OWNER.handle, fullName: MAIL_OWNER.fullName,
+    });
+    await submitRequestViaAPI(request);
+    await configureMailConnector(request, MAIL_OWNER.email, MAIL_OWNER.password);
+    await request.dispose();
+  });
+
+  test('requests: mail connected → hint gone, approve available',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'requests');
+      await adminPage.waitForURL('**/admin/requests', { timeout: 5_000 });
+      // the "connect mail" hint must be absent now that a mail connector is live
+      await expect(adminPage.getByTestId('requests-mail-hint')).toHaveCount(0);
+      await expect(adminPage.getByRole('button', { name: /approve/i }).first())
+        .toBeVisible({ timeout: 5_000 });
+    });
+
+  test('account: mail connected → recovery-phrase generate enabled',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'account');
+      await adminPage.waitForURL('**/admin/account', { timeout: 5_000 });
+      await expect(adminPage.getByTestId('recovery-generate')).toBeEnabled({ timeout: 5_000 });
     });
 });
 

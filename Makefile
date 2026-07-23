@@ -110,6 +110,14 @@ prod-up:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build --wait
 	@echo "[prod] app on http://localhost:38227 (front with your TLS proxy)"
 
+# prod-app —— rebuild ONLY the prod app image (frontend-only change) from a fresh host
+# `app-build`, reusing the running prod backend/db/etc. Use to ship an app-only fix when a full
+# prod-up (which also rebuilds the backend) is unnecessary or blocked by an unrelated backend WIP.
+prod-app: app-build
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml build app
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait app
+	@echo "[prod] app rebuilt (backend reused) — http://localhost:38227"
+
 prod-down:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down
 
@@ -305,6 +313,21 @@ test-fresh: clean test
 #          make test-only SPEC=visitor-ask-visitor REPEAT=15
 test-only: dev-up
 	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
+	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT))
+
+# dev-app —— rebuild ONLY the dev app image (frontend-only change) and reuse the running
+# backend/mocks. Use when a fix is app-only and a full dev-up (which also rebuilds backend) is
+# unnecessary or blocked (e.g. an unrelated uncommitted backend WIP failing `make lint`). The
+# rest of the stack must already be up.
+dev-app: app-build
+	@docker compose -f docker-compose.dev.yml build app
+	@docker compose -f docker-compose.dev.yml up -d --wait app
+	@echo "[dev] app rebuilt (backend + mocks reused)"
+
+# test-run —— run a spec WITHOUT the dev-up rebuild (assumes the stack is already up). Pair with
+# dev-app for an app-only change, or when dev-up's backend rebuild is unnecessary/blocked.
+test-run:
+	@test -n "$(SPEC)" || (echo "usage: make test-run SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT))
 
 # test-unit —— fast headless unit tests for reusable render/toolbox primitives (vitest, no Docker,
