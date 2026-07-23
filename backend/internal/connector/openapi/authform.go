@@ -33,12 +33,49 @@ type AuthForms struct {
 	Forms []AuthSchemeForm `json:"forms,omitempty"`
 }
 
-// DeriveAuthForms —— 遍历 spec 的 securitySchemes 派生表单。无方案 → no-auth note；全不支持 →
+// manualSchemeNames —— F-H-2 手动兜底方案(spec 没声明 securitySchemes 时给 owner 选)。
+var manualSchemeNames = []string{"manual:bearer", "manual:apikey", "manual:basic"}
+
+// ManualScheme —— 把一个 "manual:*" 方案名映射成合成 SecurityScheme。真实厂商 spec 常
+// 把 components.securitySchemes 留空(Cal.com v2 就是),但 API 仍需 Authorization: Bearer。
+// 与其硬拒,让 owner 手动挑一个通用方案(bearer/apiKey-header/basic),装配期据此建注入器
+// (F-H-2)。返回 (scheme, true) 命中,否则 (零值, false)。
+func ManualScheme(name string) (SecurityScheme, bool) {
+	switch name {
+	case "manual:bearer":
+		return SecurityScheme{Type: "http", Scheme: "bearer"}, true
+	case "manual:basic":
+		return SecurityScheme{Type: "http", Scheme: "basic"}, true
+	case "manual:apikey":
+		return SecurityScheme{
+			Type: "apiKey", In: "header", Name: "Authorization",
+		}, true
+	default:
+		return SecurityScheme{}, false
+	}
+}
+
+// manualFallbackForms —— spec 无 securitySchemes 时给 owner 的三个通用方案表单(F-H-2)。
+func manualFallbackForms() AuthForms {
+	forms := make([]AuthSchemeForm, 0, len(manualSchemeNames))
+	for _, name := range manualSchemeNames {
+		s, _ := ManualScheme(name)
+		if f, ok := authSchemeForm(name, &s); ok {
+			forms = append(forms, f)
+		}
+	}
+	return AuthForms{
+		Note:  "this spec declares no authentication — if the API needs a key, pick one below",
+		Forms: forms,
+	}
+}
+
+// DeriveAuthForms —— 遍历 spec 的 securitySchemes 派生表单。无方案 → 手动兜底(F-H-2)；全不支持 →
 // unsupported note；否则按方案名排序返回（多方案前端给选择器）。
 func DeriveAuthForms(spec *Spec) AuthForms {
 	schemes := spec.SecuritySchemes()
 	if len(schemes) == 0 {
-		return AuthForms{Note: "no supported authentication scheme found in this spec"}
+		return manualFallbackForms()
 	}
 	forms := make([]AuthSchemeForm, 0, len(schemes))
 	unsupported := make([]string, 0)

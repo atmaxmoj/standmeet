@@ -127,8 +127,12 @@ func resolveAuth(spec *openapi.Spec, schemeName string) (authStrategy, error) {
 }
 
 // pickScheme —— 选 owner 指定的 securityScheme；未指定且唯一 → 用那个；多个未指定 → 拒（决策#3
-// owner 必须选）；一个都没有 → 拒。
+// owner 必须选）；一个都没有 → 拒。owner 指定 "manual:*" → 合成方案（F-H-2：厂商 spec 常留空
+// securitySchemes，让 owner 手动挑 bearer/apikey/basic 也能装出可用连接器）。
 func pickScheme(spec *openapi.Spec, name string) (openapi.SecurityScheme, error) {
+	if s, ok := openapi.ManualScheme(name); ok {
+		return s, nil
+	}
 	schemes := spec.SecuritySchemes()
 	if len(schemes) == 0 {
 		return openapi.SecurityScheme{}, errNoAuthScheme
