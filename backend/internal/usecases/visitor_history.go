@@ -5,7 +5,8 @@
 //
 // 规则:
 //   - count = len(Dialogs),没有 used 字段(前端自己数)。
-//   - dialog 持久化 iff AI 答完 → 这里只配「answer 非空」的轮。
+//   - dialog 持久化 iff 这轮产出了内容:answer 非空,或 return_directly 工具的结果
+//     (summarize 报告卡 —— 空 answer + 非空 tool_calls;F-A-19)。纯 narration 轮不落。
 //   - 引用属于 dialog,从 messages.cited_* 解析成树派生 path,刷新不丢。
 //   - visitor_name 归 session;配额归 code;summary 是独立 chat_reports artifact
 //     (一会话一份),不挂 conversation 视图。
@@ -17,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
@@ -155,8 +157,12 @@ type dialogAnswer struct {
 	ToolCalls []byte
 }
 
-// pairDialogs —— 每条 visitor 问句配它后面那条 assistant 答;只收 answer 非空的
-// (dialog iff 答完)。ghosts 本轮先留空(落库恢复在后续轮接上)。
+// pairDialogs —— 每条 visitor 问句配它后面那条 assistant 答;收「答完的」轮:answer 非空 **或**
+// 带 tool_calls(F-A-19:return_directly 工具如 summarize 无答案文本,产物就是 tool 结果那张报告卡 —
+// 空 body 但 tool_calls 非空;丢掉它就等于 reload 后访客丢了自己生成的报告)。ghosts 本轮先留空。
+//
+// 只有 return_directly 轮会以「空 body + tool_calls」落库(persistTurn 的 producedContentForPersist:
+// 纯 grounding narration 不落),所以这里放行带 tool 的空答案不会把 F-A-4 的规划旁白放进来。
 func pairDialogs(msgs []domain.Message, r *citationResolver) []ConvDialog {
 	out := make([]ConvDialog, 0, len(msgs))
 	for i := range msgs {
@@ -164,7 +170,7 @@ func pairDialogs(msgs []domain.Message, r *citationResolver) []ConvDialog {
 			continue
 		}
 		a := answerAfter(msgs, i, r)
-		if a.Body != "" {
+		if a.Body != "" || toolCallsNonEmpty(a.ToolCalls) {
 			out = append(out, ConvDialog{
 				CreatedAt: a.CreatedAt, Question: msgs[i].Body, Answer: a.Body,
 				Citations: a.Citations, Ghosts: []DialogGhost{}, ToolCalls: a.ToolCalls,
@@ -172,6 +178,12 @@ func pairDialogs(msgs []domain.Message, r *citationResolver) []ConvDialog {
 		}
 	}
 	return out
+}
+
+// toolCallsNonEmpty —— 落库的 tool_calls JSON 是否携带真内容(非 nil / `null` / `[]`)。
+func toolCallsNonEmpty(raw []byte) bool {
+	s := strings.TrimSpace(string(raw))
+	return s != "" && s != "null" && s != "[]"
 }
 
 func answerAfter(msgs []domain.Message, i int, r *citationResolver) dialogAnswer {

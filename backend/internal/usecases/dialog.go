@@ -56,11 +56,16 @@ type RecordDialogInput struct {
 }
 
 // RecordDialog —— cited id 反查成 Citation → 构造 Dialog → ChatRepo.AppendDialog
-// 原子落地。Answer 空时只落 question (出错的 dialog 也想留下用户问句)。
+// 原子落地。Answer 空 **且无 tool_calls** 时只落 question(纯出错的 dialog 也想留用户问句)。
+//
+// F-A-19: 一个 return_directly 工具(summarize / booking / ask_visitor)的产物就是那条 tool
+// 结果(报告卡),没有 answer 文本 —— 但它是完整的一轮,assistant message 必须带 tool_calls 落库,
+// 否则 reload 后访客丢了自己生成的报告。所以「空 answer」不再等于「只落 visitor」:有 tool_calls
+// 就走完整 AppendDialog(空 body + tool_calls),restore 侧 pairDialogs 据 tool_calls 收它。
 func RecordDialog(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) error {
-	if in.Answer == "" {
+	if in.Answer == "" && !toolCallsNonEmpty(in.ToolCalls) {
 		return appendVisitorOnly(ctx, deps, in)
 	}
 	cites := resolveCitations(ctx, deps, in)

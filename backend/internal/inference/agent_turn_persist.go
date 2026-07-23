@@ -254,12 +254,32 @@ func (a *accumSink) marshalTools() json.RawMessage {
 // 只有 AI 真答出内容才落(锁定模型:dialog 持久化 iff 答完);没注入 port
 // (无 conversation 的无状态 smoke 调用)或没答案则跳过。
 func persistTurn(ctx context.Context, log *slog.Logger, in *AgentTurnInput, acc *accumSink) {
-	if in.Persist == nil || !acc.answered() {
+	if in.Persist == nil || !producedContentForPersist(acc, in.ReturnDirectly) {
 		return
 	}
 	if err := in.Persist(ctx, acc.result(in.Req.UserMessage)); err != nil {
 		log.Error("agent turn persist", logErrKey, err)
 	}
+}
+
+// producedContentForPersist —— F-A-19: persist a turn iff it produced durable content: EITHER
+// a synthesized answer, OR a return_directly tool ran (summarize / booking / ask_visitor) whose
+// RESULT is the product (report card / confirmation) even with no answer text. Must NOT widen
+// to "any tool ran": a narration-only turn whose tools were GROUNDING (corpus_search) with
+// no synthesis must stay unpersisted (F-A-4 — don't persist planning narration as a dialog).
+func producedContentForPersist(acc *accumSink, returnDirectly map[string]bool) bool {
+	return acc.answered() || acc.ranReturnDirectly(returnDirectly)
+}
+
+// ranReturnDirectly —— did this turn run any return_directly tool? Such a tool ends the turn
+// and its result is the product worth persisting.
+func (a *accumSink) ranReturnDirectly(returnDirectly map[string]bool) bool {
+	for i := range a.tools {
+		if returnDirectly[a.tools[i].Name] {
+			return true
+		}
+	}
+	return false
 }
 
 // markWaypointsTurn —— ghost-steering ledger:本轮引用(cited note id)+ booking 命中交给注入的
