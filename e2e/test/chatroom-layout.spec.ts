@@ -32,9 +32,11 @@ test.describe('ChatRoom layout switching', () => {
 
   test('public visitor sees long-scroll sections',
     async ({ page }) => {
+      // long-scroll(非 ChatRoom)的稳定信号:hero 名字 + contact 段(默认 chat_line
+      // 有内容,始终渲染) + chat 输入框。insights/projects/where 是空态整段隐藏的栏目
+      // (docs/design/page-corpus-pinning.md + F-A-21),其渲染由各自专测覆盖。
       await expect(page.getByText('Layout Owner')).toBeVisible();
-      await expect(page.getByText("things I've been thinking about")).toBeVisible();
-      await expect(page.getByText("what I'm building")).toBeVisible();
+      await expect(page.getByText('how to talk to me')).toBeVisible();
       await expect(page.getByTestId('chat-input')).toBeVisible();
     });
 

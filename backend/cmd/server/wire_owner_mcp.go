@@ -31,6 +31,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Owners:        d.ownerRepo,
 		Codes:         d.codeRepo,
 		SEO:           d.seoRepo,
+		PagePins:      usecases.PagePinDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
 		Corpus:        &corpusDeps,
 		Conversations: &convsDeps,
 		Prompts:       &usecases.PromptsDeps{Prompts: d.promptRepo},

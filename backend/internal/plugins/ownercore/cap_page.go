@@ -33,14 +33,17 @@ type pageCapability struct {
 	pages     pageContentStore
 	handle    *usecases.HandleDeps
 	publicURL usecases.PublicURLDeps
+	pins      usecases.PagePinDeps
 	log       *slog.Logger
 }
 
 func newPageCapability(
 	handle *usecases.HandleDeps, pages pageContentStore,
-	publicURL usecases.PublicURLDeps, log *slog.Logger,
+	publicURL usecases.PublicURLDeps, pins usecases.PagePinDeps, log *slog.Logger,
 ) *pageCapability {
-	return &pageCapability{handle: handle, pages: pages, publicURL: publicURL, log: log}
+	return &pageCapability{
+		handle: handle, pages: pages, publicURL: publicURL, pins: pins, log: log,
+	}
 }
 
 func (*pageCapability) ID() string          { return capPageBundle }
@@ -66,6 +69,7 @@ func (*pageCapability) SystemPromptFragmentID(
 func (c *pageCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{
 		c.updateHandleBinding(), c.getBinding(), c.putBinding(), c.setPublicURLBinding(),
+		c.pinBinding(), c.unpinBinding(),
 	}
 }
 
@@ -126,8 +130,9 @@ func updateHandleErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 func (c *pageCapability) getBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name: "page.get",
-		Description: "Return the owner's public page content (hero prose, insights, projects, " +
-			"where, contact). Falls back to a default draft if the owner has not saved one.",
+		Description: "Return the owner's public page as the visitor sees it: hero prose, " +
+			"where, contact, and the pinned insights/projects joined to their corpus entries " +
+			"(title + excerpt + path). Pin lists are edited via page.pin / page.unpin.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		Handler:     c.handleGet,
 	}
@@ -144,7 +149,15 @@ func (c *pageCapability) handleGet(
 		}
 		content = usecases.DefaultPageContent(ownerID)
 	}
-	return mcputil.MarshalResult(c.log, "page.get", &content)
+	// join 成渲染视图 —— AI 看到的和访客一致(设计:page.get 返 joined)。
+	view, verr := usecases.BuildPageContentView(ctx, usecases.PageDeps{
+		Owners: c.pins.Owners, Wiki: c.pins.Wiki,
+	}, ownerID, &content)
+	if verr != nil {
+		c.log.Error("cap page.get join", "err", verr)
+		return capreg.MCPError("page.get failed")
+	}
+	return mcputil.MarshalResult(c.log, "page.get", &view)
 }
 
 // ───── page.put ─────────────────────────────────────────────────
@@ -152,15 +165,14 @@ func (c *pageCapability) handleGet(
 func (c *pageCapability) putBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name: "page.put",
-		Description: "Replace the owner's public page content wholesale. Body mirrors page.get " +
-			"output (hero_prose, hero_examples, insights, projects, where, contact).",
+		Description: "Replace the owner's public page config: hero_prose, hero_examples, " +
+			"where, contact. Insights/projects are corpus PIN lists and are NOT accepted " +
+			"here — use page.pin / page.unpin (existing pins are preserved).",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"hero_prose":{"type":"string"},
 				"hero_examples":{"type":"array","items":{"type":"string"}},
-				"insights":{"type":"array"},
-				"projects":{"type":"array"},
 				"where":{"type":"object"},
 				"contact":{"type":"object"}
 			}
@@ -169,17 +181,38 @@ func (c *pageCapability) putBinding() *capreg.MCPBinding {
 	}
 }
 
+// pagePutWire —— page.put 的入参形:config 字段 only。pin 列表不在这条路上
+// (单一维护点 PinToPage/UnpinFromPage 守不变量;整段替换会绕过它)。
+type pagePutWire struct {
+	HeroProse    string             `json:"hero_prose"`
+	Where        domain.PageWhere   `json:"where"`
+	Contact      domain.PageContact `json:"contact"`
+	HeroExamples []string           `json:"hero_examples"`
+}
+
 func (c *pageCapability) handlePut(
 	ctx context.Context, ownerID string, raw json.RawMessage,
 ) capreg.MCPResult {
-	var body domain.PageContent
+	var body pagePutWire
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
-	body.OwnerID = ownerID
-	saved, err := c.pages.UpsertPageContent(ctx, ownerID, &body)
+	current, err := c.pages.GetPageContent(ctx, ownerID)
 	if err != nil {
-		c.log.Error("cap page.put", "err", err)
+		if !errors.Is(err, domain.ErrPageNotFound) {
+			c.log.Error("cap page.put load", "err", err)
+			return capreg.MCPError("page.put failed")
+		}
+		current = usecases.DefaultPageContent(ownerID)
+	}
+	current.OwnerID = ownerID
+	current.HeroProse = body.HeroProse
+	current.HeroExamples = body.HeroExamples
+	current.Where = body.Where
+	current.Contact = body.Contact
+	saved, uerr := c.pages.UpsertPageContent(ctx, ownerID, &current)
+	if uerr != nil {
+		c.log.Error("cap page.put", "err", uerr)
 		return capreg.MCPError("page.put failed")
 	}
 	return mcputil.MarshalResult(c.log, "page.put", &saved)
@@ -229,6 +262,6 @@ func setPublicURLErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, usecases.ErrPublicURLInvalid) {
 		return capreg.MCPError("public_url must be http(s):// with a non-empty host")
 	}
-	log.Error("cap page.set_public_url", "err", err)
+	log.Error("cap page.set_public_url", logErrKey, err)
 	return capreg.MCPError("page.set_public_url failed")
 }

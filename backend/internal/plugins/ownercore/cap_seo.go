@@ -15,6 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capSEOBundle = "seo.bundle"
@@ -22,11 +23,14 @@ const capSEOBundle = "seo.bundle"
 type seoCapability struct {
 	seo   SEOWriter
 	stats seoStatsReader
+	pins  usecases.PagePinDeps
 	log   *slog.Logger
 }
 
-func newSEOCapability(seo SEOWriter, stats seoStatsReader, log *slog.Logger) *seoCapability {
-	return &seoCapability{seo: seo, stats: stats, log: log}
+func newSEOCapability(
+	seo SEOWriter, stats seoStatsReader, pins usecases.PagePinDeps, log *slog.Logger,
+) *seoCapability {
+	return &seoCapability{seo: seo, stats: stats, pins: pins, log: log}
 }
 
 func (*seoCapability) ID() string          { return capSEOBundle }
@@ -86,9 +90,12 @@ type setWikiSlugArgsWire struct {
 }
 
 type setWikiSlugPayload struct {
-	WikiID    string `json:"wiki_id"`
-	Excerpt   string `json:"excerpt"`
-	Published bool   `json:"published"`
+	WikiID  string `json:"wiki_id"`
+	Excerpt string `json:"excerpt"`
+	// UnpinnedSections —— unpublish 一个已 pin 条目时自动摘除的主页栏目
+	// (pinned ⊆ published 的 unpublish 端);副作用当面声明给 owner 的 AI。
+	UnpinnedSections []string `json:"unpinned_sections"`
+	Published        bool     `json:"published"`
 }
 
 func (c *seoCapability) handleSetWikiSlug(
@@ -101,18 +108,24 @@ func (c *seoCapability) handleSetWikiSlug(
 	if args.WikiID == "" {
 		return capreg.MCPError("wiki_id is required")
 	}
-	updated, err := c.seo.UpdateWikiSEO(ctx, ownerID, args.WikiID, args.Excerpt, args.Published)
+	res, err := usecases.UpdateWikiSEOWithPins(ctx, c.seo, c.pins, usecases.WikiSEOUpdate{
+		OwnerID: ownerID, WikiID: args.WikiID, Description: args.Excerpt, Published: args.Published,
+	})
 	if err != nil {
 		return seoErrToResult(c.log, err, "seo.set_wiki_seo")
 	}
-	return marshalSetWikiSlug(c.log, &updated)
+	return marshalSetWikiSlug(c.log, &res.Wiki, res.Unpinned)
 }
 
-func marshalSetWikiSlug(log *slog.Logger, w *domain.Wiki) capreg.MCPResult {
+func marshalSetWikiSlug(log *slog.Logger, w *domain.Wiki, unpinned []string) capreg.MCPResult {
+	if unpinned == nil {
+		unpinned = []string{}
+	}
 	payload := setWikiSlugPayload{
-		WikiID:    w.ID(),
-		Excerpt:   w.Excerpt(),
-		Published: w.Published(),
+		WikiID:           w.ID(),
+		Excerpt:          w.Excerpt(),
+		Published:        w.Published(),
+		UnpinnedSections: unpinned,
 	}
 	out, err := json.Marshal(payload)
 	if err != nil {

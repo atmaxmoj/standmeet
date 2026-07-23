@@ -11,8 +11,7 @@ export type {
 } from './client.js';
 export { readSSE } from './sse.js';
 export type {
-  PageProject,
-  PageInsight,
+  PagePinCard,
   PageWhere,
   PageContact,
   PageContent,

@@ -13,7 +13,7 @@ import { FormSkeleton } from '@/components/skeletons/FormSkeleton';
 import { Block } from '@/components/admin/sections/page/Block';
 import { EditField } from '@/components/admin/sections/page/EditField';
 import { StringListEditor } from '@/components/admin/sections/page/StringListEditor';
-import { ListEditor } from '@/components/admin/sections/page/ListEditor';
+import { PinManager } from '@/components/admin/sections/page/PinManager';
 import { SaveBar } from '@/components/admin/sections/page/SaveBar';
 import { BYOAIEditor } from '@/components/admin/sections/page/BYOAIEditor';
 import { DomainEditor } from '@/components/admin/sections/page/DomainEditor';
@@ -22,7 +22,8 @@ import { PublicURLEditor } from '@/components/admin/sections/page/PublicURLEdito
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { pickHandle } from '@/lib/admin/use-handle';
 import { usePageEditor, type MutablePage, type PageEditorHook, type PageEditorState } from '@/lib/admin/use-page-editor';
-import { insightRender, projectRender } from '@/lib/admin/page-renderers';
+import { usePinnable } from '@/lib/admin/use-pinnable';
+import type { PinnableEntry } from '@/lib/api/admin';
 
 export function PageSection() {
   const editor = usePageEditor();
@@ -101,13 +102,14 @@ type ContentShape = MutablePage;
 function Blocks({
   editor, content,
 }: { editor: PageEditorHook; content: ContentShape }) {
+  const pinnable = usePinnable();
   return (
     <>
       <SiteBlock />
       <BYOAIBlock />
       <HeroBlock editor={editor} content={content} />
-      <InsightsBlock editor={editor} content={content} />
-      <ProjectsBlock editor={editor} content={content} />
+      <InsightsBlock editor={editor} content={content} pinnable={pinnable} />
+      <ProjectsBlock editor={editor} content={content} pinnable={pinnable} />
       <WhereBlock editor={editor} content={content} />
       <ContactBlock editor={editor} content={content} />
     </>
@@ -183,27 +185,31 @@ function HeroBlock({ editor, content }: { editor: PageEditorHook; content: Conte
   );
 }
 
-function InsightsBlock({ editor, content }: { editor: PageEditorHook; content: ContentShape }) {
+function InsightsBlock({
+  editor, content, pinnable,
+}: { editor: PageEditorHook; content: ContentShape; pinnable: readonly PinnableEntry[] }) {
   return (
-    <Block title="things I've been thinking about" blurb="One-line thesis + context + an expandable body. Visitors browse by idea, not by date.">
-      <ListEditor
-        label="insights"
-        items={content.insights}
+    <Block title="things I've been thinking about" blurb="Pin published corpus entries here — the page shows each entry's title + excerpt and links into the reader. Content lives once, in the corpus. Empty = the section is hidden.">
+      <PinManager
+        section="insights"
+        pins={content.insights}
+        pinnable={pinnable}
         onChange={(insights) => editor.patch({ insights })}
-        render={insightRender}
       />
     </Block>
   );
 }
 
-function ProjectsBlock({ editor, content }: { editor: PageEditorHook; content: ContentShape }) {
+function ProjectsBlock({
+  editor, content, pinnable,
+}: { editor: PageEditorHook; content: ContentShape; pinnable: readonly PinnableEntry[] }) {
   return (
-    <Block title="what I'm building" blurb="Honest projects, typography only. Name + tagline + status lines + optional url.">
-      <ListEditor
-        label="projects"
-        items={content.projects}
+    <Block title="what I'm building" blurb="Pin the corpus entries that describe what you're building. Same window-onto-the-corpus model as insights — pin published entries, reorder, and the page links into each reader.">
+      <PinManager
+        section="projects"
+        pins={content.projects}
+        pinnable={pinnable}
         onChange={(projects) => editor.patch({ projects })}
-        render={projectRender}
       />
     </Block>
   );

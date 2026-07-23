@@ -14,14 +14,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, type PageContent } from '@/lib/api/admin';
-import { PageContentSchema } from '@/lib/api/public-schemas';
+import { adminAPI, type AdminPage } from '@/lib/api/admin';
+import { AdminPageSchema } from '@/lib/api/public-schemas';
 import { pageContentStore } from '@/lib/admin/page-content-store';
 import { useResource } from '@/lib/state/create-resource-store';
 
 // 把 readonly 字段转成可写副本，状态机内部需要 patch。深度脱 readonly。
-export interface MutableInsight { id: string; thesis: string; context: string; body: string }
-export interface MutableProject { id: string; name: string; tagline: string; lines: string[]; url?: string | null }
+// insights/projects 是 corpus pin 列表(wiki id) —— pin manager 增删/排序,
+// 不再自由文本编辑(内容只存一份,在 corpus 里)。
 export interface MutableWhere   { location_line: string; status_prose: string; closing: string; looking_for: string[] }
 export interface MutableContact { email: string; chat_line: string; recruiter_prose: string; casual_prose: string }
 
@@ -30,8 +30,8 @@ export interface MutablePage {
   owner_id: string;
   hero_prose: string;
   hero_examples: string[];
-  insights: MutableInsight[];
-  projects: MutableProject[];
+  insights: string[];
+  projects: string[];
   where: MutableWhere;
   contact: MutableContact;
 }
@@ -138,7 +138,7 @@ async function runSave(
   setSaving(true);
   setErr(null);
   try {
-    const saved = await adminAPI.put('/page', payload, PageContentSchema);
+    const saved = await adminAPI.put('/page', payload, AdminPageSchema);
     pageContentStore.getState().mutate(saved);
     setForm({
       content: toMutable(saved),
@@ -153,17 +153,14 @@ async function runSave(
   }
 }
 
-function toMutable(c: PageContent): MutablePage {
+function toMutable(c: AdminPage): MutablePage {
   return {
     updated_at: c.updated_at,
     owner_id: c.owner_id,
     hero_prose: c.hero_prose,
     hero_examples: [...c.hero_examples],
-    insights: c.insights.map((i) => ({ id: i.id, thesis: i.thesis, context: i.context, body: i.body })),
-    projects: c.projects.map((p) => ({
-      id: p.id, name: p.name, tagline: p.tagline,
-      lines: [...p.lines], url: p.url ?? '',
-    })),
+    insights: [...c.insights],
+    projects: [...c.projects],
     where: {
       location_line: c.where.location_line, status_prose: c.where.status_prose,
       closing: c.where.closing, looking_for: [...c.where.looking_for],

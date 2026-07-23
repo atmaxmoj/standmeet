@@ -12,36 +12,39 @@ import (
 	"time"
 )
 
-// PageContent —— owner public page 完整内容。
+// PageContent —— owner public page 完整内容(存储形)。
+// insights / projects 不再存内容,存 **pin 列表**(wiki 条目 UUID,数组序即
+// 展示序)——想法只存一份,主页是 corpus 的窗口
+// (docs/design/page-corpus-pinning.md)。渲染时 join title+excerpt(PagePinCard)。
 // 字段顺序按 govet fieldalignment：time.Time 在前（内部 ptr at 16）+ 嵌套
 // 结构 + 字符串 + 切片在后，使 last pointer offset 尽量小。
 type PageContent struct {
-	UpdatedAt    time.Time     `json:"updated_at"`
-	Where        PageWhere     `json:"where"`
-	Contact      PageContact   `json:"contact"`
-	OwnerID      string        `json:"owner_id"`
-	HeroProse    string        `json:"hero_prose"`
-	HeroExamples []string      `json:"hero_examples"`
-	Insights     []PageInsight `json:"insights"`
-	Projects     []PageProject `json:"projects"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+	Where        PageWhere   `json:"where"`
+	Contact      PageContact `json:"contact"`
+	OwnerID      string      `json:"owner_id"`
+	HeroProse    string      `json:"hero_prose"`
+	HeroExamples []string    `json:"hero_examples"`
+	Insights     []string    `json:"insights"`
+	Projects     []string    `json:"projects"`
 }
 
-// PageInsight —— 一条"thesis + 背景 + 展开"的洞见。
-type PageInsight struct {
-	ID      string `json:"id"`
-	Thesis  string `json:"thesis"`
-	Context string `json:"context"`
-	Body    string `json:"body"`
+// PagePinCard —— 一个 pin 渲染出的卡:被 pin 条目的 title + excerpt + 树派生
+// path(前端链去 /wiki/<path>)。不变量 pinned ⊆ published 由写入端维护;这里
+// 只是 join 结果。
+type PagePinCard struct {
+	WikiID  string `json:"wiki_id"`
+	Title   string `json:"title"`
+	Excerpt string `json:"excerpt"`
+	Path    string `json:"path"`
 }
 
-// PageProject —— "typography-only" 风格的项目卡。
-type PageProject struct {
-	URL     *string  `json:"url,omitempty"`
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	Tagline string   `json:"tagline"`
-	Lines   []string `json:"lines"`
-}
+// ErrPinUnpublished —— pin 一个未 published 的条目;写入点拒绝("publish it
+// first"),不变量另一端(unpublish → auto-unpin)在 seo usecase 维护。
+var ErrPinUnpublished = errors.New("entry is not published; publish it first")
+
+// ErrPinNotFound —— pin 的 wiki_id 不存在(或不属于该 owner)。
+var ErrPinNotFound = errors.New("pinned entry not found")
 
 // PageWhere —— "where I am" section（status + looking-for + closing）。
 // 字段顺序按 govet fieldalignment：strings 先，slice 在尾（slice ptr 在 offset 0）。

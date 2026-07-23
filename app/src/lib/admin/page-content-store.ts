@@ -5,11 +5,11 @@
 // 跟 sessionStore / codesStore 同形状：单一 fetcher，{status,data,error}
 // 由 [[create-resource-store]] 工厂统一形态。
 
-import { adminAPI, type PageContent } from '@/lib/api/admin';
-import { PageContentSchema } from '@/lib/api/public-schemas';
+import { adminAPI, type AdminPage } from '@/lib/api/admin';
+import { AdminPageSchema } from '@/lib/api/public-schemas';
 import { createResourceStore } from '@/lib/state/create-resource-store';
 
-export const pageContentStore = createResourceStore<PageContent>({
+export const pageContentStore = createResourceStore<AdminPage>({
   name: 'page-content',
-  fetcher: () => adminAPI.get('/page', PageContentSchema),
+  fetcher: () => adminAPI.get('/page', AdminPageSchema),
 });

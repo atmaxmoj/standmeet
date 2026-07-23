@@ -1,64 +1,42 @@
-// Projects —— typography-only：name + "──" mono + italic tagline 一行，
-// 下方 lines list 用左侧 1px rule 引导阅读。url 摆 mono accent。
+// Projects —— "what I'm building"。projects 跟 insights 一样是 corpus 的 pin
+// 窗口(docs/design/page-corpus-pinning.md):每张卡是被 pin 的已发布条目,
+// name=title 链去 /wiki/<path>,excerpt 走左侧 1px rule 的阅读区。
+// 空栏目(没 pin)整个不渲染,标题也不渲。
 
-import type { PageProject } from '@/lib/api/public';
+import Link from 'next/link';
+
+import type { PagePinCard } from '@/lib/api/public';
 
 import { DeckHeader } from '@/components/page/DeckHeader';
 
-export function Projects({ projects }: { projects: readonly PageProject[] }) {
-  return (
+export function Projects({ projects }: { projects: readonly PagePinCard[] }) {
+  return projects.length === 0 ? null : (
     <section className="mt-24">
       <DeckHeader kicker="what I'm building" count={projects.length} />
       <ul className="space-y-9">
-        {projects.map((p) => <ProjectRow key={p.id} project={p} />)}
+        {projects.map((card) => <ProjectRow key={card.wiki_id} card={card} />)}
       </ul>
     </section>
   );
 }
 
-function ProjectRow({ project }: { project: PageProject }) {
+function ProjectRow({ card }: { card: PagePinCard }) {
   return (
     <li>
-      <ProjectHead name={project.name} tagline={project.tagline} />
-      <ProjectBody lines={project.lines} url={project.url} />
+      <Link href={`/wiki/${card.path}`} className="group flex items-baseline gap-3 flex-wrap mb-3">
+        <h3 className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors text-[24px] font-medium tracking-[-0.012em] leading-[1.1]">
+          {card.title}
+        </h3>
+        <span className="mono text-(--color-faint)">{'──'}</span>
+        <span className="mono text-[11px] tracking-[0.14em] text-(--color-faint) group-hover:text-(--color-muted) transition-colors">
+          {'read ↗'}
+        </span>
+      </Link>
+      {card.excerpt !== '' && (
+        <div className="reading text-(--color-ink) pl-5 border-l border-(--color-rule) text-[16px]">
+          <p>{card.excerpt}</p>
+        </div>
+      )}
     </li>
-  );
-}
-
-function ProjectHead({ name, tagline }: { name: string; tagline: string }) {
-  return (
-    <div className="flex items-baseline gap-3 flex-wrap mb-3">
-      <h3 className="font-serif text-(--color-ink) text-[24px] font-medium tracking-[-0.012em] leading-[1.1]">
-        {name}
-      </h3>
-      <span className="mono text-(--color-faint)">{'──'}</span>
-      <span className="font-serif italic text-(--color-muted) text-[17px] leading-[1.3]">
-        {tagline}
-      </span>
-    </div>
-  );
-}
-
-function ProjectBody({ lines, url }: { lines: readonly string[]; url?: string | null }) {
-  return (
-    <div className="reading text-(--color-ink) space-y-1.5 pl-5 border-l border-(--color-rule) text-[16px]">
-      {lines.map((line) => <p key={line}>{line}</p>)}
-      {url && <ProjectURL url={url} />}
-    </div>
-  );
-}
-
-function ProjectURL({ url }: { url: string }) {
-  return (
-    <p className="mono text-[12.5px] tracking-[0.04em] pt-1">
-      <a
-        href={`https://${url}`}
-        target="_blank"
-        rel="noreferrer"
-        className="text-(--color-accent) border-b border-(--color-accent)/40 hover:border-(--color-accent) transition-colors"
-      >
-        {url} ↗
-      </a>
-    </p>
   );
 }

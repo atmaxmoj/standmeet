@@ -40,6 +40,10 @@ type ObsidianDeps struct {
 	Corpus     usecases.CorpusDeps    // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
 	CSS        usecases.OwnerCSSStore // .obsidian/snippets harvest → owner CSS
 	WritingsTx usecases.WritingsTxDeps
+	// PagePins —— sync 是 published 的第三条写路径(frontmatter 可翻 publish);
+	// 批量 reconcile 后清扫失效 pin,保住 pinned ⊆ published(渲染过滤只是兜底)。
+	PagePins usecases.PagePinDeps
+	Log      *slog.Logger
 }
 
 // cssSyncAdapter —— SyncCSSPort:harvest 的 CSS 经 SetOwnerCSS(sanitize+scope)。
@@ -105,10 +109,19 @@ func (d *ObsidianDeps) Ingest(
 	}, ownerID, vfiles, obsidian.SyncMode{Authoritative: opts.Authoritative})
 	// 批量 sync 后整批重建 Meili index(反映新增/改/删,漂移不留)。best-effort。
 	usecases.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
+	d.sweepPinsAfterSync(ctx, ownerID)
 	return connector.SyncResult{
 		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,
 		Deleted: res.Deleted, Errors: res.Errors,
 	}, nil
+}
+
+// sweepPinsAfterSync —— sync 可能 unpublish/删除已 pin 条目 → 清扫主页 pin
+// (pinned ⊆ published)。best-effort。
+func (d *ObsidianDeps) sweepPinsAfterSync(ctx context.Context, ownerID string) {
+	if serr := usecases.SweepPagePins(ctx, d.PagePins, ownerID); serr != nil && d.Log != nil {
+		d.Log.Error("sweep page pins after vault sync", "err", serr)
+	}
 }
 
 const maxObsidianImportSize = 200 << 20 // 200 MB — vault 整个上传，比 writing save 大。

@@ -65,6 +65,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'custom_page.rollback',
   // page / calendar / booking / appearance
   'page.update_handle', 'page.get', 'page.put', 'page.set_public_url',
+  'page.pin', 'page.unpin',
   'calendar.list_slots', 'calendar.cancel_booking',
   'booking.get_policy', 'booking.set_policy', 'bookings.list',
   'set_owner_css', 'appearance.get_css',

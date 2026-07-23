@@ -109,6 +109,13 @@ SELECT id, parent_id, title, published
 FROM corpus_notes
 WHERE id = $1 AND owner_id = $2 AND genre = $3;
 
+-- name: ListNoteCardsByIDs :many
+-- Page-pin join:被 pin 的条目 → 卡内容(title + excerpt + published 兜底过滤)。
+-- 顺序由 caller 按 pin 列表重排,这里不 ORDER。
+SELECT id, title, excerpt, published
+FROM corpus_notes
+WHERE owner_id = $1 AND id = ANY($2::uuid[]);
+
 -- name: CountNoteStats :one
 -- 侧栏脚定位计数：总条数 / 根条数 / 非公开（gated）条数。纯聚合，不 load 树。
 SELECT

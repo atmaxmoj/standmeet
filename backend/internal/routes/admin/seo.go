@@ -15,11 +15,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-// SEOAdminDeps —— admin SEO handlers 依赖。
+// SEOAdminDeps —— admin SEO handlers 依赖。Pins 给 unpublish→auto-unpin 钩子
+// (pinned ⊆ published 的 unpublish 端;必须走 UpdateWikiSEOWithPins)。
 type SEOAdminDeps struct {
-	SEO *postgres.SEORepo
+	SEO  *postgres.SEORepo
+	Pins usecases.PagePinDeps
 }
 
 // MountSEO 挂 /seo + /seo/stats + 统一的 /corpus/{genre}/{id}/seo（合并原
@@ -134,14 +137,19 @@ func (h *Handlers) patchWikiSEO() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		updated, err := h.SEOAdmin.SEO.UpdateWikiSEO(
-			r.Context(), middleware.OwnerIDFrom(r.Context()), wikiID, req.Excerpt, req.Published,
+		res, err := usecases.UpdateWikiSEOWithPins(
+			r.Context(), h.SEOAdmin.SEO, h.SEOAdmin.Pins, usecases.WikiSEOUpdate{
+				OwnerID:     middleware.OwnerIDFrom(r.Context()),
+				WikiID:      wikiID,
+				Description: req.Excerpt,
+				Published:   req.Published,
+			},
 		)
 		if err != nil {
 			handleWikiSEOErr(h.Log, w, err)
 			return
 		}
-		writeWikiSEOResp(h.Log, w, &updated)
+		writeWikiSEOResp(h.Log, w, &res.Wiki, res.Unpinned)
 	}
 }
 
@@ -157,22 +165,34 @@ func handleWikiSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
 }
 
 type wikiSEOResp struct {
-	ID        string `json:"id"`
-	Excerpt   string `json:"excerpt"`
-	Published bool   `json:"published"`
+	ID      string `json:"id"`
+	Excerpt string `json:"excerpt"`
+	// UnpinnedSections —— unpublish 自动摘 pin 的副作用声明(空 = 没 pin 过)。
+	UnpinnedSections []string `json:"unpinned_sections"`
+	Published        bool     `json:"published"`
 }
 
-func writeWikiSEOResp(log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki) {
+func writeWikiSEOResp(
+	log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki, unpinned []string,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := wikiSEOResp{
-		ID:        wiki.ID(),
-		Excerpt:   wiki.Excerpt(),
-		Published: wiki.Published(),
+		ID:               wiki.ID(),
+		Excerpt:          wiki.Excerpt(),
+		Published:        wiki.Published(),
+		UnpinnedSections: emptyIfNil(unpinned),
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode wiki seo resp", "err", err)
 	}
+}
+
+func emptyIfNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 // patchOutputSEO —— 同 patchWikiSEO 同 shape，给 output note 用。

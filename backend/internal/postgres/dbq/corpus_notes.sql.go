@@ -600,6 +600,51 @@ func (q *Queries) ListAllOwnerNoteTitles(ctx context.Context, ownerID pgtype.UUI
 	return items, nil
 }
 
+const listNoteCardsByIDs = `-- name: ListNoteCardsByIDs :many
+SELECT id, title, excerpt, published
+FROM corpus_notes
+WHERE owner_id = $1 AND id = ANY($2::uuid[])
+`
+
+type ListNoteCardsByIDsParams struct {
+	OwnerID pgtype.UUID
+	Column2 []pgtype.UUID
+}
+
+type ListNoteCardsByIDsRow struct {
+	ID        pgtype.UUID
+	Title     string
+	Excerpt   string
+	Published bool
+}
+
+// Page-pin join:被 pin 的条目 → 卡内容(title + excerpt + published 兜底过滤)。
+// 顺序由 caller 按 pin 列表重排,这里不 ORDER。
+func (q *Queries) ListNoteCardsByIDs(ctx context.Context, arg ListNoteCardsByIDsParams) ([]ListNoteCardsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, listNoteCardsByIDs, arg.OwnerID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNoteCardsByIDsRow
+	for rows.Next() {
+		var i ListNoteCardsByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Excerpt,
+			&i.Published,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNoteChildren = `-- name: ListNoteChildren :many
 SELECT n.id, n.parent_id, n.title, n.published,
        EXISTS(SELECT 1 FROM corpus_notes c WHERE c.parent_id = n.id AND c.genre = $2) AS has_children

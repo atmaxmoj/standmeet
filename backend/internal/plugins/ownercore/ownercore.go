@@ -45,6 +45,7 @@ type Deps struct {
 	Prompts        *usecases.PromptsDeps
 	Conversations  *usecases.ConversationsDeps
 	PublicURL      usecases.PublicURLDeps
+	PagePins       usecases.PagePinDeps
 	Corpus         *usecases.CorpusDeps
 	Account        usecases.AccountDeps
 	BYOAI          usecases.BYOAIDeps
@@ -75,7 +76,7 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	d := p.deps
 	reg.MustRegister(newMeCapability(d.Owners, d.Log))
 	reg.MustRegister(newCodesCapability(d.Codes, d.CodeDenials, d.Log))
-	reg.MustRegister(newSEOCapability(d.SEO, d.SEOStats, d.Log))
+	reg.MustRegister(newSEOCapability(d.SEO, d.SEOStats, d.PagePins, d.Log))
 	reg.MustRegister(newCorpusRawCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusMutationsCapability(d.Corpus, d.Log))
@@ -88,7 +89,7 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newSkillsCapability(d.Skills, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
-	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.Log))
+	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.PagePins, d.Log))
 	reg.MustRegister(newCalendarCapability(d.Calendar.Proxy, d.Calendar.Store, d.Owners, d.Log))
 	// facade-parity fills.
 	reg.MustRegister(newIPBansCapability(d.IPBans, d.Log))

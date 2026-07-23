@@ -1,68 +1,44 @@
-// Insights —— "things I've been thinking about"。一行 thesis + 一行
-// "── context" + 点开展开 body。设计稿语义：每个 insight 都默认折叠，
-// caller 通过 expanded:Set<string> 控制；让 visitor 自主决定深度。
+// Insights —— "things I've been thinking about"。insights 是 corpus 的 pin
+// 窗口(docs/design/page-corpus-pinning.md):每张卡是被 pin 的已发布条目的
+// title + excerpt,链去 /wiki/<path> 的 reader —— 不是第二份内容。
+// 空栏目(没 pin)整个不渲染,标题也不渲。
 
-'use client';
+import Link from 'next/link';
 
-import { useCallback, useState } from 'react';
-
-import type { PageInsight } from '@/lib/api/public';
+import type { PagePinCard } from '@/lib/api/public';
 
 import { DeckHeader } from '@/components/page/DeckHeader';
 
-export function Insights({ insights }: { insights: readonly PageInsight[] }) {
-  const { expanded, toggle } = useExpanded();
-  return (
+export function Insights({ insights }: { insights: readonly PagePinCard[] }) {
+  return insights.length === 0 ? null : (
     <section className="mt-24">
       <DeckHeader kicker="things I've been thinking about" count={insights.length} />
       <ol className="space-y-7">
-        {insights.map((it, idx) => (
-          <InsightRow key={it.id} idx={idx} insight={it} open={expanded.has(it.id)} onToggle={toggle} />
+        {insights.map((card, idx) => (
+          <InsightRow key={card.wiki_id} idx={idx} card={card} />
         ))}
       </ol>
     </section>
   );
 }
 
-function useExpanded(): { expanded: ReadonlySet<string>; toggle: (id: string) => void } {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const toggle = useCallback((id: string): void => {
-    setExpanded((prev) => toggleInSet(prev, id));
-  }, []);
-  return { expanded, toggle };
-}
-
-function toggleInSet(prev: ReadonlySet<string>, id: string): ReadonlySet<string> {
-  const next = new Set(prev);
-  next.has(id) ? next.delete(id) : next.add(id);
-  return next;
-}
-
-type RowProps = {
-  idx: number;
-  insight: PageInsight;
-  open: boolean;
-  onToggle: (id: string) => void;
-};
-
-function InsightRow({ idx, insight, open, onToggle }: RowProps) {
+function InsightRow({ idx, card }: { idx: number; card: PagePinCard }) {
   return (
     <li className="grid grid-cols-[28px_1fr] gap-5">
       <span className="mono text-[10px] tracking-[0.14em] text-(--color-faint) tabular-nums pt-2.5">
         {String(idx + 1).padStart(2, '0')}
       </span>
       <div>
-        <button type="button" onClick={() => onToggle(insight.id)} className="group w-full text-left">
-          <InsightThesis text={insight.thesis} />
-          <InsightContext context={insight.context} open={open} />
-        </button>
-        {open && <InsightBody body={insight.body} />}
+        <Link href={`/wiki/${card.path}`} className="group block">
+          <InsightTitle text={card.title} />
+        </Link>
+        {card.excerpt !== '' && <InsightExcerpt text={card.excerpt} />}
       </div>
     </li>
   );
 }
 
-function InsightThesis({ text }: { text: string }) {
+function InsightTitle({ text }: { text: string }) {
   return (
     <p className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors text-[20px] leading-[1.4] font-medium tracking-[-0.005em]">
       {text}
@@ -70,23 +46,10 @@ function InsightThesis({ text }: { text: string }) {
   );
 }
 
-function InsightContext({ context, open }: { context: string; open: boolean }) {
+function InsightExcerpt({ text }: { text: string }) {
   return (
-    <p className="mono text-(--color-faint) mt-1.5 text-[11px] tracking-[0.04em]">
-      {'── '}{context}
-      <span
-        className={`ml-3 transition-colors ${open ? 'text-(--color-accent)' : 'text-(--color-faint) group-hover:text-(--color-muted)'}`}
-      >
-        {open ? '[ close ]' : '[ read more ]'}
-      </span>
-    </p>
-  );
-}
-
-function InsightBody({ body }: { body: string }) {
-  return (
-    <p className="reading text-(--color-muted) mt-4 fadein text-[16.5px] max-w-[38em]">
-      {body}
+    <p className="reading text-(--color-muted) mt-2 text-[16.5px] max-w-[38em]">
+      {text}
     </p>
   );
 }

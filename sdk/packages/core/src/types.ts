@@ -2,19 +2,15 @@
 // returns. 全部 readonly 走"server is authoritative"语义；caller 不该改
 // 这些对象再回写。命名遵循 backend JSON 协议（snake_case）。
 
-export interface PageProject {
-  readonly id: string;
-  readonly name: string;
-  readonly tagline: string;
-  readonly lines: readonly string[];
-  readonly url?: string | null;
-}
-
-export interface PageInsight {
-  readonly id: string;
-  readonly thesis: string;
-  readonly context: string;
-  readonly body: string;
+// PagePinCard —— one rendered pin: the pinned corpus entry's title + excerpt +
+// tree-derived path (the card links into /wiki/<path>). insights/projects are
+// windows onto the corpus, not a second copy of the content — the owner pins
+// published entries and the public page joins them at render time.
+export interface PagePinCard {
+  readonly wiki_id: string;
+  readonly title: string;
+  readonly excerpt: string;
+  readonly path: string;
 }
 
 export interface PageWhere {
@@ -36,8 +32,8 @@ export interface PageContent {
   readonly owner_id: string;
   readonly hero_prose: string;
   readonly hero_examples: readonly string[];
-  readonly insights: readonly PageInsight[];
-  readonly projects: readonly PageProject[];
+  readonly insights: readonly PagePinCard[];
+  readonly projects: readonly PagePinCard[];
   readonly where: PageWhere;
   readonly contact: PageContact;
 }

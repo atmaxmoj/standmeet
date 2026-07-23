@@ -158,6 +158,9 @@ func mountAdmin(r chi.Router, deps *Deps) {
 }
 
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
+	pins := usecases.PagePinDeps{
+		Owners: deps.Admin.Owners, Wiki: deps.Admin.Corpus.Wiki,
+	}
 	return &adminroutes.Handlers{
 		Claim: deps.Admin.Claim,
 		Auth: adminroutes.AuthDeps{
@@ -171,8 +174,8 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
 			Sessions: deps.Public.Sessions, Denials: deps.Admin.CodeDenials,
 		},
-		PageAdmin: adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
-		SEOAdmin:  adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO},
+		PageAdmin: adminroutes.PageAdminDeps{Owners: deps.Admin.Owners, Pins: pins},
+		SEOAdmin:  adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO, Pins: pins},
 		Conversations: adminroutes.ConversationsDeps{
 			Chats:  deps.Admin.Conversations,
 			Ghosts: deps.Admin.Ghosts,
@@ -210,6 +213,8 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
 			},
+			PagePins: pins,
+			Log:      deps.Log,
 		},
 		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
 		CalendarAdmin:     deps.Admin.Calendar,

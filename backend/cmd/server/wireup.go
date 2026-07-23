@@ -36,7 +36,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 			CrossLink: usecases.CrossLinkQueryDeps{
 				Writings: d.writingRepo, WritingRefs: d.writingRefRepo,
 			},
-			Page:   usecases.PageDeps{Owners: d.ownerRepo},
+			Page:   usecases.PageDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
 			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 			Log:    d.log,
 		},
@@ -277,7 +277,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 
 func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 	return publicroutes.PageHandlers{
-		Page: usecases.PageDeps{Owners: d.ownerRepo},
+		Page: usecases.PageDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
 		Log:  d.log,
 		TokenIssuer: &setupTokenIssuerAdapter{
 			log: d.log, repo: d.instanceRepo, holder: d.setupTokenHolder,

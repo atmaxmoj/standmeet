@@ -152,4 +152,18 @@ export interface BYOAIUpdateInput { enabled: boolean; providers: string[]; blurb
 
 export const AllowedDomainsRespSchema = z.object({ domains: z.array(z.string()) });
 
-export type { PageContent, PageInsight, PageProject, PageWhere, PageContact } from '@/lib/api/public';
+export type { PageWhere, PageContact } from '@/lib/api/public';
+
+// AdminPage / pinnable —— admin /page 编辑面的形状 + pin 候选。insights/projects
+// 在这一面是 corpus pin 列表(wiki id),渲染面在公开 /api/v1/page 才 join 成卡。
+import {
+  AdminPageSchema, PinnableListSchema,
+  type AdminPage, type PinnableEntry,
+} from '@/lib/api/public-schemas';
+
+export { AdminPageSchema, PinnableListSchema };
+export type { AdminPage, PinnableEntry };
+
+export function fetchPinnable(): Promise<PinnableEntry[]> {
+  return adminAPI.get('/page/pinnable', PinnableListSchema);
+}

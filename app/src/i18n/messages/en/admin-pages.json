@@ -1,6 +1,13 @@
 {
   "page": {
-    "intro": "Author the blocks visitors land on. Hero is the prose paragraph + chat input. Below: insights (bold theses), projects, where you are, and how to reach you. Changes persist via PUT /admin/page."
+    "intro": "Author the blocks visitors land on. Hero is the prose paragraph + chat input. Insights and projects are windows onto your corpus — pin published entries and the page shows each one's title + excerpt, linking into the reader. Below that: where you are, and how to reach you. Changes persist via PUT /admin/page."
+  },
+  "pinManager": {
+    "empty": "no pins yet — this section is hidden on the page.",
+    "unpin": "unpin",
+    "add": "+ pin a published entry",
+    "close": "× close",
+    "noneToPin": "nothing to pin — publish a corpus entry first."
   },
   "saveBar": {
     "saving": "saving…",
@@ -9,11 +16,6 @@
     "inSync": "in sync",
     "save": "save",
     "revert": "revert"
-  },
-  "listEditor": {
-    "add": "＋ add",
-    "empty": "empty · add to get going",
-    "remove": "remove"
   },
   "handle": {
     "label": "handle",

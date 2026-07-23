@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -20,16 +21,33 @@ import (
 
 // PageDeps —— page usecase 所需。PageContent 是 Owner aggregate 的内容
 // 切面，所以 GetPageContent / UpsertPageContent 都是 OwnerRepo 方法；
-// usecase 这里不再持有独立 PageRepo。
+// usecase 这里不再持有独立 PageRepo。Wiki 给 pin join 用(GetPublicPage);
+// 只调 LoadSoleOwner 的 caller 可不填。
 type PageDeps struct {
 	Owners *postgres.OwnerRepo
+	Wiki   *postgres.WikiRepo
 }
 
 // PublicPageView —— GET /api/v1/page 返回的形状。
-// Owner 部分挑公开字段，page_content 全字段，时间戳是页面 last-updated。
+// Owner 部分挑公开字段，content 是渲染视图(insights/projects 已 join 成卡)，
+// 时间戳是页面 last-updated。
 type PublicPageView struct {
-	Owner   PublicOwnerView    `json:"owner"`
-	Content domain.PageContent `json:"content"`
+	Owner   PublicOwnerView `json:"owner"`
+	Content PageContentView `json:"content"`
+}
+
+// PageContentView —— page_content 的渲染视图:存储形的 pin 列表(wiki id)
+// join 成 PagePinCard(title + excerpt + path)。AI(page.get)和访客看同一形。
+// 字段顺序按 govet fieldalignment。
+type PageContentView struct {
+	UpdatedAt    time.Time            `json:"updated_at"`
+	Where        domain.PageWhere     `json:"where"`
+	Contact      domain.PageContact   `json:"contact"`
+	OwnerID      string               `json:"owner_id"`
+	HeroProse    string               `json:"hero_prose"`
+	HeroExamples []string             `json:"hero_examples"`
+	Insights     []domain.PagePinCard `json:"insights"`
+	Projects     []domain.PagePinCard `json:"projects"`
 }
 
 // PublicOwnerView —— 暴露给访客的 owner 切片（不含 email / password_hash）。
@@ -98,7 +116,7 @@ func EnsureUnclaimedSetupToken(ctx context.Context, issuer SetupTokenIssuer) (st
 	return issuer.HolderPlaintext(), nil
 }
 
-// GetPublicPage —— sole owner → page_content。page_content 缺失时填默认。
+// GetPublicPage —— sole owner → page_content(缺失填默认)→ pin join 成渲染视图。
 func GetPublicPage(ctx context.Context, deps PageDeps) (PublicPageView, error) {
 	owner, err := LoadSoleOwner(ctx, deps)
 	if err != nil {
@@ -111,13 +129,38 @@ func GetPublicPage(ctx context.Context, deps PageDeps) (PublicPageView, error) {
 	if err != nil {
 		return PublicPageView{}, err
 	}
+	view, err := BuildPageContentView(ctx, deps, owner.ID, &content)
+	if err != nil {
+		return PublicPageView{}, err
+	}
 	return PublicPageView{
 		Owner: PublicOwnerView{
 			Handle:   owner.Handle,
 			FullName: owner.FullName,
 			Location: owner.Location,
 		},
-		Content: content,
+		Content: view,
+	}, nil
+}
+
+// BuildPageContentView —— 存储形 → 渲染视图(pin join)。page.get MCP 也走这条,
+// AI 看到的和访客一致。
+func BuildPageContentView(
+	ctx context.Context, deps PageDeps, ownerID string, content *domain.PageContent,
+) (PageContentView, error) {
+	join, err := LoadPinJoin(ctx, PagePinDeps(deps), ownerID, content)
+	if err != nil {
+		return PageContentView{}, err
+	}
+	return PageContentView{
+		UpdatedAt:    content.UpdatedAt,
+		Where:        content.Where,
+		Contact:      content.Contact,
+		OwnerID:      content.OwnerID,
+		HeroProse:    content.HeroProse,
+		HeroExamples: content.HeroExamples,
+		Insights:     ResolvePinCards(join.Cards, join.Paths, content.Insights),
+		Projects:     ResolvePinCards(join.Cards, join.Paths, content.Projects),
 	}, nil
 }
 
@@ -174,15 +217,15 @@ func defaultHeroExamples() []string {
 	}
 }
 
-// defaultInsights / defaultProjects 默认空——owner 添完才显，不挂任何 placeholder
-// 卡片占视野。
+// defaultInsights / defaultProjects 默认空 pin 列表——owner pin 了 published
+// 条目才显,空栏目整个不渲染(corpus-pinning 空态规则)。
 
-func defaultInsights() []domain.PageInsight {
-	return []domain.PageInsight{}
+func defaultInsights() []string {
+	return []string{}
 }
 
-func defaultProjects() []domain.PageProject {
-	return []domain.PageProject{}
+func defaultProjects() []string {
+	return []string{}
 }
 
 // defaultWhere —— EMPTY on purpose (F-A-21 sweep). Like the hero prose, the where/status copy is

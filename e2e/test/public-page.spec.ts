@@ -71,15 +71,15 @@ async function expectOwnerPageRendered(page: Page): Promise<void> {
   // 设计稿里 owner 全名摆 identity strip 里（mono caps span 不是 heading），
   // 所以走 getByText 而不是 getByRole('heading')。
   await expect(page.getByText('Alice Anderson')).toBeVisible();
-  // section 标题永远在（即使内容为空 section header 还是渲）
-  await expect(page.getByText("things I've been thinking about")).toBeVisible();
-  await expect(page.getByText("what I'm building")).toBeVisible();
-  await expect(page.getByText('where I am', { exact: true })).toBeVisible();
+  // 空栏目整个不渲染(标题也不渲) —— corpus-pinning 空态规则
+  // (docs/design/page-corpus-pinning.md):未配置实例只有名字 + 聊天框 + 示例。
+  await expect(page.getByText("things I've been thinking about")).toHaveCount(0);
+  await expect(page.getByText("what I'm building")).toHaveCount(0);
+  await expect(page.getByText('where I am', { exact: true })).toHaveCount(0);
+  // contact 默认 chat_line 是真实的 visitor 向内容(指向真实存在的聊天框)→ 栏目在。
   await expect(page.getByText('how to talk to me', { exact: true })).toBeVisible();
   // hero example starter 来自 defaultHeroExamples（generic placeholder）
   await expect(page.getByText('What are you working on?')).toBeVisible();
-  // insights / projects 默认空——owner 不填就不显内容，spec 不再 assert
-  // 真实 insight 标题或 project 名字
   // F-A-21: the page is visitor-facing, so an UNCONFIGURED instance (this fresh claim, no page
   // config) must not show owner-onboarding copy to a visitor. The old default hero prose told the
   // reader to "Open /admin/page", and defaultWhere leaked "Edit your location in /admin/page." —

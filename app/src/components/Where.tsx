@@ -8,7 +8,9 @@ import type { PageWhere } from '@/lib/api/public';
 import { DeckHeader } from '@/components/page/DeckHeader';
 
 export function Where({ where }: { where: PageWhere }) {
-  return (
+  // 整段空(未配置实例,defaultWhere 是 F-A-21 空壳)→ 连标题都不渲染:visitor
+  // 面不给空栏目留占位,跟 insights/projects 的空态规则一致。
+  return isWhereEmpty(where) ? null : (
     <section className="mt-24">
       <DeckHeader kicker="where I am" />
       <div className="reading text-(--color-ink) text-[18px]">
@@ -19,6 +21,11 @@ export function Where({ where }: { where: PageWhere }) {
       </div>
     </section>
   );
+}
+
+function isWhereEmpty(where: PageWhere): boolean {
+  const proses = [where.location_line, where.status_prose, where.closing];
+  return proses.every((s) => s === '') && where.looking_for.length === 0;
 }
 
 // ProseLine —— 空串不渲：未配置的行不能给 visitor 留空白段落（F-A-21 同类，

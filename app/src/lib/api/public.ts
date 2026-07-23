@@ -20,8 +20,7 @@ import type {
 
 export type {
   BYOAIHeaders,
-  PageProject,
-  PageInsight,
+  PagePinCard,
   PageWhere,
   PageContact,
   PageContent,
