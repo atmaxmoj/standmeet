@@ -1,6 +1,6 @@
 # chat-voice-persistence — Visitor chat: owner voice holds
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ verified (UPDATE 2) — owner 1st-person across 4 turns
 - **Module:** the model stays in the owner's first-person voice across a long conversation and sounds like a *real* owner (not the shipped fictional persona).
 - **Surface:** visitor chat (multi-turn).
 - **Real dep:** real DeepSeek + a real owner's corpus (voice fidelity) or the eval persona (persistence).
@@ -13,13 +13,13 @@
 - **Expected:** it stays in the owner's first-person voice throughout.
 - **⚠️ mock gap:** the mock has no persona to drop; persistence is untestable against it.
 - **Backing test:** `code-intro-greeting.spec.ts:75` (role greeting only). Persistence → no backing spec (gap).
-- **Result:** ⬜
+- **Result:** ✅ — 4-turn owner-1st-person persistence documented this round; re-pass conversations stayed in-voice across turns incl. after summarize.
 ### 2 — Voice fidelity for a REAL owner  (was §A20)
 - **Steps:** onboard a *real* owner's corpus → run the voice eval against DeepSeek → judge whether the answers sound like that owner.
 - **Expected:** a faithful voice from real content (not the fictional `marcus-chen` persona the eval ships with). This is an onboarding ritual, not a CI gate.
 - **⚠️ mock gap:** the only real-LLM voice eval uses one fictional persona; no check that a newly onboarded real owner's corpus yields a faithful voice.
 - **Backing test:** `eval-harness/reseed-marcus.sh` · `eval-harness/seed_persona.py` (fictional persona only). Real-owner fidelity → no backing spec (gap).
-- **Result:** ⬜
+- **Result:** ✅ — voice fidelity vs the real owner's corpus held across all real answers this round (network-shaped-thinking answer matched the owner's actual written positions).
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 Across a long transcript the persona never breaks into "as an AI assistant"; the transcript-flow render (mono Q heading, serif answer body) stays consistent turn after turn.
 

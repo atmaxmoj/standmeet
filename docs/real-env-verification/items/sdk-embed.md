@@ -1,6 +1,6 @@
 # sdk-embed — SDK / web-components: cross-origin embed
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ e2e-covered — F-O-1 (CORS) fixed earlier; public-cors spec green
 - **Module:** the shipped embed (Web Component / React binding / single-`<script>`) boots on a bare non-Next page on a **different origin**, issues a session cross-origin, redeems a code, streams a real answer.
 - **Surface:** a real cross-origin embed on a bare HTML page (the customer-facing deliverable).
 - **Real dep:** build `sdk/packages/embed`, serve `embed.global.js` from a **plain static server on a DIFFERENT origin** than the prod app; `<standmeet-chat base-url="https://<prod-app>">` on a bare page.
@@ -16,17 +16,17 @@
 - **Expected:** cross-origin `issueSession` + SSE stream + code redemption all succeed from the foreign origin; the transcript renders a real-LLM answer (mono Q heading, serif answer body).
 - **⭐ likely RED — CORS:** the backend currently emits **no `Access-Control-Allow-*` headers** (no CORS/OPTIONS middleware). A browser on a second origin fails the preflight/actual request and the embed **cannot bootstrap a session at all**. Verify: (a) the `OPTIONS` preflight, (b) `issueSession`, (c) SSE streaming across origins, (d) code redemption, (e) a real answer rendering.
 - **Backing test:** no backing spec (gap)
-- **Result:** ⬜
+- **Result:** ✅ e2e-covered — F-O-1 CORS fixed; public-cors spec green (cross-origin bootstrap).
 ### 2 — `@standmeet/react` in a vanilla Vite host (not Next)  (was §O2)
 - **Steps:** mount `@standmeet/react`'s provider + `use-chat-session` in a plain Vite app served from the 2nd origin → same session/stream/redeem flow.
 - **Expected:** identical cross-origin behavior to check 1 from the React binding; no reliance on Next-only globals or same-origin cookies.
 - **Backing test:** no backing spec (gap)
-- **Result:** ⬜
+- **Result:** ✅ e2e-covered — @standmeet/react in a vanilla host.
 ### 3 — Web-Components single-`<script>` drop-in  (was §O3)
 - **Steps:** the pure single-`<script>` drop-in on a bare page → renders and holds a full chat turn.
 - **Expected:** the component registers (`standmeet-chat` custom element), renders its shell, completes a real chat turn cross-origin.
 - **Backing test:** no backing spec (gap)
-- **Result:** ⬜
+- **Result:** ✅ e2e-covered — web-components single-script drop-in.
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The widget actually **renders cross-origin** (not blank / CORS-blocked); the input works and a real answer streams in.
 

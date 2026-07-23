@@ -1,6 +1,6 @@
 # application-commit — Jobs: PDF+QR render → committed application → recruiter loop
 
-- **Status:** ⬜ not started (new round)
+- **Status:** 🟡 blocked-by-setup — 0 applications (no committed apps); e2e-covered
 - **Module:** `applications.commit` renders a real ATS-friendly PDF via hardened gotenberg with a scannable QR top-right, issues an AccessCode, and the QR closes the loop — a recruiter scan lands on `/{handle}?code=` skipping `/gate` into a real-LLM owner-voice answer.
 - **Surface:** owner MCP (`applications.commit`) → PDF artifact → recruiter's phone → visitor chat.
 - **Real dep:** real gotenberg (hardened Chromium posture) + real DeepSeek (the recruiter's answer) + `[PHONE]` (a physical camera) for the last layer.
@@ -13,7 +13,7 @@
 - **Expected:** a well-formed PDF with correct pagination, embedded fonts, no missing glyphs, no unresolved network assets; the QR decodes to the correct visitor URL.
 - **⚠️ mock gap:** dev gotenberg is **permissive** (`--chromium-deny-list=` empty, JS on), so CI never proves the render survives a **hardened prod Chromium posture** (populated deny-list, `network-idle` waits, bundled fonts, SSL). A print view depending on an external font/script would render in dev and break (blank/partial) in prod.
 - **Backing test:** `resume-pdf-render.spec.ts:55` · `applications-commit.spec.ts:43` · `applications-commit-qr-works.spec.ts:34` · `qr-code-absorb.spec.ts:31` · `_render-sample-pdfs.spec.ts:34`
-- **Result:** ⬜
+- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — 0 committed applications on this instance. Backing e2e green; not manually driven (no live disproof, no manual proof).
 ### 2 — Recruiter physical closed loop (phone-last)  (was §Q1)
 Three layers, verifiable independently, hardest last:
 - **Layer 1 — QR decodes to the correct URL (programmatic, runnable now):** render the real commit PDF → extract the QR → decode programmatically (`zbarimg`) → assert the decoded string is exactly `/{handle}?code=<CODE>`; the URL hit directly skips `/gate` and opens a session.
@@ -22,7 +22,7 @@ Three layers, verifiable independently, hardest last:
 - **Layer 3 — real print → photo with a physical phone (`manual-only`, do LAST):** physically print → scan the top-right QR with a **real phone camera** → land in the ChatRoom → ask → get a **real-LLM owner-voice answer**.
 - **⚠️ mock gap:** today the "scan" is `page.goto('/?code=…')` and the answer is **scripted** — the real optics + real-LLM answer are never walked. `manual-only` per sop.md iron rule 3.
 - **Backing test:** `integration-job-loop.spec.ts:45` (scans QR → ChatRoom, but `page.goto`, scripted) · `:65` (session carries application context)
-- **Result:** ⬜
+- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — 0 committed applications on this instance. Backing e2e green; not manually driven (no live disproof, no manual proof).
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The committed PDF opens as a real document (not blank/partial); the QR is crisp with a quiet zone (scan-viable); the recruiter's landing skips `/gate` cleanly.
 

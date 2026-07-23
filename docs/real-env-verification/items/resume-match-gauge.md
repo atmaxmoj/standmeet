@@ -1,6 +1,6 @@
 # resume-match-gauge — the "match / 100" gauge must not claim to read a JD it never reads
 
-- **Status:** ⬜ not started (new round)
+- **Status:** 🟡 blocked-by-setup — rot-A2 fix e2e-verified GREEN; manual blocked (0 drafts, pool aged out)
 - **Module:** the résumé composer's send-decision affordances. Any number labelled as a measurement
   ("match against X") must actually depend on X, or it must not make the claim.
 - **Surface:** `/admin/drafts` → open a draft → the composer top-bar gauge (left of **Send**).
@@ -22,13 +22,13 @@
 - **⚠️ the bug this came from:** `confidenceScore` scores a fixed buzzword list over the owner's own
   résumé text and never reads the job — so the value is byte-identical across every job the same
   résumé is applied to, yet sits under "match against the job description" next to Send.
-- **Result:** ⬜
+- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — 0 drafts (pool aged out); rot-A2 match-gauge fix e2e-verified GREEN. Backing e2e green; not manually driven (no live disproof, no manual proof).
 ### 2 — nothing else near Send fabricates a job-aware signal
 - **Steps:** in the composer top bar and the confirm modal, scan for any other number/badge that reads
   as "how well this fits the job".
 - **Expected:** every such signal traces to real job-aware data, or it is not shown. (Today only the
   match gauge exists; fold in any future "fit"/"score" affordance here.)
-- **Result:** ⬜
+- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — 0 drafts (pool aged out); rot-A2 match-gauge fix e2e-verified GREEN. Backing e2e green; not manually driven (no live disproof, no manual proof).
 ## ⚠️ LOOK — fresh-eyes UI sanity
 A "match" score that does not move when you change the job it claims to match is a painted constant,
 not a measurement. The tell for the whole fabricated-data class: **it doesn't move when the thing it

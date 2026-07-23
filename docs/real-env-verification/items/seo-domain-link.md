@@ -1,6 +1,6 @@
 # seo-domain-link — the "edit on the Domain section" link must reach a real editor
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ verified — rot-C2 links → /admin/page (both og-desc + canonical rows); scope 1=1
 - **Module:** the SEO section's cross-links to where a mirrored value is actually edited. Every "edit
   over there →" link must resolve to the real editor for that value, not a route that doesn't exist.
 - **Surface:** `/admin/seo` → "canonical host" → the "edit on the Domain section →" link.
@@ -16,7 +16,7 @@
 - **⚠️ the bug this came from:** the link hard-coded `/admin/domain`, a route that was never built. The
   domain/public-URL editor lives under `/admin/page`. So the link 404s and the owner can't reach the
   thing the SEO section tells them to edit.
-- **Result:** ⬜
+- **Result:** ✅ — rot-C2: canonical-host edit link → /admin/page (real editor); scope 1=1.
 ## ⚠️ LOOK — fresh-eyes UI sanity
 A link whose href names a route that isn't in `app/admin/` is a **404 waiting to be clicked**. The tell
 for this class: the target reads plausibly ("/admin/domain") but grepping the routes shows no such dir.

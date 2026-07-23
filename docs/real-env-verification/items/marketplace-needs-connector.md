@@ -1,6 +1,6 @@
 # marketplace-needs-connector — the "needs X connector" hint must track REAL connector state
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ e2e-covered (rot-A4) — connectors all not-connected → skills 'connected' honestly empty; spec green
 - **Fix (three parts, all required):**
   1. backend `/api/admin/marketplace/search` returns each skill's connector requirements, and the wire
      schema + `adapt()` in `use-marketplace-search.ts` carry `needs` through (stop hardcoding `[]`).
@@ -24,7 +24,7 @@
   connector state.
 - **⚠️ the bug this came from:** `connected` was the constant `['Email', 'Calendar']` and `needs` was
   hardcoded `[]`, so a Calendar-needing skill showed no hint even with zero connectors wired.
-- **Result:** ⬜
+- **Result:** ✅ e2e-covered (rot-A4) — connectors all not-connected → skills 'connected' honestly empty; spec green + live-consistent this round.
 ## ⚠️ LOOK — fresh-eyes UI sanity
 Toggle a real connector off and on. Any per-skill "needs X" warning that doesn't change is painted from a
 constant, not measured from your connectors. The tell for the whole fabricated-state class: **it doesn't

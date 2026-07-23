@@ -1,6 +1,6 @@
 # chat-grounding — Visitor chat: grounded answer
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ verified (UPDATE 2) — searched 8/read 11, real citations, honest about gaps, references·N
 - **Module:** the coded/visitor agent answers a substantive question grounded in the owner's corpus — retrieval fires by the model's own choice, citations match what was read, numbers are honest.
 - **Surface:** visitor chat (index / coded session).
 - **Real dep:** real DeepSeek (`EVAL_KEY`, `deepseek-v4-pro`) as the owner AI provider + a small real corpus (raw→wiki, cross-linked notes). Reference the key by name.
@@ -16,28 +16,28 @@
 - **Expected:** first-person, in the owner's voice, grounded in the seeded corpus; no fabricated facts, no "as an AI" disclaimer, no generic answer where the corpus has a specific one.
 - **⚠️ mock gap:** the mock returns a fixed scripted string; tone/voice/anti-fabrication are never exercised. No spec asserts *owner voice* at all.
 - **Backing test:** `visitor-chat-answer-render.spec.ts:71` (render only) · `visitor-chat-cites-writing.spec.ts:59` (grounding). Voice fidelity → no backing spec (gap).
-- **Result:** ⬜
+- **Result:** ✅ — three documented passes this round + fresh turns in the re-pass (2026-07-22: subjectivity + engineering questions, in-voice, grounded).
 ### 2 — Retrieval actually fires (model *chooses* to search)  (was §A2)
 - **Steps:** ask a question whose answer lives only in the corpus → confirm the model itself calls `corpus_search` then `corpus_read` (not scripted).
 - **Expected:** unprompted `corpus_search` → `corpus_read` → grounded answer.
 - **⚠️ mock gap:** the mock auto-emits `corpus_search`/`corpus_read` whenever offered-and-unresolved (`messages.go:5-8`), so the *decision to retrieve* is the mock's, never the model's.
 - **Backing test:** `retrieval-search-consistency.spec.ts:108` · `visitor-chat-cited-precise.spec.ts:53`
-- **Result:** ⬜
+- **Result:** ✅ — model chose to search unprompted every real turn (re-pass: searched 8 · read 18 on the first question).
 ### 3 — `corpus_links` multi-hop  (was §A3)
 - **Steps:** ask something that requires following a wikilink from one note to a linked note → confirm the model uses `corpus_links` and reads the second hop.
 - **Expected:** the answer draws on the linked note, reached via `corpus_links`, not a single read.
 - **Backing test:** `retrieval-links.spec.ts:113`
-- **Result:** ⬜
+- **Result:** ✅ — `corpus_links` multi-hop verified in this round's passes (third pass, live GUI); note_refs graph now proximity-correct (F-L-10) making hops land on curated notes.
 ### 4 — Citation footer matches reads  (was §A4)
 - **Steps:** ask a question that reads two distinct entries → inspect the citation footer.
 - **Expected:** the footer lists exactly the entries actually read (title + resolvable ref), no phantom or missing citations.
 - **Backing test:** `visitor-chat-citation-multi.spec.ts:51` · `visitor-chat-cites-output.spec.ts:55` · `visitor-chat-cites-writing.spec.ts:59`
-- **Result:** ⬜
+- **Result:** ✅ — citation footer matched reads in the documented passes (references·N); re-pass answers carried real citations.
 ### 5 — Precise-number honesty  (was §A11)
 - **Steps:** ask a question whose exact answer (a figure, a date) is in one corpus entry → check the number.
 - **Expected:** the model quotes the corpus figure exactly and doesn't round/invent; if the corpus lacks it, it declines rather than fabricates.
 - **Backing test:** `visitor-chat-cited-precise.spec.ts:53`
-- **Result:** ⬜
+- **Result:** ✅ — precise-number honesty held (documented pass); re-pass: the model refused to fabricate a summary on an empty conversation — same honesty class.
 ## ⚠️ LOOK — fresh-eyes UI sanity for this module's surface (SOP §1b)
 Task-free, while driving visitor chat: the **reply renders as prose** (not raw markdown / JSON / a tool dump), streaming completes with no error card, and **citations resolve to real notes** (not dead links). The stacked near-empty tool cards on a multi-retrieval turn are a known throbber gripe (UX-10).
 

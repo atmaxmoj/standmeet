@@ -1,6 +1,6 @@
 # chat-byoai — Visitor chat: BYOAI against a real provider
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ verified — real DeepSeek BYOAI: key path (load-models) + grounded answer (4 refs, owner voice) + private CV not leaked/fabricated
 - **Module:** a no-code gate visitor brings their own AI key; the backend HKDF-encrypts it, calls the visitor's *real* third-party provider, streams a real answer, and the public-slice ACL still excludes private corpus on that real model.
 - **Surface:** gate BYOAI panel → visitor chat (`/<handle>?byoai=1`).
 - **Real dep:** the DeepSeek key (`EVAL_KEY`) as the **visitor's own** BYOAI key (`https://api.deepseek.com`, `deepseek-v4-pro`). No owner-side AI provider. Seed a **private** entry alongside a **public** one so the exclusion check has something to catch.
@@ -18,7 +18,7 @@
 - **Expected (likely RED):** (a) a genuine streamed answer from the visitor's real provider — proving the encrypted-key → real-upstream path works end-to-end; (b) the private corpus is excluded at retrieval, so the public-slice ACL holds on a real model. The mock-pinned spec proves neither.
 - **⚠️ mock gap:** `byoai-chat.spec.ts:64-65` repoints the endpoint at `llm-gateway:9300`, validating a *mocked* reply; no spec drives a real BYOAI upstream, and no BYOAI-specific spec asserts private-corpus exclusion on a real answer.
 - **Backing test:** `byoai-chat.spec.ts:39` (mock-pinned) · `chat-welcome.spec.ts:46` (BYOAI public-scope welcome) · `chat-book-byoai-denied.spec.ts:18` · `corpus-retrieval-excludes-raw.spec.ts:55` (owner-provider path). Real-upstream BYOAI + private-slice exclusion on a real answer → no backing spec (gap).
-- **Result:** ⬜
+- **Result:** ✅ — real DeepSeek BYOAI this round: key path (load-models), streamed grounded answer (4 refs, owner voice), private CV neither leaked nor fabricated (status line evidence).
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The gate **BYOAI panel renders and accepts a key**; on submit it lands on `/<handle>?byoai=1`; the welcome states public scope; a real streamed answer renders token-by-token, not a stalled empty bubble.
 

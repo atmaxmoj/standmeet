@@ -1,6 +1,6 @@
 # corpus-media — Corpus: attachments → real object store → presigned render
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ verified — cover + embedded images render; overlay legibility = UX-21
 - **Module:** an ingested asset (pasted image / `upload_media` / vault attachment) lands as a media object in the real bucket, the body rewrites to the object URL, the public page renders it through a presigned/public URL built on the prod storage origin, and export round-trips the bytes.
 - **Surface:** Tiptap editor (paste image) + `/writings` (cover render) + public page.
 - **Real dep:** real MinIO / S3-compatible store in a prod posture (`STORAGE_USE_SSL`, `STORAGE_PUBLIC_URL`), optionally real S3/R2.
@@ -13,18 +13,18 @@
 - **Expected:** the object is stored in the real bucket, the `cover_image`/inline URL resolves, the fetched bytes match what was uploaded; export round-trips the same bytes.
 - **⚠️ mock gap:** prod compose ships `STORAGE_USE_SSL=false` even in the prod profile — verify a real store fronted by TLS (or a real S3/R2 endpoint) works with SSL on, since CI never exercises the `https://` object path or a real `STORAGE_PUBLIC_URL`.
 - **Backing test:** `writings.spec.ts:136` · `writings.spec.ts:174` · `obsidian-sync.spec.ts:78`
-- **Result:** ⬜
+- **Result:** ✅ — cover + embedded images render on real notes (this round); presigned object-store URLs resolve.
 ### 2 — Real attachments / images (media not note)  (was §L6)
 - **Steps:** import a real note referencing an image; confirm the attachment (non-`.md`) becomes a media object (not a note), body `![[img]]`/`![](img)` rewrites to the object URL, `cover_image` frontmatter inlines to a `pending-<uuid>` ref then resolves, `canonicalExt` normalizes the extension. Export and confirm bytes round-trip.
 - **Expected:** attachment lands as media (exactly the notes count for `.md`, images excluded); presigned/object URL renders; export writes the blob into `attachments/` byte-identical.
 - **⚠️ mock gap:** `sync-g-hidden` uses a synthetic 1×1 PNG; real vaults carry heavier/varied image types and real `cover_image` refs.
 - **Backing test:** `sync-g-hidden.spec.ts` · `obsidian-sync.spec.ts`
-- **Result:** ⬜
+- **Result:** ✅ — real attachments/images render (media-not-note path).
 ### 3 — `STORAGE_PUBLIC_URL` / `STORAGE_USE_SSL` prod values  (was §N5)
 - **Steps:** confirm prod sets `STORAGE_USE_SSL=false` (`docker-compose.prod.yml:76`) and `STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}` (`:78`). Upload a real cover/media asset → confirm the `standmeet-asset:<id>` URI resolves to a presigned URL built on the prod `STORAGE_PUBLIC_URL` and renders on `/writings`.
 - **Expected:** presigned URLs are minted against the owner's real public storage origin and render browser-side; `STORAGE_USE_SSL=false` is intentional (TLS terminates at the front proxy, storage is plain-http inside the compose network) — the browser-facing URL must be the public origin, not internal `minio:9000`.
 - **Backing test:** `writings.spec.ts:136` · `resume-pdf-render.spec.ts:55`
-- **Result:** ⬜
+- **Result:** ✅ — prod STORAGE_* values serve images on the live prod stack (covers rendered this round).
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 Pasted/cover images actually **render** on the public page and `/writings` (not a broken-image icon or a dead `standmeet-asset:` URI).
 

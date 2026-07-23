@@ -1,6 +1,6 @@
 # application-status-persist — the status control must not pretend to save
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ e2e-covered (rot-C1) — StatusSegmented read-only; applications empty so no manual drive; 0=0 cross-view
 - **Why it can't save today:** the backend `/applications` route is **GET-only**
   (`backend/internal/plugins/jobs/jobsadmin/routes.go` ~L59 — `r.Get("/", listApplications)`); the
   package header says all writes go through MCP `applications.commit`, and there is **no** status-write
@@ -34,7 +34,7 @@
 - **⚠️ the bug this came from:** `StatusSegmented.onChange → setStatus` is local `useState`; there is
   no persistence path (route is GET-only, design `onChange` is a no-op). The owner changes a status,
   it looks saved, a reload silently loses it.
-- **Result:** ⬜
+- **Result:** ✅ e2e-covered (rot-C1) — StatusSegmented read-only; the reload-contradiction guard is green. Live N/A: 0 committed applications on this instance.
 ## ⚠️ LOOK — fresh-eyes UI sanity
 A selected/`is-on` control that flips on click but forgets after a reload is a painted state, not a
 saved one. The tell for this whole lying-control class: **do the owner's action by hand, then reload —

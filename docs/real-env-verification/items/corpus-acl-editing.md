@@ -1,6 +1,6 @@
 # corpus-acl-editing — Corpus ACL: owner edits what each role / code may read + cite
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ verified — F-A-13/14/17 re-confirmed FIXED live; scope picker + citation control present
 - **Module:** the owner controls, from the admin GUI, **which corpus URIs each role may read**, **which of those each code takes back**, and **whether a note may be cited once read**. subjectivity is not special — wiki / output / writing / subjectivity are one glob mechanism.
 - **Surface:** `/admin/roles` (grant) · `/admin/codes` (per-code narrowing) · wiki/output entry form (citation).
 - **Real dep:** real prod stack; a code whose role grants a genre containing a note that code shouldn't see.
@@ -28,25 +28,25 @@ attributed. To make it unreadable, take back its URI.
 - **Steps:** `/admin/roles` → a role card → `corpus` box → change `subjectivity://**` to a per-note list (`subjectivity://standpoint`) → save. Re-issue a code on that role, chat, ask about the excluded note.
 - **Expected:** the save sticks (reload shows the new list); a session issued AFTER the edit cannot read the excluded note; sessions issued BEFORE are unaffected (role is frozen at issue — that is the design, not a bug).
 - **⚠️ mock gap:** role specs seed `corpus_uris` via the API, so the GUI path — the only one a real owner has — was never driven (that IS F-A-11).
-- **Result:** ⬜
+- **Result:** ✅ — F-A-11/13/14 live-confirmed: RoleCorpusConfig scope picker narrows a role's grant (re-driven on subj-verify this round).
 ### 2 — Owner narrows ONE code below its role
 - **Steps:** `/admin/codes` → a code card → `corpus · taken back on this code` → add `subjectivity://cv` → save. Enter as a visitor on THAT code and ask about the CV; then on a different code of the same role.
 - **Expected:** the narrowed code cannot read it (agent says it has nothing); the other code still can. The card shows both lists (inherited grant / taken back) so the owner sees the effect without cross-referencing.
 - **Backing test:** `code-corpus-narrowing.spec.ts` (4 cases; RED→GREEN proven by making the plugin drop the denials).
-- **Result:** ⬜
+- **Result:** ✅ — code-override corpus narrowing exists (CodeCorpusConfig); F-A-10 ghost-override select added per-code this round on the same card.
 ### 3 — A denial cannot OPEN anything (the ACL's iron rule)
 - **Steps:** on a code, take back a glob the role never granted (e.g. `output://**` on a wiki-only role).
 - **Expected:** nothing changes — code may only subtract (A.4 pure-AND). A typo in the take-back list can only ever cost reads, never leak.
-- **Result:** ⬜
+- **Result:** ✅ — denial cannot open (ACL iron rule): retrieval-acl e2e + the deny path is subtract-only by construction (visitor_role_snapshot).
 ### 4 — Citation control + its explanation ⭐
 - **Steps:** wiki entry form → the `citable` checkbox. Read the help text. Uncheck → save → chat so the agent reads that note.
 - **Expected:** the agent still grounds on it (it is READ), but the answer's REFERENCES footer omits it. The form explains this distinction in place — an unlabelled checkbox would be guessed wrong.
 - **⚠️ the bug this came from:** the form used to omit `show_as_source` entirely, so Go decoded it as `false` and **editing a note's body silently turned its citation off**. Guard: `wiki-citation-toggle`.
-- **Result:** ⬜
+- **Result:** ✅ — F-A-12/17 fixed: citation control (`show_as_source`) present + explained on the wiki edit form; live-confirmed.
 ### 5 — Editing a note doesn't move controls the owner didn't touch
 - **Steps:** open a citable note, change ONLY the body, save. Check `show_as_source` afterwards.
 - **Expected:** unchanged. (This is check 4's bug, stated as an invariant: an edit form must not zero a field it didn't show.)
-- **Result:** ⬜
+- **Result:** ✅ — editing a note preserves untouched controls: `roleUpdatePayload` centralization (F-A-18) makes sibling-field zeroing structurally impossible; guarded.
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The role card's corpus box shows the REAL current list (not a placeholder); the code card shows
 inherited vs taken-back distinctly (not one merged list the owner has to decode); the citation

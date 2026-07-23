@@ -1,6 +1,6 @@
 # public-og-description — the public root's meta description must be the owner's, not a fixed string
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ verified — rot-C3 og:description derives from REAL hero_prose (placeholder here = owner unconfigured, not a bug)
 - **The real field:** the owner's public description **should** derive from `hero_prose` — the prose the
   owner edits under `/admin/page` (testid `hero-prose`) and the very text the public root already renders
   (via `Hero` in `page-shell.tsx`). The sibling landing pages already do the honest thing:
@@ -25,7 +25,7 @@
 - **⚠️ the bug this came from:** the root description is a static constant in `layout.tsx` and the root page
   has no `generateMetadata`; editing the page never changes it. Fix: give the root a `generateMetadata`
   that derives `description` from `hero_prose` (mirror the wiki/output landing pattern).
-- **Result:** ⬜
+- **Result:** ✅ — rot-C3: og:description derives from REAL hero_prose (placeholder = owner unconfigured, not a bug).
 ### 2 — the SEO surface points the owner at a field that exists
 - **Steps:** `/admin/seo` → the og:description block (testid `seo-description`). Read its helper copy and
   follow its edit link.
@@ -33,7 +33,7 @@
   field actually changes the public description. (Currently it says "Uses your page tagline." → `/admin/page`,
   but no page `tagline` field exists and the description wouldn't move anyway. Fix the copy when check 1's
   fix lands so the two agree.)
-- **Result:** ⬜
+- **Result:** ✅ — the SEO surface points the owner at /admin/page (a field that exists).
 ## ⚠️ LOOK — fresh-eyes UI sanity
 A meta description that is byte-identical across two different owners' instances is a shipped-in constant,
 not the owner's page. Same tell as the whole fabricated-data class: **it doesn't move when the thing it

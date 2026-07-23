@@ -1,6 +1,6 @@
 # booking-slots — Booking: list_slots vs real freeBusy
 
-- **Status:** ⬜ not started (new round)
+- **Status:** 🟡 blocked-by-setup — needs a connected calendar (not connected on this instance); e2e covers slot logic
 - **Module:** the booker returns only genuinely-free slots inside the requested window, filtered against the account's real calendar busy/free.
 - **Surface:** visitor chat (slot listing) / booker tool.
 - **Real dep:** real `www.googleapis.com/calendar/v3` freeBusy on a connected account (see [[calendar-connect]]).
@@ -13,7 +13,7 @@
 - **Expected:** only real free slots returned, and the **window is really filtered**.
 - **⚠️ mock gap:** the mock ignores `timeMin/timeMax` (`gcal.go:390`) → window filtering never truly verified.
 - **Backing test:** `visitor-chat-list-slots.spec.ts`
-- **Result:** ⬜
+- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected calendar. Backing e2e green; not manually driven (no live disproof, no manual proof).
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The slot list renders real times (not empty, not garbled); weekend/policy-excluded windows don't appear.
 

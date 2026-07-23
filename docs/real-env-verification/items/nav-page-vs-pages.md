@@ -1,6 +1,6 @@
 # nav-page-vs-pages — the sidebar's two "page(s)" entries must be distinguishable
 
-- **Status:** ⬜ not started (new round)
+- **Status:** ✅ verified — rot-D2 'landing page'→/admin/page, 'custom pages'→/admin/custom-pages
 - **Fix:** rename to disambiguate. Proposed: **"landing page"** for slug `page` (the single public page)
   and **"custom pages"** for slug `custom-pages` (the microsites). The distinguishing tokens become
   `landing` vs `custom` — neither is bare "page"/"pages". Labels are plain strings in
@@ -21,13 +21,13 @@
   opens the microsite collection without clicking.
 - **⚠️ the bug this came from:** the two labels were "public page" (settings) and "pages" (corpus) —
   two words apart, semantically the same phrase, for two unrelated surfaces.
-- **Result:** ⬜
+- **Result:** ✅ — rot-D2: 'landing page' vs 'custom pages' labels distinct + non-confusable (re-confirmed on the live sidebar this round).
 ### 2 — clicking each entry lands on the right surface
 - **Steps:** click the `settings` entry → confirm it opens the single landing-page editor
   (`/admin/page`, PageSection). Click the `corpus` entry → confirm it opens the microsites list
   (`/admin/custom-pages`, CustomPagesSection with `/p/{slug}` items).
 - **Expected:** each label's destination matches the noun it now uses (landing page vs custom pages).
-- **Result:** ⬜
+- **Result:** ✅ — each lands on its right surface (/admin/page vs /admin/custom-pages).
 ## ⚠️ LOOK — fresh-eyes UI sanity
 Two sidebar rows whose labels differ only by "public "/nothing and "page"/"pages" are the tell: a label
 that doesn't say which of two similar things it opens is not a label. Read the nav cold, as a first-time
