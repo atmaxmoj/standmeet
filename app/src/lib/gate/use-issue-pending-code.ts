@@ -15,7 +15,7 @@ import { issueCodeSession } from '@/lib/api/public';
 import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
-import { useGhostsStore } from '@/lib/visitor/ghosts-store';
+import { seedEphemeralStores } from '@/lib/page/use-chat-restore';
 import {
   loadMemberID, rememberMemberID, rememberVisitorName, rememberVisitorEmail,
 } from '@/lib/visitor/visitor-name';
@@ -76,7 +76,11 @@ export function useIssuePendingCode(): IssuePending {
           : { code, visitor_name: name, visitor_email: email || undefined },
       );
       persistSession(sess, false);
-      useGhostsStore.getState().seed(sess.ghosts ?? []);
+      // F-A-20: this in-page re-issue (switch-name picker) must reseed ALL the ephemeral chat stores
+      // from the just-persisted session — dock buttons / tool specs / capabilities, not only ghosts.
+      // Gate-entry masked the bug because it ends in a navigation (mount → seedEphemeralStores); the
+      // in-page switch does not, so without this the new session's dock stayed empty until a reload.
+      seedEphemeralStores();
       useVisitorSessionStore.getState().setSession({
         code: sess.code ?? code,
         visitor: sess.visitor_name ?? null,
