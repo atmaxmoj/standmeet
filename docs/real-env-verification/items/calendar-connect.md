@@ -1,6 +1,6 @@
 # calendar-connect — Booking: OAuth connect + token lifecycle
 
-- **Status:** 🟠 partial — panel + Booking-policy present; UX-11 (tz default) fix holds (Toronto not list-head); connect leg needs real Google OAuth
+- **Status:** ✅ verified (2026-07-23) — full real Google OAuth2 dance completed on prod: saved client_id/secret → Authorize → consent (calendar.events + calendar.readonly) → callback → token exchange → connector connected:true, active:true. Cleared `access_denied` by self-adding the test user in the Google Cloud console (consent screen was Testing with 0 test users — a real first-run friction: an unverified/testing app needs the account added as a test user before OAuth works). UX-11 tz default holds. Refresh/rotate/invalid_grant not separately forced this round.
 - **Module:** connect a calendar via a real OAuth2 dance (consent → code+secret+PKCE+state → token), refresh transparently on expiry, rotate + persist the new refresh token, and surface `invalid_grant` as a friendly reconnect.
 - **Surface:** admin/connectors (Google Calendar card).
 - **Real dep:** real `accounts.google.com` OAuth (`GOOGLE_OAUTH_CLIENT_ID/SECRET`) or any real OAuth2 AS. After the connector exists, register its generated `redirect_uri` back on the OAuth client.
