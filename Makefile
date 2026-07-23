@@ -86,8 +86,19 @@ app-build: sdk-build
 
 dev-up: app-build
 	@infra/plugins/provision.sh
-	@docker compose -f docker-compose.dev.yml up -d --build --wait
+	# Rebuild ONLY the services whose code changes every loop (app + backend). The mocks
+	# (mcp-server-mock / external-mock / llm-gateway / mail-mock) also have build: contexts but rarely
+	# change — `up` (without --build) reuses their existing images and builds them only the first time
+	# they're missing. This keeps the per-loop rebuild to app+backend instead of all 6 build contexts.
+	# If a mock's own code changes, run `make dev-rebuild-mocks` once.
+	@docker compose -f docker-compose.dev.yml build app backend
+	@docker compose -f docker-compose.dev.yml up -d --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
+
+# dev-rebuild-mocks —— force-rebuild the mock/support images (only needed when a mock's source
+# changed; the normal dev-up path reuses their cached images).
+dev-rebuild-mocks:
+	@docker compose -f docker-compose.dev.yml build mcp-server-mock external-mock llm-gateway mail-mock
 
 # prod-up —— bring up the real production stack (self-contained: app + backend +
 # db + redis + gotenberg + minio, no mocks). Reads .env (cp from .env.example).
@@ -296,6 +307,13 @@ test-only: dev-up
 	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT))
 
+# test-unit —— fast headless unit tests for reusable render/toolbox primitives (vitest, no Docker,
+# no browser). Scoped to pure framework-shaped units — e.g. the markdown→HTML render pipeline where
+# the bug lives in the pipeline, not a full-stack flow (F-R-3: sanitize must run before katex). The
+# e2e suite stays the primary coverage; this is the guard for things e2e structurally can't pin.
+test-unit:
+	@cd app && pnpm run test:unit
+
 # gui-p1-variant —— F-A-4 P1 presentation-variant probe: drive the REAL prod GUI (real
 # DeepSeek) through one broad-question visitor turn, screenshot narration/tools/done/reload
 # moments into /tmp/p1-variants/<VARIANT>-*.png + a JSON summary. Prod stack must be up.
@@ -353,3 +371,21 @@ prod-psql-file:
 	@test -f "$(FILE)" || (echo 'usage: make prod-psql-file FILE=<path.sql>'; exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 < "$(FILE)"
+
+# docker-gc —— reclaim buildkit cache + dangling images. Safe: never touches running containers,
+# named volumes (pgdata/redis/minio), or tagged images in use. Run when the Docker VM disk fills from
+# many rebuilds (symptom: `docker system df` hangs, builds crawl).
+#
+# NOTE: prunes only cache OLDER than 24h — keeps the ACTIVE go-build/golangci/node cache warm so the
+# next build stays fast. Do NOT `-a` here: `builder prune -a` frees max disk but forces a full cold
+# rebuild (a ~15min go-mod-download + recompile tax). Use `make docker-gc-hard` only when truly full.
+docker-gc:
+	@echo "[docker-gc] pruning build cache older than 24h + dangling images"
+	@docker builder prune -f --filter until=24h
+	@docker image prune -f
+
+# docker-gc-hard —— nuke ALL build cache (next build is a cold rebuild, slow). Last resort when the
+# VM disk is near its cap and docker-gc didn't free enough.
+docker-gc-hard:
+	@docker builder prune -af
+	@docker image prune -f
