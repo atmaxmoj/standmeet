@@ -71,33 +71,8 @@ test.describe('visitor summarize_conversation · I.3', () => {
   test('AI tool call → ReportArtifactCard inline + /report/[id] 独立路由',
     async ({ page, playwright }) => { await reportInlineCardTest(page, playwright); });
 
-  test('GET /api/v1/report/[id] 返 owner-scoped 报告 row',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
-      // issue session first so agent_turn has a valid conversation_id
-      const sess = await issueSession(request, {
-        handle: OWNER.handle, code: CODE, visitor_name: 'V',
-      });
-      // queue tool + reply AFTER session issue (avoid races where any
-      // prior mock state from beforeAll consumed our queue)
-      const toolTag = await scriptMockToolCall(request, {
-        name: 'summarize_conversation', args: {},
-      });
-      const replyTag = await scriptMockReplyText(request, REPORT_HTML);
-      const turnRes = await postAgentTurn(request, sess, `${toolTag}${replyTag}`);
-      const reportID = extractReportID(turnRes);
-      expect(reportID, `report_id should be in SSE; got body:\n${turnRes}`)
-        .toBeTruthy();
-
-      // 用同 session token 读 /report/{id}
-      const r = await request.get(`${BACKEND}/api/v1/report/${reportID}`, {
-        headers: { Authorization: `Bearer ${sess.session_token}` },
-      });
-      expect(r.status()).toBe(200);
-      const body = await r.json() as { html: string };
-      expect(body.html).toContain('<h1>Quick recap</h1>');
-      await request.dispose();
-    });
+  test('GET /api/v1/report/[id] 返 owner-scoped 报告 row (已是完整 styled doc)',
+    async ({ playwright }) => { await reportRowIsStyledDocTest(playwright); });
 
   test('GET /api/v1/report/[id]/pdf 返 application/pdf (真 gotenberg 渲染)',
     async ({ playwright }) => { await reportPDFRouteTest(playwright); });
@@ -129,6 +104,15 @@ test.describe('visitor summarize_conversation · I.3', () => {
   // report_id 必须稳定(同一行被改写),否则旧 /report/[id] 链接失效 + owner 看到重复报告。
   test('summary 一会话一份 —— 第二次 summarize revise 原 report,report_id 稳定 (#129)',
     async ({ playwright }) => { await summaryReviseInPlaceTest(playwright); });
+
+  // F-A-19: the summarize dialog must PERSIST so it survives a reload/restore. summarize is
+  // return_directly — the turn ends on the tool result with NO model answer text, so the old
+  // "persist iff answered()" rule dropped the whole dialog and the visitor lost the report they
+  // generated after a reload. Drive the real persist path: run a summarize turn, then GET the
+  // conversation aggregate (the restore source) and assert the summarize dialog is there.
+  // RED before the fix: the conversation has 0 dialogs carrying summarize_conversation.
+  test('summarize dialog persists so it survives a reload (F-A-19)',
+    async ({ playwright }) => { await summarizePersistsTest(playwright); });
 
   // 生成 summary 不结束对话:同一 conversation 在 summarize 之后还能继续发 turn。
   // (老模型 /summary 写 ended_at → 下一 turn 配额 preflight 翻 ErrChatEnded → 410。
@@ -288,6 +272,65 @@ async function summaryReviseInPlaceTest(playwright: Playwright): Promise<void> {
   expect(r.status()).toBe(200);
   const body = await r.json() as { html: string };
   expect(body.html, 'report holds the revised content').toContain('REVISED weekend plan');
+  await request.dispose();
+}
+
+// reportRowIsStyledDocTest —— GET /report/[id] returns the owner-scoped row, and (unified render)
+// the STORED artifact is already a complete self-contained styled document: sanitized-then-styled at
+// generation, so the inline card, /report page, and PDF all render the identical thing. Guard the
+// storage-layer invariant, not just how one surface happens to display it.
+async function reportRowIsStyledDocTest(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const replyTag = await scriptMockReplyText(request, REPORT_HTML);
+  const turnRes = await postAgentTurn(request, sess, `${toolTag}${replyTag}`);
+  const reportID = extractReportID(turnRes);
+  expect(reportID, `report_id should be in SSE; got body:\n${turnRes}`).toBeTruthy();
+
+  const r = await request.get(`${BACKEND}/api/v1/report/${reportID}`, {
+    headers: { Authorization: `Bearer ${sess.session_token}` },
+  });
+  expect(r.status()).toBe(200);
+  const body = await r.json() as { html: string };
+  expect(body.html).toContain('<h1>Quick recap</h1>');
+  expect(body.html.trimStart().toLowerCase(), 'stored report is a full HTML document')
+    .toMatch(/^<!doctype html/);
+  expect(body.html, 'stored report carries the design language CSS').toContain('#B5391C');
+  expect(body.html, 'stored report declares the serif body font').toContain('Newsreader');
+  await request.dispose();
+}
+
+// summarizePersistsTest —— F-A-19: summarize is return_directly, so the turn ends on the tool
+// result with NO model answer text. The old "persist iff answered()" rule dropped the whole dialog
+// and the visitor lost the generated report after a reload. Drive the real persist path, then GET
+// the conversation aggregate (restore's source) and assert the summarize dialog survived.
+// RED before the fix: the conversation carries 0 dialogs with summarize_conversation.
+async function summarizePersistsTest(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const replyTag = await scriptMockReplyText(request, REPORT_HTML);
+  const produced = extractReportID(await postAgentTurn(request, sess, `${toolTag}${replyTag}`));
+  expect(produced, 'summary produced').toBeTruthy();
+
+  const r = await request.get(`${BACKEND}/api/v1/conversations/${sess.conversation_id}`, {
+    headers: { Authorization: `Bearer ${sess.session_token}` },
+  });
+  expect(r.status()).toBe(200);
+  const body = await r.json() as {
+    conversation: { dialogs: Array<{ question: string; answer: string; tool_calls: unknown }> };
+  };
+  const hasSummarize = body.conversation.dialogs.some(
+    (d) => JSON.stringify(d.tool_calls ?? []).includes('summarize_conversation'),
+  );
+  expect(hasSummarize,
+    'the return_directly summarize dialog must persist (restore rebuilds from this aggregate)')
+    .toBe(true);
   await request.dispose();
 }
 

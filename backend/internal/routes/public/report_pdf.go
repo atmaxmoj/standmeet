@@ -16,7 +16,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -90,55 +89,14 @@ func handleReportPDFErr(h *Handlers, w http.ResponseWriter, err error) {
 	writeError(h.Log, w, serverErr())
 }
 
-// wrapReportHTML —— body fragment → 完整可打印 doc。report.HTML 是 owner AI
-// 生成的受限 HTML（summarize prompt 禁 script/style/iframe），这里只包壳 +
-// 朴素样式；title 走 html.EscapeString 防注入。
+// wrapReportHTML —— report.HTML → gotenberg-ready doc. New reports are stored as the ONE
+// self-contained styled document (sanitized-then-styled at generation), so render AS-IS — re-
+// sanitizing would strip the trusted <style>, and re-wrapping double-nests it. A legacy bare
+// fragment (pre-unification) is sanitized + styled through the same `ReportStyledDocument` the
+// card/page use, so the PDF matches them instead of carrying its own divergent stylesheet.
 func wrapReportHTML(report *domain.ChatReport) string {
-	// report.HTML is model output. It is sanitized at generation, but re-sanitize here (defense in
-	// depth + covers any pre-fix stored report) since this doc goes to network-enabled Gotenberg.
-	return "<!DOCTYPE html><html><head><meta charset=\"utf-8\">" +
-		"<title>" + html.EscapeString("Report "+report.ID) + "</title><style>" + reportPrintCSS +
-		"</style></head><body>" + usecases.SanitizeReportHTML(report.HTML) + "</body></html>"
+	if usecases.IsFullReportDocument(report.HTML) {
+		return report.HTML
+	}
+	return usecases.ReportStyledDocument(usecases.SanitizeReportHTML(report.HTML))
 }
-
-// reportPrintCSS —— mirrors the on-screen report styling (app's report-document.ts):
-// Newsreader serif body, JetBrains Mono uppercase section kickers, ink + vermillion
-// on warm paper, so the downloaded PDF matches the brand instead of raw Times.
-const reportPrintCSS = "@import url('https://fonts.googleapis.com/css2?" +
-	"family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&" +
-	"family=JetBrains+Mono:wght@400;500&display=swap');" +
-	"body{font-family:'Newsreader',Georgia,serif;color:#1b1814;background:#f3efe6;" +
-	"line-height:1.6;font-size:12pt;max-width:46em;margin:0 auto;padding:1.5em 0;}" +
-	"h1{font-family:'Newsreader',Georgia,serif;font-size:21pt;font-weight:500;" +
-	"letter-spacing:-0.01em;line-height:1.2;margin:0 0 .3em;}" +
-	"h2{font-family:'JetBrains Mono',monospace;font-size:10.5pt;font-weight:500;" +
-	"text-transform:uppercase;letter-spacing:0.16em;color:#b5391c;margin:1.6em 0 .7em;" +
-	"padding-top:.6em;border-top:1px solid #dad3c4;}" +
-	"p{margin:0 0 .9em;}ul{padding-left:1.2em;}li{margin:.3em 0;}" +
-	"strong{font-weight:600;}a{color:#b5391c;}" +
-	"blockquote{border-left:2px solid #b5391c;margin-left:0;padding-left:1em;color:#6b6256;" +
-	"font-style:italic;}" +
-	"table{border-collapse:collapse;width:100%;}" +
-	"td,th{border:1px solid #dad3c4;padding:.3em .6em;}" +
-	"th{font-family:'JetBrains Mono',monospace;font-size:9pt;" +
-	"text-transform:uppercase;color:#6b6256;}" +
-	// report component kit — mirror app/src/lib/page/report-document.ts.
-	".lede{font-size:13.5pt;line-height:1.5;margin:0 0 1.2em;}" +
-	".callout{border-left:2px solid #b5391c;background:rgba(181,57,28,.05);" +
-	"padding:.7em 1em;margin:1.1em 0;}.callout :last-child{margin-bottom:0;}" +
-	"ul.checks{list-style:none;padding-left:0;}ul.checks li{position:relative;" +
-	"padding-left:1.4em;margin:.4em 0;}ul.checks li:before{content:'\\2192';position:absolute;" +
-	"left:0;color:#b5391c;font-family:'JetBrains Mono',monospace;}" +
-	".tags{margin:.3em 0 1.2em;}.tag{font-family:'JetBrains Mono',monospace;font-size:9pt;" +
-	"text-transform:uppercase;letter-spacing:0.1em;color:#6b6256;border:1px solid #dad3c4;" +
-	"padding:.15em .5em;margin-right:.3em;}" +
-	".kv{display:flex;gap:1em;padding:.35em 0;border-bottom:1px solid #dad3c4;}" +
-	".kv .k{font-family:'JetBrains Mono',monospace;font-size:9.5pt;text-transform:uppercase;" +
-	"letter-spacing:0.1em;color:#6b6256;min-width:9em;}.kv .v{flex:1;}" +
-	// STAR block — strong per-experience structure, mirror report-document.ts.
-	".exp{margin:.4em 0 1.6em;}.star{margin:.5em 0 0;}" +
-	".star-row{display:grid;grid-template-columns:7em 1fr;gap:1em;align-items:start;" +
-	"padding:.5em 0;border-bottom:1px solid #dad3c4;}" +
-	".star-row:first-child{border-top:1px solid #dad3c4;}" +
-	".star-k{font-family:'JetBrains Mono',monospace;font-size:9pt;text-transform:uppercase;" +
-	"letter-spacing:0.12em;color:#b5391c;padding-top:.2em;}.star-v{margin:0;}"

@@ -82,9 +82,16 @@ ul.checks li::before{content:"\\2192";position:absolute;left:0;color:var(--accen
 .star-v{margin:0;}
 `;
 
-// reportDocument —— body fragment → full styled HTML document for the iframe.
-export function reportDocument(fragment: string): string {
+// reportDocument —— report html → full styled HTML document for the iframe. Idempotent: a report
+// generated after the unified-render change is ALREADY a self-contained styled document (the backend
+// wraps it at generation so the inline card, /report page, and PDF all render the identical artifact)
+// — pass it through untouched. Only a legacy bare fragment (pre-change, stored without <style>) gets
+// wrapped here with the same design language. REPORT_CSS is kept solely for that legacy fallback and
+// can be dropped once old reports age out.
+export function reportDocument(html: string): string {
+  const t = html.trimStart().toLowerCase();
+  if (t.startsWith('<!doctype') || t.startsWith('<html')) return html;
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">`
     + `<meta name="viewport" content="width=device-width, initial-scale=1">`
-    + `<style>${REPORT_CSS}</style></head><body>${fragment}</body></html>`;
+    + `<style>${REPORT_CSS}</style></head><body>${html}</body></html>`;
 }

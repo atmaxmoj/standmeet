@@ -89,7 +89,10 @@ func generateReportHTML(
 	}
 	// model output is untrusted HTML → allow-list sanitize before it is stored + rendered
 	// (Gotenberg Chromium / browser iframe) so it can't load an internal/attacker resource (SSRF).
-	return SanitizeReportHTML(out), nil
+	// Then wrap the sanitized body in the ONE authoritative styled document (F: unified report
+	// render) so the stored artifact is self-contained — inline card, /report page, and PDF all
+	// render the identical thing (no more "preview ≠ open-as-page").
+	return ReportStyledDocument(SanitizeReportHTML(out)), nil
 }
 
 func loadTranscriptForSummarize(
