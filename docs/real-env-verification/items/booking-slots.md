@@ -1,6 +1,6 @@
 # booking-slots — Booking: list_slots vs real freeBusy
 
-- **Status:** 🟡 🟠 partial (2026-07-23): calendar CONNECTED (real OAuth, active) — enabler done. Visitor booking correctly ACL-gated: a public-role code (FA5-001) gets NO booking tool (agent: 'no calendar/booking tool hooked up') — the per-role capability gate works. Full booking (slots/book/email) needs a role granting the booking capability (public grants 0 skills); calendar+mail are connected + ready. Was blocked-by-setup — needs a connected calendar (not connected on this instance); e2e covers slot logic
+- **Status:** ✅ VERIFIED end-to-end (2026-07-23) — a coded visitor (role granting calendar.book) got calendar_list_slots; the agent called it against the REAL connected Google Calendar and returned genuine free slots (afternoons 12–2 PM EDT), proposed in the visitor's Toronto tz with UTC conversions, honoring weekday-only + min-lead-days. UX note: booking needs a role whose skill declares `allowed-tools: [calendar.book]` — no such skill is seeded on a fresh instance, so the owner must hand-craft one (non-obvious; consider a seeded booking skill or a per-code toggle).
 - **Module:** the booker returns only genuinely-free slots inside the requested window, filtered against the account's real calendar busy/free.
 - **Surface:** visitor chat (slot listing) / booker tool.
 - **Real dep:** real `www.googleapis.com/calendar/v3` freeBusy on a connected account (see [[calendar-connect]]).

@@ -1,6 +1,6 @@
 # booking-email — Booking: confirmation invite email
 
-- **Status:** 🟡 🟠 partial (2026-07-23): calendar CONNECTED (real OAuth, active) — enabler done. Visitor booking correctly ACL-gated: a public-role code (FA5-001) gets NO booking tool (agent: 'no calendar/booking tool hooked up') — the per-role capability gate works. Full booking (slots/book/email) needs a role granting the booking capability (public grants 0 skills); calendar+mail are connected + ready. Was blocked-by-setup — needs calendar + mail connected; e2e-covered
+- **Status:** 🟠 partial (2026-07-23) — booking succeeded; the agent stated the invite goes to the visitor email (bookgo.tester@example.com). Mail connector is connected + real-send proven (B). The invite/confirmation SEND path (Google sendUpdates / app HTML confirmation) not separately opened this round, but both enablers (calendar+mail) are live.
 - **Module:** a confirmed booking sends a real invite/confirmation email (Google `sendUpdates` and/or the app's HTML+schema.org confirmation), and nothing is sent when the visitor declines.
 - **Surface:** visitor chat (book-with-confirmation) → a real inbox.
 - **Real dep:** real Google Calendar (see [[calendar-connect]]) + real mail (see [[mail-connector]]) + a real readable inbox.

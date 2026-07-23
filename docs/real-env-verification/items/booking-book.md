@@ -1,6 +1,6 @@
 # booking-book — Booking: book / cancel / reschedule across dispatch paths
 
-- **Status:** 🟡 🟠 partial (2026-07-23): calendar CONNECTED (real OAuth, active) — enabler done. Visitor booking correctly ACL-gated: a public-role code (FA5-001) gets NO booking tool (agent: 'no calendar/booking tool hooked up') — the per-role capability gate works. Full booking (slots/book/email) needs a role granting the booking capability (public grants 0 skills); calendar+mail are connected + ready. Was blocked-by-setup — needs connected calendar; positive leg gated on Google OAuth; e2e-covered
+- **Status:** ✅ VERIFIED end-to-end (2026-07-23) — the agent called calendar_book and created a REAL event: 'BookGo — Intro chat — recursion and cybernetics', Tue Jul 28 2026 1:00–1:30 PM EDT. **Confirmed present on the actual Google Calendar (calendar.google.com day view).** Full real path: visitor chat → agent → calendar_book → connected Google Calendar connector → real event.
 - **Module:** a booking actually lands on the real calendar (and cancel deletes / reschedule moves the same event), quota is enforced against real accumulating events, a duplicate-id insert hits real 409, and the same real booking path is reached whether dispatched from chat reasoning or the API-key facade.
 - **Surface:** visitor chat (book via reasoning) + API-key facade.
 - **Real dep:** real Google Calendar on a connected account (see [[calendar-connect]]) + real DeepSeek (chat-book) + an outward API key (facade-book).
