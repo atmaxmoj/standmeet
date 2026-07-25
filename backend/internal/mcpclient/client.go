@@ -189,6 +189,10 @@ type SessionContext struct {
 	// capability/skill denials). Must travel WITH the grant: a facade that sees only the grant
 	// serves what the owner explicitly took back — a fail-open.
 	CorpusDenials []string
+	// MaxBookings —— the access code's booking cap (0 = unlimited). #135: the externalized
+	// booker enforces quota itself (counting in its own capstore); the core no longer counts
+	// bookings, so it only needs to hand the cap down here.
+	MaxBookings int32
 }
 
 func (s *SessionContext) meta() map[string]any {
@@ -203,6 +207,7 @@ func (s *SessionContext) meta() map[string]any {
 		"visitor_name":    s.VisitorName,
 		"visitor_email":   s.VisitorEmail,
 		"role_id":         s.RoleID,
+		"max_bookings":    s.MaxBookings,
 		"corpus_uris":     s.CorpusURIs,
 		"corpus_denials":  s.CorpusDenials,
 	}}

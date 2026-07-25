@@ -48,6 +48,11 @@ async function prep(playwright: Playwright): Promise<CodedSeed> {
 function future(days: number, hour: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);
+  // booking policy default = mon–fri; skip weekends so the slot passes policy
+  // regardless of what weekday "now" lands on (avoids date-dependent flake).
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
   d.setUTCHours(hour, 0, 0, 0);
   return d.toISOString();
 }

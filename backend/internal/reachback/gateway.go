@@ -31,6 +31,7 @@ type CapStore interface {
 	Insert(ctx context.Context, collection string, doc json.RawMessage) (string, error)
 	Query(ctx context.Context, collection string, filter json.RawMessage) ([]json.RawMessage, error)
 	Count(ctx context.Context, collection string, filter json.RawMessage) (int64, error)
+	Delete(ctx context.Context, collection string, filter json.RawMessage) (int64, error)
 }
 
 // OwnerMeta —— 读白名单 owner 字段(如时区)。非白名单字段一律拒(不泄露任意 owner 数据)。
@@ -52,6 +53,7 @@ func (d *Deps) Register(srv *capsocket.Server) {
 	srv.Handle("capstore.insert", d.capstoreInsert)
 	srv.Handle("capstore.query", d.capstoreQuery)
 	srv.Handle("capstore.count", d.capstoreCount)
+	srv.Handle("capstore.delete", d.capstoreDelete)
 	srv.Handle("owner.meta", d.ownerMeta)
 }
 
@@ -135,8 +137,24 @@ func (d *Deps) capstoreCount(ctx context.Context, raw json.RawMessage) (json.Raw
 	return out, nil
 }
 
-// allowedOwnerFields —— owner.meta 可读的白名单字段。词表外一律拒。
-var allowedOwnerFields = map[string]bool{"timezone": true}
+func (d *Deps) capstoreDelete(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	var req capstoreQueryReq
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil, fmt.Errorf("reachback capstore.delete: decode: %w", err)
+	}
+	n, err := d.Store.Delete(ctx, req.Collection, req.Filter)
+	if err != nil {
+		return nil, fmt.Errorf("reachback capstore.delete: %w", err)
+	}
+	out, merr := json.Marshal(map[string]int64{"deleted": n})
+	if merr != nil {
+		return nil, fmt.Errorf("reachback capstore.delete: marshal: %w", merr)
+	}
+	return out, nil
+}
+
+// allowedOwnerFields —— owner.meta 可读的白名单字段。词表外一律拒(不泄露任意 owner 数据)。
+var allowedOwnerFields = map[string]bool{"timezone": true, "full_name": true}
 
 type ownerMetaReq struct {
 	OwnerID string `json:"owner_id"`

@@ -32,11 +32,11 @@ func main() {
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
-	srv.AddTool(bookTool(), opHandler("book"))
-	srv.AddTool(listSlotsTool(), opHandler("list_slots"))
-	srv.AddTool(sendConfirmationTool(), opHandler("send_confirmation"))
-	srv.AddTool(cancelTool(), opHandler("cancel"))
-	srv.AddTool(rescheduleTool(), opHandler("reschedule"))
+	srv.AddTool(bookTool(), localHandler(doBook))
+	srv.AddTool(listSlotsTool(), localHandler(doListSlots))
+	srv.AddTool(sendConfirmationTool(), localHandler(doSendConfirmation))
+	srv.AddTool(cancelTool(), localHandler(doCancel))
+	srv.AddTool(rescheduleTool(), localHandler(doReschedule))
 	srv.AddResource(slotsCardResource(), slotsCardHandler)
 	srv.AddResource(bookedCardResource(), bookedCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
@@ -193,6 +193,8 @@ func listSlotsTool() mcpgo.Tool {
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`.
+// MaxBookings 是本 access code 的预约上限(核心值,host 种进来);booker 据它 + 自己
+// capstore 里的已订数做配额闸(核心不再数 booking)。<=0 = 不限。
 type session struct {
 	OwnerID        string
 	CodeID         string
@@ -200,6 +202,7 @@ type session struct {
 	VisitorName    string
 	VisitorEmail   string
 	RoleID         string
+	MaxBookings    int32
 }
 
 func sessionFromMeta(req mcpgo.CallToolRequest) session {
@@ -218,6 +221,7 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 		VisitorName:    str(raw, "visitor_name"),
 		VisitorEmail:   str(raw, "visitor_email"),
 		RoleID:         str(raw, "role_id"),
+		MaxBookings:    num32(raw, "max_bookings"),
 	}
 }
 
@@ -228,30 +232,27 @@ func str(m map[string]any, k string) string {
 	return ""
 }
 
-// opHandler —— forward the tool call to the named host op: session fields off
-// `_meta` + the raw tool arguments, return the host's JSON wire straight through
-// (or a folded error). The host's reply IS the agent-facing result.
-func opHandler(op string) server.ToolHandlerFunc {
+// num32 —— JSON 数字(map[string]any 里是 float64)→ int32。缺/非数 → 0。
+func num32(m map[string]any, k string) int32 {
+	if v, ok := m[k].(float64); ok {
+		return int32(v)
+	}
+	return 0
+}
+
+// localHandler —— run a sandbox capability fn: pull the trusted session off `_meta`
+// (host-planted, never LLM-controlled) + the raw tool arguments, return its wire
+// JSON straight through. The capability logic runs HERE in the sandbox; it reaches
+// the calendar connector / its own storage / owner meta only via the fixed
+// reach-back vocabulary (gateway.go), never a host op it defines itself.
+func localHandler(fn func(session, json.RawMessage) string) server.ToolHandlerFunc {
 	return func(_ context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
 		s := sessionFromMeta(req)
 		args, merr := json.Marshal(req.GetArguments())
 		if merr != nil {
 			return toolErr(merr), nil
 		}
-		resp, err := callHost(map[string]any{
-			"op":              op,
-			"owner_id":        s.OwnerID,
-			"code_id":         s.CodeID,
-			"conversation_id": s.ConversationID,
-			"visitor_name":    s.VisitorName,
-			"visitor_email":   s.VisitorEmail,
-			"role_id":         s.RoleID,
-			"args":            json.RawMessage(args),
-		})
-		if err != nil {
-			return toolErr(err), nil
-		}
-		return mcpgo.NewToolResultText(string(resp)), nil
+		return mcpgo.NewToolResultText(fn(s, json.RawMessage(args))), nil
 	}
 }
 

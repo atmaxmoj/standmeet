@@ -46,6 +46,10 @@ func (*fakeStore) Count(_ context.Context, _ string, _ json.RawMessage) (int64, 
 	return 3, nil
 }
 
+func (*fakeStore) Delete(_ context.Context, _ string, _ json.RawMessage) (int64, error) {
+	return 0, nil
+}
+
 type fakeOwner struct{ gotField string }
 
 func (f *fakeOwner) Meta(_ context.Context, _, field string) (string, error) {

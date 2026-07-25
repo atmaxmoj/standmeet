@@ -301,47 +301,5 @@ func mcpAppGranted(m *mcpplugin.Manifest, snap *domain.RoleSnapshot) bool {
 	return snap.AllowsCapability(m.ID, always)
 }
 
-// sessionMetaFor —— 数据型内建（manifest 声明了 HostSockets）才拿到可信 session
-// 上下文，经 tool-call `_meta` 递给它自己的沙箱 server（再转给宿主窄 socket API）。
-// ask_visitor / 第三方插件无 HostSockets → 返 nil，拿不到 session 上下文（防泄漏）。
-func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.SessionContext {
-	if m.Transport.Sandbox == nil || len(m.Transport.Sandbox.HostSockets) == 0 {
-		return nil
-	}
-	return &mcpclient.SessionContext{
-		OwnerID:        in.OwnerID,
-		CodeID:         in.CodeID,
-		ConversationID: in.ConversationID,
-		Mode:           in.Mode,
-		VisitorName:    in.Visitor.Name,
-		VisitorEmail:   in.Visitor.Email,
-		RoleID:         roleIDOf(in),
-		CorpusURIs:     corpusURIsOf(in),
-		CorpusDenials:  corpusDenialsOf(in),
-	}
-}
-
-// roleIDOf —— 当前 session 的 role id（booker owner-notify 的 per-role 开关要）。
-// 无 role(public/byoai) → 空串。
-func roleIDOf(in *capreg.AssembleInput) string {
-	if in.RoleSnapshot == nil {
-		return ""
-	}
-	return in.RoleSnapshot.RoleID()
-}
-
-// corpusURIsOf —— 当前 session 的 corpus-ACL scope（role snapshot 的 URI glob 白名单），
-// 给外置 retrieval 插件的 host op 重建 AllowsCorpus 用。无 role → 空（无 scope）。
-func corpusDenialsOf(in *capreg.AssembleInput) []string {
-	if in.RoleSnapshot == nil {
-		return []string{}
-	}
-	return in.RoleSnapshot.DeniedCorpusURIs()
-}
-
-func corpusURIsOf(in *capreg.AssembleInput) []string {
-	if in.RoleSnapshot == nil {
-		return []string{}
-	}
-	return in.RoleSnapshot.CorpusURIs()
-}
+// sessionMetaFor / roleIDOf / maxBookingsOf / corpusURIsOf / corpusDenialsOf —— 见
+// capreg_mcp_app_session.go(从此文件拆出,守 max-lines ≤350)。

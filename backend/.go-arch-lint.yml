@@ -635,6 +635,8 @@ deps:
       - pluginjobs
       - pluginownercore
       - capsocket
+      - capstore
+      - reachback
       - sandboxws
       - search
     anyVendorDeps: true

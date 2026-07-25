@@ -122,6 +122,27 @@ func (s *Store) Count(
 	return n, nil
 }
 
+// Delete —— 删 collection 里 doc 满足 filter 的记录,返删除行数。**只删本 cap schema 内的
+// 行**(schema 名经 schemaName 校验),绝非 DROP schema —— 跟 Drop 的删库级操作两码事。
+// 空 filter → 拒(不允许清空整个 collection,防手滑),要清空请显式传 `{}`? 不,这里空=拒。
+func (s *Store) Delete(
+	ctx context.Context, kind Kind, id, collection string, filter json.RawMessage,
+) (int64, error) {
+	if len(filter) == 0 {
+		return 0, fmt.Errorf("capstore delete %s/%s: empty filter refused", kind, collection)
+	}
+	schema, err := schemaName(kind, id)
+	if err != nil {
+		return 0, err
+	}
+	sql := fmt.Sprintf("DELETE FROM %s.records WHERE collection = $1 AND doc @> $2", schema)
+	tag, derr := s.pool.Exec(ctx, sql, collection, filter)
+	if derr != nil {
+		return 0, fmt.Errorf("capstore delete %q/%s: %w", schema, collection, derr)
+	}
+	return tag.RowsAffected(), nil
+}
+
 // containment —— 空 filter 归一成 `{}`(matches all);否则原样(调用方保证是 JSON object)。
 func containment(filter json.RawMessage) json.RawMessage {
 	if len(filter) == 0 {

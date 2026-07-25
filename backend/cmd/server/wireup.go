@@ -113,8 +113,10 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Drafts:       d.resumeDraftRepo,
 		Applications: d.applicationRepo,
 		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
-		Calendar:     adminroutes.CalendarAdminDeps{Repo: d.calendarRepo},
-		Connectors:   connectorsAdminDeps(d),
+		Calendar: adminroutes.CalendarAdminDeps{
+			Repo: d.calendarRepo, Policy: newBookerPolicyStore(d),
+		},
+		Connectors: connectorsAdminDeps(d),
 		Capabilities: adminroutes.CapabilityAdminDeps{
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
 			Skills: d.skillRepo, Connectors: d.connectorRepo,
@@ -160,8 +162,10 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	// #135: owner-MCP caps are no longer core-registered here — the ownercore plugin (+ jobs)
 	// register them via RegisterAllCapabilities below, into the same capreg.Registry, no dup IDs.
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
-	bookerDeps := newBookerDeps(d, &skills)
-	wireBookerSocket(ctx, d, bookerDeps)
+	// #135: booker 外置到沙箱 —— host 只挂固定词表 reach-back 网关(booker_gateway.go),
+	// 不再跑 booker 业务逻辑,也不再有 quota Gate/State(booker 自己在沙箱按 capstore 计数
+	// 做配额闸;connector-connected 仍由 manifest Requires:["calendar"] 的 global 闸把住)。
+	wireBookerGateway(ctx, d)
 	wireMailSenderSocket(ctx, d)
 	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
@@ -171,10 +175,8 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireSearchIndex(ctx, d)
 	wireSearchReconcile(ctx, d)
 	registerDiscoveredPlugins(d, depReg, map[string]usecases.CapHooks{
-		usecases.BookerSkillName: {
-			Gate:  usecases.NewBookerGate(bookerDeps),
-			State: usecases.NewBookerStateHook(bookerDeps),
-		},
+		// booker quota 闸(host 侧,经 capstore.count 数 booker 隔离预约;concretes 只在此组装根)。
+		"calendar.book":    {Gate: bookerQuotaGate(d)},
 		"corpus.retrieval": {Fragment: usecases.RetrievalScopeVisible},
 	})
 	wireCapabilityEnableGate(d)
@@ -199,17 +201,11 @@ func wireCapabilityEnableGate(d *runtimeDeps) {
 func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
 	return usecases.VisitorSkillsDeps{
 		Wiki: d.wikiRepo, Output: d.outputRepo, Writings: d.writingRepo,
-		Proxy:      d.connectorSlots.Calendar(),
-		Calendar:   calendarStoreAdapter{repo: d.calendarRepo},
-		Owners:     d.ownerRepo,
-		Skills:     d.skillRepo,
-		Sandbox:    d.sandboxRunner,
-		MCPServers: d.mcpServerRepo,
-		Reports:    d.chatReportRepo,
-		Resolver:   d.providerResolver,
-		Notify: usecases.OwnerNotifyDeps{
-			Owners: d.ownerRepo, Roles: d.roleRepo, Proxy: d.connectorSlots.Mail(),
-		},
+		Skills:          d.skillRepo,
+		Sandbox:         d.sandboxRunner,
+		MCPServers:      d.mcpServerRepo,
+		Reports:         d.chatReportRepo,
+		Resolver:        d.providerResolver,
 		AgentConnectors: &agentConnectorSource{repo: d.connectorRepo, slots: d.connectorSlots},
 	}
 }

@@ -52,12 +52,8 @@ type VisitorSkillsDeps struct {
 	Wiki     WikiLister
 	Output   OutputLister
 	Writings WritingLister
-	// Proxy / Calendar —— 可选(admin 没装 connector → Proxy nil,booker gating
-	// 自动隐藏)。Proxy = 连接器代调；Calendar = booking 行 store。
-	Proxy      CalendarProxy
-	Calendar   CalendarStore
-	Owners     OwnerGetter
-	Notify     OwnerNotifyDeps
+	// #135: booker 外置到沙箱后,它的原料(CalendarProxy / booking store / owner /
+	// owner-notify)不再进这里 —— booker 经固定词表 reach-back 网关自取。
 	Skills     SkillGetter
 	Sandbox    sandbox.Runner
 	MCPServers MCPServerGetter

@@ -12,7 +12,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // MountBookingPolicy —— /booking-policy GET + PATCH 挂载。
@@ -48,7 +47,7 @@ func (h *Handlers) getBookingPolicy() http.HandlerFunc {
 			writeError(h.Log, w, serverErr())
 			return
 		}
-		policy, perr := h.CalendarAdmin.Repo.GetBookingPolicy(r.Context(), ownerID)
+		policy, perr := h.CalendarAdmin.Policy.Get(r.Context(), ownerID)
 		if perr != nil {
 			h.Log.Error("get booking policy", "err", perr)
 			writeError(h.Log, w, serverErr())
@@ -120,21 +119,14 @@ func upsertPolicyFromPatch(
 	r *http.Request, h *Handlers, w http.ResponseWriter,
 	ownerID string, patch *policyPatchRequest,
 ) bool {
-	current, gerr := h.CalendarAdmin.Repo.GetBookingPolicy(r.Context(), ownerID)
+	current, gerr := h.CalendarAdmin.Policy.Get(r.Context(), ownerID)
 	if gerr != nil {
 		h.Log.Error("load policy for patch", "err", gerr)
 		writeError(h.Log, w, serverErr())
 		return false
 	}
 	merged := mergePolicyPatch(&current, patch)
-	if _, uerr := h.CalendarAdmin.Repo.UpsertBookingPolicy(r.Context(), &postgres.UpsertPolicyInput{
-		OwnerID:           ownerID,
-		WorkingHoursStart: merged.WorkingHoursStart,
-		WorkingHoursEnd:   merged.WorkingHoursEnd,
-		AllowedWeekdays:   merged.AllowedWeekdays,
-		MinLeadDays:       merged.MinLeadDays,
-		BufferMin:         merged.BufferMin,
-	}); uerr != nil {
+	if uerr := h.CalendarAdmin.Policy.Set(r.Context(), ownerID, merged); uerr != nil {
 		h.Log.Error("upsert booking policy", "err", uerr)
 		writeError(h.Log, w, serverErr())
 		return false
