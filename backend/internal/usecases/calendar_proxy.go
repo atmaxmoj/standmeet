@@ -27,30 +27,30 @@ type CalendarProxy interface {
 	DeleteEvent(ctx context.Context, ownerID, eventID, attendeeEmail string) error
 }
 
-// FreeBusyReq —— FreeBusy 入参（UTC 时间窗）。
+// FreeBusyReq —— FreeBusy 入参（UTC 时间窗）。json tag 声明 connector.invoke 的 reach-back 线格。
 type FreeBusyReq struct {
-	TimeMin time.Time
-	TimeMax time.Time
+	TimeMin time.Time `json:"time_min"`
+	TimeMax time.Time `json:"time_max"`
 }
 
 // BusyInterval —— 一个忙时段。
 type BusyInterval struct {
-	Start time.Time
-	End   time.Time
+	Start time.Time `json:"start"`
+	End   time.Time `json:"end"`
 }
 
 // InsertEventReq —— 建事件入参。VisitorEmail 空 = 不加与会者、不发通知。
 type InsertEventReq struct {
-	Summary      string
-	Description  string
-	Start        time.Time
-	End          time.Time
-	TimeZone     string
-	VisitorEmail string
+	Summary      string    `json:"summary"`
+	Description  string    `json:"description"`
+	Start        time.Time `json:"start"`
+	End          time.Time `json:"end"`
+	TimeZone     string    `json:"time_zone"`
+	VisitorEmail string    `json:"visitor_email"`
 }
 
 // InsertedEvent —— 建好的事件标识。
 type InsertedEvent struct {
-	EventID  string
-	HTMLLink string
+	EventID  string `json:"event_id"`
+	HTMLLink string `json:"html_link"`
 }

@@ -18,8 +18,8 @@ type MailProxy interface {
 
 // MailMessage —— 一封待发的信（无任何 SMTP 凭据）。
 type MailMessage struct {
-	To      string
-	Subject string
-	Body    string
-	HTML    string // 空 = 纯文本
+	To      string `json:"to"`
+	Subject string `json:"subject"`
+	Body    string `json:"body"`
+	HTML    string `json:"html"` // 空 = 纯文本
 }

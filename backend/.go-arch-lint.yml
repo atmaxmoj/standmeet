@@ -101,6 +101,10 @@ components:
     in: internal/connectorsvc             # #155: 连接器 admin 编排（凭据/connect/oauth dance/activate）——routes 层之下，cyclop ≤5
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
+  capstore:
+    in: internal/capstore                 # #135 constrained-reachback: per-plugin 隔离 JSONB 存储（每 connector/mcp 一 schema）；leaf，只依赖 pgx
+  reachback:
+    in: internal/reachback                # #135 constrained-reachback: host 拥有的固定词表 reach-back 网关（沙箱 cap 只能调、加不了 op）；依赖 capsocket + 注入的后端接口
   retry:
     in: internal/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
   httpx:
@@ -488,6 +492,19 @@ deps:
   # 加密。本身只读 INSTANCE_SECRET env，不绕回任何 internal 模块。
   cryptobox:
     mayDependOn: []
+    anyVendorDeps: true
+
+  # capstore —— per-plugin 隔离文档存储（每 connector/mcp 一 schema）。leaf：只依赖 pgx，
+  # 不绕回任何 internal 业务模块。schema 名从 host 可信 (kind,id) 推 + DROP 守卫见包内。
+  capstore:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # reachback —— host 固定词表网关。只依赖 capsocket（挂 op）；后端（连接器/存储/owner）
+  # 由 composition root 经接口注入，本包不 import 它们 → 保持薄、可测。
+  reachback:
+    mayDependOn:
+      - capsocket
     anyVendorDeps: true
 
   # sys routes (/internal/healthz, tls-ask, log, builds) 需要 ping db / redis
