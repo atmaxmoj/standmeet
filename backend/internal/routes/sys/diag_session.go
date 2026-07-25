@@ -98,7 +98,6 @@ func buildDiagSessionResp(
 ) diagSessionResp {
 	in := &capreg.AssembleInput{
 		RoleSnapshot: data.RoleSnapshot,
-		MaxBookings:  data.MaxBookings,
 		OwnerID:      data.OwnerID,
 		Mode:         data.Mode,
 		CodeID:       data.CodeID,

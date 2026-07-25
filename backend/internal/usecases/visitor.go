@@ -306,7 +306,6 @@ func buildCodeSessionData(
 		CodeID:       code.ID,
 		MemberID:     memberID,
 		Visitor:      visitor,
-		MaxBookings:  code.MaxBookings,
 		RoleSnapshot: snapshot,
 	}
 }

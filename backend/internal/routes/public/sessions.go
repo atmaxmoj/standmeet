@@ -279,7 +279,6 @@ func assembleInputFromSession(
 ) *capreg.AssembleInput {
 	return &capreg.AssembleInput{
 		RoleSnapshot:   data.RoleSnapshot,
-		MaxBookings:    data.MaxBookings,
 		OwnerID:        data.OwnerID,
 		Mode:           data.Mode,
 		CodeID:         data.CodeID,

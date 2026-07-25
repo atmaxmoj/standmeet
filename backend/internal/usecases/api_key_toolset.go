@@ -62,7 +62,7 @@ func AssembleAPIKeyToolset(
 	}
 	in := &capreg.AssembleInput{
 		RoleSnapshot: &snap, OwnerID: key.OwnerID,
-		Mode: apiFacadeMode, MaxBookings: key.MaxBookings,
+		Mode: apiFacadeMode,
 	}
 	bindings := deps.Skills.AssembleVisitor(ctx, in)
 	tools := filterAPITools(bindings, apiStringSet(opened), apiStringSet(whitelist))

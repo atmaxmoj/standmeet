@@ -39,7 +39,6 @@ var ErrHidden = errors.New("capreg: capability hidden from session")
 // real SendMessage 时为当前消息所在 conv。
 type AssembleInput struct {
 	RoleSnapshot   *domain.RoleSnapshot
-	MaxBookings    *int32
 	OwnerID        string
 	Mode           string
 	CodeID         string
