@@ -38,10 +38,10 @@ type PersistFunc func(ctx context.Context, res *TurnResult) error
 // token 用量交出去(model + input/output tokens)。route handler 注入走 inference_usage 表的闭包。
 type RecordUsageFunc func(ctx context.Context, model string, inputTokens, outputTokens int)
 
-// MarkWaypointsFunc —— ghost-steering ledger port。turn 收尾把本轮引用(cited note id)+ booking
+// MarkWaypointsFunc —— ghost-steering ledger port。turn 收尾把本轮引用(cited note id)+ 本轮成功工具名
 // 命中交出去,route handler 注入的闭包解析 URI + 标 waypoint visited + 存 session。inference 不碰
 // DB/redis。nil = 不标(非 code / 无 waypoints)。
-type MarkWaypointsFunc func(ctx context.Context, citedNoteIDs []string, bookingOK bool)
+type MarkWaypointsFunc func(ctx context.Context, citedNoteIDs, successfulTools []string)
 
 // persistedToolCall —— 落库形态的一条 tool 调用。result 原样透(整个 tool 输出
 // JSON);ok 从顶层 envelope 取。跟前端 ToolCallView / dialogRequest.tool_calls
@@ -119,14 +119,16 @@ func (a *accumSink) Done(stop string) {
 	a.inner.Done(stop)
 }
 
-// bookedThisTurn —— 本轮有没有成功的 calendar_book(ghost-steering: terminal waypoint 标记信号)。
-func (a *accumSink) bookedThisTurn() bool {
+// successfulToolNames —— 本轮成功跑过的工具名。inference 不认识哪个是"终点"工具(那是外置能力,
+// 如约成这类终点动作);它只报名字,让注入 ledger port 的 route 层(认得具体能力)去判 terminal 命中。
+func (a *accumSink) successfulToolNames() []string {
+	out := make([]string, 0, len(a.tools))
 	for i := range a.tools {
-		if a.tools[i].Name == "calendar_book" && a.tools[i].OK {
-			return true
+		if a.tools[i].OK {
+			out = append(out, a.tools[i].Name)
 		}
 	}
-	return false
+	return out
 }
 
 // accumulateTool —— 一个 tool 完成:按落库形态收 {name, ok, result},并从
@@ -263,8 +265,8 @@ func persistTurn(ctx context.Context, log *slog.Logger, in *AgentTurnInput, acc 
 }
 
 // producedContentForPersist —— F-A-19: persist a turn iff it produced durable content: EITHER
-// a synthesized answer, OR a return_directly tool ran (summarize / booking / ask_visitor) whose
-// RESULT is the product (report card / confirmation) even with no answer text. Must NOT widen
+// a synthesized answer, OR a return_directly tool ran (a report / a terminal action / a prompt)
+// whose RESULT is the product (report card / confirmation) even with no answer text. Must NOT widen
 // to "any tool ran": a narration-only turn whose tools were GROUNDING (corpus_search) with
 // no synthesis must stay unpersisted (F-A-4 — don't persist planning narration as a dialog).
 func producedContentForPersist(acc *accumSink, returnDirectly map[string]bool) bool {
@@ -282,7 +284,7 @@ func (a *accumSink) ranReturnDirectly(returnDirectly map[string]bool) bool {
 	return false
 }
 
-// markWaypointsTurn —— ghost-steering ledger:本轮引用(cited note id)+ booking 命中交给注入的
+// markWaypointsTurn —— ghost-steering ledger:本轮引用(cited note id)+ 终点命中交给注入的
 // port。nil port(非 code / 无 waypoints)跳过。
 func markWaypointsTurn(ctx context.Context, in *AgentTurnInput, acc *accumSink) {
 	if in.MarkWaypoints == nil {
@@ -291,5 +293,5 @@ func markWaypointsTurn(ctx context.Context, in *AgentTurnInput, acc *accumSink) 
 	cited := make([]string, 0, len(acc.wikiIDs)+len(acc.outIDs))
 	cited = append(cited, acc.wikiIDs...)
 	cited = append(cited, acc.outIDs...)
-	in.MarkWaypoints(ctx, cited, acc.bookedThisTurn())
+	in.MarkWaypoints(ctx, cited, acc.successfulToolNames())
 }

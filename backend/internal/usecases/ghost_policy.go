@@ -40,7 +40,7 @@ RULES:
    coherently reachable in one hop.
 6. EVIDENCE — only propose questions the corpus can answer well.
 7. NO-REPEAT — a declined waypoint may not be re-offered.
-8. TERMINAL — when booking/contact is one natural step away, the slot goes to the ask, plainly.
+8. TERMINAL — when the goal action is one natural step away, the slot goes to the ask, plainly.
 
 OUTPUT a single JSON object {"text","target_waypoint","follows_from","is_bridge"}
 or the literal null.`

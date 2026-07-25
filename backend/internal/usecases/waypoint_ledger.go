@@ -1,7 +1,7 @@
 // waypoint_ledger.go —— ghost-steering P2: WaypointLedger 的机械化 visited 标记(α≈0,无 LLM 判官)。
 //
 // 一轮收尾调:本轮 assistant 的引用(cited note id)解析成 URI,命中冻结 waypoint 的 evidence_refs
-// → 标 visited;booking 成功 → 标 terminal waypoint visited。ledger 挂 redis visitor_session
+// → 标 visited;终点能力(如约成)命中 → 标 terminal waypoint visited。ledger 挂 redis visitor_session
 // (VisitedWaypoints)。变了才存盘;best-effort —— 失败只 warn,绝不压这轮答复。
 //
 // id→URI 解析复用 crawl-face 的 syncNotePath/dbParentOf(与检索 ACL 同口径,URI 一致)。
@@ -27,7 +27,7 @@ type WaypointLedgerDeps struct {
 
 // WaypointLedger —— 可注入的 ledger marker,闭住 postgres note repo + session store。
 // composition root 建一个喂 public Handlers —— route 层不碰 postgres(守 arch:publicroutes 不依赖
-// postgres)。route 每轮把本轮引用/booking 交给 Mark。
+// postgres)。route 每轮把本轮引用/终点命中交给 Mark。
 type WaypointLedger struct {
 	deps *WaypointLedgerDeps
 }
@@ -49,7 +49,7 @@ type MarkWaypointsInput struct {
 	Token        string
 	Data         session.VisitorSessionData
 	CitedNoteIDs []string
-	BookingOK    bool
+	TerminalOK   bool
 }
 
 // MarkWaypointsVisited —— 见文件头。命中即标,变了才存盘。
@@ -78,13 +78,13 @@ func ledgerWaypoints(in *MarkWaypointsInput) ([]domain.Waypoint, bool) {
 	return wps, len(wps) > 0
 }
 
-// markAll —— 引用命中 evidence_refs + booking 命中 terminal → 标 visited。返 changed。
-// in 提供 BookingOK（走结构体不走裸 bool flag，避 control-coupling）。
+// markAll —— 引用命中 evidence_refs + 终点命中 → 标 visited。返 changed。
+// in 提供 TerminalOK（走结构体不走裸 bool flag，避 control-coupling）。
 func markAll(
 	in *MarkWaypointsInput, waypoints []domain.Waypoint, cited []string, visited *stringSet,
 ) bool {
 	changed := markByCitation(waypoints, cited, visited)
-	if in.BookingOK {
+	if in.TerminalOK {
 		changed = markTerminals(waypoints, visited) || changed
 	}
 	return changed

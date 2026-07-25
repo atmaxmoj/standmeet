@@ -8,7 +8,7 @@ import "time"
 // ActivityEvent —— 一条派生的活动事件。
 type ActivityEvent struct {
 	At    time.Time
-	Kind  string // 'visitor' | 'ingest' | 'booking'
+	Kind  string // 'visitor' | 'ingest'
 	Label string
 }
 

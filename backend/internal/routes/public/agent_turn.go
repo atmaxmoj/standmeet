@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 
 	"github.com/cloudwego/eino/components/tool"
 
@@ -137,12 +138,18 @@ func buildAgentTurnLedger(h *Handlers, auth authedVisitor) inference.MarkWaypoin
 	if !hasFrozenWaypoints(auth) {
 		return nil
 	}
-	return func(ctx context.Context, citedNoteIDs []string, bookingOK bool) {
+	return func(ctx context.Context, citedNoteIDs, successfulTools []string) {
 		h.Ledger.Mark(ctx, &usecases.MarkWaypointsInput{
 			Token: auth.Token, Data: *auth.Data,
-			CitedNoteIDs: citedNoteIDs, BookingOK: bookingOK,
+			CitedNoteIDs: citedNoteIDs, TerminalOK: terminalToolHit(successfulTools),
 		})
 	}
+}
+
+// terminalToolHit —— ledger 的"终点命中"信号:本轮成功工具里有没有跑成终点能力的工具。终点能力
+// 是外置的(booking = calendar_book);inference 只报工具名,这里(route,认得具体能力)判定。
+func terminalToolHit(successfulTools []string) bool {
+	return slices.Contains(successfulTools, "calendar_book")
 }
 
 func hasFrozenWaypoints(auth authedVisitor) bool {

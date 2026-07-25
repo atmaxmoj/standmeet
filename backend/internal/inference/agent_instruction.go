@@ -27,7 +27,7 @@ func instructionWithDoc(system string, doc *AgentDocContext) string {
 // instructionWithDateTime —— 把"现在的日期时间 + owner 所在时区"作为**通用**
 // 上下文注入每一轮 instruction(与 capability 无关)。技术 / 简历 / 经历都有
 // 时效性:agent 必须知道"今天"才能正确回答"最近""N 年经验"这类问题,也才能把
-// booking 里"6 月 18 号"这种无年份的相对日期锚到将来而不是某个过去的年份
+// 排期里"6 月 18 号"这种无年份的相对日期锚到将来而不是某个过去的年份
 // (实测里模型会默认 fallback 到训练期的年份,谎报 avail)。tz 空 / 非法 → UTC。
 func instructionWithDateTime(system string, now time.Time, ownerTZ, visitorTZ string) string {
 	loc, label := time.UTC, "UTC"
@@ -50,14 +50,14 @@ func instructionWithDateTime(system string, now time.Time, ownerTZ, visitorTZ st
 // 未知则退回"先问访客时区"。访客 tz == owner tz 时不啰嗦。
 func visitorTZClause(visitorTZ, ownerLabel string) string {
 	if visitorTZ == "" {
-		return " Confirm the visitor's own timezone before proposing or booking times."
+		return " Confirm the visitor's own timezone before proposing or scheduling times."
 	}
 	if visitorTZ == ownerLabel {
 		return " The visitor is in the same timezone (" + visitorTZ + ")."
 	}
 	return " The visitor's timezone is " + visitorTZ + " — interpret any time the " +
 		"visitor gives in their timezone, convert to the owner's calendar timezone when " +
-		"booking, and state both the visitor-local and owner-local time when you confirm."
+		"scheduling, and state both the visitor-local and owner-local time when you confirm."
 }
 
 // instructionWithCrossConv —— 「互通」:把该 member 其他对话的 digest 拼进 instruction,
