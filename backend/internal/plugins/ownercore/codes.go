@@ -42,16 +42,24 @@ type CodesRevoker interface {
 	) (domain.AccessCode, error)
 }
 
+// CodeBookingQuota —— #135:per-code 预约配额由 booker 能力自管,不进内核 access_code。
+// owner MCP 发码/列码经这个口读写 booker 的配置(实现在组装根,落 booker capstore)。
+type CodeBookingQuota interface {
+	SetMaxBookings(ctx context.Context, codeID string, maxBookings *int32) error
+	MaxBookingsOf(ctx context.Context, codeID string) (*int32, error)
+}
+
 type codesCapability struct {
 	codes   CodesRevoker
 	denials codeDenialsStore
+	quota   CodeBookingQuota
 	log     *slog.Logger
 }
 
 func newCodesCapability(
-	codes CodesRevoker, denials codeDenialsStore, log *slog.Logger,
+	codes CodesRevoker, denials codeDenialsStore, quota CodeBookingQuota, log *slog.Logger,
 ) *codesCapability {
-	return &codesCapability{codes: codes, denials: denials, log: log}
+	return &codesCapability{codes: codes, denials: denials, quota: quota, log: log}
 }
 
 func (*codesCapability) ID() string          { return capCodesBundle }

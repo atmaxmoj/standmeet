@@ -33,7 +33,6 @@ type CreateCodeInput struct {
 	ExpiresAt          *time.Time
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
-	MaxBookings        *int32
 	PromptID           *string
 	OwnerID            string
 	Code               string
@@ -76,7 +75,6 @@ func (r *CodeRepo) CreateAccessCode(
 		ExpiresAt:          in.ExpiresAt,
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
-		MaxBookings:        in.MaxBookings,
 		PromptID:           in.PromptID,
 		InlinePrompt:       in.InlinePrompt,
 	})
@@ -108,7 +106,6 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 		ExpiresAt:          ptrToTimestamptz(in.ExpiresAt),
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
-		MaxBookings:        in.MaxBookings,
 		AssumedRoleID:      roleUUID,
 		PromptID:           promptUUID,
 		InlinePrompt:       in.InlinePrompt,

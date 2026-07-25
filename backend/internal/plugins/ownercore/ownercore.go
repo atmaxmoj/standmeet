@@ -18,40 +18,41 @@ const Name = "ownercore"
 
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
-	Marketplace    usecases.InstallSkillDeps
-	Appearance     usecases.OwnerCSSStore
-	Codes          CodesRevoker
-	SEO            SEOWriter
-	SEOStats       seoStatsReader
-	PageContent    pageContentStore
-	CodeDenials    codeDenialsStore
-	IPBans         ipBansStore
-	Owners         OwnerLookup
-	Skills         *usecases.SkillsDeps
-	Connectors     *ConnectorsOwnerDeps
-	CustomPages    *usecases.CustomPageDeps
-	Handle         *usecases.HandleDeps
-	Calendar       *CalendarOwnerDeps
-	Writings       *usecases.WritingsDeps
-	MCPServers     *usecases.MCPServersDeps
-	Domains        usecases.AllowedDomainsDeps
-	AccessRequests *AccessRequestsOwnerDeps
-	Capabilities   *CapabilitiesOwnerDeps
-	Instance       *InstanceDeps
-	APIKeys        *APIKeysOwnerDeps
-	WritingsTx     *usecases.WritingsTxDeps
-	Roles          *usecases.RolesDeps
-	Booking        *BookingOwnerDeps
-	Prompts        *usecases.PromptsDeps
-	Conversations  *usecases.ConversationsDeps
-	PublicURL      usecases.PublicURLDeps
-	PagePins       usecases.PagePinDeps
-	Corpus         *usecases.CorpusDeps
-	Account        usecases.AccountDeps
-	BYOAI          usecases.BYOAIDeps
-	Log            *slog.Logger
-	Ghosts         *usecases.GhostDeps
-	AIPresets      []AIProviderPreset
+	Marketplace      usecases.InstallSkillDeps
+	Appearance       usecases.OwnerCSSStore
+	Codes            CodesRevoker
+	CodeBookingQuota CodeBookingQuota
+	SEO              SEOWriter
+	SEOStats         seoStatsReader
+	PageContent      pageContentStore
+	CodeDenials      codeDenialsStore
+	IPBans           ipBansStore
+	Owners           OwnerLookup
+	Skills           *usecases.SkillsDeps
+	Connectors       *ConnectorsOwnerDeps
+	CustomPages      *usecases.CustomPageDeps
+	Handle           *usecases.HandleDeps
+	Calendar         *CalendarOwnerDeps
+	Writings         *usecases.WritingsDeps
+	MCPServers       *usecases.MCPServersDeps
+	Domains          usecases.AllowedDomainsDeps
+	AccessRequests   *AccessRequestsOwnerDeps
+	Capabilities     *CapabilitiesOwnerDeps
+	Instance         *InstanceDeps
+	APIKeys          *APIKeysOwnerDeps
+	WritingsTx       *usecases.WritingsTxDeps
+	Roles            *usecases.RolesDeps
+	Booking          *BookingOwnerDeps
+	Prompts          *usecases.PromptsDeps
+	Conversations    *usecases.ConversationsDeps
+	PublicURL        usecases.PublicURLDeps
+	PagePins         usecases.PagePinDeps
+	Corpus           *usecases.CorpusDeps
+	Account          usecases.AccountDeps
+	BYOAI            usecases.BYOAIDeps
+	Log              *slog.Logger
+	Ghosts           *usecases.GhostDeps
+	AIPresets        []AIProviderPreset
 }
 
 // Plugin —— implements plugins.Plugin + plugins.CapabilityRegistrar.
@@ -75,7 +76,7 @@ func (*Plugin) Name() string { return Name }
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	d := p.deps
 	reg.MustRegister(newMeCapability(d.Owners, d.Log))
-	reg.MustRegister(newCodesCapability(d.Codes, d.CodeDenials, d.Log))
+	reg.MustRegister(newCodesCapability(d.Codes, d.CodeDenials, d.CodeBookingQuota, d.Log))
 	reg.MustRegister(newSEOCapability(d.SEO, d.SEOStats, d.PagePins, d.Log))
 	reg.MustRegister(newCorpusRawCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))

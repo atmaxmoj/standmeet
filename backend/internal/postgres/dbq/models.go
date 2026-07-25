@@ -19,7 +19,6 @@ type AccessCode struct {
 	Status               string
 	MaxTurnsPerSession   *int32
 	MaxMembers           *int32
-	MaxBookings          *int32
 	RequireGhostEvidence *bool
 	CreatedAt            pgtype.Timestamptz
 	AssumedRoleID        pgtype.UUID

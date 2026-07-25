@@ -17,14 +17,13 @@ import (
 //   - Status 'active' / 'revoked'（过期由 ExpiresAt 计算，不写状态字段）。
 //   - AssumedRoleID 必填，指向 owner 的 roles 行 id；session issue 时 freeze
 //     出 [[role_snapshot]]。owner 不显式选 → usecase 默认绑 public。
-//   - MaxBookings nil → role 没解锁 calendar.book 时也无意义；非 nil 是
-//     per-code 跨 visitor 累计配额，从 code_bookings count 计。
+//
+// #135:per-code 预约配额不在内核 —— booker 能力自管(它的 capstore),内核不认。
 type AccessCode struct {
 	CreatedAt          time.Time
 	ExpiresAt          *time.Time
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
-	MaxBookings        *int32
 	// RequireGhostEvidence —— F-A-10 per-code 覆盖(nil = 继承 role 的开关)。
 	RequireGhostEvidence *bool
 	PromptID             *string
@@ -48,7 +47,6 @@ type CreateAccessCodeInput struct {
 	ExpiresAt          *time.Time
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
-	MaxBookings        *int32
 	PromptID           *string
 	OwnerID            string
 	Code               string

@@ -68,9 +68,35 @@ func (c *codesCapability) handleCreate(
 		c.log.Error("cap codes.create", "err", err)
 		return capreg.MCPError("create code failed")
 	}
+	c.writeBookingQuota(ctx, code.ID, args.MaxBookings)
 	return mcputil.MarshalResult(c.log, "codes.create", map[string]any{
 		"code_id": code.ID, "code": code.Code, "label": code.Label,
 	})
+}
+
+// readBookingQuota —— 列码回显时从 booker 读这张码的预约上限(best-effort:失败当无上限)。
+func (c *codesCapability) readBookingQuota(ctx context.Context, codeID string) *int32 {
+	if c.quota == nil {
+		return nil
+	}
+	maxBookings, err := c.quota.MaxBookingsOf(ctx, codeID)
+	if err != nil {
+		c.log.Warn("cap codes.list: read booking quota", "err", err)
+		return nil
+	}
+	return maxBookings
+}
+
+// writeBookingQuota —— 把 max_bookings 落 booker(best-effort:失败只 warn,不挡发码)。
+func (c *codesCapability) writeBookingQuota(
+	ctx context.Context, codeID string, maxBookings *int32,
+) {
+	if c.quota == nil || maxBookings == nil {
+		return
+	}
+	if err := c.quota.SetMaxBookings(ctx, codeID, maxBookings); err != nil {
+		c.log.Warn("cap codes.create: set booking quota", "err", err)
+	}
 }
 
 func parseCreateCodeArgs(raw json.RawMessage) (createCodeArgsWire, error) {
@@ -99,7 +125,6 @@ func buildCreateCodeInputCap(
 		Ghosts:             mcputil.NonNilStrings(args.Ghosts),
 		MaxMembers:         args.MaxMembers,
 		MaxTurnsPerSession: args.MaxTurns,
-		MaxBookings:        args.MaxBookings,
 	}
 	if args.ExpiresAt != "" {
 		t, terr := time.Parse(time.RFC3339, args.ExpiresAt)

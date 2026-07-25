@@ -132,7 +132,7 @@ func runCreateCode(
 	}
 	writeCodeBookingQuota(r.Context(), h.CodesAdmin.Booking, h.Log, code.ID, req.MaxBookings)
 	h.attachCreateWaypoints(r, &code, req.Waypoints)
-	writeCreatedCode(h.Log, w, &code)
+	writeCreatedCode(r, h, w, &code)
 }
 
 var createCodeErrCases = []apierr.Case{
@@ -171,7 +171,6 @@ func buildCreateInput(
 		Ghosts:             req.Ghosts,
 		MaxMembers:         req.MaxMembers,
 		MaxTurnsPerSession: req.MaxTurnsPerSession,
-		MaxBookings:        req.MaxBookings,
 		AssumedRoleID:      roleID,
 		PromptID:           req.PromptID,
 	}, nil
@@ -202,12 +201,12 @@ func lookupPublicRoleID(r *http.Request, h *Handlers, ownerID string) (string, e
 	return public.ID(), nil
 }
 
-func writeCreatedCode(log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode) {
-	v := toCodeView(c)
+func writeCreatedCode(r *http.Request, h *Handlers, w http.ResponseWriter, c *domain.AccessCode) {
+	v := toCodeView(r.Context(), h, c)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		logEncodeErr(log, "encode code", err)
+		logEncodeErr(h.Log, "encode code", err)
 	}
 }
 
@@ -245,7 +244,7 @@ func (h *Handlers) updateCodeQuotas() http.HandlerFunc {
 			handleUpdateQuotasErr(h.Log, w, err)
 			return
 		}
-		writeQuotaResp(h.Log, w, &updated)
+		writeQuotaResp(r, h, w, &updated)
 	}
 }
 
@@ -260,11 +259,11 @@ func handleUpdateQuotasErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, serverErr())
 }
 
-func writeQuotaResp(log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode) {
+func writeQuotaResp(r *http.Request, h *Handlers, w http.ResponseWriter, c *domain.AccessCode) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(toCodeView(c)); err != nil {
-		logEncodeErr(log, "encode code", err)
+	if err := json.NewEncoder(w).Encode(toCodeView(r.Context(), h, c)); err != nil {
+		logEncodeErr(h.Log, "encode code", err)
 	}
 }
 

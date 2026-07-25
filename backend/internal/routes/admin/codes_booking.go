@@ -31,3 +31,18 @@ func writeCodeBookingQuota(
 func skipBookingQuota(store BookingQuotaStore, maxBookings *int32) bool {
 	return store == nil || maxBookings == nil
 }
+
+// readCodeBookingQuota —— 列表/发码回显时从 booker 读这张码的预约上限(best-effort:失败当无上限)。
+func readCodeBookingQuota(
+	ctx context.Context, store BookingQuotaStore, log *slog.Logger, codeID string,
+) *int32 {
+	if store == nil {
+		return nil
+	}
+	maxBookings, err := store.MaxBookingsOf(ctx, codeID)
+	if err != nil {
+		log.Warn("read booking quota", "err", err)
+		return nil
+	}
+	return maxBookings
+}

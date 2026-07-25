@@ -3,23 +3,16 @@
 -- 等 legacy 字段在 commit 5 drop，ACL / capability gating 全部从 role 推断。
 INSERT INTO access_codes (
     owner_id, code, label, purpose, ghosts,
-    expires_at, max_turns_per_session, max_bookings,
+    expires_at, max_turns_per_session,
     assumed_role_id, max_members, prompt_id, inline_prompt
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: UpdateAccessCodeRole :one
 -- Admin "reassign role"。新 role 必须属于同 owner（caller 校验过）。
 UPDATE access_codes
 SET assumed_role_id = $3
-WHERE id = $1 AND owner_id = $2
-RETURNING *;
-
--- name: UpdateAccessCodeMaxBookings :one
--- calendar.book 配额改。granted_skills 不再存在，这里只剩 max_bookings。
-UPDATE access_codes
-SET max_bookings = $3
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 

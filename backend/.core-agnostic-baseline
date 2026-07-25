@@ -1,4 +1,3 @@
-backend/internal/domain/access_code.go	booking
 backend/internal/domain/api_key.go	booking
 backend/internal/domain/mail_connector.go	mail
 backend/internal/domain/mail_connector.go	smtp

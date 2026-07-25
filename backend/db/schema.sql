@@ -211,8 +211,8 @@ CREATE TABLE media_assets (
 -- access_codes —— 访客访问码。A.3-IAM 起所有 ACL / capability gating 都从
 -- assumed_role_id 指向的 Role 推断（[[role_snapshot]] 在 session issue 时
 -- freeze）；不再有 corpus_permissions / granted_skills / code_skills /
--- code_mcp_servers 这些散落字段。max_bookings 仍直接挂 code（per-code
--- 跨 visitor 累计计数）。
+-- code_mcp_servers 这些散落字段。#135:per-code 预约配额也不在这——booker 能力
+-- 自管(它的隔离 capstore),内核 access_codes 不认。
 CREATE TABLE access_codes (
     id                        uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id                  uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -228,10 +228,6 @@ CREATE TABLE access_codes (
     -- 之后新名字被拒(visitor 见 "code 已满");已有名字照常继续。匿名(skip)
     -- 也各占一个名额。
     max_members               integer,
-    -- max_bookings —— calendar.book quota per code。NULL = role 没解锁
-    -- calendar.book skill 时也无意义；解锁了的话正整数 = 总配额，跨 visitor /
-    -- session 累计 (从 code_bookings count)。耗尽后 tool 报 quota_exhausted。
-    max_bookings              integer,
     -- require_ghost_evidence —— F-A-10 的 **per-code 覆盖**(nullable):NULL = 继承 role 的开关;
     -- true/false = 这张码显式覆盖。合并在 session 装配层(code 非 NULL 则用 code,否则用 role),
     -- 冻进 RoleSnapshot。语义同 role 列:开 → 空证据的非终点 waypoint 不当 steering ghost。

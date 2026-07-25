@@ -107,17 +107,17 @@ func (c *codesCapability) handleListCodes(
 	}
 	out := make([]codeRowView, 0, len(rows))
 	for i := range rows {
-		out = append(out, codeRowToView(&rows[i]))
+		out = append(out, c.codeRowToView(ctx, &rows[i]))
 	}
 	return mcputil.MarshalResult(c.log, "codes.list", out)
 }
 
-func codeRowToView(code *domain.AccessCode) codeRowView {
+func (c *codesCapability) codeRowToView(ctx context.Context, code *domain.AccessCode) codeRowView {
 	v := codeRowView{
 		ID: code.ID, Code: code.Code, Label: code.Label, Status: code.Status,
 		AssumedRoleID: code.AssumedRoleID, Ghosts: mcputil.NonNilStrings(code.Ghosts),
 		MaxMembers: code.MaxMembers, MaxTurnsPerSession: code.MaxTurnsPerSession,
-		MaxBookings: code.MaxBookings,
+		MaxBookings: c.readBookingQuota(ctx, code.ID),
 		CreatedAt:   code.CreatedAt.Format(time.RFC3339),
 	}
 	if code.ExpiresAt != nil {

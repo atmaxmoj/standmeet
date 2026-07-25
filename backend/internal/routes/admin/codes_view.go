@@ -1,9 +1,10 @@
 // codes_view.go —— access-code 列表的 view 映射(domain.AccessCode → codeView)。
-// #135 后续:MaxBookings 从 booker 读(现仍双写 access_code 列,drain 收尾时改成 Booking.MaxBookingsOf)。
+// #135:MaxBookings 不在内核 code 上,列表展示时从 booker 能力读(readCodeBookingQuota)。
 
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -12,11 +13,11 @@ import (
 )
 
 func writeCodesList(
-	_ *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.AccessCode,
+	r *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.AccessCode,
 ) {
 	items := make([]codeView, 0, len(rows))
 	for i := range rows {
-		items = append(items, toCodeView(&rows[i]))
+		items = append(items, toCodeView(r.Context(), h, &rows[i]))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -25,7 +26,7 @@ func writeCodesList(
 	}
 }
 
-func toCodeView(c *domain.AccessCode) codeView {
+func toCodeView(ctx context.Context, h *Handlers, c *domain.AccessCode) codeView {
 	return codeView{
 		ID:                   c.ID,
 		Code:                 c.Code,
@@ -36,7 +37,7 @@ func toCodeView(c *domain.AccessCode) codeView {
 		ExpiresAt:            rfc3339OrNil(c.ExpiresAt),
 		MaxMembers:           c.MaxMembers,
 		MaxTurnsPerSession:   c.MaxTurnsPerSession,
-		MaxBookings:          c.MaxBookings,
+		MaxBookings:          readCodeBookingQuota(ctx, h.CodesAdmin.Booking, h.Log, c.ID),
 		RequireGhostEvidence: c.RequireGhostEvidence,
 		AssumedRoleID:        c.AssumedRoleID,
 		PromptID:             c.PromptID,

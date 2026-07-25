@@ -34,6 +34,6 @@ func (h *Handlers) setCodeGhostEvidence() http.HandlerFunc {
 			handleUpdateQuotasErr(h.Log, w, err)
 			return
 		}
-		writeQuotaResp(h.Log, w, &updated)
+		writeQuotaResp(r, h, w, &updated)
 	}
 }
