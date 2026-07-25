@@ -112,7 +112,6 @@ func (c *apiKeysCapability) createBinding() *capreg.MCPBinding {
 				"label":{"type":"string","description":"Human label for the key."},
 				"assumed_role_id":{"type":"string","description":"Role UUID the key assumes."},
 				"rate_limit_rpm":{"type":"number","description":"Requests-per-minute cap."},
-				"max_bookings":{"type":"number","description":"Booking quota for the key."},
 				"expires_at_rfc3339":{"type":"string","description":"Expiry (RFC3339)."}
 			},
 			"required":["label","assumed_role_id"]
@@ -123,7 +122,6 @@ func (c *apiKeysCapability) createBinding() *capreg.MCPBinding {
 
 type apiKeyCreateArgsWire struct {
 	RateLimitRPM  *int32 `json:"rate_limit_rpm"`
-	MaxBookings   *int32 `json:"max_bookings"`
 	Label         string `json:"label"`
 	AssumedRoleID string `json:"assumed_role_id"`
 	ExpiresAt     string `json:"expires_at_rfc3339"`
@@ -132,7 +130,6 @@ type apiKeyCreateArgsWire struct {
 type apiKeyCreateArgs struct {
 	ExpiresAt     *time.Time
 	RateLimitRPM  *int32
-	MaxBookings   *int32
 	Label         string
 	AssumedRoleID string
 }
@@ -176,7 +173,7 @@ func parseAPIKeyCreateArgs(raw json.RawMessage) (apiKeyCreateArgs, error) {
 	}
 	return apiKeyCreateArgs{
 		Label: w.Label, AssumedRoleID: w.AssumedRoleID,
-		RateLimitRPM: w.RateLimitRPM, MaxBookings: w.MaxBookings, ExpiresAt: exp.At,
+		RateLimitRPM: w.RateLimitRPM, ExpiresAt: exp.At,
 	}, nil
 }
 
@@ -191,7 +188,7 @@ func (c *apiKeysCapability) handleCreate(
 		Keys: c.deps.Keys, Roles: c.deps.Roles,
 	}, &usecases.IssueAPIKeyInput{
 		OwnerID: ownerID, AssumedRoleID: args.AssumedRoleID, Label: args.Label,
-		RateLimitRPM: args.RateLimitRPM, MaxBookings: args.MaxBookings, ExpiresAt: args.ExpiresAt,
+		RateLimitRPM: args.RateLimitRPM, ExpiresAt: args.ExpiresAt,
 	})
 	if err != nil {
 		return c.createErr(err)
@@ -215,7 +212,7 @@ func (c *apiKeysCapability) listBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name: "api_keys.list",
 		Description: "List all API keys for the owner (id / label / prefix / assumed " +
-			"role / status / quotas / expiry / last-used). The secret is never returned.",
+			"role / status / rate limit / expiry / last-used). The secret is never returned.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		Handler:     c.handleList,
 	}
@@ -223,7 +220,6 @@ func (c *apiKeysCapability) listBinding() *capreg.MCPBinding {
 
 type apiKeyRowView struct {
 	RateLimitRPM  *int32 `json:"rate_limit_rpm,omitempty"`
-	MaxBookings   *int32 `json:"max_bookings,omitempty"`
 	ID            string `json:"id"`
 	Label         string `json:"label"`
 	Prefix        string `json:"prefix"`
@@ -252,7 +248,7 @@ func apiKeyRowToView(k *domain.APIKey) apiKeyRowView {
 	v := apiKeyRowView{
 		ID: k.ID, Label: k.Label, Prefix: k.Prefix, Status: k.Status,
 		AssumedRoleID: k.AssumedRoleID, RateLimitRPM: k.RateLimitRPM,
-		MaxBookings: k.MaxBookings, CreatedAt: k.CreatedAt.Format(time.RFC3339),
+		CreatedAt: k.CreatedAt.Format(time.RFC3339),
 	}
 	if k.ExpiresAt != nil {
 		v.ExpiresAt = k.ExpiresAt.Format(time.RFC3339)

@@ -61,9 +61,9 @@ const createAPIKey = `-- name: CreateAPIKey :one
 
 INSERT INTO api_keys (
     owner_id, assumed_role_id, label, prefix, secret_hash,
-    rate_limit_rpm, max_bookings, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, max_bookings, status, expires_at, last_used_at, created_at
+    rate_limit_rpm, expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, status, expires_at, last_used_at, created_at
 `
 
 type CreateAPIKeyParams struct {
@@ -73,7 +73,6 @@ type CreateAPIKeyParams struct {
 	Prefix        string
 	SecretHash    []byte
 	RateLimitRpm  *int32
-	MaxBookings   *int32
 	ExpiresAt     pgtype.Timestamptz
 }
 
@@ -87,7 +86,6 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 		arg.Prefix,
 		arg.SecretHash,
 		arg.RateLimitRpm,
-		arg.MaxBookings,
 		arg.ExpiresAt,
 	)
 	var i ApiKey
@@ -99,7 +97,6 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 		&i.Prefix,
 		&i.SecretHash,
 		&i.RateLimitRpm,
-		&i.MaxBookings,
 		&i.Status,
 		&i.ExpiresAt,
 		&i.LastUsedAt,
@@ -137,7 +134,7 @@ func (q *Queries) DeleteAPIKeySkillDenial(ctx context.Context, arg DeleteAPIKeyS
 }
 
 const getAPIKeyByID = `-- name: GetAPIKeyByID :one
-SELECT id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, max_bookings, status, expires_at, last_used_at, created_at FROM api_keys
+SELECT id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, status, expires_at, last_used_at, created_at FROM api_keys
 WHERE id = $1 AND owner_id = $2
 `
 
@@ -157,7 +154,6 @@ func (q *Queries) GetAPIKeyByID(ctx context.Context, arg GetAPIKeyByIDParams) (A
 		&i.Prefix,
 		&i.SecretHash,
 		&i.RateLimitRpm,
-		&i.MaxBookings,
 		&i.Status,
 		&i.ExpiresAt,
 		&i.LastUsedAt,
@@ -167,7 +163,7 @@ func (q *Queries) GetAPIKeyByID(ctx context.Context, arg GetAPIKeyByIDParams) (A
 }
 
 const getAPIKeyBySecretHash = `-- name: GetAPIKeyBySecretHash :one
-SELECT id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, max_bookings, status, expires_at, last_used_at, created_at FROM api_keys
+SELECT id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, status, expires_at, last_used_at, created_at FROM api_keys
 WHERE secret_hash = $1
   AND status = 'active'
   AND (expires_at IS NULL OR expires_at > now())
@@ -186,7 +182,6 @@ func (q *Queries) GetAPIKeyBySecretHash(ctx context.Context, secretHash []byte) 
 		&i.Prefix,
 		&i.SecretHash,
 		&i.RateLimitRpm,
-		&i.MaxBookings,
 		&i.Status,
 		&i.ExpiresAt,
 		&i.LastUsedAt,
@@ -244,7 +239,7 @@ func (q *Queries) ListAPIKeySkillDenials(ctx context.Context, keyID pgtype.UUID)
 }
 
 const listAPIKeysByOwner = `-- name: ListAPIKeysByOwner :many
-SELECT id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, max_bookings, status, expires_at, last_used_at, created_at FROM api_keys
+SELECT id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, status, expires_at, last_used_at, created_at FROM api_keys
 WHERE owner_id = $1
 ORDER BY created_at DESC
 `
@@ -266,7 +261,6 @@ func (q *Queries) ListAPIKeysByOwner(ctx context.Context, ownerID pgtype.UUID) (
 			&i.Prefix,
 			&i.SecretHash,
 			&i.RateLimitRpm,
-			&i.MaxBookings,
 			&i.Status,
 			&i.ExpiresAt,
 			&i.LastUsedAt,
@@ -353,19 +347,15 @@ const updateAPIKey = `-- name: UpdateAPIKey :one
 UPDATE api_keys
 SET label          = COALESCE($1, label),
     rate_limit_rpm = CASE WHEN $2::bool
-                          THEN $3 ELSE rate_limit_rpm END,
-    max_bookings   = CASE WHEN $4::bool
-                          THEN $5 ELSE max_bookings END
-WHERE id = $6 AND owner_id = $7
-RETURNING id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, max_bookings, status, expires_at, last_used_at, created_at
+                          THEN $3 ELSE rate_limit_rpm END
+WHERE id = $4 AND owner_id = $5
+RETURNING id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, status, expires_at, last_used_at, created_at
 `
 
 type UpdateAPIKeyParams struct {
 	Label        *string
 	SetRate      bool
 	RateLimitRpm *int32
-	SetBookings  bool
-	MaxBookings  *int32
 	ID           pgtype.UUID
 	OwnerID      pgtype.UUID
 }
@@ -376,8 +366,6 @@ func (q *Queries) UpdateAPIKey(ctx context.Context, arg UpdateAPIKeyParams) (Api
 		arg.Label,
 		arg.SetRate,
 		arg.RateLimitRpm,
-		arg.SetBookings,
-		arg.MaxBookings,
 		arg.ID,
 		arg.OwnerID,
 	)
@@ -390,7 +378,6 @@ func (q *Queries) UpdateAPIKey(ctx context.Context, arg UpdateAPIKeyParams) (Api
 		&i.Prefix,
 		&i.SecretHash,
 		&i.RateLimitRpm,
-		&i.MaxBookings,
 		&i.Status,
 		&i.ExpiresAt,
 		&i.LastUsedAt,

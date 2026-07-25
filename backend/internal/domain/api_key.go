@@ -17,7 +17,6 @@ type APIKey struct {
 	LastUsedAt    *time.Time
 	ExpiresAt     *time.Time
 	RateLimitRPM  *int32
-	MaxBookings   *int32
 	ID            string
 	OwnerID       string
 	AssumedRoleID string
@@ -32,7 +31,6 @@ type APIKey struct {
 type CreateAPIKeyInput struct {
 	ExpiresAt     *time.Time
 	RateLimitRPM  *int32
-	MaxBookings   *int32
 	OwnerID       string
 	AssumedRoleID string
 	Label         string
@@ -40,14 +38,12 @@ type CreateAPIKeyInput struct {
 	SecretHash    []byte
 }
 
-// UpdateAPIKeyInput —— partial update. Label updates when non-nil; the rate/bookings quotas update
-// only when their Set flag is true (so a nil-with-Set clears to "instance default"/"unlimited").
+// UpdateAPIKeyInput —— partial update. Label updates when non-nil; the rate limit updates only when
+// SetRate is true (so a nil-with-Set clears to the instance default).
 type UpdateAPIKeyInput struct {
 	Label        *string
 	RateLimitRPM *int32
-	MaxBookings  *int32
 	ID           string
 	OwnerID      string
 	SetRate      bool
-	SetBookings  bool
 }

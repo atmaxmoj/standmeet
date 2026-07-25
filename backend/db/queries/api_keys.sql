@@ -4,8 +4,8 @@
 -- name: CreateAPIKey :one
 INSERT INTO api_keys (
     owner_id, assumed_role_id, label, prefix, secret_hash,
-    rate_limit_rpm, max_bookings, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    rate_limit_rpm, expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetAPIKeyBySecretHash :one
@@ -35,9 +35,7 @@ WHERE id = $1 AND owner_id = $2;
 UPDATE api_keys
 SET label          = COALESCE(sqlc.narg('label'), label),
     rate_limit_rpm = CASE WHEN sqlc.arg('set_rate')::bool
-                          THEN sqlc.narg('rate_limit_rpm') ELSE rate_limit_rpm END,
-    max_bookings   = CASE WHEN sqlc.arg('set_bookings')::bool
-                          THEN sqlc.narg('max_bookings') ELSE max_bookings END
+                          THEN sqlc.narg('rate_limit_rpm') ELSE rate_limit_rpm END
 WHERE id = sqlc.arg('id') AND owner_id = sqlc.arg('owner_id')
 RETURNING *;
 

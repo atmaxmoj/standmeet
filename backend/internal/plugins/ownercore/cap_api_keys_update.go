@@ -1,8 +1,8 @@
 package ownercore
 
 // cap_api_keys_update.go —— the api_keys.update tool (split out of cap_api_keys.go 守 max-lines).
-// Partial update: label updates when present; rate_limit_rpm / max_bookings are "set" only when
-// their json key is present (null → clear to instance default), matching domain.UpdateAPIKeyInput.
+// Partial update: label updates when present; rate_limit_rpm is "set" only when its json key is
+// present (null → clear to instance default), matching domain.UpdateAPIKeyInput.
 
 import (
 	"context"
@@ -17,15 +17,14 @@ import (
 func (c *apiKeysCapability) updateBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name: "api_keys.update",
-		Description: "Update an API key's label and/or quotas. Omit a field to keep it; " +
-			"pass rate_limit_rpm/max_bookings as null to clear to instance default.",
+		Description: "Update an API key's label and/or rate limit. Omit a field to keep it; " +
+			"pass rate_limit_rpm as null to clear to instance default.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"id":{"type":"string","description":"API key UUID."},
 				"label":{"type":"string","description":"New label."},
-				"rate_limit_rpm":{"type":["number","null"],"description":"RPM cap."},
-				"max_bookings":{"type":["number","null"],"description":"Booking quota."}
+				"rate_limit_rpm":{"type":["number","null"],"description":"RPM cap."}
 			},
 			"required":["id"]
 		}`),
@@ -37,16 +36,13 @@ type apiKeyUpdateArgsWire struct {
 	Label        *string         `json:"label"`
 	ID           string          `json:"id"`
 	RateLimitRPM json.RawMessage `json:"rate_limit_rpm"`
-	MaxBookings  json.RawMessage `json:"max_bookings"`
 }
 
 type apiKeyUpdateArgs struct {
 	Label        *string
 	RateLimitRPM *int32
-	MaxBookings  *int32
 	ID           string
 	SetRate      bool
-	SetBookings  bool
 }
 
 // optInt32 —— an update quota field: Set is true only when its json key was present; Val is the
@@ -79,13 +75,8 @@ func parseAPIKeyUpdateArgs(raw json.RawMessage) (apiKeyUpdateArgs, error) {
 	if rerr != nil {
 		return apiKeyUpdateArgs{}, rerr
 	}
-	book, berr := parseOptInt32(w.MaxBookings, "max_bookings")
-	if berr != nil {
-		return apiKeyUpdateArgs{}, berr
-	}
 	return apiKeyUpdateArgs{
 		Label: w.Label, ID: w.ID, RateLimitRPM: rate.Val, SetRate: rate.Set,
-		MaxBookings: book.Val, SetBookings: book.Set,
 	}, nil
 }
 
@@ -99,7 +90,6 @@ func (c *apiKeysCapability) handleUpdate(
 	row, err := c.deps.Keys.Update(ctx, &domain.UpdateAPIKeyInput{
 		ID: args.ID, OwnerID: ownerID, Label: args.Label,
 		RateLimitRPM: args.RateLimitRPM, SetRate: args.SetRate,
-		MaxBookings: args.MaxBookings, SetBookings: args.SetBookings,
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrAPIKeyNotFound) {

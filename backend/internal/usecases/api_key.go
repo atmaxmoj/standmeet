@@ -49,7 +49,6 @@ type IssueAPIKeyDeps struct {
 type IssueAPIKeyInput struct {
 	ExpiresAt     *time.Time
 	RateLimitRPM  *int32
-	MaxBookings   *int32
 	OwnerID       string
 	AssumedRoleID string
 	Label         string
@@ -84,7 +83,7 @@ func IssueAPIKey(
 	key, cerr := deps.Keys.Create(ctx, &domain.CreateAPIKeyInput{
 		OwnerID: in.OwnerID, AssumedRoleID: in.AssumedRoleID, Label: in.Label,
 		Prefix: secret.Prefix, SecretHash: secret.Hash,
-		RateLimitRPM: in.RateLimitRPM, MaxBookings: in.MaxBookings, ExpiresAt: in.ExpiresAt,
+		RateLimitRPM: in.RateLimitRPM, ExpiresAt: in.ExpiresAt,
 	})
 	if cerr != nil {
 		return IssuedAPIKey{}, fmt.Errorf("create api key: %w", cerr)

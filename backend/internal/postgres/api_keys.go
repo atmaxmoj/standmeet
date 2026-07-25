@@ -39,7 +39,7 @@ func (r *APIKeyRepo) Create(
 	row, qerr := dbq.New(r.pool).CreateAPIKey(ctx, dbq.CreateAPIKeyParams{
 		OwnerID: ownerUUID, AssumedRoleID: roleUUID, Label: in.Label,
 		Prefix: in.Prefix, SecretHash: in.SecretHash, RateLimitRpm: in.RateLimitRPM,
-		MaxBookings: in.MaxBookings, ExpiresAt: toTimestamptz(in.ExpiresAt),
+		ExpiresAt: toTimestamptz(in.ExpiresAt),
 	})
 	if qerr != nil {
 		return domain.APIKey{}, fmt.Errorf("create api key: %w", qerr)
@@ -117,7 +117,7 @@ func (r *APIKeyRepo) Revoke(ctx context.Context, id, ownerID string) error {
 	return nil
 }
 
-// Update —— owner-scoped partial update of label / rate limit / booking quota.
+// Update —— owner-scoped partial update of label / rate limit.
 func (r *APIKeyRepo) Update(
 	ctx context.Context, in *domain.UpdateAPIKeyInput,
 ) (domain.APIKey, error) {
@@ -131,7 +131,6 @@ func (r *APIKeyRepo) Update(
 	}
 	row, qerr := dbq.New(r.pool).UpdateAPIKey(ctx, dbq.UpdateAPIKeyParams{
 		Label: in.Label, SetRate: in.SetRate, RateLimitRpm: in.RateLimitRPM,
-		SetBookings: in.SetBookings, MaxBookings: in.MaxBookings,
 		ID: idUUID, OwnerID: ownerUUID,
 	})
 	if errors.Is(qerr, pgx.ErrNoRows) {
@@ -166,7 +165,6 @@ func decodeAPIKey(row *dbq.ApiKey) domain.APIKey {
 		Status:        row.Status,
 		SecretHash:    row.SecretHash,
 		RateLimitRPM:  row.RateLimitRpm,
-		MaxBookings:   row.MaxBookings,
 		ExpiresAt:     optTime(row.ExpiresAt),
 		LastUsedAt:    optTime(row.LastUsedAt),
 		CreatedAt:     row.CreatedAt.Time,

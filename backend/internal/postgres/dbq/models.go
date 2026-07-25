@@ -45,7 +45,6 @@ type ApiKey struct {
 	Prefix        string
 	SecretHash    []byte
 	RateLimitRpm  *int32
-	MaxBookings   *int32
 	Status        string
 	ExpiresAt     pgtype.Timestamptz
 	LastUsedAt    pgtype.Timestamptz

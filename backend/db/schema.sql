@@ -993,8 +993,9 @@ CREATE TABLE mcp_app_state (
 -- api_keys —— one issued programmatic key. secret_hash is sha256 of the full
 -- `smk_…` secret (shown once at mint; never stored raw). prefix is the display
 -- stub. assumed_role_id NOT NULL (same as codes) scopes corpus + capabilities.
--- rate_limit_rpm NULL = instance default; max_bookings carries the role's
--- calendar.book quota (the one deterministic quota that still applies).
+-- rate_limit_rpm NULL = instance default. #135: no booking quota lives here —
+-- api-key sessions carry no access code, so the booker quota gate (keyed by
+-- code) never applied to them; booking config is the booker capability's own.
 CREATE TABLE api_keys (
     id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1003,7 +1004,6 @@ CREATE TABLE api_keys (
     prefix          text        NOT NULL,
     secret_hash     bytea       NOT NULL,
     rate_limit_rpm  integer,
-    max_bookings    integer,
     status          text        NOT NULL DEFAULT 'active'
                                 CHECK (status IN ('active', 'revoked')),
     expires_at      timestamptz,
