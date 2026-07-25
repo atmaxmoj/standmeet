@@ -192,9 +192,9 @@ func listSlotsTool() mcpgo.Tool {
 		}`)), "listing slots", slotsCardURI)
 }
 
-// session —— the trusted context the host plants on the tool-call `_meta`.
-// MaxBookings 是本 access code 的预约上限(核心值,host 种进来);booker 据它 + 自己
-// capstore 里的已订数做配额闸(核心不再数 booking)。<=0 = 不限。
+// session —— the trusted context the host plants on the tool-call `_meta`. 只带通用身份
+// (owner/code/conversation/role/visitor);booking 专属配置(quota / policy / notify)都在
+// booker 自己的 capstore,按这些 id 读 —— 核心 session 一个 booking 字段都不带。
 type session struct {
 	OwnerID        string
 	CodeID         string
@@ -202,7 +202,6 @@ type session struct {
 	VisitorName    string
 	VisitorEmail   string
 	RoleID         string
-	MaxBookings    int32
 }
 
 func sessionFromMeta(req mcpgo.CallToolRequest) session {
@@ -221,7 +220,6 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 		VisitorName:    str(raw, "visitor_name"),
 		VisitorEmail:   str(raw, "visitor_email"),
 		RoleID:         str(raw, "role_id"),
-		MaxBookings:    num32(raw, "max_bookings"),
 	}
 }
 
@@ -230,14 +228,6 @@ func str(m map[string]any, k string) string {
 		return v
 	}
 	return ""
-}
-
-// num32 —— JSON 数字(map[string]any 里是 float64)→ int32。缺/非数 → 0。
-func num32(m map[string]any, k string) int32 {
-	if v, ok := m[k].(float64); ok {
-		return int32(v)
-	}
-	return 0
 }
 
 // localHandler —— run a sandbox capability fn: pull the trusted session off `_meta`

@@ -27,7 +27,6 @@ const (
 	conflictLeadTime = "lead_time"
 	conflictWeekday  = "weekday_not_allowed"
 	conflictHours    = "outside_hours"
-	conflictQuota    = "quota_exhausted"
 )
 
 // errMissingHours —— policy 的 working_hours 没配/配坏(区别于"落在营业时间外")。

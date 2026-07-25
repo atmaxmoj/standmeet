@@ -24,19 +24,9 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		VisitorName:    in.Visitor.Name,
 		VisitorEmail:   in.Visitor.Email,
 		RoleID:         roleIDOf(in),
-		MaxBookings:    maxBookingsOf(in),
 		CorpusURIs:     corpusURIsOf(in),
 		CorpusDenials:  corpusDenialsOf(in),
 	}
-}
-
-// maxBookingsOf —— 当前 access code 的预约上限(0 = 不限)。#135:递给外置 booker,由它自己
-// 按 capstore 计数做配额闸(核心不再数 booking)。nil → 0。
-func maxBookingsOf(in *capreg.AssembleInput) int32 {
-	if in.MaxBookings == nil {
-		return 0
-	}
-	return *in.MaxBookings
 }
 
 // roleIDOf —— 当前 session 的 role id。无 role(public/byoai)→ 空串。

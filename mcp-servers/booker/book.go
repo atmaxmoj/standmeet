@@ -113,11 +113,8 @@ func doBook(s session, rawArgs json.RawMessage) string {
 	if verr := validateBookArgs(&args); verr != nil {
 		return bookErr("invalid_args", verr.Error())
 	}
-	if exhausted, qerr := quotaExhausted(s); qerr != nil {
-		return friendlyCalErr(qerr)
-	} else if exhausted {
-		return bookErr(conflictQuota, "you've reached the booking limit for this access code")
-	}
+	// 配额闸在 host 侧(composition root 读 booker capstore 计数,达上限直接隐藏 tool),
+	// 所以走到这里就是还有额度 —— booker 不再自查。
 	return runBook(s, &args)
 }
 
@@ -141,19 +138,6 @@ func runBook(s session, args *bookArgs) string {
 		return bookFailResult(conflictAllBusy, policyHint(&policy, tz), busy)
 	}
 	return commitBooking(s, args, tz, slot)
-}
-
-// quotaExhausted —— 本 code 已订数 ≥ max_bookings(host 种在 session)。max<=0 = 不限。
-func quotaExhausted(s session) (bool, error) {
-	if s.MaxBookings <= 0 {
-		return false, nil
-	}
-	filter, _ := json.Marshal(map[string]string{"code_id": s.CodeID})
-	count, err := gwCapstoreCount(bookingsColl, filter)
-	if err != nil {
-		return false, err
-	}
-	return count >= int64(s.MaxBookings), nil
 }
 
 // collectPassing —— 逐个 preferred_time 过 policy;返回通过的 + 最坏冲突原因(全不过时用)。
