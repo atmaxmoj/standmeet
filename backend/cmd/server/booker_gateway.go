@@ -157,26 +157,155 @@ func wireBookerGateway(ctx context.Context, d *runtimeDeps) {
 	go srv.Serve(ctx)
 }
 
-// bookerQuotaGate —— #135:quota 闸留在 host,但 booker 的 concretes(collection "bookings"
-// + key "code_id")住在 composition root(允许认 concretes),经**通用** capstore.count 数 booker
-// 自己隔离命名空间里的预约。达 max_bookings → 隐藏 tool(跟其它闸一致:hide,不 error-on-use)。
-// 核心(usecases/inference)仍不认 "booking";只有这里的组装根认得。无 quota/无 code → 不闸。
+// bookerQuotaStore —— adminroutes.BookingQuotaStore 的实现:admin 发码/改配额/列表读写 booker
+// 自己的 per-code 预约配额(落 booker capstore)。内核 access_code 不再有 MaxBookings。
+type bookerQuotaStore struct{ store *capstore.Store }
+
+func newBookerQuotaStore(d *runtimeDeps) bookerQuotaStore {
+	return bookerQuotaStore{store: capstore.New(d.db)}
+}
+
+func (b bookerQuotaStore) SetMaxBookings(
+	ctx context.Context, codeID string, maxBookings *int32,
+) error {
+	cfg, err := bookingCodeConfigOf(ctx, b.store, codeID)
+	if err != nil {
+		return err
+	}
+	notify := false
+	if cfg != nil {
+		notify = cfg.NotifyOwner
+	}
+	return setBookingCodeConfig(ctx, b.store,
+		&bookingCodeConfig{CodeID: codeID, MaxBookings: maxBookings, NotifyOwner: notify})
+}
+
+func (b bookerQuotaStore) MaxBookingsOf(ctx context.Context, codeID string) (*int32, error) {
+	cfg, err := bookingCodeConfigOf(ctx, b.store, codeID)
+	if err != nil || cfg == nil {
+		return nil, err
+	}
+	return cfg.MaxBookings, nil
+}
+
+// bookingCodeConfig —— booker 自己管的 per-code 配置(#135: 能力自己管自己)。owner 发码时设的
+// 预约配额/通知**不进内核 access_code**,由 booker 存进自己的隔离 capstore("code_config" collection,
+// keyed by code_id)。host 侧的 quota 闸 + 沙箱侧的 notify 都读它。
+type bookingCodeConfig struct {
+	MaxBookings *int32 `json:"max_bookings,omitempty"`
+	CodeID      string `json:"code_id"`
+	NotifyOwner bool   `json:"notify_owner"`
+}
+
+const bookingCodeConfigColl = "code_config"
+
+func codeConfigFilter(codeID string) (json.RawMessage, error) {
+	f, err := json.Marshal(map[string]string{"code_id": codeID})
+	if err != nil {
+		return nil, fmt.Errorf("code_config filter: %w", err)
+	}
+	return f, nil
+}
+
+// setBookingCodeConfig —— 发码时把 booking 的 per-code 配置写进 booker 自己的 capstore(先删后插,
+// 单例)。max_bookings 为空且不通知 → 不写(无配置 = 不闸/不通知)。
+func setBookingCodeConfig(
+	ctx context.Context, store *capstore.Store, cfg *bookingCodeConfig,
+) error {
+	if cfg.CodeID == "" {
+		return nil
+	}
+	if err := clearCodeConfig(ctx, store, cfg.CodeID); err != nil {
+		return err
+	}
+	if cfg.MaxBookings == nil && !cfg.NotifyOwner {
+		return nil // 无配置 = 只清不写
+	}
+	return insertCodeConfig(ctx, store, cfg)
+}
+
+func clearCodeConfig(ctx context.Context, store *capstore.Store, codeID string) error {
+	filter, ferr := codeConfigFilter(codeID)
+	if ferr != nil {
+		return ferr
+	}
+	if _, derr := store.Delete(
+		ctx, bookerCapKind, bookerCapID, bookingCodeConfigColl, filter,
+	); derr != nil {
+		return fmt.Errorf("code_config clear: %w", derr)
+	}
+	return nil
+}
+
+func insertCodeConfig(ctx context.Context, store *capstore.Store, cfg *bookingCodeConfig) error {
+	doc, merr := json.Marshal(cfg)
+	if merr != nil {
+		return fmt.Errorf("code_config encode: %w", merr)
+	}
+	if _, ierr := store.Insert(
+		ctx, bookerCapKind, bookerCapID, bookingCodeConfigColl, doc,
+	); ierr != nil {
+		return fmt.Errorf("code_config set: %w", ierr)
+	}
+	return nil
+}
+
+// bookingCodeConfigOf —— 读某 code 的 booking 配置(没设过 → nil)。
+func bookingCodeConfigOf(
+	ctx context.Context, store *capstore.Store, codeID string,
+) (*bookingCodeConfig, error) {
+	if codeID == "" {
+		return nil, nil //nolint:nilnil // 无 code = 无配置,不是错误
+	}
+	filter, ferr := codeConfigFilter(codeID)
+	if ferr != nil {
+		return nil, ferr
+	}
+	recs, qerr := store.Query(ctx, bookerCapKind, bookerCapID, bookingCodeConfigColl, filter)
+	if qerr != nil {
+		return nil, fmt.Errorf("code_config get: %w", qerr)
+	}
+	return decodeCodeConfig(recs)
+}
+
+func decodeCodeConfig(recs []json.RawMessage) (*bookingCodeConfig, error) {
+	if len(recs) == 0 {
+		return nil, nil //nolint:nilnil // 没设过 = nil
+	}
+	var cfg bookingCodeConfig
+	if uerr := json.Unmarshal(recs[0], &cfg); uerr != nil {
+		return nil, fmt.Errorf("code_config decode: %w", uerr)
+	}
+	return &cfg, nil
+}
+
+// bookerQuotaGate —— #135:quota 闸留在 host,上限从 booker 自己的 capstore("code_config")读、
+// count 也在自己的 "bookings" 数(能力自己管自己;内核不再有 MaxBookings)。达上限 → 隐藏 tool
+// (hide,不 error-on-use)。无配置/无上限/无 code → 不闸。核心仍不认 "booking"。
 func bookerQuotaGate(d *runtimeDeps) capreg.SessionGate {
 	store := capstore.New(d.db)
 	return func(ctx context.Context, in *capreg.AssembleInput) (bool, error) {
-		if !hasBookingQuota(in) {
-			return true, nil
-		}
-		count, err := bookerBookingCount(ctx, store, in.CodeID)
-		if err != nil {
-			return false, err
-		}
-		return count < int64(*in.MaxBookings), nil
+		return bookingWithinQuota(ctx, store, in.CodeID)
 	}
 }
 
-func hasBookingQuota(in *capreg.AssembleInput) bool {
-	return in.MaxBookings != nil && *in.MaxBookings > 0 && in.CodeID != ""
+func bookingWithinQuota(ctx context.Context, store *capstore.Store, codeID string) (bool, error) {
+	cfg, cerr := bookingCodeConfigOf(ctx, store, codeID)
+	if cerr != nil {
+		return false, cerr
+	}
+	if noBookingLimit(cfg) {
+		return true, nil
+	}
+	count, err := bookerBookingCount(ctx, store, codeID)
+	if err != nil {
+		return false, err
+	}
+	return count < int64(*cfg.MaxBookings), nil
+}
+
+func noBookingLimit(cfg *bookingCodeConfig) bool {
+	return cfg == nil || cfg.MaxBookings == nil || *cfg.MaxBookings <= 0
 }
 
 func bookerBookingCount(ctx context.Context, store *capstore.Store, codeID string) (int64, error) {

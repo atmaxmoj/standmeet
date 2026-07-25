@@ -27,6 +27,8 @@ type CodesDeps struct {
 	Roles    *postgres.RoleRepo
 	Sessions *session.VisitorSessionStore
 	Denials  *postgres.CodeDenialRepo // ACL code 层 deny 读写
+	// Booking —— #135: 预约配额不进内核 access_code,由 booker 能力自己管。见 codes_booking.go。
+	Booking BookingQuotaStore
 }
 
 type createCodeRequest struct {
@@ -99,38 +101,6 @@ func (h *Handlers) listCodes() http.HandlerFunc {
 	}
 }
 
-func writeCodesList(
-	_ *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.AccessCode,
-) {
-	items := make([]codeView, 0, len(rows))
-	for i := range rows {
-		items = append(items, toCodeView(&rows[i]))
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		logEncodeErr(h.Log, "encode codes", err)
-	}
-}
-
-func toCodeView(c *domain.AccessCode) codeView {
-	return codeView{
-		ID:                   c.ID,
-		Code:                 c.Code,
-		Label:                c.Label,
-		Status:               c.Status,
-		Ghosts:               c.Ghosts,
-		CreatedAt:            c.CreatedAt.Format(time.RFC3339),
-		ExpiresAt:            rfc3339OrNil(c.ExpiresAt),
-		MaxMembers:           c.MaxMembers,
-		MaxTurnsPerSession:   c.MaxTurnsPerSession,
-		MaxBookings:          c.MaxBookings,
-		RequireGhostEvidence: c.RequireGhostEvidence,
-		AssumedRoleID:        c.AssumedRoleID,
-		PromptID:             c.PromptID,
-	}
-}
-
 func (h *Handlers) createCode() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createCodeRequest
@@ -160,6 +130,7 @@ func runCreateCode(
 		handleCreateCodeErr(h.Log, w, err)
 		return
 	}
+	writeCodeBookingQuota(r.Context(), h.CodesAdmin.Booking, h.Log, code.ID, req.MaxBookings)
 	h.attachCreateWaypoints(r, &code, req.Waypoints)
 	writeCreatedCode(h.Log, w, &code)
 }

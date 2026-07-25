@@ -87,6 +87,7 @@ type AdminDeps struct {
 	WritingRefs     *postgres.WritingRefRepo
 	SEO             *postgres.SEORepo
 	Codes           *postgres.CodeRepo
+	Booking         adminroutes.BookingQuotaStore // #135: booker 自管的 per-code 预约配额读写口
 	CodeDenials     *postgres.CodeDenialRepo
 	Owners          *postgres.OwnerRepo
 	Drafts          *postgres.ResumeDraftRepo
@@ -173,6 +174,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		CodesAdmin: adminroutes.CodesDeps{
 			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
 			Sessions: deps.Public.Sessions, Denials: deps.Admin.CodeDenials,
+			Booking: deps.Admin.Booking,
 		},
 		PageAdmin: adminroutes.PageAdminDeps{Owners: deps.Admin.Owners, Pins: pins},
 		SEOAdmin:  adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO, Pins: pins},
