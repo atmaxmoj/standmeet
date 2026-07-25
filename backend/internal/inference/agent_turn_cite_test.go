@@ -16,7 +16,7 @@ type nopSink struct{}
 func (nopSink) Text(string)                                         {}
 func (nopSink) ToolStarted(string, string, string, json.RawMessage) {}
 func (nopSink) ToolCompleted(string, string)                        {}
-func (nopSink) Ghost(*GhostFrame)                                   {}
+func (nopSink) Epilogue(*EpilogueFrame)                             {}
 func (nopSink) Retrying(int)                                        {}
 func (nopSink) Error(error)                                         {}
 func (nopSink) Done(string)                                         {}

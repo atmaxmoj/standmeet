@@ -49,6 +49,8 @@ components:
     in: internal/plugins/jobs             # J phase: jobs plugin entry (Plugin impl)
   pluginownercore:
     in: internal/plugins/ownercore        # #135: owner-core caps externalized off core mcphandle (me; codes/chat/calendar next)
+  pluginbooker:
+    in: internal/plugins/booker           # #135 Slice 4: booking cluster (list_slots / cancel / policy / store) drained off the kernel
   jobsuc:
     in: internal/plugins/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobsmcp:
@@ -95,6 +97,8 @@ components:
     in: internal/connector                # Phase B: Nango-style 连接器层 —— 解密凭据 + 代调外部 (gcal/mailer)；凭据永不出 vault 进 usecases
   connectoropenapi:
     in: internal/connector/openapi        # #155: 通用 openapi 连接器执行核（spec+JSONata+HTTP）；schemaless-JSON 边界，leaf
+  connectorcontract:
+    in: internal/connector/contract       # #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)；内核零类型句柄，契约住这
   connectorbuiltins:
     in: connectors                        # built-in connector data (embedded manifest/spec/binding) + Load — own top-level dir, out of internal/
   connectorsvc:
@@ -103,8 +107,6 @@ components:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   capstore:
     in: internal/capstore                 # #135 constrained-reachback: per-plugin 隔离 JSONB 存储（每 connector/mcp 一 schema）；leaf，只依赖 pgx
-  reachback:
-    in: internal/reachback                # #135 constrained-reachback: host 拥有的固定词表 reach-back 网关（沙箱 cap 只能调、加不了 op）；依赖 capsocket + 注入的后端接口
   retry:
     in: internal/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
   httpx:
@@ -183,13 +185,32 @@ deps:
   # 复用 usecases 的 DTO 类型 (FreeBusyReq / MailMessage 等) → 依赖 usecases。
   connector:
     mayDependOn:
+      - capsocket
       - domain
       - usecases
+      - connectorcontract
       - mailer
       - retry
       - httpx
       - connectoropenapi
     anyVendorDeps: true
+
+  # connectorcontract —— #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)。
+  # 纯 context/time,无 internal 依赖:连接器实现它、能力插件消费它、组装根接线,内核持零句柄。
+  connectorcontract:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # pluginbooker —— #135 Slice 4: booking 逻辑 (owner list_slots / cancel + visitor cancel + policy
+  # + store 契约) 从内核 drain 出来。只依赖 connectorcontract (CalendarProxy) + domain (BookingPolicy
+  # / CodeBooking / BookConflict*)。store/proxy 都是接口,由组装根注入具体实现。
+  pluginbooker:
+    mayDependOn:
+      - connectorcontract
+      - domain
+    anyVendorDeps: true
+
+
 
   # connectoropenapi —— #155 通用 openapi 执行核 leaf：spec 解析 + JSONata 绑定 + HTTP 代调。
   # 纯 stdlib + vendor (jsonata-go / yaml)，无 internal 依赖（provider 的一切都在 spec+binding
@@ -384,6 +405,8 @@ deps:
       - usecases
       - httpx
       - paritymanifest
+      - connectorcontract
+      - pluginbooker
     anyVendorDeps: true
 
   # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核
@@ -497,15 +520,10 @@ deps:
   # capstore —— per-plugin 隔离文档存储（每 connector/mcp 一 schema）。leaf：只依赖 pgx，
   # 不绕回任何 internal 业务模块。schema 名从 host 可信 (kind,id) 推 + DROP 守卫见包内。
   capstore:
-    mayDependOn: []
+    mayDependOn:
+      - capsocket   # #135: capstore.* host op(socket.go)挂到沙箱 cap 的 socket
     anyVendorDeps: true
 
-  # reachback —— host 固定词表网关。只依赖 capsocket（挂 op）；后端（连接器/存储/owner）
-  # 由 composition root 经接口注入，本包不 import 它们 → 保持薄、可测。
-  reachback:
-    mayDependOn:
-      - capsocket
-    anyVendorDeps: true
 
   # sys routes (/internal/healthz, tls-ask, log, builds) 需要 ping db / redis
   # 所以可以 import postgres。redis 客户端是 vendor。domain 也用得到：
@@ -519,6 +537,7 @@ deps:
       - usecases
       - capreg
       - sandboxws
+      - connectorcontract  # #155 连接器 diag：CalendarProxy/DTO 类型契约
       - middleware  # #155 连接器 diag：owner id 从 context（middleware.OwnerIDFrom）
     anyVendorDeps: true
 
@@ -542,8 +561,10 @@ deps:
       - storage
       - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
       - connector   # /connectors/* 经连接器层（不直碰 gcal/mailer）
+      - connectorcontract # #135 Slice 5: /connectors/mail 凭据表单 + 测试发信走 MailProxy 契约
       - connectorsvc # #155 /connectors/* 编排（凭据/connect/oauth/activate）抽到 service
       - capreg      # Phase H /capabilities：列 registry origin + owner-enable 开关
+      - pluginbooker # #190 /bookings + /booking-policy: booker.CodeBooking / BookingPolicy types
     anyVendorDeps: true
 
   # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image
@@ -571,6 +592,7 @@ deps:
       - httpx   # #132 /api/v1 inference-models 列表探测走统一 client
       - prompts     # GET /api/v1/prompts/{id} 直接 dump fragment 文本
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
+      - pluginbooker # #135 Slice 4: visitor cancel-own-booking usecase
     anyVendorDeps: true
 
   # pubapi —— API-key facade. Reuses the visitor assembly (capreg) + usecases; whitelists non-Agentic
@@ -636,7 +658,8 @@ deps:
       - pluginownercore
       - capsocket
       - capstore
-      - reachback
       - sandboxws
       - search
+      - connectorcontract
+      - pluginbooker
     anyVendorDeps: true

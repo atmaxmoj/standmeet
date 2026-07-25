@@ -43,7 +43,7 @@ func dispatchTurn(
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
 		VisitorTimezone:  req.VisitorTimezone,
 		MarkWaypoints:    buildAgentTurnLedger(h, auth),
-		BuildGhost:       buildGhostForTurn(h, auth, cred, req.ConversationID),
+		Epilogue:         buildGhostForTurn(h, auth, cred, req.ConversationID),
 	})
 }
 

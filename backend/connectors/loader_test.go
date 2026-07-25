@@ -11,8 +11,8 @@ import (
 
 	"github.com/atmaxmoj/standmeet/connectors"
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // TestLoad_GCalScopesAreFullURLs —— F-B-3. The gcal OAuth scopes must be the FULL
@@ -97,7 +97,7 @@ func TestLoad_GcalAssemblesAtLaunch(t *testing.T) {
 	if aerr != nil {
 		t.Fatalf("assemble builtin gcal: %v", aerr)
 	}
-	if _, ok := c.(usecases.CalendarProxy); !ok {
+	if _, ok := c.(contract.CalendarProxy); !ok {
 		t.Fatalf("gcal builtin is not a CalendarProxy: %T", c)
 	}
 }

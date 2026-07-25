@@ -68,7 +68,6 @@ type runtimeDeps struct {
 	assetRepo          *postgres.AssetRepo
 	writingRepo        *postgres.WritingRepo
 	writingRefRepo     *postgres.WritingRefRepo
-	calendarRepo       *postgres.CalendarRepo
 	mailRepo           *postgres.MailRepo
 	capabilityRepo     *postgres.CapabilityRepo
 	ghostRepo          *postgres.GhostRepo
@@ -108,7 +107,7 @@ type runtimeDeps struct {
 // 抽出来让 wireup 的 buildAdminDeps 保持 ≤350 行。
 func recoveryDeps(d *runtimeDeps) usecases.RecoveryDeps {
 	return usecases.RecoveryDeps{
-		Owners: d.ownerRepo, Sessions: d.sessionStore, Proxy: d.connectorSlots.Mail(),
+		Owners: d.ownerRepo, Sessions: d.sessionStore, Proxy: outboundSender(d),
 	}
 }
 

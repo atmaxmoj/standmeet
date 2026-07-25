@@ -21,6 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 )
 
 const capBookingBundle = "booking.bundle"
@@ -46,13 +47,13 @@ type BookingPolicyUpsert struct {
 // ListBookingsByOwner are satisfied by *postgres.CalendarRepo directly;
 // UpsertBookingPolicy uses the plain BookingPolicyUpsert, so an adapter wraps it.
 type bookingRepo interface {
-	GetBookingPolicy(ctx context.Context, ownerID string) (domain.BookingPolicy, error)
+	GetBookingPolicy(ctx context.Context, ownerID string) (booker.BookingPolicy, error)
 	UpsertBookingPolicy(
 		ctx context.Context, in *BookingPolicyUpsert,
-	) (domain.BookingPolicy, error)
+	) (booker.BookingPolicy, error)
 	ListBookingsByOwner(
 		ctx context.Context, ownerID string, limit int32,
-	) ([]domain.CodeBooking, error)
+	) ([]booker.CodeBooking, error)
 }
 
 // bookingOwners —— owner timezone read (GetByID → ProfileTimezone) + write.
@@ -144,7 +145,7 @@ func (c *bookingCapability) handleGetPolicy(
 		toBookingPolicyView(&policy, owner.ProfileTimezone))
 }
 
-func toBookingPolicyView(p *domain.BookingPolicy, tz string) bookingPolicyView {
+func toBookingPolicyView(p *booker.BookingPolicy, tz string) bookingPolicyView {
 	return bookingPolicyView{
 		AllowedWeekdays:   p.AllowedWeekdays,
 		WorkingHoursStart: p.WorkingHoursStart,
@@ -244,8 +245,8 @@ func (c *bookingCapability) applyPolicy(
 }
 
 func mergeBookingPatch(
-	current *domain.BookingPolicy, patch *bookingPolicyPatch,
-) *domain.BookingPolicy {
+	current *booker.BookingPolicy, patch *bookingPolicyPatch,
+) *booker.BookingPolicy {
 	out := *current
 	applyBookingStringFields(&out, patch)
 	applyBookingNumericFields(&out, patch)
@@ -255,7 +256,7 @@ func mergeBookingPatch(
 	return &out
 }
 
-func applyBookingStringFields(out *domain.BookingPolicy, patch *bookingPolicyPatch) {
+func applyBookingStringFields(out *booker.BookingPolicy, patch *bookingPolicyPatch) {
 	if patch.WorkingHoursStart != nil {
 		out.WorkingHoursStart = *patch.WorkingHoursStart
 	}
@@ -264,7 +265,7 @@ func applyBookingStringFields(out *domain.BookingPolicy, patch *bookingPolicyPat
 	}
 }
 
-func applyBookingNumericFields(out *domain.BookingPolicy, patch *bookingPolicyPatch) {
+func applyBookingNumericFields(out *booker.BookingPolicy, patch *bookingPolicyPatch) {
 	if patch.MinLeadDays != nil {
 		out.MinLeadDays = *patch.MinLeadDays
 	}
@@ -311,7 +312,7 @@ func (c *bookingCapability) handleListBookings(
 	return mcputil.MarshalResult(c.log, "bookings.list", bookingRowViews(rows))
 }
 
-func bookingRowViews(rows []domain.CodeBooking) []bookingRowView {
+func bookingRowViews(rows []booker.CodeBooking) []bookingRowView {
 	out := make([]bookingRowView, 0, len(rows))
 	for i := range rows {
 		out = append(out, toBookingRowView(&rows[i]))
@@ -319,7 +320,7 @@ func bookingRowViews(rows []domain.CodeBooking) []bookingRowView {
 	return out
 }
 
-func toBookingRowView(b *domain.CodeBooking) bookingRowView {
+func toBookingRowView(b *booker.CodeBooking) bookingRowView {
 	return bookingRowView{
 		ID: b.ID, CodeID: b.CodeID, ConversationID: b.ConversationID,
 		GoogleEventID: b.GoogleEventID, GoogleHTMLLink: b.GoogleHTMLLink,

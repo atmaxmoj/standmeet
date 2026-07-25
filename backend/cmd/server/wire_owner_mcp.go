@@ -43,7 +43,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		CustomPages:   &usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Handle:        &usecases.HandleDeps{Owners: d.ownerRepo},
 		Calendar: &ownercore.CalendarOwnerDeps{
-			Proxy: d.connectorSlots.Calendar(), Store: calendarStoreAdapter{repo: d.calendarRepo},
+			Proxy: d.connectorSlots.Calendar(), Store: newCapstoreBookingStore(d),
 		},
 		Appearance:     d.ownerRepo,
 		IPBans:         ipBanStoreAdapter{repo: d.bannedIPRepo},
@@ -63,7 +63,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 			Marketplace: d.marketplaceClient, Skills: d.skillRepo,
 		},
 		Booking: &ownercore.BookingOwnerDeps{
-			Repo: bookingRepoAdapter{repo: d.calendarRepo}, Owners: d.ownerRepo,
+			Repo: newCapstoreBookingStore(d), Owners: d.ownerRepo,
 		},
 		CodeDenials: d.codeDenialRepo,
 		PageContent: d.ownerRepo,
@@ -83,7 +83,7 @@ func ownerAccessRequestsDeps(d *runtimeDeps) *ownercore.AccessRequestsOwnerDeps 
 		Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
 		Approve: usecases.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-			Owners: d.ownerRepo, Proxy: d.connectorSlots.Mail(),
+			Owners: d.ownerRepo, Proxy: outboundSender(d),
 		},
 	}
 }

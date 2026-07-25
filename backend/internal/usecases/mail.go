@@ -1,7 +1,7 @@
 // mail.go —— 出站 mail connector 的业务逻辑:approve 闭环(批准 gate 请求 →
 // issue AccessCode → 邮件发 requester)。
 //
-// 发信走 MailProxy(连接器代调，SMTP 凭据不出 vault)。approve 复用 codes /
+// 发信走 OutboundSender(连接器代调，SMTP 凭据不出 vault)。approve 复用 codes /
 // roles / owners repo,跟 job-loop 的 applications.commit 自动发码同范式。
 
 package usecases
@@ -31,9 +31,9 @@ const (
 var ErrMailNotConfigured = errors.New("mail connector not configured")
 
 // MailStatusDeps —— 只读 mail connector 状态(给公共 gate 配置用)。#155：经品类槽
-// (MailProxy.Connected = active mail 连接器连没连)，不再读旧 mail 连接器存储。
+// (OutboundSender.Connected = active mail 连接器连没连)，不再读旧 mail 连接器存储。
 type MailStatusDeps struct {
-	Proxy MailProxy
+	Proxy OutboundSender
 }
 
 // OwnerCanEmailCodes —— owner 是否有 connected(test 通过)的 active mail connector。
@@ -57,7 +57,7 @@ type ApproveRequestDeps struct {
 	Codes  *postgres.CodeRepo
 	Roles  *postgres.RoleRepo
 	Owners *postgres.OwnerRepo
-	Proxy  MailProxy
+	Proxy  OutboundSender
 }
 
 // ApproveResult —— 发码闭环结果(回 admin UI 展示)。
@@ -86,7 +86,7 @@ func ApproveAccessRequest(
 }
 
 type approvalPrep struct {
-	msg  MailMessage
+	msg  OutboundMessage
 	code string
 	link string
 }
@@ -171,7 +171,7 @@ func buildCodeLink(publicURL, code string) string {
 	return strings.TrimRight(publicURL, "/") + "?code=" + code
 }
 
-func buildApprovalEmail(req *domain.AccessRequest, code, link string) MailMessage {
+func buildApprovalEmail(req *domain.AccessRequest, code, link string) OutboundMessage {
 	greeting := "Hi there,"
 	if req.Name != "" {
 		greeting = "Hi " + req.Name + ","
@@ -182,7 +182,7 @@ func buildApprovalEmail(req *domain.AccessRequest, code, link string) MailMessag
 		"Open this link to start the conversation (the code is already filled in):\n\n" +
 		"    " + link + "\n\n" +
 		"Sent via StandMeet."
-	return MailMessage{
+	return OutboundMessage{
 		To:      req.Email,
 		Subject: "Your access request has been approved",
 		Body:    body,

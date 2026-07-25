@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 )
 
 // MountBookingPolicy —— /booking-policy GET + PATCH 挂载。
@@ -57,7 +57,7 @@ func (h *Handlers) getBookingPolicy() http.HandlerFunc {
 	}
 }
 
-func toPolicyView(p *domain.BookingPolicy, tz string) policyView {
+func toPolicyView(p *booker.BookingPolicy, tz string) policyView {
 	return policyView{
 		WorkingHoursStart: p.WorkingHoursStart,
 		WorkingHoursEnd:   p.WorkingHoursEnd,
@@ -135,8 +135,8 @@ func upsertPolicyFromPatch(
 }
 
 func mergePolicyPatch(
-	current *domain.BookingPolicy, patch *policyPatchRequest,
-) *domain.BookingPolicy {
+	current *booker.BookingPolicy, patch *policyPatchRequest,
+) *booker.BookingPolicy {
 	out := *current
 	applyStringPolicyFields(&out, patch)
 	applyNumericPolicyFields(&out, patch)
@@ -146,7 +146,7 @@ func mergePolicyPatch(
 	return &out
 }
 
-func applyStringPolicyFields(out *domain.BookingPolicy, patch *policyPatchRequest) {
+func applyStringPolicyFields(out *booker.BookingPolicy, patch *policyPatchRequest) {
 	if patch.WorkingHoursStart != nil {
 		out.WorkingHoursStart = *patch.WorkingHoursStart
 	}
@@ -155,7 +155,7 @@ func applyStringPolicyFields(out *domain.BookingPolicy, patch *policyPatchReques
 	}
 }
 
-func applyNumericPolicyFields(out *domain.BookingPolicy, patch *policyPatchRequest) {
+func applyNumericPolicyFields(out *booker.BookingPolicy, patch *policyPatchRequest) {
 	if patch.MinLeadDays != nil {
 		out.MinLeadDays = *patch.MinLeadDays
 	}

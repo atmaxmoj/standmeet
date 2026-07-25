@@ -8,8 +8,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type mailTestSendReq struct {
@@ -34,7 +34,7 @@ func (h *Handlers) mailTestSend() http.HandlerFunc {
 			return
 		}
 		serr := h.ConnectorsAdmin.Mail.Send(r.Context(), ownerID,
-			usecases.MailMessage{To: body.To, Subject: body.Subject, Body: body.Text})
+			contract.MailMessage{To: body.To, Subject: body.Subject, Body: body.Text})
 		if serr != nil {
 			// 自测发信失败 → {ok:false}，但要留痕：否则 SMTP 挂 / 认证错这类基建故障无声，运维查无可查。
 			h.Log.Warn("connector mail test-send", logErrKey, serr)

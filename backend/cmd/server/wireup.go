@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
@@ -114,7 +115,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Applications: d.applicationRepo,
 		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
 		Calendar: adminroutes.CalendarAdminDeps{
-			Repo: d.calendarRepo, Policy: newBookerPolicyStore(d),
+			Repo: newCapstoreBookingStore(d), Policy: newBookerPolicyStore(d),
 		},
 		Connectors: connectorsAdminDeps(d),
 		Capabilities: adminroutes.CapabilityAdminDeps{
@@ -123,7 +124,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		},
 		ApproveRequests: usecases.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-			Owners: d.ownerRepo, Proxy: d.connectorSlots.Mail(),
+			Owners: d.ownerRepo, Proxy: outboundSender(d),
 		},
 		Sessions:     d.sessionStore,
 		Usage:        d.inferenceUsageRepo,
@@ -158,7 +159,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	skills := buildVisitorSkillsDeps(d)
 	skills.DepConnected = depReg
 	usecases.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
-	wireSummarizeSocket(ctx, d, &skills)
+	wireSummarizeGateway(ctx, d, &skills)
 	// #135: owner-MCP caps are no longer core-registered here — the ownercore plugin (+ jobs)
 	// register them via RegisterAllCapabilities below, into the same capreg.Registry, no dup IDs.
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
@@ -166,8 +167,8 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	// 不再跑 booker 业务逻辑,也不再有 quota Gate/State(booker 自己在沙箱按 capstore 计数
 	// 做配额闸;connector-connected 仍由 manifest Requires:["calendar"] 的 global 闸把住)。
 	wireBookerGateway(ctx, d)
-	wireMailSenderSocket(ctx, d)
-	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
+	wireMailSenderGateway(ctx, d)
+	wireRetrievalSocket(ctx, d, &usecases.CorpusIndexDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
 		Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
 		NoteRefs: d.noteRefRepo, Searcher: d.searchClient,
@@ -177,7 +178,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	registerDiscoveredPlugins(d, depReg, map[string]usecases.CapHooks{
 		// booker quota 闸(host 侧,经 capstore.count 数 booker 隔离预约;concretes 只在此组装根)。
 		"calendar.book":    {Gate: bookerQuotaGate(d)},
-		"corpus.retrieval": {Fragment: usecases.RetrievalScopeVisible},
+		"corpus.retrieval": {Fragment: usecases.CorpusScopeVisible},
 	})
 	wireCapabilityEnableGate(d)
 }
@@ -247,13 +248,10 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 	return publicroutes.Handlers{
 		Visitor:      newVisitorSessionDeps(d),
 		SecureCookie: d.secureCookie,
-		Confirm: usecases.BookingConfirmDeps{
-			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
-			Proxy: d.connectorSlots.Mail(),
-		},
-		Cancel: usecases.VisitorCancelDeps{
+		MailStatus:   outboundSender(d),
+		Cancel: booker.VisitorCancelDeps{
 			Proxy: d.connectorSlots.Calendar(),
-			Store: calendarStoreAdapter{repo: d.calendarRepo},
+			Store: newCapstoreBookingStore(d),
 		},
 		Resolver:     d.providerResolver,
 		Reports:      d.chatReportRepo,
@@ -279,7 +277,7 @@ func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 			log: d.log, repo: d.instanceRepo, holder: d.setupTokenHolder,
 		},
 		CaptchaSiteKey: d.captchaSiteKey,
-		MailStatus:     usecases.MailStatusDeps{Proxy: d.connectorSlots.Mail()},
+		MailStatus:     usecases.MailStatusDeps{Proxy: outboundSender(d)},
 	}
 }
 

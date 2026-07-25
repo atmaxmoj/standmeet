@@ -120,46 +120,6 @@ func uploadedSpec(in ownercore.UploadedSpecArg) *connectorsvc.UploadedSpec {
 	}
 }
 
-// ───── booking repo adapter ─────────────────────────────────────
-
-// bookingRepoAdapter —— maps the ownercore booking surface to *postgres.CalendarRepo,
-// translating BookingPolicyUpsert to the postgres upsert input.
-type bookingRepoAdapter struct{ repo *postgres.CalendarRepo }
-
-func (a bookingRepoAdapter) GetBookingPolicy(
-	ctx context.Context, ownerID string,
-) (domain.BookingPolicy, error) {
-	out, err := a.repo.GetBookingPolicy(ctx, ownerID)
-	if err != nil {
-		return out, fmt.Errorf("adapter get booking policy: %w", err)
-	}
-	return out, nil
-}
-
-func (a bookingRepoAdapter) UpsertBookingPolicy(
-	ctx context.Context, in *ownercore.BookingPolicyUpsert,
-) (domain.BookingPolicy, error) {
-	out, err := a.repo.UpsertBookingPolicy(ctx, &postgres.UpsertPolicyInput{
-		OwnerID: in.OwnerID, WorkingHoursStart: in.WorkingHoursStart,
-		WorkingHoursEnd: in.WorkingHoursEnd, AllowedWeekdays: in.AllowedWeekdays,
-		MinLeadDays: in.MinLeadDays, BufferMin: in.BufferMin,
-	})
-	if err != nil {
-		return out, fmt.Errorf("adapter upsert booking policy: %w", err)
-	}
-	return out, nil
-}
-
-func (a bookingRepoAdapter) ListBookingsByOwner(
-	ctx context.Context, ownerID string, limit int32,
-) ([]domain.CodeBooking, error) {
-	out, err := a.repo.ListBookingsByOwner(ctx, ownerID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("adapter list bookings: %w", err)
-	}
-	return out, nil
-}
-
 // ───── seo stats adapter ────────────────────────────────────────
 
 // seoStatsAdapter —— maps *postgres.SEORepo.CountPublished (postgres.PublishedCounts)

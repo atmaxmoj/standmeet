@@ -4,6 +4,9 @@
 // 纪律约束)、解析 LLM 输出、把 policy ghost 落库(route 不碰 postgres,守 arch)。
 // 设计骨架见 [[ghost-steering]] §"The prompt skeleton"。"ONE GHOST MESSAGE" 是骨架开头,也是
 // mock gateway 认 GhostPolicy 调用的标记 —— 改这句要同步 mock。
+//
+// ghost 是 conversation 的能力(不是外置 plugin):policy/telemetry 跟 conversation 代码一起住核心。
+// inference 只发通用 EpilogueFrame;route 把本文件出的候选包成 Kind="ghost" 的 epilogue。
 
 package usecases
 

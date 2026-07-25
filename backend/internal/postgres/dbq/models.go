@@ -115,21 +115,6 @@ type ChatReport struct {
 	CreatedAt      pgtype.Timestamptz
 }
 
-type CodeBooking struct {
-	ID                 pgtype.UUID
-	OwnerID            pgtype.UUID
-	CodeID             pgtype.UUID
-	ConversationID     pgtype.UUID
-	GoogleEventID      string
-	GoogleHtmlLink     string
-	Summary            string
-	StartAt            pgtype.Timestamptz
-	EndAt              pgtype.Timestamptz
-	VisitorEmail       *string
-	ConfirmationSentAt pgtype.Timestamptz
-	CreatedAt          pgtype.Timestamptz
-}
-
 type CodeCapabilityDenial struct {
 	CodeID       pgtype.UUID
 	CapabilityID string
@@ -368,31 +353,6 @@ type Owner struct {
 	ProfileTimezone   string
 	CustomCss         string
 	CreatedAt         pgtype.Timestamptz
-}
-
-type OwnerBookingPolicy struct {
-	OwnerID           pgtype.UUID
-	MinLeadDays       int32
-	AllowedWeekdays   []string
-	WorkingHoursStart string
-	WorkingHoursEnd   string
-	BufferMin         int32
-	UpdatedAt         pgtype.Timestamptz
-}
-
-type OwnerCalendarConnector struct {
-	ID                   pgtype.UUID
-	OwnerID              pgtype.UUID
-	Provider             string
-	ClientIDEnc          []byte
-	ClientSecretEnc      []byte
-	AccessTokenEnc       []byte
-	RefreshTokenEnc      []byte
-	AccessTokenExpiresAt pgtype.Timestamptz
-	Scopes               []byte
-	ConnectedAt          pgtype.Timestamptz
-	CreatedAt            pgtype.Timestamptz
-	UpdatedAt            pgtype.Timestamptz
 }
 
 type OwnerConnector struct {

@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 )
 
 type fakeCalConnector struct {
 	name      string
-	busy      []usecases.BusyInterval
+	busy      []contract.BusyInterval
 	connected bool
 }
 
@@ -25,15 +25,15 @@ func (f fakeCalConnector) Connected(_ context.Context, _ string) (bool, error) {
 }
 
 func (f fakeCalConnector) FreeBusy(
-	_ context.Context, _ string, _ usecases.FreeBusyReq,
-) ([]usecases.BusyInterval, error) {
+	_ context.Context, _ string, _ contract.FreeBusyReq,
+) ([]contract.BusyInterval, error) {
 	return f.busy, nil
 }
 
 func (f fakeCalConnector) InsertEvent(
-	_ context.Context, _ string, _ *usecases.InsertEventReq,
-) (usecases.InsertedEvent, error) {
-	return usecases.InsertedEvent{EventID: f.name}, nil
+	_ context.Context, _ string, _ *contract.InsertEventReq,
+) (contract.InsertedEvent, error) {
+	return contract.InsertedEvent{EventID: f.name}, nil
 }
 
 func (fakeCalConnector) DeleteEvent(_ context.Context, _, _, _ string) error { return nil }
@@ -51,11 +51,11 @@ func TestSlots_CalendarDispatchesToActive(t *testing.T) {
 	hub := connector.NewHub()
 	hub.Register(fakeCalConnector{
 		name: "google-calendar", connected: true,
-		busy: []usecases.BusyInterval{{}},
+		busy: []contract.BusyInterval{{}},
 	})
 	slots := connector.NewSlots(hub, fakeSlotStore{id: "google-calendar"})
 
-	busy, err := slots.Calendar().FreeBusy(context.Background(), "owner-1", usecases.FreeBusyReq{})
+	busy, err := slots.Calendar().FreeBusy(context.Background(), "owner-1", contract.FreeBusyReq{})
 	if err != nil {
 		t.Fatalf("FreeBusy: %v", err)
 	}

@@ -133,8 +133,8 @@ linters:
         - stdlib
         - github.com/atmaxmoj/standmeet/internal/inference.Provider
         - github.com/atmaxmoj/standmeet/internal/sandbox.Runner
-        - github.com/atmaxmoj/standmeet/internal/usecases.CalendarProxy
-        - github.com/atmaxmoj/standmeet/internal/usecases.MailProxy
+        - github.com/atmaxmoj/standmeet/internal/connector/contract.CalendarProxy
+        - github.com/atmaxmoj/standmeet/internal/connector/contract.MailProxy
         - github.com/atmaxmoj/standmeet/internal/domain.Document
         - github.com/atmaxmoj/standmeet/internal/domain.Integration
         # J.3: jobs plugin 的 Capability 工厂跟主 mcp 包同形态 (NewXxx →

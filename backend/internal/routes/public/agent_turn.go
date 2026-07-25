@@ -44,16 +44,27 @@ func runAgentTurn(
 	dispatchTurn(h, w, r, auth, req)
 }
 
-// buildGhostForTurn —— 注入给 inference 的 ghost-steering policy port。done 之后据本轮末条回复
-// 出至多一个 steering ghost。仅 code 模式 + 冻了 waypoints + 有 conversation 才装(否则 nil)。
+// ghostWire —— the `ghost` epilogue payload (SSE data). Owned by the route (the kernel is
+// epilogue-agnostic); json tags == the wire the frontend parses. Mirrors agentcore.GhostFrame.
+type ghostWire struct {
+	Text           string `json:"text"`
+	TargetWaypoint string `json:"target_waypoint"`
+	FollowsFrom    string `json:"follows_from"`
+	GhostID        string `json:"ghost_id"`
+	IsBridge       bool   `json:"is_bridge"`
+}
+
+// buildGhostForTurn —— 注入给 inference 的 turn-epilogue port(ghost-steering)。done 之后据本轮末条
+// 回复出至多一个 steering ghost，包成通用 EpilogueFrame{Kind:"ghost"}。仅 code 模式 + 冻了 waypoints
+// + 有 conversation 才装(否则 nil)。inference 不认识 "ghost"，只按 Kind 发 SSE 事件。
 func buildGhostForTurn(
 	h *Handlers, auth authedVisitor, cred *inference.Cred, convID string,
-) inference.BuildGhostFunc {
+) inference.EpilogueFunc {
 	if !hasFrozenWaypoints(auth) || convID == "" {
 		return nil
 	}
 	gr := &ghostRun{h: h, auth: auth, cred: cred, convID: convID}
-	return func(ctx context.Context, lastMsg string) *inference.GhostFrame {
+	return func(ctx context.Context, lastMsg string) *inference.EpilogueFrame {
 		return gr.run(ctx, lastMsg)
 	}
 }
@@ -66,8 +77,8 @@ type ghostRun struct {
 	convID string
 }
 
-// run —— 出候选(silence/失败 → nil)→ 落 conversation_ghosts → GhostFrame。
-func (gr *ghostRun) run(ctx context.Context, lastMsg string) *inference.GhostFrame {
+// run —— 出候选(silence/失败 → nil)→ 落 conversation_ghosts → Kind="ghost" epilogue frame。
+func (gr *ghostRun) run(ctx context.Context, lastMsg string) *inference.EpilogueFrame {
 	cand := gr.candidate(ctx, lastMsg)
 	if cand == nil {
 		return nil
@@ -99,7 +110,7 @@ func (gr *ghostRun) candidate(ctx context.Context, lastMsg string) *usecases.Gho
 
 func (gr *ghostRun) persist(
 	ctx context.Context, cand *usecases.GhostCandidate,
-) *inference.GhostFrame {
+) *inference.EpilogueFrame {
 	id, perr := usecases.RecordPolicyGhost(ctx, gr.h.Ghosts, &usecases.PolicyGhostInput{
 		OwnerID: gr.auth.Data.OwnerID, ConversationID: gr.convID,
 		Text: cand.Text, TargetWaypoint: cand.TargetWaypoint, FollowsFrom: cand.FollowsFrom,
@@ -108,10 +119,15 @@ func (gr *ghostRun) persist(
 		gr.h.Log.Warn("ghost policy persist", logErrKey, perr)
 		return nil
 	}
-	return &inference.GhostFrame{
+	payload, merr := json.Marshal(ghostWire{
 		Text: cand.Text, TargetWaypoint: cand.TargetWaypoint, FollowsFrom: cand.FollowsFrom,
 		GhostID: id, IsBridge: cand.IsBridge,
+	})
+	if merr != nil {
+		gr.h.Log.Warn("ghost policy marshal", logErrKey, merr)
+		return nil
 	}
+	return &inference.EpilogueFrame{Kind: "ghost", Payload: payload}
 }
 
 // buildAgentTurnLedger —— 注入给 inference 的 ghost-steering ledger port。turn 收尾把本轮引用

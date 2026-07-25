@@ -48,7 +48,7 @@ type AgentSink interface {
 	ToolCompleted(name, result string)
 	// Ghost —— ghost-steering P4: done 之后 policy 出的**单个** steering ghost 帧（唯一 ghost 通道；
 	// 旧的 Ghosts 多条 followup 已删）。
-	Ghost(g *GhostFrame)
+	Epilogue(f *EpilogueFrame)
 	// Retrying —— transport 重试一次 transient LLM 失败时调(attempt 从 1
 	// 数起)。prod sink emit `retrying` SSE 帧让 throbber 显 "retrying";
 	// 进度恢复(下一条 text/tool 事件)后前端自然清掉。
@@ -83,7 +83,7 @@ func BuildAgentIterator(
 		// Callback 只在压缩真触发时调（context 超阈值）；打一行 observability。
 		// 短对话不触发，prod 常规流量零噪音。
 		Callback: func(_ context.Context, before, after adk.ChatModelAgentState) error {
-			slog.Default().Info("agent turn: context summarized",
+			slog.Default().Info("agent turn: context compacted",
 				"before_msgs", len(before.Messages), "after_msgs", len(after.Messages))
 			return nil
 		},
@@ -142,7 +142,7 @@ func DriveAgentLoop(
 	sink.Done(state.stop)
 	// ghost-steering P3: policy 在 done **之后** 跑(persist-at-completion:done=已提交,ledger 也已在
 	// onDone 里更新过 visited),据本轮末条回复出至多一个 steering ghost,发单独的 `ghost` 帧。
-	emitGhostPolicy(ctx, sink, in, state)
+	emitEpilogue(ctx, sink, in, state)
 	recordTurnUsage(ctx, in, state)
 }
 

@@ -83,9 +83,6 @@ SELECT COUNT(*)::int FROM conversations WHERE member_id = $1;
 -- name: CountVisitorTurnsInConversation :one
 SELECT COUNT(*)::int FROM messages WHERE conversation_id = $1 AND role = 'visitor';
 
--- name: CountBookingsByCode :one
-SELECT COUNT(*)::int FROM code_bookings WHERE code_id = $1;
-
 -- name: ClearCodeWaypoints :exec
 DELETE FROM code_waypoints WHERE code_id = $1;
 

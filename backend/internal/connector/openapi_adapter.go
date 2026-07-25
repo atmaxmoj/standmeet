@@ -1,5 +1,5 @@
 // openapi_adapter.go —— 品类契约适配器：把通用 openapi 执行核（openapi.Runtime）接成消费者
-// 认的品类契约（usecases.CalendarProxy / MailProxy）。归一化的「最后一公里」：booker 只认
+// 认的品类契约（contract.CalendarProxy / MailProxy）。归一化的「最后一公里」：booker 只认
 // CalendarProxy，背后是 Google / Outlook / 任意贴了 spec+binding 的 SaaS，一概不知。
 //
 // 一个连接器服务多 owner：runtime（spec+binding）共享，认证 + 连接状态按 (连接器,owner) 经
@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/retry"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -116,7 +116,7 @@ func (c *openapiCore) injector(ctx context.Context, ownerID string) (openapi.Aut
 //   - 上传 binding 引用错名 → 同样降级成空，属 owner 配错，经 diag 端点自测时暴露（预期态）。
 // 一句话：tag 与 binding 变量名是同一份知识，改一处务必同步另一处；e2e 内容断言是这条耦合的闸。
 
-// calendarAdapter —— openapiCore 实现 usecases.CalendarProxy。
+// calendarAdapter —— openapiCore 实现 contract.CalendarProxy。
 type calendarAdapter struct{ *openapiCore }
 
 type listBusyInput struct {
@@ -171,8 +171,8 @@ type cancelInput struct {
 
 // FreeBusy —— list_busy 契约方法。
 func (a calendarAdapter) FreeBusy(
-	ctx context.Context, ownerID string, req usecases.FreeBusyReq,
-) ([]usecases.BusyInterval, error) {
+	ctx context.Context, ownerID string, req contract.FreeBusyReq,
+) ([]contract.BusyInterval, error) {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {
 		return nil, mapCalendarErr(err)
@@ -184,25 +184,25 @@ func (a calendarAdapter) FreeBusy(
 	}); cerr != nil {
 		return nil, mapCalendarErr(cerr)
 	}
-	intervals := make([]usecases.BusyInterval, 0, len(out.Busy))
+	intervals := make([]contract.BusyInterval, 0, len(out.Busy))
 	for i := range out.Busy {
 		b := out.Busy[i]
-		intervals = append(intervals, usecases.BusyInterval{Start: b.Start, End: b.End})
+		intervals = append(intervals, contract.BusyInterval{Start: b.Start, End: b.End})
 	}
 	return intervals, nil
 }
 
 // InsertEvent —— create_event 契约方法。
 func (a calendarAdapter) InsertEvent(
-	ctx context.Context, ownerID string, req *usecases.InsertEventReq,
-) (usecases.InsertedEvent, error) {
+	ctx context.Context, ownerID string, req *contract.InsertEventReq,
+) (contract.InsertedEvent, error) {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {
-		return usecases.InsertedEvent{}, mapCalendarErr(err)
+		return contract.InsertedEvent{}, mapCalendarErr(err)
 	}
 	key, kerr := newIdempotencyKey() // 本次调用一份，重试复用 → 不重复建（D-7）
 	if kerr != nil {
-		return usecases.InsertedEvent{}, kerr
+		return contract.InsertedEvent{}, kerr
 	}
 	in := insertEventInput{
 		Summary: req.Summary, Description: req.Description,
@@ -215,9 +215,9 @@ func (a calendarAdapter) InsertEvent(
 	if cerr := retry.Do(ctx, calendarWritePolicy(), func() error {
 		return a.runtime.Call(ctx, "create_event", in, &out, inj)
 	}); cerr != nil {
-		return usecases.InsertedEvent{}, mapCalendarErr(cerr)
+		return contract.InsertedEvent{}, mapCalendarErr(cerr)
 	}
-	return usecases.InsertedEvent{EventID: out.EventID, HTMLLink: out.HTMLLink}, nil
+	return contract.InsertedEvent{EventID: out.EventID, HTMLLink: out.HTMLLink}, nil
 }
 
 // DeleteEvent —— cancel_event 契约方法。
@@ -250,7 +250,7 @@ func mapCalendarErr(err error) error {
 		return mapped
 	}
 	if openapiTransient(err) {
-		return domain.ErrCalendarUnavailable
+		return contract.ErrCalendarUnavailable
 	}
 	return fmt.Errorf("calendar: %w", err)
 }
@@ -259,13 +259,13 @@ func mapCalendarErr(err error) error {
 // 被拦 → bad request（客户端/配置错，4xx，不是上游故障）。
 func mapCalendarSentinel(err error) error {
 	if errors.Is(err, ErrInvalidGrant) {
-		return domain.ErrCalendarRevoked
+		return contract.ErrCalendarRevoked
 	}
 	if errors.Is(err, ErrBlockedEgress) { // 干净 sentinel（不回显内网 URL）
-		return domain.ErrCalendarBlockedEgress
+		return contract.ErrCalendarBlockedEgress
 	}
 	if errors.Is(err, openapi.ErrMissingRequired) {
-		return fmt.Errorf("%w: %w", domain.ErrCalendarBadRequest, err)
+		return fmt.Errorf("%w: %w", contract.ErrCalendarBadRequest, err)
 	}
 	return nil
 }
@@ -277,17 +277,17 @@ func mapStatusErr(err error) error {
 		return nil
 	}
 	if se.Transient {
-		return domain.ErrCalendarUnavailable
+		return contract.ErrCalendarUnavailable
 	}
 	if se.Code == http.StatusUnauthorized {
-		return domain.ErrCalendarRevoked
+		return contract.ErrCalendarRevoked
 	}
 	return nil
 }
 
 // ───────────────────────── mail 契约适配 ─────────────────────────
 
-// mailAdapter —— openapiCore 实现 usecases.MailProxy。
+// mailAdapter —— openapiCore 实现 contract.MailProxy。
 type mailAdapter struct{ *openapiCore }
 
 type sendInput struct {
@@ -304,7 +304,7 @@ type sendInput struct {
 //     宁可失败也不重发。要重试的场景（owner 通知）在 usecase 层用 notifyPolicy 包，由调用方决定。
 //   - 不映射成 domain 错：mail 消费者（booking_confirmation / owner_notify / otp…）只看「发没发出」，
 //     不像 booker 要按 revoked/unavailable gate，故无需 calendar 那套错误词汇（ISP：不造没人用的接口）。
-func (a mailAdapter) Send(ctx context.Context, ownerID string, msg usecases.MailMessage) error {
+func (a mailAdapter) Send(ctx context.Context, ownerID string, msg contract.MailMessage) error {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {
 		return err

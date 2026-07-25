@@ -98,24 +98,46 @@ func str(m map[string]any, k string) string {
 	return ""
 }
 
-// handleSummarize —— forward to the host "summarize" op; return its JSON result
-// (the report wire {report_id, html, ok}) straight through, or a folded error.
-//
+// handleSummarize —— run the whole report pipeline HERE (this plugin owns the generation logic),
+// reaching back only for core resources (transcript / owner LLM / report-artifact store). Returns the
+// report wire {report_id, html, ok} or a folded {ok:false,error}.
 func handleSummarize(
 	_ context.Context, req mcpgo.CallToolRequest,
 ) (*mcpgo.CallToolResult, error) {
 	s := sessionFromMeta(req)
-	resp, err := callHost(map[string]any{
-		"op":              "summarize",
-		"owner_id":        s.OwnerID,
-		"conversation_id": s.ConversationID,
-		"mode":            s.Mode,
-	})
+	out, err := runSummarize(s)
 	if err != nil {
 		return mcpgo.NewToolResultText(
 			fmt.Sprintf(`{"ok":false,"error":%q}`, err.Error())), nil
 	}
-	return mcpgo.NewToolResultText(string(resp)), nil
+	return mcpgo.NewToolResultText(out), nil
+}
+
+// runSummarize —— the summarize capability's own orchestration:
+//
+//	conversation.read → build STAR prompt (owned here) → inference.generate (owner LLM) →
+//	report.store (host sanitizes untrusted HTML + styled-renders + persists the report artifact).
+//
+// Every host touch is a FIXED reach-back verb; no summarize-specific host code exists anymore.
+func runSummarize(s session) (string, error) {
+	msgs, err := gwConversationRead(s.OwnerID, s.ConversationID)
+	if err != nil {
+		return "", err
+	}
+	raw, gerr := gwInferenceGenerate(s.OwnerID, s.Mode, summarizeHTMLPrompt,
+		[]chatMessage{{Role: "user", Content: buildSummarizeUserPrompt(msgs)}})
+	if gerr != nil {
+		return "", gerr
+	}
+	reportID, styled, serr := gwReportStore(s.OwnerID, s.ConversationID, raw)
+	if serr != nil {
+		return "", serr
+	}
+	res, merr := json.Marshal(map[string]any{"report_id": reportID, "html": styled, "ok": true})
+	if merr != nil {
+		return "", fmt.Errorf("marshal summarize result: %w", merr)
+	}
+	return string(res), nil
 }
 
 // callHost —— one line-JSON request/response over the host unix socket bound into

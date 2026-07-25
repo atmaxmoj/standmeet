@@ -64,7 +64,6 @@ type repoSet struct {
 	asset          *postgres.AssetRepo
 	writing        *postgres.WritingRepo
 	writingRef     *postgres.WritingRefRepo
-	calendar       *postgres.CalendarRepo
 	mailConnector  *postgres.MailRepo
 	capability     *postgres.CapabilityRepo
 	ghost          *postgres.GhostRepo
@@ -106,7 +105,6 @@ func newRepos(db *postgres.Pool) *repoSet {
 		asset:          postgres.NewAssetRepo(db),
 		writing:        postgres.NewWritingRepo(db),
 		writingRef:     postgres.NewWritingRefRepo(db),
-		calendar:       postgres.NewCalendarRepo(db),
 		mailConnector:  postgres.NewMailRepo(db),
 		capability:     postgres.NewCapabilityRepo(db),
 		ghost:          postgres.NewGhostRepo(db),
@@ -165,7 +163,6 @@ func assembleRuntimeDeps(
 		writingRepo:        repos.writing,
 		writingRefRepo:     repos.writingRef,
 		assetRepo:          repos.asset,
-		calendarRepo:       repos.calendar,
 		mailRepo:           repos.mailConnector,
 		capabilityRepo:     repos.capability,
 		ghostRepo:          repos.ghost,

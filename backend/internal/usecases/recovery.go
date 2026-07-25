@@ -31,7 +31,7 @@ const (
 type RecoveryDeps struct {
 	Owners   *postgres.OwnerRepo
 	Sessions *session.OwnerSessionStore
-	Proxy    MailProxy
+	Proxy    OutboundSender
 }
 
 // RecoverInput —— 公开 /recover 入参。
@@ -58,7 +58,7 @@ func GenerateRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) e
 	if serr != nil {
 		return serr
 	}
-	if merr := deps.Proxy.Send(ctx, ownerID, MailMessage{
+	if merr := deps.Proxy.Send(ctx, ownerID, OutboundMessage{
 		To:      owner.Email,
 		Subject: "Your StandMeet recovery phrase",
 		Body:    recoveryEmailBody(phrase),

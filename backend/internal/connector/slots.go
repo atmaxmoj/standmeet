@@ -1,6 +1,6 @@
 // slots.go —— 品类槽位分派：把「品类契约」分派到该 owner 当前 active 的连接器（§9 槽位规则）。
 // Hub 持装配好的连接器（按 connector_id），SlotStore 解析哪个是 owner 某品类的 active；消费者
-// （booker / mailer）只认 usecases.CalendarProxy / MailProxy，不知背后是哪个 provider、哪 kind。
+// （booker / mailer）只认 contract.CalendarProxy / MailProxy，不知背后是哪个 provider、哪 kind。
 // 这是底座（Hub + 分派）与具体连接器之间的最后一环——主后端只见品类契约，没有任何 specific connector。
 
 package connector
@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -40,22 +40,22 @@ func (s *Slots) Register(c Connector) { s.hub.Upsert(c) }
 // ConnectorCalendar —— 按 id 取一个连接器的 CalendarProxy（diag：直接打某个连接器，不经 active 槽）。
 // （Resolve+断言这条模式本想用泛型 resolveAs[T] 收口，但 Go 无泛型方法、方法接口又不能 union 进
 // 约束，唯一可行的 [T any] 被业务层 forbidigo 禁；几行内联断言比 ban 掉的构造更直白，留着。）
-func (s *Slots) ConnectorCalendar(id string) (usecases.CalendarProxy, bool) {
+func (s *Slots) ConnectorCalendar(id string) (contract.CalendarProxy, bool) {
 	c, ok := s.hub.Resolve(id)
 	if !ok {
 		return nil, false
 	}
-	cal, isCal := c.(usecases.CalendarProxy)
+	cal, isCal := c.(contract.CalendarProxy)
 	return cal, isCal
 }
 
 // ConnectorMail —— 按 id 取一个连接器的 MailProxy（diag：直接打某个连接器，不经 active 槽）。
-func (s *Slots) ConnectorMail(id string) (usecases.MailProxy, bool) {
+func (s *Slots) ConnectorMail(id string) (contract.MailProxy, bool) {
 	c, ok := s.hub.Resolve(id)
 	if !ok {
 		return nil, false
 	}
-	m, isMail := c.(usecases.MailProxy)
+	m, isMail := c.(contract.MailProxy)
 	return m, isMail
 }
 
@@ -123,10 +123,10 @@ func (s *Slots) VerifyConnector(ctx context.Context, connectorID, ownerID string
 }
 
 // Calendar —— 一个把 calendar 契约分派到 active 连接器的 CalendarProxy。
-func (s *Slots) Calendar() usecases.CalendarProxy { return calendarSlot{s: s} }
+func (s *Slots) Calendar() contract.CalendarProxy { return calendarSlot{s: s} }
 
 // Mail —— 一个把 mail 契约分派到 active 连接器的 MailProxy。
-func (s *Slots) Mail() usecases.MailProxy { return mailSlot{s: s} }
+func (s *Slots) Mail() contract.MailProxy { return mailSlot{s: s} }
 
 // active —— 找 owner 某品类的 active 连接器句柄。无 active / 未注册 → errNoActiveConnector。
 func (s *Slots) active(ctx context.Context, ownerID, category string) (Connector, error) {
@@ -151,7 +151,7 @@ type calendarSlot struct{ s *Slots }
 // Connected —— 有 active calendar 连接器且它连上 → true；无 active → false（gate 掉，不报错）。
 func (cs calendarSlot) Connected(ctx context.Context, ownerID string) (bool, error) {
 	cal, err := cs.resolve(ctx, ownerID)
-	if errors.Is(err, domain.ErrCalendarNotConnected) {
+	if errors.Is(err, contract.ErrCalendarNotConnected) {
 		return false, nil
 	}
 	if err != nil {
@@ -165,8 +165,8 @@ func (cs calendarSlot) Connected(ctx context.Context, ownerID string) (bool, err
 }
 
 func (cs calendarSlot) FreeBusy(
-	ctx context.Context, ownerID string, req usecases.FreeBusyReq,
-) ([]usecases.BusyInterval, error) {
+	ctx context.Context, ownerID string, req contract.FreeBusyReq,
+) ([]contract.BusyInterval, error) {
 	cal, err := cs.resolve(ctx, ownerID)
 	if err != nil {
 		return nil, err
@@ -179,15 +179,15 @@ func (cs calendarSlot) FreeBusy(
 }
 
 func (cs calendarSlot) InsertEvent(
-	ctx context.Context, ownerID string, req *usecases.InsertEventReq,
-) (usecases.InsertedEvent, error) {
+	ctx context.Context, ownerID string, req *contract.InsertEventReq,
+) (contract.InsertedEvent, error) {
 	cal, err := cs.resolve(ctx, ownerID)
 	if err != nil {
-		return usecases.InsertedEvent{}, err
+		return contract.InsertedEvent{}, err
 	}
 	ev, ierr := cal.InsertEvent(ctx, ownerID, req)
 	if ierr != nil {
-		return usecases.InsertedEvent{}, fmt.Errorf("calendar slot insert: %w", ierr)
+		return contract.InsertedEvent{}, fmt.Errorf("calendar slot insert: %w", ierr)
 	}
 	return ev, nil
 }
@@ -208,15 +208,15 @@ func (cs calendarSlot) DeleteEvent(
 // resolve —— active calendar 连接器断言成 CalendarProxy。无 active → ErrCalendarNotConnected。
 func (cs calendarSlot) resolve(
 	ctx context.Context, ownerID string,
-) (usecases.CalendarProxy, error) {
+) (contract.CalendarProxy, error) {
 	c, err := cs.s.active(ctx, ownerID, "calendar")
 	if errors.Is(err, errNoActiveConnector) {
-		return nil, domain.ErrCalendarNotConnected
+		return nil, contract.ErrCalendarNotConnected
 	}
 	if err != nil {
 		return nil, err
 	}
-	cal, isCal := c.(usecases.CalendarProxy)
+	cal, isCal := c.(contract.CalendarProxy)
 	if !isCal {
 		return nil, fmt.Errorf("connector %q is not a calendar connector", c.Name())
 	}
@@ -243,7 +243,7 @@ func (ms mailSlot) Connected(ctx context.Context, ownerID string) (bool, error) 
 	return ok, nil
 }
 
-func (ms mailSlot) Send(ctx context.Context, ownerID string, msg usecases.MailMessage) error {
+func (ms mailSlot) Send(ctx context.Context, ownerID string, msg contract.MailMessage) error {
 	mp, err := ms.resolve(ctx, ownerID)
 	if err != nil {
 		return err
@@ -255,7 +255,7 @@ func (ms mailSlot) Send(ctx context.Context, ownerID string, msg usecases.MailMe
 }
 
 // resolve —— active mail 连接器断言成 MailProxy。无 active → ErrMailNotConfigured。
-func (ms mailSlot) resolve(ctx context.Context, ownerID string) (usecases.MailProxy, error) {
+func (ms mailSlot) resolve(ctx context.Context, ownerID string) (contract.MailProxy, error) {
 	c, err := ms.s.active(ctx, ownerID, "mail")
 	if errors.Is(err, errNoActiveConnector) {
 		return nil, usecases.ErrMailNotConfigured
@@ -263,7 +263,7 @@ func (ms mailSlot) resolve(ctx context.Context, ownerID string) (usecases.MailPr
 	if err != nil {
 		return nil, err
 	}
-	mp, isMail := c.(usecases.MailProxy)
+	mp, isMail := c.(contract.MailProxy)
 	if !isMail {
 		return nil, fmt.Errorf("connector %q is not a mail connector", c.Name())
 	}

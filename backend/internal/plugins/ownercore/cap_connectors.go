@@ -17,9 +17,9 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capConnectorsBundle = "connectors.bundle"
@@ -67,7 +67,7 @@ type connectorService interface {
 // connector; MailKind reports which mail kind actually served it.
 type ConnectorsOwnerDeps struct {
 	Svc      connectorService
-	Mail     usecases.MailProxy
+	Mail     contract.MailProxy
 	MailKind func(ctx context.Context, ownerID string) string
 }
 
@@ -274,7 +274,7 @@ func (c *connectorsCapability) handleMailTestSend(
 		return capreg.MCPError(perr.Error())
 	}
 	serr := c.deps.Mail.Send(ctx, ownerID,
-		usecases.MailMessage{To: args.To, Subject: args.Subject, Body: args.Text})
+		contract.MailMessage{To: args.To, Subject: args.Subject, Body: args.Text})
 	if serr != nil {
 		// Test-send failure is expected-ish (SMTP down / bad creds); log for ops, report ok:false.
 		c.log.Warn("cap connectors.mail_test_send", "err", serr)

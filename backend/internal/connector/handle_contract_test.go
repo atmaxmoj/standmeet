@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,6 +30,6 @@ func assertNoCredentialGetter(t *testing.T, typ reflect.Type) {
 func TestHandleContract_NoCredentialGetter(t *testing.T) {
 	t.Parallel()
 	assertNoCredentialGetter(t, reflect.TypeFor[connector.Connector]())
-	assertNoCredentialGetter(t, reflect.TypeFor[usecases.CalendarProxy]())
-	assertNoCredentialGetter(t, reflect.TypeFor[usecases.MailProxy]())
+	assertNoCredentialGetter(t, reflect.TypeFor[contract.CalendarProxy]())
+	assertNoCredentialGetter(t, reflect.TypeFor[contract.MailProxy]())
 }

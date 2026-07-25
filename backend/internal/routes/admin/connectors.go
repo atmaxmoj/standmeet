@@ -12,10 +12,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 // ConnectorsAdminDeps —— 通用连接器路由依赖：编排服务 + active mail 分派器（test-send 用）。
 type ConnectorsAdminDeps struct {
 	Svc      *connectorsvc.Service
-	Mail     usecases.MailProxy
+	Mail     contract.MailProxy
 	MailKind func(ctx context.Context, ownerID string) string
 }
 

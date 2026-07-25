@@ -1,0 +1,55 @@
+// conversation_read_socket.go —— conversation.read host op：断网沙箱 cap 经 socket 读本会话的
+// owner-scoped transcript。按业务分类:它跟 conversation 的其它代码住一起,不进任何机制 bucket。
+// capsocket 只是那根传输;cmd 按每个 cap 挂它允许的 op。
+
+package usecases
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/atmaxmoj/standmeet/internal/capsocket"
+)
+
+// SockMessage —— socket op 交换的一条消息(role/content;避开 inference/domain 包耦合)。
+type SockMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// RegisterConversationReadOp —— 把 "conversation.read" 挂到 srv:{owner_id,conversation_id} →
+// GetWithMessages → {messages:[{role,content}]}。
+func RegisterConversationReadOp(srv *capsocket.Server, chats ConversationGetter) {
+	srv.Handle("conversation.read", func(
+		ctx context.Context, raw json.RawMessage,
+	) (json.RawMessage, error) {
+		return runConversationRead(ctx, chats, raw)
+	})
+}
+
+func runConversationRead(
+	ctx context.Context, chats ConversationGetter, raw json.RawMessage,
+) (json.RawMessage, error) {
+	var req struct {
+		OwnerID        string `json:"owner_id"`
+		ConversationID string `json:"conversation_id"`
+	}
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil, fmt.Errorf("conversation.read: decode: %w", err)
+	}
+	bundle, err := chats.GetWithMessages(ctx, req.OwnerID, req.ConversationID)
+	if err != nil {
+		return nil, fmt.Errorf("conversation.read: %w", err)
+	}
+	msgs := make([]SockMessage, len(bundle.Messages))
+	for i := range bundle.Messages {
+		m := bundle.Messages[i]
+		msgs[i] = SockMessage{Role: m.Role, Content: m.Body}
+	}
+	out, merr := json.Marshal(map[string][]SockMessage{"messages": msgs})
+	if merr != nil {
+		return nil, fmt.Errorf("conversation.read: marshal: %w", merr)
+	}
+	return out, nil
+}

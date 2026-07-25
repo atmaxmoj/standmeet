@@ -12,8 +12,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 )
 
 type bookingCancelRequest struct {
@@ -22,7 +21,7 @@ type bookingCancelRequest struct {
 
 // bookingCancelErrCases —— 隔离/不存在统一翻 404(不区分,避免存在性泄露)。
 var bookingCancelErrCases = []apierr.Case{
-	{Match: domain.ErrBookingNotFound, Envelope: apierr.Envelope{
+	{Match: booker.ErrBookingNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "booking_not_found",
 		Message: "no booking found",
 	}},
@@ -45,8 +44,8 @@ func (h *Handlers) runCancelOwnBooking(
 	if !ok {
 		return
 	}
-	_, err := usecases.CancelOwnBooking(r.Context(), h.Cancel,
-		&usecases.CancelOwnBookingInput{
+	_, err := booker.CancelOwnBooking(r.Context(), h.Cancel,
+		&booker.CancelOwnBookingInput{
 			OwnerID:  av.Data.OwnerID,
 			CodeID:   av.Data.CodeID,
 			MemberID: av.Data.MemberID,

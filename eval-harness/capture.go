@@ -67,7 +67,13 @@ func (s *captureSink) ToolCompleted(name, result string) {
 	s.report = wire.HTML
 }
 
-func (s *captureSink) Ghost(g *agentcore.GhostFrame) {
+// Epilogue —— generic post-done frame. Ghost steering is Kind="ghost"; parse it back to the typed
+// GhostFrame for gold (other kinds ignored — the eval only golds ghosts).
+func (s *captureSink) Epilogue(f *agentcore.EpilogueFrame) {
+	g := agentcore.ParseGhostEpilogue(f)
+	if g == nil {
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ghost = g

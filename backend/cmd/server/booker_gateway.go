@@ -16,8 +16,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capstore"
-	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/reachback"
+	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // policyDoc —— booker capstore "policy" collection 的落盘形状。json 键跟沙箱 booker 的
@@ -40,23 +41,23 @@ func newBookerPolicyStore(d *runtimeDeps) bookerPolicyStore {
 }
 
 // Get —— owner 的政策;没设过 → 默认(跟沙箱 booker 的 defaultBookingPolicy 一致)。
-func (b bookerPolicyStore) Get(ctx context.Context, ownerID string) (domain.BookingPolicy, error) {
+func (b bookerPolicyStore) Get(ctx context.Context, ownerID string) (booker.BookingPolicy, error) {
 	filter, ferr := json.Marshal(map[string]string{"owner_id": ownerID})
 	if ferr != nil {
-		return domain.BookingPolicy{}, fmt.Errorf("policy filter: %w", ferr)
+		return booker.BookingPolicy{}, fmt.Errorf("policy filter: %w", ferr)
 	}
 	recs, qerr := b.store.Query(ctx, bookerCapKind, bookerCapID, "policy", filter)
 	if qerr != nil {
-		return domain.BookingPolicy{}, fmt.Errorf("policy get: %w", qerr)
+		return booker.BookingPolicy{}, fmt.Errorf("policy get: %w", qerr)
 	}
 	if len(recs) == 0 {
-		return domain.DefaultBookingPolicy(ownerID), nil
+		return booker.DefaultBookingPolicy(ownerID), nil
 	}
 	var doc policyDoc
 	if uerr := json.Unmarshal(recs[0], &doc); uerr != nil {
-		return domain.BookingPolicy{}, fmt.Errorf("policy decode: %w", uerr)
+		return booker.BookingPolicy{}, fmt.Errorf("policy decode: %w", uerr)
 	}
-	return domain.BookingPolicy{
+	return booker.BookingPolicy{
 		OwnerID: ownerID, WorkingHoursStart: doc.WorkingHoursStart,
 		WorkingHoursEnd: doc.WorkingHoursEnd, AllowedWeekdays: doc.AllowedWeekdays,
 		MinLeadDays: doc.MinLeadDays, BufferMin: doc.BufferMin,
@@ -64,7 +65,7 @@ func (b bookerPolicyStore) Get(ctx context.Context, ownerID string) (domain.Book
 }
 
 // Set —— 覆盖 owner 的政策(单例:先删该 owner 旧文档,再插新的)。
-func (b bookerPolicyStore) Set(ctx context.Context, ownerID string, p *domain.BookingPolicy) error {
+func (b bookerPolicyStore) Set(ctx context.Context, ownerID string, p *booker.BookingPolicy) error {
 	filter, ferr := json.Marshal(map[string]string{"owner_id": ownerID})
 	if ferr != nil {
 		return fmt.Errorf("policy filter: %w", ferr)
@@ -134,24 +135,6 @@ func (b bookerCapStore) Delete(
 	return n, nil
 }
 
-// bookerOwnerMeta —— owner.meta 的后端:白名单字段(gateway 已挡非白名单)从 owner 记录取。
-type bookerOwnerMeta struct{ d *runtimeDeps }
-
-func (o bookerOwnerMeta) Meta(ctx context.Context, ownerID, field string) (string, error) {
-	owner, err := o.d.ownerRepo.GetByID(ctx, ownerID)
-	if err != nil {
-		return "", fmt.Errorf("owner.meta get owner: %w", err)
-	}
-	switch field {
-	case "timezone":
-		return owner.ProfileTimezone, nil
-	case "full_name":
-		return owner.FullName, nil
-	default:
-		return "", fmt.Errorf("owner.meta: field %q not served", field)
-	}
-}
-
 // wireBookerGateway —— provision booker 的隔离 schema + 把固定词表网关挂上 booker.sock。
 func wireBookerGateway(ctx context.Context, d *runtimeDeps) {
 	store := capstore.New(d.db)
@@ -168,12 +151,9 @@ func wireBookerGateway(ctx context.Context, d *runtimeDeps) {
 		d.log.Error("booker socket listen", "err", err)
 		return
 	}
-	deps := &reachback.Deps{
-		Connectors: d.connectorSlots,
-		Store:      bookerCapStore{store: store},
-		Owner:      bookerOwnerMeta{d: d},
-	}
-	deps.Register(srv)
+	connector.RegisterInvokeOp(srv, d.connectorSlots)
+	capstore.RegisterOps(srv, bookerCapStore{store: store})
+	usecases.RegisterOwnerMetaOp(srv, d.ownerRepo)
 	go srv.Serve(ctx)
 }
 

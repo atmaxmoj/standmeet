@@ -79,7 +79,11 @@ func (s *jsonlSink) ToolCompleted(name, result string) {
 	s.write(jsonEvent{Type: "tool_completed", Name: name, Result: result})
 }
 
-func (s *jsonlSink) Ghost(g *agentcore.GhostFrame) {
+func (s *jsonlSink) Epilogue(f *agentcore.EpilogueFrame) {
+	g := agentcore.ParseGhostEpilogue(f)
+	if g == nil {
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ghost = g

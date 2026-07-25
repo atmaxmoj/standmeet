@@ -73,17 +73,6 @@ func (q *Queries) ClearCodeWaypoints(ctx context.Context, codeID pgtype.UUID) er
 	return err
 }
 
-const countBookingsByCode = `-- name: CountBookingsByCode :one
-SELECT COUNT(*)::int FROM code_bookings WHERE code_id = $1
-`
-
-func (q *Queries) CountBookingsByCode(ctx context.Context, codeID pgtype.UUID) (int32, error) {
-	row := q.db.QueryRow(ctx, countBookingsByCode, codeID)
-	var column_1 int32
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
 const countCodeMembers = `-- name: CountCodeMembers :one
 SELECT count(*) FROM code_members WHERE code_id = $1
 `

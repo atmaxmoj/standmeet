@@ -22,7 +22,7 @@ func StartRetrievalSocket(ctx context.Context, d Driver, sockPath string) (func(
 	if err != nil {
 		return nil, fmt.Errorf("retrieval socket listen: %w", err)
 	}
-	usecases.RegisterRetrievalSocketLister(srv, driverCorpusLister{driver: d})
+	usecases.RegisterCorpusIndexLister(srv, driverCorpusLister{driver: d})
 	go srv.Serve(ctx)
 	return srv.Close, nil
 }

@@ -1,5 +1,5 @@
 // openapi_adapter_test.go —— 后端内部 UT（进程内 httptest，不出服务边界）。钉死归一化的
-// 「最后一公里」：一份 spec+binding 装配出的连接器，**真**实现 usecases.CalendarProxy，
+// 「最后一公里」：一份 spec+binding 装配出的连接器，**真**实现 contract.CalendarProxy，
 // 且把执行核错映射成 calendar 域错（友好降级）。证明 booker 只认契约、背后 provider 无关。
 
 package connector_test
@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const futureYear = 2030
@@ -70,7 +70,7 @@ func (fakeStore) MarkDisconnected(_ context.Context, _, _ string) error {
 	return nil
 }
 
-func assembleCal(t *testing.T, h http.Handler) (usecases.CalendarProxy, *httptest.Server) {
+func assembleCal(t *testing.T, h http.Handler) (contract.CalendarProxy, *httptest.Server) {
 	t.Helper()
 	srv := httptest.NewServer(h)
 	m := &connector.Manifest{
@@ -83,7 +83,7 @@ func assembleCal(t *testing.T, h http.Handler) (usecases.CalendarProxy, *httptes
 	if err != nil {
 		t.Fatalf("AssembleOpenAPI: %v", err)
 	}
-	cal, ok := c.(usecases.CalendarProxy)
+	cal, ok := c.(contract.CalendarProxy)
 	if !ok {
 		t.Fatalf("assembled calendar connector is not a CalendarProxy: %T", c)
 	}
@@ -100,7 +100,7 @@ func TestAssembleOpenAPI_CalendarContract_FreeBusy(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	busy, err := cal.FreeBusy(context.Background(), "owner-1", usecases.FreeBusyReq{
+	busy, err := cal.FreeBusy(context.Background(), "owner-1", contract.FreeBusyReq{
 		TimeMin: time.Date(futureYear, 1, 1, 0, 0, 0, 0, time.UTC),
 		TimeMax: time.Date(futureYear, 1, 2, 0, 0, 0, 0, time.UTC),
 	})
@@ -119,8 +119,8 @@ func TestAssembleOpenAPI_Calendar_TransientDegrades(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := cal.FreeBusy(context.Background(), "owner-1", usecases.FreeBusyReq{})
-	if !errors.Is(err, domain.ErrCalendarUnavailable) {
+	_, err := cal.FreeBusy(context.Background(), "owner-1", contract.FreeBusyReq{})
+	if !errors.Is(err, contract.ErrCalendarUnavailable) {
 		t.Fatalf("5xx should map to ErrCalendarUnavailable, got %v", err)
 	}
 }

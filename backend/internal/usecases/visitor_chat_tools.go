@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-// summaryMaxChars —— corpus_search 摘要截断上限。
-const summaryMaxChars = 160
+// snippetMaxChars —— corpus_search 摘要截断上限。
+const snippetMaxChars = 160
 
 // corpusRow —— corpus_search / corpus_list 的 wire 行。summary 仅 search 填(omitempty)。
 type corpusRow struct {
@@ -22,13 +22,13 @@ type corpusRow struct {
 	Summary string `json:"summary,omitempty"`
 }
 
-// summarize —— 截断到 summaryMaxChars，给 corpus_search 摘要 / writing 行摘要用。
-func summarize(body string) string {
+// snippet —— 截断到 snippetMaxChars，给 corpus_search 摘要 / writing 行摘要用。
+func snippet(body string) string {
 	trimmed := strings.TrimSpace(body)
-	if len(trimmed) <= summaryMaxChars {
+	if len(trimmed) <= snippetMaxChars {
 		return trimmed
 	}
-	return trimmed[:summaryMaxChars] + "…"
+	return trimmed[:snippetMaxChars] + "…"
 }
 
 // errJSON / marshalRows / marshalReadResult —— tool 返回都是 JSON string;集中 marshal +

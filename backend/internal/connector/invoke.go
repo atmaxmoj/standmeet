@@ -13,16 +13,16 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 )
 
 // calVerb / mailVerb —— 单个 verb 的分派器（map 派发，避免大 switch 抬圈复杂度）。
 type calVerb func(
-	ctx context.Context, cal usecases.CalendarProxy, ownerID string, args json.RawMessage,
+	ctx context.Context, cal contract.CalendarProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error)
 
 type mailVerb func(
-	ctx context.Context, m usecases.MailProxy, ownerID string, args json.RawMessage,
+	ctx context.Context, m contract.MailProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error)
 
 var calendarVerbs = map[string]calVerb{
@@ -53,7 +53,7 @@ func (s *Slots) Invoke(
 }
 
 func dispatchCalendar(
-	ctx context.Context, cal usecases.CalendarProxy, ownerID, verb string, args json.RawMessage,
+	ctx context.Context, cal contract.CalendarProxy, ownerID, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
 	fn, ok := calendarVerbs[verb]
 	if !ok {
@@ -63,7 +63,7 @@ func dispatchCalendar(
 }
 
 func dispatchMail(
-	ctx context.Context, m usecases.MailProxy, ownerID, verb string, args json.RawMessage,
+	ctx context.Context, m contract.MailProxy, ownerID, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
 	fn, ok := mailVerbs[verb]
 	if !ok {
@@ -75,7 +75,7 @@ func dispatchMail(
 // ─── calendar verbs ───
 
 func calConnected(
-	ctx context.Context, cal usecases.CalendarProxy, ownerID string, _ json.RawMessage,
+	ctx context.Context, cal contract.CalendarProxy, ownerID string, _ json.RawMessage,
 ) (json.RawMessage, error) {
 	ok, err := cal.Connected(ctx, ownerID)
 	if err != nil {
@@ -85,9 +85,9 @@ func calConnected(
 }
 
 func calFreeBusy(
-	ctx context.Context, cal usecases.CalendarProxy, ownerID string, args json.RawMessage,
+	ctx context.Context, cal contract.CalendarProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error) {
-	var req usecases.FreeBusyReq
+	var req contract.FreeBusyReq
 	if err := json.Unmarshal(args, &req); err != nil {
 		return nil, fmt.Errorf("connector invoke: decode free_busy args: %w", err)
 	}
@@ -103,9 +103,9 @@ func calFreeBusy(
 }
 
 func calInsertEvent(
-	ctx context.Context, cal usecases.CalendarProxy, ownerID string, args json.RawMessage,
+	ctx context.Context, cal contract.CalendarProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error) {
-	var req usecases.InsertEventReq
+	var req contract.InsertEventReq
 	if err := json.Unmarshal(args, &req); err != nil {
 		return nil, fmt.Errorf("connector invoke: decode insert_event args: %w", err)
 	}
@@ -127,7 +127,7 @@ type delEventArgs struct {
 }
 
 func calDeleteEvent(
-	ctx context.Context, cal usecases.CalendarProxy, ownerID string, args json.RawMessage,
+	ctx context.Context, cal contract.CalendarProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error) {
 	var req delEventArgs
 	if err := json.Unmarshal(args, &req); err != nil {
@@ -142,7 +142,7 @@ func calDeleteEvent(
 // ─── mail verbs ───
 
 func mailConnected(
-	ctx context.Context, m usecases.MailProxy, ownerID string, _ json.RawMessage,
+	ctx context.Context, m contract.MailProxy, ownerID string, _ json.RawMessage,
 ) (json.RawMessage, error) {
 	ok, err := m.Connected(ctx, ownerID)
 	if err != nil {
@@ -152,9 +152,9 @@ func mailConnected(
 }
 
 func mailSend(
-	ctx context.Context, m usecases.MailProxy, ownerID string, args json.RawMessage,
+	ctx context.Context, m contract.MailProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error) {
-	var msg usecases.MailMessage
+	var msg contract.MailMessage
 	if err := json.Unmarshal(args, &msg); err != nil {
 		return nil, fmt.Errorf("connector invoke: decode send args: %w", err)
 	}

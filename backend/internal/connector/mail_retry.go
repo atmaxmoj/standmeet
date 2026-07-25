@@ -12,17 +12,18 @@ import (
 	"io"
 	"net"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/retry"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-// RetryingMailProxy —— 包一个 usecases.MailProxy，Send 按 notifyPolicy 重试瞬时传输错。
+// RetryingMailProxy —— 包一个 contract.MailProxy，Send 按 notifyPolicy 重试瞬时传输错。
 type RetryingMailProxy struct {
-	inner usecases.MailProxy
+	inner contract.MailProxy
 }
 
 // NewRetryingMailProxy —— composition root 注入底层 MailProxy（owner-notify 用）。
-func NewRetryingMailProxy(inner usecases.MailProxy) *RetryingMailProxy {
+func NewRetryingMailProxy(inner contract.MailProxy) *RetryingMailProxy {
 	return &RetryingMailProxy{inner: inner}
 }
 
@@ -37,7 +38,7 @@ func (p *RetryingMailProxy) Connected(ctx context.Context, ownerID string) (bool
 
 // Send —— 按预算重试瞬时传输错；未达对端的连接错重发安全（owner-notify 非幂等敏感）。
 func (p *RetryingMailProxy) Send(
-	ctx context.Context, ownerID string, msg usecases.MailMessage,
+	ctx context.Context, ownerID string, msg contract.MailMessage,
 ) error {
 	if err := retry.Do(ctx, notifyPolicy(), func() error {
 		return p.inner.Send(ctx, ownerID, msg)

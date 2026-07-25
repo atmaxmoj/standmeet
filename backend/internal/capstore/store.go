@@ -165,3 +165,61 @@ func scanDocs(rows pgx.Rows) ([]json.RawMessage, error) {
 	}
 	return out, nil
 }
+
+// Record —— a stored doc paired with its uuid record id. Host-side only: the record id is NOT part
+// of the sandbox reach-back vocabulary (which is docs-only), so a plugin can't address rows by id.
+// The composition root uses this to give host features (admin list / cancel-by-id) a stable handle.
+type Record struct {
+	ID  string
+	Doc json.RawMessage
+}
+
+// QueryWithIDs —— like Query but returns each record's uuid id alongside its doc. Host-only.
+func (s *Store) QueryWithIDs(
+	ctx context.Context, kind Kind, id, collection string, filter json.RawMessage,
+) ([]Record, error) {
+	schema, err := schemaName(kind, id)
+	if err != nil {
+		return nil, err
+	}
+	sql := fmt.Sprintf(
+		"SELECT id, doc FROM %s.records WHERE collection = $1 AND doc @> $2 ORDER BY created_at",
+		schema)
+	rows, qerr := s.pool.Query(ctx, sql, collection, containment(filter))
+	if qerr != nil {
+		return nil, fmt.Errorf("capstore query-with-ids %q/%s: %w", schema, collection, qerr)
+	}
+	defer rows.Close()
+	return scanRecords(rows)
+}
+
+// DeleteByID —— delete one record by its uuid id within a collection. Host-only (cancel-by-id).
+func (s *Store) DeleteByID(
+	ctx context.Context, kind Kind, id, collection, recordID string,
+) (int64, error) {
+	schema, err := schemaName(kind, id)
+	if err != nil {
+		return 0, err
+	}
+	sql := fmt.Sprintf("DELETE FROM %s.records WHERE collection = $1 AND id = $2", schema)
+	tag, derr := s.pool.Exec(ctx, sql, collection, recordID)
+	if derr != nil {
+		return 0, fmt.Errorf("capstore delete-by-id %q/%s: %w", schema, collection, derr)
+	}
+	return tag.RowsAffected(), nil
+}
+
+func scanRecords(rows pgx.Rows) ([]Record, error) {
+	var out []Record
+	for rows.Next() {
+		var r Record
+		if serr := rows.Scan(&r.ID, &r.Doc); serr != nil {
+			return nil, fmt.Errorf("capstore scan record: %w", serr)
+		}
+		out = append(out, r)
+	}
+	if rerr := rows.Err(); rerr != nil {
+		return nil, fmt.Errorf("capstore records rows: %w", rerr)
+	}
+	return out, nil
+}

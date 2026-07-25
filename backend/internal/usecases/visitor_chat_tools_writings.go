@@ -14,7 +14,7 @@ func writingBodyText(w *domain.Writing) string {
 // writingRowSummary —— corpus_search 行摘要:优先 excerpt，否则截正文。
 func writingRowSummary(w *domain.Writing) string {
 	if w.Excerpt() != "" {
-		return summarize(w.Excerpt())
+		return snippet(w.Excerpt())
 	}
-	return summarize(writingBodyText(w))
+	return snippet(writingBodyText(w))
 }

@@ -1,5 +1,5 @@
 // protocol_smtp.go —— protocol kind 的 SMTP 连接器：通用协议（任意 SMTP server）实现 mail
-// 品类契约（usecases.MailProxy）。跟 openapi 适配器并列——两 kind 都到同一个契约，消费者
+// 品类契约（contract.MailProxy）。跟 openapi 适配器并列——两 kind 都到同一个契约，消费者
 // （mailer 调用方）一概不知背后是 HTTP API 还是 SMTP。
 //
 // protocol 连接器没有 spec/binding：实现是内置的（net/smtp，复用 mailer），配置（host/port/
@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/mailer"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -59,7 +60,7 @@ type SMTPVault interface {
 	SMTPConfig(ctx context.Context, connectorID, ownerID string) (SMTPConfig, error)
 }
 
-// smtpConnector —— 实现 Connector 基面 + usecases.MailProxy。
+// smtpConnector —— 实现 Connector 基面 + contract.MailProxy。
 type smtpConnector struct {
 	vault SMTPVault
 	id    string
@@ -103,7 +104,7 @@ func (c *smtpConnector) Connected(ctx context.Context, ownerID string) (bool, er
 
 // Send —— 用 owner SMTP 连接器发信；未配 → ErrMailNotConfigured。Send 的下限是「有凭据能
 // 物理发出」(Configured)，不是「已验证」(Connected)——验证信本身就在 Connected 之前发。
-func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg usecases.MailMessage) error {
+func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg contract.MailMessage) error {
 	cfg, err := c.vault.SMTPConfig(ctx, c.id, ownerID)
 	if err != nil {
 		return fmt.Errorf("connector %q smtp config: %w", c.id, err)

@@ -717,40 +717,9 @@ CREATE TABLE applications (
 CREATE INDEX applications_owner_idx ON applications(owner_id);
 CREATE INDEX applications_access_code_idx ON applications(access_code_id);
 
--- owner_calendar_connectors —— per-(owner, provider) OAuth state for the
--- "owner connects their calendar" admin connector flow. Self-hosted means
--- owner pastes their own Google Cloud OAuth client_id + client_secret in
--- admin UI (we never embed a global Anthropic/StandMeet OAuth client);
--- then click Authorize → Google consent → our /callback exchanges code
--- for tokens → we persist refresh_token long-term + access_token short-term.
---
--- All four credentials columns are cryptobox AES-256-GCM ciphertext
--- (KEK = INSTANCE_SECRET env)。Reads always decrypt to memory; never log.
--- Empty bytea = "not provided yet"。disconnect = DELETE the row（refresh
--- token revocation is a best-effort RPC; row goes whether revoke RPC ok or not）。
---
--- provider TEXT 是开放枚举: 第一版只 'google'，未来 'microsoft' 类似形状。
--- 单 owner 单 provider 只能存一条 row（UNIQUE (owner_id, provider)）。
-CREATE TABLE owner_calendar_connectors (
-    id                    uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id              uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    provider              text          NOT NULL,
-    client_id_enc         bytea         NOT NULL DEFAULT '\x'::bytea,
-    client_secret_enc     bytea         NOT NULL DEFAULT '\x'::bytea,
-    access_token_enc      bytea         NOT NULL DEFAULT '\x'::bytea,
-    refresh_token_enc     bytea         NOT NULL DEFAULT '\x'::bytea,
-    -- access_token_expires_at —— 服务端按这个判断是否需要 refresh；提前
-    -- 60s threshold 在 internal/gcal client 里写死，schema 不存。NULL = 没
-    -- 拿到过 access_token (credentials saved but not yet authorized)。
-    access_token_expires_at  timestamptz,
-    scopes                jsonb         NOT NULL DEFAULT '[]'::jsonb,
-    connected_at          timestamptz,
-    created_at            timestamptz   NOT NULL DEFAULT now(),
-    updated_at            timestamptz   NOT NULL DEFAULT now()
-);
-
-CREATE UNIQUE INDEX owner_calendar_connectors_owner_provider_uniq
-    ON owner_calendar_connectors(owner_id, provider);
+-- owner_calendar_connectors RETIRED (#155/#190) — the pre-#155 gcal-specific OAuth table was
+-- superseded by the generic owner_connectors table below; its repo (CalendarRepo) is deleted.
+-- Kept out of fresh installs; existing volumes keep the empty table (harmless).
 
 -- owner_mail_connectors —— per-(owner, provider) outbound SMTP credentials so
 -- the owner can send mail (today: the access-code email when a gate request is
@@ -842,15 +811,9 @@ CREATE UNIQUE INDEX owner_connectors_owner_connector_uniq
 -- buffer_min       —— 任何已存在 event 前后这么多分钟也算"占用"——比如
 --                     buffer=15 时，10:30-11:00 的 event 让 10:15-11:15
 --                     都拒 (freebusy 自然 conflict)。
-CREATE TABLE owner_booking_policy (
-    owner_id            uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
-    min_lead_days       integer       NOT NULL DEFAULT 2,
-    allowed_weekdays    text[]        NOT NULL DEFAULT ARRAY['mon','tue','wed','thu','fri'],
-    working_hours_start text          NOT NULL DEFAULT '09:00',
-    working_hours_end   text          NOT NULL DEFAULT '18:00',
-    buffer_min          integer       NOT NULL DEFAULT 15,
-    updated_at          timestamptz   NOT NULL DEFAULT now()
-);
+-- #135: owner_booking_policy + code_bookings tables RETIRED — booking policy + bookings now live
+-- in booker's isolated capstore (mcp_calendar_book schema). Kept out of fresh installs; existing
+-- volumes keep the empty tables (harmless).
 
 -- capability_settings —— Phase H / P.6+P.7: per-(owner, capability) 的 owner-enable
 -- 开关。只存「被 owner 显式关掉」的偏好；没有行 = 默认开（builtin 出厂即可见）。
@@ -915,26 +878,8 @@ CREATE INDEX code_skill_denials_skill_idx ON code_skill_denials(skill_id);
 --
 -- visitor_email NULL = visitor 没给 email (我们没把 visitor add 进 attendees)。
 -- summary / start_at / end_at 是 audit 用，跟事件同步落盘 (insert 时 known)。
-CREATE TABLE code_bookings (
-    id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id          uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    code_id           uuid          NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
-    conversation_id   uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-    google_event_id   text          NOT NULL,
-    google_html_link  text          NOT NULL DEFAULT '',
-    summary           text          NOT NULL DEFAULT '',
-    start_at          timestamptz   NOT NULL,
-    end_at            timestamptz   NOT NULL,
-    visitor_email     citext,
-    -- confirmation_sent_at —— 访客点过"发确认邮件"后落的时间;NULL = 没发过。
-    -- 一笔 booking 只发一次的幂等依据。
-    confirmation_sent_at timestamptz,
-    created_at        timestamptz   NOT NULL DEFAULT now()
-);
-
-CREATE INDEX code_bookings_code_idx ON code_bookings(code_id);
-CREATE INDEX code_bookings_owner_idx ON code_bookings(owner_id, created_at DESC);
-CREATE INDEX code_bookings_conv_idx ON code_bookings(conversation_id);
+-- code_bookings RETIRED (#135) — see the note at owner_booking_policy above; bookings live in
+-- booker's capstore now.
 
 -- conversation_ghosts —— H.13.e: visitor 输入框 ghost text 的展示
 -- + accept 日志。owner 在 admin conversation 详情页能看每 turn 推了哪条

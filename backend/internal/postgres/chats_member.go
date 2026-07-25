@@ -16,6 +16,33 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
+// ConversationMemberID —— the member that owns a conversation (within owner scope). Used by the
+// booker visitor-cancel isolation gate (host-side resolver: bookings in booker's capstore carry
+// only conversation_id). Unknown conversation → ("", nil): an empty member id the caller treats as
+// "not this member's" (must not leak existence). Only a real DB error propagates.
+func (r *ChatRepo) ConversationMemberID(
+	ctx context.Context, ownerID, conversationID string,
+) (string, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return "", fmt.Errorf("parse owner id: %w", err)
+	}
+	convUUID, err := parseUUID(conversationID)
+	if err != nil {
+		return "", fmt.Errorf("parse conversation id: %w", err)
+	}
+	conv, qerr := dbq.New(r.pool).GetConversation(ctx,
+		dbq.GetConversationParams{ID: convUUID, OwnerID: ownerUUID})
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			// unknown conversation = not-found (empty member), not a failure to surface.
+			return "", nil
+		}
+		return "", fmt.Errorf("conversation member: %w", qerr)
+	}
+	return formatUUID(conv.MemberID), nil
+}
+
 // CountVisitorTurnsForMember —— 该 member 名下全部对话的访客发言合计(member 级配额)。
 func (r *ChatRepo) CountVisitorTurnsForMember(
 	ctx context.Context, memberID string,

@@ -15,9 +15,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // AgentCallFn —— 按 id 跑一个 agent-tool op（注入 auth 调 SaaS），回原始响应或错（diag 直验通路）。
@@ -27,8 +26,8 @@ type AgentCallFn func(
 
 // DiagConnectorDeps —— 按 id 解析某连接器的品类契约（composition root 接 Slots）+ agent-tool 直调。
 type DiagConnectorDeps struct {
-	Calendar  func(id string) (usecases.CalendarProxy, bool)
-	Mail      func(id string) (usecases.MailProxy, bool)
+	Calendar  func(id string) (contract.CalendarProxy, bool)
+	Mail      func(id string) (contract.MailProxy, bool)
 	AgentCall AgentCallFn
 	Log       *slog.Logger
 }
@@ -105,7 +104,7 @@ func diagListBusy(deps DiagConnectorDeps) http.HandlerFunc {
 
 func diagRunListBusy(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
-	cal usecases.CalendarProxy, req *diagRangeReq,
+	cal contract.CalendarProxy, req *diagRangeReq,
 ) {
 	applyDefaultRange(req)
 	tp, perr := parseTimePair(req.TimeMin, req.TimeMax)
@@ -114,7 +113,7 @@ func diagRunListBusy(
 		return
 	}
 	busy, ferr := cal.FreeBusy(ctx, middleware.OwnerIDFrom(ctx),
-		usecases.FreeBusyReq{TimeMin: tp.start, TimeMax: tp.end})
+		contract.FreeBusyReq{TimeMin: tp.start, TimeMax: tp.end})
 	if ferr != nil {
 		diagCalErr(log, w, ferr)
 		return
@@ -159,7 +158,7 @@ func diagNotFound(log *slog.Logger, w http.ResponseWriter) {
 // rfc3339Millis —— 带毫秒（Go RFC3339 裁 .000 尾零；显式毫秒让忙时段忠实 round-trip）。
 const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
 
-func toDiagIntervals(busy []usecases.BusyInterval) []diagInterval {
+func toDiagIntervals(busy []contract.BusyInterval) []diagInterval {
 	out := make([]diagInterval, 0, len(busy))
 	for i := range busy {
 		out = append(out, diagInterval{
@@ -187,14 +186,14 @@ func diagCreateEvent(deps DiagConnectorDeps) http.HandlerFunc {
 
 func diagRunCreateEvent(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
-	cal usecases.CalendarProxy, req *diagEventReq,
+	cal contract.CalendarProxy, req *diagEventReq,
 ) {
 	tp, perr := parseTimePair(req.Start, req.End)
 	if perr != nil {
 		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": "bad time"})
 		return
 	}
-	ev, cerr := cal.InsertEvent(ctx, middleware.OwnerIDFrom(ctx), &usecases.InsertEventReq{
+	ev, cerr := cal.InsertEvent(ctx, middleware.OwnerIDFrom(ctx), &contract.InsertEventReq{
 		Summary: req.Title, Start: tp.start, End: tp.end, VisitorEmail: req.Attendee,
 	})
 	if cerr != nil {
@@ -230,10 +229,10 @@ const mailFailReason = "the mail could not be sent — the provider rejected it 
 
 func diagRunSend(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
-	mail usecases.MailProxy, req *diagSendReq,
+	mail contract.MailProxy, req *diagSendReq,
 ) {
 	serr := mail.Send(ctx, middleware.OwnerIDFrom(ctx),
-		usecases.MailMessage{To: req.To, Subject: req.Subject, Body: req.Body})
+		contract.MailMessage{To: req.To, Subject: req.Subject, Body: req.Body})
 	if serr != nil { // provider 拒/挂 → 友好降级（200 + ok:false），真错进日志
 		log.Warn("diag mail send failed", "err", serr)
 		diagStatus(log, w, http.StatusOK, diagSendResp{Ok: false, Reason: mailFailReason})
@@ -243,7 +242,7 @@ func diagRunSend(
 }
 
 // mailKind —— 报连接器 kind（openapi / protocol）；消费者经契约发信，diag 借此证「mailer 不知 kind」。
-func mailKind(m usecases.MailProxy) string {
+func mailKind(m contract.MailProxy) string {
 	if k, ok := m.(interface{ Kind() string }); ok {
 		return k.Kind()
 	}
@@ -269,9 +268,9 @@ type calErrCase struct {
 }
 
 var calErrCases = []calErrCase{
-	{domain.ErrCalendarBlockedEgress, http.StatusBadRequest},
-	{domain.ErrCalendarUnavailable, http.StatusOK}, // 限流/瞬时 → 友好降级（可退避，不崩）
-	{domain.ErrCalendarBadRequest, http.StatusBadRequest},
+	{contract.ErrCalendarBlockedEgress, http.StatusBadRequest},
+	{contract.ErrCalendarUnavailable, http.StatusOK}, // 限流/瞬时 → 友好降级（可退避，不崩）
+	{contract.ErrCalendarBadRequest, http.StatusBadRequest},
 }
 
 // diagCalErr —— 日历契约调用失败：已知 sentinel → 友好 <500 带干净原因；其余上游故障 → 502。

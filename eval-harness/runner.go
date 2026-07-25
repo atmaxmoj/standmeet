@@ -91,8 +91,8 @@ func scenarioInput(sc *Scenario, cred *agentcore.Cred) *agentcore.AgentTurnInput
 	// loop emits the `ghost` frame after done (mock scripts the phrasing; unvisited-gate handles silence).
 	if len(sc.Waypoints) > 0 {
 		wps, visited := scenarioWaypoints(sc.Waypoints)
-		in.BuildGhost = func(ctx context.Context, lastMsg string) *agentcore.GhostFrame {
-			return agentcore.BuildGhostPolicy(ctx, cred, wps, visited, lastMsg)
+		in.Epilogue = func(ctx context.Context, lastMsg string) *agentcore.EpilogueFrame {
+			return agentcore.GhostEpilogue(agentcore.BuildGhostPolicy(ctx, cred, wps, visited, lastMsg))
 		}
 	}
 	return in

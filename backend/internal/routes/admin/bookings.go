@@ -13,8 +13,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 )
 
 const adminBookingsLimit = 100
@@ -52,7 +52,7 @@ func (h *Handlers) listBookings() http.HandlerFunc {
 	}
 }
 
-func writeBookingsList(log *slog.Logger, w http.ResponseWriter, rows []domain.CodeBooking) {
+func writeBookingsList(log *slog.Logger, w http.ResponseWriter, rows []booker.CodeBooking) {
 	out := make([]bookingView, 0, len(rows))
 	for i := range rows {
 		out = append(out, toBookingView(&rows[i]))
@@ -64,7 +64,7 @@ func writeBookingsList(log *slog.Logger, w http.ResponseWriter, rows []domain.Co
 	}
 }
 
-func toBookingView(b *domain.CodeBooking) bookingView {
+func toBookingView(b *booker.CodeBooking) bookingView {
 	return bookingView{
 		ID: b.ID, CodeID: b.CodeID, ConversationID: b.ConversationID,
 		GoogleEventID: b.GoogleEventID, GoogleHTMLLink: b.GoogleHTMLLink,

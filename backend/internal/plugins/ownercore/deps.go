@@ -6,8 +6,8 @@ package ownercore
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // SEOWriter —— seo.* + corpus SEO MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
@@ -25,6 +25,6 @@ type SEOWriter interface {
 
 // CalendarOwnerDeps —— newCalendarCapability 入参打包（connector proxy + calendar store）。
 type CalendarOwnerDeps struct {
-	Proxy usecases.CalendarProxy
+	Proxy contract.CalendarProxy
 	Store CalendarOwnerStore
 }

@@ -45,7 +45,7 @@ type nullSink struct{}
 func (nullSink) Text(string)                                   {}
 func (nullSink) ToolStarted(_, _, _ string, _ json.RawMessage) {}
 func (nullSink) ToolCompleted(string, string)                  {}
-func (nullSink) Ghost(*GhostFrame)                             {}
+func (nullSink) Epilogue(*EpilogueFrame)                       {}
 func (nullSink) Retrying(int)                                  {}
 func (nullSink) Error(error)                                   {}
 func (nullSink) Done(string)                                   {}

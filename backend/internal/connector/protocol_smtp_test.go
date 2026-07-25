@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -28,11 +29,11 @@ func (v *fakeSMTPVault) SMTPConfig(_ context.Context, _, _ string) (connector.SM
 func TestSMTPConnector_NotConfigured_Friendly(t *testing.T) {
 	t.Parallel()
 	c := connector.NewSMTPConnector("smtp", &fakeSMTPVault{})
-	mp, ok := c.(usecases.MailProxy)
+	mp, ok := c.(contract.MailProxy)
 	if !ok {
 		t.Fatalf("smtp connector is not a MailProxy: %T", c)
 	}
-	err := mp.Send(context.Background(), "owner-1", usecases.MailMessage{
+	err := mp.Send(context.Background(), "owner-1", contract.MailMessage{
 		To: "v@example.com", Subject: "hi", Body: "hello",
 	})
 	if !errors.Is(err, usecases.ErrMailNotConfigured) {

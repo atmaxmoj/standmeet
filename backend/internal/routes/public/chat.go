@@ -25,6 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -32,8 +33,8 @@ import (
 // Handlers —— public routes deps.
 type Handlers struct {
 	Visitor      usecases.VisitorSessionDeps
-	Confirm      usecases.BookingConfirmDeps
-	Cancel       usecases.VisitorCancelDeps
+	MailStatus   usecases.OutboundSender // can-email gate in /sessions response (widget enable)
+	Cancel       booker.VisitorCancelDeps
 	Usage        UsageRecorder
 	Reports      usecases.ReportStore
 	Corpus       usecases.DialogCorpusLookup
@@ -92,9 +93,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/sessions/{id}/app-state/{tool}", h.withVisitorSession(h.getAppState()))
 	r.Put("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.setAppState()))
 	r.Delete("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.deleteAppState()))
-	// #122: 约成后访客点确认卡 → 这条把一封确认信发到所选地址(引用/透传/不发)。
-	// AI 不参与;后端按 session→conversation 定位最近一笔预约,收件人硬控。
-	r.Post("/booking-confirmation", h.withVisitorSession(h.sendBookingConfirmation()))
+	// #122: 约成后访客点确认卡 → send_confirmation 现在是沙箱 booker 的 tool(mcp-ui:tool),
+	// 由 booker 的 capstore confirmations marker 做幂等 —— 老的 host /booking-confirmation 路由已退役。
 	// #123: 访客取消自己约的会议。隔离在 usecase(owner+code+member 解析 event_id),
 	// 不属于本 member → 404。AI 不参与。
 	r.Post("/booking-cancellation", h.withVisitorSession(h.cancelOwnBooking()))

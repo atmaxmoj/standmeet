@@ -76,7 +76,7 @@ func (s *seqSink) ToolStarted(_, name, _ string, args json.RawMessage) {
 }
 
 func (s *seqSink) ToolCompleted(string, string) {}
-func (s *seqSink) Ghost(*agentcore.GhostFrame)  {}
+func (s *seqSink) Epilogue(*agentcore.EpilogueFrame) {}
 func (*seqSink) Retrying(int)                   {}
 
 func (s *seqSink) Error(err error) {

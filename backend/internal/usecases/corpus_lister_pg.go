@@ -76,7 +76,7 @@ func (l *pgCorpusLister) meiliSearch(
 		}
 		out = append(out, CorpusMeta{
 			ID: docs[i].ID, Path: docs[i].Path, Title: docs[i].Title,
-			Genre: docs[i].Genre, Snippet: summarize(docs[i].Body),
+			Genre: docs[i].Genre, Snippet: snippet(docs[i].Body),
 		})
 	}
 	return out, true
@@ -122,7 +122,7 @@ func (l *pgCorpusLister) subjectivityHit(
 	}
 	return CorpusMeta{
 		ID: hit.ID, Path: path, Title: hit.Title,
-		Genre: "subjectivity", Snippet: summarize(hit.Snippet),
+		Genre: "subjectivity", Snippet: snippet(hit.Snippet),
 	}, true
 }
 
@@ -141,7 +141,7 @@ func (l *pgCorpusLister) searchWikis(
 		}
 		out = append(out, CorpusMeta{
 			ID: hits[i].ID, Path: path, Title: hits[i].Title,
-			Genre: "wiki", Snippet: summarize(hits[i].Snippet),
+			Genre: "wiki", Snippet: snippet(hits[i].Snippet),
 		})
 	}
 	return out
@@ -162,7 +162,7 @@ func (l *pgCorpusLister) searchOutputs(
 		}
 		out = append(out, CorpusMeta{
 			ID: hits[i].ID, Path: path, Title: hits[i].Title,
-			Genre: "output", Snippet: summarize(hits[i].Snippet),
+			Genre: "output", Snippet: snippet(hits[i].Snippet),
 		})
 	}
 	return out

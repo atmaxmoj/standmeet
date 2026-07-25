@@ -53,8 +53,13 @@ func (s *transcriptSink) ToolCompleted(name, result string) {
 	s.event("TOOL←     │ %s  ⇒ %s", name, result)
 }
 
-// Ghost —— ghost-steering: 单个 steering ghost。打成 `GHOST→ <target_waypoint>`(gold 断言可读)+ 捕获给 gold。
-func (s *transcriptSink) Ghost(g *agentcore.GhostFrame) {
+// Epilogue —— generic post-done frame。ghost steering 是 Kind="ghost"：解回 typed GhostFrame，打成
+// `GHOST→ <target_waypoint>`(gold 断言可读)+ 捕获给 gold。别的 kind 忽略(eval 只 gold ghost)。
+func (s *transcriptSink) Epilogue(f *agentcore.EpilogueFrame) {
+	g := agentcore.ParseGhostEpilogue(f)
+	if g == nil {
+		return
+	}
 	s.mu.Lock()
 	s.ghost = g
 	s.mu.Unlock()

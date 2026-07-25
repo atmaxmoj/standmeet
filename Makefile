@@ -38,9 +38,12 @@ backend-test:
 #   4. 具名 fixture/canned 替身 (P.13)
 #   5. test-only 包 import (name-INDEPENDENT：testing/testify/httptest 漏进 prod)
 # check-no-mock-test.sh 是 checker 的自测：种一个中性命名的 testify-import 违规，断言被抓。
+# check-core-agnostic-test.sh 同理自测 #135 内核零能力棘轮：种一个 calendar 泄漏，断言被抓。
+# (棘轮本体 check-core-agnostic 已在 backend 的 fast lint 链里；这里只跑它的自测。)
 backend-no-mock:
 	@infra/scripts/check-no-mock
 	@infra/scripts/check-no-mock-test.sh
+	@infra/scripts/check-core-agnostic-test.sh
 
 # 前端子项目：node_modules 没装就 skip（启用时再 pnpm install）。
 app-lint:
@@ -394,6 +397,13 @@ prod-psql-file:
 	@test -f "$(FILE)" || (echo 'usage: make prod-psql-file FILE=<path.sql>'; exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 < "$(FILE)"
+
+# dev-psql —— run SQL against the DEV DB.  usage: make dev-psql SQL="select 1"
+# For validating hand-written queries (stats_activity / stats_growth bypass sqlc) against real schema.
+dev-psql:
+	@test -n "$(SQL)" || (echo 'usage: make dev-psql SQL="select 1"'; exit 2)
+	@docker compose -p standmeet-dev -f docker-compose.dev.yml exec -T db \
+		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c "$(SQL)"
 
 # docker-gc —— reclaim buildkit cache + dangling images. Safe: never touches running containers,
 # named volumes (pgdata/redis/minio), or tagged images in use. Run when the Docker VM disk fills from

@@ -15,7 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *usecases.RetrievalDeps) {
+func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *usecases.CorpusIndexDeps) {
 	if mkErr := os.MkdirAll("/run/standmeet", socketDirMode); mkErr != nil {
 		d.log.Error("retrieval socket dir", "err", mkErr)
 		return
@@ -25,7 +25,7 @@ func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *usecases.Ret
 		d.log.Error("retrieval socket listen", "err", err)
 		return
 	}
-	usecases.RegisterRetrievalSocket(srv, deps)
+	usecases.RegisterCorpusIndexSocket(srv, deps)
 	go srv.Serve(ctx)
 }
 

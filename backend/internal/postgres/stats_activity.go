@@ -1,6 +1,11 @@
 // stats_activity.go —— 近期活动流（ActivityTicker）的数据源。自成 domain：从现有行 UNION
-// 派生最近 N 条事件（访客加入 code_members / corpus 写入 corpus_notes / 预约 code_bookings），
-// 最新在前。裸 pgx（同 stats_growth 的 sqlc-bypass 先例）——不值当往共享 dbq 加聚合查询。
+// 派生最近 N 条事件（访客加入 code_members / corpus 写入 corpus_notes），最新在前。
+// 裸 pgx（同 stats_growth 的 sqlc-bypass 先例）——不值当往共享 dbq 加聚合查询。
+//
+// #135: 预约事件曾来自 code_bookings,但 booking 已 100% 落 booker 的隔离 capstore(code_bookings
+// 已废)。activity 层不该反向耦合 booker 的 capstore schema —— 所以这里先摘掉 booking 分支
+// (它对空的 code_bookings 本就 0 行,行为不变)。要在 feed 里恢复 booking 事件,走注入式
+// booking-activity 源(组装根接 capstore),是独立的 feature pass。
 
 package postgres
 
@@ -31,9 +36,6 @@ const activityQuery = `
 	    WHERE c.owner_id = $1
 	  UNION ALL
 	  SELECT 'ingest', created_at, title FROM corpus_notes WHERE owner_id = $1 AND genre = 'wiki'
-	  UNION ALL
-	  SELECT 'booking', created_at, COALESCE(NULLIF(summary, ''), 'meeting booked')
-	    FROM code_bookings WHERE owner_id = $1
 	) e
 	ORDER BY at DESC
 	LIMIT $2`

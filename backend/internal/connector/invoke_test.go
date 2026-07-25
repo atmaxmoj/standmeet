@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 )
 
 type fakeMailConnector struct {
-	sent      *usecases.MailMessage
+	sent      *contract.MailMessage
 	name      string
 	connected bool
 }
@@ -27,7 +27,7 @@ func (f *fakeMailConnector) Connected(_ context.Context, _ string) (bool, error)
 	return f.connected, nil
 }
 
-func (f *fakeMailConnector) Send(_ context.Context, _ string, msg usecases.MailMessage) error {
+func (f *fakeMailConnector) Send(_ context.Context, _ string, msg contract.MailMessage) error {
 	f.sent = &msg
 	return nil
 }

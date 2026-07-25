@@ -30,7 +30,7 @@ func main() {
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
-	srv.AddTool(sendEmailTool(), opHandler("send"))
+	srv.AddTool(sendEmailTool(), sendEmailHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "mail-sender:", err)
 		os.Exit(1)
@@ -79,24 +79,41 @@ func str(m map[string]any, k string) string {
 	return ""
 }
 
-// opHandler —— forward the tool call to the named host op: session fields off `_meta` + raw args,
-// return the host's JSON wire straight through (or a folded error).
-func opHandler(op string) server.ToolHandlerFunc {
-	return func(_ context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
-		s := sessionFromMeta(req)
-		args, merr := json.Marshal(req.GetArguments())
-		if merr != nil {
-			return toolErr(merr), nil
-		}
-		resp, err := callHost(map[string]any{
-			"op": op, "owner_id": s.OwnerID, "visitor_email": s.VisitorEmail,
-			"args": json.RawMessage(args),
-		})
-		if err != nil {
-			return toolErr(err), nil
-		}
-		return mcpgo.NewToolResultText(string(resp)), nil
+type sendEmailArgs struct {
+	Recipient string `json:"recipient"`
+	Subject   string `json:"subject"`
+	Body      string `json:"body"`
+}
+
+// sendEmailHandler —— D-4 recipient hard-control done sandbox-side (to = args.recipient, else the
+// visitor's session email — never an LLM-chosen arbitrary address), then reach back through the
+// FIXED-vocabulary op connector.invoke("mail","send"). No bespoke host op: the host just runs the
+// active mail connector's send verb. Result wire ({ok:true} / folded error) is the agent result.
+func sendEmailHandler(_ context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	s := sessionFromMeta(req)
+	raw, merr := json.Marshal(req.GetArguments())
+	if merr != nil {
+		return toolErr(merr), nil
 	}
+	var args sendEmailArgs
+	if uerr := json.Unmarshal(raw, &args); uerr != nil {
+		return toolErr(uerr), nil
+	}
+	to := args.Recipient
+	if to == "" {
+		to = s.VisitorEmail
+	}
+	sendArgs, aerr := json.Marshal(map[string]string{
+		"to": to, "subject": args.Subject, "body": args.Body,
+	})
+	if aerr != nil {
+		return toolErr(aerr), nil
+	}
+	resp, err := gwConnectorInvoke(s.OwnerID, "mail", "send", sendArgs)
+	if err != nil {
+		return toolErr(err), nil
+	}
+	return mcpgo.NewToolResultText(string(resp)), nil
 }
 
 func toolErr(err error) *mcpgo.CallToolResult {
