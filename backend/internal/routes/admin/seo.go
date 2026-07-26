@@ -14,14 +14,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // SEOAdminDeps —— admin SEO handlers 依赖。Pins 给 unpublish→auto-unpin 钩子
 // (pinned ⊆ published 的 unpublish 端;必须走 UpdateWikiSEOWithPins)。
 type SEOAdminDeps struct {
 	SEO  *corpus.SEORepo
-	Pins usecases.PagePinDeps
+	Pins owner.PagePinDeps
 }
 
 // MountSEO 挂 /seo + /seo/stats + 统一的 /corpus/{genre}/{id}/seo（合并原
@@ -136,8 +136,8 @@ func (h *Handlers) patchWikiSEO() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		res, err := usecases.UpdateWikiSEOWithPins(
-			r.Context(), h.SEOAdmin.SEO, h.SEOAdmin.Pins, usecases.WikiSEOUpdate{
+		res, err := owner.UpdateWikiSEOWithPins(
+			r.Context(), h.SEOAdmin.SEO, h.SEOAdmin.Pins, owner.WikiSEOUpdate{
 				OwnerID:     middleware.OwnerIDFrom(r.Context()),
 				WikiID:      wikiID,
 				Description: req.Excerpt,

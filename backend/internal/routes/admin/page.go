@@ -16,16 +16,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PageAdminDeps —— admin page handlers 依赖。PageContent 走 OwnerRepo
 // 的 GetPageContent / UpsertPageContent 方法（Owner aggregate 内容切面）。
 // Pins 给 pin 校验(insights/projects 是 corpus pin 列表,pinned ⊆ published
-// 在写入点由 usecases.ValidatePagePins 维护)+ pinnable 候选列表。
+// 在写入点由 owner.ValidatePagePins 维护)+ pinnable 候选列表。
 type PageAdminDeps struct {
 	Owners *owner.Repo
-	Pins   usecases.PagePinDeps
+	Pins   owner.PagePinDeps
 }
 
 // MountPage 挂 /page。caller 负责 /api/admin/ 前缀 + auth middleware。
@@ -65,7 +64,7 @@ func loadOwnerPage(
 // 默认草稿，让 owner 直接基于这个改而不是从空白起步。复用 usecase 层的
 // public 默认（已经按设计稿写好）。
 func defaultContentForOwner(ownerID string) owner.PageContent {
-	return usecases.DefaultPageContent(ownerID)
+	return owner.DefaultPageContent(ownerID)
 }
 
 func (h *Handlers) putPage() http.HandlerFunc {
@@ -85,7 +84,7 @@ func (h *Handlers) putPage() http.HandlerFunc {
 func savePutPage(
 	h *Handlers, w http.ResponseWriter, r *http.Request, body *owner.PageContent,
 ) {
-	if verr := usecases.ValidatePagePins(
+	if verr := owner.ValidatePagePins(
 		r.Context(), h.PageAdmin.Pins, body.OwnerID, body,
 	); verr != nil {
 		handlePagePinErr(h, w, verr)
@@ -139,7 +138,7 @@ type pinnableEntry struct {
 }
 
 func loadPinnable(
-	ctx context.Context, pins usecases.PagePinDeps, ownerID string,
+	ctx context.Context, pins owner.PagePinDeps, ownerID string,
 ) ([]pinnableEntry, error) {
 	metas, err := pins.Wiki.ListAllMeta(ctx, ownerID)
 	if err != nil {

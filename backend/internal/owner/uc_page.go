@@ -7,7 +7,7 @@
 // 删 handle URL 之后：所有"按 handle 反查 owner"路径下沉成"拿 sole owner"，
 // 公开页 / wiki landing / custom page 等全部走 LoadSoleOwner。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // PageDeps —— page usecase 所需。PageContent 是 Owner aggregate 的内容
@@ -24,7 +23,7 @@ import (
 // usecase 这里不再持有独立 PageRepo。Wiki 给 pin join 用(GetPublicPage);
 // 只调 LoadSoleOwner 的 caller 可不填。
 type PageDeps struct {
-	Owners *owner.Repo
+	Owners *Repo
 	Wiki   *corpus.WikiRepo
 }
 
@@ -40,14 +39,14 @@ type PublicPageView struct {
 // join 成 PagePinCard(title + excerpt + path)。AI(page.get)和访客看同一形。
 // 字段顺序按 govet fieldalignment。
 type PageContentView struct {
-	UpdatedAt    time.Time           `json:"updated_at"`
-	Where        owner.PageWhere     `json:"where"`
-	Contact      owner.PageContact   `json:"contact"`
-	OwnerID      string              `json:"owner_id"`
-	HeroProse    string              `json:"hero_prose"`
-	HeroExamples []string            `json:"hero_examples"`
-	Insights     []owner.PagePinCard `json:"insights"`
-	Projects     []owner.PagePinCard `json:"projects"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+	Where        PageWhere     `json:"where"`
+	Contact      PageContact   `json:"contact"`
+	OwnerID      string        `json:"owner_id"`
+	HeroProse    string        `json:"hero_prose"`
+	HeroExamples []string      `json:"hero_examples"`
+	Insights     []PagePinCard `json:"insights"`
+	Projects     []PagePinCard `json:"projects"`
 }
 
 // PublicOwnerView —— 暴露给访客的 owner 切片（不含 email / password_hash）。
@@ -60,17 +59,17 @@ type PublicOwnerView struct {
 
 // LoadSoleOwner —— v1 单 owner instance：取唯一的 owner。pre-claim
 // （未 claim） → ErrOwnerNotFound。app 根路径 / SEO / public routes 都走这条。
-func LoadSoleOwner(ctx context.Context, deps PageDeps) (owner.Owner, error) {
+func LoadSoleOwner(ctx context.Context, deps PageDeps) (Owner, error) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		return owner.Owner{}, fmt.Errorf("first owner handle: %w", err)
+		return Owner{}, fmt.Errorf("first owner handle: %w", err)
 	}
 	if handle == "" {
-		return owner.Owner{}, owner.ErrOwnerNotFound
+		return Owner{}, ErrOwnerNotFound
 	}
 	sole, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		return owner.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
+		return Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
 	return sole, nil
 }
@@ -120,8 +119,8 @@ func EnsureUnclaimedSetupToken(ctx context.Context, issuer SetupTokenIssuer) (st
 func GetPublicPage(ctx context.Context, deps PageDeps) (PublicPageView, error) {
 	soleOwner, err := LoadSoleOwner(ctx, deps)
 	if err != nil {
-		if errors.Is(err, owner.ErrOwnerNotFound) {
-			return PublicPageView{}, owner.ErrOwnerNotFound
+		if errors.Is(err, ErrOwnerNotFound) {
+			return PublicPageView{}, ErrOwnerNotFound
 		}
 		return PublicPageView{}, err
 	}
@@ -146,7 +145,7 @@ func GetPublicPage(ctx context.Context, deps PageDeps) (PublicPageView, error) {
 // BuildPageContentView —— 存储形 → 渲染视图(pin join)。page.get MCP 也走这条,
 // AI 看到的和访客一致。
 func BuildPageContentView(
-	ctx context.Context, deps PageDeps, ownerID string, content *owner.PageContent,
+	ctx context.Context, deps PageDeps, ownerID string, content *PageContent,
 ) (PageContentView, error) {
 	join, err := LoadPinJoin(ctx, PagePinDeps(deps), ownerID, content)
 	if err != nil {
@@ -166,13 +165,13 @@ func BuildPageContentView(
 
 func loadPageContentOrDefault(
 	ctx context.Context, deps PageDeps, ownerID string,
-) (owner.PageContent, error) {
+) (PageContent, error) {
 	content, err := deps.Owners.GetPageContent(ctx, ownerID)
-	if errors.Is(err, owner.ErrPageNotFound) {
+	if errors.Is(err, ErrPageNotFound) {
 		return buildDefaultPage(ownerID), nil
 	}
 	if err != nil {
-		return owner.PageContent{}, fmt.Errorf("get page content: %w", err)
+		return PageContent{}, fmt.Errorf("get page content: %w", err)
 	}
 	return content, nil
 }
@@ -180,12 +179,12 @@ func loadPageContentOrDefault(
 // DefaultPageContent —— page-content.js 里的默认 hero / insights / projects /
 // where / contact。新 instance 第一次被访问时返这个；admin 第一次保存就
 // 覆盖。
-func DefaultPageContent(ownerID string) owner.PageContent {
+func DefaultPageContent(ownerID string) PageContent {
 	return buildDefaultPage(ownerID)
 }
 
-func buildDefaultPage(ownerID string) owner.PageContent {
-	return owner.PageContent{
+func buildDefaultPage(ownerID string) PageContent {
+	return PageContent{
 		OwnerID:      ownerID,
 		HeroProse:    defaultHeroProse,
 		HeroExamples: defaultHeroExamples(),
@@ -232,8 +231,8 @@ func defaultProjects() []string {
 // visitor-facing; the old defaults ("Edit your location in /admin/page." / "Tell visitors what
 // you're up to right now.") spoke to the OWNER. An unconfigured section shows nothing; the owner's
 // nudge lives in the /admin/page editor.
-func defaultWhere() owner.PageWhere {
-	return owner.PageWhere{
+func defaultWhere() PageWhere {
+	return PageWhere{
 		LocationLine: "",
 		StatusProse:  "",
 		LookingFor:   []string{},
@@ -241,8 +240,8 @@ func defaultWhere() owner.PageWhere {
 	}
 }
 
-func defaultContact() owner.PageContact {
-	return owner.PageContact{
+func defaultContact() PageContact {
+	return PageContact{
 		Email:          "",
 		ChatLine:       "Ask via the chat above.",
 		RecruiterProse: "",

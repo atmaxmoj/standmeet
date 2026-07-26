@@ -21,14 +21,14 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // WritingHandlers —— public writings endpoints。
 type WritingHandlers struct {
 	Writings  corpus.WritingsDeps
 	CrossLink corpus.CrossLinkQueryDeps
-	Page      usecases.PageDeps
+	Page      owner.PageDeps
 	Assets    corpus.AssetsDeps
 	Log       *slog.Logger
 }
@@ -75,12 +75,12 @@ func (h *WritingHandlers) Mount(r chi.Router) {
 
 func (h *WritingHandlers) list() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		owner, err := usecases.LoadSoleOwner(r.Context(), h.Page)
+		soleOwner, err := owner.LoadSoleOwner(r.Context(), h.Page)
 		if err != nil {
 			h.handleWritingErr(w, "load owner", err)
 			return
 		}
-		runListWritingsPage(r, h, w, owner.ID)
+		runListWritingsPage(r, h, w, soleOwner.ID)
 	}
 }
 
@@ -170,17 +170,17 @@ func loadCrossLinkIndex(
 func (h *WritingHandlers) get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := chi.URLParam(r, "slug")
-		owner, err := usecases.LoadSoleOwner(r.Context(), h.Page)
+		soleOwner, err := owner.LoadSoleOwner(r.Context(), h.Page)
 		if err != nil {
 			h.handleWritingErr(w, "load owner", err)
 			return
 		}
-		writing, perr := corpus.GetWritingBySlug(r.Context(), h.Writings, owner.ID, slug)
+		writing, perr := corpus.GetWritingBySlug(r.Context(), h.Writings, soleOwner.ID, slug)
 		if perr != nil {
 			h.handleWritingErr(w, "get writing", perr)
 			return
 		}
-		writeWritingResp(r, h, w, owner.ID, &writing)
+		writeWritingResp(r, h, w, soleOwner.ID, &writing)
 	}
 }
 

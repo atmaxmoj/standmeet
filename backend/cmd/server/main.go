@@ -180,7 +180,7 @@ func captchaSiteKeyFor(cfg *config.Config) string {
 }
 
 // setupTokenIssuerAdapter —— 把 *owner.InstanceRepo + *session.SetupTokenHolder
-// 包成 usecases.SetupTokenIssuer。让 /api/v1/instance handler 通过 usecase 拿
+// 包成 owner.SetupTokenIssuer。让 /api/v1/instance handler 通过 usecase 拿
 // self-healing 的 unclaimed setup token，而 usecase 层不直接 import session 包。
 type setupTokenIssuerAdapter struct {
 	log    *slog.Logger

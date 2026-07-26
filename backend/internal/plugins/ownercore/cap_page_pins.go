@@ -1,6 +1,6 @@
 // cap_page_pins.go —— page.pin / page.unpin:主页 insights/projects 是 corpus
 // 的 pin 列表(docs/design/page-corpus-pinning.md),这里是 owner AI 的装填口。
-// 不变量 pinned ⊆ published 由 usecases.PinToPage(唯一维护点)在写入时拒绝
+// 不变量 pinned ⊆ published 由 owner.PinToPage(唯一维护点)在写入时拒绝
 // 未发布条目;这里只做参数解包 + 错误翻译。
 
 package ownercore
@@ -13,7 +13,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func (c *pageCapability) pinBinding() *capreg.MCPBinding {
@@ -69,7 +68,7 @@ func (c *pageCapability) handlePin(
 	if argErr != nil {
 		return capreg.MCPError(argErr.Error())
 	}
-	pinned, err := usecases.PinToPage(ctx, c.pins, ownerID, args.Section, args.WikiID)
+	pinned, err := owner.PinToPage(ctx, c.pins, ownerID, args.Section, args.WikiID)
 	if err != nil {
 		return pinErrToResult(c, "page.pin", err)
 	}
@@ -85,7 +84,7 @@ func (c *pageCapability) handleUnpin(
 	if argErr != nil {
 		return capreg.MCPError(argErr.Error())
 	}
-	pinned, err := usecases.UnpinFromPage(ctx, c.pins, ownerID, args.Section, args.WikiID)
+	pinned, err := owner.UnpinFromPage(ctx, c.pins, ownerID, args.Section, args.WikiID)
 	if err != nil {
 		return pinErrToResult(c, "page.unpin", err)
 	}

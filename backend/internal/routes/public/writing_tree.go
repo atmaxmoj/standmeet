@@ -10,18 +10,17 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 func (h *WritingHandlers) getWritingTree() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		owner, err := usecases.LoadSoleOwner(r.Context(), h.Page)
+		soleOwner, err := owner.LoadSoleOwner(r.Context(), h.Page)
 		if err != nil {
 			h.handleWritingErr(w, "load owner", err)
 			return
 		}
-		writings, lerr := corpus.ListPublishedWritings(r.Context(), h.Writings, owner.ID)
+		writings, lerr := corpus.ListPublishedWritings(r.Context(), h.Writings, soleOwner.ID)
 		if lerr != nil {
 			h.handleWritingErr(w, "list published writings", lerr)
 			return
@@ -35,12 +34,12 @@ func (h *WritingHandlers) getWritingTree() http.HandlerFunc {
 // writing 的祖先链(breadcrumb)+ 直接子(文章页 reader 框)。
 func (h *WritingHandlers) getWritingTreeContext() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		owner, err := usecases.LoadSoleOwner(r.Context(), h.Page)
+		soleOwner, err := owner.LoadSoleOwner(r.Context(), h.Page)
 		if err != nil {
 			h.handleWritingErr(w, "load owner", err)
 			return
 		}
-		writings, lerr := corpus.ListPublishedWritings(r.Context(), h.Writings, owner.ID)
+		writings, lerr := corpus.ListPublishedWritings(r.Context(), h.Writings, soleOwner.ID)
 		if lerr != nil {
 			h.handleWritingErr(w, "list published writings", lerr)
 			return

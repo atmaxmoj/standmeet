@@ -51,7 +51,7 @@ type Deps struct {
 	Prompts          *owner.PromptsDeps
 	Conversations    *conversation.ConversationsDeps
 	PublicURL        usecases.PublicURLDeps
-	PagePins         usecases.PagePinDeps
+	PagePins         owner.PagePinDeps
 	Corpus           *corpus.Deps
 	Account          owner.AccountDeps
 	BYOAI            owner.BYOAIDeps

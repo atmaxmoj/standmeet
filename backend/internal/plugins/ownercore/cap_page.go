@@ -34,13 +34,13 @@ type pageCapability struct {
 	pages     pageContentStore
 	handle    *owner.HandleDeps
 	publicURL usecases.PublicURLDeps
-	pins      usecases.PagePinDeps
+	pins      owner.PagePinDeps
 	log       *slog.Logger
 }
 
 func newPageCapability(
 	handle *owner.HandleDeps, pages pageContentStore,
-	publicURL usecases.PublicURLDeps, pins usecases.PagePinDeps, log *slog.Logger,
+	publicURL usecases.PublicURLDeps, pins owner.PagePinDeps, log *slog.Logger,
 ) *pageCapability {
 	return &pageCapability{
 		handle: handle, pages: pages, publicURL: publicURL, pins: pins, log: log,
@@ -148,10 +148,10 @@ func (c *pageCapability) handleGet(
 			c.log.Error("cap page.get", "err", err)
 			return capreg.MCPError("page.get failed")
 		}
-		content = usecases.DefaultPageContent(ownerID)
+		content = owner.DefaultPageContent(ownerID)
 	}
 	// join 成渲染视图 —— AI 看到的和访客一致(设计:page.get 返 joined)。
-	view, verr := usecases.BuildPageContentView(ctx, usecases.PageDeps{
+	view, verr := owner.BuildPageContentView(ctx, owner.PageDeps{
 		Owners: c.pins.Owners, Wiki: c.pins.Wiki,
 	}, ownerID, &content)
 	if verr != nil {
@@ -204,7 +204,7 @@ func (c *pageCapability) handlePut(
 			c.log.Error("cap page.put load", "err", err)
 			return capreg.MCPError("page.put failed")
 		}
-		current = usecases.DefaultPageContent(ownerID)
+		current = owner.DefaultPageContent(ownerID)
 	}
 	current.OwnerID = ownerID
 	current.HeroProse = body.HeroProse

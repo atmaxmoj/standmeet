@@ -29,7 +29,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/storage"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 	"github.com/atmaxmoj/standmeet/internal/usecases/obsidian"
 )
 
@@ -43,7 +42,7 @@ type ObsidianDeps struct {
 	WritingsTx corpus.WritingsTxDeps
 	// PagePins —— sync 是 published 的第三条写路径(frontmatter 可翻 publish);
 	// 批量 reconcile 后清扫失效 pin,保住 pinned ⊆ published(渲染过滤只是兜底)。
-	PagePins usecases.PagePinDeps
+	PagePins owner.PagePinDeps
 	Log      *slog.Logger
 }
 
@@ -120,7 +119,7 @@ func (d *ObsidianDeps) Ingest(
 // sweepPinsAfterSync —— sync 可能 unpublish/删除已 pin 条目 → 清扫主页 pin
 // (pinned ⊆ published)。best-effort。
 func (d *ObsidianDeps) sweepPinsAfterSync(ctx context.Context, ownerID string) {
-	if serr := usecases.SweepPagePins(ctx, d.PagePins, ownerID); serr != nil && d.Log != nil {
+	if serr := owner.SweepPagePins(ctx, d.PagePins, ownerID); serr != nil && d.Log != nil {
 		d.Log.Error("sweep page pins after vault sync", "err", serr)
 	}
 }

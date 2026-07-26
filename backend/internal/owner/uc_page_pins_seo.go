@@ -8,14 +8,13 @@
 // vault sync 是第三条 published 写路径(frontmatter 可翻 publish),它批量 reconcile
 // 后调 SweepPagePins 清掉失效 pin;渲染侧 published 过滤仍是兜底(防御纵深)。
 
-package usecases
+package owner
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // WikiSEOUpdater —— repo 面的窄口(corpus.SEORepo 满足)。
@@ -79,7 +78,7 @@ func SweepPagePins(ctx context.Context, pins PagePinDeps, ownerID string) error 
 
 // collectStalePins —— 不再 published(或条目已删,join 未命中)的 pin id 集。
 func collectStalePins(
-	content *owner.PageContent, cards map[string]corpus.WikiCard,
+	content *PageContent, cards map[string]corpus.WikiCard,
 ) []string {
 	stale := []string{}
 	for _, id := range append(append([]string{}, content.Insights...), content.Projects...) {

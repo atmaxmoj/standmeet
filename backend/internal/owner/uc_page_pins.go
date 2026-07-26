@@ -7,7 +7,7 @@
 //     栏目名(caller 在 tool result 里声明副作用)
 // 渲染侧 ResolvePinCards 只按 published 兜底过滤(防御纵深,不是主机制)。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -15,12 +15,11 @@ import (
 	"slices"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // PagePinDeps —— pin 维护点依赖:page_content 存取 + wiki 卡内容/树路径。
 type PagePinDeps struct {
-	Owners *owner.Repo
+	Owners *Repo
 	Wiki   *corpus.WikiRepo
 }
 
@@ -31,8 +30,8 @@ const (
 )
 
 // PinToPage —— 把 published 的 wiki 条目 pin 进栏目(已 pin 则幂等)。
-// 返回该栏目的最新 pin 列表。未发布 → owner.ErrPinUnpublished;不存在 →
-// owner.ErrPinNotFound;栏目名非法 → error。
+// 返回该栏目的最新 pin 列表。未发布 → ErrPinUnpublished;不存在 →
+// ErrPinNotFound;栏目名非法 → error。
 func PinToPage(
 	ctx context.Context, deps PagePinDeps, ownerID, section, wikiID string,
 ) ([]string, error) {
@@ -77,7 +76,7 @@ func UnpinWikiEverywhere(
 // ValidatePagePins —— admin PUT 整段保存前校验:每个 pin 都存在且 published。
 // 跟 PinToPage 共用 checkPinnable —— 单一维护点,不是第二套实现。
 func ValidatePagePins(
-	ctx context.Context, deps PagePinDeps, ownerID string, content *owner.PageContent,
+	ctx context.Context, deps PagePinDeps, ownerID string, content *PageContent,
 ) error {
 	for _, id := range append(append([]string{}, content.Insights...), content.Projects...) {
 		if err := checkPinnable(ctx, deps, ownerID, id); err != nil {
@@ -91,14 +90,14 @@ func ValidatePagePins(
 // 序;已删/未发布(兜底)跳过。paths 由 caller 传入(一次 ListAllMeta 服务两个栏目)。
 func ResolvePinCards(
 	cards map[string]corpus.WikiCard, paths map[string]string, pins []string,
-) []owner.PagePinCard {
-	out := make([]owner.PagePinCard, 0, len(pins))
+) []PagePinCard {
+	out := make([]PagePinCard, 0, len(pins))
 	for _, id := range pins {
 		card, ok := cards[id]
 		if !ok || !card.Published {
 			continue
 		}
-		out = append(out, owner.PagePinCard{
+		out = append(out, PagePinCard{
 			WikiID: id, Title: card.Title, Excerpt: card.Excerpt, Path: paths[id],
 		})
 	}
@@ -113,7 +112,7 @@ type PinJoin struct {
 
 // LoadPinJoin —— 两个栏目的 pin 一次性 join:卡内容 + 全量树路径。
 func LoadPinJoin(
-	ctx context.Context, deps PagePinDeps, ownerID string, content *owner.PageContent,
+	ctx context.Context, deps PagePinDeps, ownerID string, content *PageContent,
 ) (PinJoin, error) {
 	ids := append(append([]string{}, content.Insights...), content.Projects...)
 	if len(ids) == 0 {
@@ -133,14 +132,14 @@ func LoadPinJoin(
 func checkPinnable(ctx context.Context, deps PagePinDeps, ownerID, wikiID string) error {
 	cards, err := deps.Wiki.ListCardsByIDs(ctx, ownerID, []string{wikiID})
 	if err != nil {
-		return owner.ErrPinNotFound
+		return ErrPinNotFound
 	}
 	card, ok := cards[wikiID]
 	if !ok {
-		return owner.ErrPinNotFound
+		return ErrPinNotFound
 	}
 	if !card.Published {
-		return owner.ErrPinUnpublished
+		return ErrPinUnpublished
 	}
 	return nil
 }
@@ -164,7 +163,7 @@ func mutatePins(
 }
 
 func applySectionMutation(
-	content *owner.PageContent, section string, mutate func([]string) []string,
+	content *PageContent, section string, mutate func([]string) []string,
 ) error {
 	switch section {
 	case PinSectionInsights:
@@ -177,7 +176,7 @@ func applySectionMutation(
 	return nil
 }
 
-func sectionPins(content *owner.PageContent, section string) []string {
+func sectionPins(content *PageContent, section string) []string {
 	if section == PinSectionProjects {
 		return content.Projects
 	}
@@ -201,7 +200,7 @@ func removePin(pins []string, wikiID string) []string {
 	return out
 }
 
-func collectTouchedSections(content *owner.PageContent, wikiID string) []string {
+func collectTouchedSections(content *PageContent, wikiID string) []string {
 	touched := []string{}
 	if slices.Contains(content.Insights, wikiID) {
 		touched = append(touched, PinSectionInsights)

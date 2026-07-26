@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 const capSEOBundle = "seo.bundle"
@@ -23,12 +23,12 @@ const capSEOBundle = "seo.bundle"
 type seoCapability struct {
 	seo   SEOWriter
 	stats seoStatsReader
-	pins  usecases.PagePinDeps
+	pins  owner.PagePinDeps
 	log   *slog.Logger
 }
 
 func newSEOCapability(
-	seo SEOWriter, stats seoStatsReader, pins usecases.PagePinDeps, log *slog.Logger,
+	seo SEOWriter, stats seoStatsReader, pins owner.PagePinDeps, log *slog.Logger,
 ) *seoCapability {
 	return &seoCapability{seo: seo, stats: stats, pins: pins, log: log}
 }
@@ -108,7 +108,7 @@ func (c *seoCapability) handleSetWikiSlug(
 	if args.WikiID == "" {
 		return capreg.MCPError("wiki_id is required")
 	}
-	res, err := usecases.UpdateWikiSEOWithPins(ctx, c.seo, c.pins, usecases.WikiSEOUpdate{
+	res, err := owner.UpdateWikiSEOWithPins(ctx, c.seo, c.pins, owner.WikiSEOUpdate{
 		OwnerID: ownerID, WikiID: args.WikiID, Description: args.Excerpt, Published: args.Published,
 	})
 	if err != nil {

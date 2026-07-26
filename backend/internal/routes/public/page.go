@@ -22,9 +22,9 @@ import (
 
 // PageHandlers —— page route 依赖。
 type PageHandlers struct {
-	Page        usecases.PageDeps
+	Page        owner.PageDeps
 	Log         *slog.Logger
-	TokenIssuer usecases.SetupTokenIssuer // 仅 unclaimed 时调；handler 通过它取 / self-heal plaintext
+	TokenIssuer owner.SetupTokenIssuer // 仅 unclaimed 时调；handler 通过它取 / self-heal plaintext
 	// MailStatus —— 读 owner mail connector 是否 connected，决定 gate 是否
 	// 展示「request access」整块(发不出码就别展示)。
 	MailStatus usecases.MailStatusDeps
@@ -47,7 +47,7 @@ func (h *PageHandlers) Mount(r chi.Router) {
 func (h *PageHandlers) getAppearanceCSS() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		css := ""
-		if soleOwner, err := usecases.LoadSoleOwner(r.Context(), h.Page); err == nil {
+		if soleOwner, err := owner.LoadSoleOwner(r.Context(), h.Page); err == nil {
 			css = h.ownerCustomCSS(r.Context(), soleOwner.ID)
 		}
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
@@ -69,7 +69,7 @@ func (h *PageHandlers) getAppearanceCSS() http.HandlerFunc {
 // 会被 hash 比对失败拒绝），所以哪怕泄漏也不构成实际威胁。
 func (h *PageHandlers) getInstance() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		soleOwner, err := usecases.LoadSoleOwner(r.Context(), h.Page)
+		soleOwner, err := owner.LoadSoleOwner(r.Context(), h.Page)
 		if err != nil && !errors.Is(err, owner.ErrOwnerNotFound) {
 			h.Log.Error("load sole owner", logErrKey, err)
 			writeError(h.Log, w, apierr.Envelope{
@@ -99,7 +99,7 @@ func (h *PageHandlers) unclaimedSetupToken(ctx context.Context, o *owner.Owner) 
 }
 
 func (h *PageHandlers) ensureUnclaimedTokenOrLog(ctx context.Context) string {
-	plaintext, err := usecases.EnsureUnclaimedSetupToken(ctx, h.TokenIssuer)
+	plaintext, err := owner.EnsureUnclaimedSetupToken(ctx, h.TokenIssuer)
 	if err != nil {
 		h.Log.Error("ensure unclaimed setup token", logErrKey, err)
 		return ""
@@ -154,7 +154,7 @@ type instanceInfoView struct {
 
 func (h *PageHandlers) getPage() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		view, err := usecases.GetPublicPage(r.Context(), h.Page)
+		view, err := owner.GetPublicPage(r.Context(), h.Page)
 		if err != nil {
 			handlePageErr(h.Log, w, err)
 			return
@@ -163,7 +163,7 @@ func (h *PageHandlers) getPage() http.HandlerFunc {
 	}
 }
 
-func writePageView(log *slog.Logger, w http.ResponseWriter, view *usecases.PublicPageView) {
+func writePageView(log *slog.Logger, w http.ResponseWriter, view *owner.PublicPageView) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(view); err != nil {

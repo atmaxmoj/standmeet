@@ -164,7 +164,7 @@ func mountAdmin(r chi.Router, deps *Deps) {
 }
 
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
-	pins := usecases.PagePinDeps{
+	pins := owner.PagePinDeps{
 		Owners: deps.Admin.Owners, Wiki: deps.Admin.Corpus.Wiki,
 	}
 	return &adminroutes.Handlers{

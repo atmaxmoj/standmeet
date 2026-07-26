@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *corpus.IndexDeps) {
@@ -42,12 +42,12 @@ func wireSearchIndex(ctx context.Context, d *runtimeDeps) {
 		d.log.Error("meili ensure index", "err", err)
 		return
 	}
-	owner, err := usecases.LoadSoleOwner(ctx, usecases.PageDeps{Owners: d.ownerRepo})
+	soleOwner, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.ownerRepo})
 	if err != nil {
 		return // 未 claim / 查不到 → 无可回填
 	}
 	if d.corpusIndexer != nil {
-		d.corpusIndexer.ReindexOwner(ctx, owner.ID)
+		d.corpusIndexer.ReindexOwner(ctx, soleOwner.ID)
 	}
 }
 
@@ -76,9 +76,9 @@ func (d *runtimeDeps) reconcileLoop(ctx context.Context) {
 }
 
 func (d *runtimeDeps) reconcileOnce(ctx context.Context) {
-	owner, err := usecases.LoadSoleOwner(ctx, usecases.PageDeps{Owners: d.ownerRepo})
+	soleOwner, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.ownerRepo})
 	if err != nil {
 		return
 	}
-	d.corpusIndexer.Reconcile(ctx, owner.ID)
+	d.corpusIndexer.Reconcile(ctx, soleOwner.ID)
 }
