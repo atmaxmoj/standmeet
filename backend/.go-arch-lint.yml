@@ -19,8 +19,6 @@ excludeFiles:
 # Components 命名对齐 Otium auth。按外部系统切 infra（postgres / inference /
 # storage / sandbox 各自独立）而不是扁平 infra/。
 components:
-  domain:
-    in: internal/domain
   usecases:
     in: internal/usecases
   obsidian:
@@ -158,13 +156,6 @@ components:
 
 deps:
   # Domain 纯内核，无 internal 依赖。
-  domain:
-    mayDependOn: []
-    anyVendorDeps: true
-
-  # Usecases 编排 domain + infra（postgres / session / inference / jobcache / jobfetch）。
-  # PDF 渲染走 usecases.PDFRenderer 接口；实现（gotenberg）由 wireup 注入，
-  # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
       - conversation
@@ -172,7 +163,6 @@ deps:
       - owner
       - marketplace
       - corpus
-      - domain
       - postgres
       - session
       - inference
@@ -186,6 +176,7 @@ deps:
       - capsocket
       - search
       - connectorconsumer
+      - connector
     anyVendorDeps: true
 
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
@@ -218,17 +209,16 @@ deps:
   connector:
     mayDependOn:
       - connector
-      - domain
       - connectorcontract
       - connectorconsumer
       - mailer
       - retry
       - httpx
       - connectoropenapi
-      - postgres
       - cryptobox
       - pgstore
       - dbq
+      - owner
     anyVendorDeps: true
 
   # connectorconsumer —— 连接器轴消费者契约 leaf(AgentToolConnector/AgentOp/ErrMailNotConfigured)。
@@ -253,7 +243,6 @@ deps:
     mayDependOn:
       - owner
       - capsocket
-      - domain
     anyVendorDeps: true
   reportroutes:
     mayDependOn:
@@ -284,7 +273,6 @@ deps:
   pluginbooker:
     mayDependOn:
       - connectorcontract
-      - domain
     anyVendorDeps: true
 
 
@@ -315,8 +303,7 @@ deps:
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
   sandbox:
-    mayDependOn:
-      - domain
+    mayDependOn: []
     anyVendorDeps: true
 
   # capreg —— Phase B Capability interface + Registry。leaf-ish 包，
@@ -326,7 +313,6 @@ deps:
     mayDependOn:
       - access
       - inference
-      - domain
     anyVendorDeps: true
 
   # prompts —— Phase D-1: leaf 包，只 stdlib (embed)；所有引 system prompt
@@ -338,8 +324,7 @@ deps:
 
   # mcpclient 调 owner-registered 外部 MCP HTTP server。
   mcpclient:
-    mayDependOn:
-      - domain
+    mayDependOn: []
     anyVendorDeps: true
 
   # capsocket —— 窄 host unix-socket 服务 leaf：line-JSON 分发，无 internal 依赖。
@@ -363,7 +348,6 @@ deps:
       - marketplace
       - corpus
       - jobsdomain
-      - domain
       - dbq
       - cryptobox
       - stats
@@ -386,7 +370,7 @@ deps:
   # domain 是单向值对象（PathPermission 等）—— session 内置入参/出参字段，
   # 不耦合业务逻辑。其他 internal 包仍走 narrow interface 注入。
   session:
-    mayDependOn: [domain, access]
+    mayDependOn: [access]
     anyVendorDeps: true
 
   config:
@@ -412,7 +396,6 @@ deps:
   # 接口注入 owner profile 查询，避免直接 import postgres；usecases 提供 token verify。
   mcphandle:
     mayDependOn:
-      - domain
       - usecases
       - capreg
       - mcputil
@@ -430,7 +413,6 @@ deps:
       - access
       - owner
       - cryptobox
-      - domain   # AICredential value object，统一 byoai 跟 owner key 的 shape
       - httpx
     anyVendorDeps: true
 
@@ -449,7 +431,6 @@ deps:
       - inference
       - usecases
       - capreg
-      - domain
       - postgres
       - sandbox
       - mcpplugin
@@ -463,7 +444,6 @@ deps:
   # chi (vendor)；boundary 仍 leaf 不耦合任何业务包。
   plugins:
     mayDependOn:
-      - domain
       - capreg
     anyVendorDeps: true
 
@@ -495,7 +475,6 @@ deps:
       - corpus
       - plugins
       - capreg
-      - domain
       - mcputil
       - usecases
       - httpx
@@ -515,7 +494,6 @@ deps:
     mayDependOn:
       - owner
       - jobsdomain
-      - domain
       - postgres
       - usecases
       - jobcache
@@ -529,7 +507,6 @@ deps:
   jobdedup:
     mayDependOn:
       - jobsdomain
-      - domain
     anyVendorDeps: true
 
   # jobsmcp —— J.3: jobs plugin MCP capabilities + result wire views。
@@ -538,7 +515,6 @@ deps:
     mayDependOn:
       - owner
       - jobsdomain
-      - domain
       - capreg
       - mcputil
       - jobsuc
@@ -555,7 +531,6 @@ deps:
   jobsadmin:
     mayDependOn:
       - jobsdomain
-      - domain
       - postgres
       - middleware
       - apierr
@@ -565,7 +540,6 @@ deps:
   jobcache:
     mayDependOn:
       - jobsdomain
-      - domain
     anyVendorDeps: true
 
   # jobfetch —— 6+ 个 source adapter（Greenhouse / Lever / Ashby / RemoteOK
@@ -574,7 +548,6 @@ deps:
   jobfetch:
     mayDependOn:
       - jobsdomain
-      - domain
       - httpx
     anyVendorDeps: true
 
@@ -594,12 +567,10 @@ deps:
   printsess:
     mayDependOn:
       - jobsdomain
-      - domain
     anyVendorDeps: true
 
   jobregistry:
     mayDependOn:
-      - domain
       - stats
     anyVendorDeps: true
 
@@ -632,8 +603,7 @@ deps:
 
   # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
   corpus:
-    mayDependOn:
-      - domain
+    mayDependOn: [connector]
     anyVendorDeps: true
 
   # access —— #135 access 域(building full vertical)：entity + access_requests/api_keys repos。
@@ -653,7 +623,6 @@ deps:
 
   marketplace:
     mayDependOn:
-      - domain
       - httpx
       - pgstore
       - dbq
@@ -679,7 +648,6 @@ deps:
   sysroutes:
     mayDependOn:
       - owner
-      - domain
       - postgres
       - printsess
       - session
@@ -707,7 +675,6 @@ deps:
       - access
       - marketplace
       - corpus
-      - domain
       - usecases
       - obsidian
       - session
@@ -730,7 +697,6 @@ deps:
   obsidian:
     mayDependOn:
       - corpus
-      - domain
       - usecases
       - postgres
       - storage
@@ -744,7 +710,6 @@ deps:
       - access
       - owner
       - corpus
-      - domain
       - usecases
       - session
       - inference
@@ -763,7 +728,6 @@ deps:
     mayDependOn:
       - access
       - owner
-      - domain
       - usecases
       - capreg
       - paritymanifest
@@ -790,7 +754,6 @@ deps:
     mayDependOn:
       - jobsdomain
       - config
-      - domain
       - postgres
       - session
       - usecases

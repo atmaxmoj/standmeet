@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -263,7 +263,7 @@ func toDomainWiki(w *dbq.CorpusNote) corpus.Wiki {
 		Published:    w.Published,
 		CreatedAt:    w.CreatedAt.Time,
 		UpdatedAt:    w.UpdatedAt.Time,
-		Integrations: domain.NewIntegrations(),
+		Integrations: connector.NewIntegrations(),
 	}
 	if w.ParentID.Valid {
 		s := formatUUID(w.ParentID)

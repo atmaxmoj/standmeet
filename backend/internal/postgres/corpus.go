@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -186,7 +186,7 @@ func toDomainRaw(r *dbq.CorpusNote) corpus.Raw {
 		FlaggedPrivate: r.FlaggedPrivate,
 		Archived:       r.Archived,
 		CreatedAt:      r.CreatedAt.Time,
-		Integrations:   domain.NewIntegrations(),
+		Integrations:   connector.NewIntegrations(),
 	}
 	if r.PromotedTo.Valid {
 		s := formatUUID(r.PromotedTo)

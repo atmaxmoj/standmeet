@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -243,7 +243,7 @@ func toDomainOutput(o *dbq.CorpusNote) corpus.Output {
 		Published:     o.Published,
 		CreatedAt:     o.CreatedAt.Time,
 		UpdatedAt:     o.UpdatedAt.Time,
-		Integrations:  domain.NewIntegrations(),
+		Integrations:  connector.NewIntegrations(),
 	}
 	if o.ParentID.Valid {
 		s := formatUUID(o.ParentID)

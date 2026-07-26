@@ -1,6 +1,6 @@
 // mail_connectors.go —— owner_mail_connectors repo。username/password 通过
 // cryptobox AES-256-GCM 落盘加密;repo 在边界做加解密,对 usecases 只暴露明文
-// domain.MailConnector。host/port/from 非密,明文存。
+// connector.MailConnector。host/port/from 非密,明文存。
 
 package postgres
 
@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -71,18 +71,18 @@ func (r *MailRepo) SaveConnector(ctx context.Context, in *SaveMailConnectorInput
 // GetConnector —— 加载并解密。无行返回空 connector(OwnerID/Provider 填好)。
 func (r *MailRepo) GetConnector(
 	ctx context.Context, ownerID, provider string,
-) (domain.MailConnector, error) {
+) (connector.MailConnector, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.MailConnector{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return connector.MailConnector{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).GetMailConnector(ctx,
 		dbq.GetMailConnectorParams{OwnerID: ownerUUID, Provider: provider})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.MailConnector{OwnerID: ownerID, Provider: provider}, nil
+			return connector.MailConnector{OwnerID: ownerID, Provider: provider}, nil
 		}
-		return domain.MailConnector{}, fmt.Errorf("get mail connector: %w", qerr)
+		return connector.MailConnector{}, fmt.Errorf("get mail connector: %w", qerr)
 	}
 	return decodeMailConnector(&row, ownerID)
 }
@@ -159,17 +159,17 @@ func (r *MailRepo) DeleteConnector(ctx context.Context, ownerID, provider string
 
 func decodeMailConnector(
 	row *dbq.OwnerMailConnector, ownerID string,
-) (domain.MailConnector, error) {
+) (connector.MailConnector, error) {
 	aad := []byte(ownerID) // 与 SaveConnector 的 in.OwnerID 同串。
 	user, uerr := decryptOrEmpty(row.UsernameEnc, aad)
 	if uerr != nil {
-		return domain.MailConnector{}, fmt.Errorf("decrypt username: %w", uerr)
+		return connector.MailConnector{}, fmt.Errorf("decrypt username: %w", uerr)
 	}
 	pass, perr := decryptOrEmpty(row.PasswordEnc, aad)
 	if perr != nil {
-		return domain.MailConnector{}, fmt.Errorf("decrypt password: %w", perr)
+		return connector.MailConnector{}, fmt.Errorf("decrypt password: %w", perr)
 	}
-	out := domain.MailConnector{
+	out := connector.MailConnector{
 		OwnerID: ownerID, Provider: row.Provider,
 		Host: row.Host, Port: int(row.Port),
 		Username: user, Password: pass,

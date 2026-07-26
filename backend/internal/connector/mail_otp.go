@@ -1,4 +1,4 @@
-package domain
+package connector
 
 import (
 	"crypto/rand"

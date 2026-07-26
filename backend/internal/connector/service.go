@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 const (
@@ -23,21 +21,10 @@ const (
 
 // sentinel 错误见 errors.go。
 
-// ConnectionVerifier —— protocol 连接器 connect 时跑的连接测试（composition root 接 Slots）。
-type ConnectionVerifier interface {
-	VerifyConnector(ctx context.Context, connectorID, ownerID string) error
-}
-
-// Installer —— 校验（装配）一份上传 manifest + 注册进 live Hub，返回它声明的品类。composition
-// root 接 AssembleOpenAPI + Slots.Register。
-type Installer interface {
-	Install(m *Manifest) (category string, err error)
-}
-
 // Deps —— 服务依赖（composition root 注入）。Manifests = 内置连接器（id→category/kind/spec）。
 type Deps struct {
 	Repo      *Repo
-	Owners    *postgres.OwnerRepo
+	Owners    OwnerLookup
 	Redis     *redis.Client
 	HTTP      *http.Client
 	Verifier  ConnectionVerifier
@@ -170,43 +157,6 @@ func (s *Service) Status(
 	}
 	conn.ConnectorID = id
 	return conn, nil
-}
-
-// promoteFallback —— 品类槽无 active 但还有 connected 候选 → 把第一个候选设为 active（回退）。
-func (s *Service) promoteFallback(ctx context.Context, ownerID, category string) error {
-	conns, err := s.d.Repo.ListByCategory(ctx, ownerID, category)
-	if err != nil {
-		return fmt.Errorf("list category for fallback: %w", err)
-	}
-	if hasActiveConn(conns) {
-		return nil
-	}
-	cand := firstConnectedID(conns)
-	if cand == "" {
-		return nil // 无 connected 候选 → 槽空，复闸
-	}
-	if serr := s.d.Repo.SetActive(ctx, ownerID, cand, category); serr != nil {
-		return fmt.Errorf("promote fallback connector: %w", serr)
-	}
-	return nil
-}
-
-func hasActiveConn(conns []Connection) bool {
-	for i := range conns {
-		if conns[i].Active {
-			return true
-		}
-	}
-	return false
-}
-
-func firstConnectedID(conns []Connection) string {
-	for i := range conns {
-		if conns[i].Connected {
-			return conns[i].ConnectorID
-		}
-	}
-	return ""
 }
 
 // manifestFor —— 解析一个 id 的 manifest：内置（embed）优先，否则上传连接器（DB 存档的

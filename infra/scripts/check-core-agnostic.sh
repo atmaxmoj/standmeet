@@ -26,7 +26,7 @@ cd "$(dirname "$0")/../.."
 BASELINE="backend/.core-agnostic-baseline"
 
 # 内核三包 —— 看它们不该能推断出任何具体能力/连接器存在。
-CORE_DIRS="backend/internal/usecases backend/internal/inference backend/internal/domain"
+CORE_DIRS="backend/internal/usecases backend/internal/inference"
 
 # 具体能力/连接器名。都是内核里"正当理由几乎为零"的词。特意不收:
 #   - bare "mail"/"email"/"google"/"corpus" —— email 是身份、corpus 是内核原语,收了会误伤

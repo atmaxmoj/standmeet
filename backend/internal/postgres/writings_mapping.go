@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -76,14 +76,14 @@ func toDomainWriting(row *dbq.CorpusNote) corpus.Writing {
 // buildWritingIntegrations —— corpus_notes 行里的 obsidian_source_path /
 // _imported_at 列在 mapper 这一层翻译成 Integration 集合。未来加 Notion /
 // GitHub 等列时在这一块扩 if branch，不动 domain。
-func buildWritingIntegrations(row *dbq.CorpusNote) domain.Integrations {
-	integrations := domain.NewIntegrations()
+func buildWritingIntegrations(row *dbq.CorpusNote) connector.Integrations {
+	integrations := connector.NewIntegrations()
 	if row.ObsidianSourcePath != "" {
 		var importedAt time.Time
 		if row.ObsidianImportedAt.Valid {
 			importedAt = row.ObsidianImportedAt.Time
 		}
-		integrations.Add(domain.NewObsidian(&domain.ObsidianInit{
+		integrations.Add(connector.NewObsidian(&connector.ObsidianInit{
 			SourcePath: row.ObsidianSourcePath,
 			ImportedAt: importedAt,
 		}))

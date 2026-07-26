@@ -9,7 +9,7 @@
 //   - Integrations 管理集合：Add / All / Find / Has，All() 永远 defensive
 //     copy 返。
 
-package domain
+package connector
 
 import (
 	"slices"

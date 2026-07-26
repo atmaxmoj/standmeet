@@ -4,7 +4,7 @@
 // obsidian_imported_at），但 Integration 接口跨 Genre 通用，将来 Wiki /
 // Output 也能挂 Obsidian sync 不动接口。
 
-package domain
+package connector
 
 import "time"
 

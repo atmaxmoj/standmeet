@@ -14,7 +14,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
 // ErrSubjectivityNotFound —— 按 id 查 subjectivity 未命中（dialog cited 反查用）。
@@ -83,5 +83,5 @@ type Document interface {
 
 	// Integrations —— document 跟外部系统的同步关系列表（Obsidian / Notion /
 	// 等）。永远返非 nil slice。
-	Integrations() []domain.Integration
+	Integrations() []connector.Integration
 }

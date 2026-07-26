@@ -10,7 +10,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 CHECK=infra/scripts/check-no-mock
-PROBE=backend/internal/domain/zz_probe_double.go
+PROBE=backend/internal/usecases/zz_probe_double.go
 fail=0
 
 cleanup() { rm -f "$PROBE"; }

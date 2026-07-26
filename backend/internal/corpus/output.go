@@ -17,7 +17,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
 // Output —— corpus_notes(genre=output) 行的领域值对象。结构跟 Wiki 严格对齐，差别只在
@@ -30,7 +30,7 @@ type Output struct {
 	ownerID       string
 	title         string
 	content       Content
-	integrations  domain.Integrations
+	integrations  connector.Integrations
 	excerpt       string
 	sourceWikiIDs []string
 	showAsSource  bool
@@ -49,7 +49,7 @@ type OutputInit struct {
 	Excerpt       string
 	SourceWikiIDs []string
 	Tags          []string
-	Integrations  domain.Integrations
+	Integrations  connector.Integrations
 	Published     bool
 	ShowAsSource  bool
 }
@@ -111,7 +111,7 @@ func (o *Output) CreatedAt() time.Time { return o.timestamps.CreatedAt() }
 func (o *Output) UpdatedAt() time.Time { return o.timestamps.UpdatedAt() }
 
 // Integrations —— 挂的 integration 列表 (defensive copy)。
-func (o *Output) Integrations() []domain.Integration { return o.integrations.All() }
+func (o *Output) Integrations() []connector.Integration { return o.integrations.All() }
 
 // --- Output-specific accessors ---
 

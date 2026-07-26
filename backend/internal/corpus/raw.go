@@ -17,7 +17,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
 // Raw —— owner 通过 MCP push 进 corpus 的"半成品"，未整理。
@@ -29,7 +29,7 @@ type Raw struct {
 	ownerID        string
 	source         string
 	content        Content
-	integrations   domain.Integrations
+	integrations   connector.Integrations
 	flaggedPrivate bool
 	archived       bool
 }
@@ -45,7 +45,7 @@ type RawInit struct {
 	Body           string
 	Source         string
 	Tags           []string
-	Integrations   domain.Integrations
+	Integrations   connector.Integrations
 	FlaggedPrivate bool
 	Archived       bool
 }
@@ -111,7 +111,7 @@ func (r *Raw) CreatedAt() time.Time { return r.timestamps.CreatedAt() }
 func (r *Raw) UpdatedAt() time.Time { return r.timestamps.UpdatedAt() }
 
 // Integrations —— 挂的 integration 副本（defensive copy），永远非 nil。
-func (r *Raw) Integrations() []domain.Integration { return r.integrations.All() }
+func (r *Raw) Integrations() []connector.Integration { return r.integrations.All() }
 
 // --- Raw-specific accessors ---
 

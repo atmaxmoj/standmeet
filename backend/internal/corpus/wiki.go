@@ -16,7 +16,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
 // Wiki —— corpus_notes(genre=wiki) 行的领域值对象。
@@ -30,7 +30,7 @@ type Wiki struct {
 	ownerID      string
 	title        string
 	content      Content
-	integrations domain.Integrations
+	integrations connector.Integrations
 	excerpt      string
 	sourceRawIDs []string
 	showAsSource bool
@@ -50,7 +50,7 @@ type WikiInit struct {
 	SourceRawIDs []string
 	Tags         []string
 	CSSClasses   []string
-	Integrations domain.Integrations
+	Integrations connector.Integrations
 	Published    bool
 	ShowAsSource bool
 }
@@ -116,7 +116,7 @@ func (w *Wiki) CreatedAt() time.Time { return w.timestamps.CreatedAt() }
 func (w *Wiki) UpdatedAt() time.Time { return w.timestamps.UpdatedAt() }
 
 // Integrations —— 挂的 integration 列表 (defensive copy)。
-func (w *Wiki) Integrations() []domain.Integration { return w.integrations.All() }
+func (w *Wiki) Integrations() []connector.Integration { return w.integrations.All() }
 
 // --- Wiki-specific accessors ---
 

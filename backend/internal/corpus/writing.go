@@ -8,7 +8,7 @@
 // Writing-specific 字段：Slug / Path / Cover / Visibility / Excerpt /
 // ReadMinutes / CrossRefs。Obsidian sync 通过 Integrations 通用机制挂上去
 // （从前的 ObsidianSourcePath / ObsidianImportedAt 字段现在内部走
-// Integration interface，caller 通过 Integrations().Find(domain.IntegrationObsidian)
+// Integration interface，caller 通过 Integrations().Find(connector.IntegrationObsidian)
 // 拿）。
 
 package corpus
@@ -18,7 +18,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
 // Writing —— writings 表的值对象。
@@ -33,7 +33,7 @@ type Writing struct {
 	excerpt      string
 	parentID     string
 	content      Content
-	integrations domain.Integrations
+	integrations connector.Integrations
 	crossRefs    []string
 	readMinutes  int32
 	hasParent    bool
@@ -56,7 +56,7 @@ type WritingInit struct {
 	ParentID     string
 	Tags         []string
 	CrossRefs    []string
-	Integrations domain.Integrations
+	Integrations connector.Integrations
 	ReadMinutes  int32
 }
 
@@ -115,7 +115,7 @@ func (w *Writing) CreatedAt() time.Time { return w.timestamps.CreatedAt() }
 func (w *Writing) UpdatedAt() time.Time { return w.timestamps.UpdatedAt() }
 
 // Integrations —— 挂的 integration 列表 (defensive copy)，例如 Obsidian sync。
-func (w *Writing) Integrations() []domain.Integration { return w.integrations.All() }
+func (w *Writing) Integrations() []connector.Integration { return w.integrations.All() }
 
 // --- Writing-specific accessors ---
 
@@ -157,17 +157,17 @@ func (w *Writing) IsPublished() bool { return w.timestamps.IsPublished() }
 
 // Obsidian —— writing 是否从 Obsidian vault sync 来的；type-assert helper
 // 让 caller 不用每次 Find + assert。返 (Obsidian{}, false) 表示非 vault。
-func (w *Writing) Obsidian() (domain.Obsidian, bool) {
-	in, ok := w.integrations.Find(domain.IntegrationObsidian)
+func (w *Writing) Obsidian() (connector.Obsidian, bool) {
+	in, ok := w.integrations.Find(connector.IntegrationObsidian)
 	if !ok {
-		return domain.Obsidian{}, false
+		return connector.Obsidian{}, false
 	}
-	ob, ok := in.(domain.Obsidian)
+	ob, ok := in.(connector.Obsidian)
 	return ob, ok
 }
 
 // HasObsidian —— Obsidian() 的 ok-only 版本。
-func (w *Writing) HasObsidian() bool { return w.integrations.Has(domain.IntegrationObsidian) }
+func (w *Writing) HasObsidian() bool { return w.integrations.Has(connector.IntegrationObsidian) }
 
 // CoverHeadline —— 封面 headline，convenience 让 mapper / view 不用先取
 // Cover() 再取字段。

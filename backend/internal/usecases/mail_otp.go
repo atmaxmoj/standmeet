@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -52,12 +52,12 @@ func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
 	if oerr != nil {
 		return fmt.Errorf("get owner: %w", oerr)
 	}
-	code, gerr := domain.GenerateMailOTP()
+	code, gerr := connector.GenerateMailOTP()
 	if gerr != nil {
 		return fmt.Errorf("generate mail otp: %w", gerr)
 	}
-	if serr := deps.Mail.SetOTP(ctx, ownerID, domain.MailProvider, domain.HashMailOTP(code),
-		time.Now().Add(domain.MailOTPTTL)); serr != nil {
+	if serr := deps.Mail.SetOTP(ctx, ownerID, connector.MailProvider, connector.HashMailOTP(code),
+		time.Now().Add(connector.MailOTPTTL)); serr != nil {
 		return fmt.Errorf("set mail otp: %w", serr)
 	}
 	return sendOTPEmail(ctx, deps, ownerID, owner.Email, code)
@@ -67,15 +67,15 @@ func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
 // + 冷却窗校验。返 conn 供 caller 读字段(发信走 proxy，不直接用 conn 凭据)。
 func loadConfiguredConnector(
 	ctx context.Context, deps MailDeps, ownerID string,
-) (domain.MailConnector, error) {
-	conn, err := deps.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
+) (connector.MailConnector, error) {
+	conn, err := deps.Mail.GetConnector(ctx, ownerID, connector.MailProvider)
 	if err != nil {
 		return conn, fmt.Errorf("get mail connector: %w", err)
 	}
 	if !conn.HasCredentials() {
 		return conn, consumer.ErrMailNotConfigured
 	}
-	if conn.OTPIssuedRecently(time.Now(), domain.MailOTPResendCooldown) {
+	if conn.OTPIssuedRecently(time.Now(), connector.MailOTPResendCooldown) {
 		return conn, ErrMailOTPCooldown
 	}
 	return conn, nil
@@ -84,7 +84,7 @@ func loadConfiguredConnector(
 // sendOTPEmail —— To = owner 邮箱;From = connector from_address(由 proxy 内置)。
 // 发 HTML(StandMeet 风格)+ 纯文本兜底。
 func sendOTPEmail(ctx context.Context, deps MailDeps, ownerID, toEmail, code string) error {
-	mins := int(domain.MailOTPTTL.Minutes())
+	mins := int(connector.MailOTPTTL.Minutes())
 	if err := deps.Proxy.Send(ctx, ownerID, OutboundMessage{
 		To:      toEmail,
 		Subject: "StandMeet email verification code",
@@ -101,7 +101,7 @@ func sendOTPEmail(ctx context.Context, deps MailDeps, ownerID, toEmail, code str
 // VerifyMailOTP —— 校验 owner 输入的码。对 → MarkConnected(顺带清 OTP);错 → 计数
 // +1,达上限作废;无/过期 → ErrMailOTPNone。
 func VerifyMailOTP(ctx context.Context, deps MailDeps, ownerID, code string) error {
-	conn, err := deps.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
+	conn, err := deps.Mail.GetConnector(ctx, ownerID, connector.MailProvider)
 	if err != nil {
 		return fmt.Errorf("get mail connector: %w", err)
 	}
@@ -118,25 +118,25 @@ func VerifyMailOTP(ctx context.Context, deps MailDeps, ownerID, code string) err
 }
 
 func acceptOTP(ctx context.Context, deps MailDeps, ownerID string) error {
-	if merr := deps.Mail.MarkConnected(ctx, ownerID, domain.MailProvider); merr != nil {
+	if merr := deps.Mail.MarkConnected(ctx, ownerID, connector.MailProvider); merr != nil {
 		return fmt.Errorf("mark mail connected: %w", merr)
 	}
 	return nil
 }
 
 func registerWrongOTP(ctx context.Context, deps MailDeps, ownerID string) error {
-	n, ierr := deps.Mail.IncOTPAttempts(ctx, ownerID, domain.MailProvider)
+	n, ierr := deps.Mail.IncOTPAttempts(ctx, ownerID, connector.MailProvider)
 	if ierr != nil {
 		return fmt.Errorf("inc mail otp attempts: %w", ierr)
 	}
-	if n >= domain.MailOTPMaxAttempts {
+	if n >= connector.MailOTPMaxAttempts {
 		return voidOTP(ctx, deps, ownerID)
 	}
-	return &MailOTPMismatchError{Remaining: domain.MailOTPMaxAttempts - n}
+	return &MailOTPMismatchError{Remaining: connector.MailOTPMaxAttempts - n}
 }
 
 func voidOTP(ctx context.Context, deps MailDeps, ownerID string) error {
-	if cerr := deps.Mail.ClearOTP(ctx, ownerID, domain.MailProvider); cerr != nil {
+	if cerr := deps.Mail.ClearOTP(ctx, ownerID, connector.MailProvider); cerr != nil {
 		return fmt.Errorf("clear mail otp: %w", cerr)
 	}
 	return ErrMailOTPTooMany
