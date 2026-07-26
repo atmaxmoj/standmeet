@@ -73,7 +73,7 @@ type runtimeDeps struct {
 	assetRepo          *corpus.AssetRepo
 	writingRepo        *corpus.WritingRepo
 	writingRefRepo     *corpus.WritingRefRepo
-	mailRepo           *postgres.MailRepo
+	mailRepo           *connector.MailRepo
 	capabilityRepo     *access.CapabilityRepo
 	ghostRepo          *conversation.GhostRepo
 	chatReportRepo     *conversation.ChatReportRepo

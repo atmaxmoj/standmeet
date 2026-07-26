@@ -70,7 +70,7 @@ type repoSet struct {
 	asset          *corpus.AssetRepo
 	writing        *corpus.WritingRepo
 	writingRef     *corpus.WritingRefRepo
-	mailConnector  *postgres.MailRepo
+	mailConnector  *connector.MailRepo
 	capability     *access.CapabilityRepo
 	ghost          *conversation.GhostRepo
 	chatReport     *conversation.ChatReportRepo
@@ -111,7 +111,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		asset:          corpus.NewAssetRepo(db),
 		writing:        corpus.NewWritingRepo(db),
 		writingRef:     corpus.NewWritingRefRepo(db),
-		mailConnector:  postgres.NewMailRepo(db),
+		mailConnector:  connector.NewMailRepo(db),
 		capability:     access.NewCapabilityRepo(db),
 		ghost:          conversation.NewGhostRepo(db),
 		chatReport:     conversation.NewChatReportRepo(db),

@@ -14,13 +14,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // MailDeps —— mail connector OTP / 状态管理依赖。Proxy = 出站发信(连接器代调，
 // SMTP 凭据不出 vault);Mail = OTP/connector 状态读写;Owners = 收件人(owner 邮箱)。
 type MailDeps struct {
-	Mail   *postgres.MailRepo
+	Mail   *connector.MailRepo
 	Owners *owner.Repo
 	Proxy  OutboundSender
 }
