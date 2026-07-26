@@ -29,17 +29,17 @@ const capCodesBundle = "codes.bundle"
 // 校 ownership。create / update_quotas 是 E-13 新加的 parity tools，复用同
 // repo 接口。
 type CodesRevoker interface {
-	GetByID(ctx context.Context, codeID string) (access.AccessCode, error)
-	ListByOwner(ctx context.Context, ownerID string) ([]access.AccessCode, error)
+	GetByID(ctx context.Context, codeID string) (access.Code, error)
+	ListByOwner(ctx context.Context, ownerID string) ([]access.Code, error)
 	ListMembers(ctx context.Context, codeID string) ([]access.CodeMember, error)
 	Revoke(ctx context.Context, ownerID, codeID string) error
 	CreateAccessCode(
 		ctx context.Context, in *access.CreateAccessCodeInput,
-	) (access.AccessCode, error)
+	) (access.Code, error)
 	UpdateQuotas(
 		ctx context.Context, ownerID, codeID string,
 		maxTurns, maxMembers *int32,
-	) (access.AccessCode, error)
+	) (access.Code, error)
 }
 
 // CodeBookingQuota —— #135:per-code 预约配额由 booker 能力自管,不进内核 access_code。
@@ -251,7 +251,7 @@ func (c *codesCapability) mergeQuotaArgs(
 
 func (c *codesCapability) lookupOwnedCode(
 	ctx context.Context, ownerID, codeID string,
-) (*access.AccessCode, error) {
+) (*access.Code, error) {
 	cur, err := c.codes.GetByID(ctx, codeID)
 	if err != nil {
 		return nil, fmt.Errorf("get code: %w", err)
@@ -262,7 +262,7 @@ func (c *codesCapability) lookupOwnedCode(
 	return &cur, nil
 }
 
-func buildMergedQuotas(args *updateQuotasArgsWire, cur *access.AccessCode) *quotaPair {
+func buildMergedQuotas(args *updateQuotasArgsWire, cur *access.Code) *quotaPair {
 	out := &quotaPair{maxMembers: args.MaxMembers, maxTurns: args.MaxTurns}
 	if out.maxMembers == nil {
 		out.maxMembers = cur.MaxMembers

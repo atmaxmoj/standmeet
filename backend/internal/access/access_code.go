@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// AccessCode —— 访客访问码。
+// Code —— 访客访问码。
 //
 //   - MaxMembers nil → 不限；这张码最多容纳几个不同名字(member = 一个人 =
 //     一段续聊的会)。满了之后新名字被拒(visitor 见 "code 已满");已有名字续。
@@ -19,7 +19,7 @@ import (
 //     出 [[role_snapshot]]。owner 不显式选 → usecase 默认绑 public。
 //
 // #135:per-code 预约配额不在内核 —— booker 能力自管(它的 capstore),内核不认。
-type AccessCode struct { //nolint:revive // AccessCode = invitation, domain term
+type Code struct {
 	CreatedAt          time.Time
 	ExpiresAt          *time.Time
 	MaxMembers         *int32
@@ -41,7 +41,7 @@ type AccessCode struct { //nolint:revive // AccessCode = invitation, domain term
 }
 
 // CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +
-// 任何下游写入 AccessCode 用)。postgres.CreateCodeInput 是 repo-local 镜像，
+// 任何下游写入 Code 用)。postgres.CreateCodeInput 是 repo-local 镜像，
 // CodeRepo.CreateAccessCode 把本类型转过去。
 type CreateAccessCodeInput struct {
 	ExpiresAt          *time.Time
@@ -57,8 +57,8 @@ type CreateAccessCodeInput struct {
 	Ghosts             []string
 }
 
-// CodeMember —— 一个 access code 下的一个具名访客（AccessCode 聚合子实体）。
-// 同一个 code 同一个 display_name 是唯一 row。revoke 只在 AccessCode 级别
+// CodeMember —— 一个 access code 下的一个具名访客（Code 聚合子实体）。
+// 同一个 code 同一个 display_name 是唯一 row。revoke 只在 Code 级别
 // 做（code.status='revoked'），不针对单个 member——后者复杂度不值。
 type CodeMember struct {
 	LastSeenAt  time.Time

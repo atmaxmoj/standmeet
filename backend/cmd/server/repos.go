@@ -55,7 +55,7 @@ type repoSet struct {
 	seo            *postgres.SEORepo
 	customPage     *postgres.CustomPageRepo
 	customBuild    *postgres.CustomBuildRepo
-	accessRequest  *access.AccessRequestRepo
+	accessRequest  *access.RequestRepo
 	jobSource      *postgres.JobSourceRepo
 	resumeDraft    *postgres.ResumeDraftRepo
 	application    *postgres.ApplicationRepo

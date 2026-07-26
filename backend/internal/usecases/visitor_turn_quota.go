@@ -60,7 +60,7 @@ func turnQuotaCodeErr(err error) error {
 }
 
 func turnQuotaCheck(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 	conv *conversation.Chat,
 ) error {
 	if code.MaxTurnsPerSession == nil || *code.MaxTurnsPerSession <= 0 {

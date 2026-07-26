@@ -61,7 +61,7 @@ func (h *AccessRequestsHandlers) submit() http.HandlerFunc {
 	}
 }
 
-func writeSubmitResp(log *slog.Logger, w http.ResponseWriter, a *access.AccessRequest) {
+func writeSubmitResp(log *slog.Logger, w http.ResponseWriter, a *access.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	resp := submitRequestResponse{ID: a.ID, Status: a.Status}

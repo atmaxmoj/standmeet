@@ -203,7 +203,7 @@ func lookupPublicRoleID(r *http.Request, h *Handlers, ownerID string) (string, e
 }
 
 func writeCreatedCode(
-	r *http.Request, h *Handlers, w http.ResponseWriter, c *access.AccessCode,
+	r *http.Request, h *Handlers, w http.ResponseWriter, c *access.Code,
 ) {
 	v := toCodeView(r.Context(), h, c)
 	w.Header().Set("Content-Type", "application/json")
@@ -263,7 +263,7 @@ func handleUpdateQuotasErr(log *slog.Logger, w http.ResponseWriter, err error) {
 }
 
 func writeQuotaResp(
-	r *http.Request, h *Handlers, w http.ResponseWriter, c *access.AccessCode,
+	r *http.Request, h *Handlers, w http.ResponseWriter, c *access.Code,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

@@ -42,7 +42,7 @@ type CreateApplicationInput struct {
 // 的 AccessCode（plaintext code 给 QR URL）+ 最终 PDF bytes。
 type CommittedApplication struct {
 	Application Application
-	AccessCode  access.AccessCode
+	AccessCode  access.Code
 	QRURL       string
 	PDF         []byte
 }

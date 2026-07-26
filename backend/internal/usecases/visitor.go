@@ -81,20 +81,20 @@ func IssueCodeSession(
 
 func lookupAccessCode(
 	ctx context.Context, deps *VisitorSessionDeps, codeStr string,
-) (access.AccessCode, error) {
+) (access.Code, error) {
 	code, err := deps.Codes.GetByCode(ctx, codeStr)
 	if err != nil {
 		if errors.Is(err, access.ErrCodeInvalid) {
-			return access.AccessCode{}, access.ErrCodeInvalid
+			return access.Code{}, access.ErrCodeInvalid
 		}
-		return access.AccessCode{}, fmt.Errorf("get code: %w", err)
+		return access.Code{}, fmt.Errorf("get code: %w", err)
 	}
 	return code, nil
 }
 
 func finalizeCodeSession(
 	ctx context.Context, deps *VisitorSessionDeps,
-	in *IssueCodeSessionInput, code *access.AccessCode,
+	in *IssueCodeSessionInput, code *access.Code,
 ) (IssueCodeSessionResult, error) {
 	a, err := issueCodeSessionArtifacts(ctx, deps, in, code)
 	if err != nil {
@@ -119,7 +119,7 @@ func finalizeCodeSession(
 // (countTurnsForQuota),续会/多 surface 颁发时如实报合计,不再恒 0 也不按单段对话
 // 各算。数不出来(DB 抖)→ 退回 0。
 func codeSessionQuotaWithUsed(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 	conv *conversation.Chat,
 ) SessionQuota {
 	q := codeSessionQuota(code)
@@ -131,7 +131,7 @@ func codeSessionQuotaWithUsed(
 
 func issueCodeSessionArtifacts(
 	ctx context.Context, deps *VisitorSessionDeps,
-	in *IssueCodeSessionInput, code *access.AccessCode,
+	in *IssueCodeSessionInput, code *access.Code,
 ) (codeSessionArtifacts, error) {
 	member, qerr := resolveMemberWithQuota(ctx, deps, code, in)
 	if qerr != nil {
@@ -155,7 +155,7 @@ func issueCodeSessionArtifacts(
 	return codeSessionArtifacts{Conv: conv, Issued: issued, Member: member}, nil
 }
 
-func codeSessionQuota(code *access.AccessCode) SessionQuota {
+func codeSessionQuota(code *access.Code) SessionQuota {
 	q := SessionQuota{}
 	if code.MaxTurnsPerSession != nil && *code.MaxTurnsPerSession > 0 {
 		q.MaxTurns = *code.MaxTurnsPerSession
@@ -175,7 +175,7 @@ func codeSessionQuota(code *access.AccessCode) SessionQuota {
 // 过滤,走不到这里)。
 func resolveMemberWithQuota(
 	ctx context.Context, deps *VisitorSessionDeps,
-	code *access.AccessCode, in *IssueCodeSessionInput,
+	code *access.Code, in *IssueCodeSessionInput,
 ) (access.CodeMember, error) {
 	resumed, rerr := resumeByMemberID(ctx, deps, code, in.MemberID)
 	if rerr == nil {
@@ -197,7 +197,7 @@ func resolveMemberWithQuota(
 // resumeByMemberID —— member_id 空 / 查不到 → access.ErrMemberNotFound(caller
 // 据此退到按名字 / 新建);查得到 → 返该 member 续会。
 func resumeByMemberID(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode, memberID string,
+	ctx context.Context, deps *VisitorSessionDeps, code *access.Code, memberID string,
 ) (access.CodeMember, error) {
 	if memberID == "" {
 		return access.CodeMember{}, access.ErrMemberNotFound
@@ -211,7 +211,7 @@ func resumeByMemberID(
 
 func resolveNamedMember(
 	ctx context.Context, deps *VisitorSessionDeps,
-	code *access.AccessCode, members []access.CodeMember, name string,
+	code *access.Code, members []access.CodeMember, name string,
 ) (access.CodeMember, error) {
 	if err := checkMemberQuota(code, members, name); err != nil {
 		return access.CodeMember{}, err
@@ -225,7 +225,7 @@ func resolveNamedMember(
 
 func resolveAnonMember(
 	ctx context.Context, deps *VisitorSessionDeps,
-	code *access.AccessCode, members []access.CodeMember,
+	code *access.Code, members []access.CodeMember,
 ) (access.CodeMember, error) {
 	if err := checkAnonQuota(code, members); err != nil {
 		return access.CodeMember{}, err
@@ -240,7 +240,7 @@ func resolveAnonMember(
 // checkMemberQuota —— 具名版 max_members 闸:已有名字放行(续会);新名字且已满
 // → 拒。checkAnonQuota —— 匿名版:每次都是新 member,满了就拒。
 func checkMemberQuota(
-	code *access.AccessCode, members []access.CodeMember, name string,
+	code *access.Code, members []access.CodeMember, name string,
 ) error {
 	if code.MaxMembers == nil || *code.MaxMembers <= 0 {
 		return nil
@@ -254,7 +254,7 @@ func checkMemberQuota(
 	return nil
 }
 
-func checkAnonQuota(code *access.AccessCode, members []access.CodeMember) error {
+func checkAnonQuota(code *access.Code, members []access.CodeMember) error {
 	if code.MaxMembers == nil || *code.MaxMembers <= 0 {
 		return nil
 	}
@@ -277,7 +277,7 @@ func memberExists(members []access.CodeMember, name string) bool {
 // conversation 就续上;没有(新 member / 上一段已 summary 结束)才新建。
 func createCodeConversation(
 	ctx context.Context, deps *VisitorSessionDeps,
-	code *access.AccessCode, member *access.CodeMember, in *IssueCodeSessionInput,
+	code *access.Code, member *access.CodeMember, in *IssueCodeSessionInput,
 ) (conversation.Chat, error) {
 	existing, gerr := deps.Chats.GetOpenChatByMember(ctx, member.ID)
 	if gerr == nil {
@@ -302,7 +302,7 @@ func createCodeConversation(
 }
 
 func buildCodeSessionData(
-	code *access.AccessCode, visitor access.VisitorProfile,
+	code *access.Code, visitor access.VisitorProfile,
 	memberID string, snapshot *domain.RoleSnapshot,
 ) *session.VisitorSessionData {
 	return &session.VisitorSessionData{

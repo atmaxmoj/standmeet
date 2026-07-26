@@ -45,7 +45,7 @@ func CodeIntro(
 
 // resolveCodeGreeting —— role 设了 greeting 就用,否则按 owner handle 拼默认。
 func resolveCodeGreeting(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 ) string {
 	role, err := deps.Roles.GetByID(ctx, code.OwnerID, code.AssumedRoleID)
 	if err == nil && role.Greeting() != "" {

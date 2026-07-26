@@ -13,7 +13,7 @@ import (
 func TestResolveCodePromptInlineWins(t *testing.T) {
 	t.Parallel()
 	// InlinePrompt 非空 → 原样返回，且不触碰 deps（nil-safe）：证明内联优先且不查库。
-	code := &access.AccessCode{
+	code := &access.Code{
 		InlinePrompt: "You are speaking with a recruiter for Backend Engineer.",
 	}
 	got, err := resolveCodePrompt(context.Background(), nil, code)

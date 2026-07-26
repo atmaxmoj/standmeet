@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-// AccessRequest —— 一条访客留言。字段顺序按 govet fieldalignment：
+// Request —— 一条访客留言。字段顺序按 govet fieldalignment：
 // time.Time 在前（内部 ptr at offset 16），strings 紧跟。
-type AccessRequest struct { //nolint:revive // AccessRequest domain term
+type Request struct {
 	CreatedAt time.Time
 	ID        string
 	OwnerID   string

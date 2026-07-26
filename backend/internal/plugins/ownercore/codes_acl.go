@@ -112,7 +112,7 @@ func (c *codesCapability) handleListCodes(
 }
 
 func (c *codesCapability) codeRowToView(
-	ctx context.Context, code *access.AccessCode,
+	ctx context.Context, code *access.Code,
 ) codeRowView {
 	v := codeRowView{
 		ID: code.ID, Code: code.Code, Label: code.Label, Status: code.Status,

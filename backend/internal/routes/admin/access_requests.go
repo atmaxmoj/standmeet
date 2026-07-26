@@ -98,7 +98,7 @@ func (h *Handlers) updateAccessRequest() http.HandlerFunc {
 }
 
 func writeAccessRequestList(
-	log *slog.Logger, w http.ResponseWriter, rows []access.AccessRequest,
+	log *slog.Logger, w http.ResponseWriter, rows []access.Request,
 ) {
 	items := make([]accessRequestView, 0, len(rows))
 	for i := range rows {
@@ -112,7 +112,7 @@ func writeAccessRequestList(
 }
 
 func writeAccessRequestSingle(
-	log *slog.Logger, w http.ResponseWriter, a *access.AccessRequest,
+	log *slog.Logger, w http.ResponseWriter, a *access.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -121,7 +121,7 @@ func writeAccessRequestSingle(
 	}
 }
 
-func toAccessRequestView(a *access.AccessRequest) accessRequestView {
+func toAccessRequestView(a *access.Request) accessRequestView {
 	return accessRequestView{
 		ID:        a.ID,
 		Name:      a.Name,

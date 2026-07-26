@@ -59,7 +59,7 @@ type runtimeDeps struct {
 	seoRepo            *postgres.SEORepo
 	customPageRepo     *postgres.CustomPageRepo
 	customBuildRepo    *postgres.CustomBuildRepo
-	accessRequestRepo  *access.AccessRequestRepo
+	accessRequestRepo  *access.RequestRepo
 	jobSourceRepo      *postgres.JobSourceRepo
 	resumeDraftRepo    *postgres.ResumeDraftRepo
 	applicationRepo    *postgres.ApplicationRepo

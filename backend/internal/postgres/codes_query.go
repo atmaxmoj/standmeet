@@ -17,38 +17,38 @@ import (
 
 // GetByID 拿 code（按 UUID，含 revoked）；不命中返 ErrCodeInvalid。turn quota
 // check 用：旧 conversation 还要查到背后 code 的 max_turns。
-func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (access.AccessCode, error) {
+func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (access.Code, error) {
 	codeUUID, perr := parseUUID(codeID)
 	if perr != nil {
-		return access.AccessCode{}, fmt.Errorf(errParseCodeIDPrefix, perr)
+		return access.Code{}, fmt.Errorf(errParseCodeIDPrefix, perr)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetAccessCodeByID(ctx, codeUUID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return access.AccessCode{}, access.ErrCodeInvalid
+			return access.Code{}, access.ErrCodeInvalid
 		}
-		return access.AccessCode{}, fmt.Errorf("get access code by id: %w", err)
+		return access.Code{}, fmt.Errorf("get access code by id: %w", err)
 	}
 	return toDomainCode(&row), nil
 }
 
 // GetByCode 拿 code（active only）；不命中返回 ErrCodeInvalid。
-func (r *CodeRepo) GetByCode(ctx context.Context, code string) (access.AccessCode, error) {
+func (r *CodeRepo) GetByCode(ctx context.Context, code string) (access.Code, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetAccessCode(ctx, code)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return access.AccessCode{}, access.ErrCodeInvalid
+			return access.Code{}, access.ErrCodeInvalid
 		}
-		return access.AccessCode{}, fmt.Errorf("get access code: %w", err)
+		return access.Code{}, fmt.Errorf("get access code: %w", err)
 	}
 	return toDomainCode(&row), nil
 }
 
 // ListByOwner 给 admin 列 codes。
 func (r *CodeRepo) ListByOwner(
-	ctx context.Context, ownerID string) ([]access.AccessCode, error,
+	ctx context.Context, ownerID string) ([]access.Code, error,
 ) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
@@ -59,15 +59,15 @@ func (r *CodeRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list access codes: %w", err)
 	}
-	out := make([]access.AccessCode, 0, len(rows))
+	out := make([]access.Code, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainCode(&rows[i]))
 	}
 	return out, nil
 }
 
-func toDomainCode(c *dbq.AccessCode) access.AccessCode {
-	out := access.AccessCode{
+func toDomainCode(c *dbq.AccessCode) access.Code {
+	out := access.Code{
 		ID:                   formatUUID(c.ID),
 		OwnerID:              formatUUID(c.OwnerID),
 		Code:                 c.Code,

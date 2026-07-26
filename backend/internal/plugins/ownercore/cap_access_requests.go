@@ -75,7 +75,7 @@ type accessRequestRow struct {
 	Status    string `json:"status"`
 }
 
-func toAccessRequestRow(a *access.AccessRequest) accessRequestRow {
+func toAccessRequestRow(a *access.Request) accessRequestRow {
 	return accessRequestRow{
 		ID: a.ID, Name: a.Name, Org: a.Org, Email: a.Email,
 		Message: a.Message, Status: a.Status,

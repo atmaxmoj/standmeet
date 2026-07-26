@@ -22,7 +22,7 @@ import (
 // buildRoleSnapshotForCode —— code.AssumedRoleID 必填（schema NOT NULL）→ 构造
 // RoleSnapshot。失败永远是真 error。
 func buildRoleSnapshotForCode(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 ) (domain.RoleSnapshot, error) {
 	denials, err := loadCodeDenials(ctx, deps, code.ID)
 	if err != nil {
@@ -65,7 +65,7 @@ func loadCodeWaypoints(
 // resolveCodePrompt —— #104 扩展的取值：内联 per-code prompt 优先（发码方随码带，不查库），
 // 空则走 prompt_id 库引用（owner 集中管理那份）。
 func resolveCodePrompt(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 ) (string, error) {
 	if code.InlinePrompt != "" {
 		return code.InlinePrompt, nil

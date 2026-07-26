@@ -1,4 +1,4 @@
-// codes_view.go —— access-code 列表的 view 映射(access.AccessCode → codeView)。
+// codes_view.go —— access-code 列表的 view 映射(access.Code → codeView)。
 // #135:MaxBookings 不在内核 code 上,列表展示时从 booker 能力读(readCodeBookingQuota)。
 
 package admin
@@ -13,7 +13,7 @@ import (
 )
 
 func writeCodesList(
-	r *http.Request, h *Handlers, w http.ResponseWriter, rows []access.AccessCode,
+	r *http.Request, h *Handlers, w http.ResponseWriter, rows []access.Code,
 ) {
 	items := make([]codeView, 0, len(rows))
 	for i := range rows {
@@ -26,7 +26,7 @@ func writeCodesList(
 	}
 }
 
-func toCodeView(ctx context.Context, h *Handlers, c *access.AccessCode) codeView {
+func toCodeView(ctx context.Context, h *Handlers, c *access.Code) codeView {
 	return codeView{
 		ID:                   c.ID,
 		Code:                 c.Code,

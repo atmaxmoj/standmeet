@@ -17,7 +17,7 @@ import (
 
 // AccessRequestsDeps —— SubmitForOwner / ListForOwner / UpdateStatus 共享依赖。
 type AccessRequestsDeps struct {
-	Repo   *access.AccessRequestRepo
+	Repo   *access.RequestRepo
 	Owners *postgres.OwnerRepo
 }
 
@@ -34,20 +34,20 @@ type SubmitAccessRequestInput struct {
 // 必填 email + message；instance 必须已 claim（否则 ErrOwnerNotFound）。
 func SubmitForOwner(
 	ctx context.Context, deps AccessRequestsDeps, in *SubmitAccessRequestInput,
-) (access.AccessRequest, error) {
+) (access.Request, error) {
 	if !validSubmitInput(in) {
-		return access.AccessRequest{}, ErrEmptyField
+		return access.Request{}, ErrEmptyField
 	}
 	soleOwner, err := loadSoleOwnerForRequest(ctx, deps)
 	if err != nil {
-		return access.AccessRequest{}, err
+		return access.Request{}, err
 	}
 	out, err := deps.Repo.Create(ctx, &access.CreateAccessRequestInput{
 		OwnerID: soleOwner.ID, Name: in.Name, Org: in.Org,
 		Email: in.Email, Message: in.Message,
 	})
 	if err != nil {
-		return access.AccessRequest{}, fmt.Errorf("create access request: %w", err)
+		return access.Request{}, fmt.Errorf("create access request: %w", err)
 	}
 	return out, nil
 }
@@ -79,7 +79,7 @@ func loadSoleOwnerForRequest(
 // ListForOwner —— admin list。status 可空，空 = 全部。
 func ListForOwner(
 	ctx context.Context, deps AccessRequestsDeps, ownerID, status string,
-) ([]access.AccessRequest, error) {
+) ([]access.Request, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}
@@ -96,16 +96,16 @@ func ListForOwner(
 // UpdateAccessRequestStatus —— admin 改 status。status 必须是 open/replied/closed。
 func UpdateAccessRequestStatus(
 	ctx context.Context, deps AccessRequestsDeps, ownerID, id, status string,
-) (access.AccessRequest, error) {
+) (access.Request, error) {
 	if ownerID == "" || id == "" {
-		return access.AccessRequest{}, ErrEmptyField
+		return access.Request{}, ErrEmptyField
 	}
 	if !validStatus(status) {
-		return access.AccessRequest{}, access.ErrAccessRequestStatusInvalid
+		return access.Request{}, access.ErrAccessRequestStatusInvalid
 	}
 	out, err := deps.Repo.UpdateStatus(ctx, ownerID, id, status)
 	if err != nil {
-		return access.AccessRequest{}, fmt.Errorf("update access request: %w", err)
+		return access.Request{}, fmt.Errorf("update access request: %w", err)
 	}
 	return out, nil
 }
