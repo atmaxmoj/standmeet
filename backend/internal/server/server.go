@@ -52,7 +52,7 @@ type Deps struct {
 	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
 	PluginRegistry *plugins.Registry
 	// BannedIPs —— 封禁 IP repo；公开面 BanGuard + admin ip-bans CRUD 共用。
-	BannedIPs *postgres.BannedIPRepo
+	BannedIPs *security.BannedIPRepo
 	// PubAPI —— the API-key facade (/api/pub/v1); api-key auth in its own middleware.
 	PubAPI *pubapi.Handlers
 	MCP    mcphandle.Deps

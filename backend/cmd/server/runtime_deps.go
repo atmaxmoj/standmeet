@@ -73,7 +73,7 @@ type runtimeDeps struct {
 	ghostRepo          *postgres.GhostRepo
 	chatReportRepo     *postgres.ChatReportRepo
 	inferenceUsageRepo *postgres.InferenceUsageRepo
-	bannedIPRepo       *postgres.BannedIPRepo
+	bannedIPRepo       *security.BannedIPRepo
 	apiKeyRepo         *postgres.APIKeyRepo
 	appStateRepo       *postgres.AppStateRepo
 	connectorRepo      *postgres.ConnectorRepo

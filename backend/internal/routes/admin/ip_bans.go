@@ -13,13 +13,12 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/security"
 )
 
 // IPBansAdminDeps —— admin ip-bans handler 依赖。
 type IPBansAdminDeps struct {
-	Repo *postgres.BannedIPRepo
+	Repo *security.BannedIPRepo
 }
 
 // MountIPBans 挂 /ip-bans/* 子路由。
@@ -64,7 +63,7 @@ func (h *Handlers) createIPBan() http.HandlerFunc {
 		if !ok {
 			return
 		}
-		ban, err := h.IPBansAdmin.Repo.Ban(r.Context(), &postgres.BanIPInput{
+		ban, err := h.IPBansAdmin.Repo.Ban(r.Context(), &security.BanIPInput{
 			OwnerID:   middleware.OwnerIDFrom(r.Context()),
 			IP:        req.ip,
 			Reason:    req.reason,

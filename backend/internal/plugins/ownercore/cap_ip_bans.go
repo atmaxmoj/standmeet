@@ -18,7 +18,7 @@ import (
 
 const capIPBansBundle = "ip_bans.bundle"
 
-// ipBansStore —— narrow dep matching *postgres.BannedIPRepo's owner-CRUD
+// ipBansStore —— narrow dep matching *security.BannedIPRepo's owner-CRUD
 // methods exactly (List / Ban / Unban).
 type ipBansStore interface {
 	List(ctx context.Context, ownerID string) ([]security.BannedIP, error)

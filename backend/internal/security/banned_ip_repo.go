@@ -2,26 +2,24 @@
 // enforcement middleware 走 IsBanned 查；admin CRUD 走 Ban / List / Unban。
 // ip 存 text，精确匹配 chi.RealIP 解出的 host（跟 conversations.client_ip 同口径）。
 
-package postgres
+package security
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
-	"github.com/atmaxmoj/standmeet/internal/security"
 )
 
 // BannedIPRepo —— banned_ips 表 repo。
 type BannedIPRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewBannedIPRepo 构造 BannedIPRepo。
-func NewBannedIPRepo(pool *Pool) *BannedIPRepo { return &BannedIPRepo{pool: pool} }
+func NewBannedIPRepo(pool *pgstore.Pool) *BannedIPRepo { return &BannedIPRepo{pool: pool} }
 
 // BanIPInput —— owner 封一个 IP 的入参。ExpiresAt nil = 永久。
 type BanIPInput struct {
@@ -32,34 +30,34 @@ type BanIPInput struct {
 }
 
 // Ban —— upsert（重复封同一 IP 覆盖 reason/expires_at）。返回落库后的行。
-func (r *BannedIPRepo) Ban(ctx context.Context, in *BanIPInput) (security.BannedIP, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+func (r *BannedIPRepo) Ban(ctx context.Context, in *BanIPInput) (BannedIP, error) {
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return security.BannedIP{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return BannedIP{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).BanIP(ctx, dbq.BanIPParams{
 		OwnerID:   ownerUUID,
 		Ip:        in.IP,
 		Reason:    in.Reason,
-		ExpiresAt: toTimestamptz(in.ExpiresAt),
+		ExpiresAt: pgstore.ToTimestamptz(in.ExpiresAt),
 	})
 	if qerr != nil {
-		return security.BannedIP{}, fmt.Errorf("ban ip: %w", qerr)
+		return BannedIP{}, fmt.Errorf("ban ip: %w", qerr)
 	}
 	return decodeBannedIP(&row), nil
 }
 
 // List —— owner 的全部封禁（含已过期的，给 admin 看历史；最近的在前）。
-func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]security.BannedIP, error) {
-	ownerUUID, err := parseUUID(ownerID)
+func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]BannedIP, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	rows, qerr := dbq.New(r.pool).ListBannedIPs(ctx, ownerUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list banned ips: %w", qerr)
 	}
-	out := make([]security.BannedIP, 0, len(rows))
+	out := make([]BannedIP, 0, len(rows))
 	for i := range rows {
 		out = append(out, decodeBannedIP(&rows[i]))
 	}
@@ -68,11 +66,11 @@ func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]security.Ban
 
 // Unban —— 按 id 解封（owner-scoped）。不存在视同成功（幂等）。
 func (r *BannedIPRepo) Unban(ctx context.Context, ownerID, id string) error {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	idUUID, ierr := parseUUID(id)
+	idUUID, ierr := pgstore.ParseUUID(id)
 	if ierr != nil {
 		return fmt.Errorf("parse ban id: %w", ierr)
 	}
@@ -85,9 +83,9 @@ func (r *BannedIPRepo) Unban(ctx context.Context, ownerID, id string) error {
 
 // IsBanned —— enforcement 查询：owner 是否封了这个 IP 且未过期。
 func (r *BannedIPRepo) IsBanned(ctx context.Context, ownerID, ip string) (bool, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return false, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return false, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	banned, qerr := dbq.New(r.pool).IsIPBanned(ctx,
 		dbq.IsIPBannedParams{OwnerID: ownerUUID, Ip: ip})
@@ -107,20 +105,13 @@ func (r *BannedIPRepo) IsBannedAnywhere(ctx context.Context, ip string) (bool, e
 	return banned, nil
 }
 
-func decodeBannedIP(row *dbq.BannedIp) security.BannedIP {
-	return security.BannedIP{
-		ID:        formatUUID(row.ID),
-		OwnerID:   formatUUID(row.OwnerID),
+func decodeBannedIP(row *dbq.BannedIp) BannedIP {
+	return BannedIP{
+		ID:        pgstore.FormatUUID(row.ID),
+		OwnerID:   pgstore.FormatUUID(row.OwnerID),
 		IP:        row.Ip,
 		Reason:    row.Reason,
-		ExpiresAt: optTime(row.ExpiresAt),
+		ExpiresAt: pgstore.OptTime(row.ExpiresAt),
 		CreatedAt: row.CreatedAt.Time,
 	}
-}
-
-func toTimestamptz(t *time.Time) pgtype.Timestamptz {
-	if t == nil {
-		return pgtype.Timestamptz{Valid: false}
-	}
-	return pgtype.Timestamptz{Time: *t, Valid: true}
 }

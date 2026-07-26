@@ -7,7 +7,7 @@ import (
 )
 
 // BanChecker —— BanGuard 对封禁表的只读视图。用接口而非直接依赖 postgres，
-// 避免 middleware 组件越界依赖 repo（arch-lint）；postgres.BannedIPRepo 满足它。
+// 避免 middleware 组件越界依赖 repo（arch-lint）；security.BannedIPRepo 满足它。
 type BanChecker interface {
 	IsBannedAnywhere(ctx context.Context, ip string) (bool, error)
 }

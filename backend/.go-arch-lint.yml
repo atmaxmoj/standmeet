@@ -29,6 +29,8 @@ components:
     in: internal/postgres                 # 含 sqlc 生成的 dbq 子包
   dbq:
     in: internal/postgres/dbq
+  pgstore:
+    in: internal/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
   session:
     in: internal/session
   config:
@@ -385,6 +387,13 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # pgstore —— #135 共享 DB store 原语 leaf：模块 repo 用它 + dbq 自持久层。
+  pgstore:
+    mayDependOn:
+      - dbq
+      - cryptobox
+    anyVendorDeps: true
+
   # Session 管理 setup token、login session、API token。
   # domain 是单向值对象（PathPermission 等）—— session 内置入参/出参字段，
   # 不耦合业务逻辑。其他 internal 包仍走 narrow interface 注入。
@@ -609,10 +618,12 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # security —— #135 请求级防护域模块：BannedIP + captcha(Turnstile) verifier。captcha 用 httpx。
+  # security —— #135 请求级防护域模块(full vertical)：BannedIP entity + repo + captcha verifier。
   security:
     mayDependOn:
       - httpx
+      - pgstore
+      - dbq
     anyVendorDeps: true
 
   # jobsdomain —— #135 jobs 领域值对象 leaf：依赖 accessdomain（CommittedApplication 内嵌 AccessCode）。

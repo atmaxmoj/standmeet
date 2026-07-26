@@ -69,7 +69,7 @@ type repoSet struct {
 	ghost          *postgres.GhostRepo
 	chatReport     *postgres.ChatReportRepo
 	inferenceUsage *postgres.InferenceUsageRepo
-	bannedIP       *postgres.BannedIPRepo
+	bannedIP       *security.BannedIPRepo
 	apiKey         *postgres.APIKeyRepo
 	appState       *postgres.AppStateRepo
 	connector      *postgres.ConnectorRepo
@@ -110,7 +110,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		ghost:          postgres.NewGhostRepo(db),
 		chatReport:     postgres.NewChatReportRepo(db),
 		inferenceUsage: postgres.NewInferenceUsageRepo(db),
-		bannedIP:       postgres.NewBannedIPRepo(db),
+		bannedIP:       security.NewBannedIPRepo(db),
 		apiKey:         postgres.NewAPIKeyRepo(db),
 		appState:       postgres.NewAppStateRepo(db),
 		connector:      postgres.NewConnectorRepo(db),
