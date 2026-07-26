@@ -59,10 +59,16 @@ Two axes of externally-provided functionality. **They are the same abstraction**
 { declaration (data) → implementation → instance → ONE opaque call door }
 ```
 
-- **declaration** — a **data** manifest (discovered from disk, or owner-registered). Says what
-  a thing *is*: a category and its verbs + schemas, or a capability and its tools + schemas.
-  **Never a Go interface.** (This is what OpenAPI connectors already do; only the built-in
-  gcal/mail still carry a typed `contract.CalendarProxy` — the un-migrated remnant.)
+- **declaration** — a **data** manifest **that lives OUTSIDE `internal/`** (top-level
+  `connectors/`, discovered from disk, or owner-registered). Says what a thing *is*: a category
+  and its verbs + schemas, or a capability and its tools + schemas. **Never a Go interface, never
+  in `internal/`.**
+  - Today `connectors/<provider>/manifest.yaml` declares *providers* (implementations, each
+    tagged `category`), but the **category declaration itself** is still hardcoded in `internal/`
+    as the `calendarVerbs`/`mailVerbs` maps (`internal/connector/invoke.go`) + the typed
+    `contract.CalendarProxy`/`MailProxy` interfaces. That is the un-migrated typed-category
+    surface: the category declaration (verbs + schemas) must become a **data** file under
+    top-level `connectors/`, and `internal/` keeps only the generic verb-by-name dispatch.
 - **implementation** — the adapter/plugin that satisfies a declaration (an OpenAPI/protocol
   connector adapter; a capability's MCP-server binary).
 - **instance** — the runtime, scoped, invoke-able thing. Its **scope differs by axis**:
@@ -194,8 +200,10 @@ unnecessary — it exists *because* the product is BYO-integration.)
    `internal/routes/connector` (thin shell → delegates to `connector.Slots`); go-arch-lint
    component `connectorroutes` (may depend only on `capsocket`); `connector` no longer depends on
    `capsocket`. Green + arch-locked.
-2. Genericize the connector declaration to **data** (remove `contract.CalendarProxy` as *the*
-   declaration; keep at most a built-in adapter's internal typing).
+2. Move the **category declaration** to **data outside `internal/`**: extract the
+   `calendarVerbs`/`mailVerbs` maps + `contract.CalendarProxy`/`MailProxy` into a category
+   declaration file under top-level `connectors/` (verbs + arg/result schemas); `internal/` keeps
+   only generic verb-by-name dispatch. Removes the typed category surface entirely.
 3. Move connector's own concepts (`AgentToolConnector`, `ErrMailNotConfigured`) out of `usecases`
    into the connector domain; kill the reverse dep.
 4. Split the connector registries: **declaration store** (specs) vs **instance registry**
