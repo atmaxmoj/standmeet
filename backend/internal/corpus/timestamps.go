@@ -10,7 +10,7 @@
 // 暴露 / 内部状态被 *p = newVal 篡改；caller 写 `if t, ok := x.PublishedAt();
 // ok { ... }` 比 `if p := x.PublishedAt(); p != nil { ... }` 更 Go-y。
 
-package domain
+package corpus
 
 import "time"
 

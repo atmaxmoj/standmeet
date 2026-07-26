@@ -24,7 +24,7 @@ import (
 // ShowAsSource：retriever 内 AI 能 read 拿 body 但 readCollector 不收 —— meta /
 // persona 这种"用得到但不该曝光"的 entry 用这个开关。
 type Wiki struct {
-	timestamps   domain.Timestamps
+	timestamps   Timestamps
 	tree         TreeNode
 	id           string
 	ownerID      string
@@ -70,7 +70,7 @@ func NewWiki(i *WikiInit) Wiki {
 		content: NewContent(&ContentInit{
 			Title: i.Title, Body: i.Body, Tags: i.Tags, CSSClasses: i.CSSClasses,
 		}),
-		timestamps: domain.NewTimestamps(&domain.TimestampsInit{
+		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		}),
 		tree:         NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),

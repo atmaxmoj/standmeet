@@ -22,7 +22,7 @@ import (
 
 // Raw —— owner 通过 MCP push 进 corpus 的"半成品"，未整理。
 type Raw struct {
-	timestamps     domain.Timestamps
+	timestamps     Timestamps
 	promotedTo     *string
 	parentID       *string
 	id             string
@@ -74,7 +74,7 @@ func NewRaw(i *RawInit) Raw {
 		content: NewContent(&ContentInit{
 			Title: i.Title, Body: i.Body, Tags: i.Tags,
 		}),
-		timestamps: domain.NewTimestamps(&domain.TimestampsInit{
+		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.CreatedAt,
 		}),
 		integrations: i.Integrations,

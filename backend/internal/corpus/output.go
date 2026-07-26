@@ -24,7 +24,7 @@ import (
 // SourceWikiIDs vs SourceRawIDs（语义清晰）。retrieval ACL + landing 复用
 // Path / ShowAsSource 同一组字段——同 wiki。
 type Output struct {
-	timestamps    domain.Timestamps
+	timestamps    Timestamps
 	tree          TreeNode
 	id            string
 	ownerID       string
@@ -69,7 +69,7 @@ func NewOutput(i *OutputInit) Output {
 		content: NewContent(&ContentInit{
 			Title: i.Title, Body: i.Body, Tags: i.Tags,
 		}),
-		timestamps: domain.NewTimestamps(&domain.TimestampsInit{
+		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		}),
 		tree:         NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),

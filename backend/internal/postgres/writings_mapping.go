@@ -64,7 +64,7 @@ func toDomainWriting(row *dbq.CorpusNote) corpus.Writing {
 		Visibility: corpus.VisibilityInit{
 			Mode: row.Visibility, LockedBody: row.LockedBody,
 		},
-		Timestamps: domain.TimestampsInit{
+		Timestamps: corpus.TimestampsInit{
 			CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 			PublishedAt: optTime(row.PublishedAt),
 		},

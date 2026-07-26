@@ -23,7 +23,7 @@ import (
 
 // Writing —— writings 表的值对象。
 type Writing struct {
-	timestamps   domain.Timestamps
+	timestamps   Timestamps
 	cover        Cover
 	visibility   Visibility
 	id           string
@@ -43,7 +43,7 @@ type Writing struct {
 // CrossRefs 是 Writing 独有的几个 leaf 字段，留 flat；其它走嵌套 Init。
 // fieldalignment: 嵌入 Init 大字段先，slice，string，int 末。
 type WritingInit struct {
-	Timestamps   domain.TimestampsInit
+	Timestamps   TimestampsInit
 	Cover        CoverInit
 	Visibility   VisibilityInit
 	Path         string
@@ -80,7 +80,7 @@ func NewWriting(i *WritingInit) Writing {
 		content:      NewContent(&ContentInit{Title: i.Title, Body: i.Body, Tags: i.Tags}),
 		cover:        NewCover(&i.Cover),
 		visibility:   NewVisibility(&i.Visibility),
-		timestamps:   domain.NewTimestamps(&i.Timestamps),
+		timestamps:   NewTimestamps(&i.Timestamps),
 		integrations: i.Integrations,
 	}
 }
