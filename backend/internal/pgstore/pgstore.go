@@ -5,10 +5,12 @@ package pgstore
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -106,4 +108,24 @@ func ToTimestamptz(t *time.Time) pgtype.Timestamptz {
 		return pgtype.Timestamptz{Valid: false}
 	}
 	return pgtype.Timestamptz{Time: *t, Valid: true}
+}
+
+// uniqueViolationSQLState —— Postgres unique_violation 的 SQLSTATE。
+const uniqueViolationSQLState = "23505"
+
+// UniqueViolation —— err 是不是唯一约束冲突;是则返约束名 + true。
+func UniqueViolation(err error) (string, bool) {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolationSQLState {
+		return pgErr.ConstraintName, true
+	}
+	return "", false
+}
+
+// NilSafeStrings —— nil slice → 非 nil 空 slice(JSON/DB 边界防 null)。
+func NilSafeStrings(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }

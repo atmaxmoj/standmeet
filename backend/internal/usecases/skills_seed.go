@@ -11,11 +11,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
 
 // SeedBuiltinSkills —— 对一个 owner 幂等 upsert 全部 builtin skills。
-func SeedBuiltinSkills(ctx context.Context, repo *postgres.SkillRepo, ownerID string) error {
+func SeedBuiltinSkills(ctx context.Context, repo *marketplace.SkillRepo, ownerID string) error {
 	for i := range builtinSkillSeeds {
 		s := &builtinSkillSeeds[i]
 		if _, err := repo.UpsertBuiltin(ctx, ownerID, s.Name, s.Description, s.Prompt); err != nil {

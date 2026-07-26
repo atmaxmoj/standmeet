@@ -62,8 +62,8 @@ type runtimeDeps struct {
 	jobSourceRepo      *postgres.JobSourceRepo
 	resumeDraftRepo    *postgres.ResumeDraftRepo
 	applicationRepo    *postgres.ApplicationRepo
-	skillRepo          *postgres.SkillRepo
-	mcpServerRepo      *postgres.MCPServerRepo
+	skillRepo          *marketplace.SkillRepo
+	mcpServerRepo      *marketplace.MCPServerRepo
 	promptRepo         *postgres.PromptRepo
 	roleRepo           *postgres.RoleRepo
 	assetRepo          *postgres.AssetRepo

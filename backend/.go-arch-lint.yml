@@ -672,6 +672,8 @@ deps:
     mayDependOn:
       - domain
       - httpx
+      - pgstore
+      - dbq
     anyVendorDeps: true
 
 

@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -26,8 +27,8 @@ import (
 type RolesDeps struct {
 	Roles      *postgres.RoleRepo
 	Prompts    *postgres.PromptRepo
-	Skills     *postgres.SkillRepo
-	MCPServers *postgres.MCPServerRepo
+	Skills     *marketplace.SkillRepo
+	MCPServers *marketplace.MCPServerRepo
 }
 
 // RoleWriteInput —— Create / Update 共用的入参形态。Update 时 RoleID 必填，

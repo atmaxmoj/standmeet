@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // MarketplaceClient —— matches marketplace.Client. Interfaces lets us
@@ -70,7 +69,7 @@ func pageSlice(items []marketplace.MarketSkill, limit, offset int) []marketplace
 // persists it as a real skill.
 type InstallSkillDeps struct {
 	Marketplace MarketplaceClient
-	Skills      *postgres.SkillRepo
+	Skills      *marketplace.SkillRepo
 }
 
 // InstallSkillInput —— what the admin install endpoint passes through.
@@ -128,7 +127,7 @@ func persistManualSkill(
 	ctx context.Context, deps InstallSkillDeps,
 	ownerID, nameFallback string, content *marketplace.MarketSkillContent,
 ) (marketplace.Skill, error) {
-	skill, cerr := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
+	skill, cerr := deps.Skills.Create(ctx, &marketplace.CreateSkillInput{
 		OwnerID:      ownerID,
 		Name:         firstNonEmptyStr(content.Name, nameFallback),
 		Description:  content.Description,
@@ -150,7 +149,7 @@ func createInstalledSkill(
 	ctx context.Context, deps InstallSkillDeps,
 	in *InstallSkillInput, content *marketplace.MarketSkillContent,
 ) (marketplace.Skill, error) {
-	skill, cerr := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
+	skill, cerr := deps.Skills.Create(ctx, &marketplace.CreateSkillInput{
 		OwnerID:      in.OwnerID,
 		Name:         firstNonEmptyStr(content.Name, in.Name, in.ID),
 		Description:  content.Description,

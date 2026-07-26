@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -19,7 +20,7 @@ import (
 // ClaimDeps 把 ClaimInstance 需要的依赖打包，避免参数列表超长。
 type ClaimDeps struct {
 	Instance *postgres.InstanceRepo
-	Skills   *postgres.SkillRepo
+	Skills   *marketplace.SkillRepo
 	Prompts  *postgres.PromptRepo
 	Roles    *postgres.RoleRepo
 }

@@ -21,7 +21,7 @@ import (
 // SkillsDeps —— skills CRUD 需要的 repo 集合。Code 用来 SetCodeSkills 时
 // 校验 code 属于同 owner。
 type SkillsDeps struct {
-	Skills *postgres.SkillRepo
+	Skills *marketplace.SkillRepo
 	Codes  *postgres.CodeRepo
 }
 
@@ -42,7 +42,7 @@ func CreateSkill(
 	if in.OwnerID == "" || in.Name == "" {
 		return marketplace.Skill{}, ErrEmptyField
 	}
-	skill, err := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
+	skill, err := deps.Skills.Create(ctx, &marketplace.CreateSkillInput{
 		OwnerID:      in.OwnerID,
 		Name:         in.Name,
 		Description:  in.Description,

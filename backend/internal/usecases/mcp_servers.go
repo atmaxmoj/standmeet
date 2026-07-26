@@ -16,7 +16,7 @@ import (
 
 // MCPServersDeps —— mcp servers CRUD + per-code 关联用的 repo 集合。
 type MCPServersDeps struct {
-	Servers *postgres.MCPServerRepo
+	Servers *marketplace.MCPServerRepo
 	Codes   *postgres.CodeRepo
 }
 
@@ -54,7 +54,7 @@ func validateMCPCreateInput(in *CreateMCPServerInput) error {
 func persistMCPServer(
 	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerInput, enc []byte,
 ) (marketplace.MCPServerConfig, error) {
-	cfg, err := deps.Servers.Create(ctx, &postgres.CreateMCPServerInput{
+	cfg, err := deps.Servers.Create(ctx, &marketplace.CreateMCPServerInput{
 		OwnerID: in.OwnerID, Name: in.Name, URL: in.URL,
 		AuthHeaderName: in.AuthHeaderName, AuthHeaderValueEnc: enc,
 	})

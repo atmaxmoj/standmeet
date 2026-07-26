@@ -2,7 +2,7 @@
 // 是 cryptobox AES-256-GCM 密文，repo 只搬 bytes 进出，加/解密由 caller
 // (usecase) 完成。
 
-package postgres
+package marketplace
 
 import (
 	"context"
@@ -12,17 +12,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // MCPServerRepo —— mcp_servers 表 + code_mcp_servers join 表 CRUD。
 type MCPServerRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewMCPServerRepo 构造。
-func NewMCPServerRepo(pool *Pool) *MCPServerRepo { return &MCPServerRepo{pool: pool} }
+func NewMCPServerRepo(pool *pgstore.Pool) *MCPServerRepo { return &MCPServerRepo{pool: pool} }
 
 // CreateMCPServerInput —— Create 入参；caller 已用 cryptobox 加密 auth
 // header value (空 = 无 auth)。
@@ -37,20 +37,20 @@ type CreateMCPServerInput struct {
 // Create 新建 mcp_server 行。name 冲突翻 ErrMCPServerNameTaken。
 func (r *MCPServerRepo) Create(
 	ctx context.Context, in *CreateMCPServerInput,
-) (marketplace.MCPServerConfig, error) {
-	ownerUUID, oerr := parseUUID(in.OwnerID)
+) (MCPServerConfig, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
-		return marketplace.MCPServerConfig{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return MCPServerConfig{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).CreateMCPServer(ctx, dbq.CreateMCPServerParams{
 		OwnerID: ownerUUID, Name: in.Name, Url: in.URL,
 		AuthHeaderName: in.AuthHeaderName, AuthHeaderValueEnc: in.AuthHeaderValueEnc,
 	})
 	if err != nil {
-		if name, hit := pgUniqueViolation(err); hit && name == "mcp_servers_owner_name_uniq" {
-			return marketplace.MCPServerConfig{}, marketplace.ErrMCPServerNameTaken
+		if name, hit := pgstore.UniqueViolation(err); hit && name == "mcp_servers_owner_name_uniq" {
+			return MCPServerConfig{}, ErrMCPServerNameTaken
 		}
-		return marketplace.MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
+		return MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
 	}
 	return toDomainMCPServer(&row), nil
 }
@@ -58,16 +58,16 @@ func (r *MCPServerRepo) Create(
 // ListByOwner —— admin / MCP list。
 func (r *MCPServerRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]marketplace.MCPServerConfig, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+) ([]MCPServerConfig, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	rows, err := dbq.New(r.pool).ListMCPServersByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list mcp servers: %w", err)
 	}
-	out := make([]marketplace.MCPServerConfig, 0, len(rows))
+	out := make([]MCPServerConfig, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainMCPServer(&rows[i]))
 	}
@@ -77,19 +77,19 @@ func (r *MCPServerRepo) ListByOwner(
 // GetByID —— 单条；属于 owner 校验。
 func (r *MCPServerRepo) GetByID(
 	ctx context.Context, ownerID, serverID string,
-) (marketplace.MCPServerConfig, error) {
+) (MCPServerConfig, error) {
 	args, perr := parseOwnerAndServerID(ownerID, serverID)
 	if perr != nil {
-		return marketplace.MCPServerConfig{}, perr
+		return MCPServerConfig{}, perr
 	}
 	row, err := dbq.New(r.pool).GetMCPServerByID(ctx, dbq.GetMCPServerByIDParams{
 		ID: args.serverUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return marketplace.MCPServerConfig{}, marketplace.ErrMCPServerNotFound
+			return MCPServerConfig{}, ErrMCPServerNotFound
 		}
-		return marketplace.MCPServerConfig{}, fmt.Errorf("get mcp server: %w", err)
+		return MCPServerConfig{}, fmt.Errorf("get mcp server: %w", err)
 	}
 	return toDomainMCPServer(&row), nil
 }
@@ -114,11 +114,11 @@ type serverIDArgs struct {
 }
 
 func parseOwnerAndServerID(ownerID, serverID string) (serverIDArgs, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return serverIDArgs{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return serverIDArgs{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	serverUUID, perr := parseUUID(serverID)
+	serverUUID, perr := pgstore.ParseUUID(serverID)
 	if perr != nil {
 		return serverIDArgs{}, fmt.Errorf("parse mcp server id: %w", perr)
 	}
@@ -142,9 +142,9 @@ func (r *MCPServerRepo) GrantDep(ctx context.Context, ownerID, serverID, dep str
 	return nil
 }
 
-func toDomainMCPServer(row *dbq.McpServer) marketplace.MCPServerConfig {
-	return marketplace.MCPServerConfig{
-		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
+func toDomainMCPServer(row *dbq.McpServer) MCPServerConfig {
+	return MCPServerConfig{
+		ID: pgstore.FormatUUID(row.ID), OwnerID: pgstore.FormatUUID(row.OwnerID),
 		Name: row.Name, URL: row.Url,
 		AuthHeaderName:     row.AuthHeaderName,
 		AuthHeaderValueEnc: append([]byte(nil), row.AuthHeaderValueEnc...),

@@ -58,8 +58,8 @@ type repoSet struct {
 	jobSource      *postgres.JobSourceRepo
 	resumeDraft    *postgres.ResumeDraftRepo
 	application    *postgres.ApplicationRepo
-	skill          *postgres.SkillRepo
-	mcpServer      *postgres.MCPServerRepo
+	skill          *marketplace.SkillRepo
+	mcpServer      *marketplace.MCPServerRepo
 	prompt         *postgres.PromptRepo
 	role           *postgres.RoleRepo
 	asset          *postgres.AssetRepo
@@ -99,8 +99,8 @@ func newRepos(db *postgres.Pool) *repoSet {
 		jobSource:      postgres.NewJobSourceRepo(db),
 		resumeDraft:    postgres.NewResumeDraftRepo(db),
 		application:    postgres.NewApplicationRepo(db),
-		skill:          postgres.NewSkillRepo(db),
-		mcpServer:      postgres.NewMCPServerRepo(db),
+		skill:          marketplace.NewSkillRepo(db),
+		mcpServer:      marketplace.NewMCPServerRepo(db),
 		prompt:         postgres.NewPromptRepo(db),
 		role:           postgres.NewRoleRepo(db),
 		asset:          postgres.NewAssetRepo(db),

@@ -30,7 +30,7 @@ import (
 type CapabilityAdminDeps struct {
 	Registry   *capreg.Registry
 	Settings   *postgres.CapabilityRepo
-	Skills     *postgres.SkillRepo
+	Skills     *marketplace.SkillRepo
 	Connectors *postgres.ConnectorRepo
 }
 
