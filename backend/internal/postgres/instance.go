@@ -16,7 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/instancedomain"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -32,13 +32,13 @@ func NewInstanceRepo(pool *Pool) *InstanceRepo {
 }
 
 // Get 读 instance_settings 单行。
-func (r *InstanceRepo) Get(ctx context.Context) (domain.InstanceSettings, error) {
+func (r *InstanceRepo) Get(ctx context.Context) (instancedomain.InstanceSettings, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetInstanceSettings(ctx)
 	if err != nil {
-		return domain.InstanceSettings{}, fmt.Errorf("get instance settings: %w", err)
+		return instancedomain.InstanceSettings{}, fmt.Errorf("get instance settings: %w", err)
 	}
-	return domain.InstanceSettings{
+	return instancedomain.InstanceSettings{
 		IsClaimed:         row.IsClaimed,
 		MultiTenant:       row.MultiTenant,
 		DeployedAt:        row.DeployedAt.Time,
@@ -148,7 +148,7 @@ func claimTx(
 
 	if _, err := q.TryClaimInstance(ctx, &tokenHash); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ownerdomain.Owner{}, domain.ErrInvalidSetupToken
+			return ownerdomain.Owner{}, instancedomain.ErrInvalidSetupToken
 		}
 		return ownerdomain.Owner{}, fmt.Errorf("try claim: %w", err)
 	}

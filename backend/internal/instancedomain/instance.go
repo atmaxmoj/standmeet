@@ -1,7 +1,7 @@
 // instance.go —— singleton "this deployment" 行的 domain 视图。
 // 一个 self-hosted 实例对应一行 instance_settings；多 tenant 时一行 / tenant。
 
-package domain
+package instancedomain
 
 import (
 	"errors"

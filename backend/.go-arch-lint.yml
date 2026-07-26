@@ -91,6 +91,8 @@ components:
     in: internal/skilldomain               # #135: skill 领域值对象 (skill/script)；pure leaf
   credentialdomain:
     in: internal/credentialdomain          # #135: owner 凭据/密钥值对象 (api_key/keypair/ai_credential)；pure leaf
+  instancedomain:
+    in: internal/instancedomain            # #135: 部署 singleton 配置 (instance_settings)；pure leaf
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -370,6 +372,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
+      - instancedomain
       - credentialdomain
       - skilldomain
       - ownerdomain
@@ -654,6 +657,11 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # instancedomain —— #135 部署 singleton 配置 leaf：InstanceSettings + setup/claim 错误，无 internal 依赖。
+  instancedomain:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
   # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
   # routes 不直接 import。
@@ -689,6 +697,7 @@ deps:
   # /internal/builds/claim 在 no-pending 时返 ErrCustomPageBuildNotFound。
   sysroutes:
     mayDependOn:
+      - instancedomain
       - ownerdomain
       - domain
       - postgres
@@ -711,6 +720,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - instancedomain
       - credentialdomain
       - skilldomain
       - ownerdomain

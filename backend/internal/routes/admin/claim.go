@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/instancedomain"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -146,7 +146,7 @@ var claimErrCases = []apierr.Case{
 		Envelope: envBadReq("missing required field"),
 	},
 	{
-		Match: domain.ErrInvalidSetupToken,
+		Match: instancedomain.ErrInvalidSetupToken,
 		Envelope: apierr.Envelope{
 			Status:  http.StatusUnauthorized,
 			Code:    "invalid_setup_token",
