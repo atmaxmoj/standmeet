@@ -1,8 +1,8 @@
-// conversation_read_socket.go —— conversation.read host op：断网沙箱 cap 经 socket 读本会话的
+// Package conversation —— socket controller。conversation.read host op —— conversation.read host op：断网沙箱 cap 经 socket 读本会话的
 // owner-scoped transcript。按业务分类:它跟 conversation 的其它代码住一起,不进任何机制 bucket。
 // capsocket 只是那根传输;cmd 按每个 cap 挂它允许的 op。
 
-package usecases
+package conversation
 
 import (
 	"context"
@@ -10,12 +10,18 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // SockMessage —— socket op 交换的一条消息(role/content;避开 inference/domain 包耦合)。
 type SockMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+// ConversationGetter —— 读一次会话的 owner-scoped transcript(消费侧窄口,组装根注入 chatRepo)。
+type ConversationGetter interface {
+	GetWithMessages(ctx context.Context, ownerID, chatID string) (postgres.ChatWithMessages, error)
 }
 
 // RegisterConversationReadOp —— 把 "conversation.read" 挂到 srv:{owner_id,conversation_id} →

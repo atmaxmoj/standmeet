@@ -131,6 +131,12 @@ components:
     in: internal/routes/capstore          # socket 入站 API controller: capstore.* (薄壳→BoundStore)
   ownerroutes:
     in: internal/routes/owner             # socket 入站 API controller: owner.meta (薄壳→OwnerMetaLookup)
+  reportroutes:
+    in: internal/routes/report            # socket 入站 API controller: report.store (sanitize/render/store)
+  conversationroutes:
+    in: internal/routes/conversation      # socket 入站 API controller: conversation.read
+  inferenceroutes:
+    in: internal/routes/inference         # socket 入站 API controller: inference.generate
   server:
     in: internal/server
   cmd:
@@ -216,6 +222,22 @@ deps:
     mayDependOn:
       - capsocket
       - domain
+    anyVendorDeps: true
+  reportroutes:
+    mayDependOn:
+      - capsocket
+      - usecases
+      - postgres
+    anyVendorDeps: true
+  conversationroutes:
+    mayDependOn:
+      - capsocket
+      - postgres
+    anyVendorDeps: true
+  inferenceroutes:
+    mayDependOn:
+      - capsocket
+      - inference
     anyVendorDeps: true
 
   # connectorcontract —— #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)。
@@ -658,6 +680,9 @@ deps:
       - connectorroutes
       - capstoreroutes
       - ownerroutes
+      - reportroutes
+      - conversationroutes
+      - inferenceroutes
       - mcphandle
       - inference
       - jobcache

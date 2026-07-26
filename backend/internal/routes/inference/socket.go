@@ -1,8 +1,8 @@
-// inference_generate_socket.go —— inference.generate host op：断网沙箱 cap 经 socket 让 host 用
+// Package inferenceroutes —— socket controller。inference.generate host op —— inference.generate host op：断网沙箱 cap 经 socket 让 host 用
 // owner 的 LLM 跑一次生成(host 按 owner+mode 解 cred,沙箱看不到 key)。按业务分类:它跟 inference
 // 的调用面住一起,不进机制 bucket。信任模型同 connector.invoke。
 
-package usecases
+package inferenceroutes
 
 import (
 	"context"
@@ -12,6 +12,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 )
+
+// genMsg —— socket op 交换的一条消息(role/content),本 controller 局部定义,不跨包耦合。
+type genMsg struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
 
 // RegisterInferenceGenerateOp —— 把 "inference.generate" 挂到 srv:{owner_id,mode,system,messages}
 // → resolve cred → inference.Generate → {output}。
@@ -27,10 +33,10 @@ func runInferenceGenerate(
 	ctx context.Context, resolver inference.Resolver, raw json.RawMessage,
 ) (json.RawMessage, error) {
 	var req struct {
-		OwnerID  string        `json:"owner_id"`
-		Mode     string        `json:"mode"`
-		System   string        `json:"system"`
-		Messages []SockMessage `json:"messages"`
+		OwnerID  string   `json:"owner_id"`
+		Mode     string   `json:"mode"`
+		System   string   `json:"system"`
+		Messages []genMsg `json:"messages"`
 	}
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, fmt.Errorf("inference.generate: decode: %w", err)
@@ -52,7 +58,7 @@ func runInferenceGenerate(
 	return res, nil
 }
 
-func toChatMsgs(in []SockMessage) []inference.ChatRequestMsg {
+func toChatMsgs(in []genMsg) []inference.ChatRequestMsg {
 	out := make([]inference.ChatRequestMsg, len(in))
 	for i := range in {
 		out[i] = inference.ChatRequestMsg{Role: in[i].Role, Content: in[i].Content}

@@ -11,6 +11,9 @@ import (
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	conversationroutes "github.com/atmaxmoj/standmeet/internal/routes/conversation"
+	inferenceroutes "github.com/atmaxmoj/standmeet/internal/routes/inference"
+	reportroutes "github.com/atmaxmoj/standmeet/internal/routes/report"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -27,8 +30,8 @@ func wireSummarizeGateway(ctx context.Context, d *runtimeDeps, skills *usecases.
 		d.log.Error("summarize socket listen", "err", err)
 		return
 	}
-	usecases.RegisterConversationReadOp(srv, d.chatRepo)
-	usecases.RegisterInferenceGenerateOp(srv, skills.Resolver)
-	usecases.RegisterReportStoreOp(srv, skills.Reports)
+	conversationroutes.RegisterConversationReadOp(srv, d.chatRepo)
+	inferenceroutes.RegisterInferenceGenerateOp(srv, skills.Resolver)
+	reportroutes.RegisterReportStoreOp(srv, skills.Reports)
 	go srv.Serve(ctx)
 }
