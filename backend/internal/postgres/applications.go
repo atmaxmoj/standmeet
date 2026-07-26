@@ -20,7 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -54,7 +54,7 @@ type CommitInput struct {
 // CommitOutput —— Commit 返回值。把 (Application, AccessCode) 打包成单结构体
 // 让方法签名 ≤2 returns（lint）。
 type CommitOutput struct {
-	Application jobsdomain.Application
+	Application jobsmodel.Application
 	AccessCode  access.Code
 }
 
@@ -117,8 +117,8 @@ func writeCommitRows(
 // DraftRenderData —— the resume + job snapshot needed to render the application PDF BEFORE the
 // irreversible commit tx (so a render failure persists nothing → retryable).
 type DraftRenderData struct {
-	Resume jobsdomain.ResumeContent
-	Job    jobsdomain.FetchedJob
+	Resume jobsmodel.ResumeContent
+	Job    jobsmodel.FetchedJob
 }
 
 // GetDraftRenderData —— read-only fetch of a draft's render inputs (no tx, nothing deleted).
@@ -152,7 +152,7 @@ func loadDraftForCommit(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return dbq.ResumeDraft{}, jobsdomain.ErrResumeDraftNotFound
+			return dbq.ResumeDraft{}, jobsmodel.ErrResumeDraftNotFound
 		}
 		return dbq.ResumeDraft{}, fmt.Errorf("load draft: %w", err)
 	}
@@ -221,14 +221,14 @@ type appInsert struct {
 
 func insertApplication(
 	ctx context.Context, q *dbq.Queries, a *appInsert,
-) (jobsdomain.Application, error) {
+) (jobsmodel.Application, error) {
 	codeUUID, err := parseUUID(a.code.ID)
 	if err != nil {
-		return jobsdomain.Application{}, fmt.Errorf("parse code id: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("parse code id: %w", err)
 	}
 	appUUID, err := parseUUID(a.appID)
 	if err != nil {
-		return jobsdomain.Application{}, fmt.Errorf("parse application id: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("parse application id: %w", err)
 	}
 	row, err := q.CreateApplication(ctx, dbq.CreateApplicationParams{
 		ID:            appUUID,
@@ -238,7 +238,7 @@ func insertApplication(
 		ResumeContent: a.draft.ResumeContent,
 	})
 	if err != nil {
-		return jobsdomain.Application{}, fmt.Errorf("create application: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("create application: %w", err)
 	}
 	return toDomainApplication(&row)
 }
@@ -246,14 +246,14 @@ func insertApplication(
 // GetByID —— 按 (id, owner_id) 反查。
 func (r *ApplicationRepo) GetByID(
 	ctx context.Context, ownerID, id string,
-) (jobsdomain.Application, error) {
+) (jobsmodel.Application, error) {
 	owner, err := parseUUID(ownerID)
 	if err != nil {
-		return jobsdomain.Application{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return jobsmodel.Application{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	appUUID, err := parseUUID(id)
 	if err != nil {
-		return jobsdomain.Application{}, fmt.Errorf("parse application id: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("parse application id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetApplication(ctx, dbq.GetApplicationParams{
@@ -261,9 +261,9 @@ func (r *ApplicationRepo) GetByID(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return jobsdomain.Application{}, jobsdomain.ErrApplicationNotFound
+			return jobsmodel.Application{}, jobsmodel.ErrApplicationNotFound
 		}
-		return jobsdomain.Application{}, fmt.Errorf("get application: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("get application: %w", err)
 	}
 	return toDomainApplication(&row)
 }
@@ -271,7 +271,7 @@ func (r *ApplicationRepo) GetByID(
 // ListByOwner —— admin "我投过哪些" 视图用；按 created_at desc。
 func (r *ApplicationRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]jobsdomain.Application, error) {
+) ([]jobsmodel.Application, error) {
 	owner, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -281,7 +281,7 @@ func (r *ApplicationRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list applications: %w", err)
 	}
-	out := make([]jobsdomain.Application, 0, len(rows))
+	out := make([]jobsmodel.Application, 0, len(rows))
 	for i := range rows {
 		app, terr := toDomainApplication(&rows[i])
 		if terr != nil {
@@ -292,16 +292,16 @@ func (r *ApplicationRepo) ListByOwner(
 	return out, nil
 }
 
-func toDomainApplication(row *dbq.Application) (jobsdomain.Application, error) {
-	var snapshot jobsdomain.FetchedJob
+func toDomainApplication(row *dbq.Application) (jobsmodel.Application, error) {
+	var snapshot jobsmodel.FetchedJob
 	if err := json.Unmarshal(row.JobSnapshot, &snapshot); err != nil {
-		return jobsdomain.Application{}, fmt.Errorf("unmarshal job snapshot: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("unmarshal job snapshot: %w", err)
 	}
-	var content jobsdomain.ResumeContent
+	var content jobsmodel.ResumeContent
 	if err := json.Unmarshal(row.ResumeContent, &content); err != nil {
-		return jobsdomain.Application{}, fmt.Errorf("unmarshal resume content: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("unmarshal resume content: %w", err)
 	}
-	out := jobsdomain.Application{
+	out := jobsmodel.Application{
 		ID:            formatUUID(row.ID),
 		OwnerID:       formatUUID(row.OwnerID),
 		AccessCodeID:  formatUUID(row.AccessCodeID),

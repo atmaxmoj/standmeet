@@ -26,7 +26,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 )
 
 const (
@@ -52,7 +52,7 @@ func newHNHiringFetcher(client *http.Client, envBase string) *hnHiringFetcher {
 
 func (f *hnHiringFetcher) Fetch(
 	ctx context.Context, _ []byte,
-) ([]jobsdomain.FetchedJob, error) {
+) ([]jobsmodel.FetchedJob, error) {
 	threadID, err := f.findLatestHiringThread(ctx)
 	if err != nil {
 		return nil, err
@@ -66,9 +66,9 @@ func (f *hnHiringFetcher) Fetch(
 
 func (f *hnHiringFetcher) collectComments(
 	ctx context.Context, thread *hnItem, threadID int64,
-) []jobsdomain.FetchedJob {
+) []jobsmodel.FetchedJob {
 	limit := min(len(thread.Kids), hnMaxComments)
-	out := make([]jobsdomain.FetchedJob, 0, limit)
+	out := make([]jobsmodel.FetchedJob, 0, limit)
 	for i := range limit {
 		comment, ferr := f.fetchItem(ctx, thread.Kids[i])
 		if ferr != nil || !isPostingComment(comment) {
@@ -148,8 +148,8 @@ type hnItem struct {
 	Dead    bool    `json:"dead"`
 }
 
-func hnCommentToDomain(c *hnItem, _ int64) jobsdomain.FetchedJob {
-	return jobsdomain.FetchedJob{
+func hnCommentToDomain(c *hnItem, _ int64) jobsmodel.FetchedJob {
+	return jobsmodel.FetchedJob{
 		ExternalID:  strconv.FormatInt(c.ID, decimalRadix),
 		Title:       hnFirstLine(c.Text),
 		Company:     "(see body — HN free-form)",

@@ -3,7 +3,7 @@
 
 package jobsmcp
 
-import "github.com/atmaxmoj/standmeet/internal/jobsdomain"
+import "github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 
 // resumeDraftViewT —— draft / update_draft 返回的 text 部分。owner 在 Claude
 // 一侧看到这个 JSON + 一个嵌入 PDF；可以让 AI 用 draft.id 调 update / commit。
@@ -15,7 +15,7 @@ type resumeDraftViewT struct {
 	JobSnapshot fetchedJobView `json:"job_snapshot"`
 }
 
-func resumeDraftView(d *jobsdomain.ResumeDraft) resumeDraftViewT {
+func resumeDraftView(d *jobsmodel.ResumeDraft) resumeDraftViewT {
 	return resumeDraftViewT{
 		ID:          d.ID,
 		JobCacheID:  d.JobCacheID,

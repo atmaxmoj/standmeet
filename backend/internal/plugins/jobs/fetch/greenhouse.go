@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 )
 
 const greenhouseDefaultBase = "https://boards-api.greenhouse.io"
@@ -42,7 +42,7 @@ func newGreenhouseFetcher(client *http.Client, envBase string) *greenhouseFetche
 // Fetch reads {base}/v1/boards/{company}/jobs?content=true.
 func (f *greenhouseFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]jobsdomain.FetchedJob, error) {
+) ([]jobsmodel.FetchedJob, error) {
 	cfg, err := parseGreenhouseConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (f *greenhouseFetcher) Fetch(
 	if uerr := json.Unmarshal(body, &payload); uerr != nil {
 		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
-	out := make([]jobsdomain.FetchedJob, 0, len(payload.Jobs))
+	out := make([]jobsmodel.FetchedJob, 0, len(payload.Jobs))
 	for i := range payload.Jobs {
 		out = append(out, greenhouseToDomain(&payload.Jobs[i]))
 	}
@@ -69,12 +69,12 @@ func parseGreenhouseConfig(raw []byte) (greenhouseConfig, error) {
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("greenhouse config decode: %w: %w",
-				jobsdomain.ErrJobSourceConfigInvalid, err)
+				jobsmodel.ErrJobSourceConfigInvalid, err)
 		}
 	}
 	if cfg.Company == "" {
 		return cfg, fmt.Errorf("greenhouse missing company: %w",
-			jobsdomain.ErrJobSourceConfigInvalid)
+			jobsmodel.ErrJobSourceConfigInvalid)
 	}
 	return cfg, nil
 }
@@ -110,8 +110,8 @@ type greenhouseTagged struct {
 	Name string `json:"name"`
 }
 
-func greenhouseToDomain(j *greenhouseJob) jobsdomain.FetchedJob {
-	return jobsdomain.FetchedJob{
+func greenhouseToDomain(j *greenhouseJob) jobsmodel.FetchedJob {
+	return jobsmodel.FetchedJob{
 		ExternalID:  strconv.FormatInt(j.ID, decimalRadix),
 		Title:       j.Title,
 		Company:     j.CompanyName,

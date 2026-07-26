@@ -1,6 +1,6 @@
 // Package fetch —— job source fetcher adapters。每个 adapter 知道一个 ATS
 // 或 job board 的具体 API 形状（URL pattern、JSON shape、字段映射），统一
-// 输出 jobsdomain.FetchedJob 数组。
+// 输出 jobsmodel.FetchedJob 数组。
 //
 // J phase 起搬进 plugins/jobs/fetch/，作为 jobs plugin 的 fetch sub-package。
 //
@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/httpx"
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 )
 
 // Source kind strings —— 跟 schema CHECK 约束 + register_source 入参对齐。
@@ -57,7 +57,7 @@ const (
 // Fetcher —— 单个 source kind 的契约。caller 传 raw config bytes（per-kind
 // schema），adapter 内部 Unmarshal 到 typed struct + 拼 URL + GET + parse。
 type Fetcher interface {
-	Fetch(ctx context.Context, cfgRaw []byte) ([]jobsdomain.FetchedJob, error)
+	Fetch(ctx context.Context, cfgRaw []byte) ([]jobsmodel.FetchedJob, error)
 }
 
 // Registry —— kind → Fetcher 的注册中心。usecases 拿这个 dispatch。
@@ -105,14 +105,14 @@ func New(b *BaseURLs) *Registry {
 	}
 }
 
-// Fetch 按 kind 路由到对应 adapter。返 jobsdomain.ErrJobSourceKindInvalid 如果
+// Fetch 按 kind 路由到对应 adapter。返 jobsmodel.ErrJobSourceKindInvalid 如果
 // kind 不认识。
 func (r *Registry) Fetch(
 	ctx context.Context, kind string, cfgRaw []byte,
-) ([]jobsdomain.FetchedJob, error) {
+) ([]jobsmodel.FetchedJob, error) {
 	f, ok := r.fetchers[kind]
 	if !ok {
-		return nil, fmt.Errorf("fetch kind %q: %w", kind, jobsdomain.ErrJobSourceKindInvalid)
+		return nil, fmt.Errorf("fetch kind %q: %w", kind, jobsmodel.ErrJobSourceKindInvalid)
 	}
 	jobs, err := f.Fetch(ctx, cfgRaw)
 	if err != nil {
@@ -126,7 +126,7 @@ func (r *Registry) Fetch(
 func ValidateKindConfig(kind string, cfgRaw []byte) error {
 	v, ok := configValidators[kind]
 	if !ok {
-		return fmt.Errorf("kind %q: %w", kind, jobsdomain.ErrJobSourceKindInvalid)
+		return fmt.Errorf("kind %q: %w", kind, jobsmodel.ErrJobSourceKindInvalid)
 	}
 	if err := v(cfgRaw); err != nil {
 		return fmt.Errorf("%s config: %w", kind, err)

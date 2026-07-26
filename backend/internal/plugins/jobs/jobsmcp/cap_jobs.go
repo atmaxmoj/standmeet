@@ -15,8 +15,8 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
@@ -95,7 +95,7 @@ func (c *jobsCapability) handleRegisterSource(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	src, err := jobsuc.RegisterJobSource(ctx, *c.jobs, &jobsdomain.CreateJobSourceInput{
+	src, err := jobsuc.RegisterJobSource(ctx, *c.jobs, &jobsmodel.CreateJobSourceInput{
 		OwnerID: ownerID, Kind: args.Kind, Config: args.Config, Label: args.Label,
 	})
 	if err != nil {
@@ -309,13 +309,13 @@ func jobsCapErrToResult(log *slog.Logger, err error, op string) capreg.MCPResult
 
 func jobsCapClientErr(err error) (string, bool) {
 	switch {
-	case errors.Is(err, jobsdomain.ErrJobSourceKindInvalid):
+	case errors.Is(err, jobsmodel.ErrJobSourceKindInvalid):
 		return "kind invalid", true
-	case errors.Is(err, jobsdomain.ErrJobSourceConfigInvalid):
+	case errors.Is(err, jobsmodel.ErrJobSourceConfigInvalid):
 		return "config invalid: " + err.Error(), true
-	case errors.Is(err, jobsdomain.ErrJobSourceNotFound):
+	case errors.Is(err, jobsmodel.ErrJobSourceNotFound):
 		return "source not found", true
-	case errors.Is(err, jobsdomain.ErrJobCacheMiss):
+	case errors.Is(err, jobsmodel.ErrJobCacheMiss):
 		return "job cache miss (expired or never existed)", true
 	}
 	return "", false

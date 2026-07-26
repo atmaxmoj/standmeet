@@ -2,7 +2,7 @@
 
 package jobsmcp
 
-import "github.com/atmaxmoj/standmeet/internal/jobsdomain"
+import "github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 
 // committedApplicationViewT —— commit 返回 text 部分。PDF 走 EmbeddedResource。
 //
@@ -43,7 +43,7 @@ const submissionInstructions = "Use the locally-installed Playwright MCP " +
 	"fill_fields where the form asks; (4) submit. The QR printed on the PDF " +
 	"(qr_url, top-right corner) routes the recruiter straight to visitor chat."
 
-func committedApplicationView(c *jobsdomain.CommittedApplication) committedApplicationViewT {
+func committedApplicationView(c *jobsmodel.CommittedApplication) committedApplicationViewT {
 	v := committedApplicationViewT{
 		ApplicationID: c.Application.ID,
 		AccessCodeID:  c.AccessCode.ID,
@@ -60,7 +60,7 @@ func committedApplicationView(c *jobsdomain.CommittedApplication) committedAppli
 	return v
 }
 
-func buildSubmissionHint(c *jobsdomain.CommittedApplication) submissionHint {
+func buildSubmissionHint(c *jobsmodel.CommittedApplication) submissionHint {
 	id := &c.Application.ResumeContent.Identity
 	fill := map[string]string{}
 	if id.Name != "" {

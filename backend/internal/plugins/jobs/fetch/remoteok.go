@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 )
 
 const remoteOKDefaultBase = "https://remoteok.com"
@@ -37,7 +37,7 @@ func newRemoteOKFetcher(client *http.Client, envBase string) *remoteOKFetcher {
 
 func (f *remoteOKFetcher) Fetch(
 	ctx context.Context, _ []byte,
-) ([]jobsdomain.FetchedJob, error) {
+) ([]jobsmodel.FetchedJob, error) {
 	raw, err := f.fetchEntries(ctx)
 	if err != nil {
 		return nil, err
@@ -58,8 +58,8 @@ func (f *remoteOKFetcher) fetchEntries(ctx context.Context) ([]remoteOKEntry, er
 	return raw, nil
 }
 
-func filterRemoteOKEntries(raw []remoteOKEntry) []jobsdomain.FetchedJob {
-	out := make([]jobsdomain.FetchedJob, 0, len(raw))
+func filterRemoteOKEntries(raw []remoteOKEntry) []jobsmodel.FetchedJob {
+	out := make([]jobsmodel.FetchedJob, 0, len(raw))
 	for i := range raw {
 		if raw[i].ID == "" || raw[i].Position == "" {
 			continue // legal-notice element / malformed entry
@@ -83,7 +83,7 @@ type remoteOKEntry struct {
 	Epoch       int64    `json:"epoch"`
 }
 
-func remoteOKToDomain(e *remoteOKEntry) jobsdomain.FetchedJob {
+func remoteOKToDomain(e *remoteOKEntry) jobsmodel.FetchedJob {
 	applyURL := e.ApplyURL
 	if applyURL == "" {
 		applyURL = e.URL
@@ -92,7 +92,7 @@ func remoteOKToDomain(e *remoteOKEntry) jobsdomain.FetchedJob {
 	if e.Epoch > 0 {
 		published = time.Unix(e.Epoch, 0)
 	}
-	return jobsdomain.FetchedJob{
+	return jobsmodel.FetchedJob{
 		ExternalID:  e.ID,
 		Title:       e.Position,
 		Company:     e.Company,

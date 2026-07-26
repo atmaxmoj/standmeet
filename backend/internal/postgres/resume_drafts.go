@@ -19,7 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -43,19 +43,19 @@ func NewResumeDraftRepo(pool *Pool) *ResumeDraftRepo {
 // Create —— Claude 调 resume.draft 时落库。in.JobSnapshot / in.ResumeContent
 // 都已经在 usecase 层组装好；这里只负责 marshal + INSERT。
 func (r *ResumeDraftRepo) Create(
-	ctx context.Context, in *jobsdomain.CreateResumeDraftInput,
-) (jobsdomain.ResumeDraft, error) {
+	ctx context.Context, in *jobsmodel.CreateResumeDraftInput,
+) (jobsmodel.ResumeDraft, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return jobsdomain.ResumeDraft{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	snapshotJSON, err := json.Marshal(in.JobSnapshot)
 	if err != nil {
-		return jobsdomain.ResumeDraft{}, fmt.Errorf("marshal job snapshot: %w", err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("marshal job snapshot: %w", err)
 	}
 	contentJSON, err := json.Marshal(in.ResumeContent)
 	if err != nil {
-		return jobsdomain.ResumeDraft{}, fmt.Errorf("marshal resume content: %w", err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("marshal resume content: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateResumeDraft(ctx, dbq.CreateResumeDraftParams{
@@ -65,7 +65,7 @@ func (r *ResumeDraftRepo) Create(
 		ResumeContent: contentJSON,
 	})
 	if err != nil {
-		return jobsdomain.ResumeDraft{}, fmt.Errorf("create resume draft: %w", err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("create resume draft: %w", err)
 	}
 	return toDomainResumeDraft(&row)
 }
@@ -74,10 +74,10 @@ func (r *ResumeDraftRepo) Create(
 // query 自带 expires_at > now() 过滤，不需要 caller 二次判断。
 func (r *ResumeDraftRepo) GetByID(
 	ctx context.Context, ownerID, id string,
-) (jobsdomain.ResumeDraft, error) {
+) (jobsmodel.ResumeDraft, error) {
 	key, err := parseDraftKey(ownerID, id)
 	if err != nil {
-		return jobsdomain.ResumeDraft{}, err
+		return jobsmodel.ResumeDraft{}, err
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetResumeDraft(ctx, dbq.GetResumeDraftParams{
@@ -85,9 +85,9 @@ func (r *ResumeDraftRepo) GetByID(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return jobsdomain.ResumeDraft{}, jobsdomain.ErrResumeDraftNotFound
+			return jobsmodel.ResumeDraft{}, jobsmodel.ErrResumeDraftNotFound
 		}
-		return jobsdomain.ResumeDraft{}, fmt.Errorf("get resume draft: %w", err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("get resume draft: %w", err)
 	}
 	return toDomainResumeDraft(&row)
 }
@@ -95,15 +95,15 @@ func (r *ResumeDraftRepo) GetByID(
 // UpdateContent —— resume.update_draft：替换 resume_content jsonb。job_snapshot
 // 不变（snapshot 跟 cache 解耦，draft 创建后永远是创建时那一刻的快照）。
 func (r *ResumeDraftRepo) UpdateContent(
-	ctx context.Context, ownerID, id string, content *jobsdomain.ResumeContent,
-) (jobsdomain.ResumeDraft, error) {
+	ctx context.Context, ownerID, id string, content *jobsmodel.ResumeContent,
+) (jobsmodel.ResumeDraft, error) {
 	key, err := parseDraftKey(ownerID, id)
 	if err != nil {
-		return jobsdomain.ResumeDraft{}, err
+		return jobsmodel.ResumeDraft{}, err
 	}
 	contentJSON, err := json.Marshal(content)
 	if err != nil {
-		return jobsdomain.ResumeDraft{}, fmt.Errorf("marshal resume content: %w", err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("marshal resume content: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.UpdateResumeDraftContent(ctx, dbq.UpdateResumeDraftContentParams{
@@ -111,9 +111,9 @@ func (r *ResumeDraftRepo) UpdateContent(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return jobsdomain.ResumeDraft{}, jobsdomain.ErrResumeDraftNotFound
+			return jobsmodel.ResumeDraft{}, jobsmodel.ErrResumeDraftNotFound
 		}
-		return jobsdomain.ResumeDraft{}, fmt.Errorf("update resume draft: %w", err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("update resume draft: %w", err)
 	}
 	return toDomainResumeDraft(&row)
 }
@@ -137,7 +137,7 @@ func (r *ResumeDraftRepo) Delete(ctx context.Context, ownerID, id string) error 
 // created_at desc。1-day TTL 行不在列表里（filter 在 SQL 端做）。
 func (r *ResumeDraftRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]jobsdomain.ResumeDraft, error) {
+) ([]jobsmodel.ResumeDraft, error) {
 	owner, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -147,7 +147,7 @@ func (r *ResumeDraftRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list resume drafts: %w", err)
 	}
-	out := make([]jobsdomain.ResumeDraft, 0, len(rows))
+	out := make([]jobsmodel.ResumeDraft, 0, len(rows))
 	for i := range rows {
 		d, terr := toDomainResumeDraft(&rows[i])
 		if terr != nil {
@@ -180,17 +180,17 @@ func parseDraftKey(ownerIDStr, idStr string) (draftKey, error) {
 	return draftKey{owner: owner, draft: draft}, nil
 }
 
-// toDomainResumeDraft —— sqlc Row → jobsdomain.ResumeDraft（含 jsonb unmarshal）。
-func toDomainResumeDraft(row *dbq.ResumeDraft) (jobsdomain.ResumeDraft, error) {
-	var snapshot jobsdomain.FetchedJob
+// toDomainResumeDraft —— sqlc Row → jobsmodel.ResumeDraft（含 jsonb unmarshal）。
+func toDomainResumeDraft(row *dbq.ResumeDraft) (jobsmodel.ResumeDraft, error) {
+	var snapshot jobsmodel.FetchedJob
 	if err := json.Unmarshal(row.JobSnapshot, &snapshot); err != nil {
-		return jobsdomain.ResumeDraft{}, fmt.Errorf("unmarshal job snapshot: %w", err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("unmarshal job snapshot: %w", err)
 	}
-	var content jobsdomain.ResumeContent
+	var content jobsmodel.ResumeContent
 	if err := json.Unmarshal(row.ResumeContent, &content); err != nil {
-		return jobsdomain.ResumeDraft{}, fmt.Errorf("unmarshal resume content: %w", err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("unmarshal resume content: %w", err)
 	}
-	return jobsdomain.ResumeDraft{
+	return jobsmodel.ResumeDraft{
 		ID:            formatUUID(row.ID),
 		OwnerID:       formatUUID(row.OwnerID),
 		JobCacheID:    row.JobCacheID,

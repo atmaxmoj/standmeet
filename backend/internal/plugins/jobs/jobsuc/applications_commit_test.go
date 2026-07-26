@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/owner"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -41,7 +41,7 @@ func (f fakeOwnerLookup) GetByID(_ context.Context, _ string) (owner.Owner, erro
 type failingRenderer struct{}
 
 func (failingRenderer) RenderApplicationPDF(
-	_ context.Context, _ *jobsdomain.Application, _ string,
+	_ context.Context, _ *jobsmodel.Application, _ string,
 ) ([]byte, error) {
 	return nil, errors.New("render boom")
 }

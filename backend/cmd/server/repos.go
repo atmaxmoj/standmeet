@@ -16,16 +16,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/plugins/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/printsess"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
-	"github.com/atmaxmoj/standmeet/internal/printsess"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/search"
@@ -286,7 +286,7 @@ type gotenbergPDFRenderer struct {
 }
 
 func (r gotenbergPDFRenderer) RenderApplicationPDF(
-	ctx context.Context, app *jobsdomain.Application, qrURL string,
+	ctx context.Context, app *jobsmodel.Application, qrURL string,
 ) ([]byte, error) {
 	token, err := r.store.Stash(ctx, &printsess.Payload{
 		ApplicationID: app.ID,
@@ -311,7 +311,7 @@ func (r gotenbergPDFRenderer) RenderApplicationPDF(
 type noopPDFRenderer struct{}
 
 func (noopPDFRenderer) RenderApplicationPDF(
-	_ context.Context, _ *jobsdomain.Application, _ string,
+	_ context.Context, _ *jobsmodel.Application, _ string,
 ) ([]byte, error) {
 	return nil, gotenberg.ErrNotConfigured
 }

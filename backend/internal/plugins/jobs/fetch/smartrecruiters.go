@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 )
 
 const smartRecruitersDefaultBase = "https://api.smartrecruiters.com"
@@ -38,7 +38,7 @@ func newSmartRecruitersFetcher(client *http.Client, envBase string) *smartRecrui
 
 func (f *smartRecruitersFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]jobsdomain.FetchedJob, error) {
+) ([]jobsmodel.FetchedJob, error) {
 	cfg, err := parseSmartRecruitersConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (f *smartRecruitersFetcher) Fetch(
 	if uerr := json.Unmarshal(body, &payload); uerr != nil {
 		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
-	out := make([]jobsdomain.FetchedJob, 0, len(payload.Content))
+	out := make([]jobsmodel.FetchedJob, 0, len(payload.Content))
 	for i := range payload.Content {
 		out = append(out, srToDomain(&payload.Content[i], cfg.Company))
 	}
@@ -64,12 +64,12 @@ func parseSmartRecruitersConfig(raw []byte) (smartRecruitersConfig, error) {
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("smartrecruiters config decode: %w: %w",
-				jobsdomain.ErrJobSourceConfigInvalid, err)
+				jobsmodel.ErrJobSourceConfigInvalid, err)
 		}
 	}
 	if cfg.Company == "" {
 		return cfg, fmt.Errorf("smartrecruiters missing company: %w",
-			jobsdomain.ErrJobSourceConfigInvalid)
+			jobsmodel.ErrJobSourceConfigInvalid)
 	}
 	return cfg, nil
 }
@@ -106,12 +106,12 @@ type srLabel struct {
 	Label string `json:"label"`
 }
 
-func srToDomain(p *srPosting, company string) jobsdomain.FetchedJob {
+func srToDomain(p *srPosting, company string) jobsmodel.FetchedJob {
 	loc := firstNonEmpty(p.Location.City, p.Location.Region, p.Location.Country)
 	if p.Location.Remote {
 		loc = firstNonEmpty(loc, "Remote")
 	}
-	return jobsdomain.FetchedJob{
+	return jobsmodel.FetchedJob{
 		ExternalID:  p.ID,
 		Title:       p.Name,
 		Company:     company,

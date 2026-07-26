@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 )
 
 type jobSourceViewT struct {
@@ -32,7 +32,7 @@ type fetchedJobView struct {
 	Tags        []string `json:"tags"`
 }
 
-func jobSourceView(s *jobsdomain.JobSource) jobSourceViewT {
+func jobSourceView(s *jobsmodel.JobSource) jobSourceViewT {
 	cfg := json.RawMessage(s.Config)
 	if len(cfg) == 0 {
 		cfg = json.RawMessage(`{}`)
@@ -51,7 +51,7 @@ func jobSourceView(s *jobsdomain.JobSource) jobSourceViewT {
 	return v
 }
 
-func fetchedJobViews(jobs []jobsdomain.FetchedJob) []fetchedJobView {
+func fetchedJobViews(jobs []jobsmodel.FetchedJob) []fetchedJobView {
 	out := make([]fetchedJobView, 0, len(jobs))
 	for i := range jobs {
 		out = append(out, fetchedJobToView(&jobs[i]))
@@ -59,7 +59,7 @@ func fetchedJobViews(jobs []jobsdomain.FetchedJob) []fetchedJobView {
 	return out
 }
 
-func fetchedJobToView(j *jobsdomain.FetchedJob) fetchedJobView {
+func fetchedJobToView(j *jobsmodel.FetchedJob) fetchedJobView {
 	v := fetchedJobView{
 		CacheID:    j.CacheID,
 		SourceID:   j.SourceID,

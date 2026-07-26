@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -32,8 +32,8 @@ const (
 )
 
 // ErrCacheMiss —— key 不在 Redis（过期 / 从未存在 / discard 过）。
-// 跟 jobsdomain.ErrJobCacheMiss 同义，给 caller 用 errors.Is 区分。
-var ErrCacheMiss = jobsdomain.ErrJobCacheMiss
+// 跟 jobsmodel.ErrJobCacheMiss 同义，给 caller 用 errors.Is 区分。
+var ErrCacheMiss = jobsmodel.ErrJobCacheMiss
 
 // Pool —— Redis-backed 1d TTL job 池子。
 type Pool struct {
@@ -52,9 +52,9 @@ func New(rdb *redis.Client, ttl time.Duration) *Pool {
 // Put —— 批量塞一组 fetcher 抓出来的 FetchedJob。每条 assign 一个新 cache_id。
 // 返回的 slice 跟入参顺序一一对应（in-place 更新 cache_id 字段并 echo）。
 func (p *Pool) Put(
-	ctx context.Context, ownerID string, jobs []jobsdomain.FetchedJob,
-) ([]jobsdomain.FetchedJob, error) {
-	out := make([]jobsdomain.FetchedJob, 0, len(jobs))
+	ctx context.Context, ownerID string, jobs []jobsmodel.FetchedJob,
+) ([]jobsmodel.FetchedJob, error) {
+	out := make([]jobsmodel.FetchedJob, 0, len(jobs))
 	for i := range jobs {
 		id, err := newCacheID()
 		if err != nil {
@@ -76,30 +76,30 @@ func (p *Pool) Put(
 // Get —— 单条反查；过期 / discard 返 ErrCacheMiss。
 func (p *Pool) Get(
 	ctx context.Context, ownerID, cacheID string,
-) (jobsdomain.FetchedJob, error) {
+) (jobsmodel.FetchedJob, error) {
 	raw, err := p.rdb.Get(ctx, key(ownerID, cacheID)).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return jobsdomain.FetchedJob{}, ErrCacheMiss
+			return jobsmodel.FetchedJob{}, ErrCacheMiss
 		}
-		return jobsdomain.FetchedJob{}, fmt.Errorf("redis get job: %w", err)
+		return jobsmodel.FetchedJob{}, fmt.Errorf("redis get job: %w", err)
 	}
-	var job jobsdomain.FetchedJob
+	var job jobsmodel.FetchedJob
 	if uerr := json.Unmarshal(raw, &job); uerr != nil {
-		return jobsdomain.FetchedJob{}, fmt.Errorf("decode job: %w", uerr)
+		return jobsmodel.FetchedJob{}, fmt.Errorf("decode job: %w", uerr)
 	}
 	return job, nil
 }
 
 // ListByOwner —— owner 池子里现存的全部 job（live keys；过期的 SCAN 自然不返）。
 // admin /listings 只读视图用。池子 ephemeral，顺序不保证。无 job 返空 slice。
-func (p *Pool) ListByOwner(ctx context.Context, ownerID string) ([]jobsdomain.FetchedJob, error) {
+func (p *Pool) ListByOwner(ctx context.Context, ownerID string) ([]jobsmodel.FetchedJob, error) {
 	keys, err := p.scanKeys(ctx, keyPrefix+ownerID+":*")
 	if err != nil {
 		return nil, err
 	}
 	if len(keys) == 0 {
-		return []jobsdomain.FetchedJob{}, nil
+		return []jobsmodel.FetchedJob{}, nil
 	}
 	return p.mgetJobs(ctx, keys)
 }
@@ -141,18 +141,18 @@ func (p *Pool) scanKeys(ctx context.Context, pattern string) ([]string, error) {
 	}
 }
 
-func (p *Pool) mgetJobs(ctx context.Context, keys []string) ([]jobsdomain.FetchedJob, error) {
+func (p *Pool) mgetJobs(ctx context.Context, keys []string) ([]jobsmodel.FetchedJob, error) {
 	vals, err := p.rdb.MGet(ctx, keys...).Result()
 	if err != nil {
 		return nil, fmt.Errorf("redis mget: %w", err)
 	}
-	out := make([]jobsdomain.FetchedJob, 0, len(vals))
+	out := make([]jobsmodel.FetchedJob, 0, len(vals))
 	for _, v := range vals {
 		s, ok := v.(string)
 		if !ok {
 			continue // key 在 scan 与 mget 之间过期了
 		}
-		var job jobsdomain.FetchedJob
+		var job jobsmodel.FetchedJob
 		if uerr := json.Unmarshal([]byte(s), &job); uerr != nil {
 			return nil, fmt.Errorf("decode job: %w", uerr)
 		}

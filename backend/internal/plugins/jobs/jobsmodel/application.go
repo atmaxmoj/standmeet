@@ -8,7 +8,7 @@
 // 'submitted'（Playwright 已成功提交）→ 'failed' / 'withdrawn'。
 // Phase 3 只用 'pending'；Phase 4 Playwright 投递成功回填 submitted_at + status。
 
-package jobsdomain
+package jobsmodel
 
 import (
 	"errors"

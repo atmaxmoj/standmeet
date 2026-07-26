@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -38,16 +38,16 @@ const (
 // ErrSessionMiss —— token unknown, expired, or already taken.
 var ErrSessionMiss = errors.New("print session not found")
 
-// Payload —— what the print page renders. Subset of jobsdomain.Application
+// Payload —— what the print page renders. Subset of jobsmodel.Application
 // — only the fields the React component needs (resume_content +
 // job_snapshot + identifiers + qr_url). Trimming avoids leaking
 // SubmittedAt / Status which are unrelated to print.
 type Payload struct {
-	ApplicationID string                   `json:"application_id"`
-	QRURL         string                   `json:"qr_url"`
-	ResumeContent jobsdomain.ResumeContent `json:"resume_content"`
-	JobSnapshot   jobsdomain.FetchedJob    `json:"job_snapshot"`
-	Version       int                      `json:"v"`
+	ApplicationID string                  `json:"application_id"`
+	QRURL         string                  `json:"qr_url"`
+	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
+	JobSnapshot   jobsmodel.FetchedJob    `json:"job_snapshot"`
+	Version       int                     `json:"v"`
 }
 
 // Store —— Redis-backed one-shot stash.
