@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -34,7 +34,7 @@ type LoginOutput struct {
 	OwnerHandle  string
 }
 
-// Login 校验密码，颁发 session。错密码 / 不存在用户都返回 ownerdomain.ErrUnauthorized
+// Login 校验密码，颁发 session。错密码 / 不存在用户都返回 owner.ErrUnauthorized
 // （不区分"用户不存在" vs "密码错"，避免暴露存在性）。
 func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, error) {
 	if in.Email == "" || in.Password == "" {
@@ -66,14 +66,14 @@ func authenticate(
 ) (postgres.Credentials, error) {
 	creds, err := deps.Owners.GetCredentialsByEmail(ctx, in.Email)
 	if err != nil {
-		if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
-			return postgres.Credentials{}, ownerdomain.ErrUnauthorized
+		if errors.Is(err, owner.ErrOwnerNotFound) {
+			return postgres.Credentials{}, owner.ErrUnauthorized
 		}
 		return postgres.Credentials{}, fmt.Errorf("get credentials: %w", err)
 	}
 	if verr := session.VerifyPassword(in.Password, creds.PasswordHash); verr != nil {
 		if errors.Is(verr, session.ErrPasswordMismatch) {
-			return postgres.Credentials{}, ownerdomain.ErrUnauthorized
+			return postgres.Credentials{}, owner.ErrUnauthorized
 		}
 		return postgres.Credentials{}, fmt.Errorf("verify password: %w", verr)
 	}

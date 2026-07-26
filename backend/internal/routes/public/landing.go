@@ -18,7 +18,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -111,7 +111,7 @@ var landingNotFound = apierr.Envelope{
 var landingNotFoundSentinels = []error{
 	corpus.ErrWikiNotFound,
 	corpus.ErrOutputNotFound,
-	ownerdomain.ErrOwnerNotFound,
+	owner.ErrOwnerNotFound,
 }
 
 func isLandingNotFound(err error) bool {

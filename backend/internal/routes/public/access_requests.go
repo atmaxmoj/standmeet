@@ -13,7 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -84,7 +84,7 @@ func classifyAccessRequestErr(err error) apierr.Envelope {
 			Status: http.StatusBadRequest, Code: "bad_request", Message: "missing required field",
 		}
 	}
-	if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
+	if errors.Is(err, owner.ErrOwnerNotFound) {
 		return apierr.Envelope{
 			Status:  http.StatusNotFound,
 			Code:    "owner_not_found",

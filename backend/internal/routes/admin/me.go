@@ -3,7 +3,7 @@
 //
 // Response shape:
 //   { owner: { ... identity }, settings: { ai: ..., byoai: ... } }
-// 跟 ownerdomain.Owner / ownerdomain.OwnerSettings 1:1 对齐。
+// 跟 owner.Owner / owner.Settings 1:1 对齐。
 
 package admin
 
@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 type ownerView struct {
@@ -52,7 +52,7 @@ type meResponse struct {
 func (h *Handlers) me() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		owner, err := h.Auth.Login.Owners.GetByID(r.Context(), ownerID)
+		ownerRow, err := h.Auth.Login.Owners.GetByID(r.Context(), ownerID)
 		if err != nil {
 			handleMeErr(h.Log, w, err)
 			return
@@ -62,31 +62,31 @@ func (h *Handlers) me() http.HandlerFunc {
 			handleMeErr(h.Log, w, serr)
 			return
 		}
-		writeMe(h.Log, w, &owner, &settings)
+		writeMe(h.Log, w, &ownerRow, &settings)
 	}
 }
 
 func writeMe(
 	log *slog.Logger, w http.ResponseWriter,
-	owner *ownerdomain.Owner, settings *ownerdomain.OwnerSettings,
+	o *owner.Owner, settings *owner.Settings,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if encErr := json.NewEncoder(w).Encode(toMeResponse(owner, settings)); encErr != nil {
+	if encErr := json.NewEncoder(w).Encode(toMeResponse(o, settings)); encErr != nil {
 		log.Error("encode me response", "err", encErr)
 	}
 }
 
-func toMeResponse(owner *ownerdomain.Owner, settings *ownerdomain.OwnerSettings) meResponse {
+func toMeResponse(o *owner.Owner, settings *owner.Settings) meResponse {
 	providers := settings.BYOAI.Providers
 	if providers == nil {
 		providers = []string{}
 	}
 	return meResponse{
 		Owner: ownerView{
-			OwnerID: owner.ID, Email: owner.Email,
-			Handle: owner.Handle, FullName: owner.FullName,
-			PublicURL: owner.PublicURL,
+			OwnerID: o.ID, Email: o.Email,
+			Handle: o.Handle, FullName: o.FullName,
+			PublicURL: o.PublicURL,
 		},
 		Settings: settingsView{
 			AI: aiSettingsView{
@@ -105,7 +105,7 @@ func toMeResponse(owner *ownerdomain.Owner, settings *ownerdomain.OwnerSettings)
 }
 
 func handleMeErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
+	if errors.Is(err, owner.ErrOwnerNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusUnauthorized, Code: "unauthorized", Message: "owner not found",
 		})

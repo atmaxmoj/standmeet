@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -32,11 +32,11 @@ type IssuePublicSessionInput struct {
 func IssuePublicSession(
 	ctx context.Context, deps *VisitorSessionDeps, in *IssuePublicSessionInput,
 ) (IssueCodeSessionResult, error) {
-	owner, err := loadSoleOwnerForVisitor(ctx, deps)
+	soleOwner, err := loadSoleOwnerForVisitor(ctx, deps)
 	if err != nil {
 		return IssueCodeSessionResult{}, err
 	}
-	return finalizePublicSession(ctx, deps, in, &owner)
+	return finalizePublicSession(ctx, deps, in, &soleOwner)
 }
 
 // loadSoleOwnerForVisitor —— visitor.public 路径上的 sole-owner 解析。usecases/page.go
@@ -44,33 +44,33 @@ func IssuePublicSession(
 // helper 避免 deps 互相依赖。pre-claim → ErrOwnerNotFound 由 handler 翻译成 404。
 func loadSoleOwnerForVisitor(
 	ctx context.Context, deps *VisitorSessionDeps,
-) (ownerdomain.Owner, error) {
+) (owner.Owner, error) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("first owner handle: %w", err)
+		return owner.Owner{}, fmt.Errorf("first owner handle: %w", err)
 	}
 	if handle == "" {
-		return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
+		return owner.Owner{}, owner.ErrOwnerNotFound
 	}
-	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
+	soleOwner, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		if errors.Is(oerr, ownerdomain.ErrOwnerNotFound) {
-			return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
+		if errors.Is(oerr, owner.ErrOwnerNotFound) {
+			return owner.Owner{}, owner.ErrOwnerNotFound
 		}
-		return ownerdomain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
+		return owner.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
-	return owner, nil
+	return soleOwner, nil
 }
 
 func finalizePublicSession(
 	ctx context.Context, deps *VisitorSessionDeps,
-	in *IssuePublicSessionInput, owner *ownerdomain.Owner,
+	in *IssuePublicSessionInput, o *owner.Owner,
 ) (IssueCodeSessionResult, error) {
 	// Mode 记 byoai/public(功能性,resolver/quota 在用);BYOAI 的具体 provider 是
 	// visitor/session 的属性(前端 session-store + per-request cred),不落 conv 行。
 	mode := publicModeForBYOAI(in.BYOAIProvider)
 	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
-		OwnerID:     owner.ID,
+		OwnerID:     o.ID,
 		Mode:        mode,
 		VisitorName: in.VisitorName,
 		ClientIP:    in.ClientIP,
@@ -81,12 +81,12 @@ func finalizePublicSession(
 	// A.3-IAM-5: public / byoai 也强制走 RoleSnapshot —— freeze owner 的
 	// public role。owner 想限缩 byoai 就改 public 的 corpus_uris，或发
 	// byoai-eligible code 挂别的 role（后者 TODO）。
-	snapshot, sserr := buildRoleSnapshotForOwnerPublic(ctx, deps, owner.ID)
+	snapshot, sserr := buildRoleSnapshotForOwnerPublic(ctx, deps, o.ID)
 	if sserr != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("freeze public snapshot: %w", sserr)
 	}
 	issued, err := deps.Sessions.Issue(ctx, &session.VisitorSessionData{
-		OwnerID:      owner.ID,
+		OwnerID:      o.ID,
 		Mode:         mode,
 		Visitor:      access.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},
 		RoleSnapshot: &snapshot,

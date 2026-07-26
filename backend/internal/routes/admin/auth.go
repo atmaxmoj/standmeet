@@ -11,7 +11,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -41,7 +41,7 @@ var loginErrCases = []apierr.Case{
 		Envelope: envBadReq("missing email or password"),
 	},
 	{
-		Match: ownerdomain.ErrUnauthorized,
+		Match: owner.ErrUnauthorized,
 		Envelope: apierr.Envelope{
 			Status: http.StatusUnauthorized, Code: "unauthorized", Message: "invalid credentials",
 		},

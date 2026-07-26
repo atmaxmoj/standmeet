@@ -29,7 +29,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -80,7 +80,7 @@ type CommitStore interface {
 // OwnerLookup —— 取 owner handle 用于拼 QR URL；用接口避开 usecases → postgres
 // 的具体 OwnerRepo 直耦合（cmd 层 wireup 注入实际实现）。
 type OwnerLookup interface {
-	GetByID(ctx context.Context, ownerID string) (ownerdomain.Owner, error)
+	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
 }
 
 // CommitApplication —— 主入口。返回结构化 application + 同步 issue 的 access
@@ -132,12 +132,12 @@ type renderPrep struct {
 func prepareRender(
 	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string,
 ) (renderPrep, error) {
-	owner, err := deps.Owners.GetByID(ctx, ownerID)
+	ownerRow, err := deps.Owners.GetByID(ctx, ownerID)
 	if err != nil {
 		return renderPrep{}, fmt.Errorf("get owner: %w", err)
 	}
-	if owner.PublicURL == "" {
-		return renderPrep{}, ownerdomain.ErrPublicURLNotSet
+	if ownerRow.PublicURL == "" {
+		return renderPrep{}, owner.ErrPublicURLNotSet
 	}
 	data, err := deps.Apps.GetDraftRenderData(ctx, ownerID, draftID)
 	if err != nil {
@@ -152,7 +152,7 @@ func prepareRender(
 		renderApp: jobsdomain.Application{
 			ID: appID, ResumeContent: data.Resume, JobSnapshot: data.Job,
 		},
-		qrURL: buildQRURL(owner.PublicURL, code), code: code, appID: appID,
+		qrURL: buildQRURL(ownerRow.PublicURL, code), code: code, appID: appID,
 	}, nil
 }
 

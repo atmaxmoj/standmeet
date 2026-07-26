@@ -1,5 +1,5 @@
 // OwnerRepo wrap sqlc 生成的 dbq.Queries。
-// 把 pgtype.* 映射到 ownerdomain.Owner 纯 Go 类型，让 usecase / routes 层
+// 把 pgtype.* 映射到 owner.Owner 纯 Go 类型，让 usecase / routes 层
 // 不用知道 pgtype。
 
 package postgres
@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -74,10 +74,10 @@ func pgUniqueViolation(err error) (string, bool) {
 }
 
 // toDomainOwner 把 sqlc 生成的 dbq.Owner（带 pgtype.UUID / Timestamptz）
-// 映射到 ownerdomain.Owner（纯 Go 类型，identity only）。
+// 映射到 owner.Owner（纯 Go 类型，identity only）。
 // settings 字段通过 toOwnerSettings 单独解（同一行 owners 表 row 拆两面）。
-func toDomainOwner(o *dbq.Owner) ownerdomain.Owner {
-	return ownerdomain.Owner{
+func toDomainOwner(o *dbq.Owner) owner.Owner {
+	return owner.Owner{
 		ID:              formatUUID(o.ID),
 		Email:           o.Email,
 		Handle:          o.Handle,
@@ -90,16 +90,16 @@ func toDomainOwner(o *dbq.Owner) ownerdomain.Owner {
 }
 
 // toOwnerSettings —— 把 owners 行的 setting 字段（byoai_* + ai_*）拼成
-// ownerdomain.OwnerSettings 值对象。明文 key 不出 repo，外层只看 KeyConfigured。
-func toOwnerSettings(o *dbq.Owner) ownerdomain.OwnerSettings {
-	return ownerdomain.OwnerSettings{
-		AI: ownerdomain.OwnerAISettings{
+// owner.Settings 值对象。明文 key 不出 repo，外层只看 KeyConfigured。
+func toOwnerSettings(o *dbq.Owner) owner.Settings {
+	return owner.Settings{
+		AI: owner.AISettings{
 			Provider:      o.AiProvider,
 			Endpoint:      o.AiEndpoint,
 			Model:         o.AiModel,
 			KeyConfigured: len(o.AiProviderKeyEnc) > 0,
 		},
-		BYOAI: ownerdomain.OwnerBYOAISettings{
+		BYOAI: owner.BYOAISettings{
 			Enabled:     o.ByoaiEnabled,
 			Providers:   decodeProviders(o.ByoaiProviders),
 			PublicBlurb: o.ByoaiPublicBlurb,
@@ -133,18 +133,18 @@ type UpdateBYOAIInput struct {
 // OwnerSettings（不是整个 Owner，settings 是聚合的独立切面）。
 func (r *OwnerRepo) UpdateBYOAI(
 	ctx context.Context, in *UpdateBYOAIInput,
-) (ownerdomain.OwnerSettings, error) {
+) (owner.Settings, error) {
 	params, perr := buildBYOAIParams(in)
 	if perr != nil {
-		return ownerdomain.OwnerSettings{}, perr
+		return owner.Settings{}, perr
 	}
 	q := dbq.New(r.pool)
 	row, uerr := q.UpdateOwnerBYOAI(ctx, params)
 	if uerr != nil {
 		if errors.Is(uerr, pgxErrNoRows()) {
-			return ownerdomain.OwnerSettings{}, ownerdomain.ErrOwnerNotFound
+			return owner.Settings{}, owner.ErrOwnerNotFound
 		}
-		return ownerdomain.OwnerSettings{}, fmt.Errorf("update byoai: %w", uerr)
+		return owner.Settings{}, fmt.Errorf("update byoai: %w", uerr)
 	}
 	return toOwnerSettings(&row), nil
 }
@@ -153,18 +153,18 @@ func (r *OwnerRepo) UpdateBYOAI(
 // /me 端要 owner + settings 拼起来时调它，跟 GetByID 各自只取自己那半。
 func (r *OwnerRepo) GetSettings(
 	ctx context.Context, ownerID string,
-) (ownerdomain.OwnerSettings, error) {
+) (owner.Settings, error) {
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return ownerdomain.OwnerSettings{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+		return owner.Settings{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetOwnerByID(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
-			return ownerdomain.OwnerSettings{}, ownerdomain.ErrOwnerNotFound
+			return owner.Settings{}, owner.ErrOwnerNotFound
 		}
-		return ownerdomain.OwnerSettings{}, fmt.Errorf("get owner settings: %w", err)
+		return owner.Settings{}, fmt.Errorf("get owner settings: %w", err)
 	}
 	return toOwnerSettings(&row), nil
 }
@@ -228,7 +228,7 @@ func (r *OwnerRepo) GetAIProviderView(
 	row, err := q.GetOwnerByID(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return AIProviderView{}, ownerdomain.ErrOwnerNotFound
+			return AIProviderView{}, owner.ErrOwnerNotFound
 		}
 		return AIProviderView{}, fmt.Errorf("get owner for provider view: %w", err)
 	}
@@ -243,14 +243,14 @@ func (r *OwnerRepo) GetAIProviderView(
 // 返回新 OwnerSettings（聚合的独立切面）。
 func (r *OwnerRepo) UpdateAIProvider(
 	ctx context.Context, in *UpdateAIProviderInput,
-) (ownerdomain.OwnerSettings, error) {
+) (owner.Settings, error) {
 	pgID, perr := parseUUID(in.OwnerID)
 	if perr != nil {
-		return ownerdomain.OwnerSettings{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+		return owner.Settings{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	encBytes, eerr := r.resolveKeyBytes(ctx, pgID, in.KeyPlaintext)
 	if eerr != nil {
-		return ownerdomain.OwnerSettings{}, eerr
+		return owner.Settings{}, eerr
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerAIProvider(ctx, dbq.UpdateOwnerAIProviderParams{
@@ -258,7 +258,7 @@ func (r *OwnerRepo) UpdateAIProvider(
 		AiEndpoint: in.Endpoint, AiModel: in.Model,
 	})
 	if qerr != nil {
-		return ownerdomain.OwnerSettings{}, fmt.Errorf("update ai provider: %w", qerr)
+		return owner.Settings{}, fmt.Errorf("update ai provider: %w", qerr)
 	}
 	return toOwnerSettings(&row), nil
 }
@@ -268,17 +268,17 @@ func (r *OwnerRepo) UpdateAIProvider(
 // 单条 UPDATE 即可。
 func (r *OwnerRepo) UpdatePublicURL(
 	ctx context.Context, ownerID, normalized string,
-) (ownerdomain.Owner, error) {
+) (owner.Owner, error) {
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return ownerdomain.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+		return owner.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerPublicURL(ctx, dbq.UpdateOwnerPublicURLParams{
 		ID: pgID, PublicUrl: normalized,
 	})
 	if qerr != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("update public_url: %w", qerr)
+		return owner.Owner{}, fmt.Errorf("update public_url: %w", qerr)
 	}
 	return toDomainOwner(&row), nil
 }

@@ -16,7 +16,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -252,11 +252,11 @@ type capBuildViewT struct {
 	ErrorMessage string `json:"error_message"`
 }
 
-func capPageView(p *ownerdomain.CustomPage) capPageViewT {
+func capPageView(p *owner.CustomPage) capPageViewT {
 	return capPageViewT{ID: p.ID, Slug: p.Slug, Title: p.Title}
 }
 
-func capBuildView(b *ownerdomain.CustomPageBuild) capBuildViewT {
+func capBuildView(b *owner.CustomPageBuild) capBuildViewT {
 	return capBuildViewT{
 		BuildID: b.ID, PageID: b.PageID, Status: b.Status,
 		OutputPath: b.OutputPath, ErrorMessage: b.ErrorMessage,
@@ -265,11 +265,11 @@ func capBuildView(b *ownerdomain.CustomPageBuild) capBuildViewT {
 
 func customPageCapErr(log *slog.Logger, err error, name string) capreg.MCPResult {
 	switch {
-	case errors.Is(err, ownerdomain.ErrCustomPageNotFound):
+	case errors.Is(err, owner.ErrCustomPageNotFound):
 		return capreg.MCPError("page not found")
-	case errors.Is(err, ownerdomain.ErrCustomPageBuildNotFound):
+	case errors.Is(err, owner.ErrCustomPageBuildNotFound):
 		return capreg.MCPError("build not found")
-	case errors.Is(err, ownerdomain.ErrCustomPageSlugTaken):
+	case errors.Is(err, owner.ErrCustomPageSlugTaken):
 		return capreg.MCPError("slug already taken")
 	}
 	log.Error(name, "err", err)

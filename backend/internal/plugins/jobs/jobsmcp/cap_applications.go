@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
@@ -132,7 +132,7 @@ func applicationsCapErrToResult(
 		return capreg.MCPError("draft not found (expired or wrong owner)")
 	case errors.Is(err, jobsdomain.ErrApplicationNotFound):
 		return capreg.MCPError("application not found")
-	case errors.Is(err, ownerdomain.ErrOwnerNotFound):
+	case errors.Is(err, owner.ErrOwnerNotFound):
 		return capreg.MCPError("owner not found")
 	}
 	log.Error("cap applications."+op, "err", err)

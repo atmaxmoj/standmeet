@@ -19,7 +19,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -81,5 +81,5 @@ func writeAllowedOrDeny(log *slog.Logger, w http.ResponseWriter, o askOutcome) {
 }
 
 func isLookupErr(err error) bool {
-	return err != nil && !errors.Is(err, ownerdomain.ErrInstanceSettingsNotFound)
+	return err != nil && !errors.Is(err, owner.ErrInstanceSettingsNotFound)
 }

@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 const (
@@ -78,7 +78,7 @@ func decodeEnvelopeB64(s string) ([]byte, error) {
 // false 语义。
 func readBYOAICredFromHeaders(
 	h *Handlers, w http.ResponseWriter, r *http.Request, sessionToken string,
-) *ownerdomain.AICredential {
+) *owner.AICredential {
 	hdrs, hok := requireBYOAIHeaders(h, w, r)
 	if !hok {
 		return nil
@@ -88,7 +88,7 @@ func readBYOAICredFromHeaders(
 		writeError(h.Log, w, unauthorizedEnv("invalid byoai key envelope"))
 		return nil
 	}
-	return &ownerdomain.AICredential{
+	return &owner.AICredential{
 		Provider: hdrs.Provider, Key: plain,
 		Endpoint: hdrs.Endpoint, Model: hdrs.Model,
 	}

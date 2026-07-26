@@ -9,12 +9,12 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // MetaLookup —— 取 owner 记录(owner.meta 只读它的白名单字段)。
 type MetaLookup interface {
-	GetByID(ctx context.Context, ownerID string) (ownerdomain.Owner, error)
+	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
 }
 
 // RegisterOwnerMetaOp —— 把 "owner.meta" 挂到 srv:{owner_id,field} → 白名单字段值,否则拒。
@@ -36,14 +36,14 @@ func runOwnerMeta(
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, fmt.Errorf("owner.meta: decode: %w", err)
 	}
-	owner, err := owners.GetByID(ctx, req.OwnerID)
+	ownerRow, err := owners.GetByID(ctx, req.OwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("owner.meta: %w", err)
 	}
 	served := map[string]string{
-		"timezone":  owner.ProfileTimezone,
-		"full_name": owner.FullName,
-		"email":     owner.Email,
+		"timezone":  ownerRow.ProfileTimezone,
+		"full_name": ownerRow.FullName,
+		"email":     ownerRow.Email,
 	}
 	val, ok := served[req.Field]
 	if !ok {

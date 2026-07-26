@@ -20,7 +20,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -69,9 +69,9 @@ func claimBuild(deps BuilderDeps) http.HandlerFunc {
 }
 
 func respondClaim(
-	deps BuilderDeps, w http.ResponseWriter, err error, _ *ownerdomain.CustomPageBuild,
+	deps BuilderDeps, w http.ResponseWriter, err error, _ *owner.CustomPageBuild,
 ) {
-	if errors.Is(err, ownerdomain.ErrCustomPageBuildNotFound) {
+	if errors.Is(err, owner.ErrCustomPageBuildNotFound) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}

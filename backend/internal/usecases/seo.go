@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -24,25 +24,25 @@ type SEODeps struct {
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
-func FirstOwner(ctx context.Context, deps SEODeps) (ownerdomain.Owner, bool) {
+func FirstOwner(ctx context.Context, deps SEODeps) (owner.Owner, bool) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil || handle == "" {
-		return ownerdomain.Owner{}, false
+		return owner.Owner{}, false
 	}
-	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
+	soleOwner, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		return ownerdomain.Owner{}, false
+		return owner.Owner{}, false
 	}
-	return owner, true
+	return soleOwner, true
 }
 
 // FirstOwnerSettings —— SEO 渲染入口：拿首位 owner 的 SEOSettings。
 func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpus.SEOSettings, bool) {
-	owner, ok := FirstOwner(ctx, deps)
+	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return corpus.SEOSettings{}, false
 	}
-	settings, err := deps.SEO.GetSettings(ctx, owner.ID)
+	settings, err := deps.SEO.GetSettings(ctx, soleOwner.ID)
 	if err != nil {
 		return corpus.SEOSettings{}, false
 	}
@@ -50,16 +50,16 @@ func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpus.SEOSettings, 
 }
 
 // PublicReady —— 集中 robots/sitemap readiness check。
-func PublicReady(ctx context.Context, deps SEODeps) (ownerdomain.Owner, bool) {
-	owner, ok := FirstOwner(ctx, deps)
-	if !ok || owner.PublicURL == "" {
-		return ownerdomain.Owner{}, false
+func PublicReady(ctx context.Context, deps SEODeps) (owner.Owner, bool) {
+	soleOwner, ok := FirstOwner(ctx, deps)
+	if !ok || soleOwner.PublicURL == "" {
+		return owner.Owner{}, false
 	}
 	settings, ok := FirstOwnerSettings(ctx, deps)
 	if !ok || !settings.IndexRobots {
-		return ownerdomain.Owner{}, false
+		return owner.Owner{}, false
 	}
-	return owner, true
+	return soleOwner, true
 }
 
 // WikiLanding —— landing 查询结果:wiki 实体 + 渲染好的 body(Obsidian `[[Title]]`
@@ -89,17 +89,17 @@ func GetWikiLanding(
 	if path == "" {
 		return WikiLanding{}, corpus.ErrWikiNotFound
 	}
-	owner, ok := FirstOwner(ctx, deps)
+	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return WikiLanding{}, ownerdomain.ErrOwnerNotFound
+		return WikiLanding{}, owner.ErrOwnerNotFound
 	}
 	// 全量 meta(无 body、无 50-cap):算树派生 path 定位条目 + 建 [[X]] 渲染 title 索引。
 	// deep entry(超出旧 newest-50)也找得到,链接也不断。正文单独 GetByID 拉。
-	metas, err := deps.Wiki.ListAllMeta(ctx, owner.ID)
+	metas, err := deps.Wiki.ListAllMeta(ctx, soleOwner.ID)
 	if err != nil {
 		return WikiLanding{}, fmt.Errorf("list wiki meta: %w", err)
 	}
-	return assembleWikiLanding(ctx, deps, owner.ID,
+	return assembleWikiLanding(ctx, deps, soleOwner.ID,
 		&landingLocate{scope: scope, path: path, metas: metas})
 }
 
@@ -179,11 +179,11 @@ type LandingURL struct {
 
 // IndexedWikiLandings —— 给 sitemap.xml 列 sole owner 所有 indexed path（树派生）。
 func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
-	owner, ok := FirstOwner(ctx, deps)
+	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return []LandingURL{}
 	}
-	metas, err := deps.Wiki.ListAllMeta(ctx, owner.ID)
+	metas, err := deps.Wiki.ListAllMeta(ctx, soleOwner.ID)
 	if err != nil {
 		return []LandingURL{}
 	}
@@ -204,11 +204,11 @@ func GetOutputLanding(
 	if path == "" {
 		return corpus.Output{}, corpus.ErrOutputNotFound
 	}
-	owner, ok := FirstOwner(ctx, deps)
+	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return corpus.Output{}, ownerdomain.ErrOwnerNotFound
+		return corpus.Output{}, owner.ErrOwnerNotFound
 	}
-	return resolveOutputLanding(ctx, deps, owner.ID, path)
+	return resolveOutputLanding(ctx, deps, soleOwner.ID, path)
 }
 
 // resolveOutputLanding —— 全量 meta 定位 indexed + path 命中那条,正文 GetByID 拉。
@@ -244,11 +244,11 @@ func indexedOutputIDAtPath(
 
 // IndexedOutputLandings —— sitemap.xml 列 indexed output landing（树派生）。
 func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
-	owner, ok := FirstOwner(ctx, deps)
+	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return []LandingURL{}
 	}
-	metas, err := deps.Output.ListAllMeta(ctx, owner.ID)
+	metas, err := deps.Output.ListAllMeta(ctx, soleOwner.ID)
 	if err != nil {
 		return []LandingURL{}
 	}

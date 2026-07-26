@@ -4,7 +4,7 @@
 //
 // 撤销 = hard delete (无 status 字段)。对齐 youteacher 极简风格。
 
-package ownerdomain
+package owner
 
 import (
 	"errors"
@@ -15,8 +15,8 @@ import (
 // ts 超窗口 / header 形态错)。caller 翻 HTTP 401。
 var ErrKeypairUnauthorized = errors.New("keypair: unauthorized")
 
-// OwnerKeypair —— DB 一行。PublicKeyPEM 用 PKCS8 Ed25519 编码。
-type OwnerKeypair struct {
+// Keypair —— DB 一行。PublicKeyPEM 用 PKCS8 Ed25519 编码。
+type Keypair struct {
 	LastUsedAt   *time.Time
 	CreatedAt    time.Time
 	ID           string
@@ -26,9 +26,9 @@ type OwnerKeypair struct {
 	Label        string
 }
 
-// OwnerKeypairMetadata —— admin list 用：去掉 PEM + ownerID，只剩 owner UI
+// KeypairMetadata —— admin list 用：去掉 PEM + ownerID，只剩 owner UI
 // 关心的字段。永远不返公钥 (owner 已下载 PEM 自己保管，不需要看 server side)。
-type OwnerKeypairMetadata struct {
+type KeypairMetadata struct {
 	LastUsedAt *time.Time
 	CreatedAt  time.Time
 	ID         string

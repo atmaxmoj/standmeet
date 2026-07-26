@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -40,14 +40,14 @@ type PublicPageView struct {
 // join 成 PagePinCard(title + excerpt + path)。AI(page.get)和访客看同一形。
 // 字段顺序按 govet fieldalignment。
 type PageContentView struct {
-	UpdatedAt    time.Time                 `json:"updated_at"`
-	Where        ownerdomain.PageWhere     `json:"where"`
-	Contact      ownerdomain.PageContact   `json:"contact"`
-	OwnerID      string                    `json:"owner_id"`
-	HeroProse    string                    `json:"hero_prose"`
-	HeroExamples []string                  `json:"hero_examples"`
-	Insights     []ownerdomain.PagePinCard `json:"insights"`
-	Projects     []ownerdomain.PagePinCard `json:"projects"`
+	UpdatedAt    time.Time           `json:"updated_at"`
+	Where        owner.PageWhere     `json:"where"`
+	Contact      owner.PageContact   `json:"contact"`
+	OwnerID      string              `json:"owner_id"`
+	HeroProse    string              `json:"hero_prose"`
+	HeroExamples []string            `json:"hero_examples"`
+	Insights     []owner.PagePinCard `json:"insights"`
+	Projects     []owner.PagePinCard `json:"projects"`
 }
 
 // PublicOwnerView —— 暴露给访客的 owner 切片（不含 email / password_hash）。
@@ -60,19 +60,19 @@ type PublicOwnerView struct {
 
 // LoadSoleOwner —— v1 单 owner instance：取唯一的 owner。pre-claim
 // （未 claim） → ErrOwnerNotFound。app 根路径 / SEO / public routes 都走这条。
-func LoadSoleOwner(ctx context.Context, deps PageDeps) (ownerdomain.Owner, error) {
+func LoadSoleOwner(ctx context.Context, deps PageDeps) (owner.Owner, error) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("first owner handle: %w", err)
+		return owner.Owner{}, fmt.Errorf("first owner handle: %w", err)
 	}
 	if handle == "" {
-		return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
+		return owner.Owner{}, owner.ErrOwnerNotFound
 	}
-	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
+	sole, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
+		return owner.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
-	return owner, nil
+	return sole, nil
 }
 
 // SetupTokenIssuer —— EnsureUnclaimedSetupToken 用的最小接口（包裹
@@ -118,26 +118,26 @@ func EnsureUnclaimedSetupToken(ctx context.Context, issuer SetupTokenIssuer) (st
 
 // GetPublicPage —— sole owner → page_content(缺失填默认)→ pin join 成渲染视图。
 func GetPublicPage(ctx context.Context, deps PageDeps) (PublicPageView, error) {
-	owner, err := LoadSoleOwner(ctx, deps)
+	soleOwner, err := LoadSoleOwner(ctx, deps)
 	if err != nil {
-		if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
-			return PublicPageView{}, ownerdomain.ErrOwnerNotFound
+		if errors.Is(err, owner.ErrOwnerNotFound) {
+			return PublicPageView{}, owner.ErrOwnerNotFound
 		}
 		return PublicPageView{}, err
 	}
-	content, err := loadPageContentOrDefault(ctx, deps, owner.ID)
+	content, err := loadPageContentOrDefault(ctx, deps, soleOwner.ID)
 	if err != nil {
 		return PublicPageView{}, err
 	}
-	view, err := BuildPageContentView(ctx, deps, owner.ID, &content)
+	view, err := BuildPageContentView(ctx, deps, soleOwner.ID, &content)
 	if err != nil {
 		return PublicPageView{}, err
 	}
 	return PublicPageView{
 		Owner: PublicOwnerView{
-			Handle:   owner.Handle,
-			FullName: owner.FullName,
-			Location: owner.Location,
+			Handle:   soleOwner.Handle,
+			FullName: soleOwner.FullName,
+			Location: soleOwner.Location,
 		},
 		Content: view,
 	}, nil
@@ -146,7 +146,7 @@ func GetPublicPage(ctx context.Context, deps PageDeps) (PublicPageView, error) {
 // BuildPageContentView —— 存储形 → 渲染视图(pin join)。page.get MCP 也走这条,
 // AI 看到的和访客一致。
 func BuildPageContentView(
-	ctx context.Context, deps PageDeps, ownerID string, content *ownerdomain.PageContent,
+	ctx context.Context, deps PageDeps, ownerID string, content *owner.PageContent,
 ) (PageContentView, error) {
 	join, err := LoadPinJoin(ctx, PagePinDeps(deps), ownerID, content)
 	if err != nil {
@@ -166,13 +166,13 @@ func BuildPageContentView(
 
 func loadPageContentOrDefault(
 	ctx context.Context, deps PageDeps, ownerID string,
-) (ownerdomain.PageContent, error) {
+) (owner.PageContent, error) {
 	content, err := deps.Owners.GetPageContent(ctx, ownerID)
-	if errors.Is(err, ownerdomain.ErrPageNotFound) {
+	if errors.Is(err, owner.ErrPageNotFound) {
 		return buildDefaultPage(ownerID), nil
 	}
 	if err != nil {
-		return ownerdomain.PageContent{}, fmt.Errorf("get page content: %w", err)
+		return owner.PageContent{}, fmt.Errorf("get page content: %w", err)
 	}
 	return content, nil
 }
@@ -180,12 +180,12 @@ func loadPageContentOrDefault(
 // DefaultPageContent —— page-content.js 里的默认 hero / insights / projects /
 // where / contact。新 instance 第一次被访问时返这个；admin 第一次保存就
 // 覆盖。
-func DefaultPageContent(ownerID string) ownerdomain.PageContent {
+func DefaultPageContent(ownerID string) owner.PageContent {
 	return buildDefaultPage(ownerID)
 }
 
-func buildDefaultPage(ownerID string) ownerdomain.PageContent {
-	return ownerdomain.PageContent{
+func buildDefaultPage(ownerID string) owner.PageContent {
+	return owner.PageContent{
 		OwnerID:      ownerID,
 		HeroProse:    defaultHeroProse,
 		HeroExamples: defaultHeroExamples(),
@@ -232,8 +232,8 @@ func defaultProjects() []string {
 // visitor-facing; the old defaults ("Edit your location in /admin/page." / "Tell visitors what
 // you're up to right now.") spoke to the OWNER. An unconfigured section shows nothing; the owner's
 // nudge lives in the /admin/page editor.
-func defaultWhere() ownerdomain.PageWhere {
-	return ownerdomain.PageWhere{
+func defaultWhere() owner.PageWhere {
+	return owner.PageWhere{
 		LocationLine: "",
 		StatusProse:  "",
 		LookingFor:   []string{},
@@ -241,8 +241,8 @@ func defaultWhere() ownerdomain.PageWhere {
 	}
 }
 
-func defaultContact() ownerdomain.PageContact {
-	return ownerdomain.PageContact{
+func defaultContact() owner.PageContact {
+	return owner.PageContact{
 		Email:          "",
 		ChatLine:       "Ask via the chat above.",
 		RecruiterProse: "",

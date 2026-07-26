@@ -12,7 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -104,7 +104,7 @@ func (c *byoaiCapability) handleSet(
 		Enabled:   args.Enabled,
 	})
 	if err != nil {
-		if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
+		if errors.Is(err, owner.ErrOwnerNotFound) {
 			return capreg.MCPError("owner not found")
 		}
 		c.log.Error("cap byoai.set", "err", err)
@@ -113,7 +113,7 @@ func (c *byoaiCapability) handleSet(
 	return mcputil.MarshalResult(c.log, "byoai.set", byoaiPayloadFrom(&s))
 }
 
-func byoaiPayloadFrom(s *ownerdomain.OwnerSettings) byoaiSetPayload {
+func byoaiPayloadFrom(s *owner.Settings) byoaiSetPayload {
 	providers := s.BYOAI.Providers
 	if providers == nil {
 		providers = []string{}

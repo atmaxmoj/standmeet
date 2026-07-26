@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -26,17 +26,17 @@ const (
 // 字符；新 handle 跟旧一致直接返当前。返 ErrHandleTaken 让 routes 翻译 409。
 func UpdateOwnerHandle(
 	ctx context.Context, deps HandleDeps, ownerID, raw string,
-) (ownerdomain.Owner, error) {
+) (owner.Owner, error) {
 	h := strings.ToLower(strings.TrimSpace(raw))
 	if !validHandle(h) {
-		return ownerdomain.Owner{}, fmt.Errorf("%w: handle must be %d-%d chars of a-z0-9-",
+		return owner.Owner{}, fmt.Errorf("%w: handle must be %d-%d chars of a-z0-9-",
 			ErrEmptyField, minHandleLen, maxHandleLen)
 	}
-	owner, err := deps.Owners.UpdateHandle(ctx, ownerID, h)
+	updated, err := deps.Owners.UpdateHandle(ctx, ownerID, h)
 	if err != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("update handle: %w", err)
+		return owner.Owner{}, fmt.Errorf("update handle: %w", err)
 	}
-	return owner, nil
+	return updated, nil
 }
 
 func validHandle(h string) bool {

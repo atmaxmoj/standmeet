@@ -16,7 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -31,13 +31,13 @@ func NewInstanceRepo(pool *Pool) *InstanceRepo {
 }
 
 // Get 读 instance_settings 单行。
-func (r *InstanceRepo) Get(ctx context.Context) (ownerdomain.InstanceSettings, error) {
+func (r *InstanceRepo) Get(ctx context.Context) (owner.InstanceSettings, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetInstanceSettings(ctx)
 	if err != nil {
-		return ownerdomain.InstanceSettings{}, fmt.Errorf("get instance settings: %w", err)
+		return owner.InstanceSettings{}, fmt.Errorf("get instance settings: %w", err)
 	}
-	return ownerdomain.InstanceSettings{
+	return owner.InstanceSettings{
 		IsClaimed:         row.IsClaimed,
 		MultiTenant:       row.MultiTenant,
 		DeployedAt:        row.DeployedAt.Time,
@@ -113,27 +113,27 @@ func (r *InstanceRepo) SetSetupTokenHash(ctx context.Context, hash string) error
 //     匹配时才能成功；UPDATE ... RETURNING 0 行视为失败。
 //  2. CreateOwner —— 第一行 owner 入表。
 //
-// 失败时返回 domain sentinel error；成功时返回新建的 ownerdomain.Owner。
+// 失败时返回 domain sentinel error；成功时返回新建的 owner.Owner。
 func (r *InstanceRepo) ClaimAndCreateOwner(
 	ctx context.Context,
 	tokenHash string,
-	input *ownerdomain.CreateOwnerInput,
-) (ownerdomain.Owner, error) {
+	input *owner.CreateOwnerInput,
+) (owner.Owner, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("begin tx: %w", err)
+		return owner.Owner{}, fmt.Errorf("begin tx: %w", err)
 	}
-	owner, txErr := claimTx(ctx, tx, tokenHash, input)
+	ownerRow, txErr := claimTx(ctx, tx, tokenHash, input)
 	if txErr != nil {
 		if rerr := tx.Rollback(ctx); rerr != nil {
-			return ownerdomain.Owner{}, errors.Join(txErr, fmt.Errorf("rollback: %w", rerr))
+			return owner.Owner{}, errors.Join(txErr, fmt.Errorf("rollback: %w", rerr))
 		}
-		return ownerdomain.Owner{}, txErr
+		return owner.Owner{}, txErr
 	}
 	if cerr := tx.Commit(ctx); cerr != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("commit claim: %w", cerr)
+		return owner.Owner{}, fmt.Errorf("commit claim: %w", cerr)
 	}
-	return owner, nil
+	return ownerRow, nil
 }
 
 // claimTx 是 ClaimAndCreateOwner 的内层。
@@ -141,15 +141,15 @@ func claimTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	tokenHash string,
-	input *ownerdomain.CreateOwnerInput,
-) (ownerdomain.Owner, error) {
+	input *owner.CreateOwnerInput,
+) (owner.Owner, error) {
 	q := dbq.New(tx)
 
 	if _, err := q.TryClaimInstance(ctx, &tokenHash); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ownerdomain.Owner{}, ownerdomain.ErrInvalidSetupToken
+			return owner.Owner{}, owner.ErrInvalidSetupToken
 		}
-		return ownerdomain.Owner{}, fmt.Errorf("try claim: %w", err)
+		return owner.Owner{}, fmt.Errorf("try claim: %w", err)
 	}
 
 	row, err := q.CreateOwner(ctx, dbq.CreateOwnerParams{
@@ -160,7 +160,7 @@ func claimTx(
 		PublicUrl:    input.PublicURL,
 	})
 	if err != nil {
-		return ownerdomain.Owner{}, translateCreateOwnerErr(err)
+		return owner.Owner{}, translateCreateOwnerErr(err)
 	}
 	return toDomainOwner(&row), nil
 }
@@ -172,9 +172,9 @@ func translateCreateOwnerErr(err error) error {
 	}
 	switch constraint {
 	case "owners_email_key":
-		return ownerdomain.ErrEmailTaken
+		return owner.ErrEmailTaken
 	case "owners_handle_key":
-		return ownerdomain.ErrHandleTaken
+		return owner.ErrHandleTaken
 	default:
 		return fmt.Errorf("create owner unique violation %s: %w", constraint, err)
 	}

@@ -14,7 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -163,12 +163,12 @@ func hasFrozenWaypoints(auth authedVisitor) bool {
 // 几点/在哪个时区"。fail-open(读不到 → 空,inference 退 UTC),不为了上下文把这轮
 // 答崩。
 func ownerTZForTurn(r *http.Request, h *Handlers, ownerID string) string {
-	owner, err := h.Visitor.Owners.GetByID(r.Context(), ownerID)
+	ownerRow, err := h.Visitor.Owners.GetByID(r.Context(), ownerID)
 	if err != nil {
 		h.Log.Warn("owner tz for turn", "err", err)
 		return ""
 	}
-	return owner.ProfileTimezone
+	return ownerRow.ProfileTimezone
 }
 
 // buildCrossConvForTurn —— 「互通」:turn 前算好该 member 其他对话的 digest 注入
@@ -316,7 +316,7 @@ func resolveAgentTurnCred(
 
 func pickAgentTurnBYOAICred(
 	h *Handlers, auth authedVisitor, r *http.Request,
-) *ownerdomain.AICredential {
+) *owner.AICredential {
 	if auth.Data.Mode != "byoai" {
 		return nil
 	}

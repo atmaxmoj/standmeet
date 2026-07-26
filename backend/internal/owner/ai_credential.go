@@ -11,7 +11,7 @@
 // 都不直接存这个 struct（owner side 持久态是密文 ai_provider_key_enc，
 // visitor side 根本不在 server 存）。
 
-package ownerdomain
+package owner
 
 // AICredential —— 一个 inference provider 实例化所需的元组。
 //

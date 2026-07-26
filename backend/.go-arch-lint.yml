@@ -87,8 +87,8 @@ components:
     in: internal/corpus              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
   access:
     in: internal/access              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
-  ownerdomain:
-    in: internal/ownerdomain               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
+  owner:
+    in: internal/owner               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
   connectordomain:
     in: internal/connectordomain           # #135: 连接器轴 owner 注册配置 (connector_connection)；pure leaf
   sandbox:
@@ -173,7 +173,7 @@ deps:
     mayDependOn:
       - conversation
       - access
-      - ownerdomain
+      - owner
       - marketplace
       - corpus
       - domain
@@ -251,7 +251,7 @@ deps:
     anyVendorDeps: true
   ownerroutes:
     mayDependOn:
-      - ownerdomain
+      - owner
       - capsocket
       - domain
     anyVendorDeps: true
@@ -370,7 +370,7 @@ deps:
     mayDependOn:
       - conversation
       - connectordomain
-      - ownerdomain
+      - owner
       - access
       - marketplace
       - corpus
@@ -440,7 +440,7 @@ deps:
   inference:
     mayDependOn:
       - access
-      - ownerdomain
+      - owner
       - cryptobox
       - domain   # AICredential value object，统一 byoai 跟 owner key 的 shape
       - httpx
@@ -501,7 +501,7 @@ deps:
       - conversation
       - connectordomain
       - access
-      - ownerdomain
+      - owner
       - marketplace
       - corpus
       - plugins
@@ -524,7 +524,7 @@ deps:
   # 期把 sentinel 抽到 domain 后可断这条。
   jobsuc:
     mayDependOn:
-      - ownerdomain
+      - owner
       - jobsdomain
       - domain
       - postgres
@@ -546,7 +546,7 @@ deps:
   # 跨 capreg 注册到核心 Registry；依赖 jobsuc 拿 *Deps。
   jobsmcp:
     mayDependOn:
-      - ownerdomain
+      - owner
       - jobsdomain
       - domain
       - capreg
@@ -653,8 +653,8 @@ deps:
       - dbq
     anyVendorDeps: true
 
-  # ownerdomain —— #135 owner 领域值对象 leaf：Owner/OwnerSettings/PageContent/CustomPage，无 internal 依赖。
-  ownerdomain:
+  # owner —— #135 owner 领域值对象 leaf：Owner/OwnerSettings/PageContent/CustomPage，无 internal 依赖。
+  owner:
     mayDependOn: []
     anyVendorDeps: true
 
@@ -697,7 +697,7 @@ deps:
   # /internal/builds/claim 在 no-pending 时返 ErrCustomPageBuildNotFound。
   sysroutes:
     mayDependOn:
-      - ownerdomain
+      - owner
       - domain
       - postgres
       - printsess
@@ -721,7 +721,7 @@ deps:
     mayDependOn:
       - conversation
       - connectordomain
-      - ownerdomain
+      - owner
       - access
       - marketplace
       - corpus
@@ -762,7 +762,7 @@ deps:
     mayDependOn:
       - conversation
       - access
-      - ownerdomain
+      - owner
       - corpus
       - domain
       - usecases
@@ -782,7 +782,7 @@ deps:
   pubapi:
     mayDependOn:
       - access
-      - ownerdomain
+      - owner
       - domain
       - usecases
       - capreg

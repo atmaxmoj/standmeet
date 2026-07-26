@@ -25,7 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -135,7 +135,7 @@ var visitorErrCases = []apierr.Case{
 		Code:    "turn_quota_reached",
 		Message: "this session has reached its turn limit",
 	}},
-	{Match: ownerdomain.ErrOwnerNotFound, Envelope: apierr.Envelope{
+	{Match: owner.ErrOwnerNotFound, Envelope: apierr.Envelope{
 		Status:  http.StatusNotFound,
 		Code:    "owner_not_found",
 		Message: "owner handle not registered",

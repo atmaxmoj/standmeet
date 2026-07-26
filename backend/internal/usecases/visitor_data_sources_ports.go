@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -18,9 +18,9 @@ import (
 // resolves the sole owner). VisitorDeps.Owners is this narrow port so the eval
 // can inject a fixture owner; prod's *postgres.OwnerRepo satisfies it as-is.
 type OwnerGetter interface {
-	GetByID(ctx context.Context, id string) (ownerdomain.Owner, error)
+	GetByID(ctx context.Context, id string) (owner.Owner, error)
 	FirstHandle(ctx context.Context) (string, error)
-	GetByHandle(ctx context.Context, handle string) (ownerdomain.Owner, error)
+	GetByHandle(ctx context.Context, handle string) (owner.Owner, error)
 }
 
 // ConversationGetter —— the one chat method summarize_conversation needs.

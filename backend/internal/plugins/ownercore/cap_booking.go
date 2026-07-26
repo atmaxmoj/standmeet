@@ -20,7 +20,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 )
 
@@ -59,7 +59,7 @@ type bookingRepo interface {
 // bookingOwners —— owner timezone read (GetByID → ProfileTimezone) + write.
 // *postgres.OwnerRepo satisfies it directly.
 type bookingOwners interface {
-	GetByID(ctx context.Context, ownerID string) (ownerdomain.Owner, error)
+	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
 	UpdateProfileTimezone(ctx context.Context, ownerID, tz string) error
 }
 
@@ -131,7 +131,7 @@ func (c *bookingCapability) getPolicyBinding() *capreg.MCPBinding {
 func (c *bookingCapability) handleGetPolicy(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) capreg.MCPResult {
-	owner, oerr := c.deps.Owners.GetByID(ctx, ownerID)
+	ownerRow, oerr := c.deps.Owners.GetByID(ctx, ownerID)
 	if oerr != nil {
 		c.log.Error("cap booking.get_policy owner", "err", oerr)
 		return capreg.MCPError("owner not found")
@@ -142,7 +142,7 @@ func (c *bookingCapability) handleGetPolicy(
 		return capreg.MCPError("booking.get_policy failed")
 	}
 	return mcputil.MarshalResult(c.log, "booking.get_policy",
-		toBookingPolicyView(&policy, owner.ProfileTimezone))
+		toBookingPolicyView(&policy, ownerRow.ProfileTimezone))
 }
 
 func toBookingPolicyView(p *booker.BookingPolicy, tz string) bookingPolicyView {

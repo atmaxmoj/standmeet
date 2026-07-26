@@ -25,7 +25,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -84,12 +84,12 @@ func resolveAssetPath(
 func joinSafeAssetPath(root, pageID, buildID, assetPath string) (string, error) {
 	cleaned, ok := normalizeAssetRel(assetPath)
 	if !ok {
-		return "", ownerdomain.ErrCustomPageNotFound
+		return "", owner.ErrCustomPageNotFound
 	}
 	buildRoot := filepath.Join(root, pageID, buildID, "dist")
 	target := filepath.Join(buildRoot, cleaned)
 	if !insideRoot(target, buildRoot) {
-		return "", ownerdomain.ErrCustomPageNotFound
+		return "", owner.ErrCustomPageNotFound
 	}
 	return target, nil
 }
@@ -218,9 +218,9 @@ func writeAssetErr(log *slog.Logger, w http.ResponseWriter, err error) {
 
 // notFoundErrs —— 用 slice 而非 switch，让 isNotFoundErr cyclo 留在 2。
 var notFoundErrs = []error{
-	ownerdomain.ErrCustomPageNotFound,
-	ownerdomain.ErrOwnerNotFound,
-	ownerdomain.ErrCustomPageBuildNotFound,
+	owner.ErrCustomPageNotFound,
+	owner.ErrOwnerNotFound,
+	owner.ErrCustomPageBuildNotFound,
 }
 
 func isNotFoundErr(err error) bool {

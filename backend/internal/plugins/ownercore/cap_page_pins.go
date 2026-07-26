@@ -12,7 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -106,12 +106,12 @@ func decodePinArgs(raw json.RawMessage) (pinArgsWire, error) {
 }
 
 func pinErrToResult(c *pageCapability, tool string, err error) capreg.MCPResult {
-	if errors.Is(err, ownerdomain.ErrPinUnpublished) {
+	if errors.Is(err, owner.ErrPinUnpublished) {
 		return capreg.MCPError(
 			"entry is not published — publish it first (seo.set_wiki_seo published:true), " +
 				"then pin it")
 	}
-	if errors.Is(err, ownerdomain.ErrPinNotFound) {
+	if errors.Is(err, owner.ErrPinNotFound) {
 		return capreg.MCPError("wiki entry not found")
 	}
 	c.log.Error("cap "+tool, "err", err)

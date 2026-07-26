@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -23,10 +23,10 @@ const capPageBundle = "page.bundle"
 
 // pageContentStore —— owner page_content 读写（避开直接 import postgres.OwnerRepo）。
 type pageContentStore interface {
-	GetPageContent(ctx context.Context, ownerID string) (ownerdomain.PageContent, error)
+	GetPageContent(ctx context.Context, ownerID string) (owner.PageContent, error)
 	UpsertPageContent(
-		ctx context.Context, ownerID string, in *ownerdomain.PageContent,
-	) (ownerdomain.PageContent, error)
+		ctx context.Context, ownerID string, in *owner.PageContent,
+	) (owner.PageContent, error)
 }
 
 type pageCapability struct {
@@ -105,12 +105,12 @@ func (c *pageCapability) handleUpdateHandle(
 	if args.Handle == "" {
 		return capreg.MCPError("handle is required")
 	}
-	owner, err := usecases.UpdateOwnerHandle(ctx, *c.handle, ownerID, args.Handle)
+	updated, err := usecases.UpdateOwnerHandle(ctx, *c.handle, ownerID, args.Handle)
 	if err != nil {
 		return updateHandleErrToResult(c.log, err)
 	}
 	return mcputil.MarshalResult(c.log, "page.update_handle", map[string]string{
-		"owner_id": owner.ID, "handle": owner.Handle,
+		"owner_id": updated.ID, "handle": updated.Handle,
 	})
 }
 
@@ -118,7 +118,7 @@ func updateHandleErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, usecases.ErrEmptyField) {
 		return capreg.MCPError("handle must be 2-64 chars of a-z0-9-")
 	}
-	if errors.Is(err, ownerdomain.ErrHandleTaken) {
+	if errors.Is(err, owner.ErrHandleTaken) {
 		return capreg.MCPError("handle already taken")
 	}
 	log.Error("cap page.update_handle", "err", err)
@@ -143,7 +143,7 @@ func (c *pageCapability) handleGet(
 ) capreg.MCPResult {
 	content, err := c.pages.GetPageContent(ctx, ownerID)
 	if err != nil {
-		if !errors.Is(err, ownerdomain.ErrPageNotFound) {
+		if !errors.Is(err, owner.ErrPageNotFound) {
 			c.log.Error("cap page.get", "err", err)
 			return capreg.MCPError("page.get failed")
 		}
@@ -184,10 +184,10 @@ func (c *pageCapability) putBinding() *capreg.MCPBinding {
 // pagePutWire —— page.put 的入参形:config 字段 only。pin 列表不在这条路上
 // (单一维护点 PinToPage/UnpinFromPage 守不变量;整段替换会绕过它)。
 type pagePutWire struct {
-	HeroProse    string                  `json:"hero_prose"`
-	Where        ownerdomain.PageWhere   `json:"where"`
-	Contact      ownerdomain.PageContact `json:"contact"`
-	HeroExamples []string                `json:"hero_examples"`
+	HeroProse    string            `json:"hero_prose"`
+	Where        owner.PageWhere   `json:"where"`
+	Contact      owner.PageContact `json:"contact"`
+	HeroExamples []string          `json:"hero_examples"`
 }
 
 func (c *pageCapability) handlePut(
@@ -199,7 +199,7 @@ func (c *pageCapability) handlePut(
 	}
 	current, err := c.pages.GetPageContent(ctx, ownerID)
 	if err != nil {
-		if !errors.Is(err, ownerdomain.ErrPageNotFound) {
+		if !errors.Is(err, owner.ErrPageNotFound) {
 			c.log.Error("cap page.put load", "err", err)
 			return capreg.MCPError("page.put failed")
 		}
@@ -246,12 +246,12 @@ func (c *pageCapability) handleSetPublicURL(
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
-	owner, err := usecases.UpdateOwnerPublicURL(ctx, c.publicURL, ownerID, args.PublicURL)
+	updated, err := usecases.UpdateOwnerPublicURL(ctx, c.publicURL, ownerID, args.PublicURL)
 	if err != nil {
 		return setPublicURLErrToResult(c.log, err)
 	}
 	return mcputil.MarshalResult(c.log, "page.set_public_url", map[string]string{
-		"owner_id": owner.ID, "public_url": owner.PublicURL,
+		"owner_id": updated.ID, "public_url": updated.PublicURL,
 	})
 }
 

@@ -13,7 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -43,27 +43,27 @@ func (h *Handlers) updateHandle() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		owner, err := usecases.UpdateOwnerHandle(
+		updated, err := usecases.UpdateOwnerHandle(
 			r.Context(), h.HandleAdmin.Handle, ownerID, body.Handle,
 		)
 		if err != nil {
 			handleUpdateHandleErr(h.Log, w, err)
 			return
 		}
-		writeHandleResp(h.Log, w, &owner)
+		writeHandleResp(h.Log, w, &updated)
 	}
 }
 
-func writeHandleResp(log *slog.Logger, w http.ResponseWriter, owner *ownerdomain.Owner) {
+func writeHandleResp(log *slog.Logger, w http.ResponseWriter, o *owner.Owner) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(updateHandleResp{Handle: owner.Handle}); err != nil {
+	if err := json.NewEncoder(w).Encode(updateHandleResp{Handle: o.Handle}); err != nil {
 		log.Error("encode update handle", "err", err)
 	}
 }
 
 func handleUpdateHandleErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, ownerdomain.ErrHandleTaken) {
+	if errors.Is(err, owner.ErrHandleTaken) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusConflict, Code: "handle_taken",
 			Message: "that handle is already taken",

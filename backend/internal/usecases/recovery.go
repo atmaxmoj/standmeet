@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -50,7 +50,7 @@ type RecoverOutput struct {
 
 // GenerateRecovery —— 生成 phrase、存 hash、把明文邮给 owner。要求已配 mail connector(否则 Send 报错)。
 func GenerateRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) error {
-	owner, err := deps.Owners.GetByID(ctx, ownerID)
+	ownerRow, err := deps.Owners.GetByID(ctx, ownerID)
 	if err != nil {
 		return fmt.Errorf("recovery owner lookup: %w", err)
 	}
@@ -59,7 +59,7 @@ func GenerateRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) e
 		return serr
 	}
 	if merr := deps.Proxy.Send(ctx, ownerID, OutboundMessage{
-		To:      owner.Email,
+		To:      ownerRow.Email,
 		Subject: "Your StandMeet recovery phrase",
 		Body:    recoveryEmailBody(phrase),
 	}); merr != nil {
@@ -103,13 +103,13 @@ func verifyRecovery(
 ) (postgres.Credentials, error) {
 	creds, err := deps.Owners.GetCredentialsByEmail(ctx, in.Email)
 	if err != nil {
-		return postgres.Credentials{}, ownerdomain.ErrUnauthorized
+		return postgres.Credentials{}, owner.ErrUnauthorized
 	}
 	if creds.RecoveryHash == "" {
-		return postgres.Credentials{}, ownerdomain.ErrUnauthorized
+		return postgres.Credentials{}, owner.ErrUnauthorized
 	}
 	if vperr := session.VerifyPassword(in.Phrase, creds.RecoveryHash); vperr != nil {
-		return postgres.Credentials{}, ownerdomain.ErrUnauthorized
+		return postgres.Credentials{}, owner.ErrUnauthorized
 	}
 	return creds, nil
 }

@@ -16,7 +16,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -46,21 +46,21 @@ func (h *Handlers) updatePublicURL() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		owner, err := usecases.UpdateOwnerPublicURL(
+		updated, err := usecases.UpdateOwnerPublicURL(
 			r.Context(), h.PublicURLAdmin.PublicURL, ownerID, body.PublicURL,
 		)
 		if err != nil {
 			handleUpdatePublicURLErr(h.Log, w, err)
 			return
 		}
-		writePublicURLResp(h.Log, w, &owner)
+		writePublicURLResp(h.Log, w, &updated)
 	}
 }
 
-func writePublicURLResp(log *slog.Logger, w http.ResponseWriter, owner *ownerdomain.Owner) {
+func writePublicURLResp(log *slog.Logger, w http.ResponseWriter, o *owner.Owner) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	resp := updatePublicURLResp{PublicURL: owner.PublicURL}
+	resp := updatePublicURLResp{PublicURL: o.PublicURL}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode update public_url", "err", err)
 	}

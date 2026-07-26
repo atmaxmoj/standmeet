@@ -2,10 +2,10 @@
 // 结构（前端 + admin 编辑都按这个 shape），不让 jsonb 漏到上层。
 // 设计稿 J / docs/design/project/page-content.js 是字段语义来源。
 //
-// 这是 Owner aggregate 的"内容切面" —— 跟 OwnerSettings 平行，跟着 owner_id
+// 这是 Owner aggregate 的"内容切面" —— 跟 Settings 平行，跟着 owner_id
 // 一起走 repo；不是独立 aggregate root。
 
-package ownerdomain
+package owner
 
 import (
 	"errors"

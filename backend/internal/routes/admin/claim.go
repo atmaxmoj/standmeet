@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -145,7 +145,7 @@ var claimErrCases = []apierr.Case{
 		Envelope: envBadReq("missing required field"),
 	},
 	{
-		Match: ownerdomain.ErrInvalidSetupToken,
+		Match: owner.ErrInvalidSetupToken,
 		Envelope: apierr.Envelope{
 			Status:  http.StatusUnauthorized,
 			Code:    "invalid_setup_token",
@@ -153,13 +153,13 @@ var claimErrCases = []apierr.Case{
 		},
 	},
 	{
-		Match: ownerdomain.ErrEmailTaken,
+		Match: owner.ErrEmailTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "email_taken", Message: "email already in use",
 		},
 	},
 	{
-		Match: ownerdomain.ErrHandleTaken,
+		Match: owner.ErrHandleTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "handle_taken", Message: "handle already in use",
 		},
@@ -192,7 +192,7 @@ func (h *Handlers) claim() http.HandlerFunc {
 func (h *Handlers) runClaimAndAutoLogin(
 	w http.ResponseWriter, r *http.Request, req *claimRequest,
 ) {
-	owner, err := usecases.ClaimInstance(r.Context(), h.Claim, &usecases.ClaimInput{
+	claimed, err := usecases.ClaimInstance(r.Context(), h.Claim, &usecases.ClaimInput{
 		Token: req.Token, Email: req.Email, Password: req.Password,
 		Handle: req.Handle, FullName: req.FullName, PublicURL: req.PublicURL,
 	})
@@ -210,7 +210,7 @@ func (h *Handlers) runClaimAndAutoLogin(
 	}
 	setSessionCookies(w, loggedIn.SessionToken, loggedIn.CSRFToken, h.SecureCookie)
 	session.RemoveFirstRunFile(h.Log)
-	writeJSONClaim(h.Log, w, &owner)
+	writeJSONClaim(h.Log, w, &claimed)
 }
 
 func handleClaimErr(log *slog.Logger, w http.ResponseWriter, err error) {
@@ -221,15 +221,15 @@ func handleClaimErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, env)
 }
 
-func writeJSONClaim(log *slog.Logger, w http.ResponseWriter, owner *ownerdomain.Owner) {
+func writeJSONClaim(log *slog.Logger, w http.ResponseWriter, o *owner.Owner) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := claimResponse{
-		OwnerID:   owner.ID,
-		Email:     owner.Email,
-		Handle:    owner.Handle,
-		FullName:  owner.FullName,
-		PublicURL: owner.PublicURL,
+		OwnerID:   o.ID,
+		Email:     o.Email,
+		Handle:    o.Handle,
+		FullName:  o.FullName,
+		PublicURL: o.PublicURL,
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode claim response", "err", err)

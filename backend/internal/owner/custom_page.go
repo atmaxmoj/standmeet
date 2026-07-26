@@ -1,6 +1,6 @@
 // custom_page.go —— owner 自定义 React 页面 + sandbox vite build 元数据。
 
-package ownerdomain
+package owner
 
 import (
 	"errors"

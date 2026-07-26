@@ -13,7 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -57,7 +57,7 @@ func (h *Handlers) putBYOAI() http.HandlerFunc {
 // writeSettings —— byoai / ai-provider 更新成功后回 settings 一片，前端
 // sessionStore.refresh 之外可以更直接地把新值 swap 进缓存。
 func writeSettings(
-	log *slog.Logger, w http.ResponseWriter, settings *ownerdomain.OwnerSettings,
+	log *slog.Logger, w http.ResponseWriter, settings *owner.Settings,
 ) {
 	providers := settings.BYOAI.Providers
 	if providers == nil {
@@ -79,7 +79,7 @@ func writeSettings(
 }
 
 func handleBYOAIErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
+	if errors.Is(err, owner.ErrOwnerNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusUnauthorized, Code: "unauthorized", Message: "owner not found",
 		})

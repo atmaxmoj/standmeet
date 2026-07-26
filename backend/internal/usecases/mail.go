@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -112,7 +112,7 @@ func prepareApproval(
 
 type approvalContext struct {
 	req   access.AccessRequest
-	owner ownerdomain.Owner
+	owner owner.Owner
 }
 
 func loadApprovalContext(
@@ -129,11 +129,11 @@ func loadApprovalContext(
 	if rerr != nil {
 		return approvalContext{}, fmt.Errorf("get access request: %w", rerr)
 	}
-	owner, oerr := deps.Owners.GetByID(ctx, ownerID)
+	ownerRow, oerr := deps.Owners.GetByID(ctx, ownerID)
 	if oerr != nil {
 		return approvalContext{}, fmt.Errorf("get owner: %w", oerr)
 	}
-	return approvalContext{req: req, owner: owner}, nil
+	return approvalContext{req: req, owner: ownerRow}, nil
 }
 
 func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID string) (string, error) {

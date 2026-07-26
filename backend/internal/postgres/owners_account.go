@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -20,17 +20,17 @@ import (
 // usecase 层拦下，repo 只信纯字符串。
 func (r *OwnerRepo) UpdateFullName(
 	ctx context.Context, ownerID, newFullName string,
-) (ownerdomain.Owner, error) {
+) (owner.Owner, error) {
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return ownerdomain.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+		return owner.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerFullName(ctx, dbq.UpdateOwnerFullNameParams{
 		ID: pgID, FullName: newFullName,
 	})
 	if qerr != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("update full_name: %w", qerr)
+		return owner.Owner{}, fmt.Errorf("update full_name: %w", qerr)
 	}
 	return toDomainOwner(&row), nil
 }
@@ -51,21 +51,21 @@ func (r *OwnerRepo) UpdateProfileTimezone(
 	return nil
 }
 
-// UpdateEmail —— owner 改自己的 email。唯一冲突翻 ownerdomain.ErrEmailTaken
+// UpdateEmail —— owner 改自己的 email。唯一冲突翻 owner.ErrEmailTaken
 // 让 routes 翻 409。usecase 必须先验当前密码。
 func (r *OwnerRepo) UpdateEmail(
 	ctx context.Context, ownerID, newEmail string,
-) (ownerdomain.Owner, error) {
+) (owner.Owner, error) {
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return ownerdomain.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+		return owner.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerEmail(ctx, dbq.UpdateOwnerEmailParams{
 		ID: pgID, Email: newEmail,
 	})
 	if qerr != nil {
-		return ownerdomain.Owner{}, translateEmailUpdateErr(qerr)
+		return owner.Owner{}, translateEmailUpdateErr(qerr)
 	}
 	return toDomainOwner(&row), nil
 }
@@ -73,7 +73,7 @@ func (r *OwnerRepo) UpdateEmail(
 func translateEmailUpdateErr(err error) error {
 	constraint, isUnique := pgUniqueViolation(err)
 	if isUnique && constraint == "owners_email_key" {
-		return ownerdomain.ErrEmailTaken
+		return owner.ErrEmailTaken
 	}
 	return fmt.Errorf("update email: %w", err)
 }
@@ -123,7 +123,7 @@ func (r *OwnerRepo) ClearRecoveryHash(ctx context.Context, ownerID string) error
 }
 
 // GetPasswordHash —— 拿 owner 当前 password_hash，给 usecase 验旧密码用。
-// 不存在返 ownerdomain.ErrOwnerNotFound。
+// 不存在返 owner.ErrOwnerNotFound。
 func (r *OwnerRepo) GetPasswordHash(ctx context.Context, ownerID string) (string, error) {
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
@@ -133,7 +133,7 @@ func (r *OwnerRepo) GetPasswordHash(ctx context.Context, ownerID string) (string
 	hash, err := q.GetOwnerPasswordHash(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
-			return "", ownerdomain.ErrOwnerNotFound
+			return "", owner.ErrOwnerNotFound
 		}
 		return "", fmt.Errorf("get owner password_hash: %w", err)
 	}
@@ -149,13 +149,13 @@ type ActiveResetToken struct {
 }
 
 // GetActiveResetToken —— 单 owner self-host：表里第一行 owner 的 reset
-// token 信息。表为空返 ownerdomain.ErrOwnerNotFound（caller 通常翻 401）。
+// token 信息。表为空返 owner.ErrOwnerNotFound（caller 通常翻 401）。
 func (r *OwnerRepo) GetActiveResetToken(ctx context.Context) (ActiveResetToken, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetFirstOwnerResetToken(ctx)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
-			return ActiveResetToken{}, ownerdomain.ErrOwnerNotFound
+			return ActiveResetToken{}, owner.ErrOwnerNotFound
 		}
 		return ActiveResetToken{}, fmt.Errorf("get reset token row: %w", err)
 	}
@@ -183,7 +183,7 @@ func (r *OwnerRepo) ClearPasswordResetToken(ctx context.Context, ownerID string)
 }
 
 // SoleOwnerHandle —— `standmeet password-reset` CLI 用：sole owner 的
-// id + public_url（拼 reset URL）。表为空返 ownerdomain.ErrOwnerNotFound。
+// id + public_url（拼 reset URL）。表为空返 owner.ErrOwnerNotFound。
 type SoleOwnerHandle struct {
 	OwnerID   string
 	PublicURL string
@@ -196,17 +196,17 @@ func (r *OwnerRepo) GetSoleOwnerHandle(ctx context.Context) (SoleOwnerHandle, er
 	tok, err := q.GetFirstOwnerResetToken(ctx)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
-			return SoleOwnerHandle{}, ownerdomain.ErrOwnerNotFound
+			return SoleOwnerHandle{}, owner.ErrOwnerNotFound
 		}
 		return SoleOwnerHandle{}, fmt.Errorf("get sole owner row: %w", err)
 	}
-	owner, gerr := q.GetOwnerByID(ctx, tok.ID)
+	ownerRow, gerr := q.GetOwnerByID(ctx, tok.ID)
 	if gerr != nil {
 		return SoleOwnerHandle{}, fmt.Errorf("get owner by id: %w", gerr)
 	}
 	return SoleOwnerHandle{
 		OwnerID:   formatUUID(tok.ID),
-		PublicURL: owner.PublicUrl,
+		PublicURL: ownerRow.PublicUrl,
 	}, nil
 }
 

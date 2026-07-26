@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -38,12 +38,12 @@ func SubmitForOwner(
 	if !validSubmitInput(in) {
 		return access.AccessRequest{}, ErrEmptyField
 	}
-	owner, err := loadSoleOwnerForRequest(ctx, deps)
+	soleOwner, err := loadSoleOwnerForRequest(ctx, deps)
 	if err != nil {
 		return access.AccessRequest{}, err
 	}
 	out, err := deps.Repo.Create(ctx, &access.CreateAccessRequestInput{
-		OwnerID: owner.ID, Name: in.Name, Org: in.Org,
+		OwnerID: soleOwner.ID, Name: in.Name, Org: in.Org,
 		Email: in.Email, Message: in.Message,
 	})
 	if err != nil {
@@ -58,22 +58,22 @@ func validSubmitInput(in *SubmitAccessRequestInput) bool {
 
 func loadSoleOwnerForRequest(
 	ctx context.Context, deps AccessRequestsDeps,
-) (ownerdomain.Owner, error) {
+) (owner.Owner, error) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		return ownerdomain.Owner{}, fmt.Errorf("first owner handle: %w", err)
+		return owner.Owner{}, fmt.Errorf("first owner handle: %w", err)
 	}
 	if handle == "" {
-		return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
+		return owner.Owner{}, owner.ErrOwnerNotFound
 	}
-	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
+	soleOwner, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		if errors.Is(oerr, ownerdomain.ErrOwnerNotFound) {
-			return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
+		if errors.Is(oerr, owner.ErrOwnerNotFound) {
+			return owner.Owner{}, owner.ErrOwnerNotFound
 		}
-		return ownerdomain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
+		return owner.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
-	return owner, nil
+	return soleOwner, nil
 }
 
 // ListForOwner —— admin list。status 可空，空 = 全部。

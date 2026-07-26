@@ -1,4 +1,4 @@
-package ownerdomain
+package owner
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 )
 
 // Owner 是 owner aggregate 的根。只放"身份"字段——email / handle / 名字 /
-// 位置 / 创建时间。各种 setting 不在这里，由 OwnerSettings 聚合内部值对象
+// 位置 / 创建时间。各种 setting 不在这里，由 Settings 聚合内部值对象
 // 承载（AI provider / BYOAI / domain 等）。
 //
 // 字段顺序按 govet fieldalignment：time.Time 在前（内部 ptr at 16）；string
@@ -27,29 +27,29 @@ type Owner struct {
 	ProfileTimezone string
 }
 
-// OwnerSettings —— owner 聚合的"配置切面"，跟 identity 分开。
+// Settings —— owner 聚合的"配置切面"，跟 identity 分开。
 // AI / BYOAI / Domain 三组互相独立的 setting；后续加 connector / SEO 配置
 // 等也归这里。
 //
 // 这是 Owner aggregate 的值对象（不是独立 aggregate root），跟着 Owner 一起
 // 走事务边界——save AI key 跟 save BYOAI 各自落 DB，但都通过 OwnerRepo。
-type OwnerSettings struct {
-	AI    OwnerAISettings
-	BYOAI OwnerBYOAISettings
+type Settings struct {
+	AI    AISettings
+	BYOAI BYOAISettings
 }
 
-// OwnerAISettings —— owner 自己的 inference provider 配置（给真访客 chat
+// AISettings —— owner 自己的 inference provider 配置（给真访客 chat
 // 用）；明文 key 不出 repo，外层只看 KeyConfigured bool。
-type OwnerAISettings struct {
+type AISettings struct {
 	Provider      string // 'anthropic' | 'openai' | 'custom' | ...
 	Endpoint      string // owner 显式设过的 base URL(SoT;空 = 用 preset 默认)
 	Model         string // owner 显式设过的 model(SoT;空 = 用 preset 默认)
 	KeyConfigured bool
 }
 
-// OwnerBYOAISettings —— "访客自带 key" 模式开关 + 允许的 provider 列表 +
+// BYOAISettings —— "访客自带 key" 模式开关 + 允许的 provider 列表 +
 // 给访客看的说明文案。
-type OwnerBYOAISettings struct {
+type BYOAISettings struct {
 	PublicBlurb string
 	Providers   []string
 	Enabled     bool

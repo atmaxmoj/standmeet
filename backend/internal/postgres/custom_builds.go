@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -28,20 +28,20 @@ func NewCustomBuildRepo(pool *Pool) *CustomBuildRepo { return &CustomBuildRepo{p
 // Create —— 落一条 pending build；返 build_id 让 caller poll 状态。
 func (r *CustomBuildRepo) Create(
 	ctx context.Context, pageID string, sourceFiles map[string]string,
-) (ownerdomain.CustomPageBuild, error) {
+) (owner.CustomPageBuild, error) {
 	pgID, perr := parseUUID(pageID)
 	if perr != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf(errParsePageID, perr)
+		return owner.CustomPageBuild{}, fmt.Errorf(errParsePageID, perr)
 	}
 	files, merr := json.Marshal(sourceFiles)
 	if merr != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("marshal source files: %w", merr)
+		return owner.CustomPageBuild{}, fmt.Errorf("marshal source files: %w", merr)
 	}
 	row, err := dbq.New(r.pool).CreateCustomPageBuild(ctx, dbq.CreateCustomPageBuildParams{
 		PageID: pgID, SourceFiles: files,
 	})
 	if err != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("create build: %w", err)
+		return owner.CustomPageBuild{}, fmt.Errorf("create build: %w", err)
 	}
 	return toDomainBuild(&row)
 }
@@ -49,42 +49,42 @@ func (r *CustomBuildRepo) Create(
 // GetLatestForPage —— page 最新 build；没有时返 ErrCustomPageBuildNotFound。
 func (r *CustomBuildRepo) GetLatestForPage(
 	ctx context.Context, pageID string,
-) (ownerdomain.CustomPageBuild, error) {
+) (owner.CustomPageBuild, error) {
 	pgID, perr := parseUUID(pageID)
 	if perr != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf(errParsePageID, perr)
+		return owner.CustomPageBuild{}, fmt.Errorf(errParsePageID, perr)
 	}
 	row, err := dbq.New(r.pool).GetLatestCustomPageBuild(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ownerdomain.CustomPageBuild{}, ownerdomain.ErrCustomPageBuildNotFound
+			return owner.CustomPageBuild{}, owner.ErrCustomPageBuildNotFound
 		}
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("get latest build: %w", err)
+		return owner.CustomPageBuild{}, fmt.Errorf("get latest build: %w", err)
 	}
 	return toDomainBuild(&row)
 }
 
 // GetByID —— builder / MCP poll 状态。
 func (r *CustomBuildRepo) GetByID(
-	ctx context.Context, id string) (ownerdomain.CustomPageBuild, error,
+	ctx context.Context, id string) (owner.CustomPageBuild, error,
 ) {
 	pgID, perr := parseUUID(id)
 	if perr != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
+		return owner.CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).GetCustomPageBuild(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ownerdomain.CustomPageBuild{}, ownerdomain.ErrCustomPageBuildNotFound
+			return owner.CustomPageBuild{}, owner.ErrCustomPageBuildNotFound
 		}
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("get build: %w", err)
+		return owner.CustomPageBuild{}, fmt.Errorf("get build: %w", err)
 	}
 	return toDomainBuild(&row)
 }
 
 // ClaimPending —— 原子地拿一条 pending build，标 'building' 后返。无 pending
 // 时返 ErrCustomPageBuildNotFound 让 caller 翻译 204。
-func (r *CustomBuildRepo) ClaimPending(ctx context.Context) (ownerdomain.CustomPageBuild, error) {
+func (r *CustomBuildRepo) ClaimPending(ctx context.Context) (owner.CustomPageBuild, error) {
 	// 用 SELECT ... FOR UPDATE SKIP LOCKED + UPDATE 简化版：先 SELECT 一条
 	// pending，再 SetBuilding。两次往返但 SKIP LOCKED 让并发安全；builder
 	// 只一实例，先这样。
@@ -92,13 +92,13 @@ func (r *CustomBuildRepo) ClaimPending(ctx context.Context) (ownerdomain.CustomP
 	pending, err := q.ClaimPendingBuild(ctx)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ownerdomain.CustomPageBuild{}, ownerdomain.ErrCustomPageBuildNotFound
+			return owner.CustomPageBuild{}, owner.ErrCustomPageBuildNotFound
 		}
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("select pending build: %w", err)
+		return owner.CustomPageBuild{}, fmt.Errorf("select pending build: %w", err)
 	}
 	row, err := q.SetCustomPageBuildBuilding(ctx, pending.ID)
 	if err != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("mark building: %w", err)
+		return owner.CustomPageBuild{}, fmt.Errorf("mark building: %w", err)
 	}
 	return toDomainBuild(&row)
 }
@@ -106,16 +106,16 @@ func (r *CustomBuildRepo) ClaimPending(ctx context.Context) (ownerdomain.CustomP
 // MarkBuilt —— builder 跑完 vite 后回标，output_path 是相对路径。
 func (r *CustomBuildRepo) MarkBuilt(
 	ctx context.Context, id, outputPath string,
-) (ownerdomain.CustomPageBuild, error) {
+) (owner.CustomPageBuild, error) {
 	pgID, perr := parseUUID(id)
 	if perr != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
+		return owner.CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).SetCustomPageBuildBuilt(ctx, dbq.SetCustomPageBuildBuiltParams{
 		ID: pgID, OutputPath: outputPath,
 	})
 	if err != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("mark built: %w", err)
+		return owner.CustomPageBuild{}, fmt.Errorf("mark built: %w", err)
 	}
 	return toDomainBuild(&row)
 }
@@ -123,22 +123,22 @@ func (r *CustomBuildRepo) MarkBuilt(
 // MarkFailed —— builder 失败回标，error 是 stderr 头 2KB。
 func (r *CustomBuildRepo) MarkFailed(
 	ctx context.Context, id, errMsg string,
-) (ownerdomain.CustomPageBuild, error) {
+) (owner.CustomPageBuild, error) {
 	pgID, perr := parseUUID(id)
 	if perr != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
+		return owner.CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).SetCustomPageBuildFailed(ctx, dbq.SetCustomPageBuildFailedParams{
 		ID: pgID, ErrorMessage: errMsg,
 	})
 	if err != nil {
-		return ownerdomain.CustomPageBuild{}, fmt.Errorf("mark failed: %w", err)
+		return owner.CustomPageBuild{}, fmt.Errorf("mark failed: %w", err)
 	}
 	return toDomainBuild(&row)
 }
 
-func toDomainBuild(row *dbq.CustomPageBuild) (ownerdomain.CustomPageBuild, error) {
-	build := ownerdomain.CustomPageBuild{
+func toDomainBuild(row *dbq.CustomPageBuild) (owner.CustomPageBuild, error) {
+	build := owner.CustomPageBuild{
 		ID:           formatUUID(row.ID),
 		PageID:       formatUUID(row.PageID),
 		Status:       row.Status,
@@ -153,7 +153,7 @@ func toDomainBuild(row *dbq.CustomPageBuild) (ownerdomain.CustomPageBuild, error
 	if len(row.SourceFiles) > 0 {
 		var files map[string]string
 		if err := json.Unmarshal(row.SourceFiles, &files); err != nil {
-			return ownerdomain.CustomPageBuild{}, fmt.Errorf("unmarshal source files: %w", err)
+			return owner.CustomPageBuild{}, fmt.Errorf("unmarshal source files: %w", err)
 		}
 		build.SourceFiles = files
 	}

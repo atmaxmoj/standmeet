@@ -5,7 +5,7 @@
 //   PATCH /api/admin/account/password   { current_password, new_password }
 //
 // email + password 改之前必须验当前密码——usecase 拒绝时统一返
-// ownerdomain.ErrUnauthorized，handler 翻 401 跟 login 同码。
+// owner.ErrUnauthorized，handler 翻 401 跟 login 同码。
 
 package admin
 
@@ -18,7 +18,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -57,14 +57,14 @@ func (h *Handlers) updateFullName() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		owner, err := usecases.UpdateOwnerFullName(
+		updated, err := usecases.UpdateOwnerFullName(
 			r.Context(), h.AccountAdmin.Account, ownerID, body.FullName,
 		)
 		if err != nil {
 			handleAccountErr(h.Log, w, err)
 			return
 		}
-		writeOwnerField(h.Log, w, ownerFieldResp{FullName: owner.FullName})
+		writeOwnerField(h.Log, w, ownerFieldResp{FullName: updated.FullName})
 	}
 }
 
@@ -83,7 +83,7 @@ func (h *Handlers) updateEmail() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		owner, err := usecases.UpdateOwnerEmail(r.Context(), h.AccountAdmin.Account,
+		updated, err := usecases.UpdateOwnerEmail(r.Context(), h.AccountAdmin.Account,
 			&usecases.EmailUpdateInput{
 				OwnerID: ownerID, CurrentPassword: body.CurrentPassword, NewEmail: body.NewEmail,
 			})
@@ -91,7 +91,7 @@ func (h *Handlers) updateEmail() http.HandlerFunc {
 			handleAccountErr(h.Log, w, err)
 			return
 		}
-		writeOwnerField(h.Log, w, ownerFieldResp{Email: owner.Email})
+		writeOwnerField(h.Log, w, ownerFieldResp{Email: updated.Email})
 	}
 }
 
@@ -147,14 +147,14 @@ func handleAccountErr(log *slog.Logger, w http.ResponseWriter, err error) {
 // （apierr.Classify 走 errors.Is unwrap chain）。
 var accountErrCases = []apierr.Case{
 	{
-		Match: ownerdomain.ErrUnauthorized,
+		Match: owner.ErrUnauthorized,
 		Envelope: apierr.Envelope{
 			Status: http.StatusUnauthorized, Code: "unauthorized",
 			Message: "invalid credentials",
 		},
 	},
 	{
-		Match: ownerdomain.ErrEmailTaken,
+		Match: owner.ErrEmailTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "email_taken",
 			Message: "email already in use",
