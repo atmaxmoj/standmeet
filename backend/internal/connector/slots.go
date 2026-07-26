@@ -11,8 +11,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // errNoActiveConnector —— owner 该品类没有 active 连接器（或它已不在 Hub）。内部 sentinel：
@@ -61,14 +61,14 @@ func (s *Slots) ConnectorMail(id string) (contract.MailProxy, bool) {
 
 // AgentConnectorsByID —— 给一组 connector id，挑出实现 AgentToolConnector 且开了 expose 的那些
 // （§3：openapi 把 raw ops 暴露成 agent 工具）。返回切片（非裸接口），per-session 源用。
-func (s *Slots) AgentConnectorsByID(ids []string) []usecases.AgentToolConnector {
-	out := make([]usecases.AgentToolConnector, 0, len(ids))
+func (s *Slots) AgentConnectorsByID(ids []string) []consumer.AgentToolConnector {
+	out := make([]consumer.AgentToolConnector, 0, len(ids))
 	for _, id := range ids {
 		c, ok := s.hub.Resolve(id)
 		if !ok {
 			continue
 		}
-		if atc, isAgent := c.(usecases.AgentToolConnector); isAgent && atc.ExposesAgentTools() {
+		if atc, isAgent := c.(consumer.AgentToolConnector); isAgent && atc.ExposesAgentTools() {
 			out = append(out, atc)
 		}
 	}
@@ -84,7 +84,7 @@ func (s *Slots) AgentCall(
 	if !ok {
 		return nil, fmt.Errorf("agent call %q: %w", id, errNoActiveConnector)
 	}
-	atc, isAgent := c.(usecases.AgentToolConnector)
+	atc, isAgent := c.(consumer.AgentToolConnector)
 	if !isAgent {
 		return nil, fmt.Errorf("agent call %q: %w", id, errNoActiveConnector)
 	}
@@ -230,7 +230,7 @@ type mailSlot struct{ s *Slots }
 // Connected —— 有 active mail 连接器且它连上 → true；无 active → false。
 func (ms mailSlot) Connected(ctx context.Context, ownerID string) (bool, error) {
 	mp, err := ms.resolve(ctx, ownerID)
-	if errors.Is(err, usecases.ErrMailNotConfigured) {
+	if errors.Is(err, consumer.ErrMailNotConfigured) {
 		return false, nil
 	}
 	if err != nil {
@@ -258,7 +258,7 @@ func (ms mailSlot) Send(ctx context.Context, ownerID string, msg contract.MailMe
 func (ms mailSlot) resolve(ctx context.Context, ownerID string) (contract.MailProxy, error) {
 	c, err := ms.s.active(ctx, ownerID, "mail")
 	if errors.Is(err, errNoActiveConnector) {
-		return nil, usecases.ErrMailNotConfigured
+		return nil, consumer.ErrMailNotConfigured
 	}
 	if err != nil {
 		return nil, err

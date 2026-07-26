@@ -11,6 +11,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -239,7 +240,7 @@ func (c *accessRequestsCapability) errToResult(tool string, err error) capreg.MC
 
 func (c *accessRequestsCapability) approveErrToResult(err error) capreg.MCPResult {
 	switch {
-	case errors.Is(err, usecases.ErrMailNotConfigured):
+	case errors.Is(err, consumer.ErrMailNotConfigured):
 		return capreg.MCPError("configure and test your mail connector first")
 	case errors.Is(err, domain.ErrAccessRequestNotFound):
 		return capreg.MCPError("access request not found")

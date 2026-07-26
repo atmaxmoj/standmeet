@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type fakeSMTPVault struct {
@@ -36,7 +36,7 @@ func TestSMTPConnector_NotConfigured_Friendly(t *testing.T) {
 	err := mp.Send(context.Background(), "owner-1", contract.MailMessage{
 		To: "v@example.com", Subject: "hi", Body: "hello",
 	})
-	if !errors.Is(err, usecases.ErrMailNotConfigured) {
+	if !errors.Is(err, consumer.ErrMailNotConfigured) {
 		t.Fatalf("unconfigured send should be ErrMailNotConfigured, got %v", err)
 	}
 }

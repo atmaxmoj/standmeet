@@ -20,10 +20,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 	"github.com/atmaxmoj/standmeet/internal/retry"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // openapiCore —— 一个装配好的 openapi 连接器的公共件：id + 共享 runtime + 连接状态源 +
@@ -56,15 +56,15 @@ func (c *openapiCore) Connected(ctx context.Context, ownerID string) (bool, erro
 func (c *openapiCore) ExposesAgentTools() bool { return c.expose }
 
 // AgentOps —— spec 的每个 operation → 一个 agent tool 元数据（op_<id> + summary）。
-func (c *openapiCore) AgentOps() []usecases.AgentOp {
+func (c *openapiCore) AgentOps() []consumer.AgentOp {
 	ops := c.runtime.Operations()
-	out := make([]usecases.AgentOp, 0, len(ops))
+	out := make([]consumer.AgentOp, 0, len(ops))
 	for i := range ops {
 		desc := ops[i].Summary
 		if desc == "" {
 			desc = ops[i].Description
 		}
-		out = append(out, usecases.AgentOp{
+		out = append(out, consumer.AgentOp{
 			Name:        "op_" + strings.ReplaceAll(ops[i].ID, ".", "_"),
 			OpID:        ops[i].ID,
 			Description: desc,

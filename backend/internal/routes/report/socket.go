@@ -1,7 +1,6 @@
-// Package report —— socket controller。report.store host op —— report.store host op：断网沙箱 cap 把生成的原始 HTML 交给 host,
+// Package report —— report.store socket controller:断网沙箱 cap 把生成的原始 HTML 交给 host,
 // host 做 allow-list sanitize(安全关键,只在 host 做)+ styled-render + 落 report 行,回 report_id +
 // styled 文档。按业务分类:它跟 report artifact 的渲染(report_document/report_sanitize)住一起。
-
 package report
 
 import (

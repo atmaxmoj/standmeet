@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 )
 
 const capOpenapiAgentTools = "connector.agent_tools"
@@ -29,7 +30,7 @@ var agentToolArgsSchema = json.RawMessage(`{"type":"object"}`)
 // AgentConnectorSource —— owner 的、connected 且 expose_as_agent_tools 的 openapi 连接器。
 // composition root 适配 ConnectorRepo.ListByOwner + Hub（type-assert AgentToolConnector）。
 type AgentConnectorSource interface {
-	AgentConnectors(ctx context.Context, ownerID string) ([]AgentToolConnector, error)
+	AgentConnectors(ctx context.Context, ownerID string) ([]consumer.AgentToolConnector, error)
 }
 
 type openapiAgentToolsCapability struct {
@@ -84,7 +85,7 @@ func (c *openapiAgentToolsCapability) VisitorBinding(
 
 // grantedOpTools —— 一个连接器里被本 session 授权的 op（op_<id> 在 allowed_tools）→ LLM tools。
 func grantedOpTools(
-	conn AgentToolConnector, granted map[string]bool, ownerID string,
+	conn consumer.AgentToolConnector, granted map[string]bool, ownerID string,
 ) []capreg.BindingTool {
 	var tools []capreg.BindingTool
 	for _, op := range conn.AgentOps() {
@@ -97,7 +98,9 @@ func grantedOpTools(
 
 // agentOpTool —— 一个 op → 一个 LLM tool。Run 把 LLM args 原样作请求体调 SaaS，回原始响应（agent
 // 路：LLM 直接消费 SaaS 形状）；失败 → 干净 tool 错（不泄底层），由 agent loop 转给 LLM。
-func agentOpTool(conn AgentToolConnector, op AgentOp, ownerID string) capreg.BindingTool {
+func agentOpTool(
+	conn consumer.AgentToolConnector, op consumer.AgentOp, ownerID string,
+) capreg.BindingTool {
 	opID := op.OpID
 	run := func(ctx context.Context, argsJSON string) (string, error) {
 		raw, cerr := conn.CallAgentOp(ctx, ownerID, opID, json.RawMessage(argsJSON))

@@ -99,6 +99,8 @@ components:
     in: internal/connector/openapi        # #155: 通用 openapi 连接器执行核（spec+JSONata+HTTP）；schemaless-JSON 边界，leaf
   connectorcontract:
     in: internal/connector/contract       # #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)；内核零类型句柄，契约住这
+  connectorconsumer:
+    in: internal/connector/consumer       # #135: 连接器轴消费者契约 leaf (AgentToolConnector/AgentOp/ErrMailNotConfigured)；无 CalendarProxy，内核可依赖
   connectorbuiltins:
     in: connectors                        # built-in connector data (embedded manifest/spec/binding) + Load — own top-level dir, out of internal/
   connectorsvc:
@@ -166,6 +168,7 @@ deps:
       - mcpplugin
       - capsocket
       - search
+      - connectorconsumer
     anyVendorDeps: true
 
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
@@ -198,12 +201,18 @@ deps:
   connector:
     mayDependOn:
       - domain
-      - usecases
       - connectorcontract
+      - connectorconsumer
       - mailer
       - retry
       - httpx
       - connectoropenapi
+    anyVendorDeps: true
+
+  # connectorconsumer —— 连接器轴消费者契约 leaf(AgentToolConnector/AgentOp/ErrMailNotConfigured)。
+  # 纯 context/json/errors,无 internal 依赖:连接器实现它、内核装配面/owner工具/admin 消费它。
+  connectorconsumer:
+    mayDependOn: []
     anyVendorDeps: true
 
   # connectorroutes —— socket 入站 API 的 controller 层(跟 HTTP routes 同层):connector.invoke 的薄壳,
@@ -451,6 +460,7 @@ deps:
       - httpx
       - paritymanifest
       - connectorcontract
+      - connectorconsumer
       - pluginbooker
     anyVendorDeps: true
 
@@ -603,6 +613,7 @@ deps:
       - apierr
       - middleware
       - storage
+      - connectorconsumer
       - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
       - connector   # /connectors/* 经连接器层（不直碰 gcal/mailer）
       - connectorcontract # #135 Slice 5: /connectors/mail 凭据表单 + 测试发信走 MailProxy 契约
@@ -708,6 +719,7 @@ deps:
       - pluginownercore
       - capsocket
       - capstore
+      - connectorconsumer
       - sandboxws
       - search
       - connectorcontract

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -72,7 +73,7 @@ func loadConfiguredConnector(
 		return conn, fmt.Errorf("get mail connector: %w", err)
 	}
 	if !conn.HasCredentials() {
-		return conn, ErrMailNotConfigured
+		return conn, consumer.ErrMailNotConfigured
 	}
 	if conn.OTPIssuedRecently(time.Now(), domain.MailOTPResendCooldown) {
 		return conn, ErrMailOTPCooldown

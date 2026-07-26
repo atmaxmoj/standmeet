@@ -12,9 +12,9 @@ import (
 	"io"
 	"net"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/retry"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // RetryingMailProxy —— 包一个 contract.MailProxy，Send 按 notifyPolicy 重试瞬时传输错。
@@ -50,7 +50,7 @@ func (p *RetryingMailProxy) Send(
 
 // mailTransient —— 只重瞬时传输错（连接断/拒/超时/EOF）；ErrMailNotConfigured 等永久错不重。
 func mailTransient(err error) bool {
-	if err == nil || errors.Is(err, usecases.ErrMailNotConfigured) {
+	if err == nil || errors.Is(err, consumer.ErrMailNotConfigured) {
 		return false
 	}
 	var ne net.Error

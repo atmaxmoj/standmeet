@@ -16,9 +16,9 @@ import (
 	"github.com/atmaxmoj/standmeet/connectors"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // connectorEgressAllow —— 出站 SSRF 白名单（CONNECTOR_EGRESS_ALLOW 逗号分隔 hostname；
@@ -239,7 +239,7 @@ type agentConnectorSource struct {
 
 func (s *agentConnectorSource) AgentConnectors(
 	ctx context.Context, ownerID string,
-) ([]usecases.AgentToolConnector, error) {
+) ([]consumer.AgentToolConnector, error) {
 	conns, err := s.repo.ListByOwner(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list connectors for agent tools: %w", err)

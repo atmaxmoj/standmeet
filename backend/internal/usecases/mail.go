@@ -10,11 +10,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base32"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -28,7 +28,6 @@ const (
 )
 
 // ErrMailNotConfigured —— owner 还没配 / 没 test 通 mail connector,发不出信。
-var ErrMailNotConfigured = errors.New("mail connector not configured")
 
 // MailStatusDeps —— 只读 mail connector 状态(给公共 gate 配置用)。#155：经品类槽
 // (OutboundSender.Connected = active mail 连接器连没连)，不再读旧 mail 连接器存储。
@@ -122,7 +121,7 @@ func loadApprovalContext(
 		return approvalContext{}, fmt.Errorf("mail connector status: %w", err)
 	}
 	if !ok {
-		return approvalContext{}, ErrMailNotConfigured
+		return approvalContext{}, consumer.ErrMailNotConfigured
 	}
 	req, rerr := deps.Reqs.GetByID(ctx, ownerID, requestID)
 	if rerr != nil {

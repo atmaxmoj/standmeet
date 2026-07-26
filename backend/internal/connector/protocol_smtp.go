@@ -12,9 +12,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/mailer"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // FriendlyVerifyError —— 把连接测试错误映成 owner 友好理由（connect/tls/auth 分类，连接器层认得
@@ -85,7 +85,7 @@ func (c *smtpConnector) Verify(ctx context.Context, ownerID string) error {
 		return fmt.Errorf("connector %q smtp config: %w", c.id, err)
 	}
 	if !cfg.Configured() {
-		return usecases.ErrMailNotConfigured
+		return consumer.ErrMailNotConfigured
 	}
 	if verr := mailer.Verify(ctx, cfg.toMailerConfig()); verr != nil {
 		return fmt.Errorf("connector %q smtp verify: %w", c.id, verr)
@@ -110,7 +110,7 @@ func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg contract.M
 		return fmt.Errorf("connector %q smtp config: %w", c.id, err)
 	}
 	if !cfg.Configured() {
-		return usecases.ErrMailNotConfigured
+		return consumer.ErrMailNotConfigured
 	}
 	b := mailer.Compose(cfg.toMailerConfig()).To(msg.To).Subject(msg.Subject).Body(msg.Body)
 	if msg.HTML != "" {

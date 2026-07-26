@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -145,7 +146,7 @@ func handleAdminAccessRequestErr(log *slog.Logger, w http.ResponseWriter, err er
 }
 
 var approveErrCases = []apierr.Case{
-	{Match: usecases.ErrMailNotConfigured, Envelope: envBadReq(
+	{Match: consumer.ErrMailNotConfigured, Envelope: envBadReq(
 		"configure and test your mail connector first")},
 	{Match: domain.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "not_found", Message: "request not found",
