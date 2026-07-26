@@ -135,7 +135,7 @@ linters:
         - github.com/atmaxmoj/standmeet/internal/sandbox.Runner
         - github.com/atmaxmoj/standmeet/internal/connector/contract.CalendarProxy
         - github.com/atmaxmoj/standmeet/internal/connector/contract.MailProxy
-        - github.com/atmaxmoj/standmeet/internal/domain.Document
+        - github.com/atmaxmoj/standmeet/internal/corpusdomain.Document
         - github.com/atmaxmoj/standmeet/internal/domain.Integration
         # J.3: jobs plugin 的 Capability 工厂跟主 mcp 包同形态 (NewXxx →
         # capreg.Capability)；外部用 Capability interface 注册不耦合

@@ -20,7 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -186,7 +186,7 @@ func (h *WritingHandlers) get() http.HandlerFunc {
 
 func writeWritingResp(
 	r *http.Request, h *WritingHandlers, w http.ResponseWriter,
-	ownerID string, wg *domain.Writing,
+	ownerID string, wg *corpusdomain.Writing,
 ) {
 	view := toWritingViewResolved(r, h, wg)
 	view.BodyMD = rewriteBodyWithCrossLinks(r.Context(), h, ownerID, view.BodyMD)
@@ -234,14 +234,16 @@ func loadBacklinks(
 // toWritingViewResolved —— build response 时 batch resolve body_md 里所有
 // `standmeet-asset:<id>` 引用 → presigned URL map。前端 renderer 用这个
 // map 把 URI 换成 https URL，浏览器直 hit MinIO（绕 backend redirect）。
-func toWritingViewResolved(r *http.Request, h *WritingHandlers, wg *domain.Writing) writingView {
+func toWritingViewResolved(
+	r *http.Request, h *WritingHandlers, wg *corpusdomain.Writing,
+) writingView {
 	v := toWritingView(wg)
 	v.AssetURLs = resolveWritingAssetURLs(r, h, wg)
 	return v
 }
 
 func resolveWritingAssetURLs(
-	r *http.Request, h *WritingHandlers, wg *domain.Writing,
+	r *http.Request, h *WritingHandlers, wg *corpusdomain.Writing,
 ) map[string]string {
 	coverID := wg.CoverImageAssetID()
 	var coverPtr *string
@@ -257,7 +259,7 @@ func resolveWritingAssetURLs(
 	return urls
 }
 
-func toWritingView(wg *domain.Writing) writingView {
+func toWritingView(wg *corpusdomain.Writing) writingView {
 	var pubAtPtr *time.Time
 	if pub, ok := wg.PublishedAt(); ok {
 		cp := pub
@@ -274,7 +276,7 @@ func toWritingView(wg *domain.Writing) writingView {
 }
 
 func (h *WritingHandlers) handleWritingErr(w http.ResponseWriter, op string, err error) {
-	if errors.Is(err, domain.ErrWritingNotFound) {
+	if errors.Is(err, corpusdomain.ErrWritingNotFound) {
 		writeError(h.Log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "writing_not_found", Message: "writing not found",
 		})

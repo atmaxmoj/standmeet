@@ -10,25 +10,27 @@
 // Published / SourceWikiIDs —— Output 跟 Wiki 唯一形式差别是
 // SourceWikiIDs vs SourceRawIDs，其它对称。
 
-package domain
+package corpusdomain
 
 import (
 	"errors"
 	"slices"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // Output —— corpus_notes(genre=output) 行的领域值对象。结构跟 Wiki 严格对齐，差别只在
 // SourceWikiIDs vs SourceRawIDs（语义清晰）。retrieval ACL + landing 复用
 // Path / ShowAsSource 同一组字段——同 wiki。
 type Output struct {
-	timestamps    Timestamps
+	timestamps    domain.Timestamps
 	tree          TreeNode
 	id            string
 	ownerID       string
 	title         string
 	content       Content
-	integrations  Integrations
+	integrations  domain.Integrations
 	excerpt       string
 	sourceWikiIDs []string
 	showAsSource  bool
@@ -47,7 +49,7 @@ type OutputInit struct {
 	Excerpt       string
 	SourceWikiIDs []string
 	Tags          []string
-	Integrations  Integrations
+	Integrations  domain.Integrations
 	Published     bool
 	ShowAsSource  bool
 }
@@ -67,7 +69,7 @@ func NewOutput(i *OutputInit) Output {
 		content: NewContent(&ContentInit{
 			Title: i.Title, Body: i.Body, Tags: i.Tags,
 		}),
-		timestamps: NewTimestamps(&TimestampsInit{
+		timestamps: domain.NewTimestamps(&domain.TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		}),
 		tree:         NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
@@ -109,7 +111,7 @@ func (o *Output) CreatedAt() time.Time { return o.timestamps.CreatedAt() }
 func (o *Output) UpdatedAt() time.Time { return o.timestamps.UpdatedAt() }
 
 // Integrations —— 挂的 integration 列表 (defensive copy)。
-func (o *Output) Integrations() []Integration { return o.integrations.All() }
+func (o *Output) Integrations() []domain.Integration { return o.integrations.All() }
 
 // --- Output-specific accessors ---
 

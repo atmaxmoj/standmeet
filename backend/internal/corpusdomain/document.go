@@ -8,11 +8,13 @@
 // **A.2 阶段纯 additive** —— 不删任何现有 type/method，只让 4 个具体 corpus
 // 类型实现 Document，旧 callers 继续 work。A.3-IAM 才把 retriever 内核切过来。
 
-package domain
+package corpusdomain
 
 import (
 	"errors"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // ErrSubjectivityNotFound —— 按 id 查 subjectivity 未命中（dialog cited 反查用）。
@@ -81,5 +83,5 @@ type Document interface {
 
 	// Integrations —— document 跟外部系统的同步关系列表（Obsidian / Notion /
 	// 等）。永远返非 nil slice。
-	Integrations() []Integration
+	Integrations() []domain.Integration
 }

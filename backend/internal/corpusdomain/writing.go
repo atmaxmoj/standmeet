@@ -8,20 +8,22 @@
 // Writing-specific 字段：Slug / Path / Cover / Visibility / Excerpt /
 // ReadMinutes / CrossRefs。Obsidian sync 通过 Integrations 通用机制挂上去
 // （从前的 ObsidianSourcePath / ObsidianImportedAt 字段现在内部走
-// Integration interface，caller 通过 Integrations().Find(IntegrationObsidian)
+// Integration interface，caller 通过 Integrations().Find(domain.IntegrationObsidian)
 // 拿）。
 
-package domain
+package corpusdomain
 
 import (
 	"errors"
 	"slices"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // Writing —— writings 表的值对象。
 type Writing struct {
-	timestamps   Timestamps
+	timestamps   domain.Timestamps
 	cover        Cover
 	visibility   Visibility
 	id           string
@@ -31,7 +33,7 @@ type Writing struct {
 	excerpt      string
 	parentID     string
 	content      Content
-	integrations Integrations
+	integrations domain.Integrations
 	crossRefs    []string
 	readMinutes  int32
 	hasParent    bool
@@ -41,7 +43,7 @@ type Writing struct {
 // CrossRefs 是 Writing 独有的几个 leaf 字段，留 flat；其它走嵌套 Init。
 // fieldalignment: 嵌入 Init 大字段先，slice，string，int 末。
 type WritingInit struct {
-	Timestamps   TimestampsInit
+	Timestamps   domain.TimestampsInit
 	Cover        CoverInit
 	Visibility   VisibilityInit
 	Path         string
@@ -54,7 +56,7 @@ type WritingInit struct {
 	ParentID     string
 	Tags         []string
 	CrossRefs    []string
-	Integrations Integrations
+	Integrations domain.Integrations
 	ReadMinutes  int32
 }
 
@@ -78,7 +80,7 @@ func NewWriting(i *WritingInit) Writing {
 		content:      NewContent(&ContentInit{Title: i.Title, Body: i.Body, Tags: i.Tags}),
 		cover:        NewCover(&i.Cover),
 		visibility:   NewVisibility(&i.Visibility),
-		timestamps:   NewTimestamps(&i.Timestamps),
+		timestamps:   domain.NewTimestamps(&i.Timestamps),
 		integrations: i.Integrations,
 	}
 }
@@ -113,7 +115,7 @@ func (w *Writing) CreatedAt() time.Time { return w.timestamps.CreatedAt() }
 func (w *Writing) UpdatedAt() time.Time { return w.timestamps.UpdatedAt() }
 
 // Integrations —— 挂的 integration 列表 (defensive copy)，例如 Obsidian sync。
-func (w *Writing) Integrations() []Integration { return w.integrations.All() }
+func (w *Writing) Integrations() []domain.Integration { return w.integrations.All() }
 
 // --- Writing-specific accessors ---
 
@@ -155,17 +157,17 @@ func (w *Writing) IsPublished() bool { return w.timestamps.IsPublished() }
 
 // Obsidian —— writing 是否从 Obsidian vault sync 来的；type-assert helper
 // 让 caller 不用每次 Find + assert。返 (Obsidian{}, false) 表示非 vault。
-func (w *Writing) Obsidian() (Obsidian, bool) {
-	in, ok := w.integrations.Find(IntegrationObsidian)
+func (w *Writing) Obsidian() (domain.Obsidian, bool) {
+	in, ok := w.integrations.Find(domain.IntegrationObsidian)
 	if !ok {
-		return Obsidian{}, false
+		return domain.Obsidian{}, false
 	}
-	ob, ok := in.(Obsidian)
+	ob, ok := in.(domain.Obsidian)
 	return ob, ok
 }
 
 // HasObsidian —— Obsidian() 的 ok-only 版本。
-func (w *Writing) HasObsidian() bool { return w.integrations.Has(IntegrationObsidian) }
+func (w *Writing) HasObsidian() bool { return w.integrations.Has(domain.IntegrationObsidian) }
 
 // CoverHeadline —— 封面 headline，convenience 让 mapper / view 不用先取
 // Cover() 再取字段。

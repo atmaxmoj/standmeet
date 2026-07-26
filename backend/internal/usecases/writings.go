@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -37,13 +37,13 @@ type WritingsTxDeps struct {
 // PublishWriting —— 草稿 → 已发布。
 func PublishWriting(
 	ctx context.Context, deps WritingsDeps, ownerID, writingID string,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	if ownerID == "" || writingID == "" {
-		return domain.Writing{}, ErrEmptyField
+		return corpusdomain.Writing{}, ErrEmptyField
 	}
 	p, err := deps.Writings.Publish(ctx, ownerID, writingID)
 	if err != nil {
-		return domain.Writing{}, fmt.Errorf("publish writing: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("publish writing: %w", err)
 	}
 	return p, nil
 }
@@ -51,13 +51,13 @@ func PublishWriting(
 // UnpublishWriting —— 撤回到草稿。
 func UnpublishWriting(
 	ctx context.Context, deps WritingsDeps, ownerID, writingID string,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	if ownerID == "" || writingID == "" {
-		return domain.Writing{}, ErrEmptyField
+		return corpusdomain.Writing{}, ErrEmptyField
 	}
 	p, err := deps.Writings.Unpublish(ctx, ownerID, writingID)
 	if err != nil {
-		return domain.Writing{}, fmt.Errorf("unpublish writing: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("unpublish writing: %w", err)
 	}
 	return p, nil
 }
@@ -65,7 +65,7 @@ func UnpublishWriting(
 // ListAllWritings —— admin list 含草稿；按 published_at desc nulls last。
 func ListAllWritings(
 	ctx context.Context, deps WritingsDeps, ownerID string,
-) ([]domain.Writing, error) {
+) ([]corpusdomain.Writing, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}
@@ -79,7 +79,7 @@ func ListAllWritings(
 // ListPublishedWritings —— public list 仅 already-published。
 func ListPublishedWritings(
 	ctx context.Context, deps WritingsDeps, ownerID string,
-) ([]domain.Writing, error) {
+) ([]corpusdomain.Writing, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}
@@ -100,7 +100,7 @@ type ListPublishedWritingsPageInput struct {
 // ListPublishedWritingsPageResult —— page + 下一页 cursor (nil = 已无更多)。
 type ListPublishedWritingsPageResult struct {
 	NextCursor *time.Time
-	Writings   []domain.Writing
+	Writings   []corpusdomain.Writing
 }
 
 // DefaultWritingsPageLimit —— /api/v1/writings 默认 page size。
@@ -136,7 +136,9 @@ func clampWritingsLimit(limit int32) int32 {
 	return limit
 }
 
-func buildWritingsPageResult(rows []domain.Writing, limit int32) ListPublishedWritingsPageResult {
+func buildWritingsPageResult(
+	rows []corpusdomain.Writing, limit int32,
+) ListPublishedWritingsPageResult {
 	if int32(len(rows)) <= limit {
 		return ListPublishedWritingsPageResult{Writings: rows}
 	}
@@ -153,13 +155,13 @@ func buildWritingsPageResult(rows []domain.Writing, limit int32) ListPublishedWr
 // GetWritingBySlug —— public article view 用。
 func GetWritingBySlug(
 	ctx context.Context, deps WritingsDeps, ownerID, slug string,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	if ownerID == "" || slug == "" {
-		return domain.Writing{}, ErrEmptyField
+		return corpusdomain.Writing{}, ErrEmptyField
 	}
 	p, err := deps.Writings.GetBySlug(ctx, ownerID, slug)
 	if err != nil {
-		return domain.Writing{}, fmt.Errorf("get writing: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("get writing: %w", err)
 	}
 	return p, nil
 }

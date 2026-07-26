@@ -14,7 +14,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -174,7 +174,7 @@ func (c *corpusRawCapability) handlePromoteToWiki(
 }
 
 func (c *corpusRawCapability) applyShowAsSourceIfHidden(
-	ctx context.Context, wikiEntry *domain.Wiki, showAsSource *bool,
+	ctx context.Context, wikiEntry *corpusdomain.Wiki, showAsSource *bool,
 ) {
 	if showAsSource == nil || *showAsSource {
 		return
@@ -216,13 +216,13 @@ func buildPromoteToWikiInput(args *promoteToWikiArgsWire, ownerID string) *useca
 }
 
 func promoteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrRawNotFound) {
+	if errors.Is(err, corpusdomain.ErrRawNotFound) {
 		return capreg.MCPError("raw entry not found")
 	}
-	if errors.Is(err, domain.ErrParentNotFound) {
+	if errors.Is(err, corpusdomain.ErrParentNotFound) {
 		return capreg.MCPError("parent entry not found")
 	}
-	if errors.Is(err, domain.ErrSiblingSlugTaken) {
+	if errors.Is(err, corpusdomain.ErrSiblingSlugTaken) {
 		return capreg.MCPError("an entry with the same name already exists here")
 	}
 	log.Error("cap promote_to_wiki", "err", err)

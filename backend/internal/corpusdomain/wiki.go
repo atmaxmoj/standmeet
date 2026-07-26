@@ -9,12 +9,14 @@
 // Published / SourceRawIDs —— caller type-assert 回 Wiki 用。Path/Parent
 // 走 TreeNode sub-object；SEO 走 SEO sub-object。
 
-package domain
+package corpusdomain
 
 import (
 	"errors"
 	"slices"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // Wiki —— corpus_notes(genre=wiki) 行的领域值对象。
@@ -22,13 +24,13 @@ import (
 // ShowAsSource：retriever 内 AI 能 read 拿 body 但 readCollector 不收 —— meta /
 // persona 这种"用得到但不该曝光"的 entry 用这个开关。
 type Wiki struct {
-	timestamps   Timestamps
+	timestamps   domain.Timestamps
 	tree         TreeNode
 	id           string
 	ownerID      string
 	title        string
 	content      Content
-	integrations Integrations
+	integrations domain.Integrations
 	excerpt      string
 	sourceRawIDs []string
 	showAsSource bool
@@ -48,7 +50,7 @@ type WikiInit struct {
 	SourceRawIDs []string
 	Tags         []string
 	CSSClasses   []string
-	Integrations Integrations
+	Integrations domain.Integrations
 	Published    bool
 	ShowAsSource bool
 }
@@ -68,7 +70,7 @@ func NewWiki(i *WikiInit) Wiki {
 		content: NewContent(&ContentInit{
 			Title: i.Title, Body: i.Body, Tags: i.Tags, CSSClasses: i.CSSClasses,
 		}),
-		timestamps: NewTimestamps(&TimestampsInit{
+		timestamps: domain.NewTimestamps(&domain.TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		}),
 		tree:         NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
@@ -114,7 +116,7 @@ func (w *Wiki) CreatedAt() time.Time { return w.timestamps.CreatedAt() }
 func (w *Wiki) UpdatedAt() time.Time { return w.timestamps.UpdatedAt() }
 
 // Integrations —— 挂的 integration 列表 (defensive copy)。
-func (w *Wiki) Integrations() []Integration { return w.integrations.All() }
+func (w *Wiki) Integrations() []domain.Integration { return w.integrations.All() }
 
 // --- Wiki-specific accessors ---
 

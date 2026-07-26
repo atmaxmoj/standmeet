@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -42,10 +43,10 @@ type CreateRawInput struct {
 
 // Create 写一条新 raw(corpus_notes genre='raw')。pointer 接收避免 hugeParam。
 // corpus_notes.title NOT NULL,故从 body 派生一个 title(首非空行截断)。
-func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (domain.Raw, error) {
+func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (corpusdomain.Raw, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return corpusdomain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateRawEntry(ctx, dbq.CreateRawEntryParams{
@@ -58,7 +59,7 @@ func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (domain.Raw, e
 		FlaggedPrivate: in.FlaggedPrivate,
 	})
 	if err != nil {
-		return domain.Raw{}, fmt.Errorf("create raw: %w", err)
+		return corpusdomain.Raw{}, fmt.Errorf("create raw: %w", err)
 	}
 	return toDomainRaw(&row), nil
 }
@@ -90,7 +91,7 @@ func nilSafeTags(s []string) []string {
 // ListByOwner 返回 owner 未 archive 的 raw（最新 N 条）。
 func (r *RawRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
-) ([]domain.Raw, error) {
+) ([]corpusdomain.Raw, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -100,7 +101,7 @@ func (r *RawRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list raw: %w", err)
 	}
-	out := make([]domain.Raw, 0, len(rows))
+	out := make([]corpusdomain.Raw, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainRaw(&rows[i]))
 	}
@@ -108,22 +109,22 @@ func (r *RawRepo) ListByOwner(
 }
 
 // GetByID 拿 owner 的某条 raw；不命中返回 ErrRawNotFound。
-func (r *RawRepo) GetByID(ctx context.Context, ownerID, id string) (domain.Raw, error) {
+func (r *RawRepo) GetByID(ctx context.Context, ownerID, id string) (corpusdomain.Raw, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return corpusdomain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	rawUUID, err := parseUUID(id)
 	if err != nil {
-		return domain.Raw{}, fmt.Errorf("parse raw id: %w", err)
+		return corpusdomain.Raw{}, fmt.Errorf("parse raw id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetRawByID(ctx, dbq.GetRawByIDParams{ID: rawUUID, OwnerID: ownerUUID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Raw{}, domain.ErrRawNotFound
+			return corpusdomain.Raw{}, corpusdomain.ErrRawNotFound
 		}
-		return domain.Raw{}, fmt.Errorf("get raw: %w", err)
+		return corpusdomain.Raw{}, fmt.Errorf("get raw: %w", err)
 	}
 	return toDomainRaw(&row), nil
 }
@@ -173,9 +174,9 @@ func parseUUIDArray(ids []string) ([]pgtype.UUID, error) {
 	return out, nil
 }
 
-// toDomainRaw —— corpus_notes(genre='raw')行 → domain.Raw。inbox_source→Source。
-func toDomainRaw(r *dbq.CorpusNote) domain.Raw {
-	in := domain.RawInit{
+// toDomainRaw —— corpus_notes(genre='raw')行 → corpusdomain.Raw。inbox_source→Source。
+func toDomainRaw(r *dbq.CorpusNote) corpusdomain.Raw {
+	in := corpusdomain.RawInit{
 		ID:             formatUUID(r.ID),
 		OwnerID:        formatUUID(r.OwnerID),
 		Title:          r.Title,
@@ -195,7 +196,7 @@ func toDomainRaw(r *dbq.CorpusNote) domain.Raw {
 		s := formatUUID(r.ParentID)
 		in.ParentID = &s
 	}
-	return domain.NewRaw(&in)
+	return corpusdomain.NewRaw(&in)
 }
 
 func formatUUIDList(uu []pgtype.UUID) []string {

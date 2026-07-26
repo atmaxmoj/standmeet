@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -19,10 +19,10 @@ import (
 type WritingsTreeProvider interface {
 	ListChildrenTree(
 		ctx context.Context, ownerID string, parentID *string,
-	) ([]postgres.TreeChild[domain.Writing], error)
+	) ([]postgres.TreeChild[corpusdomain.Writing], error)
 	ListPage(
 		ctx context.Context, ownerID string, cursor *postgres.PageCursor, limit int32,
-	) ([]postgres.TreeChild[domain.Writing], error)
+	) ([]postgres.TreeChild[corpusdomain.Writing], error)
 }
 
 type writingsPageResponse struct {
@@ -68,7 +68,8 @@ func (h *Handlers) pageWritings() http.HandlerFunc {
 }
 
 func writeWritingsPage(
-	r *http.Request, h *Handlers, w http.ResponseWriter, rows []postgres.TreeChild[domain.Writing],
+	r *http.Request, h *Handlers, w http.ResponseWriter,
+	rows []postgres.TreeChild[corpusdomain.Writing],
 ) {
 	page := rows
 	next := ""

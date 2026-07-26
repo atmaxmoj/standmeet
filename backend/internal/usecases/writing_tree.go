@@ -7,7 +7,7 @@
 
 package usecases
 
-import "github.com/atmaxmoj/standmeet/internal/domain"
+import "github.com/atmaxmoj/standmeet/internal/corpusdomain"
 
 // WritingTreeNode —— 树一层的一个节点。Locked = private(teaser only)。
 type WritingTreeNode struct {
@@ -20,7 +20,7 @@ type WritingTreeNode struct {
 
 // WritingTreeChildren —— published 列表里 parentID 的直接子(parentID="" → roots)。
 // parent 不在 published 集内(草稿/删)→ 子升为 root。
-func WritingTreeChildren(writings []domain.Writing, parentID string) []WritingTreeNode {
+func WritingTreeChildren(writings []corpusdomain.Writing, parentID string) []WritingTreeNode {
 	present := writingIDSet(writings)
 	hasKids := writingParentsWithChild(writings, present)
 	out := make([]WritingTreeNode, 0)
@@ -32,7 +32,7 @@ func WritingTreeChildren(writings []domain.Writing, parentID string) []WritingTr
 	return out
 }
 
-func writingNode(w *domain.Writing, hasKids map[string]bool) WritingTreeNode {
+func writingNode(w *corpusdomain.Writing, hasKids map[string]bool) WritingTreeNode {
 	return WritingTreeNode{
 		ID: w.ID(), Title: w.Title(), Slug: w.Slug(),
 		HasChildren: hasKids[w.ID()], Locked: !w.Visibility().IsPublic(),
@@ -40,7 +40,7 @@ func writingNode(w *domain.Writing, hasKids map[string]bool) WritingTreeNode {
 }
 
 // writingIDSet —— published 集内的 id。
-func writingIDSet(writings []domain.Writing) map[string]bool {
+func writingIDSet(writings []corpusdomain.Writing) map[string]bool {
 	out := make(map[string]bool, len(writings))
 	for i := range writings {
 		out[writings[i].ID()] = true
@@ -49,7 +49,7 @@ func writingIDSet(writings []domain.Writing) map[string]bool {
 }
 
 // writingEffectiveParent —— parent 在集内 → 真 parent;否则当 root。
-func writingEffectiveParent(w *domain.Writing, present map[string]bool) string {
+func writingEffectiveParent(w *corpusdomain.Writing, present map[string]bool) string {
 	pid, ok := w.ParentID()
 	if ok && present[pid] {
 		return pid
@@ -58,7 +58,9 @@ func writingEffectiveParent(w *domain.Writing, present map[string]bool) string {
 }
 
 // writingParentsWithChild —— 有 ≥1 子的 parent id 集(算 HasChildren)。
-func writingParentsWithChild(writings []domain.Writing, present map[string]bool) map[string]bool {
+func writingParentsWithChild(
+	writings []corpusdomain.Writing, present map[string]bool,
+) map[string]bool {
 	out := make(map[string]bool)
 	for i := range writings {
 		if p := writingEffectiveParent(&writings[i], present); p != "" {

@@ -7,7 +7,7 @@
 // 真 access control 走 [[iam-role-pivot-plan]] 的 corpus URI ACL（A.3-IAM
 // 实做）；这里的 Visibility 只是"前端按啥渲"提示。
 
-package domain
+package corpusdomain
 
 // VisibilityMode —— 可见性模式枚举。pre-launch 只两档，未来可扩 unlisted /
 // timed-release 等。

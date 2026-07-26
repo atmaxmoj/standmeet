@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 )
 
 // validateWritingParent —— parent_id 给了就必须是本 owner 的 writing(FK 只保
@@ -20,8 +20,8 @@ func validateWritingParent(ctx context.Context, deps WritingsTxDeps, in *SaveWri
 		return nil
 	}
 	if _, err := deps.Writings.GetByID(ctx, in.OwnerID, in.ParentID); err != nil {
-		if errors.Is(err, domain.ErrWritingNotFound) {
-			return domain.ErrParentNotFound
+		if errors.Is(err, corpusdomain.ErrWritingNotFound) {
+			return corpusdomain.ErrParentNotFound
 		}
 		return fmt.Errorf("validate writing parent: %w", err)
 	}
@@ -40,7 +40,7 @@ func checkNoWritingParentCycle(
 	cur := parentID
 	for range treeMaxDepth {
 		if cur == nodeID {
-			return domain.ErrParentCycle
+			return corpusdomain.ErrParentCycle
 		}
 		wg, err := deps.Writings.GetByID(ctx, ownerID, cur)
 		if err != nil {

@@ -14,7 +14,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
@@ -152,9 +152,9 @@ func corpusGetErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	switch {
 	case errors.Is(err, errUnknownGenre):
 		return capreg.MCPError("genre must be 'raw', 'wiki', or 'output'")
-	case errors.Is(err, domain.ErrRawNotFound),
-		errors.Is(err, domain.ErrWikiNotFound),
-		errors.Is(err, domain.ErrOutputNotFound):
+	case errors.Is(err, corpusdomain.ErrRawNotFound),
+		errors.Is(err, corpusdomain.ErrWikiNotFound),
+		errors.Is(err, corpusdomain.ErrOutputNotFound):
 		return capreg.MCPError("corpus entry not found")
 	default:
 		log.Error("cap corpus.get", "err", err)

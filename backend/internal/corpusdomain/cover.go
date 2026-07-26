@@ -5,7 +5,7 @@
 // excerpt / og / cover 副标题共用一个字段，见 writing.Excerpt）。前端
 // /writings/<slug> hero 和 /writings index lead card 各自渲染 Cover。
 
-package domain
+package corpusdomain
 
 // CoverHue —— 三种 design 系内置色调，design 系统对齐 vermillion-paper-ink
 // palette。前端按 hue dispatch 不同 CSS variable。

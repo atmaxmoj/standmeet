@@ -4,7 +4,7 @@
 
 package usecases
 
-import "github.com/atmaxmoj/standmeet/internal/domain"
+import "github.com/atmaxmoj/standmeet/internal/corpusdomain"
 
 // WritingContext —— 节点上下文。Ancestors 是 root→parent 顺序(不含自己)。
 type WritingContext struct {
@@ -14,7 +14,7 @@ type WritingContext struct {
 
 // WritingNodeContext —— published 列表里 slug 那条的祖先链 + 直接子。slug 不在
 // published 集 → 空上下文。
-func WritingNodeContext(writings []domain.Writing, slug string) WritingContext {
+func WritingNodeContext(writings []corpusdomain.Writing, slug string) WritingContext {
 	empty := WritingContext{Ancestors: []WritingTreeNode{}, Children: []WritingTreeNode{}}
 	idx, found := writingIndexAtSlug(writings, slug)
 	if !found {
@@ -28,7 +28,7 @@ func WritingNodeContext(writings []domain.Writing, slug string) WritingContext {
 }
 
 // writingIndexAtSlug —— slug 命中那条的下标。
-func writingIndexAtSlug(writings []domain.Writing, slug string) (int, bool) {
+func writingIndexAtSlug(writings []corpusdomain.Writing, slug string) (int, bool) {
 	for i := range writings {
 		if writings[i].Slug() == slug {
 			return i, true
@@ -39,7 +39,7 @@ func writingIndexAtSlug(writings []domain.Writing, slug string) (int, bool) {
 
 // writingAncestorsOf —— 沿 effective-parent 链上溯,收祖先,root→parent 排序。
 func writingAncestorsOf(
-	writings []domain.Writing, present map[string]bool, idx int,
+	writings []corpusdomain.Writing, present map[string]bool, idx int,
 ) []WritingTreeNode {
 	byID := writingIndexByID(writings)
 	chain := make([]WritingTreeNode, 0)
@@ -58,7 +58,7 @@ func writingAncestorsOf(
 }
 
 // writingIndexByID —— id → 下标。
-func writingIndexByID(writings []domain.Writing) map[string]int {
+func writingIndexByID(writings []corpusdomain.Writing) map[string]int {
 	out := make(map[string]int, len(writings))
 	for i := range writings {
 		out[writings[i].ID()] = i

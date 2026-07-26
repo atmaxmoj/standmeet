@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -41,7 +41,7 @@ func (h *Handlers) listOutput() http.HandlerFunc {
 	}
 }
 
-func writeOutputList(log *slog.Logger, w http.ResponseWriter, rows []domain.Output) {
+func writeOutputList(log *slog.Logger, w http.ResponseWriter, rows []corpusdomain.Output) {
 	paths := usecases.OutputTreePaths(rows)
 	items := make([]outputListItem, 0, len(rows))
 	for i := range rows {

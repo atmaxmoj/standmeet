@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -30,13 +30,13 @@ type PromoteToOutputInput struct {
 // output 携带 wiki_id 反链。wiki 不动（不像 raw.promoted_to 那种标记）。
 func PromoteWikiToOutput(
 	ctx context.Context, deps CorpusDeps, in *PromoteToOutputInput,
-) (domain.Output, error) {
+) (corpusdomain.Output, error) {
 	if err := validatePromoteToOutputInput(in); err != nil {
-		return domain.Output{}, err
+		return corpusdomain.Output{}, err
 	}
 	wiki, err := loadWikiForPromote(ctx, deps, in.OwnerID, in.WikiID)
 	if err != nil {
-		return domain.Output{}, err
+		return corpusdomain.Output{}, err
 	}
 	out, err := deps.Output.Create(ctx, &postgres.CreateOutputInput{
 		OwnerID:       in.OwnerID,
@@ -47,10 +47,10 @@ func PromoteWikiToOutput(
 		SourceWikiIDs: []string{wiki.ID()},
 	})
 	if err != nil {
-		return domain.Output{}, fmt.Errorf("output create: %w", err)
+		return corpusdomain.Output{}, fmt.Errorf("output create: %w", err)
 	}
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, out.ID(), wiki.Body()); rerr != nil {
-		return domain.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
+		return corpusdomain.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
 	}
 	indexNoteHook(ctx, deps, in.OwnerID, out.ID())
 	return out, nil
@@ -65,13 +65,13 @@ func validatePromoteToOutputInput(in *PromoteToOutputInput) error {
 
 func loadWikiForPromote(
 	ctx context.Context, deps CorpusDeps, ownerID, wikiID string,
-) (domain.Wiki, error) {
+) (corpusdomain.Wiki, error) {
 	wiki, err := deps.Wiki.GetByID(ctx, ownerID, wikiID)
 	if err != nil {
-		if errors.Is(err, domain.ErrWikiNotFound) {
-			return domain.Wiki{}, domain.ErrWikiNotFound
+		if errors.Is(err, corpusdomain.ErrWikiNotFound) {
+			return corpusdomain.Wiki{}, corpusdomain.ErrWikiNotFound
 		}
-		return domain.Wiki{}, fmt.Errorf("get wiki: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("get wiki: %w", err)
 	}
 	return wiki, nil
 }

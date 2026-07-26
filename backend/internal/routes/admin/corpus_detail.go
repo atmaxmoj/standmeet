@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -55,7 +55,7 @@ type outputDetailItem struct {
 	Published     bool      `json:"published"`
 }
 
-func wikiDetailFromDomain(w *domain.Wiki) wikiDetailItem {
+func wikiDetailFromDomain(w *corpusdomain.Wiki) wikiDetailItem {
 	return wikiDetailItem{
 		ID: w.ID(), Title: w.Title(), Body: w.Body(),
 		Tags: ensureSlice(w.Tags()), SourceRawIDs: ensureSlice(w.SourceRawIDs()),
@@ -66,7 +66,7 @@ func wikiDetailFromDomain(w *domain.Wiki) wikiDetailItem {
 	}
 }
 
-func outputDetailFromDomain(o *domain.Output) outputDetailItem {
+func outputDetailFromDomain(o *corpusdomain.Output) outputDetailItem {
 	return outputDetailItem{
 		ID: o.ID(), Title: o.Title(), Body: o.Body(),
 		Tags: ensureSlice(o.Tags()), SourceWikiIDs: ensureSlice(o.SourceWikiIDs()),

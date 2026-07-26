@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -34,9 +34,9 @@ type RawDumpInput struct {
 }
 
 // RawDump 写一条新 raw_entries。MCP 工具调它；source label 由 owner 的 AI 客户端给。
-func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (domain.Raw, error) {
+func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (corpusdomain.Raw, error) {
 	if in.OwnerID == "" || in.Body == "" {
-		return domain.Raw{}, ErrEmptyField
+		return corpusdomain.Raw{}, ErrEmptyField
 	}
 	src := in.Source
 	if src == "" {
@@ -50,7 +50,7 @@ func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (domain.Raw
 		FlaggedPrivate: in.FlaggedPrivate,
 	})
 	if err != nil {
-		return domain.Raw{}, fmt.Errorf("raw create: %w", err)
+		return corpusdomain.Raw{}, fmt.Errorf("raw create: %w", err)
 	}
 	return raw, nil
 }
@@ -71,13 +71,13 @@ type PromoteInput struct {
 // 携带 raw_id 反链 → mark raw promoted_to。
 func PromoteToWiki(
 	ctx context.Context, deps CorpusDeps, in *PromoteInput,
-) (domain.Wiki, error) {
+) (corpusdomain.Wiki, error) {
 	if err := preflightPromote(ctx, deps, in); err != nil {
-		return domain.Wiki{}, err
+		return corpusdomain.Wiki{}, err
 	}
 	raw, err := loadRawForPromote(ctx, deps, in)
 	if err != nil {
-		return domain.Wiki{}, err
+		return corpusdomain.Wiki{}, err
 	}
 	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
 		OwnerID:      in.OwnerID,
@@ -88,11 +88,11 @@ func PromoteToWiki(
 		SourceRawIDs: []string{raw.ID()},
 	})
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("wiki create: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("wiki create: %w", err)
 	}
 	fin := promoteFinish{OwnerID: in.OwnerID, RawID: raw.ID(), WikiID: wiki.ID(), Body: raw.Body()}
 	if perr := finishPromote(ctx, deps, fin); perr != nil {
-		return domain.Wiki{}, perr
+		return corpusdomain.Wiki{}, perr
 	}
 	return wiki, nil
 }
@@ -160,7 +160,7 @@ func ensureSiblingSlugFree(ctx context.Context, deps CorpusDeps, c siblingSlugCh
 			continue
 		}
 		if pathSegment(sibs[i].Title) == slug {
-			return domain.ErrSiblingSlugTaken
+			return corpusdomain.ErrSiblingSlugTaken
 		}
 	}
 	return nil
@@ -183,8 +183,8 @@ func validateWikiParent(
 		return nil
 	}
 	if _, err := deps.Wiki.GetByID(ctx, ownerID, *parentID); err != nil {
-		if errors.Is(err, domain.ErrWikiNotFound) {
-			return domain.ErrParentNotFound
+		if errors.Is(err, corpusdomain.ErrWikiNotFound) {
+			return corpusdomain.ErrParentNotFound
 		}
 		return fmt.Errorf("validate wiki parent: %w", err)
 	}
@@ -213,7 +213,7 @@ func checkNoParentCycle(
 	cur := parentID
 	for range treeMaxDepth {
 		if cur == nodeID {
-			return domain.ErrParentCycle
+			return corpusdomain.ErrParentCycle
 		}
 		w, err := deps.Wiki.GetByID(ctx, ownerID, cur)
 		if err != nil {
@@ -230,13 +230,13 @@ func checkNoParentCycle(
 
 func loadRawForPromote(
 	ctx context.Context, deps CorpusDeps, in *PromoteInput,
-) (domain.Raw, error) {
+) (corpusdomain.Raw, error) {
 	raw, err := deps.Raw.GetByID(ctx, in.OwnerID, in.RawID)
 	if err != nil {
-		if errors.Is(err, domain.ErrRawNotFound) {
-			return domain.Raw{}, domain.ErrRawNotFound
+		if errors.Is(err, corpusdomain.ErrRawNotFound) {
+			return corpusdomain.Raw{}, corpusdomain.ErrRawNotFound
 		}
-		return domain.Raw{}, fmt.Errorf("get raw: %w", err)
+		return corpusdomain.Raw{}, fmt.Errorf("get raw: %w", err)
 	}
 	return raw, nil
 }

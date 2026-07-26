@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -21,23 +21,23 @@ import (
 // ("writings/<slug>"),故剥前缀取 slug 再查;不带前缀的 path 认不到 → ErrWritingNotFound。
 func (r *WritingRepo) GetPublishedByPath(
 	ctx context.Context, ownerID, path string,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return domain.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return corpusdomain.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	slug, ok := strings.CutPrefix(path, writingPathPrefix)
 	if !ok {
-		return domain.Writing{}, domain.ErrWritingNotFound
+		return corpusdomain.Writing{}, corpusdomain.ErrWritingNotFound
 	}
 	row, err := dbq.New(r.pool).GetPublishedWritingBySlug(ctx, dbq.GetPublishedWritingBySlugParams{
 		OwnerID: ownerUUID, Slug: slug,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Writing{}, domain.ErrWritingNotFound
+			return corpusdomain.Writing{}, corpusdomain.ErrWritingNotFound
 		}
-		return domain.Writing{}, fmt.Errorf("get published writing by slug: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("get published writing by slug: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }
@@ -45,7 +45,7 @@ func (r *WritingRepo) GetPublishedByPath(
 // Search —— retriever corpus_search 全量搜 published writing(DB full-text)。
 func (r *WritingRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
-) ([]domain.Writing, error) {
+) ([]corpusdomain.Writing, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)

@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"slices"
 
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -102,7 +103,7 @@ func (d *WaypointLedgerDeps) resolveURIs(
 			continue
 		}
 		path := syncNotePath(note.Title, note.ParentID, dbParentOf(ctx, d.Notes, ownerID))
-		out = append(out, domain.FormatURI(domain.DocumentGenre(note.Genre), path))
+		out = append(out, corpusdomain.FormatURI(corpusdomain.DocumentGenre(note.Genre), path))
 	}
 	return out
 }

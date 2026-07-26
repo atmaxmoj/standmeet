@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -108,8 +109,8 @@ var landingNotFound = apierr.Envelope{
 
 // landingNotFoundSentinels —— landing 路径上视作 404 的 sentinel error 集合。
 var landingNotFoundSentinels = []error{
-	domain.ErrWikiNotFound,
-	domain.ErrOutputNotFound,
+	corpusdomain.ErrWikiNotFound,
+	corpusdomain.ErrOutputNotFound,
 	domain.ErrOwnerNotFound,
 }
 

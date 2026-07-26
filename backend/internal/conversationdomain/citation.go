@@ -9,12 +9,12 @@
 // 进 cited,无 show_as_source gate)；之前 backend 拿 `cited_wiki_ids[]` +
 // `cited_output_ids[]` 分列存,frontend 也分数组维护 —— 现在抽出来。
 //
-// Genre 用 domain.DocumentGenre (跟 corpus entry 复用同一类型)；引入独
+// Genre 用 corpusdomain.DocumentGenre (跟 corpus entry 复用同一类型)；引入独
 // 立 CitationKind 是残留，已废。
 
 package conversationdomain
 
-import "github.com/atmaxmoj/standmeet/internal/domain"
+import "github.com/atmaxmoj/standmeet/internal/corpusdomain"
 
 // Citation —— 一个 corpus entry 引用 VO。
 type Citation struct {
@@ -27,4 +27,4 @@ type Citation struct {
 // Genre —— alias 给 DocumentGenre 用 (Citation.Genre 写起来短一些)。
 // 不引入第二个 enum；cited footer 覆盖的 genre 之外(raw)传进 Citation
 // 是 caller bug。
-type Genre = domain.DocumentGenre
+type Genre = corpusdomain.DocumentGenre

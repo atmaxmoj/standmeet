@@ -1,5 +1,5 @@
 // writings_mapping.go —— writings.go 拆出来的纯映射 helpers (corpus_notes(genre='writing')
-// row → domain.Writing，UUID/timestamp 互转，hue/visibility 白名单兜底)。
+// row → corpusdomain.Writing，UUID/timestamp 互转，hue/visibility 白名单兜底)。
 // writing 折进 corpus_notes(#151):body_md→body，path 不存(派生 "writings/"+slug)。
 
 package postgres
@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -21,8 +22,8 @@ const writingPathPrefix = "writings/"
 // writingPathForSlug —— slug → 派生 path。
 func writingPathForSlug(slug string) string { return writingPathPrefix + slug }
 
-func rowsToDomainWritings(rows []dbq.CorpusNote) []domain.Writing {
-	out := make([]domain.Writing, 0, len(rows))
+func rowsToDomainWritings(rows []dbq.CorpusNote) []corpusdomain.Writing {
+	out := make([]corpusdomain.Writing, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainWriting(&rows[i]))
 	}
@@ -46,8 +47,8 @@ func parseOwnerAndWritingID(ownerID, writingID string) (writingIDArgs, error) {
 	return writingIDArgs{ownerUUID: ownerUUID, writingUUID: writingUUID}, nil
 }
 
-func toDomainWriting(row *dbq.CorpusNote) domain.Writing {
-	in := domain.WritingInit{
+func toDomainWriting(row *dbq.CorpusNote) corpusdomain.Writing {
+	in := corpusdomain.WritingInit{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
 		Slug: row.Slug, Title: row.Title, Excerpt: row.Excerpt,
 		Body:        row.Body,
@@ -56,11 +57,11 @@ func toDomainWriting(row *dbq.CorpusNote) domain.Writing {
 		Path:        writingPathForSlug(row.Slug),
 		ParentID:    optUUIDString(row.ParentID),
 		ReadMinutes: row.ReadMinutes,
-		Cover: domain.CoverInit{
+		Cover: corpusdomain.CoverInit{
 			Headline: row.CoverHeadline,
 			Hue:      row.CoverHue, ImageAssetID: optUUIDString(row.CoverImageAssetID),
 		},
-		Visibility: domain.VisibilityInit{
+		Visibility: corpusdomain.VisibilityInit{
 			Mode: row.Visibility, LockedBody: row.LockedBody,
 		},
 		Timestamps: domain.TimestampsInit{
@@ -69,7 +70,7 @@ func toDomainWriting(row *dbq.CorpusNote) domain.Writing {
 		},
 		Integrations: buildWritingIntegrations(row),
 	}
-	return domain.NewWriting(&in)
+	return corpusdomain.NewWriting(&in)
 }
 
 // buildWritingIntegrations —— corpus_notes 行里的 obsidian_source_path /
@@ -109,15 +110,16 @@ func optTime(t pgtype.Timestamptz) *time.Time {
 
 func writingCoverHueOr(hue string) string {
 	switch hue {
-	case domain.WritingCoverHueAmber, domain.WritingCoverHueViolet, domain.WritingCoverHueAcid:
+	case corpusdomain.WritingCoverHueAmber, corpusdomain.WritingCoverHueViolet,
+		corpusdomain.WritingCoverHueAcid:
 		return hue
 	}
-	return domain.WritingCoverHueAmber
+	return corpusdomain.WritingCoverHueAmber
 }
 
 func writingVisibilityOr(v string) string {
-	if v == domain.WritingVisibilityPrivate {
-		return domain.WritingVisibilityPrivate
+	if v == corpusdomain.WritingVisibilityPrivate {
+		return corpusdomain.WritingVisibilityPrivate
 	}
-	return domain.WritingVisibilityPublic
+	return corpusdomain.WritingVisibilityPublic
 }

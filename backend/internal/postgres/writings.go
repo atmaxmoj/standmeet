@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -49,7 +49,9 @@ type CreateWritingInput struct {
 }
 
 // Create —— 新建 writing 行 (no tx)。
-func (r *WritingRepo) Create(ctx context.Context, in *CreateWritingInput) (domain.Writing, error) {
+func (r *WritingRepo) Create(
+	ctx context.Context, in *CreateWritingInput,
+) (corpusdomain.Writing, error) {
 	return r.CreateTx(ctx, r.pool, in)
 }
 
@@ -57,17 +59,17 @@ func (r *WritingRepo) Create(ctx context.Context, in *CreateWritingInput) (domai
 // Publish=true 一并 published_at=now。slug 冲突翻 ErrWritingSlugTaken。
 func (*WritingRepo) CreateTx(
 	ctx context.Context, tx dbq.DBTX, in *CreateWritingInput,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	params, perr := buildCreateWritingParams(in)
 	if perr != nil {
-		return domain.Writing{}, perr
+		return corpusdomain.Writing{}, perr
 	}
 	row, err := dbq.New(tx).CreateWriting(ctx, *params)
 	if err != nil {
 		if name, hit := pgUniqueViolation(err); hit && name == "corpus_notes_writing_slug_uniq" {
-			return domain.Writing{}, domain.ErrWritingSlugTaken
+			return corpusdomain.Writing{}, corpusdomain.ErrWritingSlugTaken
 		}
-		return domain.Writing{}, fmt.Errorf("create writing: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("create writing: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }
@@ -137,24 +139,26 @@ type UpdateWritingInput struct {
 }
 
 // Update —— 全字段覆盖 (no tx)。
-func (r *WritingRepo) Update(ctx context.Context, in *UpdateWritingInput) (domain.Writing, error) {
+func (r *WritingRepo) Update(
+	ctx context.Context, in *UpdateWritingInput,
+) (corpusdomain.Writing, error) {
 	return r.UpdateTx(ctx, r.pool, in)
 }
 
 // UpdateTx —— 全字段覆盖 (除 slug / 发布状态)，tx 版。assets 同事务写。
 func (*WritingRepo) UpdateTx(
 	ctx context.Context, tx dbq.DBTX, in *UpdateWritingInput,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	params, perr := buildUpdateWritingParams(in)
 	if perr != nil {
-		return domain.Writing{}, perr
+		return corpusdomain.Writing{}, perr
 	}
 	row, err := dbq.New(tx).UpdateWriting(ctx, *params)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Writing{}, domain.ErrWritingNotFound
+			return corpusdomain.Writing{}, corpusdomain.ErrWritingNotFound
 		}
-		return domain.Writing{}, fmt.Errorf("update writing: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("update writing: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }
@@ -186,10 +190,10 @@ func buildUpdateWritingParams(in *UpdateWritingInput) (*dbq.UpdateWritingParams,
 // Publish —— published_at = now，slug/body 保留。
 func (r *WritingRepo) Publish(
 	ctx context.Context, ownerID, writingID string,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	args, perr := parseOwnerAndWritingID(ownerID, writingID)
 	if perr != nil {
-		return domain.Writing{}, perr
+		return corpusdomain.Writing{}, perr
 	}
 	row, err := dbq.New(r.pool).PublishWriting(ctx, dbq.PublishWritingParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID,
@@ -200,10 +204,10 @@ func (r *WritingRepo) Publish(
 // Unpublish —— published_at = NULL，撤回到草稿。
 func (r *WritingRepo) Unpublish(
 	ctx context.Context, ownerID, writingID string,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	args, perr := parseOwnerAndWritingID(ownerID, writingID)
 	if perr != nil {
-		return domain.Writing{}, perr
+		return corpusdomain.Writing{}, perr
 	}
 	row, err := dbq.New(r.pool).UnpublishWriting(ctx, dbq.UnpublishWritingParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID,
@@ -211,12 +215,12 @@ func (r *WritingRepo) Unpublish(
 	return toDomainWritingOrErr(&row, err)
 }
 
-func toDomainWritingOrErr(row *dbq.CorpusNote, err error) (domain.Writing, error) {
+func toDomainWritingOrErr(row *dbq.CorpusNote, err error) (corpusdomain.Writing, error) {
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Writing{}, domain.ErrWritingNotFound
+			return corpusdomain.Writing{}, corpusdomain.ErrWritingNotFound
 		}
-		return domain.Writing{}, fmt.Errorf("writing publish flip: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("writing publish flip: %w", err)
 	}
 	return toDomainWriting(row), nil
 }
@@ -245,43 +249,47 @@ func (*WritingRepo) DeleteTx(ctx context.Context, tx dbq.DBTX, ownerID, writingI
 // GetByID —— admin 取单条；属于 owner 校验。
 func (r *WritingRepo) GetByID(
 	ctx context.Context, ownerID, writingID string,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	args, perr := parseOwnerAndWritingID(ownerID, writingID)
 	if perr != nil {
-		return domain.Writing{}, perr
+		return corpusdomain.Writing{}, perr
 	}
 	row, err := dbq.New(r.pool).GetWritingByID(ctx, dbq.GetWritingByIDParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Writing{}, domain.ErrWritingNotFound
+			return corpusdomain.Writing{}, corpusdomain.ErrWritingNotFound
 		}
-		return domain.Writing{}, fmt.Errorf("get writing by id: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("get writing by id: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }
 
 // GetBySlug —— public 取单条；按 owner+slug 唯一索引查。
-func (r *WritingRepo) GetBySlug(ctx context.Context, ownerID, slug string) (domain.Writing, error) {
+func (r *WritingRepo) GetBySlug(
+	ctx context.Context, ownerID, slug string,
+) (corpusdomain.Writing, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return domain.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return corpusdomain.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).GetWritingBySlug(ctx, dbq.GetWritingBySlugParams{
 		OwnerID: ownerUUID, Slug: slug,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Writing{}, domain.ErrWritingNotFound
+			return corpusdomain.Writing{}, corpusdomain.ErrWritingNotFound
 		}
-		return domain.Writing{}, fmt.Errorf("get writing by slug: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("get writing by slug: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }
 
 // ListByOwner —— admin 列表 (含未发布草稿)，按 published_at desc nulls last。
-func (r *WritingRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.Writing, error) {
+func (r *WritingRepo) ListByOwner(
+	ctx context.Context, ownerID string,
+) ([]corpusdomain.Writing, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
@@ -297,7 +305,7 @@ func (r *WritingRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain
 // chat retriever 用)。
 func (r *WritingRepo) ListPublishedByOwner(
 	ctx context.Context, ownerID string,
-) ([]domain.Writing, error) {
+) ([]corpusdomain.Writing, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
@@ -320,7 +328,7 @@ type ListPublishedPageInput struct {
 // ListPublishedPageByOwner —— /api/v1/writings?cursor=...&limit=... 用。
 func (r *WritingRepo) ListPublishedPageByOwner(
 	ctx context.Context, in *ListPublishedPageInput,
-) ([]domain.Writing, error) {
+) ([]corpusdomain.Writing, error) {
 	ownerUUID, oerr := parseUUID(in.OwnerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)

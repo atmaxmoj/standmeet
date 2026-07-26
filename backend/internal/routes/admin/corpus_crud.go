@@ -24,7 +24,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -275,7 +275,7 @@ func optionalString(s string) *string {
 }
 
 // writeCorpusResult —— JSON 200 if err == nil, else 翻 sentinel → envelope。
-// 泛型 T 让 caller 传具体类型（domain.Raw / WikiEntry / OutputEntry）；
+// 泛型 T 让 caller 传具体类型（corpusdomain.Raw / WikiEntry / OutputEntry）；
 // `any` 约束是 Go 标准库 json.Encode 已经接受的形态，不是 "business any"。
 //
 //nolint:forbidigo // generic constraint forwarded to encoding/json.
@@ -304,27 +304,27 @@ func writeCorpusDelete(log *slog.Logger, w http.ResponseWriter, err error, tag s
 
 var corpusErrCases = []apierr.Case{
 	{Match: usecases.ErrEmptyField, Envelope: envBadReq("required field is empty")},
-	{Match: domain.ErrParentNotFound, Envelope: envBadReq("parent entry not found")},
-	{Match: domain.ErrParentCycle, Envelope: envBadReq("parent would create a cycle")},
+	{Match: corpusdomain.ErrParentNotFound, Envelope: envBadReq("parent entry not found")},
+	{Match: corpusdomain.ErrParentCycle, Envelope: envBadReq("parent would create a cycle")},
 	{
-		Match: domain.ErrSiblingSlugTaken, Envelope: apierr.Envelope{
+		Match: corpusdomain.ErrSiblingSlugTaken, Envelope: apierr.Envelope{
 			Status:  http.StatusConflict,
 			Code:    "sibling_name_taken",
 			Message: "an entry with the same name already exists here",
 		},
 	},
 	{
-		Match: domain.ErrRawNotFound, Envelope: apierr.Envelope{
+		Match: corpusdomain.ErrRawNotFound, Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "raw_not_found", Message: "raw entry not found",
 		},
 	},
 	{
-		Match: domain.ErrWikiNotFound, Envelope: apierr.Envelope{
+		Match: corpusdomain.ErrWikiNotFound, Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "wiki_not_found", Message: "wiki entry not found",
 		},
 	},
 	{
-		Match: domain.ErrOutputNotFound, Envelope: apierr.Envelope{
+		Match: corpusdomain.ErrOutputNotFound, Envelope: apierr.Envelope{
 			Status:  http.StatusNotFound,
 			Code:    "output_not_found",
 			Message: "output entry not found",

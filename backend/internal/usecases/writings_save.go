@@ -31,7 +31,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -72,7 +72,7 @@ type SaveWritingInput struct {
 // MinIO。
 type saveCommitted struct {
 	Prepared []PreparedAsset
-	Writing  domain.Writing
+	Writing  corpusdomain.Writing
 }
 
 // SaveWriting —— 单一 entry 同时处理 create 和 update。
@@ -81,19 +81,19 @@ type saveCommitted struct {
 // UploadBlobs。上传失败做 compensating DeleteWritingWithAssets 把 writing 卷掉。
 func SaveWriting(
 	ctx context.Context, deps WritingsTxDeps, in *SaveWritingInput,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	if verr := validateSaveInput(in); verr != nil {
-		return domain.Writing{}, verr
+		return corpusdomain.Writing{}, verr
 	}
 	if perr := validateWritingParent(ctx, deps, in); perr != nil {
-		return domain.Writing{}, perr
+		return corpusdomain.Writing{}, perr
 	}
 	committed, terr := saveInTxAndCommit(ctx, deps, in)
 	if terr != nil {
-		return domain.Writing{}, terr
+		return corpusdomain.Writing{}, terr
 	}
 	if err := uploadAndCompensate(ctx, deps, in.OwnerID, &committed); err != nil {
-		return domain.Writing{}, err
+		return corpusdomain.Writing{}, err
 	}
 	return committed.Writing, nil
 }
@@ -181,7 +181,7 @@ func runSaveInTx(
 // writing_refs 表里这个 src 的出度。HasCrossLinks 短路避免没用到的 writing
 // 也跑一遍 owner writings 列查询。
 func refreshCrossLinks(
-	ctx context.Context, deps WritingsTxDeps, tx pgx.Tx, writing *domain.Writing,
+	ctx context.Context, deps WritingsTxDeps, tx pgx.Tx, writing *corpusdomain.Writing,
 ) error {
 	writingID := writing.ID()
 	writingOwner := writing.OwnerID()
@@ -235,11 +235,11 @@ func rewriteFromPrepared(prepared []PreparedAsset) map[string]string {
 // 的 assets 行能挂 holder_id；body_md / cover 真正写在 writeWritingBody。
 func upsertWritingShell(
 	ctx context.Context, deps WritingsTxDeps, tx pgx.Tx, in *SaveWritingInput,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	if in.WritingID == "" {
 		p, err := deps.Writings.CreateTx(ctx, tx, buildShellCreateInput(in))
 		if err != nil {
-			return domain.Writing{}, fmt.Errorf("create writing: %w", err)
+			return corpusdomain.Writing{}, fmt.Errorf("create writing: %w", err)
 		}
 		return p, nil
 	}
@@ -260,10 +260,10 @@ func buildShellCreateInput(in *SaveWritingInput) *postgres.CreateWritingInput {
 
 func loadExistingWriting(
 	ctx context.Context, deps WritingsTxDeps, in *SaveWritingInput,
-) (domain.Writing, error) {
+) (corpusdomain.Writing, error) {
 	p, err := deps.Writings.GetByID(ctx, in.OwnerID, in.WritingID)
 	if err != nil {
-		return domain.Writing{}, fmt.Errorf("load existing writing: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("load existing writing: %w", err)
 	}
 	return p, nil
 }
@@ -294,14 +294,14 @@ func insertAssetsForWriting(
 type writeBodyArgs struct {
 	Rewrite map[string]string
 	Tx      pgx.Tx
-	Writing *domain.Writing
+	Writing *corpusdomain.Writing
 	In      *SaveWritingInput
 	Deps    WritingsTxDeps
 }
 
 // writeWritingBody —— 用 rewrite map 把 pending 占位换成真 asset id，写最终
 // body_md + cover_image_asset_id。
-func writeWritingBody(ctx context.Context, a *writeBodyArgs) (domain.Writing, error) {
+func writeWritingBody(ctx context.Context, a *writeBodyArgs) (corpusdomain.Writing, error) {
 	body := rewriteRefs(a.In.BodyMD, a.Rewrite)
 	cover := rewriteCoverRef(a.In.CoverImageRef, a.Rewrite)
 	p, err := a.Deps.Writings.UpdateTx(ctx, a.Tx, &postgres.UpdateWritingInput{
@@ -314,7 +314,7 @@ func writeWritingBody(ctx context.Context, a *writeBodyArgs) (domain.Writing, er
 		LockedBody:  a.In.LockedBody, ParentID: effectiveWritingParent(a),
 	})
 	if err != nil {
-		return domain.Writing{}, fmt.Errorf("update writing body: %w", err)
+		return corpusdomain.Writing{}, fmt.Errorf("update writing body: %w", err)
 	}
 	return p, nil
 }

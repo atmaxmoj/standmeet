@@ -13,7 +13,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -311,13 +311,13 @@ func (c *corpusMutationsCapability) handleDeleteOutput(
 func wikiMutationErrToResult(
 	log *slog.Logger, err error, name string,
 ) capreg.MCPResult {
-	if errors.Is(err, domain.ErrWikiNotFound) {
+	if errors.Is(err, corpusdomain.ErrWikiNotFound) {
 		return capreg.MCPError("wiki entry not found")
 	}
-	if errors.Is(err, domain.ErrParentNotFound) {
+	if errors.Is(err, corpusdomain.ErrParentNotFound) {
 		return capreg.MCPError("parent entry not found")
 	}
-	if errors.Is(err, domain.ErrParentCycle) {
+	if errors.Is(err, corpusdomain.ErrParentCycle) {
 		return capreg.MCPError("parent would create a cycle")
 	}
 	if errors.Is(err, usecases.ErrEmptyField) {
@@ -330,7 +330,7 @@ func wikiMutationErrToResult(
 func outputMutationErrToResult(
 	log *slog.Logger, err error, name string,
 ) capreg.MCPResult {
-	if errors.Is(err, domain.ErrOutputNotFound) {
+	if errors.Is(err, corpusdomain.ErrOutputNotFound) {
 		return capreg.MCPError("output entry not found")
 	}
 	if errors.Is(err, usecases.ErrEmptyField) {

@@ -2,7 +2,7 @@
 // 这里只承载 PG-side 行。posts/wiki/raw 通过 asset_id 引用；URL 由 backend
 // 即时 presign，前端不直连 storage 凭证。
 
-package domain
+package corpusdomain
 
 import (
 	"errors"

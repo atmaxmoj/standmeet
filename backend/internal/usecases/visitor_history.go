@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -284,7 +284,7 @@ func appendCites(
 	return out
 }
 
-func wikiTitleMap(ws []domain.Wiki) map[string]string {
+func wikiTitleMap(ws []corpusdomain.Wiki) map[string]string {
 	m := make(map[string]string, len(ws))
 	for i := range ws {
 		m[ws[i].ID()] = ws[i].Title()
@@ -292,7 +292,7 @@ func wikiTitleMap(ws []domain.Wiki) map[string]string {
 	return m
 }
 
-func outputTitleMap(os []domain.Output) map[string]string {
+func outputTitleMap(os []corpusdomain.Output) map[string]string {
 	m := make(map[string]string, len(os))
 	for i := range os {
 		m[os[i].ID()] = os[i].Title()
@@ -301,7 +301,7 @@ func outputTitleMap(os []domain.Output) map[string]string {
 }
 
 // writingPathMap —— writing 自带 slug 派生的 path 列("writings/"+slug),不用上溯树。
-func writingPathMap(ws []domain.Writing) map[string]string {
+func writingPathMap(ws []corpusdomain.Writing) map[string]string {
 	m := make(map[string]string, len(ws))
 	for i := range ws {
 		m[ws[i].ID()] = ws[i].Path()
@@ -309,7 +309,7 @@ func writingPathMap(ws []domain.Writing) map[string]string {
 	return m
 }
 
-func writingTitleMap(ws []domain.Writing) map[string]string {
+func writingTitleMap(ws []corpusdomain.Writing) map[string]string {
 	m := make(map[string]string, len(ws))
 	for i := range ws {
 		m[ws[i].ID()] = ws[i].Title()

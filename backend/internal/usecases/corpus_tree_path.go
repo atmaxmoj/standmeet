@@ -13,7 +13,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -23,7 +23,7 @@ const treeMaxDepth = 32
 // pathSegmentMaxLen —— 单段截断,够表意又不失控。
 const pathSegmentMaxLen = 80
 
-// pathNode —— 算 path 只需要 id / title / parent。domain.Wiki 和 domain.Output
+// pathNode —— 算 path 只需要 id / title / parent。corpusdomain.Wiki 和 corpusdomain.Output
 // 同构两棵树,各自折成 pathNode 后共用一套计算。
 type pathNode struct {
 	id        string
@@ -35,7 +35,7 @@ type pathNode struct {
 // WikiTreePaths / OutputTreePaths —— 给一组同 owner 的 document 算 id→树路径
 // 地址表(见 treePathsFor)。retriever 报地址(search/read/ACL)、citation 反查、
 // 公开页 landing、admin 浏览全查这张表 —— 一套树派生口径,不存列。
-func WikiTreePaths(ws []domain.Wiki) map[string]string {
+func WikiTreePaths(ws []corpusdomain.Wiki) map[string]string {
 	nodes := make([]pathNode, len(ws))
 	for i := range ws {
 		pid, ok := ws[i].ParentID()
@@ -45,7 +45,7 @@ func WikiTreePaths(ws []domain.Wiki) map[string]string {
 }
 
 // OutputTreePaths —— WikiTreePaths 的 output 孪生(同一套树派生口径)。
-func OutputTreePaths(os []domain.Output) map[string]string {
+func OutputTreePaths(os []corpusdomain.Output) map[string]string {
 	nodes := make([]pathNode, len(os))
 	for i := range os {
 		pid, ok := os[i].ParentID()
@@ -56,7 +56,7 @@ func OutputTreePaths(os []domain.Output) map[string]string {
 
 // RawTreePaths —— WikiTreePaths 的 raw 孪生:raw 现是 corpus_notes 的 genre='raw' 节点,
 // 同一套树派生口径(parent 链 + slug(title))。admin /raw 列表用它算每条地址。
-func RawTreePaths(rs []domain.Raw) map[string]string {
+func RawTreePaths(rs []corpusdomain.Raw) map[string]string {
 	nodes := make([]pathNode, len(rs))
 	for i := range rs {
 		pid, ok := rs[i].ParentID()

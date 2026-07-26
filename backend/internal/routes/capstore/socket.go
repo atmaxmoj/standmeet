@@ -1,7 +1,7 @@
-// Package capstore —— socket 入站 controller。capstore 的四个 host op(insert/query/count/delete)：断网沙箱 cap 经 socket 读写
-// 自己那份隔离存储。按业务分类:它跟 capstore 住一起,不进机制 bucket。BoundStore 已在构造期绑死到
+// Package capstore —— socket 入站 controller。capstore 的四个 host op(insert/query/count/delete)：
+// 断网沙箱 cap 经 socket 读写自己那份隔离存储。按业务分类:它跟 capstore 住一起,不进机制 bucket。
+// BoundStore 已在构造期绑死到
 // 某个 cap 的命名空间(接口里没 kind/id),沙箱填不了别人的。cmd 按需要存储的 cap 挂这四个。
-
 package capstore
 
 import (

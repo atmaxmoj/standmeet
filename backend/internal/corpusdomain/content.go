@@ -9,7 +9,7 @@
 //     是 markdown 原文，Wiki/Output 是 plain text body。
 //   - Tags 永远返非 nil slice (defensive copy)。
 
-package domain
+package corpusdomain
 
 import "slices"
 

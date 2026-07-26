@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -31,14 +31,14 @@ type UpdateRawInput struct {
 // UpdateBody 改 raw(corpus_notes genre='raw') body + tags + flagged_private（inbox_source 不改）。
 func (r *RawRepo) UpdateBody(
 	ctx context.Context, in *UpdateRawInput,
-) (domain.Raw, error) {
+) (corpusdomain.Raw, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return corpusdomain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	rawUUID, err := parseUUID(in.ID)
 	if err != nil {
-		return domain.Raw{}, fmt.Errorf("parse raw id: %w", err)
+		return corpusdomain.Raw{}, fmt.Errorf("parse raw id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateRawBody(ctx, dbq.UpdateRawBodyParams{
@@ -47,9 +47,9 @@ func (r *RawRepo) UpdateBody(
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.Raw{}, domain.ErrRawNotFound
+			return corpusdomain.Raw{}, corpusdomain.ErrRawNotFound
 		}
-		return domain.Raw{}, fmt.Errorf("update raw: %w", qerr)
+		return corpusdomain.Raw{}, fmt.Errorf("update raw: %w", qerr)
 	}
 	return toDomainRaw(&row), nil
 }
@@ -90,18 +90,18 @@ type UpdateWikiInput struct {
 // Update 改 wiki note（corpus_notes genre='wiki'）主字段；SEO 走 SetSEO 单独写。
 func (r *WikiRepo) Update(
 	ctx context.Context, in *UpdateWikiInput,
-) (domain.Wiki, error) {
+) (corpusdomain.Wiki, error) {
 	params, err := buildWikiUpdateParams(in)
 	if err != nil {
-		return domain.Wiki{}, err
+		return corpusdomain.Wiki{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateNoteBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.Wiki{}, domain.ErrWikiNotFound
+			return corpusdomain.Wiki{}, corpusdomain.ErrWikiNotFound
 		}
-		return domain.Wiki{}, fmt.Errorf("update wiki: %w", qerr)
+		return corpusdomain.Wiki{}, fmt.Errorf("update wiki: %w", qerr)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -167,18 +167,18 @@ type UpdateOutputInput struct {
 // Update 改 output note（corpus_notes genre='output'）主字段。
 func (r *OutputRepo) Update(
 	ctx context.Context, in *UpdateOutputInput,
-) (domain.Output, error) {
+) (corpusdomain.Output, error) {
 	params, err := buildOutputUpdateParams(in)
 	if err != nil {
-		return domain.Output{}, err
+		return corpusdomain.Output{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateNoteBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.Output{}, domain.ErrOutputNotFound
+			return corpusdomain.Output{}, corpusdomain.ErrOutputNotFound
 		}
-		return domain.Output{}, fmt.Errorf("update output: %w", qerr)
+		return corpusdomain.Output{}, fmt.Errorf("update output: %w", qerr)
 	}
 	return toDomainOutput(&row), nil
 }

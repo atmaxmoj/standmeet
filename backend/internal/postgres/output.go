@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -37,15 +38,15 @@ type CreateOutputInput struct {
 // Create 写一条新 output。
 func (r *OutputRepo) Create(
 	ctx context.Context, in *CreateOutputInput,
-) (domain.Output, error) {
+) (corpusdomain.Output, error) {
 	params, err := buildOutputCreateParams(in)
 	if err != nil {
-		return domain.Output{}, err
+		return corpusdomain.Output{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.CreateNote(ctx, params)
 	if qerr != nil {
-		return domain.Output{}, fmt.Errorf("create output: %w", qerr)
+		return corpusdomain.Output{}, fmt.Errorf("create output: %w", qerr)
 	}
 	return toDomainOutput(&row), nil
 }
@@ -81,7 +82,7 @@ func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateNoteParams, error
 // ListByOwner 返回 owner 的 output（最新 N 条）。
 func (r *OutputRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
-) ([]domain.Output, error) {
+) ([]corpusdomain.Output, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -93,7 +94,7 @@ func (r *OutputRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list output: %w", err)
 	}
-	out := make([]domain.Output, 0, len(rows))
+	out := make([]corpusdomain.Output, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainOutput(&rows[i]))
 	}
@@ -103,14 +104,14 @@ func (r *OutputRepo) ListByOwner(
 // GetByID 拿 owner 的某条 output；不命中返回 ErrOutputNotFound。
 func (r *OutputRepo) GetByID(
 	ctx context.Context, ownerID, id string,
-) (domain.Output, error) {
+) (corpusdomain.Output, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.Output{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return corpusdomain.Output{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	outputUUID, err := parseUUID(id)
 	if err != nil {
-		return domain.Output{}, fmt.Errorf("parse output id: %w", err)
+		return corpusdomain.Output{}, fmt.Errorf("parse output id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetNoteByID(ctx, dbq.GetNoteByIDParams{
@@ -118,9 +119,9 @@ func (r *OutputRepo) GetByID(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Output{}, domain.ErrOutputNotFound
+			return corpusdomain.Output{}, corpusdomain.ErrOutputNotFound
 		}
-		return domain.Output{}, fmt.Errorf("get output: %w", err)
+		return corpusdomain.Output{}, fmt.Errorf("get output: %w", err)
 	}
 	return toDomainOutput(&row), nil
 }
@@ -167,7 +168,7 @@ func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (Outpu
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return OutputMeta{}, domain.ErrOutputNotFound
+			return OutputMeta{}, corpusdomain.ErrOutputNotFound
 		}
 		return OutputMeta{}, fmt.Errorf("get output meta: %w", err)
 	}
@@ -229,8 +230,8 @@ func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputM
 	return out, nil
 }
 
-func toDomainOutput(o *dbq.CorpusNote) domain.Output {
-	in := domain.OutputInit{
+func toDomainOutput(o *dbq.CorpusNote) corpusdomain.Output {
+	in := corpusdomain.OutputInit{
 		ID:            formatUUID(o.ID),
 		OwnerID:       formatUUID(o.OwnerID),
 		Title:         o.Title,
@@ -248,5 +249,5 @@ func toDomainOutput(o *dbq.CorpusNote) domain.Output {
 		s := formatUUID(o.ParentID)
 		in.ParentID = &s
 	}
-	return domain.NewOutput(&in)
+	return corpusdomain.NewOutput(&in)
 }

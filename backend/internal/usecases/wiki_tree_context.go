@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 )
 
 // WikiContext —— 节点上下文。Ancestors 是 root→parent 顺序(不含自己)。
@@ -32,7 +32,7 @@ func WikiNodeContext(
 	}
 	nodeID, err := resolveWikiNodeID(ctx, deps.Wiki, owner.ID, path)
 	if err != nil {
-		if errors.Is(err, domain.ErrWikiNotFound) {
+		if errors.Is(err, corpusdomain.ErrWikiNotFound) {
 			return emptyWikiContext(), nil // path 不存在 → 空(不报错)
 		}
 		return WikiContext{}, fmt.Errorf("wiki context resolve: %w", err)

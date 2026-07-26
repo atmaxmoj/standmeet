@@ -11,23 +11,25 @@
 // Raw-specific 字段（不进 Document interface）：Source / FlaggedPrivate /
 // Archived / PromotedTo —— caller type-assert 回 Raw 用。
 
-package domain
+package corpusdomain
 
 import (
 	"errors"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // Raw —— owner 通过 MCP push 进 corpus 的"半成品"，未整理。
 type Raw struct {
-	timestamps     Timestamps
+	timestamps     domain.Timestamps
 	promotedTo     *string
 	parentID       *string
 	id             string
 	ownerID        string
 	source         string
 	content        Content
-	integrations   Integrations
+	integrations   domain.Integrations
 	flaggedPrivate bool
 	archived       bool
 }
@@ -43,7 +45,7 @@ type RawInit struct {
 	Body           string
 	Source         string
 	Tags           []string
-	Integrations   Integrations
+	Integrations   domain.Integrations
 	FlaggedPrivate bool
 	Archived       bool
 }
@@ -72,7 +74,7 @@ func NewRaw(i *RawInit) Raw {
 		content: NewContent(&ContentInit{
 			Title: i.Title, Body: i.Body, Tags: i.Tags,
 		}),
-		timestamps: NewTimestamps(&TimestampsInit{
+		timestamps: domain.NewTimestamps(&domain.TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.CreatedAt,
 		}),
 		integrations: i.Integrations,
@@ -109,7 +111,7 @@ func (r *Raw) CreatedAt() time.Time { return r.timestamps.CreatedAt() }
 func (r *Raw) UpdatedAt() time.Time { return r.timestamps.UpdatedAt() }
 
 // Integrations —— 挂的 integration 副本（defensive copy），永远非 nil。
-func (r *Raw) Integrations() []Integration { return r.integrations.All() }
+func (r *Raw) Integrations() []domain.Integration { return r.integrations.All() }
 
 // --- Raw-specific accessors ---
 

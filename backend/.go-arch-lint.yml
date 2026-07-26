@@ -80,7 +80,9 @@ components:
   jobsdomain:
     in: internal/jobsdomain                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
   conversationdomain:
-    in: internal/conversationdomain        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；leaf, 依赖 domain 拿 DocumentGenre
+    in: internal/conversationdomain        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpusdomain 拿 DocumentGenre
+  corpusdomain:
+    in: internal/corpusdomain              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -163,6 +165,7 @@ deps:
   # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
+      - corpusdomain
       - conversationdomain
       - domain
       - postgres
@@ -353,6 +356,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
+      - corpusdomain
       - conversationdomain
       - jobsdomain
       - domain
@@ -426,6 +430,7 @@ deps:
   # prod 同一套 agentic 功能，只换注入的 repo。backend 内部无人 import 它。
   agentcore:
     mayDependOn:
+      - corpusdomain
       - inference
       - usecases
       - capreg
@@ -466,6 +471,7 @@ deps:
   # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
   pluginownercore:
     mayDependOn:
+      - corpusdomain
       - conversationdomain
       - plugins
       - capreg
@@ -590,8 +596,14 @@ deps:
       - domain
     anyVendorDeps: true
 
-  # conversationdomain —— #135 conversation 领域值对象 leaf：只依赖 domain（Citation.Genre = domain.DocumentGenre）。
+  # conversationdomain —— #135 conversation 领域值对象：Citation.Genre = corpusdomain.DocumentGenre。
   conversationdomain:
+    mayDependOn:
+      - corpusdomain
+    anyVendorDeps: true
+
+  # corpusdomain —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
+  corpusdomain:
     mayDependOn:
       - domain
     anyVendorDeps: true
@@ -652,6 +664,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - corpusdomain
       - conversationdomain
       - domain
       - usecases
@@ -678,6 +691,7 @@ deps:
   # 那条 atomic asset 路径，所以单向依赖 usecases；不被 usecases 反向 import。
   obsidian:
     mayDependOn:
+      - corpusdomain
       - domain
       - usecases
       - postgres
@@ -688,6 +702,7 @@ deps:
   # token bearer auth；SSE 流式 chat。
   publicroutes:
     mayDependOn:
+      - corpusdomain
       - conversationdomain
       - domain
       - usecases

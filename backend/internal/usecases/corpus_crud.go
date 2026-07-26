@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -30,16 +30,16 @@ type UpdateRawInput struct {
 // UpdateRaw 改 raw_entries 的 body + tags + flagged_private。
 func UpdateRaw(
 	ctx context.Context, deps CorpusDeps, in *UpdateRawInput,
-) (domain.Raw, error) {
+) (corpusdomain.Raw, error) {
 	if in.OwnerID == "" || in.ID == "" || in.Body == "" {
-		return domain.Raw{}, ErrEmptyField
+		return corpusdomain.Raw{}, ErrEmptyField
 	}
 	raw, err := deps.Raw.UpdateBody(ctx, &postgres.UpdateRawInput{
 		OwnerID: in.OwnerID, ID: in.ID,
 		Body: in.Body, Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
 	})
 	if err != nil {
-		return domain.Raw{}, fmt.Errorf("update raw: %w", err)
+		return corpusdomain.Raw{}, fmt.Errorf("update raw: %w", err)
 	}
 	return raw, nil
 }
@@ -69,9 +69,9 @@ type CreateWikiInput struct {
 // CreateWiki 起一条新 wiki（admin UI"+new wiki"按钮的入口）。
 func CreateWiki(
 	ctx context.Context, deps CorpusDeps, in *CreateWikiInput,
-) (domain.Wiki, error) {
+) (corpusdomain.Wiki, error) {
 	if err := preflightCreateWiki(ctx, deps, in); err != nil {
-		return domain.Wiki{}, err
+		return corpusdomain.Wiki{}, err
 	}
 	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
 		OwnerID:  in.OwnerID,
@@ -81,10 +81,10 @@ func CreateWiki(
 		Tags:     in.Tags,
 	})
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("create wiki: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("create wiki: %w", err)
 	}
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, wiki.ID(), in.Body); rerr != nil {
-		return domain.Wiki{}, rerr
+		return corpusdomain.Wiki{}, rerr
 	}
 	return wiki, nil
 }
@@ -113,9 +113,9 @@ type UpdateWikiInput struct {
 // UpdateWiki 改 wiki 主字段。
 func UpdateWiki(
 	ctx context.Context, deps CorpusDeps, in *UpdateWikiInput,
-) (domain.Wiki, error) {
+) (corpusdomain.Wiki, error) {
 	if err := preflightUpdateWiki(ctx, deps, in); err != nil {
-		return domain.Wiki{}, err
+		return corpusdomain.Wiki{}, err
 	}
 	wiki, err := deps.Wiki.Update(ctx, &postgres.UpdateWikiInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
@@ -123,10 +123,10 @@ func UpdateWiki(
 		ShowAsSource: in.ShowAsSource, CSSClasses: in.CSSClasses,
 	})
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("update wiki: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("update wiki: %w", err)
 	}
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, wiki.ID(), in.Body); rerr != nil {
-		return domain.Wiki{}, rerr
+		return corpusdomain.Wiki{}, rerr
 	}
 	indexNoteHook(ctx, deps, in.OwnerID, wiki.ID())
 	return wiki, nil
@@ -178,9 +178,9 @@ type CreateOutputInput struct {
 // CreateOutput 起一条新 output（admin UI"+new output"按钮的入口）。
 func CreateOutput(
 	ctx context.Context, deps CorpusDeps, in *CreateOutputInput,
-) (domain.Output, error) {
+) (corpusdomain.Output, error) {
 	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
-		return domain.Output{}, ErrEmptyField
+		return corpusdomain.Output{}, ErrEmptyField
 	}
 	out, err := deps.Output.Create(ctx, &postgres.CreateOutputInput{
 		OwnerID:  in.OwnerID,
@@ -190,7 +190,7 @@ func CreateOutput(
 		Tags:     in.Tags,
 	})
 	if err != nil {
-		return domain.Output{}, fmt.Errorf("create output: %w", err)
+		return corpusdomain.Output{}, fmt.Errorf("create output: %w", err)
 	}
 	return out, nil
 }
@@ -209,9 +209,9 @@ type UpdateOutputInput struct {
 // UpdateOutput 改 output 主字段。
 func UpdateOutput(
 	ctx context.Context, deps CorpusDeps, in *UpdateOutputInput,
-) (domain.Output, error) {
+) (corpusdomain.Output, error) {
 	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
-		return domain.Output{}, ErrEmptyField
+		return corpusdomain.Output{}, ErrEmptyField
 	}
 	out, err := deps.Output.Update(ctx, &postgres.UpdateOutputInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
@@ -219,10 +219,10 @@ func UpdateOutput(
 		ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
-		return domain.Output{}, fmt.Errorf("update output: %w", err)
+		return corpusdomain.Output{}, fmt.Errorf("update output: %w", err)
 	}
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, out.ID(), in.Body); rerr != nil {
-		return domain.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
+		return corpusdomain.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
 	}
 	indexNoteHook(ctx, deps, in.OwnerID, out.ID())
 	return out, nil

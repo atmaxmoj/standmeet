@@ -20,7 +20,7 @@ import (
 	"mime"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 )
@@ -78,7 +78,7 @@ func closeAfterErr(zw *zip.Writer, err error) error {
 
 func writeAllWritings(
 	ctx context.Context, deps ExportDeps, zw *zip.Writer,
-	writings []domain.Writing, written map[string]struct{},
+	writings []corpusdomain.Writing, written map[string]struct{},
 ) error {
 	for i := range writings {
 		if err := writeOneWriting(ctx, deps, zw, &writings[i], written); err != nil {
@@ -90,7 +90,7 @@ func writeAllWritings(
 
 func writeOneWriting(
 	ctx context.Context, deps ExportDeps, zw *zip.Writer,
-	writing *domain.Writing, written map[string]struct{},
+	writing *corpusdomain.Writing, written map[string]struct{},
 ) error {
 	wid := writing.ID()
 	assets, aerr := deps.Assets.ListByHolder(ctx, wid)
@@ -110,7 +110,7 @@ func writeOneWriting(
 // buildAttachmentFilenames —— 每张 asset 的 zip 内 filename。命名规则：
 // `<asset-id>.<ext>`，ext 从 content-type 推。用 asset-id 而不是原始 filename
 // 保证 zip 内 unique（owner 上传两张同名图也不撞）。
-func buildAttachmentFilenames(assets []domain.Asset) map[string]string {
+func buildAttachmentFilenames(assets []corpusdomain.Asset) map[string]string {
 	out := make(map[string]string, len(assets))
 	for i := range assets {
 		ext := extFromContentType(assets[i].ContentType)
@@ -160,7 +160,7 @@ type writeAttachmentsArgs struct {
 	Storage   *storage.Client
 	Filenames map[string]string
 	Written   map[string]struct{}
-	AssetList []domain.Asset
+	AssetList []corpusdomain.Asset
 }
 
 func writeAttachments(ctx context.Context, a *writeAttachmentsArgs) error {
@@ -184,7 +184,7 @@ func writeAttachments(ctx context.Context, a *writeAttachmentsArgs) error {
 type writeOneArgs struct {
 	Zw        *zip.Writer
 	Storage   *storage.Client
-	Asset     *domain.Asset
+	Asset     *corpusdomain.Asset
 	Filenames map[string]string
 }
 
@@ -204,7 +204,7 @@ func writeOneAttachment(ctx context.Context, w *writeOneArgs) error {
 }
 
 func writeWritingMarkdown(
-	zw *zip.Writer, writing *domain.Writing, filenames map[string]string,
+	zw *zip.Writer, writing *corpusdomain.Writing, filenames map[string]string,
 ) error {
 	body := RewriteToVaultPath(writing.Body(), filenames)
 	fm := writingToFrontmatter(writing, filenames)
@@ -225,7 +225,7 @@ func writeWritingMarkdown(
 
 // writingToFrontmatter —— Writing struct → Obsidian frontmatter。cover_image
 // 字段引用 attachments/<filename> 形态，让 Obsidian 能直接展示。
-func writingToFrontmatter(w *domain.Writing, filenames map[string]string) Frontmatter {
+func writingToFrontmatter(w *corpusdomain.Writing, filenames map[string]string) Frontmatter {
 	fm := Frontmatter{
 		Title: w.Title(), Slug: w.Slug(),
 		Excerpt: w.Excerpt(), Tags: w.Tags(),
@@ -238,7 +238,7 @@ func writingToFrontmatter(w *domain.Writing, filenames map[string]string) Frontm
 	return fm
 }
 
-func addCoverImageRef(fm *Frontmatter, w *domain.Writing, filenames map[string]string) {
+func addCoverImageRef(fm *Frontmatter, w *corpusdomain.Writing, filenames map[string]string) {
 	assetID := w.CoverImageAssetID()
 	if assetID == "" {
 		return

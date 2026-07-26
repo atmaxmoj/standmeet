@@ -14,7 +14,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -117,7 +117,9 @@ func (c *seoCapability) handleSetWikiSlug(
 	return marshalSetWikiSlug(c.log, &res.Wiki, res.Unpinned)
 }
 
-func marshalSetWikiSlug(log *slog.Logger, w *domain.Wiki, unpinned []string) capreg.MCPResult {
+func marshalSetWikiSlug(
+	log *slog.Logger, w *corpusdomain.Wiki, unpinned []string,
+) capreg.MCPResult {
 	if unpinned == nil {
 		unpinned = []string{}
 	}
@@ -184,7 +186,7 @@ func (c *seoCapability) handleSetOutputSlug(
 	return marshalSetOutputSlug(c.log, &updated)
 }
 
-func marshalSetOutputSlug(log *slog.Logger, o *domain.Output) capreg.MCPResult {
+func marshalSetOutputSlug(log *slog.Logger, o *corpusdomain.Output) capreg.MCPResult {
 	payload := setOutputSlugPayload{
 		OutputID:  o.ID(),
 		Excerpt:   o.Excerpt(),
@@ -235,7 +237,7 @@ func (c *seoCapability) handleUpdateSettings(
 	if perr != nil {
 		return capreg.MCPError("invalid arguments: " + perr.Error())
 	}
-	in := &domain.SEOSettings{
+	in := &corpusdomain.SEOSettings{
 		OwnerID:       ownerID,
 		IndexRobots:   indexRobotsOrDefault(args.IndexRobots),
 		SitemapExtras: args.SitemapExtras,
@@ -269,7 +271,7 @@ func indexRobotsOrDefault(p *bool) bool {
 	return *p
 }
 
-func marshalUpdateSettings(log *slog.Logger, s *domain.SEOSettings) capreg.MCPResult {
+func marshalUpdateSettings(log *slog.Logger, s *corpusdomain.SEOSettings) capreg.MCPResult {
 	payload := updateSettingsPayload{
 		IndexRobots:   s.IndexRobots,
 		SitemapExtras: s.SitemapExtras,
@@ -286,10 +288,10 @@ func marshalUpdateSettings(log *slog.Logger, s *domain.SEOSettings) capreg.MCPRe
 // ───── shared error translation ──────────────────────────────────
 
 func seoErrToResult(log *slog.Logger, err error, name string) capreg.MCPResult {
-	if errors.Is(err, domain.ErrWikiNotFound) {
+	if errors.Is(err, corpusdomain.ErrWikiNotFound) {
 		return capreg.MCPError("wiki entry not found")
 	}
-	if errors.Is(err, domain.ErrOutputNotFound) {
+	if errors.Is(err, corpusdomain.ErrOutputNotFound) {
 		return capreg.MCPError("output entry not found")
 	}
 	log.Error(name, "err", err)

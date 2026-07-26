@@ -14,7 +14,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -57,7 +57,7 @@ func (r *subjectivityCiteResolver) ResolveCite(
 	note, err := r.repo.GetByID(ctx, ownerID, id)
 	if err != nil {
 		if errors.Is(err, postgres.ErrNoteNotFound) {
-			return SubjectivityCiteRef{}, domain.ErrSubjectivityNotFound
+			return SubjectivityCiteRef{}, corpusdomain.ErrSubjectivityNotFound
 		}
 		return SubjectivityCiteRef{}, fmt.Errorf("get subjectivity: %w", err)
 	}

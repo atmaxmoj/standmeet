@@ -13,7 +13,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -115,7 +115,7 @@ func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 }
 
 func (c *corpusOutputCapability) applyOutputShowAsSourceIfHidden(
-	ctx context.Context, out *domain.Output, showAsSource *bool,
+	ctx context.Context, out *corpusdomain.Output, showAsSource *bool,
 ) {
 	if showAsSource == nil || *showAsSource {
 		return
@@ -159,7 +159,7 @@ func buildPromoteToOutputCapInput(
 }
 
 func promoteToOutputErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrWikiNotFound) {
+	if errors.Is(err, corpusdomain.ErrWikiNotFound) {
 		return capreg.MCPError("wiki entry not found")
 	}
 	log.Error("cap promote_wiki_to_output", "err", err)
@@ -204,7 +204,7 @@ type outputCapView struct {
 	SourceWikiIDs []string `json:"source_wiki_ids"`
 }
 
-func outputRowsToView(rows []domain.Output) []outputCapView {
+func outputRowsToView(rows []corpusdomain.Output) []outputCapView {
 	out := make([]outputCapView, 0, len(rows))
 	for i := range rows {
 		out = append(out, outputCapView{

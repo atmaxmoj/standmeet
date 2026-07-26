@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
@@ -55,7 +55,7 @@ func (c *seoCapability) handleGetSettings(
 	return mcputil.MarshalResult(c.log, "seo.get_settings", seoSettingsPayloadFrom(&s))
 }
 
-func seoSettingsPayloadFrom(s *domain.SEOSettings) seoSettingsPayload {
+func seoSettingsPayloadFrom(s *corpusdomain.SEOSettings) seoSettingsPayload {
 	extras := s.SitemapExtras
 	if extras == nil {
 		extras = []string{}

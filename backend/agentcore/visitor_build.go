@@ -20,6 +20,7 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -182,11 +183,11 @@ func buildCorpusGrants(entries []VisitorCorpusEntry) []string {
 		if e.Private {
 			continue
 		}
-		genre := domain.GenreWiki
+		genre := corpusdomain.GenreWiki
 		if e.Genre == "output" {
-			genre = domain.GenreOutput
+			genre = corpusdomain.GenreOutput
 		}
-		uris = append(uris, domain.FormatURI(genre, e.Path))
+		uris = append(uris, corpusdomain.FormatURI(genre, e.Path))
 	}
 	return uris
 }

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -74,7 +74,7 @@ type rawCapView struct {
 	Archived  bool     `json:"archived"`
 }
 
-func rawRowsToView(rows []domain.Raw) []rawCapView {
+func rawRowsToView(rows []corpusdomain.Raw) []rawCapView {
 	out := make([]rawCapView, 0, len(rows))
 	for i := range rows {
 		out = append(out, rawCapView{
@@ -97,7 +97,7 @@ type wikiCapView struct {
 	Tags      []string `json:"tags"`
 }
 
-func wikiRowsToView(rows []domain.Wiki) []wikiCapView {
+func wikiRowsToView(rows []corpusdomain.Wiki) []wikiCapView {
 	out := make([]wikiCapView, 0, len(rows))
 	for i := range rows {
 		out = append(out, wikiCapView{

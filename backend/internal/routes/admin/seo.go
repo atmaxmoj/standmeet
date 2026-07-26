@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -93,7 +93,7 @@ func (h *Handlers) putSEOSettings() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		saved, err := h.SEOAdmin.SEO.UpsertSettings(r.Context(), &domain.SEOSettings{
+		saved, err := h.SEOAdmin.SEO.UpsertSettings(r.Context(), &corpusdomain.SEOSettings{
 			OwnerID:       ownerID,
 			SiteTitle:     body.SiteTitle,
 			IndexRobots:   body.IndexRobots,
@@ -109,7 +109,7 @@ func (h *Handlers) putSEOSettings() http.HandlerFunc {
 	}
 }
 
-func writeSEOSettings(log *slog.Logger, w http.ResponseWriter, settings *domain.SEOSettings) {
+func writeSEOSettings(log *slog.Logger, w http.ResponseWriter, settings *corpusdomain.SEOSettings) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	view := seoSettingsView{
@@ -154,7 +154,7 @@ func (h *Handlers) patchWikiSEO() http.HandlerFunc {
 }
 
 func handleWikiSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrWikiNotFound) {
+	if errors.Is(err, corpusdomain.ErrWikiNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "wiki_not_found", Message: "wiki entry not found",
 		})
@@ -173,7 +173,7 @@ type wikiSEOResp struct {
 }
 
 func writeWikiSEOResp(
-	log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki, unpinned []string,
+	log *slog.Logger, w http.ResponseWriter, wiki *corpusdomain.Wiki, unpinned []string,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -216,7 +216,7 @@ func (h *Handlers) patchOutputSEO() http.HandlerFunc {
 }
 
 func handleOutputSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrOutputNotFound) {
+	if errors.Is(err, corpusdomain.ErrOutputNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status:  http.StatusNotFound,
 			Code:    "output_not_found",
@@ -231,7 +231,7 @@ func handleOutputSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
 // logKeyErr —— slog "err" 字面在 seo.go 多处出现，提常量。
 const logKeyErr = "err"
 
-func writeOutputSEOResp(log *slog.Logger, w http.ResponseWriter, out *domain.Output) {
+func writeOutputSEOResp(log *slog.Logger, w http.ResponseWriter, out *corpusdomain.Output) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := wikiSEOResp{

@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -76,28 +76,28 @@ func pageCursorParams(c *PageCursor) (cursorPg, error) {
 // ListPage —— one grid page of the wiki genre (owner-scoped, all statuses).
 func (r *WikiRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
-) ([]TreeChild[domain.Wiki], error) {
+) ([]TreeChild[corpusdomain.Wiki], error) {
 	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreWiki, limit}, toDomainWiki)
 }
 
 // ListPage —— one grid page of the output genre.
 func (r *OutputRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
-) ([]TreeChild[domain.Output], error) {
+) ([]TreeChild[corpusdomain.Output], error) {
 	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreOutput, limit}, toDomainOutput)
 }
 
 // ListPage —— one grid page of the raw inbox genre.
 func (r *RawRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
-) ([]TreeChild[domain.Raw], error) {
+) ([]TreeChild[corpusdomain.Raw], error) {
 	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreRaw, limit}, toDomainRaw)
 }
 
 // ListPage —— one grid page of writings (genre='writing').
 func (r *WritingRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
-) ([]TreeChild[domain.Writing], error) {
+) ([]TreeChild[corpusdomain.Writing], error) {
 	req := pageReq{r.pool, cursor, ownerID, genreWriting, limit}
 	return adminPageFetch(ctx, req, toDomainWriting)
 }

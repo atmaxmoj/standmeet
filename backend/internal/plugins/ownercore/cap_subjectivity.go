@@ -11,7 +11,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -138,9 +138,9 @@ func buildWriteSubjectivityInput(
 
 func subjectivityWriteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	switch {
-	case errors.Is(err, domain.ErrParentNotFound):
+	case errors.Is(err, corpusdomain.ErrParentNotFound):
 		return capreg.MCPError("parent entry not found")
-	case errors.Is(err, domain.ErrParentCycle):
+	case errors.Is(err, corpusdomain.ErrParentCycle):
 		return capreg.MCPError("cannot reparent: would create a cycle")
 	case errors.Is(err, usecases.ErrEmptyField):
 		return capreg.MCPError("title and body are required")

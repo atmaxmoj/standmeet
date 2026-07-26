@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -35,34 +35,36 @@ func NewSEORepo(pool *Pool) *SEORepo { return &SEORepo{pool: pool} }
 // SEORepo 只剩 seo_settings 读写 + path 列 patch（patch 增量 3 随列一起退）。
 
 // GetSettings —— singleton-per-owner；不存在返默认（IndexRobots=true）。
-func (r *SEORepo) GetSettings(ctx context.Context, ownerID string) (domain.SEOSettings, error) {
+func (r *SEORepo) GetSettings(
+	ctx context.Context, ownerID string,
+) (corpusdomain.SEOSettings, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.SEOSettings{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
+		return corpusdomain.SEOSettings{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
 	row, err := q.GetSEOSettings(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return defaultSEOSettings(ownerID), nil
 		}
-		return domain.SEOSettings{}, fmt.Errorf("get seo settings: %w", err)
+		return corpusdomain.SEOSettings{}, fmt.Errorf("get seo settings: %w", err)
 	}
 	return toDomainSEOSettings(&row)
 }
 
 // UpsertSettings —— admin PUT /api/admin/seo 落地。
 func (r *SEORepo) UpsertSettings(
-	ctx context.Context, in *domain.SEOSettings,
-) (domain.SEOSettings, error) {
+	ctx context.Context, in *corpusdomain.SEOSettings,
+) (corpusdomain.SEOSettings, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(in.OwnerID)
 	if perr != nil {
-		return domain.SEOSettings{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
+		return corpusdomain.SEOSettings{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
 	extras, merr := json.Marshal(in.SitemapExtras)
 	if merr != nil {
-		return domain.SEOSettings{}, fmt.Errorf("marshal sitemap_extras: %w", merr)
+		return corpusdomain.SEOSettings{}, fmt.Errorf("marshal sitemap_extras: %w", merr)
 	}
 	row, err := q.UpsertSEOSettings(ctx, dbq.UpsertSEOSettingsParams{
 		OwnerID:       pgID,
@@ -72,7 +74,7 @@ func (r *SEORepo) UpsertSettings(
 		OgTemplate:    in.OGTemplate,
 	})
 	if err != nil {
-		return domain.SEOSettings{}, fmt.Errorf("upsert seo settings: %w", err)
+		return corpusdomain.SEOSettings{}, fmt.Errorf("upsert seo settings: %w", err)
 	}
 	return toDomainSEOSettings(&row)
 }
@@ -81,23 +83,23 @@ func (r *SEORepo) UpsertSettings(
 // owner 不再自设 path,所以没有 path 冲突(ErrPathTaken)这回事。
 func (r *SEORepo) UpdateWikiSEO(
 	ctx context.Context, ownerID, wikiID, description string, indexed bool,
-) (domain.Wiki, error) {
+) (corpusdomain.Wiki, error) {
 	pgID, perr := parseUUID(wikiID)
 	if perr != nil {
-		return domain.Wiki{}, fmt.Errorf("parse wiki id: %w", perr)
+		return corpusdomain.Wiki{}, fmt.Errorf("parse wiki id: %w", perr)
 	}
 	pgOwner, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return domain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return corpusdomain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).UpdateNoteSEO(ctx, dbq.UpdateNoteSEOParams{
 		ID: pgID, Excerpt: description, Published: indexed, Genre: genreWiki, OwnerID: pgOwner,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Wiki{}, domain.ErrWikiNotFound
+			return corpusdomain.Wiki{}, corpusdomain.ErrWikiNotFound
 		}
-		return domain.Wiki{}, fmt.Errorf("update wiki seo: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("update wiki seo: %w", err)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -105,29 +107,29 @@ func (r *SEORepo) UpdateWikiSEO(
 // UpdateOutputSEO —— 跟 UpdateWikiSEO 同套路。
 func (r *SEORepo) UpdateOutputSEO(
 	ctx context.Context, ownerID, outputID, description string, indexed bool,
-) (domain.Output, error) {
+) (corpusdomain.Output, error) {
 	pgID, perr := parseUUID(outputID)
 	if perr != nil {
-		return domain.Output{}, fmt.Errorf("parse output id: %w", perr)
+		return corpusdomain.Output{}, fmt.Errorf("parse output id: %w", perr)
 	}
 	pgOwner, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return domain.Output{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return corpusdomain.Output{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).UpdateNoteSEO(ctx, dbq.UpdateNoteSEOParams{
 		ID: pgID, Excerpt: description, Published: indexed, Genre: genreOutput, OwnerID: pgOwner,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Output{}, domain.ErrOutputNotFound
+			return corpusdomain.Output{}, corpusdomain.ErrOutputNotFound
 		}
-		return domain.Output{}, fmt.Errorf("update output seo: %w", err)
+		return corpusdomain.Output{}, fmt.Errorf("update output seo: %w", err)
 	}
 	return toDomainOutput(&row), nil
 }
 
-func defaultSEOSettings(ownerID string) domain.SEOSettings {
-	return domain.SEOSettings{
+func defaultSEOSettings(ownerID string) corpusdomain.SEOSettings {
+	return corpusdomain.SEOSettings{
 		OwnerID:       ownerID,
 		IndexRobots:   true,
 		SitemapExtras: []string{},
@@ -135,15 +137,15 @@ func defaultSEOSettings(ownerID string) domain.SEOSettings {
 	}
 }
 
-func toDomainSEOSettings(row *dbq.SeoSetting) (domain.SEOSettings, error) {
+func toDomainSEOSettings(row *dbq.SeoSetting) (corpusdomain.SEOSettings, error) {
 	extras := []string{}
 	if len(row.SitemapExtras) > 0 {
 		if err := json.Unmarshal(row.SitemapExtras, &extras); err != nil {
-			return domain.SEOSettings{}, fmt.Errorf("unmarshal sitemap_extras: %w", err)
+			return corpusdomain.SEOSettings{}, fmt.Errorf("unmarshal sitemap_extras: %w", err)
 		}
 	}
 	_ = pgtype.UUID{} // import keep
-	return domain.SEOSettings{
+	return corpusdomain.SEOSettings{
 		OwnerID:       formatUUID(row.OwnerID),
 		SiteTitle:     row.SiteTitle,
 		IndexRobots:   row.IndexRobots,

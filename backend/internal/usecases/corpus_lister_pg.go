@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/search"
@@ -43,7 +44,7 @@ type pgCorpusLister struct {
 // SCOPE (not a bare grant list) is the point: a facade handed only the grant would serve exactly
 // what the owner took back on that code — a fail-open the type system now prevents.
 func allowsCorpusURI(scope domain.CorpusScope, genre, path string) bool {
-	uri := domain.FormatURI(domain.DocumentGenre(genre), path)
+	uri := corpusdomain.FormatURI(corpusdomain.DocumentGenre(genre), path)
 	return domain.AllowsCorpusScope(scope, uri)
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -35,18 +36,18 @@ type CreateWikiInput struct {
 }
 
 // Create 写一条新 wiki。pointer 接收避免 hugeParam。
-func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (domain.Wiki, error) {
+func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (corpusdomain.Wiki, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return corpusdomain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	parent, err := parseOptionalUUID(in.ParentID)
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("parse parent id: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("parse parent id: %w", err)
 	}
 	sourceRaws, err := parseUUIDArray(in.SourceRawIDs)
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("parse source raw ids: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("parse source raw ids: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateNote(ctx, dbq.CreateNoteParams{
@@ -64,7 +65,7 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (domain.Wiki
 		ShowAsSource: true,
 	})
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("create wiki: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("create wiki: %w", err)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -72,7 +73,7 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (domain.Wiki
 // ListByOwner 返回 owner 的 wiki（最新 N 条）。
 func (r *WikiRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
-) ([]domain.Wiki, error) {
+) ([]corpusdomain.Wiki, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -84,7 +85,7 @@ func (r *WikiRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list wiki: %w", err)
 	}
-	out := make([]domain.Wiki, 0, len(rows))
+	out := make([]corpusdomain.Wiki, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainWiki(&rows[i]))
 	}
@@ -92,14 +93,14 @@ func (r *WikiRepo) ListByOwner(
 }
 
 // GetByID 拿 owner 的某条 wiki；不命中返回 ErrWikiNotFound。
-func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (domain.Wiki, error) {
+func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (corpusdomain.Wiki, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return corpusdomain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	wikiUUID, err := parseUUID(id)
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("parse wiki id: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("parse wiki id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetNoteByID(ctx, dbq.GetNoteByIDParams{
@@ -107,9 +108,9 @@ func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (domain.Wiki
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Wiki{}, domain.ErrWikiNotFound
+			return corpusdomain.Wiki{}, corpusdomain.ErrWikiNotFound
 		}
-		return domain.Wiki{}, fmt.Errorf("get wiki: %w", err)
+		return corpusdomain.Wiki{}, fmt.Errorf("get wiki: %w", err)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -155,7 +156,7 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return WikiMeta{}, domain.ErrWikiNotFound
+			return WikiMeta{}, corpusdomain.ErrWikiNotFound
 		}
 		return WikiMeta{}, fmt.Errorf("get wiki meta: %w", err)
 	}
@@ -248,8 +249,8 @@ func optUUIDStr(u pgtype.UUID) *string {
 	return &s
 }
 
-func toDomainWiki(w *dbq.CorpusNote) domain.Wiki {
-	in := domain.WikiInit{
+func toDomainWiki(w *dbq.CorpusNote) corpusdomain.Wiki {
+	in := corpusdomain.WikiInit{
 		ID:           formatUUID(w.ID),
 		OwnerID:      formatUUID(w.OwnerID),
 		Title:        w.Title,
@@ -268,5 +269,5 @@ func toDomainWiki(w *dbq.CorpusNote) domain.Wiki {
 		s := formatUUID(w.ParentID)
 		in.ParentID = &s
 	}
-	return domain.NewWiki(&in)
+	return corpusdomain.NewWiki(&in)
 }

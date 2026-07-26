@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -55,21 +55,21 @@ func adminChildren[T any](
 // ListChildrenTree —— one lazy layer of the wiki tree (owner-scoped, all statuses).
 func (r *WikiRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
-) ([]TreeChild[domain.Wiki], error) {
+) ([]TreeChild[corpusdomain.Wiki], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreWiki}, toDomainWiki)
 }
 
 // ListChildrenTree —— one lazy layer of the output tree.
 func (r *OutputRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
-) ([]TreeChild[domain.Output], error) {
+) ([]TreeChild[corpusdomain.Output], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreOutput}, toDomainOutput)
 }
 
 // ListChildrenTree —— one lazy layer of the raw inbox tree.
 func (r *RawRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
-) ([]TreeChild[domain.Raw], error) {
+) ([]TreeChild[corpusdomain.Raw], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreRaw}, toDomainRaw)
 }
 
@@ -85,6 +85,6 @@ func (r *NoteRepo) ListChildrenTree(
 // ListChildrenTree —— one lazy layer of the writings tree (genre='writing' corpus_notes).
 func (r *WritingRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
-) ([]TreeChild[domain.Writing], error) {
+) ([]TreeChild[corpusdomain.Writing], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreWriting}, toDomainWriting)
 }

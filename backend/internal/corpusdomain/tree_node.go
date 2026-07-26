@@ -4,7 +4,7 @@
 // 同 genre 的另一条。地址(path)纯从这条 parent 链 + title slug 树派生
 // (usecases.WikiTreePaths),不存进 entry。
 
-package domain
+package corpusdomain
 
 // TreeNode —— Wiki / Output 用的 parent 字段。*string 表达可空:nil = root。
 type TreeNode struct {

@@ -16,7 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -105,7 +105,7 @@ func (h *Handlers) listAdminWritings() http.HandlerFunc {
 }
 
 func writeWritingsList(
-	r *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.Writing,
+	r *http.Request, h *Handlers, w http.ResponseWriter, rows []corpusdomain.Writing,
 ) {
 	items := make([]writingView, 0, len(rows))
 	for i := range rows {
@@ -118,13 +118,15 @@ func writeWritingsList(
 	}
 }
 
-func toWritingViewResolved(r *http.Request, h *Handlers, wg *domain.Writing) writingView {
+func toWritingViewResolved(r *http.Request, h *Handlers, wg *corpusdomain.Writing) writingView {
 	v := toWritingView(wg)
 	v.AssetURLs = resolveWritingAssetURLs(r, h, wg)
 	return v
 }
 
-func resolveWritingAssetURLs(r *http.Request, h *Handlers, wg *domain.Writing) map[string]string {
+func resolveWritingAssetURLs(
+	r *http.Request, h *Handlers, wg *corpusdomain.Writing,
+) map[string]string {
 	coverID := wg.CoverImageAssetID()
 	var coverPtr *string
 	if coverID != "" {
@@ -145,12 +147,12 @@ func resolveWritingAssetURLs(r *http.Request, h *Handlers, wg *domain.Writing) m
 }
 
 // writingParentIDOr —— parent id 或 ""(root)。editor 回填「设父」用。
-func writingParentIDOr(wg *domain.Writing) string {
+func writingParentIDOr(wg *corpusdomain.Writing) string {
 	pid, _ := wg.ParentID()
 	return pid
 }
 
-func toWritingView(wg *domain.Writing) writingView {
+func toWritingView(wg *corpusdomain.Writing) writingView {
 	var pubAtPtr *time.Time
 	if pub, ok := wg.PublishedAt(); ok {
 		cp := pub
@@ -237,12 +239,12 @@ func buildSaveWritingInput(
 
 var saveWritingErrCases = []apierr.Case{
 	{Match: usecases.ErrEmptyField, Envelope: envBadReq("owner_id, slug, title required")},
-	{Match: domain.ErrWritingSlugTaken, Envelope: apierr.Envelope{
+	{Match: corpusdomain.ErrWritingSlugTaken, Envelope: apierr.Envelope{
 		Status: http.StatusConflict, Code: "writing_slug_taken",
 		Message: "writing slug already taken",
 	}},
-	{Match: domain.ErrParentNotFound, Envelope: envBadReq("parent writing not found")},
-	{Match: domain.ErrParentCycle, Envelope: envBadReq("parent would create a cycle")},
+	{Match: corpusdomain.ErrParentNotFound, Envelope: envBadReq("parent writing not found")},
+	{Match: corpusdomain.ErrParentCycle, Envelope: envBadReq("parent would create a cycle")},
 }
 
 func handleSaveWritingErr(log *slog.Logger, w http.ResponseWriter, err error) {
@@ -254,7 +256,7 @@ func handleSaveWritingErr(log *slog.Logger, w http.ResponseWriter, err error) {
 }
 
 func writeSavedWriting(
-	r *http.Request, h *Handlers, w http.ResponseWriter, wg *domain.Writing, statusCode int,
+	r *http.Request, h *Handlers, w http.ResponseWriter, wg *corpusdomain.Writing, statusCode int,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
@@ -263,7 +265,9 @@ func writeSavedWriting(
 	}
 }
 
-func writeWritingResp(r *http.Request, h *Handlers, w http.ResponseWriter, wg *domain.Writing) {
+func writeWritingResp(
+	r *http.Request, h *Handlers, w http.ResponseWriter, wg *corpusdomain.Writing,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(toWritingViewResolved(r, h, wg)); err != nil {
