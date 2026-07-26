@@ -12,9 +12,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/security"
 )
 
 // IPBansAdminDeps —— admin ip-bans handler 依赖。
@@ -136,7 +136,7 @@ func parseOptionalRFC3339(s string) (*time.Time, error) {
 	return &t, nil
 }
 
-func toBanViews(bans []domain.BannedIP) []banView {
+func toBanViews(bans []security.BannedIP) []banView {
 	out := make([]banView, 0, len(bans))
 	for i := range bans {
 		out = append(out, toBanView(&bans[i]))
@@ -144,7 +144,7 @@ func toBanViews(bans []domain.BannedIP) []banView {
 	return out
 }
 
-func toBanView(b *domain.BannedIP) banView {
+func toBanView(b *security.BannedIP) banView {
 	return banView{
 		ID:        b.ID,
 		IP:        b.IP,

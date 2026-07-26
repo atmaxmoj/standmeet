@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/security"
 )
 
 // BannedIPRepo —— banned_ips 表 repo。
@@ -32,10 +32,10 @@ type BanIPInput struct {
 }
 
 // Ban —— upsert（重复封同一 IP 覆盖 reason/expires_at）。返回落库后的行。
-func (r *BannedIPRepo) Ban(ctx context.Context, in *BanIPInput) (domain.BannedIP, error) {
+func (r *BannedIPRepo) Ban(ctx context.Context, in *BanIPInput) (security.BannedIP, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.BannedIP{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return security.BannedIP{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).BanIP(ctx, dbq.BanIPParams{
 		OwnerID:   ownerUUID,
@@ -44,13 +44,13 @@ func (r *BannedIPRepo) Ban(ctx context.Context, in *BanIPInput) (domain.BannedIP
 		ExpiresAt: toTimestamptz(in.ExpiresAt),
 	})
 	if qerr != nil {
-		return domain.BannedIP{}, fmt.Errorf("ban ip: %w", qerr)
+		return security.BannedIP{}, fmt.Errorf("ban ip: %w", qerr)
 	}
 	return decodeBannedIP(&row), nil
 }
 
 // List —— owner 的全部封禁（含已过期的，给 admin 看历史；最近的在前）。
-func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]domain.BannedIP, error) {
+func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]security.BannedIP, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -59,7 +59,7 @@ func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]domain.Banne
 	if qerr != nil {
 		return nil, fmt.Errorf("list banned ips: %w", qerr)
 	}
-	out := make([]domain.BannedIP, 0, len(rows))
+	out := make([]security.BannedIP, 0, len(rows))
 	for i := range rows {
 		out = append(out, decodeBannedIP(&rows[i]))
 	}
@@ -107,8 +107,8 @@ func (r *BannedIPRepo) IsBannedAnywhere(ctx context.Context, ip string) (bool, e
 	return banned, nil
 }
 
-func decodeBannedIP(row *dbq.BannedIp) domain.BannedIP {
-	return domain.BannedIP{
+func decodeBannedIP(row *dbq.BannedIp) security.BannedIP {
+	return security.BannedIP{
 		ID:        formatUUID(row.ID),
 		OwnerID:   formatUUID(row.OwnerID),
 		IP:        row.Ip,

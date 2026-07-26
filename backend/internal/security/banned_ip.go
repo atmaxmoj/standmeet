@@ -1,4 +1,6 @@
-package domain
+// Package security —— 请求级防护域:IP 封禁(现在)、后续并入 captcha(Turnstile)与防重放。
+// 跟"认证"(access/session)分开:认证判"你是谁能进吗",防护判"这个来源该不该被挡"。
+package security
 
 import "time"
 

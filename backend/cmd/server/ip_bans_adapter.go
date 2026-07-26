@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/security"
 )
 
 // ipBanStoreAdapter —— postgres-free view of BannedIPRepo for the ownercore ip_bans capability
 // (mirrors calendarStoreAdapter: keeps postgres types out of the plugin, builds the input here).
 type ipBanStoreAdapter struct{ repo *postgres.BannedIPRepo }
 
-func (a ipBanStoreAdapter) List(ctx context.Context, ownerID string) ([]domain.BannedIP, error) {
+func (a ipBanStoreAdapter) List(ctx context.Context, ownerID string) ([]security.BannedIP, error) {
 	bans, err := a.repo.List(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list banned ips: %w", err)
@@ -23,11 +23,11 @@ func (a ipBanStoreAdapter) List(ctx context.Context, ownerID string) ([]domain.B
 
 func (a ipBanStoreAdapter) Ban(
 	ctx context.Context, ownerID, ip string, expiresAt *time.Time,
-) (domain.BannedIP, error) {
+) (security.BannedIP, error) {
 	in := &postgres.BanIPInput{OwnerID: ownerID, IP: ip, ExpiresAt: expiresAt}
 	ban, err := a.repo.Ban(ctx, in)
 	if err != nil {
-		return domain.BannedIP{}, fmt.Errorf("ban ip: %w", err)
+		return security.BannedIP{}, fmt.Errorf("ban ip: %w", err)
 	}
 	return ban, nil
 }

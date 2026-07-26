@@ -75,6 +75,8 @@ components:
     in: internal/marketplace              # skill marketplace aggregation client (GitHub + SkillsMP)
   stats:
     in: internal/stats                    # #135: Monitor 观测面领域值对象 (activity/growth/graph/jobs)
+  security:
+    in: internal/security                 # #135: 请求级防护域 (banned_ip; captcha/replay 后续并入)
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -350,6 +352,7 @@ deps:
       - dbq
       - cryptobox
       - stats
+      - security
     anyVendorDeps: true
 
   # sqlc 生成的查询代码；其他业务不该直接 import，必须经 postgres Repository。
@@ -467,6 +470,7 @@ deps:
       - connectorconsumer
       - pluginbooker
       - stats
+      - security
     anyVendorDeps: true
 
   # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核
@@ -560,6 +564,11 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # security —— #135 请求级防护域 leaf：BannedIP 值对象（captcha/replay 后续并入），无 internal 依赖。
+  security:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
   # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
   # routes 不直接 import。
@@ -633,6 +642,7 @@ deps:
       - pluginbooker # #190 /bookings + /booking-policy: booker.CodeBooking / BookingPolicy types
       - marketplace # /marketplace: writeMarketplace renders []marketplace.MarketSkill
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
+      - security    # #135 /ip-bans: BannedIP value object
     anyVendorDeps: true
 
   # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image
@@ -719,6 +729,7 @@ deps:
       - printsess
       - jobregistry
       - marketplace
+      - security
       - captcha
       - cryptobox
       - sandbox

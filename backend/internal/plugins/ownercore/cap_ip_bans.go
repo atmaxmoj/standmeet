@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/security"
 )
 
 const capIPBansBundle = "ip_bans.bundle"
@@ -21,8 +21,8 @@ const capIPBansBundle = "ip_bans.bundle"
 // ipBansStore —— narrow dep matching *postgres.BannedIPRepo's owner-CRUD
 // methods exactly (List / Ban / Unban).
 type ipBansStore interface {
-	List(ctx context.Context, ownerID string) ([]domain.BannedIP, error)
-	Ban(ctx context.Context, ownerID, ip string, expiresAt *time.Time) (domain.BannedIP, error)
+	List(ctx context.Context, ownerID string) ([]security.BannedIP, error)
+	Ban(ctx context.Context, ownerID, ip string, expiresAt *time.Time) (security.BannedIP, error)
 	Unban(ctx context.Context, ownerID, id string) error
 }
 
