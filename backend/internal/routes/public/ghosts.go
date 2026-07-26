@@ -20,7 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -114,11 +114,11 @@ func dispatchAccept(h *Handlers, w http.ResponseWriter, r *http.Request) {
 }
 
 var ghostErrCases = []apierr.Case{
-	{Match: domain.ErrInvalidGhostSource, Envelope: apierr.Envelope{
+	{Match: conversation.ErrInvalidGhostSource, Envelope: apierr.Envelope{
 		Status: http.StatusBadRequest, Code: "bad_request",
 		Message: "invalid ghost source",
 	}},
-	{Match: domain.ErrGhostNotFound, Envelope: apierr.Envelope{
+	{Match: conversation.ErrGhostNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "not_found",
 		Message: "ghost not found",
 	}},
@@ -130,7 +130,7 @@ var ghostErrCases = []apierr.Case{
 
 func handleGhostErr(h *Handlers, w http.ResponseWriter, err error) {
 	env := apierr.Classify(err, ghostErrCases)
-	notFound := errors.Is(err, domain.ErrGhostNotFound)
+	notFound := errors.Is(err, conversation.ErrGhostNotFound)
 	if env.Status >= http.StatusInternalServerError || notFound {
 		h.Log.Info("ghost flow", "err", err)
 	}

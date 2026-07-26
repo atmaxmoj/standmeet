@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -50,7 +50,7 @@ func (h *Handlers) ghostTelemetry() http.HandlerFunc {
 	}
 }
 
-func buildGhostTelemetryResp(stats []domain.GhostWaypointStat) ghostTelemetryResp {
+func buildGhostTelemetryResp(stats []conversation.GhostWaypointStat) ghostTelemetryResp {
 	wps := make([]waypointStatView, 0, len(stats))
 	var totShown, totAccepted int64
 	for i := range stats {

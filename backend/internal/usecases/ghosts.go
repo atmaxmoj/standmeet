@@ -11,7 +11,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -34,13 +34,13 @@ type RecordGhostShownInput struct {
 // RecordGhostShown —— 校 source 合法 → 写一行。
 func RecordGhostShown(
 	ctx context.Context, deps *GhostDeps, in *RecordGhostShownInput,
-) (domain.ConversationGhost, error) {
-	src, perr := domain.ParseGhostSource(in.Source)
+) (conversation.Ghost, error) {
+	src, perr := conversation.ParseGhostSource(in.Source)
 	if perr != nil {
-		return domain.ConversationGhost{}, fmt.Errorf("parse source: %w", perr)
+		return conversation.Ghost{}, fmt.Errorf("parse source: %w", perr)
 	}
 	if in.GhostText == "" {
-		return domain.ConversationGhost{}, ErrEmptyField
+		return conversation.Ghost{}, ErrEmptyField
 	}
 	row, err := deps.Repo.RecordShown(ctx, &postgres.RecordShownInput{
 		OwnerID:        in.OwnerID,
@@ -50,20 +50,20 @@ func RecordGhostShown(
 		TurnIndex:      in.TurnIndex,
 	})
 	if err != nil {
-		return domain.ConversationGhost{}, fmt.Errorf("record shown: %w", err)
+		return conversation.Ghost{}, fmt.Errorf("record shown: %w", err)
 	}
 	return row, nil
 }
 
 // AcceptGhost —— 翻 accepted_at = now()；找不到翻
-// domain.ErrGhostNotFound。
+// conversation.ErrGhostNotFound。
 func AcceptGhost(
 	ctx context.Context, deps *GhostDeps,
 	ownerID, conversationID, ghostID string,
-) (domain.ConversationGhost, error) {
+) (conversation.Ghost, error) {
 	row, err := deps.Repo.MarkAccepted(ctx, ownerID, conversationID, ghostID)
 	if err != nil {
-		return domain.ConversationGhost{}, fmt.Errorf("mark accepted: %w", err)
+		return conversation.Ghost{}, fmt.Errorf("mark accepted: %w", err)
 	}
 	return row, nil
 }
@@ -71,7 +71,7 @@ func AcceptGhost(
 // ListGhostsForConversation —— admin conversation detail 用。
 func ListGhostsForConversation(
 	ctx context.Context, deps *GhostDeps, ownerID, conversationID string,
-) ([]domain.ConversationGhost, error) {
+) ([]conversation.Ghost, error) {
 	rows, err := deps.Repo.ListByConversation(ctx, ownerID, conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("list ghosts: %w", err)
@@ -83,7 +83,7 @@ func ListGhostsForConversation(
 // for the owner. Owner-scoped; empty when no policy ghosts have fired yet.
 func GhostTelemetry(
 	ctx context.Context, deps *GhostDeps, ownerID string,
-) ([]domain.GhostWaypointStat, error) {
+) ([]conversation.GhostWaypointStat, error) {
 	stats, err := deps.Repo.WaypointTelemetry(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("ghost telemetry: %w", err)

@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -32,7 +32,7 @@ type RecordShownInput struct {
 	OwnerID        string
 	ConversationID string
 	GhostText      string
-	Source         domain.GhostSource
+	Source         conversation.GhostSource
 	TurnIndex      int32
 }
 
@@ -50,21 +50,21 @@ type RecordPolicyInput struct {
 // 放进 `ghost` 帧(前端 accept 回填)。
 func (r *GhostRepo) RecordPolicy(
 	ctx context.Context, in *RecordPolicyInput,
-) (domain.ConversationGhost, error) {
+) (conversation.Ghost, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.ConversationGhost{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return conversation.Ghost{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	convUUID, err := parseUUID(in.ConversationID)
 	if err != nil {
-		return domain.ConversationGhost{}, fmt.Errorf("parse conv id: %w", err)
+		return conversation.Ghost{}, fmt.Errorf("parse conv id: %w", err)
 	}
 	row, qerr := dbq.New(r.pool).RecordPolicyGhost(ctx, dbq.RecordPolicyGhostParams{
 		OwnerID: ownerUUID, ConversationID: convUUID, TurnIndex: in.TurnIndex,
 		GhostText: in.GhostText, TargetWaypoint: &in.TargetWaypoint, FollowsFrom: &in.FollowsFrom,
 	})
 	if qerr != nil {
-		return domain.ConversationGhost{}, fmt.Errorf("record policy ghost: %w", qerr)
+		return conversation.Ghost{}, fmt.Errorf("record policy ghost: %w", qerr)
 	}
 	return toDomainGhost(&row), nil
 }
@@ -73,14 +73,14 @@ func (r *GhostRepo) RecordPolicy(
 // 拿去后续 accept 调用。
 func (r *GhostRepo) RecordShown(
 	ctx context.Context, in *RecordShownInput,
-) (domain.ConversationGhost, error) {
+) (conversation.Ghost, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.ConversationGhost{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return conversation.Ghost{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	convUUID, err := parseUUID(in.ConversationID)
 	if err != nil {
-		return domain.ConversationGhost{}, fmt.Errorf("parse conv id: %w", err)
+		return conversation.Ghost{}, fmt.Errorf("parse conv id: %w", err)
 	}
 	row, qerr := dbq.New(r.pool).RecordShownGhost(ctx, dbq.RecordShownGhostParams{
 		OwnerID:        ownerUUID,
@@ -90,7 +90,7 @@ func (r *GhostRepo) RecordShown(
 		Source:         string(in.Source),
 	})
 	if qerr != nil {
-		return domain.ConversationGhost{}, fmt.Errorf("record shown: %w", qerr)
+		return conversation.Ghost{}, fmt.Errorf("record shown: %w", qerr)
 	}
 	return toDomainGhost(&row), nil
 }
@@ -99,17 +99,17 @@ func (r *GhostRepo) RecordShown(
 // 找不到对应行翻 ErrGhostNotFound (route 返 404 / 已被 cascade 删等)。
 func (r *GhostRepo) MarkAccepted(
 	ctx context.Context, ownerID, conversationID, ghostID string,
-) (domain.ConversationGhost, error) {
+) (conversation.Ghost, error) {
 	params, perr := buildAcceptParams(ownerID, conversationID, ghostID)
 	if perr != nil {
-		return domain.ConversationGhost{}, perr
+		return conversation.Ghost{}, perr
 	}
 	row, qerr := dbq.New(r.pool).MarkGhostAccepted(ctx, *params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.ConversationGhost{}, domain.ErrGhostNotFound
+			return conversation.Ghost{}, conversation.ErrGhostNotFound
 		}
-		return domain.ConversationGhost{}, fmt.Errorf("mark accepted: %w", qerr)
+		return conversation.Ghost{}, fmt.Errorf("mark accepted: %w", qerr)
 	}
 	return toDomainGhost(&row), nil
 }
@@ -138,7 +138,7 @@ func buildAcceptParams(
 // log 显。owner_id-scoped 防 cross-tenant 漏读。
 func (r *GhostRepo) ListByConversation(
 	ctx context.Context, ownerID, conversationID string,
-) ([]domain.ConversationGhost, error) {
+) ([]conversation.Ghost, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -154,7 +154,7 @@ func (r *GhostRepo) ListByConversation(
 	if qerr != nil {
 		return nil, fmt.Errorf("list ghosts: %w", qerr)
 	}
-	out := make([]domain.ConversationGhost, 0, len(rows))
+	out := make([]conversation.Ghost, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainGhost(&rows[i]))
 	}
@@ -165,7 +165,7 @@ func (r *GhostRepo) ListByConversation(
 // accepted) for the owner. Owner-scoped aggregate; empty slice when no policy ghosts yet.
 func (r *GhostRepo) WaypointTelemetry(
 	ctx context.Context, ownerID string,
-) ([]domain.GhostWaypointStat, error) {
+) ([]conversation.GhostWaypointStat, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -174,13 +174,13 @@ func (r *GhostRepo) WaypointTelemetry(
 	if qerr != nil {
 		return nil, fmt.Errorf("ghost telemetry: %w", qerr)
 	}
-	out := make([]domain.GhostWaypointStat, 0, len(rows))
+	out := make([]conversation.GhostWaypointStat, 0, len(rows))
 	for i := range rows {
 		wp := ""
 		if rows[i].TargetWaypoint != nil {
 			wp = *rows[i].TargetWaypoint
 		}
-		out = append(out, domain.GhostWaypointStat{
+		out = append(out, conversation.GhostWaypointStat{
 			TargetWaypoint: wp,
 			Shown:          rows[i].Shown,
 			Accepted:       rows[i].Accepted,
@@ -189,14 +189,14 @@ func (r *GhostRepo) WaypointTelemetry(
 	return out, nil
 }
 
-func toDomainGhost(row *dbq.ConversationGhost) domain.ConversationGhost {
-	out := domain.ConversationGhost{
+func toDomainGhost(row *dbq.ConversationGhost) conversation.Ghost {
+	out := conversation.Ghost{
 		ID:             formatUUID(row.ID),
 		OwnerID:        formatUUID(row.OwnerID),
 		ConversationID: formatUUID(row.ConversationID),
 		TurnIndex:      row.TurnIndex,
 		GhostText:      row.GhostText,
-		Source:         domain.GhostSource(row.Source),
+		Source:         conversation.GhostSource(row.Source),
 		ShownAt:        row.ShownAt.Time,
 	}
 	if row.AcceptedAt.Valid {

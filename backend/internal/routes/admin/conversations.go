@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -137,13 +136,13 @@ func dispatchGetConversation(h *Handlers, w http.ResponseWriter, r *http.Request
 // 返空数组、记一行日志让 admin 自己排。
 func loadGhostsForAdmin(
 	h *Handlers, r *http.Request, ownerID, convID string,
-) []domain.ConversationGhost {
+) []conversation.Ghost {
 	rows, err := usecases.ListGhostsForConversation(
 		r.Context(), &h.Conversations.Ghosts, ownerID, convID,
 	)
 	if err != nil {
 		h.Log.Warn("list ghosts for transcript", logErrKey, err)
-		return []domain.ConversationGhost{}
+		return []conversation.Ghost{}
 	}
 	return rows
 }
@@ -173,7 +172,7 @@ func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []postgres.Chat
 
 func writeTranscript(
 	log *slog.Logger, w http.ResponseWriter, t *usecases.TranscriptBundle,
-	ghosts []domain.ConversationGhost,
+	ghosts []conversation.Ghost,
 ) {
 	conv := bundleSummary(&t.ConvBundle)
 	msgs := make([]convMessageView, 0, len(t.ConvBundle.Messages))
@@ -195,7 +194,7 @@ func writeTranscript(
 	}
 }
 
-func toGhostViews(rows []domain.ConversationGhost) []ghostView {
+func toGhostViews(rows []conversation.Ghost) []ghostView {
 	out := make([]ghostView, 0, len(rows))
 	for i := range rows {
 		out = append(out, toGhostView(&rows[i]))
@@ -203,7 +202,7 @@ func toGhostViews(rows []domain.ConversationGhost) []ghostView {
 	return out
 }
 
-func toGhostView(s *domain.ConversationGhost) ghostView {
+func toGhostView(s *conversation.Ghost) ghostView {
 	v := ghostView{
 		ID:        s.ID,
 		GhostText: s.GhostText,

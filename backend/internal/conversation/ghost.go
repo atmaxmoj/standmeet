@@ -8,7 +8,7 @@
 // AcceptedAt nil = visitor 只看到没按 Tab；非 nil = visitor 按 Tab 接受
 // 的时刻 (server now())。
 
-package domain
+package conversation
 
 import (
 	"errors"
@@ -33,9 +33,9 @@ var ErrInvalidGhostSource = errors.New("invalid ghost source")
 // 给错 / row 已被 cascade 删) 返 404。
 var ErrGhostNotFound = errors.New("ghost not found")
 
-// ConversationGhost —— 一条 shown 日志。AcceptedAt 后续 accept route
+// Ghost —— 一条 shown 日志。AcceptedAt 后续 accept route
 // 把 nil → 真时刻。
-type ConversationGhost struct {
+type Ghost struct {
 	ShownAt        time.Time
 	AcceptedAt     *time.Time
 	ID             string
@@ -47,7 +47,7 @@ type ConversationGhost struct {
 }
 
 // Accepted —— visitor 是否按 Tab 接受过 (admin UI 用)。
-func (s *ConversationGhost) Accepted() bool {
+func (s *Ghost) Accepted() bool {
 	return s.AcceptedAt != nil
 }
 
