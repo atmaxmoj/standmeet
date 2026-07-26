@@ -8,7 +8,7 @@
 // 全失败 rollback；任一环节中断都不会产生 "code 已 issue 但 application 没落库"
 // 之类的孤儿状态。
 
-package postgres
+package jobsuc
 
 import (
 	"context"
@@ -27,11 +27,11 @@ import (
 
 // ApplicationRepo —— applications CRUD + Commit 事务。
 type ApplicationRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewApplicationRepo 构造 ApplicationRepo。
-func NewApplicationRepo(pool *Pool) *ApplicationRepo {
+func NewApplicationRepo(pool *pgstore.Pool) *ApplicationRepo {
 	return &ApplicationRepo{pool: pool}
 }
 
@@ -167,7 +167,7 @@ func insertAccessCode(
 	if jerr != nil {
 		return access.Code{}, fmt.Errorf("marshal empty jsonb: %w", jerr)
 	}
-	roleUUID, rerr := parseUUID(in.AssumedRoleID)
+	roleUUID, rerr := pgstore.ParseUUID(in.AssumedRoleID)
 	if rerr != nil {
 		return access.Code{}, fmt.Errorf("parse assumed_role_id: %w", rerr)
 	}
@@ -223,11 +223,11 @@ type appInsert struct {
 func insertApplication(
 	ctx context.Context, q *dbq.Queries, a *appInsert,
 ) (jobsmodel.Application, error) {
-	codeUUID, err := parseUUID(a.code.ID)
+	codeUUID, err := pgstore.ParseUUID(a.code.ID)
 	if err != nil {
 		return jobsmodel.Application{}, fmt.Errorf("parse code id: %w", err)
 	}
-	appUUID, err := parseUUID(a.appID)
+	appUUID, err := pgstore.ParseUUID(a.appID)
 	if err != nil {
 		return jobsmodel.Application{}, fmt.Errorf("parse application id: %w", err)
 	}
@@ -248,11 +248,11 @@ func insertApplication(
 func (r *ApplicationRepo) GetByID(
 	ctx context.Context, ownerID, id string,
 ) (jobsmodel.Application, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return jobsmodel.Application{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	appUUID, err := parseUUID(id)
+	appUUID, err := pgstore.ParseUUID(id)
 	if err != nil {
 		return jobsmodel.Application{}, fmt.Errorf("parse application id: %w", err)
 	}
@@ -273,7 +273,7 @@ func (r *ApplicationRepo) GetByID(
 func (r *ApplicationRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]jobsmodel.Application, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
@@ -303,9 +303,9 @@ func toDomainApplication(row *dbq.Application) (jobsmodel.Application, error) {
 		return jobsmodel.Application{}, fmt.Errorf("unmarshal resume content: %w", err)
 	}
 	out := jobsmodel.Application{
-		ID:            formatUUID(row.ID),
-		OwnerID:       formatUUID(row.OwnerID),
-		AccessCodeID:  formatUUID(row.AccessCodeID),
+		ID:            pgstore.FormatUUID(row.ID),
+		OwnerID:       pgstore.FormatUUID(row.OwnerID),
+		AccessCodeID:  pgstore.FormatUUID(row.AccessCodeID),
 		Status:        row.Status,
 		JobSnapshot:   snapshot,
 		ResumeContent: content,

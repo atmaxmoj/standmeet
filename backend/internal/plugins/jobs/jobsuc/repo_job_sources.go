@@ -1,7 +1,7 @@
 // job_sources.go —— job_sources + job_fingerprints CRUD。
 // 见 docs/design/job-loop.md。
 
-package postgres
+package jobsuc
 
 import (
 	"context"
@@ -18,11 +18,11 @@ import (
 
 // JobSourceRepo —— job_sources + job_fingerprints 两张表的 Repository。
 type JobSourceRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewJobSourceRepo 构造 JobSourceRepo。
-func NewJobSourceRepo(pool *Pool) *JobSourceRepo {
+func NewJobSourceRepo(pool *pgstore.Pool) *JobSourceRepo {
 	return &JobSourceRepo{pool: pool}
 }
 
@@ -31,7 +31,7 @@ func NewJobSourceRepo(pool *Pool) *JobSourceRepo {
 func (r *JobSourceRepo) Create(
 	ctx context.Context, in *jobsmodel.CreateJobSourceInput,
 ) (jobsmodel.JobSource, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
 		return jobsmodel.JobSource{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
@@ -56,11 +56,11 @@ func (r *JobSourceRepo) Create(
 func (r *JobSourceRepo) GetByID(
 	ctx context.Context, ownerID, id string,
 ) (jobsmodel.JobSource, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return jobsmodel.JobSource{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	sourceUUID, err := parseUUID(id)
+	sourceUUID, err := pgstore.ParseUUID(id)
 	if err != nil {
 		return jobsmodel.JobSource{}, fmt.Errorf("parse source id: %w", err)
 	}
@@ -81,7 +81,7 @@ func (r *JobSourceRepo) GetByID(
 func (r *JobSourceRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]jobsmodel.JobSource, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
@@ -99,11 +99,11 @@ func (r *JobSourceRepo) ListByOwner(
 
 // Delete —— unregister_source；owner 不匹配 → 静默成功（idempotent）。
 func (r *JobSourceRepo) Delete(ctx context.Context, ownerID, id string) error {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	sourceUUID, err := parseUUID(id)
+	sourceUUID, err := pgstore.ParseUUID(id)
 	if err != nil {
 		return fmt.Errorf("parse source id: %w", err)
 	}
@@ -118,7 +118,7 @@ func (r *JobSourceRepo) Delete(ctx context.Context, ownerID, id string) error {
 
 // TouchFetched —— fetch_new 跑完后更新 last_fetched_at；调用方负责传 source id。
 func (r *JobSourceRepo) TouchFetched(ctx context.Context, sourceID string) error {
-	sourceUUID, err := parseUUID(sourceID)
+	sourceUUID, err := pgstore.ParseUUID(sourceID)
 	if err != nil {
 		return fmt.Errorf("parse source id: %w", err)
 	}
@@ -152,7 +152,7 @@ func (r *JobSourceRepo) RecordSeenExternalIDs(
 	if len(externalIDs) == 0 {
 		return nil
 	}
-	sourceUUID, err := parseUUID(sourceID)
+	sourceUUID, err := pgstore.ParseUUID(sourceID)
 	if err != nil {
 		return fmt.Errorf("parse source id: %w", err)
 	}
@@ -170,7 +170,7 @@ func (r *JobSourceRepo) RecordSeenExternalIDs(
 func (r *JobSourceRepo) lookupSeen(
 	ctx context.Context, sourceID string, candidates []string,
 ) ([]string, error) {
-	sourceUUID, err := parseUUID(sourceID)
+	sourceUUID, err := pgstore.ParseUUID(sourceID)
 	if err != nil {
 		return nil, fmt.Errorf("parse source id: %w", err)
 	}
@@ -202,8 +202,8 @@ func diffUnseen(candidates, seen []string) []string {
 // through 成 []byte，由 fetcher adapter 各自 unmarshal 到 typed struct。
 func toDomainJobSource(o *dbq.JobSource) jobsmodel.JobSource {
 	out := jobsmodel.JobSource{
-		ID:        formatUUID(o.ID),
-		OwnerID:   formatUUID(o.OwnerID),
+		ID:        pgstore.FormatUUID(o.ID),
+		OwnerID:   pgstore.FormatUUID(o.OwnerID),
 		Kind:      o.Kind,
 		Label:     o.Label,
 		Config:    o.Config,

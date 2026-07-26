@@ -8,7 +8,7 @@
 // - PDF 不持久化任何地方：caller 在每次 MCP 调用里现场用 gopdf 渲染 bytes
 //   返回；repo 永远不碰 filesystem。
 
-package postgres
+package jobsuc
 
 import (
 	"context"
@@ -33,11 +33,11 @@ type draftKey struct {
 
 // ResumeDraftRepo —— resume_drafts 单表 Repository。
 type ResumeDraftRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewResumeDraftRepo 构造 ResumeDraftRepo。
-func NewResumeDraftRepo(pool *Pool) *ResumeDraftRepo {
+func NewResumeDraftRepo(pool *pgstore.Pool) *ResumeDraftRepo {
 	return &ResumeDraftRepo{pool: pool}
 }
 
@@ -46,7 +46,7 @@ func NewResumeDraftRepo(pool *Pool) *ResumeDraftRepo {
 func (r *ResumeDraftRepo) Create(
 	ctx context.Context, in *jobsmodel.CreateResumeDraftInput,
 ) (jobsmodel.ResumeDraft, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
@@ -139,7 +139,7 @@ func (r *ResumeDraftRepo) Delete(ctx context.Context, ownerID, id string) error 
 func (r *ResumeDraftRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]jobsmodel.ResumeDraft, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
@@ -170,11 +170,11 @@ func (r *ResumeDraftRepo) SweepExpired(ctx context.Context) error {
 }
 
 func parseDraftKey(ownerIDStr, idStr string) (draftKey, error) {
-	owner, err := parseUUID(ownerIDStr)
+	owner, err := pgstore.ParseUUID(ownerIDStr)
 	if err != nil {
 		return draftKey{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	draft, err := parseUUID(idStr)
+	draft, err := pgstore.ParseUUID(idStr)
 	if err != nil {
 		return draftKey{}, fmt.Errorf("parse draft id: %w", err)
 	}
@@ -192,8 +192,8 @@ func toDomainResumeDraft(row *dbq.ResumeDraft) (jobsmodel.ResumeDraft, error) {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("unmarshal resume content: %w", err)
 	}
 	return jobsmodel.ResumeDraft{
-		ID:            formatUUID(row.ID),
-		OwnerID:       formatUUID(row.OwnerID),
+		ID:            pgstore.FormatUUID(row.ID),
+		OwnerID:       pgstore.FormatUUID(row.OwnerID),
 		JobCacheID:    row.JobCacheID,
 		JobSnapshot:   snapshot,
 		ResumeContent: content,

@@ -28,7 +28,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/server"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
@@ -71,7 +71,7 @@ func run(log *slog.Logger) error {
 func runWithCfg(
 	ctx context.Context, log *slog.Logger, cfg *config.Config, stop context.CancelFunc,
 ) error {
-	db, err := postgres.Connect(ctx, cfg.DatabaseURL)
+	db, err := pgstore.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("connect pg: %w", err)
 	}

@@ -17,7 +17,7 @@ import (
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
@@ -93,8 +93,8 @@ type AdminDeps struct {
 	Booking         adminroutes.BookingQuotaStore // #135: booker 自管的 per-code 预约配额读写口
 	CodeDenials     *access.CodeDenialRepo
 	Owners          *owner.Repo
-	Drafts          *postgres.ResumeDraftRepo
-	Applications    *postgres.ApplicationRepo
+	Drafts          *jobsuc.ResumeDraftRepo
+	Applications    *jobsuc.ApplicationRepo
 	Marketplace     usecases.MarketplaceDeps
 	Calendar        adminroutes.CalendarAdminDeps
 	Connectors      adminroutes.ConnectorsAdminDeps

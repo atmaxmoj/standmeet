@@ -14,22 +14,21 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 type spyCommitStore struct{ committed bool }
 
 func (*spyCommitStore) GetDraftRenderData(
 	_ context.Context, _, _ string,
-) (postgres.DraftRenderData, error) {
-	return postgres.DraftRenderData{}, nil
+) (jobsuc.DraftRenderData, error) {
+	return jobsuc.DraftRenderData{}, nil
 }
 
 func (s *spyCommitStore) Commit(
-	_ context.Context, _ *postgres.CommitInput,
-) (postgres.CommitOutput, error) {
+	_ context.Context, _ *jobsuc.CommitInput,
+) (jobsuc.CommitOutput, error) {
 	s.committed = true
-	return postgres.CommitOutput{}, nil
+	return jobsuc.CommitOutput{}, nil
 }
 
 type fakeOwnerLookup struct{ url string }

@@ -4,6 +4,7 @@
 package pgstore
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -178,4 +179,49 @@ func OptUUIDStr(u pgtype.UUID) *string {
 	}
 	s := FormatUUID(u)
 	return &s
+}
+
+// —— pgx pool 连接管理（从退役的 internal/postgres/conn.go 迁入）——
+
+const (
+	poolMaxConns       = 20
+	poolMinConns       = 2
+	poolMaxConnLife    = 30 * time.Minute
+	poolMaxConnIdle    = 5 * time.Minute
+	connectPingTimeout = 5 * time.Second
+	pingTimeout        = 2 * time.Second
+)
+
+// Connect 建立 pool。connStr 通常来自 config.DatabaseURL。调用方负责退出时 pool.Close()。
+func Connect(ctx context.Context, connStr string) (*Pool, error) {
+	cfg, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse pg dsn: %w", err)
+	}
+	cfg.MaxConns = poolMaxConns
+	cfg.MinConns = poolMinConns
+	cfg.MaxConnLifetime = poolMaxConnLife
+	cfg.MaxConnIdleTime = poolMaxConnIdle
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("connect pg: %w", err)
+	}
+	// fail-fast 验证一次连接，避免 server "起来了" 但其实连不上 DB。
+	pingCtx, cancel := context.WithTimeout(ctx, connectPingTimeout)
+	defer cancel()
+	if pingErr := pool.Ping(pingCtx); pingErr != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping pg: %w", pingErr)
+	}
+	return pool, nil
+}
+
+// Ping 用最短路径校验 pool 还活着，给 healthz 用。
+func Ping(ctx context.Context, pool *Pool) error {
+	pingCtx, cancel := context.WithTimeout(ctx, pingTimeout)
+	defer cancel()
+	if err := pool.Ping(pingCtx); err != nil {
+		return fmt.Errorf("pg ping: %w", err)
+	}
+	return nil
 }

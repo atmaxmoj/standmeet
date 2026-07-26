@@ -19,13 +19,12 @@ import (
 
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ResumeDeps —— resume.* usecase 依赖。
 type ResumeDeps struct {
-	Drafts *postgres.ResumeDraftRepo
+	Drafts *ResumeDraftRepo
 	Cache  *jobcache.Pool
 }
 

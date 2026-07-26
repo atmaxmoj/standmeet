@@ -9,7 +9,7 @@
 // 后端无 DB 测试 harness（UT 全 pure），故这里把级联当 schema 文本不变量断言：表必须对
 // code_members 与 owners 都声明 ON DELETE CASCADE。真删除行为由 postgres FK 保证。
 
-package postgres_test
+package conversation_test
 
 import (
 	"os"

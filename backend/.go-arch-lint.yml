@@ -23,8 +23,6 @@ components:
     in: internal/usecases
   obsidian:
     in: internal/usecases/obsidian        # Obsidian vault import/export
-  postgres:
-    in: internal/postgres                 # 含 sqlc 生成的 dbq 子包
   dbq:
     in: internal/postgres/dbq
   pgstore:
@@ -163,7 +161,6 @@ deps:
       - owner
       - marketplace
       - corpus
-      - postgres
       - session
       - inference
       - cryptobox
@@ -177,6 +174,7 @@ deps:
       - search
       - connectorconsumer
       - connector
+      - pgstore
     anyVendorDeps: true
 
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
@@ -248,13 +246,11 @@ deps:
     mayDependOn:
       - capsocket
       - usecases
-      - postgres
       - conversation
     anyVendorDeps: true
   conversationroutes:
     mayDependOn:
       - capsocket
-      - postgres
       - conversation
     anyVendorDeps: true
   inferenceroutes:
@@ -341,23 +337,6 @@ deps:
 
   # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
-  postgres:
-    mayDependOn:
-      - conversation
-      - connector
-      - owner
-      - access
-      - marketplace
-      - corpus
-      - jobsmodel
-      - dbq
-      - cryptobox
-      - stats
-      - security
-      - pgstore
-    anyVendorDeps: true
-
-  # sqlc 生成的查询代码；其他业务不该直接 import，必须经 postgres Repository。
   dbq:
     mayDependOn: []
     anyVendorDeps: true
@@ -434,7 +413,6 @@ deps:
       - inference
       - usecases
       - capreg
-      - postgres
       - sandbox
       - mcpplugin
       - capsocket
@@ -462,7 +440,6 @@ deps:
       - jobsuc
       - jobsmcp
       - jobsadmin
-      - postgres
     anyVendorDeps: true
 
   # pluginownercore —— #135: owner-core owner-MCP caps externalized off core mcphandle. Self-contained:
@@ -497,12 +474,13 @@ deps:
     mayDependOn:
       - owner
       - jobsmodel
-      - postgres
       - usecases
       - jobcache
       - jobfetch
       - jobdedup
       - access
+      - pgstore
+      - dbq
     anyVendorDeps: true
 
   # jobdedup —— J.6c: cross-source dedup (canonical URL + composite key)。
@@ -534,9 +512,9 @@ deps:
   jobsadmin:
     mayDependOn:
       - jobsmodel
-      - postgres
       - middleware
       - apierr
+      - jobsuc
     anyVendorDeps: true
 
   # 依赖 domain 是因为它要 marshal 真实 domain 结构（不糊弄成 []byte）。
@@ -659,7 +637,6 @@ deps:
   sysroutes:
     mayDependOn:
       - owner
-      - postgres
       - printsess
       - session
       - usecases
@@ -668,6 +645,7 @@ deps:
       - connectorcontract  # #155 连接器 diag：CalendarProxy/DTO 类型契约
       - middleware  # #155 连接器 diag：owner id 从 context（middleware.OwnerIDFrom）
       - access
+      - pgstore
     anyVendorDeps: true
 
   # sandboxws —— per-session 沙箱工作区生命周期 leaf：纯 stdlib (os/filepath/sync/time)。
@@ -689,7 +667,6 @@ deps:
       - usecases
       - obsidian
       - session
-      - postgres
       - apierr
       - middleware
       - storage
@@ -709,7 +686,6 @@ deps:
     mayDependOn:
       - corpus
       - usecases
-      - postgres
       - storage
     anyVendorDeps: true
 
@@ -755,12 +731,12 @@ deps:
       - session
       - middleware
       - mcphandle
-      - postgres
       - security
       - plugins
       - owner
       - access
       - corpus
+      - jobsuc
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
@@ -768,7 +744,6 @@ deps:
     mayDependOn:
       - jobsmodel
       - config
-      - postgres
       - session
       - usecases
       - sysroutes
@@ -815,4 +790,5 @@ deps:
       - conversation
       - owner
       - corpus
+      - pgstore
     anyVendorDeps: true

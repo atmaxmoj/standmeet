@@ -25,7 +25,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
@@ -62,7 +62,7 @@ type PreparedAsset struct {
 // 返回 PreparedAsset 让 caller 在 tx commit 之后调 UploadBlobs 把 bytes 真
 // 推到 MinIO。in.PendingID 透传到返回值方便 caller 一次性 build rewrite map。
 func InsertAssetRowTx(
-	ctx context.Context, deps AssetsDeps, tx postgres.DBTX,
+	ctx context.Context, deps AssetsDeps, tx pgstore.DBTX,
 	holderID string, in *AssetUploadInput,
 ) (PreparedAsset, error) {
 	id, gerr := newAssetUUID()
@@ -84,7 +84,7 @@ func InsertAssetRowTx(
 
 // insertAssetArgs —— insertAssetRow 参数打包，避开 argument-limit 5。
 type insertAssetArgs struct {
-	Tx       postgres.DBTX
+	Tx       pgstore.DBTX
 	In       *AssetUploadInput
 	Deps     AssetsDeps
 	ID       string

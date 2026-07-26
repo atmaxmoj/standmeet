@@ -12,11 +12,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 const (
@@ -77,7 +76,7 @@ func computeHealth(ctx context.Context, deps Deps) healthResponse {
 }
 
 func pingDB(ctx context.Context, pool *pgxpool.Pool) string {
-	if postgres.Ping(ctx, pool) == nil {
+	if pgstore.Ping(ctx, pool) == nil {
 		return statusUp
 	}
 	return statusDown

@@ -1,7 +1,7 @@
 // applications.go —— Phase 3：owner 通过 MCP `applications.commit` 把 preview
 // draft 升成持久化 application：
 //   1. 同事务里 issue AccessCode (180d / 10 sessions / 50 turns) + 落 application
-//      行 + 删 draft（postgres.ApplicationRepo.Commit 包了事务）
+//      行 + 删 draft（ApplicationRepo.Commit 包了事务）
 //   2. 拼最终 QR URL = `<owner.public_url>?code=<plaintext>` —— v1 单 owner
 //      instance，访客落到根域名就是这位 owner，URL 不带 handle。
 //   3. 让注入的 PDFRenderer 把 application（含 resume_content + job_snapshot）+
@@ -30,7 +30,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -69,12 +68,12 @@ type ApplicationsDeps struct {
 
 // CommitStore —— the application persistence CommitApplication needs (narrow → the render-before-
 // persist ordering is unit-testable with a spy that asserts Commit is not reached on render fail).
-// *postgres.ApplicationRepo satisfies it.
+// *ApplicationRepo satisfies it.
 type CommitStore interface {
 	GetDraftRenderData(
 		ctx context.Context, ownerID, draftID string,
-	) (postgres.DraftRenderData, error)
-	Commit(ctx context.Context, in *postgres.CommitInput) (postgres.CommitOutput, error)
+	) (DraftRenderData, error)
+	Commit(ctx context.Context, in *CommitInput) (CommitOutput, error)
 }
 
 // OwnerLookup —— 取 owner handle 用于拼 QR URL；用接口避开 usecases → postgres
@@ -158,16 +157,16 @@ func prepareRender(
 
 func runCommitTx(
 	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string, rp *renderPrep,
-) (postgres.CommitOutput, error) {
+) (CommitOutput, error) {
 	expires := timestamptzFromTime(time.Now().AddDate(0, 0, applicationCodeDays))
 	maxMembers := applicationMaxMembers
 	maxTurns := applicationMaxTurns
 	// A.3-IAM-5: application 自动 issue code 默认挂 owner 的 public role。
 	public, verr := deps.Roles.GetByName(ctx, ownerID, access.PublicRoleName)
 	if verr != nil {
-		return postgres.CommitOutput{}, fmt.Errorf("get public role: %w", verr)
+		return CommitOutput{}, fmt.Errorf("get public role: %w", verr)
 	}
-	in := &postgres.CommitInput{
+	in := &CommitInput{
 		OwnerID:            ownerID,
 		DraftID:            draftID,
 		ApplicationID:      rp.appID,
@@ -182,10 +181,10 @@ func runCommitTx(
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {
 		if errors.Is(err, jobsmodel.ErrResumeDraftNotFound) {
-			return postgres.CommitOutput{},
+			return CommitOutput{},
 				fmt.Errorf("draft missing: %w", jobsmodel.ErrResumeDraftNotFound)
 		}
-		return postgres.CommitOutput{}, fmt.Errorf("commit application: %w", err)
+		return CommitOutput{}, fmt.Errorf("commit application: %w", err)
 	}
 	return out, nil
 }

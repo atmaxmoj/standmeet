@@ -20,6 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/plugins/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
@@ -28,7 +29,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/printsess"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/search"
@@ -60,9 +60,9 @@ type repoSet struct {
 	customPage     *owner.CustomPageRepo
 	customBuild    *owner.CustomBuildRepo
 	accessRequest  *access.RequestRepo
-	jobSource      *postgres.JobSourceRepo
-	resumeDraft    *postgres.ResumeDraftRepo
-	application    *postgres.ApplicationRepo
+	jobSource      *jobsuc.JobSourceRepo
+	resumeDraft    *jobsuc.ResumeDraftRepo
+	application    *jobsuc.ApplicationRepo
 	skill          *marketplace.SkillRepo
 	mcpServer      *marketplace.MCPServerRepo
 	prompt         *owner.PromptRepo
@@ -81,7 +81,7 @@ type repoSet struct {
 	connector      *connector.Repo
 }
 
-func newRepos(db *postgres.Pool) *repoSet {
+func newRepos(db *pgstore.Pool) *repoSet {
 	return &repoSet{
 		instance:       owner.NewInstanceRepo(db),
 		owner:          owner.NewRepo(db),
@@ -101,9 +101,9 @@ func newRepos(db *postgres.Pool) *repoSet {
 		customPage:     owner.NewCustomPageRepo(db),
 		customBuild:    owner.NewCustomBuildRepo(db),
 		accessRequest:  access.NewAccessRequestRepo(db),
-		jobSource:      postgres.NewJobSourceRepo(db),
-		resumeDraft:    postgres.NewResumeDraftRepo(db),
-		application:    postgres.NewApplicationRepo(db),
+		jobSource:      jobsuc.NewJobSourceRepo(db),
+		resumeDraft:    jobsuc.NewResumeDraftRepo(db),
+		application:    jobsuc.NewApplicationRepo(db),
 		skill:          marketplace.NewSkillRepo(db),
 		mcpServer:      marketplace.NewMCPServerRepo(db),
 		prompt:         owner.NewPromptRepo(db),

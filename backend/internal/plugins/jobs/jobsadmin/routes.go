@@ -25,7 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
 const (
@@ -42,9 +42,9 @@ type PoolLister interface {
 
 // Deps —— jobs admin 路由依赖。Log 必填 (encode 失败要 log)。
 type Deps struct {
-	Apps    *postgres.ApplicationRepo
-	Drafts  *postgres.ResumeDraftRepo
-	Sources *postgres.JobSourceRepo
+	Apps    *jobsuc.ApplicationRepo
+	Drafts  *jobsuc.ResumeDraftRepo
+	Sources *jobsuc.JobSourceRepo
 	Pool    PoolLister
 	Log     *slog.Logger
 }

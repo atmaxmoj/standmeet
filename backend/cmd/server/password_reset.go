@@ -24,7 +24,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 )
 
 const (
@@ -46,7 +46,7 @@ type resetToken struct {
 func runPasswordReset(log *slog.Logger, cfg *config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	db, err := postgres.Connect(ctx, cfg.DatabaseURL)
+	db, err := pgstore.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("connect pg: %w", err)
 	}
@@ -54,7 +54,7 @@ func runPasswordReset(log *slog.Logger, cfg *config.Config) error {
 	return issueAndPrint(ctx, log, db)
 }
 
-func issueAndPrint(ctx context.Context, log *slog.Logger, db *postgres.Pool) error {
+func issueAndPrint(ctx context.Context, log *slog.Logger, db *pgstore.Pool) error {
 	repo := owner.NewRepo(db)
 	handle, err := repo.GetSoleOwnerHandle(ctx)
 	if err != nil {

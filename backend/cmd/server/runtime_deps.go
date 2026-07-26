@@ -24,7 +24,6 @@ import (
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/printsess"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
@@ -63,9 +62,9 @@ type runtimeDeps struct {
 	customPageRepo     *owner.CustomPageRepo
 	customBuildRepo    *owner.CustomBuildRepo
 	accessRequestRepo  *access.RequestRepo
-	jobSourceRepo      *postgres.JobSourceRepo
-	resumeDraftRepo    *postgres.ResumeDraftRepo
-	applicationRepo    *postgres.ApplicationRepo
+	jobSourceRepo      *jobsuc.JobSourceRepo
+	resumeDraftRepo    *jobsuc.ResumeDraftRepo
+	applicationRepo    *jobsuc.ApplicationRepo
 	skillRepo          *marketplace.SkillRepo
 	mcpServerRepo      *marketplace.MCPServerRepo
 	promptRepo         *owner.PromptRepo

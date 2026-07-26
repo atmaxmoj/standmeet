@@ -8,7 +8,7 @@
 //   - 删 member **不**连带删对话历史（conversations.member_id ON DELETE SET NULL）：member 是
 //     session 背后的身份，被清理时对话（含 dialog/message）要留下，只把归属置空。
 
-package postgres_test
+package conversation_test
 
 import (
 	"os"

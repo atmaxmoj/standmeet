@@ -22,13 +22,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/dedup"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // JobsDeps —— jobs.* usecase 依赖。
 type JobsDeps struct {
-	Sources  *postgres.JobSourceRepo
+	Sources  *JobSourceRepo
 	Cache    *jobcache.Pool
 	Registry *jobfetch.Registry
 }

@@ -23,7 +23,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmcp"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // Name —— Plugin.Name 实现。固定 "jobs"。
@@ -35,9 +34,9 @@ type Deps struct {
 	Jobs         *jobsuc.JobsDeps
 	Resume       *jobsuc.ResumeDeps
 	Applications *jobsuc.ApplicationsDeps
-	DraftsRepo   *postgres.ResumeDraftRepo
-	AppsRepo     *postgres.ApplicationRepo
-	SourcesRepo  *postgres.JobSourceRepo
+	DraftsRepo   *jobsuc.ResumeDraftRepo
+	AppsRepo     *jobsuc.ApplicationRepo
+	SourcesRepo  *jobsuc.JobSourceRepo
 	Log          *slog.Logger
 }
 
