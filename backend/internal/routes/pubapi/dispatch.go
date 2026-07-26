@@ -12,8 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 )
 
 // toolView / toolsResp —— discovery response.
@@ -64,7 +64,7 @@ func queryOnMutating(method string, tool *capreg.BindingTool) bool {
 // runTool —— read the body, execute, respond. Executor errors are logged and returned as a static
 // tool_error (no provider internals reach the caller). last_used_at is bumped best-effort.
 func (h *Handlers) runTool(
-	w http.ResponseWriter, r *http.Request, key *credentialdomain.APIKey, tool *capreg.BindingTool,
+	w http.ResponseWriter, r *http.Request, key *accessdomain.APIKey, tool *capreg.BindingTool,
 ) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxAPIBodyBytes)
 	body, berr := io.ReadAll(r.Body)

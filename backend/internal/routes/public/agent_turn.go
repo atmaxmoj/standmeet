@@ -13,8 +13,8 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -316,7 +316,7 @@ func resolveAgentTurnCred(
 
 func pickAgentTurnBYOAICred(
 	h *Handlers, auth authedVisitor, r *http.Request,
-) *credentialdomain.AICredential {
+) *ownerdomain.AICredential {
 	if auth.Data.Mode != "byoai" {
 		return nil
 	}

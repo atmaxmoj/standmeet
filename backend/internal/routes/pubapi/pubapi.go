@@ -21,8 +21,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 	"github.com/atmaxmoj/standmeet/internal/paritymanifest"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -40,7 +40,7 @@ const maxAPIBodyBytes = 1 << 20
 // implements it): auth lookup, per-key denials, the owner's opened capabilities, last-used bump.
 type KeyStore interface {
 	usecases.APIToolsetStore
-	GetBySecretHash(ctx context.Context, hash []byte) (credentialdomain.APIKey, error)
+	GetBySecretHash(ctx context.Context, hash []byte) (accessdomain.APIKey, error)
 	TouchLastUsed(ctx context.Context, id string) error
 }
 
@@ -118,8 +118,8 @@ func (h *Handlers) toolsetDeps() usecases.APIToolsetDeps {
 	return usecases.APIToolsetDeps{Visitor: h.d.Visitor, Store: h.d.Keys, Skills: h.d.AgentSkills}
 }
 
-func keyFromCtx(ctx context.Context) *credentialdomain.APIKey {
-	k, ok := ctx.Value(keyCtxKey).(*credentialdomain.APIKey)
+func keyFromCtx(ctx context.Context) *accessdomain.APIKey {
+	k, ok := ctx.Value(keyCtxKey).(*accessdomain.APIKey)
 	if !ok {
 		return nil
 	}
@@ -136,7 +136,7 @@ func toolsetFromCtx(ctx context.Context) *usecases.APIToolset {
 
 // allowRate —— per-key fixed-window limiter. Fail-open on Redis error (authenticated keys →
 // availability over throttling, unlike login_guard which fails closed).
-func (h *Handlers) allowRate(ctx context.Context, key *credentialdomain.APIKey) bool {
+func (h *Handlers) allowRate(ctx context.Context, key *accessdomain.APIKey) bool {
 	rkey := "ratelimit:apikey:" + key.ID
 	n, err := h.d.Redis.Incr(ctx, rkey).Result()
 	if err != nil {
@@ -155,7 +155,7 @@ func (h *Handlers) setRateExpiry(ctx context.Context, rkey string) {
 	}
 }
 
-func keyLimit(key *credentialdomain.APIKey, def int) int {
+func keyLimit(key *accessdomain.APIKey, def int) int {
 	if key.RateLimitRPM != nil && *key.RateLimitRPM > 0 {
 		return int(*key.RateLimitRPM)
 	}

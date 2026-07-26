@@ -10,8 +10,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 )
 
 // apiFacadeMode —— AssembleInput.Mode marker for api-key requests (no conversation, no LLM).
@@ -50,7 +50,7 @@ func (t *APIToolset) Close() {
 
 // AssembleAPIKeyToolset —— freeze snapshot, assemble grant, keep (opened ∩ whitelist) tools.
 func AssembleAPIKeyToolset(
-	ctx context.Context, deps APIToolsetDeps, key *credentialdomain.APIKey, whitelist []string,
+	ctx context.Context, deps APIToolsetDeps, key *accessdomain.APIKey, whitelist []string,
 ) (APIToolset, error) {
 	snap, err := BuildAPIKeyRoleSnapshot(ctx, deps.Visitor, deps.Store, key)
 	if err != nil {

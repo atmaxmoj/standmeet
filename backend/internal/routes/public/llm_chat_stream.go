@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 )
 
 func (h *Handlers) llmChatStream() http.HandlerFunc {
@@ -63,7 +63,7 @@ func resolveLLMCred(
 
 func pickLLMBYOAICred(
 	h *Handlers, auth authedVisitor, r *http.Request,
-) *credentialdomain.AICredential {
+) *ownerdomain.AICredential {
 	if auth.Data.Mode != "byoai" {
 		return nil
 	}

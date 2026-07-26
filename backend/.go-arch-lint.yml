@@ -87,8 +87,6 @@ components:
     in: internal/accessdomain              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
   ownerdomain:
     in: internal/ownerdomain               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
-  credentialdomain:
-    in: internal/credentialdomain          # #135: owner 凭据/密钥值对象 (api_key/keypair/ai_credential)；pure leaf
   instancedomain:
     in: internal/instancedomain            # #135: 部署 singleton 配置 (instance_settings)；pure leaf
   connectordomain:
@@ -176,10 +174,9 @@ deps:
   usecases:
     mayDependOn:
       - mcpdomain
-      - credentialdomain
-      - marketplace
-      - ownerdomain
       - accessdomain
+      - ownerdomain
+      - marketplace
       - corpusdomain
       - conversationdomain
       - domain
@@ -377,10 +374,9 @@ deps:
       - mcpdomain
       - connectordomain
       - instancedomain
-      - credentialdomain
-      - marketplace
-      - ownerdomain
       - accessdomain
+      - ownerdomain
+      - marketplace
       - corpusdomain
       - conversationdomain
       - jobsdomain
@@ -441,7 +437,8 @@ deps:
   # 仍走 narrow OwnerLookup 接口，不耦合具体 repo。
   inference:
     mayDependOn:
-      - credentialdomain
+      - accessdomain
+      - ownerdomain
       - cryptobox
       - domain   # AICredential value object，统一 byoai 跟 owner key 的 shape
       - httpx
@@ -501,10 +498,9 @@ deps:
     mayDependOn:
       - mcpdomain
       - connectordomain
-      - credentialdomain
-      - marketplace
-      - ownerdomain
       - accessdomain
+      - ownerdomain
+      - marketplace
       - corpusdomain
       - conversationdomain
       - plugins
@@ -656,10 +652,6 @@ deps:
     anyVendorDeps: true
 
 
-  # credentialdomain —— #135 owner 凭据/密钥值对象 leaf：APIKey/OwnerKeypair/AICredential，无 internal 依赖。
-  credentialdomain:
-    mayDependOn: []
-    anyVendorDeps: true
 
   # instancedomain —— #135 部署 singleton 配置 leaf：InstanceSettings + setup/claim 错误，无 internal 依赖。
   instancedomain:
@@ -730,10 +722,9 @@ deps:
       - mcpdomain
       - connectordomain
       - instancedomain
-      - credentialdomain
-      - marketplace
-      - ownerdomain
       - accessdomain
+      - ownerdomain
+      - marketplace
       - corpusdomain
       - conversationdomain
       - domain
@@ -772,9 +763,8 @@ deps:
   publicroutes:
     mayDependOn:
       - mcpdomain
-      - credentialdomain
-      - ownerdomain
       - accessdomain
+      - ownerdomain
       - corpusdomain
       - conversationdomain
       - domain
@@ -794,7 +784,8 @@ deps:
   # outward tools via paritymanifest. Own auth (api-key), no CSRF/owner-session.
   pubapi:
     mayDependOn:
-      - credentialdomain
+      - accessdomain
+      - ownerdomain
       - domain
       - usecases
       - capreg

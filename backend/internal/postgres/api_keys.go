@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -26,15 +26,15 @@ func NewAPIKeyRepo(pool *Pool) *APIKeyRepo { return &APIKeyRepo{pool: pool} }
 
 // Create —— mint a key row. Returns the persisted row (with generated id + created_at).
 func (r *APIKeyRepo) Create(
-	ctx context.Context, in *credentialdomain.CreateAPIKeyInput,
-) (credentialdomain.APIKey, error) {
+	ctx context.Context, in *accessdomain.CreateAPIKeyInput,
+) (accessdomain.APIKey, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return accessdomain.APIKey{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	roleUUID, rerr := parseUUID(in.AssumedRoleID)
 	if rerr != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf("parse role id: %w", rerr)
+		return accessdomain.APIKey{}, fmt.Errorf("parse role id: %w", rerr)
 	}
 	row, qerr := dbq.New(r.pool).CreateAPIKey(ctx, dbq.CreateAPIKeyParams{
 		OwnerID: ownerUUID, AssumedRoleID: roleUUID, Label: in.Label,
@@ -42,7 +42,7 @@ func (r *APIKeyRepo) Create(
 		ExpiresAt: toTimestamptz(in.ExpiresAt),
 	})
 	if qerr != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf("create api key: %w", qerr)
+		return accessdomain.APIKey{}, fmt.Errorf("create api key: %w", qerr)
 	}
 	return decodeAPIKey(&row), nil
 }
@@ -50,21 +50,21 @@ func (r *APIKeyRepo) Create(
 // GetBySecretHash —— auth lookup. Only an active, unexpired key resolves; anything else →
 // ErrAPIKeyNotFound (the middleware maps it to 401).
 func (r *APIKeyRepo) GetBySecretHash(
-	ctx context.Context, hash []byte) (credentialdomain.APIKey, error,
+	ctx context.Context, hash []byte) (accessdomain.APIKey, error,
 ) {
 	row, err := dbq.New(r.pool).GetAPIKeyBySecretHash(ctx, hash)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return credentialdomain.APIKey{}, credentialdomain.ErrAPIKeyNotFound
+		return accessdomain.APIKey{}, accessdomain.ErrAPIKeyNotFound
 	}
 	if err != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf("get api key by secret: %w", err)
+		return accessdomain.APIKey{}, fmt.Errorf("get api key by secret: %w", err)
 	}
 	return decodeAPIKey(&row), nil
 }
 
 // ListByOwner —— all of the owner's keys, newest first (includes revoked, for the admin view).
 func (r *APIKeyRepo) ListByOwner(
-	ctx context.Context, ownerID string) ([]credentialdomain.APIKey, error,
+	ctx context.Context, ownerID string) ([]accessdomain.APIKey, error,
 ) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
@@ -74,7 +74,7 @@ func (r *APIKeyRepo) ListByOwner(
 	if qerr != nil {
 		return nil, fmt.Errorf("list api keys: %w", qerr)
 	}
-	out := make([]credentialdomain.APIKey, 0, len(rows))
+	out := make([]accessdomain.APIKey, 0, len(rows))
 	for i := range rows {
 		out = append(out, decodeAPIKey(&rows[i]))
 	}
@@ -83,24 +83,24 @@ func (r *APIKeyRepo) ListByOwner(
 
 // GetByID —— owner-scoped fetch (BOLA guard: a key not owned by ownerID → ErrAPIKeyNotFound).
 func (r *APIKeyRepo) GetByID(
-	ctx context.Context, id, ownerID string) (credentialdomain.APIKey, error,
+	ctx context.Context, id, ownerID string) (accessdomain.APIKey, error,
 ) {
 	idUUID, err := parseUUID(id)
 	if err != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf(errParseKeyIDPrefix, err)
+		return accessdomain.APIKey{}, fmt.Errorf(errParseKeyIDPrefix, err)
 	}
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return accessdomain.APIKey{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, qerr := dbq.New(r.pool).GetAPIKeyByID(ctx, dbq.GetAPIKeyByIDParams{
 		ID: idUUID, OwnerID: ownerUUID,
 	})
 	if errors.Is(qerr, pgx.ErrNoRows) {
-		return credentialdomain.APIKey{}, credentialdomain.ErrAPIKeyNotFound
+		return accessdomain.APIKey{}, accessdomain.ErrAPIKeyNotFound
 	}
 	if qerr != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf("get api key: %w", qerr)
+		return accessdomain.APIKey{}, fmt.Errorf("get api key: %w", qerr)
 	}
 	return decodeAPIKey(&row), nil
 }
@@ -125,25 +125,25 @@ func (r *APIKeyRepo) Revoke(ctx context.Context, id, ownerID string) error {
 
 // Update —— owner-scoped partial update of label / rate limit.
 func (r *APIKeyRepo) Update(
-	ctx context.Context, in *credentialdomain.UpdateAPIKeyInput,
-) (credentialdomain.APIKey, error) {
+	ctx context.Context, in *accessdomain.UpdateAPIKeyInput,
+) (accessdomain.APIKey, error) {
 	idUUID, err := parseUUID(in.ID)
 	if err != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf(errParseKeyIDPrefix, err)
+		return accessdomain.APIKey{}, fmt.Errorf(errParseKeyIDPrefix, err)
 	}
 	ownerUUID, oerr := parseUUID(in.OwnerID)
 	if oerr != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return accessdomain.APIKey{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, qerr := dbq.New(r.pool).UpdateAPIKey(ctx, dbq.UpdateAPIKeyParams{
 		Label: in.Label, SetRate: in.SetRate, RateLimitRpm: in.RateLimitRPM,
 		ID: idUUID, OwnerID: ownerUUID,
 	})
 	if errors.Is(qerr, pgx.ErrNoRows) {
-		return credentialdomain.APIKey{}, credentialdomain.ErrAPIKeyNotFound
+		return accessdomain.APIKey{}, accessdomain.ErrAPIKeyNotFound
 	}
 	if qerr != nil {
-		return credentialdomain.APIKey{}, fmt.Errorf("update api key: %w", qerr)
+		return accessdomain.APIKey{}, fmt.Errorf("update api key: %w", qerr)
 	}
 	return decodeAPIKey(&row), nil
 }
@@ -161,8 +161,8 @@ func (r *APIKeyRepo) TouchLastUsed(ctx context.Context, id string) error {
 	return nil
 }
 
-func decodeAPIKey(row *dbq.ApiKey) credentialdomain.APIKey {
-	return credentialdomain.APIKey{
+func decodeAPIKey(row *dbq.ApiKey) accessdomain.APIKey {
+	return accessdomain.APIKey{
 		ID:            formatUUID(row.ID),
 		OwnerID:       formatUUID(row.OwnerID),
 		AssumedRoleID: formatUUID(row.AssumedRoleID),

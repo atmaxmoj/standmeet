@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -38,10 +38,10 @@ type CreateKeypairInput struct {
 // Create 写入新 keypair (caller 已在外面生成 key_id + 公钥 PEM)。
 func (r *OwnerKeypairRepo) Create(
 	ctx context.Context, in *CreateKeypairInput,
-) (credentialdomain.OwnerKeypair, error) {
+) (ownerdomain.OwnerKeypair, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return credentialdomain.OwnerKeypair{}, fmt.Errorf("parse owner id: %w", err)
+		return ownerdomain.OwnerKeypair{}, fmt.Errorf("parse owner id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateOwnerKeypair(ctx, dbq.CreateOwnerKeypairParams{
@@ -51,7 +51,7 @@ func (r *OwnerKeypairRepo) Create(
 		Label:        in.Label,
 	})
 	if err != nil {
-		return credentialdomain.OwnerKeypair{}, fmt.Errorf("create owner keypair: %w", err)
+		return ownerdomain.OwnerKeypair{}, fmt.Errorf("create owner keypair: %w", err)
 	}
 	return toDomainKeypair(&row), nil
 }
@@ -59,7 +59,7 @@ func (r *OwnerKeypairRepo) Create(
 // ListByOwner —— admin UI 用，metadata only (无 PEM)。
 func (r *OwnerKeypairRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]credentialdomain.OwnerKeypairMetadata, error) {
+) ([]ownerdomain.OwnerKeypairMetadata, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
@@ -69,7 +69,7 @@ func (r *OwnerKeypairRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list owner keypairs: %w", err)
 	}
-	out := make([]credentialdomain.OwnerKeypairMetadata, 0, len(rows))
+	out := make([]ownerdomain.OwnerKeypairMetadata, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainKeypairMetadata(&rows[i]))
 	}
@@ -80,14 +80,14 @@ func (r *OwnerKeypairRepo) ListByOwner(
 // ErrKeypairUnauthorized 让上层翻 401 不泄露存在性。
 func (r *OwnerKeypairRepo) GetByKeyID(
 	ctx context.Context, keyID string,
-) (credentialdomain.OwnerKeypair, error) {
+) (ownerdomain.OwnerKeypair, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetOwnerKeypairByKeyID(ctx, keyID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return credentialdomain.OwnerKeypair{}, credentialdomain.ErrKeypairUnauthorized
+			return ownerdomain.OwnerKeypair{}, ownerdomain.ErrKeypairUnauthorized
 		}
-		return credentialdomain.OwnerKeypair{}, fmt.Errorf("get keypair: %w", err)
+		return ownerdomain.OwnerKeypair{}, fmt.Errorf("get keypair: %w", err)
 	}
 	return toDomainKeypair(&row), nil
 }
@@ -123,8 +123,8 @@ func (r *OwnerKeypairRepo) Delete(ctx context.Context, ownerID, keyID string) er
 	return nil
 }
 
-func toDomainKeypair(r *dbq.OwnerKeypair) credentialdomain.OwnerKeypair {
-	return credentialdomain.OwnerKeypair{
+func toDomainKeypair(r *dbq.OwnerKeypair) ownerdomain.OwnerKeypair {
+	return ownerdomain.OwnerKeypair{
 		ID:           formatUUID(r.ID),
 		OwnerID:      formatUUID(r.OwnerID),
 		KeyID:        r.KeyID,
@@ -135,8 +135,8 @@ func toDomainKeypair(r *dbq.OwnerKeypair) credentialdomain.OwnerKeypair {
 	}
 }
 
-func toDomainKeypairMetadata(r *dbq.ListOwnerKeypairsRow) credentialdomain.OwnerKeypairMetadata {
-	return credentialdomain.OwnerKeypairMetadata{
+func toDomainKeypairMetadata(r *dbq.ListOwnerKeypairsRow) ownerdomain.OwnerKeypairMetadata {
+	return ownerdomain.OwnerKeypairMetadata{
 		ID:         formatUUID(r.ID),
 		KeyID:      r.KeyID,
 		Label:      r.Label,

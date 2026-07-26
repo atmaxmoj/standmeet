@@ -1,4 +1,4 @@
-package credentialdomain
+package accessdomain
 
 import (
 	"errors"

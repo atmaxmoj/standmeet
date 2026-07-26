@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/accessdomain"
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
@@ -119,7 +118,7 @@ type APIKeyDenialReader interface {
 // used purely to gate which capabilities/tools the key's HTTP calls may reach.
 func BuildAPIKeyRoleSnapshot(
 	ctx context.Context, deps *VisitorSessionDeps, denials APIKeyDenialReader,
-	key *credentialdomain.APIKey,
+	key *accessdomain.APIKey,
 ) (domain.RoleSnapshot, error) {
 	caps, err := denials.ListCapabilityDenials(ctx, key.ID)
 	if err != nil {

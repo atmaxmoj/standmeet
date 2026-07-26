@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 )
 
 // Cred —— resolved upstream credential. all four fields non-empty after
@@ -42,7 +42,7 @@ type Resolver interface {
 // ResolveInput —— per-request input. BYOAI non-nil only in mode='byoai'.
 // fieldalignment: pointer first.
 type ResolveInput struct {
-	BYOAI   *credentialdomain.AICredential
+	BYOAI   *ownerdomain.AICredential
 	OwnerID string
 	Mode    string
 }
@@ -74,19 +74,19 @@ func (r *OwnerKeyResolver) Resolve(
 
 func (r *OwnerKeyResolver) loadOwnerCred(
 	ctx context.Context, ownerID string,
-) (credentialdomain.AICredential, error) {
+) (ownerdomain.AICredential, error) {
 	view, err := r.Lookup.LookupForResolver(ctx, ownerID)
 	if err != nil {
-		return credentialdomain.AICredential{}, fmt.Errorf("resolve owner provider: %w", err)
+		return ownerdomain.AICredential{}, fmt.Errorf("resolve owner provider: %w", err)
 	}
 	if len(view.KeyEnc) == 0 {
-		return credentialdomain.AICredential{}, ErrOwnerProviderUnconfigured
+		return ownerdomain.AICredential{}, ErrOwnerProviderUnconfigured
 	}
 	keyBytes, derr := r.Decrypter(ownerID, view.KeyEnc)
 	if derr != nil {
-		return credentialdomain.AICredential{}, fmt.Errorf("decrypt owner ai key: %w", derr)
+		return ownerdomain.AICredential{}, fmt.Errorf("decrypt owner ai key: %w", derr)
 	}
-	return credentialdomain.AICredential{
+	return ownerdomain.AICredential{
 		Provider: view.Provider, Key: string(keyBytes),
 		Endpoint: view.Endpoint, Model: view.Model,
 	}, nil
@@ -95,7 +95,7 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 // validateCred —— enforce that all four fields are populated before
 // returning a Cred. preset table only fills UI defaults; server doesn't
 // fall back at request time.
-func validateCred(cred *credentialdomain.AICredential) (*Cred, error) {
+func validateCred(cred *ownerdomain.AICredential) (*Cred, error) {
 	if cred.Provider == "" {
 		return nil, errors.New("cred missing provider")
 	}

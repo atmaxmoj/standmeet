@@ -20,7 +20,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -51,7 +51,7 @@ type CreateKeypairInput struct {
 
 // CreatedKeypair —— Create 返结果 (含 PrivateKeyPEM，**只在创建时返回一次**)。
 type CreatedKeypair struct {
-	Record        credentialdomain.OwnerKeypair
+	Record        ownerdomain.OwnerKeypair
 	PrivateKeyPEM string
 }
 
@@ -105,7 +105,7 @@ func generateKeypairPEMs() (keypairPEMs, error) {
 // ListKeypairs —— admin GET /api/admin/keypairs 用，metadata only。
 func ListKeypairs(
 	ctx context.Context, deps KeypairDeps, ownerID string,
-) ([]credentialdomain.OwnerKeypairMetadata, error) {
+) ([]ownerdomain.OwnerKeypairMetadata, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}
@@ -140,13 +140,13 @@ func ensureKeypairOwned(
 ) error {
 	kp, err := deps.Repo.GetByKeyID(ctx, keyID)
 	if err != nil {
-		if errors.Is(err, credentialdomain.ErrKeypairUnauthorized) {
-			return credentialdomain.ErrKeypairUnauthorized
+		if errors.Is(err, ownerdomain.ErrKeypairUnauthorized) {
+			return ownerdomain.ErrKeypairUnauthorized
 		}
 		return fmt.Errorf("get keypair: %w", err)
 	}
 	if kp.OwnerID != ownerID {
-		return credentialdomain.ErrKeypairUnauthorized
+		return ownerdomain.ErrKeypairUnauthorized
 	}
 	return nil
 }
@@ -169,10 +169,10 @@ func VerifySigv1(
 ) (string, error) {
 	parsed, perr := parseSigv1Header(authHeader)
 	if perr != nil {
-		return "", credentialdomain.ErrKeypairUnauthorized
+		return "", ownerdomain.ErrKeypairUnauthorized
 	}
 	if !withinSkew(parsed.ts) {
-		return "", credentialdomain.ErrKeypairUnauthorized
+		return "", ownerdomain.ErrKeypairUnauthorized
 	}
 	return verifyParsedSig(ctx, deps, parsed)
 }
@@ -260,16 +260,16 @@ func verifyParsedSig(
 ) (string, error) {
 	kp, err := deps.Repo.GetByKeyID(ctx, p.keyID)
 	if err != nil {
-		return "", credentialdomain.ErrKeypairUnauthorized
+		return "", ownerdomain.ErrKeypairUnauthorized
 	}
 	pub, perr := decodePublicKey(kp.PublicKeyPEM)
 	if perr != nil {
 		deps.Log.Error("keypair: decode stored public key", "err", perr, "key_id", p.keyID)
-		return "", credentialdomain.ErrKeypairUnauthorized
+		return "", ownerdomain.ErrKeypairUnauthorized
 	}
 	challenge := fmt.Sprintf("%s\n%s\n%d\n%s", challengeNS, p.keyID, p.ts, p.nonce)
 	if !ed25519.Verify(pub, []byte(challenge), p.sig) {
-		return "", credentialdomain.ErrKeypairUnauthorized
+		return "", ownerdomain.ErrKeypairUnauthorized
 	}
 	if rerr := checkNonceFresh(ctx, deps, p); rerr != nil {
 		return "", rerr
@@ -293,7 +293,7 @@ func checkNonceFresh(ctx context.Context, deps KeypairDeps, p parsedSigv1) error
 		return nil
 	}
 	if !fresh {
-		return credentialdomain.ErrKeypairUnauthorized
+		return ownerdomain.ErrKeypairUnauthorized
 	}
 	return nil
 }
