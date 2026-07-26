@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 )
 
 // Cred —— resolved upstream credential. all four fields non-empty after
@@ -42,7 +42,7 @@ type Resolver interface {
 // ResolveInput —— per-request input. BYOAI non-nil only in mode='byoai'.
 // fieldalignment: pointer first.
 type ResolveInput struct {
-	BYOAI   *domain.AICredential
+	BYOAI   *credentialdomain.AICredential
 	OwnerID string
 	Mode    string
 }
@@ -74,19 +74,19 @@ func (r *OwnerKeyResolver) Resolve(
 
 func (r *OwnerKeyResolver) loadOwnerCred(
 	ctx context.Context, ownerID string,
-) (domain.AICredential, error) {
+) (credentialdomain.AICredential, error) {
 	view, err := r.Lookup.LookupForResolver(ctx, ownerID)
 	if err != nil {
-		return domain.AICredential{}, fmt.Errorf("resolve owner provider: %w", err)
+		return credentialdomain.AICredential{}, fmt.Errorf("resolve owner provider: %w", err)
 	}
 	if len(view.KeyEnc) == 0 {
-		return domain.AICredential{}, ErrOwnerProviderUnconfigured
+		return credentialdomain.AICredential{}, ErrOwnerProviderUnconfigured
 	}
 	keyBytes, derr := r.Decrypter(ownerID, view.KeyEnc)
 	if derr != nil {
-		return domain.AICredential{}, fmt.Errorf("decrypt owner ai key: %w", derr)
+		return credentialdomain.AICredential{}, fmt.Errorf("decrypt owner ai key: %w", derr)
 	}
-	return domain.AICredential{
+	return credentialdomain.AICredential{
 		Provider: view.Provider, Key: string(keyBytes),
 		Endpoint: view.Endpoint, Model: view.Model,
 	}, nil
@@ -95,7 +95,7 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 // validateCred —— enforce that all four fields are populated before
 // returning a Cred. preset table only fills UI defaults; server doesn't
 // fall back at request time.
-func validateCred(cred *domain.AICredential) (*Cred, error) {
+func validateCred(cred *credentialdomain.AICredential) (*Cred, error) {
 	if cred.Provider == "" {
 		return nil, errors.New("cred missing provider")
 	}

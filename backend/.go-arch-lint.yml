@@ -89,6 +89,8 @@ components:
     in: internal/ownerdomain               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
   skilldomain:
     in: internal/skilldomain               # #135: skill 领域值对象 (skill/script)；pure leaf
+  credentialdomain:
+    in: internal/credentialdomain          # #135: owner 凭据/密钥值对象 (api_key/keypair/ai_credential)；pure leaf
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -171,6 +173,7 @@ deps:
   # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
+      - credentialdomain
       - skilldomain
       - ownerdomain
       - accessdomain
@@ -367,6 +370,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
+      - credentialdomain
       - skilldomain
       - ownerdomain
       - accessdomain
@@ -430,6 +434,7 @@ deps:
   # 仍走 narrow OwnerLookup 接口，不耦合具体 repo。
   inference:
     mayDependOn:
+      - credentialdomain
       - cryptobox
       - domain   # AICredential value object，统一 byoai 跟 owner key 的 shape
       - httpx
@@ -486,6 +491,7 @@ deps:
   # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
   pluginownercore:
     mayDependOn:
+      - credentialdomain
       - skilldomain
       - ownerdomain
       - accessdomain
@@ -643,6 +649,11 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # credentialdomain —— #135 owner 凭据/密钥值对象 leaf：APIKey/OwnerKeypair/AICredential，无 internal 依赖。
+  credentialdomain:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
   # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
   # routes 不直接 import。
@@ -700,6 +711,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - credentialdomain
       - skilldomain
       - ownerdomain
       - accessdomain
@@ -741,6 +753,7 @@ deps:
   # token bearer auth；SSE 流式 chat。
   publicroutes:
     mayDependOn:
+      - credentialdomain
       - ownerdomain
       - accessdomain
       - corpusdomain
@@ -762,6 +775,7 @@ deps:
   # outward tools via paritymanifest. Own auth (api-key), no CSRF/owner-session.
   pubapi:
     mayDependOn:
+      - credentialdomain
       - domain
       - usecases
       - capreg

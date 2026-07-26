@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
@@ -117,7 +118,8 @@ type APIKeyDenialReader interface {
 // the key's per-key denials. No per-key prompt (the api facade has no LLM persona) — snapshot is
 // used purely to gate which capabilities/tools the key's HTTP calls may reach.
 func BuildAPIKeyRoleSnapshot(
-	ctx context.Context, deps *VisitorSessionDeps, denials APIKeyDenialReader, key *domain.APIKey,
+	ctx context.Context, deps *VisitorSessionDeps, denials APIKeyDenialReader,
+	key *credentialdomain.APIKey,
 ) (domain.RoleSnapshot, error) {
 	caps, err := denials.ListCapabilityDenials(ctx, key.ID)
 	if err != nil {

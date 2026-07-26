@@ -15,7 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -65,7 +65,7 @@ func (h *Handlers) listKeypairs() http.HandlerFunc {
 }
 
 func writeKeypairsList(
-	log *slog.Logger, w http.ResponseWriter, list []domain.OwnerKeypairMetadata,
+	log *slog.Logger, w http.ResponseWriter, list []credentialdomain.OwnerKeypairMetadata,
 ) {
 	items := make([]listKeypairItem, 0, len(list))
 	for i := range list {
@@ -78,7 +78,7 @@ func writeKeypairsList(
 	}
 }
 
-func toListKeypairItem(k *domain.OwnerKeypairMetadata) listKeypairItem {
+func toListKeypairItem(k *credentialdomain.OwnerKeypairMetadata) listKeypairItem {
 	item := listKeypairItem{
 		KeyID:     k.KeyID,
 		Label:     k.Label,
@@ -152,7 +152,7 @@ func (h *Handlers) deleteKeypair() http.HandlerFunc {
 }
 
 func deleteKeypairEnv(err error) apierr.Envelope {
-	if errors.Is(err, domain.ErrKeypairUnauthorized) {
+	if errors.Is(err, credentialdomain.ErrKeypairUnauthorized) {
 		return apierr.Envelope{
 			Status: http.StatusNotFound, Code: "keypair_not_found",
 			Message: "keypair not found",

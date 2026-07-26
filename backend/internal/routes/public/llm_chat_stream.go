@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 )
 
@@ -63,7 +63,7 @@ func resolveLLMCred(
 
 func pickLLMBYOAICred(
 	h *Handlers, auth authedVisitor, r *http.Request,
-) *domain.AICredential {
+) *credentialdomain.AICredential {
 	if auth.Data.Mode != "byoai" {
 		return nil
 	}

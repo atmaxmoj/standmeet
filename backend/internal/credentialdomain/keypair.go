@@ -4,7 +4,7 @@
 //
 // 撤销 = hard delete (无 status 字段)。对齐 youteacher 极简风格。
 
-package domain
+package credentialdomain
 
 import (
 	"errors"
