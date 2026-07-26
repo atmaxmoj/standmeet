@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
@@ -39,7 +40,7 @@ func RecordGhostShown(
 		return conversation.Ghost{}, fmt.Errorf("parse source: %w", perr)
 	}
 	if in.GhostText == "" {
-		return conversation.Ghost{}, ErrEmptyField
+		return conversation.Ghost{}, apierr.ErrEmptyField
 	}
 	row, err := deps.Repo.RecordShown(ctx, &conversation.RecordShownInput{
 		OwnerID:        in.OwnerID,

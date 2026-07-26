@@ -28,9 +28,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PDFRenderer —— 渲染 application 的 final PDF（包含 QR）。usecase 不关心
@@ -88,7 +88,7 @@ func CommitApplication(
 	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string,
 ) (jobsmodel.CommittedApplication, error) {
 	if ownerID == "" || draftID == "" {
-		return jobsmodel.CommittedApplication{}, usecases.ErrEmptyField
+		return jobsmodel.CommittedApplication{}, apierr.ErrEmptyField
 	}
 	return renderThenCommit(ctx, deps, ownerID, draftID)
 }

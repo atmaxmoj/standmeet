@@ -70,7 +70,7 @@ func handleUpdateHandleErr(log *slog.Logger, w http.ResponseWriter, err error) {
 		})
 		return
 	}
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		writeError(log, w, envBadReq(err.Error()))
 		return
 	}

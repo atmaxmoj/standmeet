@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
@@ -30,7 +31,7 @@ func LoadCrossLinkIndex(
 	ctx context.Context, deps CrossLinkQueryDeps, ownerID string,
 ) ([]SlugTitle, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.Writings.ListPublishedSlugAndTitle(ctx, ownerID)
 	if err != nil {
@@ -48,7 +49,7 @@ func ListBacklinks(
 	ctx context.Context, deps CrossLinkQueryDeps, ownerID, writingID string,
 ) ([]BacklinkRef, error) {
 	if ownerID == "" || writingID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.WritingRefs.BacklinksFor(ctx, ownerID, writingID)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
@@ -35,7 +36,7 @@ type RawDumpInput struct {
 // RawDump 写一条新 raw_entries。MCP 工具调它；source label 由 owner 的 AI 客户端给。
 func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (corpus.Raw, error) {
 	if in.OwnerID == "" || in.Body == "" {
-		return corpus.Raw{}, ErrEmptyField
+		return corpus.Raw{}, apierr.ErrEmptyField
 	}
 	src := in.Source
 	if src == "" {
@@ -167,7 +168,7 @@ func ensureSiblingSlugFree(ctx context.Context, deps CorpusDeps, c siblingSlugCh
 
 func validatePromoteInput(in *PromoteInput) error {
 	if in.OwnerID == "" || in.RawID == "" || in.Title == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	return nil
 }

@@ -45,3 +45,7 @@ func Classify(err error, cases []Case) Envelope {
 	}
 	return fallback
 }
+
+// ErrEmptyField —— 跨域共用的「必填字段为空」sentinel。usecase / 领域模块 return
+// 它，routes 统一 Classify 成 400。住 apierr（leaf）避免各模块反依赖 usecases。
+var ErrEmptyField = errors.New("required field is empty")

@@ -114,7 +114,7 @@ func (h *Handlers) Mount(r chi.Router) {
 }
 
 var visitorErrCases = []apierr.Case{
-	{Match: usecases.ErrEmptyField, Envelope: apierr.Envelope{
+	{Match: apierr.ErrEmptyField, Envelope: apierr.Envelope{
 		Status: http.StatusBadRequest, Code: "bad_request", Message: "missing required field",
 	}},
 	{Match: access.ErrCodeInvalid, Envelope: apierr.Envelope{

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -96,14 +97,11 @@ func seedClaimPublicRole(ctx context.Context, deps ClaimDeps, ownerID string) {
 	}
 }
 
-// ErrEmptyField —— 必填字段为空。Handler 翻译成 400。
-var ErrEmptyField = errors.New("required field is empty")
-
 // validateClaimInput 用 slice + slices.Contains 让 cyclo ≤ 2。
 func validateClaimInput(in *ClaimInput) error {
 	fields := []string{in.Token, in.Email, in.Password, in.Handle, in.FullName, in.PublicURL}
 	if slices.Contains(fields, "") {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if !validPublicURL(in.PublicURL) {
 		return ErrPublicURLInvalid

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -75,7 +76,7 @@ func (c *accountCapability) handleSetFullName(
 	}
 	owner, err := usecases.UpdateOwnerFullName(ctx, c.account, ownerID, args.FullName)
 	if err != nil {
-		if errors.Is(err, usecases.ErrEmptyField) {
+		if errors.Is(err, apierr.ErrEmptyField) {
 			return capreg.MCPError("full_name is required (max 200 chars)")
 		}
 		c.log.Error("cap account.set_full_name", "err", err)

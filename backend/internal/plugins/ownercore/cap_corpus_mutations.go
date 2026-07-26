@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
@@ -322,7 +323,7 @@ func wikiMutationErrToResult(
 	if errors.Is(err, corpus.ErrParentCycle) {
 		return capreg.MCPError("parent would create a cycle")
 	}
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		return capreg.MCPError("required field missing")
 	}
 	log.Error("cap "+name, "err", err)
@@ -335,7 +336,7 @@ func outputMutationErrToResult(
 	if errors.Is(err, corpus.ErrOutputNotFound) {
 		return capreg.MCPError("output entry not found")
 	}
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		return capreg.MCPError("required field missing")
 	}
 	log.Error("cap "+name, "err", err)

@@ -67,7 +67,7 @@ func writePublicURLResp(log *slog.Logger, w http.ResponseWriter, o *owner.Owner)
 }
 
 func handleUpdatePublicURLErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		writeError(log, w, envBadReq("public_url is required"))
 		return
 	}

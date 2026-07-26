@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -100,7 +101,7 @@ func parseKeyChange(s string) usecases.KeyChange {
 }
 
 func handleAIProviderErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		writeError(log, w, envBadReq(err.Error()))
 		return
 	}

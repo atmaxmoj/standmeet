@@ -31,6 +31,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
@@ -102,10 +103,10 @@ func SaveWriting(
 // loadExistingWriting 把 slug 从 DB 读出，input.Slug 此时为空是合法的。
 func validateSaveInput(in *SaveWritingInput) error {
 	if in.OwnerID == "" || in.Title == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if in.WritingID == "" && in.Slug == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	return nil
 }

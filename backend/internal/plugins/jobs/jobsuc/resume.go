@@ -17,9 +17,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ResumeDeps —— resume.* usecase 依赖。
@@ -77,7 +77,7 @@ func UpdateResumeDraft(
 
 func requireFields(s1, s2 string, content *jobsmodel.ResumeContent) error {
 	if s1 == "" || s2 == "" || content == nil {
-		return usecases.ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	return nil
 }
@@ -98,7 +98,7 @@ func loadJobSnapshot(
 // DiscardResumeDraft —— resume.discard_draft；idempotent（owner 不匹配/已删都静默成功）。
 func DiscardResumeDraft(ctx context.Context, deps ResumeDeps, ownerID, draftID string) error {
 	if ownerID == "" || draftID == "" {
-		return usecases.ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := deps.Drafts.Delete(ctx, ownerID, draftID); err != nil {
 		return fmt.Errorf("delete draft: %w", err)

@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -60,7 +61,7 @@ func CreateKeypair(
 	ctx context.Context, deps KeypairDeps, in *CreateKeypairInput,
 ) (CreatedKeypair, error) {
 	if in.OwnerID == "" || in.Label == "" {
-		return CreatedKeypair{}, ErrEmptyField
+		return CreatedKeypair{}, apierr.ErrEmptyField
 	}
 	pems, gerr := generateKeypairPEMs()
 	if gerr != nil {
@@ -106,7 +107,7 @@ func ListKeypairs(
 	ctx context.Context, deps KeypairDeps, ownerID string,
 ) ([]owner.KeypairMetadata, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	out, err := deps.Repo.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -121,7 +122,7 @@ func DeleteKeypair(
 	ctx context.Context, deps KeypairDeps, ownerID, keyID string,
 ) error {
 	if ownerID == "" || keyID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if oerr := ensureKeypairOwned(ctx, deps, ownerID, keyID); oerr != nil {
 		return oerr

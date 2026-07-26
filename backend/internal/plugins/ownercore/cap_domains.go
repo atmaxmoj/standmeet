@@ -10,6 +10,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -149,7 +150,7 @@ func (c *domainsCapability) handleRemove(
 }
 
 func (c *domainsCapability) domainErrToResult(op string, err error) capreg.MCPResult {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		return capreg.MCPError("domain is required")
 	}
 	c.log.Error("cap domains."+op, "err", err)

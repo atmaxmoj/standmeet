@@ -165,7 +165,7 @@ var accountErrCases = []apierr.Case{
 		Envelope: envBadReq("password must be at least 12 characters"),
 	},
 	{
-		Match:    usecases.ErrEmptyField,
+		Match:    apierr.ErrEmptyField,
 		Envelope: envBadReq("required field is empty"),
 	},
 }

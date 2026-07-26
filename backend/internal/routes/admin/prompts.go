@@ -107,7 +107,7 @@ func (h *Handlers) createPrompt() http.HandlerFunc {
 }
 
 var createPromptErrCases = []apierr.Case{
-	{Match: usecases.ErrEmptyField, Envelope: envBadReq("name is required")},
+	{Match: apierr.ErrEmptyField, Envelope: envBadReq("name is required")},
 	{
 		Match: owner.ErrPromptNameTaken,
 		Envelope: apierr.Envelope{

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
@@ -226,7 +227,7 @@ func (c *accessRequestsCapability) handleApprove(
 
 func (c *accessRequestsCapability) errToResult(tool string, err error) capreg.MCPResult {
 	switch {
-	case errors.Is(err, usecases.ErrEmptyField):
+	case errors.Is(err, apierr.ErrEmptyField):
 		return capreg.MCPError("missing required field")
 	case errors.Is(err, access.ErrAccessRequestStatusInvalid):
 		return capreg.MCPError("invalid status value (want open, replied, or closed)")

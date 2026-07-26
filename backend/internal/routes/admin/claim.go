@@ -141,7 +141,7 @@ func envBadReq(msg string) apierr.Envelope {
 // HTTP envelope。顺序无关（errors.Is 走的是 unwrap chain）。
 var claimErrCases = []apierr.Case{
 	{
-		Match:    usecases.ErrEmptyField,
+		Match:    apierr.ErrEmptyField,
 		Envelope: envBadReq("missing required field"),
 	},
 	{

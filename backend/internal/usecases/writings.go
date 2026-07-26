@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
@@ -38,7 +39,7 @@ func PublishWriting(
 	ctx context.Context, deps WritingsDeps, ownerID, writingID string,
 ) (corpus.Writing, error) {
 	if ownerID == "" || writingID == "" {
-		return corpus.Writing{}, ErrEmptyField
+		return corpus.Writing{}, apierr.ErrEmptyField
 	}
 	p, err := deps.Writings.Publish(ctx, ownerID, writingID)
 	if err != nil {
@@ -52,7 +53,7 @@ func UnpublishWriting(
 	ctx context.Context, deps WritingsDeps, ownerID, writingID string,
 ) (corpus.Writing, error) {
 	if ownerID == "" || writingID == "" {
-		return corpus.Writing{}, ErrEmptyField
+		return corpus.Writing{}, apierr.ErrEmptyField
 	}
 	p, err := deps.Writings.Unpublish(ctx, ownerID, writingID)
 	if err != nil {
@@ -66,7 +67,7 @@ func ListAllWritings(
 	ctx context.Context, deps WritingsDeps, ownerID string,
 ) ([]corpus.Writing, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.Writings.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -80,7 +81,7 @@ func ListPublishedWritings(
 	ctx context.Context, deps WritingsDeps, ownerID string,
 ) ([]corpus.Writing, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.Writings.ListPublishedByOwner(ctx, ownerID)
 	if err != nil {
@@ -113,7 +114,7 @@ func ListPublishedWritingsPage(
 	ctx context.Context, deps WritingsDeps, in *ListPublishedWritingsPageInput,
 ) (ListPublishedWritingsPageResult, error) {
 	if in.OwnerID == "" {
-		return ListPublishedWritingsPageResult{}, ErrEmptyField
+		return ListPublishedWritingsPageResult{}, apierr.ErrEmptyField
 	}
 	limit := clampWritingsLimit(in.Limit)
 	rows, err := deps.Writings.ListPublishedPageByOwner(ctx, &corpus.ListPublishedPageInput{
@@ -156,7 +157,7 @@ func GetWritingBySlug(
 	ctx context.Context, deps WritingsDeps, ownerID, slug string,
 ) (corpus.Writing, error) {
 	if ownerID == "" || slug == "" {
-		return corpus.Writing{}, ErrEmptyField
+		return corpus.Writing{}, apierr.ErrEmptyField
 	}
 	p, err := deps.Writings.GetBySlug(ctx, ownerID, slug)
 	if err != nil {

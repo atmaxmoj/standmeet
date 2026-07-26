@@ -79,7 +79,7 @@ func handleAccessRequestErr(log *slog.Logger, w http.ResponseWriter, err error) 
 }
 
 func classifyAccessRequestErr(err error) apierr.Envelope {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		return apierr.Envelope{
 			Status: http.StatusBadRequest, Code: "bad_request", Message: "missing required field",
 		}

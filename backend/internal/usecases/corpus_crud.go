@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
@@ -31,7 +32,7 @@ func UpdateRaw(
 	ctx context.Context, deps CorpusDeps, in *UpdateRawInput,
 ) (corpus.Raw, error) {
 	if in.OwnerID == "" || in.ID == "" || in.Body == "" {
-		return corpus.Raw{}, ErrEmptyField
+		return corpus.Raw{}, apierr.ErrEmptyField
 	}
 	raw, err := deps.Raw.UpdateBody(ctx, &corpus.UpdateRawInput{
 		OwnerID: in.OwnerID, ID: in.ID,
@@ -46,7 +47,7 @@ func UpdateRaw(
 // ArchiveRaw 软删一条 raw。
 func ArchiveRaw(ctx context.Context, deps CorpusDeps, ownerID, rawID string) error {
 	if ownerID == "" || rawID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := deps.Raw.Archive(ctx, ownerID, rawID); err != nil {
 		return fmt.Errorf("archive raw: %w", err)
@@ -92,7 +93,7 @@ func CreateWiki(
 // CreateWiki 的 cyclo 不超标。
 func preflightCreateWiki(ctx context.Context, deps CorpusDeps, in *CreateWikiInput) error {
 	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	return validateWikiParent(ctx, deps, in.OwnerID, in.ParentID)
 }
@@ -136,7 +137,7 @@ func UpdateWiki(
 // UpdateWiki 的 cyclo 不超标。
 func preflightUpdateWiki(ctx context.Context, deps CorpusDeps, in *UpdateWikiInput) error {
 	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := validateWikiReparent(ctx, deps, in.OwnerID, in.ID, in.ParentID); err != nil {
 		return err
@@ -154,7 +155,7 @@ func hasBlankCorpusField(vals ...string) bool {
 // DeleteWiki 硬删一条 wiki。
 func DeleteWiki(ctx context.Context, deps CorpusDeps, ownerID, wikiID string) error {
 	if ownerID == "" || wikiID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := deps.Wiki.Delete(ctx, ownerID, wikiID); err != nil {
 		return fmt.Errorf("delete wiki: %w", err)
@@ -179,7 +180,7 @@ func CreateOutput(
 	ctx context.Context, deps CorpusDeps, in *CreateOutputInput,
 ) (corpus.Output, error) {
 	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
-		return corpus.Output{}, ErrEmptyField
+		return corpus.Output{}, apierr.ErrEmptyField
 	}
 	out, err := deps.Output.Create(ctx, &corpus.CreateOutputInput{
 		OwnerID:  in.OwnerID,
@@ -210,7 +211,7 @@ func UpdateOutput(
 	ctx context.Context, deps CorpusDeps, in *UpdateOutputInput,
 ) (corpus.Output, error) {
 	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
-		return corpus.Output{}, ErrEmptyField
+		return corpus.Output{}, apierr.ErrEmptyField
 	}
 	out, err := deps.Output.Update(ctx, &corpus.UpdateOutputInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
@@ -230,7 +231,7 @@ func UpdateOutput(
 // DeleteOutput 硬删一条 output。
 func DeleteOutput(ctx context.Context, deps CorpusDeps, ownerID, outputID string) error {
 	if ownerID == "" || outputID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := deps.Output.Delete(ctx, ownerID, outputID); err != nil {
 		return fmt.Errorf("delete output: %w", err)

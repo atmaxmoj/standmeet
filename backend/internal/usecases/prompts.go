@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -32,7 +33,7 @@ func CreatePrompt(
 	ctx context.Context, deps PromptsDeps, in *CreatePromptInput,
 ) (owner.Prompt, error) {
 	if in.OwnerID == "" || in.Name == "" {
-		return owner.Prompt{}, ErrEmptyField
+		return owner.Prompt{}, apierr.ErrEmptyField
 	}
 	prompt, err := deps.Prompts.Create(ctx, &owner.CreatePromptInput{
 		OwnerID: in.OwnerID, Name: in.Name,
@@ -52,7 +53,7 @@ func ListPrompts(
 	ctx context.Context, deps PromptsDeps, ownerID string,
 ) ([]owner.Prompt, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.Prompts.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -66,7 +67,7 @@ func GetPrompt(
 	ctx context.Context, deps PromptsDeps, ownerID, promptID string,
 ) (owner.Prompt, error) {
 	if ownerID == "" || promptID == "" {
-		return owner.Prompt{}, ErrEmptyField
+		return owner.Prompt{}, apierr.ErrEmptyField
 	}
 	prompt, err := deps.Prompts.GetByID(ctx, ownerID, promptID)
 	if err != nil {
@@ -108,7 +109,7 @@ func validateUpdatePromptInput(
 	ctx context.Context, deps PromptsDeps, in *UpdatePromptInput,
 ) error {
 	if in.OwnerID == "" || in.PromptID == "" || in.Name == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	return checkPromptRenameAllowed(ctx, deps, in)
 }
@@ -147,7 +148,7 @@ func validatePromptDeletable(
 	ctx context.Context, deps PromptsDeps, ownerID, promptID string,
 ) error {
 	if ownerID == "" || promptID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	prompt, gerr := deps.Prompts.GetByID(ctx, ownerID, promptID)
 	if gerr != nil {

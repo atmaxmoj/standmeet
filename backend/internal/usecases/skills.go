@@ -15,6 +15,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
 
@@ -40,7 +41,7 @@ func CreateSkill(
 	ctx context.Context, deps SkillsDeps, in *CreateSkillInput,
 ) (marketplace.Skill, error) {
 	if in.OwnerID == "" || in.Name == "" {
-		return marketplace.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, apierr.ErrEmptyField
 	}
 	skill, err := deps.Skills.Create(ctx, &marketplace.CreateSkillInput{
 		OwnerID:      in.OwnerID,
@@ -64,7 +65,7 @@ func ListSkills(
 	ctx context.Context, deps SkillsDeps, ownerID string,
 ) ([]marketplace.Skill, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.Skills.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -79,7 +80,7 @@ func DeleteSkill(
 	ctx context.Context, deps SkillsDeps, ownerID, skillID string,
 ) error {
 	if ownerID == "" || skillID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if cerr := checkSkillDeletable(ctx, deps, ownerID, skillID); cerr != nil {
 		return cerr
@@ -95,7 +96,7 @@ func SetSkillEnabled(
 	ctx context.Context, deps SkillsDeps, ownerID, skillID string, enabled bool,
 ) (marketplace.Skill, error) {
 	if ownerID == "" || skillID == "" {
-		return marketplace.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, apierr.ErrEmptyField
 	}
 	out, err := deps.Skills.SetEnabled(ctx, ownerID, skillID, enabled)
 	if err != nil {

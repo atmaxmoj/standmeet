@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -68,7 +69,7 @@ func IssueCodeSession(
 	ctx context.Context, deps *VisitorSessionDeps, in *IssueCodeSessionInput,
 ) (IssueCodeSessionResult, error) {
 	if in.Code == "" {
-		return IssueCodeSessionResult{}, ErrEmptyField
+		return IssueCodeSessionResult{}, apierr.ErrEmptyField
 	}
 	code, err := lookupAccessCode(ctx, deps, in.Code)
 	if err != nil {

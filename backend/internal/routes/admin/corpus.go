@@ -94,7 +94,7 @@ func defaultSource(s string) string {
 }
 
 func handleCreateRawErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		writeError(log, w, envBadReq("body is required"))
 		return
 	}

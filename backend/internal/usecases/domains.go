@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -29,13 +30,13 @@ func ListAllowedDomains(
 }
 
 // AddAllowedDomain —— 把 domain 加进白名单（normalize + 去重）。
-// 空字符串 / 无效格式返 ErrEmptyField；调用方据此返 400。
+// 空字符串 / 无效格式返 apierr.ErrEmptyField；调用方据此返 400。
 func AddAllowedDomain(
 	ctx context.Context, deps AllowedDomainsDeps, dom string,
 ) error {
 	n := normalizeDomain(dom)
 	if n == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := deps.Instance.AddAllowedDomain(ctx, n); err != nil {
 		return fmt.Errorf("add allowed domain: %w", err)
@@ -43,14 +44,14 @@ func AddAllowedDomain(
 	return nil
 }
 
-// RemoveAllowedDomain —— 从白名单删 domain。空串返 ErrEmptyField；
+// RemoveAllowedDomain —— 从白名单删 domain。空串返 apierr.ErrEmptyField；
 // 不存在 idempotent 不报错（repo 已经吞了）。
 func RemoveAllowedDomain(
 	ctx context.Context, deps AllowedDomainsDeps, dom string,
 ) error {
 	n := normalizeDomain(dom)
 	if n == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := deps.Instance.RemoveAllowedDomain(ctx, n); err != nil {
 		return fmt.Errorf("remove allowed domain: %w", err)

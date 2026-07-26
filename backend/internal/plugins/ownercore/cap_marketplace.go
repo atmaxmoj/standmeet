@@ -13,6 +13,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
@@ -175,7 +176,7 @@ func (c *marketplaceCapability) handleInstall(
 
 func marketInstallErr(log *slog.Logger, err error) capreg.MCPResult {
 	switch {
-	case errors.Is(err, usecases.ErrEmptyField):
+	case errors.Is(err, apierr.ErrEmptyField):
 		return capreg.MCPError("source, id, and a non-empty SKILL.md are required")
 	case errors.Is(err, marketplace.ErrSkillNameTaken):
 		return capreg.MCPError("a skill with that name is already installed")

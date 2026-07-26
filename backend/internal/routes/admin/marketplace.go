@@ -93,7 +93,7 @@ func (h *Handlers) marketplaceInstall() http.HandlerFunc {
 
 func handleInstallSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, usecases.ErrEmptyField):
+	case errors.Is(err, apierr.ErrEmptyField):
 		writeError(log, w, envBadReq("source, id, and a non-empty SKILL.md are required"))
 	case errors.Is(err, marketplace.ErrSkillNameTaken):
 		writeError(log, w, apierr.Envelope{

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -31,7 +32,7 @@ func UpdateBYOAI(
 	ctx context.Context, deps BYOAIDeps, in *UpdateBYOAIInput,
 ) (owner.Settings, error) {
 	if in.OwnerID == "" {
-		return owner.Settings{}, ErrEmptyField
+		return owner.Settings{}, apierr.ErrEmptyField
 	}
 	s, err := deps.Owners.UpdateBYOAI(ctx, &owner.UpdateBYOAIInput{
 		OwnerID:   in.OwnerID,

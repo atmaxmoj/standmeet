@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
@@ -69,10 +70,10 @@ func UpdateOwnerAIProvider(
 
 func validateAIProviderInput(in *UpdateOwnerAIProviderInput) error {
 	if _, ok := inference.Lookup(in.Provider); !ok {
-		return fmt.Errorf("%w: unknown provider %q", ErrEmptyField, in.Provider)
+		return fmt.Errorf("%w: unknown provider %q", apierr.ErrEmptyField, in.Provider)
 	}
 	if in.Endpoint == "" || in.Model == "" {
-		return fmt.Errorf("%w: endpoint + model required", ErrEmptyField)
+		return fmt.Errorf("%w: endpoint + model required", apierr.ErrEmptyField)
 	}
 	return nil
 }

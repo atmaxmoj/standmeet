@@ -303,7 +303,7 @@ func writeCorpusDelete(log *slog.Logger, w http.ResponseWriter, err error, tag s
 }
 
 var corpusErrCases = []apierr.Case{
-	{Match: usecases.ErrEmptyField, Envelope: envBadReq("required field is empty")},
+	{Match: apierr.ErrEmptyField, Envelope: envBadReq("required field is empty")},
 	{Match: corpus.ErrParentNotFound, Envelope: envBadReq("parent entry not found")},
 	{Match: corpus.ErrParentCycle, Envelope: envBadReq("parent would create a cycle")},
 	{
@@ -336,7 +336,7 @@ func writeCorpusErr(log *slog.Logger, w http.ResponseWriter, err error, tag stri
 	env := apierr.Classify(err, corpusErrCases)
 	if env.Status >= http.StatusInternalServerError {
 		log.Error(tag, "err", err)
-	} else if !errors.Is(err, usecases.ErrEmptyField) {
+	} else if !errors.Is(err, apierr.ErrEmptyField) {
 		log.Warn(tag, "err", err)
 	}
 	writeError(log, w, env)

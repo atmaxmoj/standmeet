@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
@@ -63,7 +64,7 @@ func ListConversations(
 	ctx context.Context, deps ConversationsDeps, ownerID string, limit int32,
 ) ([]conversation.ChatSummary, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.Chats.ListByOwner(ctx, ownerID, clampConvLimit(limit))
 	if err != nil {
@@ -80,7 +81,7 @@ func GetConversationTranscript(
 	ctx context.Context, deps ConversationsDeps, ownerID, convID string,
 ) (TranscriptBundle, error) {
 	if ownerID == "" || convID == "" {
-		return TranscriptBundle{}, ErrEmptyField
+		return TranscriptBundle{}, apierr.ErrEmptyField
 	}
 	bundle, err := deps.Chats.GetWithMessages(ctx, ownerID, convID)
 	if err != nil {

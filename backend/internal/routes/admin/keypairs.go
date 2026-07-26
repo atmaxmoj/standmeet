@@ -113,7 +113,7 @@ func (h *Handlers) createKeypair() http.HandlerFunc {
 }
 
 func createKeypairEnv(err error) apierr.Envelope {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		return apierr.Envelope{
 			Status: http.StatusBadRequest, Code: "label_required",
 			Message: "label is required",

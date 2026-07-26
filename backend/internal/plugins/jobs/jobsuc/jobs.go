@@ -18,11 +18,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/dedup"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // JobsDeps —— jobs.* usecase 依赖。
@@ -48,7 +48,7 @@ func RegisterJobSource(
 
 func validateRegisterInput(in *jobsmodel.CreateJobSourceInput) error {
 	if in.OwnerID == "" || in.Kind == "" || in.Label == "" {
-		return usecases.ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := jobfetch.ValidateKindConfig(in.Kind, in.Config); err != nil {
 		return fmt.Errorf("validate kind/config: %w", err)
@@ -61,7 +61,7 @@ func ListJobSources(
 	ctx context.Context, deps JobsDeps, ownerID string,
 ) ([]jobsmodel.JobSource, error) {
 	if ownerID == "" {
-		return nil, usecases.ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	list, err := deps.Sources.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -75,7 +75,7 @@ func UnregisterJobSource(
 	ctx context.Context, deps JobsDeps, ownerID, sourceID string,
 ) error {
 	if ownerID == "" || sourceID == "" {
-		return usecases.ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := deps.Sources.Delete(ctx, ownerID, sourceID); err != nil {
 		return fmt.Errorf("delete source: %w", err)
@@ -89,7 +89,7 @@ func FetchNewJobs(
 	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string,
 ) ([]jobsmodel.FetchedJob, error) {
 	if ownerID == "" {
-		return nil, usecases.ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	sources, err := selectSourcesToFetch(ctx, deps, ownerID, sourceID)
 	if err != nil {
@@ -229,7 +229,7 @@ func ShowJob(
 	ctx context.Context, deps JobsDeps, ownerID, cacheID string,
 ) (jobsmodel.FetchedJob, error) {
 	if ownerID == "" || cacheID == "" {
-		return jobsmodel.FetchedJob{}, usecases.ErrEmptyField
+		return jobsmodel.FetchedJob{}, apierr.ErrEmptyField
 	}
 	job, err := deps.Cache.Get(ctx, ownerID, cacheID)
 	if err != nil {
@@ -244,7 +244,7 @@ func ShowJob(
 // DiscardJob —— 主动让一条 job 退出 owner 视野。
 func DiscardJob(ctx context.Context, deps JobsDeps, ownerID, cacheID string) error {
 	if ownerID == "" || cacheID == "" {
-		return usecases.ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if err := deps.Cache.Discard(ctx, ownerID, cacheID); err != nil {
 		return fmt.Errorf("cache discard: %w", err)

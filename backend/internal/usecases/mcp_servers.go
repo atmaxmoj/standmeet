@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
@@ -46,7 +47,7 @@ func CreateMCPServer(
 
 func validateMCPCreateInput(in *CreateMCPServerInput) error {
 	if in.OwnerID == "" || in.Name == "" || in.URL == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	return nil
 }
@@ -86,7 +87,7 @@ func ListMCPServers(
 	ctx context.Context, deps MCPServersDeps, ownerID string,
 ) ([]marketplace.MCPServerConfig, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.Servers.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -100,7 +101,7 @@ func DeleteMCPServer(
 	ctx context.Context, deps MCPServersDeps, ownerID, serverID string,
 ) error {
 	if ownerID == "" || serverID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if _, gerr := deps.Servers.GetByID(ctx, ownerID, serverID); gerr != nil {
 		return fmt.Errorf("get mcp server: %w", gerr)
@@ -118,7 +119,7 @@ func GrantMCPServerDep(
 	ctx context.Context, deps MCPServersDeps, ownerID, serverID, dep string,
 ) error {
 	if ownerID == "" || serverID == "" || dep == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	return grantDepOwned(ctx, deps, ownerID, serverID, dep)
 }

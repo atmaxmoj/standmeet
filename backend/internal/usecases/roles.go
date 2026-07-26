@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
@@ -76,7 +77,7 @@ func validateCreateRoleInput(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) error {
 	if in.OwnerID == "" || in.Name == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if derr := validateDockButtons(in); derr != nil {
 		return derr
@@ -109,7 +110,7 @@ func ListRoles(
 	ctx context.Context, deps RolesDeps, ownerID string,
 ) ([]access.Role, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	rows, err := deps.Roles.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -123,7 +124,7 @@ func GetRole(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
 ) (access.Role, error) {
 	if ownerID == "" || roleID == "" {
-		return access.Role{}, ErrEmptyField
+		return access.Role{}, apierr.ErrEmptyField
 	}
 	role, err := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if err != nil {
@@ -154,7 +155,7 @@ func validateUpdateRoleInput(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) error {
 	if updateRoleMissingRequired(in) {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if cerr := checkRoleRenameAllowed(ctx, deps, in); cerr != nil {
 		return cerr
@@ -207,7 +208,7 @@ func validateRoleDeletable(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
 ) error {
 	if ownerID == "" || roleID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	role, gerr := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if gerr != nil {

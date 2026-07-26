@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -33,17 +34,17 @@ const (
 var ErrPasswordTooShort = errors.New("password must be at least 12 characters")
 
 // UpdateOwnerFullName —— owner 改 full_name。trim + 长度上限 200；空返
-// ErrEmptyField。不需要密码校验（low-stake）。
+// apierr.ErrEmptyField。不需要密码校验（low-stake）。
 func UpdateOwnerFullName(
 	ctx context.Context, deps AccountDeps, ownerID, raw string,
 ) (owner.Owner, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return owner.Owner{}, ErrEmptyField
+		return owner.Owner{}, apierr.ErrEmptyField
 	}
 	if len(trimmed) > maxFullNameLen {
 		return owner.Owner{}, fmt.Errorf(
-			"%w: full_name too long (max %d)", ErrEmptyField, maxFullNameLen,
+			"%w: full_name too long (max %d)", apierr.ErrEmptyField, maxFullNameLen,
 		)
 	}
 	updated, err := deps.Owners.UpdateFullName(ctx, ownerID, trimmed)
@@ -82,13 +83,13 @@ func UpdateOwnerEmail(
 func normalizeEmail(raw string) (string, error) {
 	trimmed := strings.ToLower(strings.TrimSpace(raw))
 	if trimmed == "" {
-		return "", ErrEmptyField
+		return "", apierr.ErrEmptyField
 	}
 	if len(trimmed) > maxEmailLen {
-		return "", fmt.Errorf("%w: email too long", ErrEmptyField)
+		return "", fmt.Errorf("%w: email too long", apierr.ErrEmptyField)
 	}
 	if !validEmail(trimmed) {
-		return "", fmt.Errorf("%w: email format invalid", ErrEmptyField)
+		return "", fmt.Errorf("%w: email format invalid", apierr.ErrEmptyField)
 	}
 	return trimmed, nil
 }

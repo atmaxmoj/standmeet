@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -35,7 +36,7 @@ func SubmitForOwner(
 	ctx context.Context, deps AccessRequestsDeps, in *SubmitAccessRequestInput,
 ) (access.Request, error) {
 	if !validSubmitInput(in) {
-		return access.Request{}, ErrEmptyField
+		return access.Request{}, apierr.ErrEmptyField
 	}
 	soleOwner, err := loadSoleOwnerForRequest(ctx, deps)
 	if err != nil {
@@ -80,7 +81,7 @@ func ListForOwner(
 	ctx context.Context, deps AccessRequestsDeps, ownerID, status string,
 ) ([]access.Request, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, apierr.ErrEmptyField
 	}
 	if !validStatusFilter(status) {
 		return nil, access.ErrAccessRequestStatusInvalid
@@ -97,7 +98,7 @@ func UpdateAccessRequestStatus(
 	ctx context.Context, deps AccessRequestsDeps, ownerID, id, status string,
 ) (access.Request, error) {
 	if ownerID == "" || id == "" {
-		return access.Request{}, ErrEmptyField
+		return access.Request{}, apierr.ErrEmptyField
 	}
 	if !validStatus(status) {
 		return access.Request{}, access.ErrAccessRequestStatusInvalid

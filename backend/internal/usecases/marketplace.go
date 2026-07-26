@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
 
@@ -84,12 +85,12 @@ type InstallSkillInput struct {
 
 // InstallSkill —— fetch + parse a market skill's SKILL.md, persist it as a
 // source='marketplace' skill. frontmatter name/description/allowed-tools win;
-// the search metadata (name/version) is fallback. Empty body → ErrEmptyField.
+// the search metadata (name/version) is fallback. Empty body → apierr.ErrEmptyField.
 func InstallSkill(
 	ctx context.Context, deps InstallSkillDeps, in *InstallSkillInput,
 ) (marketplace.Skill, error) {
 	if !validInstallInput(in) {
-		return marketplace.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, apierr.ErrEmptyField
 	}
 	content, err := deps.Marketplace.FetchSkillContent(
 		ctx, marketplace.MarketSource(in.Source), in.ID, in.SourceURL,
@@ -98,7 +99,7 @@ func InstallSkill(
 		return marketplace.Skill{}, fmt.Errorf("fetch skill content: %w", err)
 	}
 	if strings.TrimSpace(content.Prompt) == "" {
-		return marketplace.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, apierr.ErrEmptyField
 	}
 	return createInstalledSkill(ctx, deps, in, &content)
 }
@@ -109,16 +110,16 @@ func validInstallInput(in *InstallSkillInput) bool {
 
 // InstallManualSkill —— install a SKILL.md the owner pasted/uploaded from anywhere (no
 // marketplace, no network): parse the frontmatter + body, persist as a source='manual'
-// skill. Empty owner / empty body → ErrEmptyField.
+// skill. Empty owner / empty body → apierr.ErrEmptyField.
 func InstallManualSkill(
 	ctx context.Context, deps InstallSkillDeps, ownerID, skillMD, nameFallback string,
 ) (marketplace.Skill, error) {
 	if ownerID == "" || strings.TrimSpace(skillMD) == "" {
-		return marketplace.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, apierr.ErrEmptyField
 	}
 	content := deps.Marketplace.ParseSkillMD(skillMD)
 	if strings.TrimSpace(content.Prompt) == "" {
-		return marketplace.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, apierr.ErrEmptyField
 	}
 	return persistManualSkill(ctx, deps, ownerID, nameFallback, &content)
 }

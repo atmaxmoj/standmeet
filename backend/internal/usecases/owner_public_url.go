@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -26,7 +27,7 @@ func UpdateOwnerPublicURL(
 ) (owner.Owner, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return owner.Owner{}, ErrEmptyField
+		return owner.Owner{}, apierr.ErrEmptyField
 	}
 	if !validPublicURL(trimmed) {
 		return owner.Owner{}, ErrPublicURLInvalid

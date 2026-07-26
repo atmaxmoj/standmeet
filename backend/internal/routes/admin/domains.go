@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -75,7 +76,7 @@ func (h *Handlers) removeDomain() http.HandlerFunc {
 }
 
 func handleDomainsErr(log *slog.Logger, w http.ResponseWriter, err error, op string) {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		writeError(log, w, envBadReq("domain is required"))
 		return
 	}

@@ -37,7 +37,7 @@ type loginResponse struct {
 
 var loginErrCases = []apierr.Case{
 	{
-		Match:    usecases.ErrEmptyField,
+		Match:    apierr.ErrEmptyField,
 		Envelope: envBadReq("missing email or password"),
 	},
 	{

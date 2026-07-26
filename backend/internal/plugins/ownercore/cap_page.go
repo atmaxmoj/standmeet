@@ -13,6 +13,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
@@ -115,7 +116,7 @@ func (c *pageCapability) handleUpdateHandle(
 }
 
 func updateHandleErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		return capreg.MCPError("handle must be 2-64 chars of a-z0-9-")
 	}
 	if errors.Is(err, owner.ErrHandleTaken) {
@@ -256,7 +257,7 @@ func (c *pageCapability) handleSetPublicURL(
 }
 
 func setPublicURLErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, usecases.ErrEmptyField) {
+	if errors.Is(err, apierr.ErrEmptyField) {
 		return capreg.MCPError("public_url is required")
 	}
 	if errors.Is(err, usecases.ErrPublicURLInvalid) {

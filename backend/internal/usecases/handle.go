@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -29,7 +30,7 @@ func UpdateOwnerHandle(
 	h := strings.ToLower(strings.TrimSpace(raw))
 	if !validHandle(h) {
 		return owner.Owner{}, fmt.Errorf("%w: handle must be %d-%d chars of a-z0-9-",
-			ErrEmptyField, minHandleLen, maxHandleLen)
+			apierr.ErrEmptyField, minHandleLen, maxHandleLen)
 	}
 	updated, err := deps.Owners.UpdateHandle(ctx, ownerID, h)
 	if err != nil {

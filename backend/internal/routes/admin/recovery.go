@@ -26,7 +26,7 @@ type recoverResponse struct {
 }
 
 var recoverErrCases = []apierr.Case{
-	{Match: usecases.ErrEmptyField, Envelope: apierr.Envelope{
+	{Match: apierr.ErrEmptyField, Envelope: apierr.Envelope{
 		Status:  http.StatusBadRequest,
 		Code:    "bad_request",
 		Message: "email and recovery phrase required",

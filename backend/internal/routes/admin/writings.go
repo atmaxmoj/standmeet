@@ -238,7 +238,7 @@ func buildSaveWritingInput(
 }
 
 var saveWritingErrCases = []apierr.Case{
-	{Match: usecases.ErrEmptyField, Envelope: envBadReq("owner_id, slug, title required")},
+	{Match: apierr.ErrEmptyField, Envelope: envBadReq("owner_id, slug, title required")},
 	{Match: corpus.ErrWritingSlugTaken, Envelope: apierr.Envelope{
 		Status: http.StatusConflict, Code: "writing_slug_taken",
 		Message: "writing slug already taken",

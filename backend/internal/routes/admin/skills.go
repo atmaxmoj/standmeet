@@ -89,7 +89,7 @@ func writeSkillSingle(log *slog.Logger, w http.ResponseWriter, s *marketplace.Sk
 
 func handlePatchSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, usecases.ErrEmptyField):
+	case errors.Is(err, apierr.ErrEmptyField):
 		writeError(log, w, envBadReq("skill id required"))
 	case errors.Is(err, marketplace.ErrSkillNotFound):
 		writeError(log, w, apierr.Envelope{
@@ -163,7 +163,7 @@ func (h *Handlers) createSkill() http.HandlerFunc {
 
 func handleCreateSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, usecases.ErrEmptyField):
+	case errors.Is(err, apierr.ErrEmptyField):
 		writeError(log, w, envBadReq("name and prompt are required"))
 	case errors.Is(err, marketplace.ErrSkillNameTaken):
 		writeError(log, w, apierr.Envelope{

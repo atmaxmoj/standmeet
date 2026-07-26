@@ -17,6 +17,7 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -260,7 +261,7 @@ func assertBuildBelongsBuilt(
 
 func validateSlug(slug string) error {
 	if slug == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if len(slug) > maxSlugLen {
 		return fmt.Errorf("slug too long (max %d)", maxSlugLen)
@@ -296,7 +297,7 @@ func isLowerAlnum(r rune) bool {
 
 func validatePathContent(path, content string) error {
 	if path == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	if !validRelPath(path) {
 		return fmt.Errorf("path must be relative, got %q", path)

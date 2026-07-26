@@ -175,6 +175,7 @@ deps:
       - connectorconsumer
       - connector
       - pgstore
+      - apierr
     anyVendorDeps: true
 
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
@@ -464,6 +465,7 @@ deps:
       - pluginbooker
       - stats
       - security
+      - apierr
     anyVendorDeps: true
 
   # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核
@@ -481,6 +483,7 @@ deps:
       - access
       - pgstore
       - dbq
+      - apierr
     anyVendorDeps: true
 
   # jobdedup —— J.6c: cross-source dedup (canonical URL + composite key)。

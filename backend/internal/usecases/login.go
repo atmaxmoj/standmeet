@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -37,7 +38,7 @@ type LoginOutput struct {
 // （不区分"用户不存在" vs "密码错"，避免暴露存在性）。
 func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, error) {
 	if in.Email == "" || in.Password == "" {
-		return LoginOutput{}, ErrEmptyField
+		return LoginOutput{}, apierr.ErrEmptyField
 	}
 	creds, err := authenticate(ctx, deps, in)
 	if err != nil {

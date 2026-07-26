@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -87,7 +88,7 @@ func storeNewRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) (
 // (不区分「无此邮箱 / 没生成过 / phrase 错」,防枚举)。
 func Recover(ctx context.Context, deps *RecoveryDeps, in *RecoverInput) (RecoverOutput, error) {
 	if in.Email == "" || in.Phrase == "" {
-		return RecoverOutput{}, ErrEmptyField
+		return RecoverOutput{}, apierr.ErrEmptyField
 	}
 	creds, verr := verifyRecovery(ctx, deps, in)
 	if verr != nil {

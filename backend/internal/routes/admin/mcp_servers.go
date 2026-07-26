@@ -114,7 +114,7 @@ func runCreateMCPServer(
 
 func handleCreateMCPServerErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, usecases.ErrEmptyField):
+	case errors.Is(err, apierr.ErrEmptyField):
 		writeError(log, w, envBadReq("name and url are required"))
 	case errors.Is(err, marketplace.ErrMCPServerNameTaken):
 		writeError(log, w, apierr.Envelope{
@@ -188,7 +188,7 @@ func (h *Handlers) grantMCPServerDep() http.HandlerFunc {
 
 func handleGrantMCPServerDepErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, usecases.ErrEmptyField):
+	case errors.Is(err, apierr.ErrEmptyField):
 		writeError(log, w, envBadReq("dep is required"))
 	case errors.Is(err, marketplace.ErrMCPServerNotFound):
 		writeError(log, w, apierr.Envelope{

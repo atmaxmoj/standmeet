@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
@@ -31,12 +32,12 @@ type OpenConvForDocInput struct {
 
 // OpenConversationForDoc —— 该 member 在 docKey 这个 surface 上的对话:已有未结束
 // 的就续上,没有就新建。仅限 code 访客(有 member);缺 owner/member/docKey 返
-// ErrEmptyField。
+// apierr.ErrEmptyField。
 func OpenConversationForDoc(
 	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
 ) (conversation.Chat, error) {
 	if !validOpenConvInput(in) {
-		return conversation.Chat{}, ErrEmptyField
+		return conversation.Chat{}, apierr.ErrEmptyField
 	}
 	existing, gerr := deps.Chats.GetOpenChatByMemberAndDoc(ctx, in.MemberID, in.DocKey)
 	if gerr == nil {

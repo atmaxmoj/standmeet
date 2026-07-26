@@ -240,7 +240,7 @@ func (h *Handlers) deleteRole() http.HandlerFunc {
 
 // writeRoleErrCases —— Create + Update 共用 error → envelope 翻译表。
 var writeRoleErrCases = []apierr.Case{
-	{Match: usecases.ErrEmptyField, Envelope: envBadReq("name is required")},
+	{Match: apierr.ErrEmptyField, Envelope: envBadReq("name is required")},
 	{Match: access.ErrTooManyDockButtons, Envelope: envBadReq("at most two dock buttons")},
 	{Match: access.ErrDockButtonEmptyTrigger, Envelope: envBadReq("dock button needs a trigger")},
 	{Match: access.ErrUnknownDockCapability, Envelope: envBadReq("unknown dock capability")},

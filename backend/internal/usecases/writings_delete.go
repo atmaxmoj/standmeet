@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -27,7 +28,7 @@ func DeleteWritingWithAssets(
 	ctx context.Context, deps WritingsTxDeps, ownerID, writingID string,
 ) error {
 	if ownerID == "" || writingID == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	keys, kerr := listAssetKeys(ctx, deps, writingID)
 	if kerr != nil {

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
@@ -57,7 +58,7 @@ func PromoteWikiToOutput(
 
 func validatePromoteToOutputInput(in *PromoteToOutputInput) error {
 	if in.OwnerID == "" || in.WikiID == "" || in.Title == "" {
-		return ErrEmptyField
+		return apierr.ErrEmptyField
 	}
 	return nil
 }

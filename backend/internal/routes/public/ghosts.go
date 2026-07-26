@@ -122,7 +122,7 @@ var ghostErrCases = []apierr.Case{
 		Status: http.StatusNotFound, Code: "not_found",
 		Message: "ghost not found",
 	}},
-	{Match: usecases.ErrEmptyField, Envelope: apierr.Envelope{
+	{Match: apierr.ErrEmptyField, Envelope: apierr.Envelope{
 		Status: http.StatusBadRequest, Code: "bad_request",
 		Message: "missing required field",
 	}},

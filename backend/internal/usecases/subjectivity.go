@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
@@ -47,7 +48,7 @@ func WriteSubjectivity(
 	ctx context.Context, deps CorpusDeps, in *WriteSubjectivityInput,
 ) (SubjectivityResult, error) {
 	if in.OwnerID == "" || in.Title == "" {
-		return SubjectivityResult{}, ErrEmptyField
+		return SubjectivityResult{}, apierr.ErrEmptyField
 	}
 	note, err := writeNote(ctx, deps.Subjectivity, in)
 	if err != nil {

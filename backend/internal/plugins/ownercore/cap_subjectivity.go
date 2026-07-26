@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
@@ -142,7 +143,7 @@ func subjectivityWriteErrToResult(log *slog.Logger, err error) capreg.MCPResult 
 		return capreg.MCPError("parent entry not found")
 	case errors.Is(err, corpus.ErrParentCycle):
 		return capreg.MCPError("cannot reparent: would create a cycle")
-	case errors.Is(err, usecases.ErrEmptyField):
+	case errors.Is(err, apierr.ErrEmptyField):
 		return capreg.MCPError("title and body are required")
 	default:
 		log.Error("cap subjectivity_write", "err", err)

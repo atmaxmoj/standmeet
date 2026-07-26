@@ -134,7 +134,7 @@ func toAccessRequestView(a *access.Request) accessRequestView {
 }
 
 var adminAccessRequestErrCases = []apierr.Case{
-	{Match: usecases.ErrEmptyField, Envelope: envBadReq("missing required field")},
+	{Match: apierr.ErrEmptyField, Envelope: envBadReq("missing required field")},
 	{
 		Match:    access.ErrAccessRequestStatusInvalid,
 		Envelope: envBadReq("invalid status value"),
