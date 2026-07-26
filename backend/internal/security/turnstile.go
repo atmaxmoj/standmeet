@@ -12,7 +12,7 @@
 // 失败 → 一律包成 ErrCaptchaFailed 抛回；handler 翻成 401。详细错误码写日志
 // 不外吐，避免给攻击者侧通道。
 
-package captcha
+package security
 
 import (
 	"context"

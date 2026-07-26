@@ -1,4 +1,4 @@
-// Package captcha 抽象 captcha provider。当前 v1 只实现 Cloudflare
+// captcha.go —— captcha provider 抽象（security 模块的一部分）。当前 v1 只实现 Cloudflare
 // Turnstile + noop（feature off）。
 //
 // 调用方式：composition root 用 NewFromConfig 装配出一个 Verifier，注入到
@@ -7,7 +7,8 @@
 // 不告诉攻击者是 captcha 挂了还是密码错了）。
 //
 // SiteKey 是公开的（前端嵌进页面），Secret 是后端 verify 用的，不出 server。
-package captcha
+
+package security
 
 import (
 	"context"

@@ -10,7 +10,6 @@ import (
 	"net/url"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/config"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
@@ -28,6 +27,7 @@ import (
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/search"
+	"github.com/atmaxmoj/standmeet/internal/security"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -129,8 +129,8 @@ type deferredWiring struct {
 func assembleRuntimeDeps(
 	log *slog.Logger, cfg *config.Config, c *conns, repos *repoSet, dw *deferredWiring,
 ) runtimeDeps {
-	captchaVerifier := captcha.NewFromConfig(
-		captcha.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
+	captchaVerifier := security.NewFromConfig(
+		security.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
 	)
 	printStore := printsess.New(c.rdb, 0)
 	// 词法检索(Meili)。MEILI_URL 空 → searchClient/indexer 为 nil,检索退 Postgres 全文、写不索引。

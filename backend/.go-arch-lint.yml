@@ -95,8 +95,6 @@ components:
     in: internal/connectordomain           # #135: 连接器轴 owner 注册配置 (connector_connection)；pure leaf
   mcpdomain:
     in: internal/mcpdomain                 # #135: MCP 轴 owner 数据 (mcp_server/app_state)；pure leaf
-  captcha:
-    in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
   capreg:
@@ -421,7 +419,7 @@ deps:
   middleware:
     mayDependOn:
       - session
-      - captcha
+      - security
     anyVendorDeps: true
 
   # mcphandle 是 owner AI 客户端用的 MCP server (controller 层)；通过 OwnerLookup
@@ -623,9 +621,10 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # security —— #135 请求级防护域 leaf：BannedIP 值对象（captcha/replay 后续并入），无 internal 依赖。
+  # security —— #135 请求级防护域模块：BannedIP + captcha(Turnstile) verifier。captcha 用 httpx。
   security:
-    mayDependOn: []
+    mayDependOn:
+      - httpx
     anyVendorDeps: true
 
   # jobsdomain —— #135 jobs 领域值对象 leaf：依赖 accessdomain（CommittedApplication 内嵌 AccessCode）。
@@ -686,13 +685,6 @@ deps:
       - httpx
     anyVendorDeps: true
 
-  # captcha —— Cloudflare Turnstile + noop verifier。Verifier 接口注入到
-  # middleware (LoginGuard) 做请求级校验。无 internal 依赖（接收 secret /
-  # token / IP 全是 string，输出 sentinel error）。
-  captcha:
-    mayDependOn:
-      - httpx
-    anyVendorDeps: true
 
   # cryptobox 是无依赖的 AES-GCM helper；任何 internal 包可以 import 来落盘
   # 加密。本身只读 INSTANCE_SECRET env，不绕回任何 internal 模块。
@@ -821,7 +813,7 @@ deps:
       - middleware
       - mcphandle
       - postgres
-      - captcha
+      - security
       - plugins
     anyVendorDeps: true
 
@@ -859,7 +851,6 @@ deps:
       - security
       - stats
       - connectordomain
-      - captcha
       - cryptobox
       - sandbox
       - mcpclient

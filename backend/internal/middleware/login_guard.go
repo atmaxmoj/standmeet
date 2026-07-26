@@ -11,9 +11,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/security"
 	"github.com/redis/go-redis/v9"
-
-	"github.com/atmaxmoj/standmeet/internal/captcha"
 )
 
 const (
@@ -40,8 +39,8 @@ const (
 // 一个 ~22 字符 random token 不实际。
 //
 // rdb / verifier 必填；nil 直接 panic（composition root bug）。captcha 关闭
-// 时传 captcha.NewFromConfig(Config{Provider: ProviderNone}, nil) 即可。
-func LoginGuard(rdb *redis.Client, verifier captcha.Verifier) func(http.Handler) http.Handler {
+// 时传 security.NewFromConfig(Config{Provider: ProviderNone}, nil) 即可。
+func LoginGuard(rdb *redis.Client, verifier security.Verifier) func(http.Handler) http.Handler {
 	if rdb == nil {
 		panic("LoginGuard: redis client is nil")
 	}
@@ -59,7 +58,7 @@ func LoginGuard(rdb *redis.Client, verifier captcha.Verifier) func(http.Handler)
 // 不超 4 参（revive argument-limit）。
 type loginGuardCtx struct {
 	rdb      *redis.Client
-	verifier captcha.Verifier
+	verifier security.Verifier
 	next     http.Handler
 }
 
@@ -98,7 +97,7 @@ func checkRateOrWrite(
 // checkCaptchaOrWrite —— captcha 验证未过 → 写 401 并返 false；通过返 true。
 // noop verifier 永远返 true（feature off）。
 func checkCaptchaOrWrite(
-	w http.ResponseWriter, r *http.Request, v captcha.Verifier, ip string,
+	w http.ResponseWriter, r *http.Request, v security.Verifier, ip string,
 ) bool {
 	token := r.Header.Get(captchaTokenHeader)
 	if err := v.Verify(r.Context(), token, ip); err != nil {

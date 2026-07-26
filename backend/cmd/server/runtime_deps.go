@@ -11,7 +11,6 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
@@ -27,6 +26,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/sandboxws"
 	"github.com/atmaxmoj/standmeet/internal/search"
+	"github.com/atmaxmoj/standmeet/internal/security"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -89,7 +89,7 @@ type runtimeDeps struct {
 	queryQueue         *session.QueryQueue
 	providerResolver   inference.Resolver
 	setupTokenHolder   *session.SetupTokenHolder
-	captchaVerifier    captcha.Verifier
+	captchaVerifier    security.Verifier
 	pdfRenderer        jobsuc.PDFRenderer
 	reportPDFRenderer  publicroutes.ReportPDFRenderer
 	printStore         *printsess.Store

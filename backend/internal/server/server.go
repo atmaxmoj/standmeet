@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/atmaxmoj/standmeet/internal/captcha"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -21,6 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
+	"github.com/atmaxmoj/standmeet/internal/security"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -33,7 +33,7 @@ type Deps struct {
 	Log   *slog.Logger
 	// CaptchaVerifier —— login captcha 校验器；composition root 按 env
 	// 装配（turnstile / noop）。
-	CaptchaVerifier      captcha.Verifier
+	CaptchaVerifier      security.Verifier
 	Public               publicroutes.Handlers
 	PublicPage           publicroutes.PageHandlers
 	PublicSEO            publicroutes.SEOHandlers
