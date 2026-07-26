@@ -88,7 +88,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
 			Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo, Index: d.corpusIndexer,
 		},
-		Conversations: usecases.ConversationsDeps{
+		Conversations: conversation.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
 			Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		},
@@ -265,7 +265,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		QueryQueue:   d.queryQueue,
 		Corpus:       d.corpus,
 		Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
-		Ledger:       usecases.NewWaypointLedger(d.vaultSyncRepo, d.visitorStore, d.log),
+		Ledger:       conversation.NewWaypointLedger(d.vaultSyncRepo, d.visitorStore, d.log),
 		Ghosts:       conversation.GhostDeps{Repo: d.ghostRepo},
 		PDFRenderer:  d.reportPDFRenderer,
 		AppState:     d.appStateRepo,

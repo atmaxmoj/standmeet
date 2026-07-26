@@ -3,7 +3,7 @@
 // names, the route matches the external terminal tool (calendar_book) into TerminalOK, and this
 // ledger marks terminal waypoints visited on TerminalOK. Locks that signal → marking mapping.
 
-package usecases
+package conversation
 
 import (
 	"testing"

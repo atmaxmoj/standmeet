@@ -6,7 +6,7 @@
 //
 // id→URI 解析复用 crawl-face 的 corpus.SyncNotePath/corpus.DBParentOf(与检索 ACL 同口径,URI 一致)。
 
-package usecases
+package conversation
 
 import (
 	"context"

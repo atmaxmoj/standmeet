@@ -1,7 +1,7 @@
 // conversation_view.go —— 会话聚合读模型的 view 类型(从 visitor_history.go
 // 拆出,守 max-public-structs)。概念三层 code → session → conversation。
 
-package usecases
+package conversation
 
 import "time"
 

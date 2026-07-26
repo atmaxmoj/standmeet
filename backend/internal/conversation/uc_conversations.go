@@ -2,14 +2,13 @@
 // 业务逻辑薄到几乎只是 repo 转发 + 默认参数 clamp；这里独立成 use case 是
 // 为了和 routes 层解耦，未来加 "filter / search / pagination" 不污染 handler。
 
-package usecases
+package conversation
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
@@ -17,7 +16,7 @@ import (
 // Wiki + Writing + Output 是给 transcript 把 cited_*_ids 解到 id+title 用；Subjectivity 解
 // cited_subjectivity_ids（仅 opt-in 的会落进 message，此处只做 id→ref 展示）。
 type ConversationsDeps struct {
-	Chats        *conversation.ChatRepo
+	Chats        *ChatRepo
 	Wiki         *corpus.WikiRepo
 	Writing      *corpus.WritingRepo
 	Output       *corpus.OutputRepo
@@ -46,7 +45,7 @@ type SubjectivityRef struct {
 // TranscriptBundle —— GetConversationTranscript 返：conversation + messages
 // + cited wiki / output / subjectivity 的 id→ref 索引（hydration 一次性，前端按需查）。
 type TranscriptBundle struct {
-	ConvBundle       conversation.ChatWithMessages
+	ConvBundle       ChatWithMessages
 	WikiRefs         []TitledRef
 	WritingRefs      []TitledRef
 	OutputRefs       []TitledRef
@@ -62,7 +61,7 @@ const (
 // 超 max 截断。
 func ListConversations(
 	ctx context.Context, deps ConversationsDeps, ownerID string, limit int32,
-) ([]conversation.ChatSummary, error) {
+) ([]ChatSummary, error) {
 	if ownerID == "" {
 		return nil, apierr.ErrEmptyField
 	}
@@ -211,7 +210,7 @@ const citedSetInitialCap = 16
 
 // collectCitedIDs —— 扫所有 message 的 CitedWikiIDs / CitedWritingIDs / CitedOutputIDs /
 // CitedSubjectivityIDs，去重。
-func collectCitedIDs(messages []conversation.Message) citedIDs {
+func collectCitedIDs(messages []Message) citedIDs {
 	wikiSet := make(map[string]struct{}, citedSetInitialCap)
 	writingSet := make(map[string]struct{}, citedSetInitialCap)
 	outputSet := make(map[string]struct{}, citedSetInitialCap)

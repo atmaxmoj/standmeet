@@ -18,12 +18,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ConversationsDeps —— admin conversations handlers 依赖。
 type ConversationsDeps struct {
-	Chats  usecases.ConversationsDeps
+	Chats  conversation.ConversationsDeps
 	Ghosts conversation.GhostDeps
 }
 
@@ -102,7 +101,9 @@ func (h *Handlers) listConversations() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		limit := parseConvLimit(r.URL.Query().Get("limit"))
-		rows, err := usecases.ListConversations(r.Context(), h.Conversations.Chats, ownerID, limit)
+		rows, err := conversation.ListConversations(
+			r.Context(), h.Conversations.Chats, ownerID, limit,
+		)
 		if err != nil {
 			h.Log.Error("list conversations", logErrKey, err)
 			writeError(h.Log, w, serverErr())
@@ -121,7 +122,7 @@ func (h *Handlers) getConversation() http.HandlerFunc {
 func dispatchGetConversation(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	ownerID := middleware.OwnerIDFrom(r.Context())
 	convID := chi.URLParam(r, "id")
-	out, err := usecases.GetConversationTranscript(
+	out, err := conversation.GetConversationTranscript(
 		r.Context(), h.Conversations.Chats, ownerID, convID,
 	)
 	if err != nil {
@@ -171,7 +172,7 @@ func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []conversation.
 }
 
 func writeTranscript(
-	log *slog.Logger, w http.ResponseWriter, t *usecases.TranscriptBundle,
+	log *slog.Logger, w http.ResponseWriter, t *conversation.TranscriptBundle,
 	ghosts []conversation.Ghost,
 ) {
 	conv := bundleSummary(&t.ConvBundle)
@@ -218,7 +219,7 @@ func toGhostView(s *conversation.Ghost) ghostView {
 	return v
 }
 
-func toRefViews(refs []usecases.TitledRef) []titledRefView {
+func toRefViews(refs []conversation.TitledRef) []titledRefView {
 	out := make([]titledRefView, 0, len(refs))
 	for i := range refs {
 		out = append(out, titledRefView{
@@ -228,7 +229,7 @@ func toRefViews(refs []usecases.TitledRef) []titledRefView {
 	return out
 }
 
-func toSubjectivityRefViews(refs []usecases.SubjectivityRef) []subjectivityRefView {
+func toSubjectivityRefViews(refs []conversation.SubjectivityRef) []subjectivityRefView {
 	out := make([]subjectivityRefView, 0, len(refs))
 	for i := range refs {
 		out = append(out, subjectivityRefView{

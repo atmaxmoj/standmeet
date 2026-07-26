@@ -141,7 +141,7 @@ func buildAgentTurnLedger(h *Handlers, auth authedVisitor) inference.MarkWaypoin
 		return nil
 	}
 	return func(ctx context.Context, citedNoteIDs, successfulTools []string) {
-		h.Ledger.Mark(ctx, &usecases.MarkWaypointsInput{
+		h.Ledger.Mark(ctx, &conversation.MarkWaypointsInput{
 			Token: auth.Token, Data: *auth.Data,
 			CitedNoteIDs: citedNoteIDs, TerminalOK: terminalToolHit(successfulTools),
 		})
@@ -264,10 +264,10 @@ func buildAgentTurnPersist(
 	}
 	ownerID := auth.Data.OwnerID
 	return func(ctx context.Context, res *inference.TurnResult) error {
-		return usecases.RecordDialog(ctx, &usecases.DialogDeps{
+		return conversation.RecordDialog(ctx, &conversation.DialogDeps{
 			Chats: h.Visitor.Chats, Corpus: h.Corpus,
 			Subjectivity: h.Subjectivity, Log: h.Log,
-		}, &usecases.RecordDialogInput{
+		}, &conversation.RecordDialogInput{
 			OwnerID: ownerID, ConversationID: convID,
 			Question: res.Question, Answer: res.Answer,
 			CitedWikiIDs: res.CitedWikiIDs, CitedWritingIDs: res.CitedWritingIDs,

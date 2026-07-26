@@ -72,7 +72,7 @@ type AdminDeps struct {
 	Login           usecases.LoginDeps
 	Keypairs        owner.KeypairDeps
 	Corpus          corpus.Deps
-	Conversations   usecases.ConversationsDeps
+	Conversations   conversation.ConversationsDeps
 	Ghosts          conversation.GhostDeps
 	BYOAI           owner.BYOAIDeps
 	Domains         owner.AllowedDomainsDeps

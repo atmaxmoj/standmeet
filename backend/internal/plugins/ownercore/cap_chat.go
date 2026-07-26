@@ -16,20 +16,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capChatBundle = "chat.bundle"
 
 type chatCapability struct {
 	corpusDeps *corpus.Deps
-	convs      *usecases.ConversationsDeps
+	convs      *conversation.ConversationsDeps
 	ghosts     *conversation.GhostDeps
 	log        *slog.Logger
 }
 
 func newChatCapability(
-	corpusDeps *corpus.Deps, convs *usecases.ConversationsDeps,
+	corpusDeps *corpus.Deps, convs *conversation.ConversationsDeps,
 	ghosts *conversation.GhostDeps, log *slog.Logger,
 ) *chatCapability {
 	return &chatCapability{corpusDeps: corpusDeps, convs: convs, ghosts: ghosts, log: log}
@@ -96,7 +95,7 @@ func (c *chatCapability) handleListConversations(
 	ctx context.Context, ownerID string, raw json.RawMessage,
 ) capreg.MCPResult {
 	limit := parseListLimit(raw)
-	rows, err := usecases.ListConversations(ctx, *c.convs, ownerID, limit)
+	rows, err := conversation.ListConversations(ctx, *c.convs, ownerID, limit)
 	if err != nil {
 		c.log.Error("cap conversations.list", "err", err)
 		return capreg.MCPError("conversations.list failed")
@@ -188,7 +187,7 @@ func (c *chatCapability) handleShowGrounding(
 	if args.ConversationID == "" {
 		return capreg.MCPError("conversation_id is required")
 	}
-	bundle, err := usecases.GetConversationTranscript(
+	bundle, err := conversation.GetConversationTranscript(
 		ctx, *c.convs, ownerID, args.ConversationID,
 	)
 	if err != nil {
@@ -226,7 +225,7 @@ type corpusCapEntryView struct {
 }
 
 func (c *chatCapability) hydrateGroundingView(
-	ctx context.Context, ownerID string, t *usecases.TranscriptBundle,
+	ctx context.Context, ownerID string, t *conversation.TranscriptBundle,
 ) *groundingCapView {
 	wikiIDs := transcriptRefIDs(t.WikiRefs)
 	outputIDs := transcriptRefIDs(t.OutputRefs)
@@ -239,7 +238,7 @@ func (c *chatCapability) hydrateGroundingView(
 	}
 }
 
-func transcriptRefIDs(refs []usecases.TitledRef) []string {
+func transcriptRefIDs(refs []conversation.TitledRef) []string {
 	out := make([]string, 0, len(refs))
 	for i := range refs {
 		out = append(out, refs[i].ID)

@@ -55,7 +55,7 @@ func runOpenDocConversation(h *Handlers, w http.ResponseWriter, r *http.Request,
 func writeOpenConv(
 	h *Handlers, w http.ResponseWriter, r *http.Request, chat *conversation.Chat,
 ) {
-	conv, err := usecases.ConversationForChat(r.Context(), &h.Visitor, chat.OwnerID, chat.ID)
+	conv, err := conversation.ForChat(r.Context(), h.Visitor.History(), chat.OwnerID, chat.ID)
 	if err != nil {
 		h.Log.Error("load doc conversation", "err", err)
 		writeError(h.Log, w, serverErr())

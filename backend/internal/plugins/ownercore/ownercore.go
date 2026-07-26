@@ -49,7 +49,7 @@ type Deps struct {
 	Roles            *usecases.RolesDeps
 	Booking          *BookingOwnerDeps
 	Prompts          *owner.PromptsDeps
-	Conversations    *usecases.ConversationsDeps
+	Conversations    *conversation.ConversationsDeps
 	PublicURL        usecases.PublicURLDeps
 	PagePins         usecases.PagePinDeps
 	Corpus           *corpus.Deps

@@ -39,6 +39,15 @@ type VisitorSessionDeps struct {
 	CodeDenials CodeDenialReader
 }
 
+// History —— 收窄成会话读模型的窄依赖(conversation.HistoryDeps),喂
+// conversation.LoadVisitorView / ConversationForChat。
+func (d *VisitorSessionDeps) History() *conversation.HistoryDeps {
+	return &conversation.HistoryDeps{
+		Codes: d.Codes, Chats: d.Chats,
+		Wiki: d.Wiki, Writing: d.Writing, Output: d.Output,
+	}
+}
+
 // CodeDenialReader —— 读一张 code 的 deny 集(capability / skill id)。纯 deny：
 // code 只能从所选 role 授的里再砍。access.CodeDenialRepo 实现它。
 type CodeDenialReader interface {

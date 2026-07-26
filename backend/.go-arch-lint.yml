@@ -588,6 +588,7 @@ deps:
       - dbq
       - access
       - apierr
+      - session
     anyVendorDeps: true
 
   # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。

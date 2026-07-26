@@ -12,7 +12,7 @@
 //     (一会话一份),不挂 conversation 视图。
 //   - 时间戳一律 serverside(message.CreatedAt / chat.StartedAt)。
 
-package usecases
+package conversation
 
 import (
 	"context"
@@ -21,10 +21,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
+
+// HistoryDeps —— 会话读模型的窄依赖(#131):code 配额 + chat 事务 + 三类 corpus
+// lister(citation 反查树派生 path)。VisitorSessionDeps.History() 收窄成这个。
+type HistoryDeps struct {
+	Codes   *access.CodeRepo
+	Chats   *ChatRepo
+	Wiki    corpus.WikiLister
+	Writing corpus.WritingLister
+	Output  corpus.OutputLister
+}
 
 // DialogGhost —— 这条 question 之前显示的一个候选 ghost + 是否被选中。
 type DialogGhost struct {
@@ -56,7 +66,7 @@ type ConvDialog struct {
 // LoadVisitorView —— 凭 session data 拼出 {session, conversation}。无 code
 // (public/byoai)→ Code 留零值;还没开会 → Conversation.Dialogs 空。
 func LoadVisitorView(
-	ctx context.Context, deps *VisitorSessionDeps, data *session.VisitorSessionData,
+	ctx context.Context, deps *HistoryDeps, data *session.VisitorSessionData,
 ) (VisitorView, error) {
 	conv, err := loadConversation(ctx, deps, data.MemberID, data.OwnerID)
 	if err != nil {
@@ -74,7 +84,7 @@ func LoadVisitorView(
 
 // memberUsedTurns —— 该 member 跨全部对话的访客发言合计(member 级 used)。无
 // member(public/byoai)/ 数不出来 → 0。前端 strip 据此显 used。
-func memberUsedTurns(ctx context.Context, deps *VisitorSessionDeps, memberID string) int32 {
+func memberUsedTurns(ctx context.Context, deps *HistoryDeps, memberID string) int32 {
 	if memberID == "" {
 		return 0
 	}
@@ -85,7 +95,7 @@ func memberUsedTurns(ctx context.Context, deps *VisitorSessionDeps, memberID str
 	return n
 }
 
-func codeView(ctx context.Context, deps *VisitorSessionDeps, codeID string) ConvCode {
+func codeView(ctx context.Context, deps *HistoryDeps, codeID string) ConvCode {
 	if codeID == "" {
 		return ConvCode{}
 	}
@@ -108,7 +118,7 @@ func posInt32(p *int32) int32 {
 	return 0
 }
 
-func countCodeMembers(ctx context.Context, deps *VisitorSessionDeps, codeID string) int {
+func countCodeMembers(ctx context.Context, deps *HistoryDeps, codeID string) int {
 	members, err := deps.Codes.ListMembers(ctx, codeID)
 	if err != nil {
 		return 0
@@ -119,25 +129,25 @@ func countCodeMembers(ctx context.Context, deps *VisitorSessionDeps, codeID stri
 // loadConversation —— member → open chat → messages → 配对(只配答完的轮,带引用)。
 // 还没开会(ErrChatNotFound)→ 空 conversation(不是错误)。
 func loadConversation(
-	ctx context.Context, deps *VisitorSessionDeps, memberID, ownerID string,
+	ctx context.Context, deps *HistoryDeps, memberID, ownerID string,
 ) (Conversation, error) {
 	if memberID == "" {
 		return Conversation{}, nil
 	}
 	chat, err := deps.Chats.GetOpenChatByMember(ctx, memberID)
-	if errors.Is(err, conversation.ErrChatNotFound) {
+	if errors.Is(err, ErrChatNotFound) {
 		return Conversation{}, nil
 	}
 	if err != nil {
 		return Conversation{}, fmt.Errorf("open chat: %w", err)
 	}
-	return ConversationForChat(ctx, deps, ownerID, chat.ID)
+	return ForChat(ctx, deps, ownerID, chat.ID)
 }
 
-// ConversationForChat —— 把某一段 conversation(按 id,owner-scoped)组装成视图
+// ForChat —— 把某一段 conversation(按 id,owner-scoped)组装成视图
 // (dialogs + citations)。主聊天恢复走 loadConversation,浮窗那段对话走这个。
-func ConversationForChat(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID, chatID string,
+func ForChat(
+	ctx context.Context, deps *HistoryDeps, ownerID, chatID string,
 ) (Conversation, error) {
 	bundle, err := deps.Chats.GetWithMessages(ctx, ownerID, chatID)
 	if err != nil {
@@ -164,7 +174,7 @@ type dialogAnswer struct {
 //
 // 只有 return_directly 轮会以「空 body + tool_calls」落库(persistTurn 的 producedContentForPersist:
 // 纯 grounding narration 不落),所以这里放行带 tool 的空答案不会把 F-A-4 的规划旁白放进来。
-func pairDialogs(msgs []conversation.Message, r *citationResolver) []ConvDialog {
+func pairDialogs(msgs []Message, r *citationResolver) []ConvDialog {
 	out := make([]ConvDialog, 0, len(msgs))
 	for i := range msgs {
 		if msgs[i].Role != "visitor" {
@@ -187,7 +197,7 @@ func toolCallsNonEmpty(raw []byte) bool {
 	return s != "" && s != "null" && s != "[]"
 }
 
-func answerAfter(msgs []conversation.Message, i int, r *citationResolver) dialogAnswer {
+func answerAfter(msgs []Message, i int, r *citationResolver) dialogAnswer {
 	if i+1 < len(msgs) && msgs[i+1].Role == "assistant" {
 		return dialogAnswer{
 			CreatedAt: msgs[i+1].CreatedAt, Body: msgs[i+1].Body,
@@ -215,8 +225,8 @@ const (
 )
 
 func newCitationResolver(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID string,
-	msgs []conversation.Message,
+	ctx context.Context, deps *HistoryDeps, ownerID string,
+	msgs []Message,
 ) *citationResolver {
 	r := &citationResolver{}
 	cited := collectCitedIDs(msgs)
@@ -227,7 +237,7 @@ func newCitationResolver(
 }
 
 func (r *citationResolver) loadWikis(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID string, ids []string,
+	ctx context.Context, deps *HistoryDeps, ownerID string, ids []string,
 ) {
 	if len(ids) == 0 {
 		return
@@ -239,7 +249,7 @@ func (r *citationResolver) loadWikis(
 }
 
 func (r *citationResolver) loadWritings(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID string, ids []string,
+	ctx context.Context, deps *HistoryDeps, ownerID string, ids []string,
 ) {
 	if len(ids) == 0 || deps.Writing == nil {
 		return
@@ -251,7 +261,7 @@ func (r *citationResolver) loadWritings(
 }
 
 func (r *citationResolver) loadOutputs(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID string, ids []string,
+	ctx context.Context, deps *HistoryDeps, ownerID string, ids []string,
 ) {
 	if len(ids) == 0 {
 		return
@@ -262,7 +272,7 @@ func (r *citationResolver) loadOutputs(
 	}
 }
 
-func (r *citationResolver) resolve(m *conversation.Message) []DialogCitation {
+func (r *citationResolver) resolve(m *Message) []DialogCitation {
 	out := make([]DialogCitation, 0,
 		len(m.CitedWikiIDs)+len(m.CitedWritingIDs)+len(m.CitedOutputIDs))
 	out = appendCites(out, "wiki", m.CitedWikiIDs, r.wikiPaths, r.wikiTitles)

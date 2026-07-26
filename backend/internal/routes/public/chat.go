@@ -40,7 +40,7 @@ type Handlers struct {
 	Cancel       booker.VisitorCancelDeps
 	Usage        UsageRecorder
 	Reports      usecases.ReportStore
-	Corpus       usecases.DialogCorpusLookup
+	Corpus       conversation.DialogCorpusLookup
 	Subjectivity corpus.SubjectivityCiteLookup
 	PDFRenderer  ReportPDFRenderer
 	AppState     AppStateStore
@@ -48,7 +48,7 @@ type Handlers struct {
 	CodeGuard    CodeGuard
 	Sessions     *session.VisitorSessionStore
 	QueryQueue   *session.QueryQueue
-	Ledger       *usecases.WaypointLedger
+	Ledger       *conversation.WaypointLedger
 	Ghosts       conversation.GhostDeps
 	Log          *slog.Logger
 	SecureCookie bool

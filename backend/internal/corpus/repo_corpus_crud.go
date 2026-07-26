@@ -148,7 +148,7 @@ func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 }
 
 // cited id → title+path 的批量反查(GetTitlesByIDs)退役了:transcript hydration
-// 改在 usecases.GetConversationTranscript 里 load 全树 + WikiTreePaths 算地址
+// 改在 conversation.GetConversationTranscript 里 load 全树 + WikiTreePaths 算地址
 // (地址纯树派生,不读已退役的 path 列)。
 
 // ─── output ─────────────────────────────────────────────────

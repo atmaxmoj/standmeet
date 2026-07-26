@@ -13,8 +13,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation"
+
 	"github.com/atmaxmoj/standmeet/internal/session"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type ghostResp struct {
@@ -72,7 +73,7 @@ func (h *Handlers) getConversation() http.HandlerFunc {
 func writeConversation(
 	h *Handlers, w http.ResponseWriter, r *http.Request, data *session.VisitorSessionData,
 ) {
-	view, err := usecases.LoadVisitorView(r.Context(), &h.Visitor, data)
+	view, err := conversation.LoadVisitorView(r.Context(), h.Visitor.History(), data)
 	if err != nil {
 		h.Log.Error("load conversation", "err", err)
 		writeError(h.Log, w, serverErr())
@@ -85,7 +86,7 @@ func writeConversation(
 	}
 }
 
-func toViewResp(v *usecases.VisitorView) viewResp {
+func toViewResp(v *conversation.VisitorView) viewResp {
 	return viewResp{
 		Session: sessionResp{
 			VisitorName: v.Session.VisitorName,
@@ -100,14 +101,14 @@ func toViewResp(v *usecases.VisitorView) viewResp {
 	}
 }
 
-func toConversationResp(c *usecases.Conversation) conversationResp {
+func toConversationResp(c *conversation.Conversation) conversationResp {
 	return conversationResp{
 		StartedAt: c.StartedAt.Format(time.RFC3339),
 		Dialogs:   toDialogResps(c.Dialogs),
 	}
 }
 
-func toDialogResps(ds []usecases.ConvDialog) []dialogResp {
+func toDialogResps(ds []conversation.ConvDialog) []dialogResp {
 	out := make([]dialogResp, len(ds))
 	for i := range ds {
 		out[i] = dialogResp{
@@ -122,7 +123,7 @@ func toDialogResps(ds []usecases.ConvDialog) []dialogResp {
 	return out
 }
 
-func toGhostResps(gs []usecases.DialogGhost) []ghostResp {
+func toGhostResps(gs []conversation.DialogGhost) []ghostResp {
 	out := make([]ghostResp, len(gs))
 	for i := range gs {
 		out[i] = ghostResp{Text: gs[i].Text, Selected: gs[i].Selected}
@@ -130,7 +131,7 @@ func toGhostResps(gs []usecases.DialogGhost) []ghostResp {
 	return out
 }
 
-func toCitationResps(cs []usecases.DialogCitation) []citationResp {
+func toCitationResps(cs []conversation.DialogCitation) []citationResp {
 	out := make([]citationResp, len(cs))
 	for i := range cs {
 		out[i] = citationResp{Genre: cs[i].Genre, Path: cs[i].Path, Title: cs[i].Title}
