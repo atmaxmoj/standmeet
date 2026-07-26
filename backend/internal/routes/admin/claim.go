@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -153,13 +154,13 @@ var claimErrCases = []apierr.Case{
 		},
 	},
 	{
-		Match: domain.ErrEmailTaken,
+		Match: ownerdomain.ErrEmailTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "email_taken", Message: "email already in use",
 		},
 	},
 	{
-		Match: domain.ErrHandleTaken,
+		Match: ownerdomain.ErrHandleTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "handle_taken", Message: "handle already in use",
 		},
@@ -221,7 +222,7 @@ func handleClaimErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, env)
 }
 
-func writeJSONClaim(log *slog.Logger, w http.ResponseWriter, owner *domain.Owner) {
+func writeJSONClaim(log *slog.Logger, w http.ResponseWriter, owner *ownerdomain.Owner) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := claimResponse{

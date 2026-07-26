@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/accessdomain"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -44,27 +44,27 @@ func IssuePublicSession(
 // helper 避免 deps 互相依赖。pre-claim → ErrOwnerNotFound 由 handler 翻译成 404。
 func loadSoleOwnerForVisitor(
 	ctx context.Context, deps *VisitorSessionDeps,
-) (domain.Owner, error) {
+) (ownerdomain.Owner, error) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("first owner handle: %w", err)
+		return ownerdomain.Owner{}, fmt.Errorf("first owner handle: %w", err)
 	}
 	if handle == "" {
-		return domain.Owner{}, domain.ErrOwnerNotFound
+		return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
 	}
 	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		if errors.Is(oerr, domain.ErrOwnerNotFound) {
-			return domain.Owner{}, domain.ErrOwnerNotFound
+		if errors.Is(oerr, ownerdomain.ErrOwnerNotFound) {
+			return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
 		}
-		return domain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
+		return ownerdomain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
 	return owner, nil
 }
 
 func finalizePublicSession(
 	ctx context.Context, deps *VisitorSessionDeps,
-	in *IssuePublicSessionInput, owner *domain.Owner,
+	in *IssuePublicSessionInput, owner *ownerdomain.Owner,
 ) (IssueCodeSessionResult, error) {
 	// Mode 记 byoai/public(功能性,resolver/quota 在用);BYOAI 的具体 provider 是
 	// visitor/session 的属性(前端 session-store + per-request cred),不落 conv 行。

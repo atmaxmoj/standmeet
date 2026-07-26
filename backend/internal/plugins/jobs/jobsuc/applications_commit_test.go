@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -34,8 +34,8 @@ func (s *spyCommitStore) Commit(
 
 type fakeOwnerLookup struct{ url string }
 
-func (f fakeOwnerLookup) GetByID(_ context.Context, _ string) (domain.Owner, error) {
-	return domain.Owner{PublicURL: f.url}, nil
+func (f fakeOwnerLookup) GetByID(_ context.Context, _ string) (ownerdomain.Owner, error) {
+	return ownerdomain.Owner{PublicURL: f.url}, nil
 }
 
 type failingRenderer struct{}

@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -24,14 +24,14 @@ type SEODeps struct {
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
-func FirstOwner(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
+func FirstOwner(ctx context.Context, deps SEODeps) (ownerdomain.Owner, bool) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil || handle == "" {
-		return domain.Owner{}, false
+		return ownerdomain.Owner{}, false
 	}
 	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		return domain.Owner{}, false
+		return ownerdomain.Owner{}, false
 	}
 	return owner, true
 }
@@ -50,14 +50,14 @@ func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpusdomain.SEOSett
 }
 
 // PublicReady —— 集中 robots/sitemap readiness check。
-func PublicReady(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
+func PublicReady(ctx context.Context, deps SEODeps) (ownerdomain.Owner, bool) {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok || owner.PublicURL == "" {
-		return domain.Owner{}, false
+		return ownerdomain.Owner{}, false
 	}
 	settings, ok := FirstOwnerSettings(ctx, deps)
 	if !ok || !settings.IndexRobots {
-		return domain.Owner{}, false
+		return ownerdomain.Owner{}, false
 	}
 	return owner, true
 }
@@ -91,7 +91,7 @@ func GetWikiLanding(
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return WikiLanding{}, domain.ErrOwnerNotFound
+		return WikiLanding{}, ownerdomain.ErrOwnerNotFound
 	}
 	// 全量 meta(无 body、无 50-cap):算树派生 path 定位条目 + 建 [[X]] 渲染 title 索引。
 	// deep entry(超出旧 newest-50)也找得到,链接也不断。正文单独 GetByID 拉。
@@ -206,7 +206,7 @@ func GetOutputLanding(
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return corpusdomain.Output{}, domain.ErrOwnerNotFound
+		return corpusdomain.Output{}, ownerdomain.ErrOwnerNotFound
 	}
 	return resolveOutputLanding(ctx, deps, owner.ID, path)
 }

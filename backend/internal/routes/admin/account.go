@@ -5,7 +5,7 @@
 //   PATCH /api/admin/account/password   { current_password, new_password }
 //
 // email + password 改之前必须验当前密码——usecase 拒绝时统一返
-// domain.ErrUnauthorized，handler 翻 401 跟 login 同码。
+// ownerdomain.ErrUnauthorized，handler 翻 401 跟 login 同码。
 
 package admin
 
@@ -17,8 +17,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -147,14 +147,14 @@ func handleAccountErr(log *slog.Logger, w http.ResponseWriter, err error) {
 // （apierr.Classify 走 errors.Is unwrap chain）。
 var accountErrCases = []apierr.Case{
 	{
-		Match: domain.ErrUnauthorized,
+		Match: ownerdomain.ErrUnauthorized,
 		Envelope: apierr.Envelope{
 			Status: http.StatusUnauthorized, Code: "unauthorized",
 			Message: "invalid credentials",
 		},
 	},
 	{
-		Match: domain.ErrEmailTaken,
+		Match: ownerdomain.ErrEmailTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "email_taken",
 			Message: "email already in use",

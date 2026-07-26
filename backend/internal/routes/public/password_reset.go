@@ -18,7 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -63,7 +63,7 @@ func handlePasswordResetErr(log *slog.Logger, w http.ResponseWriter, err error) 
 			Status: http.StatusBadRequest, Code: "password_too_short",
 			Message: "password must be at least 12 characters",
 		})
-	case errors.Is(err, domain.ErrUnauthorized), errors.Is(err, domain.ErrOwnerNotFound):
+	case errors.Is(err, ownerdomain.ErrUnauthorized), errors.Is(err, ownerdomain.ErrOwnerNotFound):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusUnauthorized, Code: "unauthorized",
 			Message: "invalid or expired reset token",

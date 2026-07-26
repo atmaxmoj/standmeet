@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -40,14 +40,14 @@ type PublicPageView struct {
 // join 成 PagePinCard(title + excerpt + path)。AI(page.get)和访客看同一形。
 // 字段顺序按 govet fieldalignment。
 type PageContentView struct {
-	UpdatedAt    time.Time            `json:"updated_at"`
-	Where        domain.PageWhere     `json:"where"`
-	Contact      domain.PageContact   `json:"contact"`
-	OwnerID      string               `json:"owner_id"`
-	HeroProse    string               `json:"hero_prose"`
-	HeroExamples []string             `json:"hero_examples"`
-	Insights     []domain.PagePinCard `json:"insights"`
-	Projects     []domain.PagePinCard `json:"projects"`
+	UpdatedAt    time.Time                 `json:"updated_at"`
+	Where        ownerdomain.PageWhere     `json:"where"`
+	Contact      ownerdomain.PageContact   `json:"contact"`
+	OwnerID      string                    `json:"owner_id"`
+	HeroProse    string                    `json:"hero_prose"`
+	HeroExamples []string                  `json:"hero_examples"`
+	Insights     []ownerdomain.PagePinCard `json:"insights"`
+	Projects     []ownerdomain.PagePinCard `json:"projects"`
 }
 
 // PublicOwnerView —— 暴露给访客的 owner 切片（不含 email / password_hash）。
@@ -60,17 +60,17 @@ type PublicOwnerView struct {
 
 // LoadSoleOwner —— v1 单 owner instance：取唯一的 owner。pre-claim
 // （未 claim） → ErrOwnerNotFound。app 根路径 / SEO / public routes 都走这条。
-func LoadSoleOwner(ctx context.Context, deps PageDeps) (domain.Owner, error) {
+func LoadSoleOwner(ctx context.Context, deps PageDeps) (ownerdomain.Owner, error) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("first owner handle: %w", err)
+		return ownerdomain.Owner{}, fmt.Errorf("first owner handle: %w", err)
 	}
 	if handle == "" {
-		return domain.Owner{}, domain.ErrOwnerNotFound
+		return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
 	}
 	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		return domain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
+		return ownerdomain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
 	return owner, nil
 }
@@ -120,8 +120,8 @@ func EnsureUnclaimedSetupToken(ctx context.Context, issuer SetupTokenIssuer) (st
 func GetPublicPage(ctx context.Context, deps PageDeps) (PublicPageView, error) {
 	owner, err := LoadSoleOwner(ctx, deps)
 	if err != nil {
-		if errors.Is(err, domain.ErrOwnerNotFound) {
-			return PublicPageView{}, domain.ErrOwnerNotFound
+		if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
+			return PublicPageView{}, ownerdomain.ErrOwnerNotFound
 		}
 		return PublicPageView{}, err
 	}
@@ -146,7 +146,7 @@ func GetPublicPage(ctx context.Context, deps PageDeps) (PublicPageView, error) {
 // BuildPageContentView —— 存储形 → 渲染视图(pin join)。page.get MCP 也走这条,
 // AI 看到的和访客一致。
 func BuildPageContentView(
-	ctx context.Context, deps PageDeps, ownerID string, content *domain.PageContent,
+	ctx context.Context, deps PageDeps, ownerID string, content *ownerdomain.PageContent,
 ) (PageContentView, error) {
 	join, err := LoadPinJoin(ctx, PagePinDeps(deps), ownerID, content)
 	if err != nil {
@@ -166,13 +166,13 @@ func BuildPageContentView(
 
 func loadPageContentOrDefault(
 	ctx context.Context, deps PageDeps, ownerID string,
-) (domain.PageContent, error) {
+) (ownerdomain.PageContent, error) {
 	content, err := deps.Owners.GetPageContent(ctx, ownerID)
-	if errors.Is(err, domain.ErrPageNotFound) {
+	if errors.Is(err, ownerdomain.ErrPageNotFound) {
 		return buildDefaultPage(ownerID), nil
 	}
 	if err != nil {
-		return domain.PageContent{}, fmt.Errorf("get page content: %w", err)
+		return ownerdomain.PageContent{}, fmt.Errorf("get page content: %w", err)
 	}
 	return content, nil
 }
@@ -180,12 +180,12 @@ func loadPageContentOrDefault(
 // DefaultPageContent —— page-content.js 里的默认 hero / insights / projects /
 // where / contact。新 instance 第一次被访问时返这个；admin 第一次保存就
 // 覆盖。
-func DefaultPageContent(ownerID string) domain.PageContent {
+func DefaultPageContent(ownerID string) ownerdomain.PageContent {
 	return buildDefaultPage(ownerID)
 }
 
-func buildDefaultPage(ownerID string) domain.PageContent {
-	return domain.PageContent{
+func buildDefaultPage(ownerID string) ownerdomain.PageContent {
+	return ownerdomain.PageContent{
 		OwnerID:      ownerID,
 		HeroProse:    defaultHeroProse,
 		HeroExamples: defaultHeroExamples(),
@@ -232,8 +232,8 @@ func defaultProjects() []string {
 // visitor-facing; the old defaults ("Edit your location in /admin/page." / "Tell visitors what
 // you're up to right now.") spoke to the OWNER. An unconfigured section shows nothing; the owner's
 // nudge lives in the /admin/page editor.
-func defaultWhere() domain.PageWhere {
-	return domain.PageWhere{
+func defaultWhere() ownerdomain.PageWhere {
+	return ownerdomain.PageWhere{
 		LocationLine: "",
 		StatusProse:  "",
 		LookingFor:   []string{},
@@ -241,8 +241,8 @@ func defaultWhere() domain.PageWhere {
 	}
 }
 
-func defaultContact() domain.PageContact {
-	return domain.PageContact{
+func defaultContact() ownerdomain.PageContact {
+	return ownerdomain.PageContact{
 		Email:          "",
 		ChatLine:       "Ask via the chat above.",
 		RecruiterProse: "",

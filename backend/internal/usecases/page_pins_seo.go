@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -80,7 +80,7 @@ func SweepPagePins(ctx context.Context, pins PagePinDeps, ownerID string) error 
 
 // collectStalePins —— 不再 published(或条目已删,join 未命中)的 pin id 集。
 func collectStalePins(
-	content *domain.PageContent, cards map[string]postgres.WikiCard,
+	content *ownerdomain.PageContent, cards map[string]postgres.WikiCard,
 ) []string {
 	stale := []string{}
 	for _, id := range append(append([]string{}, content.Insights...), content.Projects...) {

@@ -16,7 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -70,7 +70,7 @@ func (h *PageHandlers) getAppearanceCSS() http.HandlerFunc {
 func (h *PageHandlers) getInstance() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		owner, err := usecases.LoadSoleOwner(r.Context(), h.Page)
-		if err != nil && !errors.Is(err, domain.ErrOwnerNotFound) {
+		if err != nil && !errors.Is(err, ownerdomain.ErrOwnerNotFound) {
 			h.Log.Error("load sole owner", logErrKey, err)
 			writeError(h.Log, w, apierr.Envelope{
 				Status:  http.StatusInternalServerError,
@@ -91,7 +91,7 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 // unclaimedSetupToken —— claimed 时返空串（不暴露 token）。unclaimed 时
 // 经 usecase 拿一个一定可用的 plaintext（必要时 self-heal：当 DB hash 为
 // NULL 或 holder 为空时重新 issue）。
-func (h *PageHandlers) unclaimedSetupToken(ctx context.Context, owner *domain.Owner) string {
+func (h *PageHandlers) unclaimedSetupToken(ctx context.Context, owner *ownerdomain.Owner) string {
 	if owner.ID != "" || h.TokenIssuer == nil {
 		return ""
 	}
@@ -121,7 +121,7 @@ func (h *PageHandlers) ownerCustomCSS(ctx context.Context, ownerID string) strin
 
 // instanceWriteInput —— writeInstanceInfo 的入参打包。
 type instanceWriteInput struct {
-	owner          *domain.Owner
+	owner          *ownerdomain.Owner
 	setupToken     string
 	captchaSiteKey string
 	canEmailCodes  bool
@@ -180,7 +180,7 @@ func handlePageErr(log *slog.Logger, w http.ResponseWriter, err error) {
 }
 
 func classifyPageErr(err error) apierr.Envelope {
-	if errors.Is(err, domain.ErrOwnerNotFound) {
+	if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
 		return apierr.Envelope{
 			Status:  http.StatusNotFound,
 			Code:    "owner_not_found",

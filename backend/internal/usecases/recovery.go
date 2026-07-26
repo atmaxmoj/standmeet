@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -103,13 +103,13 @@ func verifyRecovery(
 ) (postgres.Credentials, error) {
 	creds, err := deps.Owners.GetCredentialsByEmail(ctx, in.Email)
 	if err != nil {
-		return postgres.Credentials{}, domain.ErrUnauthorized
+		return postgres.Credentials{}, ownerdomain.ErrUnauthorized
 	}
 	if creds.RecoveryHash == "" {
-		return postgres.Credentials{}, domain.ErrUnauthorized
+		return postgres.Credentials{}, ownerdomain.ErrUnauthorized
 	}
 	if vperr := session.VerifyPassword(in.Phrase, creds.RecoveryHash); vperr != nil {
-		return postgres.Credentials{}, domain.ErrUnauthorized
+		return postgres.Credentials{}, ownerdomain.ErrUnauthorized
 	}
 	return creds, nil
 }

@@ -3,7 +3,7 @@
 //
 // Response shape:
 //   { owner: { ... identity }, settings: { ai: ..., byoai: ... } }
-// 跟 domain.Owner / domain.OwnerSettings 1:1 对齐。
+// 跟 ownerdomain.Owner / ownerdomain.OwnerSettings 1:1 对齐。
 
 package admin
 
@@ -14,8 +14,8 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 )
 
 type ownerView struct {
@@ -68,7 +68,7 @@ func (h *Handlers) me() http.HandlerFunc {
 
 func writeMe(
 	log *slog.Logger, w http.ResponseWriter,
-	owner *domain.Owner, settings *domain.OwnerSettings,
+	owner *ownerdomain.Owner, settings *ownerdomain.OwnerSettings,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -77,7 +77,7 @@ func writeMe(
 	}
 }
 
-func toMeResponse(owner *domain.Owner, settings *domain.OwnerSettings) meResponse {
+func toMeResponse(owner *ownerdomain.Owner, settings *ownerdomain.OwnerSettings) meResponse {
 	providers := settings.BYOAI.Providers
 	if providers == nil {
 		providers = []string{}
@@ -105,7 +105,7 @@ func toMeResponse(owner *domain.Owner, settings *domain.OwnerSettings) meRespons
 }
 
 func handleMeErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrOwnerNotFound) {
+	if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusUnauthorized, Code: "unauthorized", Message: "owner not found",
 		})

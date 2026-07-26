@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 )
 
@@ -59,7 +59,7 @@ type bookingRepo interface {
 // bookingOwners —— owner timezone read (GetByID → ProfileTimezone) + write.
 // *postgres.OwnerRepo satisfies it directly.
 type bookingOwners interface {
-	GetByID(ctx context.Context, ownerID string) (domain.Owner, error)
+	GetByID(ctx context.Context, ownerID string) (ownerdomain.Owner, error)
 	UpdateProfileTimezone(ctx context.Context, ownerID, tz string) error
 }
 

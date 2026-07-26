@@ -5,7 +5,7 @@
 // 这是 Owner aggregate 的"内容切面" —— 跟 OwnerSettings 平行，跟着 owner_id
 // 一起走 repo；不是独立 aggregate root。
 
-package domain
+package ownerdomain
 
 import (
 	"errors"

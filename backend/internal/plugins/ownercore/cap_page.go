@@ -14,8 +14,8 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -23,10 +23,10 @@ const capPageBundle = "page.bundle"
 
 // pageContentStore —— owner page_content 读写（避开直接 import postgres.OwnerRepo）。
 type pageContentStore interface {
-	GetPageContent(ctx context.Context, ownerID string) (domain.PageContent, error)
+	GetPageContent(ctx context.Context, ownerID string) (ownerdomain.PageContent, error)
 	UpsertPageContent(
-		ctx context.Context, ownerID string, in *domain.PageContent,
-	) (domain.PageContent, error)
+		ctx context.Context, ownerID string, in *ownerdomain.PageContent,
+	) (ownerdomain.PageContent, error)
 }
 
 type pageCapability struct {
@@ -118,7 +118,7 @@ func updateHandleErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, usecases.ErrEmptyField) {
 		return capreg.MCPError("handle must be 2-64 chars of a-z0-9-")
 	}
-	if errors.Is(err, domain.ErrHandleTaken) {
+	if errors.Is(err, ownerdomain.ErrHandleTaken) {
 		return capreg.MCPError("handle already taken")
 	}
 	log.Error("cap page.update_handle", "err", err)
@@ -143,7 +143,7 @@ func (c *pageCapability) handleGet(
 ) capreg.MCPResult {
 	content, err := c.pages.GetPageContent(ctx, ownerID)
 	if err != nil {
-		if !errors.Is(err, domain.ErrPageNotFound) {
+		if !errors.Is(err, ownerdomain.ErrPageNotFound) {
 			c.log.Error("cap page.get", "err", err)
 			return capreg.MCPError("page.get failed")
 		}
@@ -184,10 +184,10 @@ func (c *pageCapability) putBinding() *capreg.MCPBinding {
 // pagePutWire —— page.put 的入参形:config 字段 only。pin 列表不在这条路上
 // (单一维护点 PinToPage/UnpinFromPage 守不变量;整段替换会绕过它)。
 type pagePutWire struct {
-	HeroProse    string             `json:"hero_prose"`
-	Where        domain.PageWhere   `json:"where"`
-	Contact      domain.PageContact `json:"contact"`
-	HeroExamples []string           `json:"hero_examples"`
+	HeroProse    string                  `json:"hero_prose"`
+	Where        ownerdomain.PageWhere   `json:"where"`
+	Contact      ownerdomain.PageContact `json:"contact"`
+	HeroExamples []string                `json:"hero_examples"`
 }
 
 func (c *pageCapability) handlePut(
@@ -199,7 +199,7 @@ func (c *pageCapability) handlePut(
 	}
 	current, err := c.pages.GetPageContent(ctx, ownerID)
 	if err != nil {
-		if !errors.Is(err, domain.ErrPageNotFound) {
+		if !errors.Is(err, ownerdomain.ErrPageNotFound) {
 			c.log.Error("cap page.put load", "err", err)
 			return capreg.MCPError("page.put failed")
 		}

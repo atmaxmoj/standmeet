@@ -29,6 +29,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -79,7 +80,7 @@ type CommitStore interface {
 // OwnerLookup —— 取 owner handle 用于拼 QR URL；用接口避开 usecases → postgres
 // 的具体 OwnerRepo 直耦合（cmd 层 wireup 注入实际实现）。
 type OwnerLookup interface {
-	GetByID(ctx context.Context, ownerID string) (domain.Owner, error)
+	GetByID(ctx context.Context, ownerID string) (ownerdomain.Owner, error)
 }
 
 // CommitApplication —— 主入口。返回结构化 application + 同步 issue 的 access
@@ -136,7 +137,7 @@ func prepareRender(
 		return renderPrep{}, fmt.Errorf("get owner: %w", err)
 	}
 	if owner.PublicURL == "" {
-		return renderPrep{}, domain.ErrPublicURLNotSet
+		return renderPrep{}, ownerdomain.ErrPublicURLNotSet
 	}
 	data, err := deps.Apps.GetDraftRenderData(ctx, ownerID, draftID)
 	if err != nil {

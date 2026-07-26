@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/accessdomain"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -58,20 +58,20 @@ func validSubmitInput(in *SubmitAccessRequestInput) bool {
 
 func loadSoleOwnerForRequest(
 	ctx context.Context, deps AccessRequestsDeps,
-) (domain.Owner, error) {
+) (ownerdomain.Owner, error) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("first owner handle: %w", err)
+		return ownerdomain.Owner{}, fmt.Errorf("first owner handle: %w", err)
 	}
 	if handle == "" {
-		return domain.Owner{}, domain.ErrOwnerNotFound
+		return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
 	}
 	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		if errors.Is(oerr, domain.ErrOwnerNotFound) {
-			return domain.Owner{}, domain.ErrOwnerNotFound
+		if errors.Is(oerr, ownerdomain.ErrOwnerNotFound) {
+			return ownerdomain.Owner{}, ownerdomain.ErrOwnerNotFound
 		}
-		return domain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
+		return ownerdomain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
 	return owner, nil
 }

@@ -10,8 +10,8 @@ import (
 	"encoding/json"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -60,7 +60,7 @@ type promoteArgsWire struct {
 type promoteUsecaseFn func(
 	ctx context.Context, deps usecases.CustomPageDeps,
 	ownerID, slug, buildID string,
-) (domain.CustomPage, error)
+) (ownerdomain.CustomPage, error)
 
 func (c *customPageCapability) handlePromote(
 	name string, fn promoteUsecaseFn,

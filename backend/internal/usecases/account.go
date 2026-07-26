@@ -3,7 +3,7 @@
 // 攻击者直接 hijack 账号。
 //
 // password 校验沿用 session.VerifyPassword（Argon2id constant-time compare）；
-// 验证失败统一返 domain.ErrUnauthorized，跟 login 同码，不告诉攻击者哪一步挂。
+// 验证失败统一返 ownerdomain.ErrUnauthorized，跟 login 同码，不告诉攻击者哪一步挂。
 
 package usecases
 
@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -37,19 +37,19 @@ var ErrPasswordTooShort = errors.New("password must be at least 12 characters")
 // ErrEmptyField。不需要密码校验（low-stake）。
 func UpdateOwnerFullName(
 	ctx context.Context, deps AccountDeps, ownerID, raw string,
-) (domain.Owner, error) {
+) (ownerdomain.Owner, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return domain.Owner{}, ErrEmptyField
+		return ownerdomain.Owner{}, ErrEmptyField
 	}
 	if len(trimmed) > maxFullNameLen {
-		return domain.Owner{}, fmt.Errorf(
+		return ownerdomain.Owner{}, fmt.Errorf(
 			"%w: full_name too long (max %d)", ErrEmptyField, maxFullNameLen,
 		)
 	}
 	owner, err := deps.Owners.UpdateFullName(ctx, ownerID, trimmed)
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("update full_name: %w", err)
+		return ownerdomain.Owner{}, fmt.Errorf("update full_name: %w", err)
 	}
 	return owner, nil
 }
@@ -62,20 +62,20 @@ type EmailUpdateInput struct {
 }
 
 // UpdateOwnerEmail —— owner 改 email。先验当前密码，通过才改。新 email 走
-// trim + 长度 + 基本格式（@ 含一次）；唯一冲突翻 domain.ErrEmailTaken。
+// trim + 长度 + 基本格式（@ 含一次）；唯一冲突翻 ownerdomain.ErrEmailTaken。
 func UpdateOwnerEmail(
 	ctx context.Context, deps AccountDeps, in *EmailUpdateInput,
-) (domain.Owner, error) {
+) (ownerdomain.Owner, error) {
 	if verr := verifyCurrentPassword(ctx, deps, in.OwnerID, in.CurrentPassword); verr != nil {
-		return domain.Owner{}, verr
+		return ownerdomain.Owner{}, verr
 	}
 	normalized, nerr := normalizeEmail(in.NewEmail)
 	if nerr != nil {
-		return domain.Owner{}, nerr
+		return ownerdomain.Owner{}, nerr
 	}
 	owner, err := deps.Owners.UpdateEmail(ctx, in.OwnerID, normalized)
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("update email: %w", err)
+		return ownerdomain.Owner{}, fmt.Errorf("update email: %w", err)
 	}
 	return owner, nil
 }
@@ -134,19 +134,19 @@ func UpdateOwnerPassword(
 
 // verifyCurrentPassword —— 拿 ownerID + 明文 password，repo 取 hash，
 // session.VerifyPassword constant-time 比对。任何失败都翻成
-// domain.ErrUnauthorized——不区分用户存在 / hash 解析失败 / 密码错。
+// ownerdomain.ErrUnauthorized——不区分用户存在 / hash 解析失败 / 密码错。
 func verifyCurrentPassword(
 	ctx context.Context, deps AccountDeps, ownerID, plaintext string,
 ) error {
 	if plaintext == "" {
-		return domain.ErrUnauthorized
+		return ownerdomain.ErrUnauthorized
 	}
 	hash, err := deps.Owners.GetPasswordHash(ctx, ownerID)
 	if err != nil {
-		return domain.ErrUnauthorized
+		return ownerdomain.ErrUnauthorized
 	}
 	if verr := session.VerifyPassword(plaintext, hash); verr != nil {
-		return domain.ErrUnauthorized
+		return ownerdomain.ErrUnauthorized
 	}
 	return nil
 }

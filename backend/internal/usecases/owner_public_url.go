@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -24,18 +24,18 @@ type PublicURLDeps struct {
 // 复用 ErrPublicURLInvalid（claim 同款 sentinel），让 routes 翻译 400。
 func UpdateOwnerPublicURL(
 	ctx context.Context, deps PublicURLDeps, ownerID, raw string,
-) (domain.Owner, error) {
+) (ownerdomain.Owner, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return domain.Owner{}, ErrEmptyField
+		return ownerdomain.Owner{}, ErrEmptyField
 	}
 	if !validPublicURL(trimmed) {
-		return domain.Owner{}, ErrPublicURLInvalid
+		return ownerdomain.Owner{}, ErrPublicURLInvalid
 	}
 	normalized := normalizePublicURL(trimmed)
 	owner, err := deps.Owners.UpdatePublicURL(ctx, ownerID, normalized)
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("update public_url: %w", err)
+		return ownerdomain.Owner{}, fmt.Errorf("update public_url: %w", err)
 	}
 	return owner, nil
 }

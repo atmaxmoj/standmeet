@@ -1,11 +1,4 @@
-// Package domain 是 DDD 的内核：纯实体、值对象、错误。
-// 不依赖任何 internal 包；不依赖任何 infra 库。
-//
-// owner.go —— Owner aggregate 的根 + 配置切面值对象。其它 aggregate
-// 各自一个文件（access_code / conversation / wiki / raw / custom_page /
-// page_content / instance / api_token / access_request）—— 一个文件一个
-// 聚合，对 revive max-public-structs ≤5 形成天然约束信号。
-package domain
+package ownerdomain
 
 import (
 	"errors"

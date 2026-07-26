@@ -14,8 +14,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -51,7 +51,7 @@ func (h *Handlers) listCustomPages() http.HandlerFunc {
 	}
 }
 
-func writeCustomPages(log *slog.Logger, w http.ResponseWriter, pages []domain.CustomPage) {
+func writeCustomPages(log *slog.Logger, w http.ResponseWriter, pages []ownerdomain.CustomPage) {
 	views := make([]customPageView, 0, len(pages))
 	for i := range pages {
 		views = append(views, toCustomPageView(&pages[i]))
@@ -63,7 +63,7 @@ func writeCustomPages(log *slog.Logger, w http.ResponseWriter, pages []domain.Cu
 	}
 }
 
-func toCustomPageView(p *domain.CustomPage) customPageView {
+func toCustomPageView(p *ownerdomain.CustomPage) customPageView {
 	v := customPageView{
 		ID:         p.ID,
 		Slug:       p.Slug,

@@ -17,6 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -111,7 +112,7 @@ func prepareApproval(
 
 type approvalContext struct {
 	req   accessdomain.AccessRequest
-	owner domain.Owner
+	owner ownerdomain.Owner
 }
 
 func loadApprovalContext(

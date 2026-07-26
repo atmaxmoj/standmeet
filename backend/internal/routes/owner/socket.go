@@ -9,12 +9,12 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 )
 
 // MetaLookup —— 取 owner 记录(owner.meta 只读它的白名单字段)。
 type MetaLookup interface {
-	GetByID(ctx context.Context, ownerID string) (domain.Owner, error)
+	GetByID(ctx context.Context, ownerID string) (ownerdomain.Owner, error)
 }
 
 // RegisterOwnerMetaOp —— 把 "owner.meta" 挂到 srv:{owner_id,field} → 白名单字段值,否则拒。

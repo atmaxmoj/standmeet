@@ -17,7 +17,7 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -37,13 +37,13 @@ type CreatePageInput struct {
 // CreatePage —— slug 必须 a-z0-9-，长度 ≤ 64。
 func CreatePage(
 	ctx context.Context, deps CustomPageDeps, in *CreatePageInput,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	if err := validateSlug(in.Slug); err != nil {
-		return domain.CustomPage{}, err
+		return ownerdomain.CustomPage{}, err
 	}
 	page, err := deps.Pages.Create(ctx, in.OwnerID, in.Slug, in.Title)
 	if err != nil {
-		return domain.CustomPage{}, fmt.Errorf("create page: %w", err)
+		return ownerdomain.CustomPage{}, fmt.Errorf("create page: %w", err)
 	}
 	return page, nil
 }
@@ -69,21 +69,21 @@ const (
 // 合并新 path/content 到上一个 build 的 source_files，落一条新 pending build。
 func WriteFile(
 	ctx context.Context, deps CustomPageDeps, in *WriteFileInput,
-) (domain.CustomPageBuild, error) {
+) (ownerdomain.CustomPageBuild, error) {
 	if verr := validatePathContent(in.Path, in.Content); verr != nil {
-		return domain.CustomPageBuild{}, verr
+		return ownerdomain.CustomPageBuild{}, verr
 	}
 	page, lerr := lookupPage(ctx, deps, in.OwnerID, in.Slug)
 	if lerr != nil {
-		return domain.CustomPageBuild{}, lerr
+		return ownerdomain.CustomPageBuild{}, lerr
 	}
 	files, ferr := mergedDraft(ctx, deps, page.ID, in.Path, in.Content)
 	if ferr != nil {
-		return domain.CustomPageBuild{}, ferr
+		return ownerdomain.CustomPageBuild{}, ferr
 	}
 	build, berr := deps.Builds.Create(ctx, page.ID, files)
 	if berr != nil {
-		return domain.CustomPageBuild{}, fmt.Errorf("create build: %w", berr)
+		return ownerdomain.CustomPageBuild{}, fmt.Errorf("create build: %w", berr)
 	}
 	return build, nil
 }
@@ -109,14 +109,14 @@ func mergedDraft(
 // 没有任何 pending 时返 ErrCustomPageBuildNotFound。
 func Build(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug string,
-) (domain.CustomPageBuild, error) {
+) (ownerdomain.CustomPageBuild, error) {
 	page, perr := lookupPage(ctx, deps, ownerID, slug)
 	if perr != nil {
-		return domain.CustomPageBuild{}, perr
+		return ownerdomain.CustomPageBuild{}, perr
 	}
 	build, berr := deps.Builds.GetLatestForPage(ctx, page.ID)
 	if berr != nil {
-		return domain.CustomPageBuild{}, fmt.Errorf("get latest build: %w", berr)
+		return ownerdomain.CustomPageBuild{}, fmt.Errorf("get latest build: %w", berr)
 	}
 	return build, nil
 }
@@ -124,10 +124,10 @@ func Build(
 // GetBuild —— MCP poll 状态用。
 func GetBuild(
 	ctx context.Context, deps CustomPageDeps, buildID string,
-) (domain.CustomPageBuild, error) {
+) (ownerdomain.CustomPageBuild, error) {
 	build, err := deps.Builds.GetByID(ctx, buildID)
 	if err != nil {
-		return domain.CustomPageBuild{}, fmt.Errorf("get build: %w", err)
+		return ownerdomain.CustomPageBuild{}, fmt.Errorf("get build: %w", err)
 	}
 	return build, nil
 }
@@ -136,14 +136,14 @@ func GetBuild(
 // build 必须属于该 page + status 必须 built。
 func PromoteToStaging(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug, buildID string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	page, err := promoteCheck(ctx, deps, ownerID, slug, buildID)
 	if err != nil {
-		return domain.CustomPage{}, err
+		return ownerdomain.CustomPage{}, err
 	}
 	updated, perr := deps.Pages.SetStaging(ctx, page.ID, buildID)
 	if perr != nil {
-		return domain.CustomPage{}, fmt.Errorf("set staging: %w", perr)
+		return ownerdomain.CustomPage{}, fmt.Errorf("set staging: %w", perr)
 	}
 	return updated, nil
 }
@@ -151,14 +151,14 @@ func PromoteToStaging(
 // PromoteToLive —— 同上 + 落 previous，让 Rollback 能用。
 func PromoteToLive(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug, buildID string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	page, err := promoteCheck(ctx, deps, ownerID, slug, buildID)
 	if err != nil {
-		return domain.CustomPage{}, err
+		return ownerdomain.CustomPage{}, err
 	}
 	updated, perr := deps.Pages.SetLive(ctx, page.ID, buildID)
 	if perr != nil {
-		return domain.CustomPage{}, fmt.Errorf("set live: %w", perr)
+		return ownerdomain.CustomPage{}, fmt.Errorf("set live: %w", perr)
 	}
 	return updated, nil
 }
@@ -166,14 +166,14 @@ func PromoteToLive(
 // Rollback —— previous_live_build_id 重新提到 live。
 func Rollback(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	page, err := lookupPage(ctx, deps, ownerID, slug)
 	if err != nil {
-		return domain.CustomPage{}, err
+		return ownerdomain.CustomPage{}, err
 	}
 	updated, rerr := deps.Pages.Rollback(ctx, page.ID)
 	if rerr != nil {
-		return domain.CustomPage{}, fmt.Errorf("rollback: %w", rerr)
+		return ownerdomain.CustomPage{}, fmt.Errorf("rollback: %w", rerr)
 	}
 	return updated, nil
 }
@@ -193,7 +193,7 @@ func DeletePage(ctx context.Context, deps CustomPageDeps, ownerID, slug string) 
 // ListPages —— admin 显示所有 active page。
 func ListPages(
 	ctx context.Context, deps CustomPageDeps, ownerID string,
-) ([]domain.CustomPage, error) {
+) ([]ownerdomain.CustomPage, error) {
 	pages, err := deps.Pages.ListByOwner(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list pages: %w", err)
@@ -205,10 +205,10 @@ func ListPages(
 
 func lookupPage(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	page, err := deps.Pages.GetBySlug(ctx, ownerID, slug)
 	if err != nil {
-		return domain.CustomPage{}, fmt.Errorf("lookup page: %w", err)
+		return ownerdomain.CustomPage{}, fmt.Errorf("lookup page: %w", err)
 	}
 	return page, nil
 }
@@ -220,7 +220,7 @@ func loadDraftFiles(
 ) (map[string]string, error) {
 	latest, err := deps.Builds.GetLatestForPage(ctx, pageID)
 	if err != nil {
-		if errors.Is(err, domain.ErrCustomPageBuildNotFound) {
+		if errors.Is(err, ownerdomain.ErrCustomPageBuildNotFound) {
 			return map[string]string{}, nil
 		}
 		return nil, fmt.Errorf("get latest build: %w", err)
@@ -232,23 +232,23 @@ func loadDraftFiles(
 
 func promoteCheck(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug, buildID string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	page, perr := lookupPage(ctx, deps, ownerID, slug)
 	if perr != nil {
-		return domain.CustomPage{}, perr
+		return ownerdomain.CustomPage{}, perr
 	}
 	build, berr := deps.Builds.GetByID(ctx, buildID)
 	if berr != nil {
-		return domain.CustomPage{}, fmt.Errorf("get build: %w", berr)
+		return ownerdomain.CustomPage{}, fmt.Errorf("get build: %w", berr)
 	}
 	if err := assertBuildBelongsBuilt(&page, &build, buildID); err != nil {
-		return domain.CustomPage{}, err
+		return ownerdomain.CustomPage{}, err
 	}
 	return page, nil
 }
 
 func assertBuildBelongsBuilt(
-	page *domain.CustomPage, build *domain.CustomPageBuild, buildID string,
+	page *ownerdomain.CustomPage, build *ownerdomain.CustomPageBuild, buildID string,
 ) error {
 	if build.PageID != page.ID {
 		return fmt.Errorf("build %s does not belong to %s", buildID, page.ID)

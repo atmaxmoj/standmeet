@@ -85,6 +85,8 @@ components:
     in: internal/corpusdomain              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
   accessdomain:
     in: internal/accessdomain              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
+  ownerdomain:
+    in: internal/ownerdomain               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -167,6 +169,7 @@ deps:
   # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
+      - ownerdomain
       - accessdomain
       - corpusdomain
       - conversationdomain
@@ -245,6 +248,7 @@ deps:
     anyVendorDeps: true
   ownerroutes:
     mayDependOn:
+      - ownerdomain
       - capsocket
       - domain
     anyVendorDeps: true
@@ -360,6 +364,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
+      - ownerdomain
       - accessdomain
       - corpusdomain
       - conversationdomain
@@ -476,6 +481,7 @@ deps:
   # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
   pluginownercore:
     mayDependOn:
+      - ownerdomain
       - accessdomain
       - corpusdomain
       - conversationdomain
@@ -499,6 +505,7 @@ deps:
   # 期把 sentinel 抽到 domain 后可断这条。
   jobsuc:
     mayDependOn:
+      - ownerdomain
       - jobsdomain
       - domain
       - postgres
@@ -520,6 +527,7 @@ deps:
   # 跨 capreg 注册到核心 Registry；依赖 jobsuc 拿 *Deps。
   jobsmcp:
     mayDependOn:
+      - ownerdomain
       - jobsdomain
       - domain
       - capreg
@@ -619,6 +627,11 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # ownerdomain —— #135 owner 领域值对象 leaf：Owner/OwnerSettings/PageContent/CustomPage，无 internal 依赖。
+  ownerdomain:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
   # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
   # routes 不直接 import。
@@ -654,6 +667,7 @@ deps:
   # /internal/builds/claim 在 no-pending 时返 ErrCustomPageBuildNotFound。
   sysroutes:
     mayDependOn:
+      - ownerdomain
       - domain
       - postgres
       - printsess
@@ -675,6 +689,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - ownerdomain
       - accessdomain
       - corpusdomain
       - conversationdomain
@@ -714,6 +729,7 @@ deps:
   # token bearer auth；SSE 流式 chat。
   publicroutes:
     mayDependOn:
+      - ownerdomain
       - accessdomain
       - corpusdomain
       - conversationdomain

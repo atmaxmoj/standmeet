@@ -13,8 +13,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -50,28 +50,28 @@ func (h *Handlers) getPage() http.HandlerFunc {
 
 func loadOwnerPage(
 	ctx context.Context, repo *postgres.OwnerRepo, ownerID string,
-) (domain.PageContent, error) {
+) (ownerdomain.PageContent, error) {
 	content, err := repo.GetPageContent(ctx, ownerID)
 	if err == nil {
 		return content, nil
 	}
-	if errors.Is(err, domain.ErrPageNotFound) {
+	if errors.Is(err, ownerdomain.ErrPageNotFound) {
 		return defaultContentForOwner(ownerID), nil
 	}
-	return domain.PageContent{}, err
+	return ownerdomain.PageContent{}, err
 }
 
 // defaultContentForOwner —— GET 第一次访问时返一份 page-content.js 风格的
 // 默认草稿，让 owner 直接基于这个改而不是从空白起步。复用 usecase 层的
 // public 默认（已经按设计稿写好）。
-func defaultContentForOwner(ownerID string) domain.PageContent {
+func defaultContentForOwner(ownerID string) ownerdomain.PageContent {
 	return usecases.DefaultPageContent(ownerID)
 }
 
 func (h *Handlers) putPage() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		var body domain.PageContent
+		var body ownerdomain.PageContent
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
@@ -82,7 +82,9 @@ func (h *Handlers) putPage() http.HandlerFunc {
 }
 
 // savePutPage —— pin 校验(同一个 maintainer,拒未发布/不存在)→ 保存。
-func savePutPage(h *Handlers, w http.ResponseWriter, r *http.Request, body *domain.PageContent) {
+func savePutPage(
+	h *Handlers, w http.ResponseWriter, r *http.Request, body *ownerdomain.PageContent,
+) {
 	if verr := usecases.ValidatePagePins(
 		r.Context(), h.PageAdmin.Pins, body.OwnerID, body,
 	); verr != nil {
@@ -99,11 +101,11 @@ func savePutPage(h *Handlers, w http.ResponseWriter, r *http.Request, body *doma
 }
 
 func handlePagePinErr(h *Handlers, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrPinUnpublished) {
+	if errors.Is(err, ownerdomain.ErrPinUnpublished) {
 		writeError(h.Log, w, envBadReq("pinned entry is not published — publish it first"))
 		return
 	}
-	if errors.Is(err, domain.ErrPinNotFound) {
+	if errors.Is(err, ownerdomain.ErrPinNotFound) {
 		writeError(h.Log, w, envBadReq("pinned entry not found"))
 		return
 	}
@@ -161,7 +163,7 @@ func publishedPinnable(metas []postgres.WikiMeta, paths map[string]string) []pin
 	return items
 }
 
-func writeAdminPage(log *slog.Logger, w http.ResponseWriter, content *domain.PageContent) {
+func writeAdminPage(log *slog.Logger, w http.ResponseWriter, content *ownerdomain.PageContent) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(content); err != nil {

@@ -13,14 +13,14 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 )
 
 const capOwnerMe = "owner.me"
 
 // OwnerLookup —— the plugin's own narrow dependency; *postgres.OwnerRepo satisfies it.
 type OwnerLookup interface {
-	GetByID(ctx context.Context, ownerID string) (domain.Owner, error)
+	GetByID(ctx context.Context, ownerID string) (ownerdomain.Owner, error)
 }
 
 type meCapability struct {
@@ -63,7 +63,7 @@ func (c *meCapability) handleMe(
 ) capreg.MCPResult {
 	owner, err := c.owners.GetByID(ctx, ownerID)
 	if err != nil {
-		if errors.Is(err, domain.ErrOwnerNotFound) {
+		if errors.Is(err, ownerdomain.ErrOwnerNotFound) {
 			return capreg.MCPError("owner not found")
 		}
 		c.log.Error("mcp me failed", "err", err)
@@ -73,7 +73,7 @@ func (c *meCapability) handleMe(
 }
 
 // formatOwner —— serialize the owner profile for the `me` tool result.
-func formatOwner(o *domain.Owner) string {
+func formatOwner(o *ownerdomain.Owner) string {
 	return `{"owner_id":"` + o.ID + `","email":"` + o.Email +
 		`","handle":"` + o.Handle + `","full_name":"` + o.FullName + `"}`
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -28,22 +28,22 @@ type CustomPageRepo struct {
 // NewCustomPageRepo 构造。
 func NewCustomPageRepo(pool *Pool) *CustomPageRepo { return &CustomPageRepo{pool: pool} }
 
-// Create —— 落 owner+slug；slug 冲突翻译成 domain.ErrCustomPageSlugTaken。
+// Create —— 落 owner+slug；slug 冲突翻译成 ownerdomain.ErrCustomPageSlugTaken。
 func (r *CustomPageRepo) Create(
 	ctx context.Context, ownerID, slug, title string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	ownerUUID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.CustomPage{}, fmt.Errorf("parse owner id: %w", perr)
+		return ownerdomain.CustomPage{}, fmt.Errorf("parse owner id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).CreateCustomPage(ctx, dbq.CreateCustomPageParams{
 		OwnerID: ownerUUID, Slug: slug, Title: title,
 	})
 	if err != nil {
 		if name, hit := pgUniqueViolation(err); hit && name == "custom_pages_owner_slug_idx" {
-			return domain.CustomPage{}, domain.ErrCustomPageSlugTaken
+			return ownerdomain.CustomPage{}, ownerdomain.ErrCustomPageSlugTaken
 		}
-		return domain.CustomPage{}, fmt.Errorf("create custom page: %w", err)
+		return ownerdomain.CustomPage{}, fmt.Errorf("create custom page: %w", err)
 	}
 	return toDomainCustomPage(&row), nil
 }
@@ -51,35 +51,35 @@ func (r *CustomPageRepo) Create(
 // GetBySlug —— owner_id + slug 反查。
 func (r *CustomPageRepo) GetBySlug(
 	ctx context.Context, ownerID, slug string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	ownerUUID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.CustomPage{}, fmt.Errorf("parse owner id: %w", perr)
+		return ownerdomain.CustomPage{}, fmt.Errorf("parse owner id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).GetCustomPageBySlug(ctx, dbq.GetCustomPageBySlugParams{
 		OwnerID: ownerUUID, Slug: slug,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.CustomPage{}, domain.ErrCustomPageNotFound
+			return ownerdomain.CustomPage{}, ownerdomain.ErrCustomPageNotFound
 		}
-		return domain.CustomPage{}, fmt.Errorf("get custom page by slug: %w", err)
+		return ownerdomain.CustomPage{}, fmt.Errorf("get custom page by slug: %w", err)
 	}
 	return toDomainCustomPage(&row), nil
 }
 
 // GetByID —— 通过 page_id 反查。
-func (r *CustomPageRepo) GetByID(ctx context.Context, id string) (domain.CustomPage, error) {
+func (r *CustomPageRepo) GetByID(ctx context.Context, id string) (ownerdomain.CustomPage, error) {
 	pgID, perr := parseUUID(id)
 	if perr != nil {
-		return domain.CustomPage{}, fmt.Errorf(errParsePageID, perr)
+		return ownerdomain.CustomPage{}, fmt.Errorf(errParsePageID, perr)
 	}
 	row, err := dbq.New(r.pool).GetCustomPageByID(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.CustomPage{}, domain.ErrCustomPageNotFound
+			return ownerdomain.CustomPage{}, ownerdomain.ErrCustomPageNotFound
 		}
-		return domain.CustomPage{}, fmt.Errorf("get custom page by id: %w", err)
+		return ownerdomain.CustomPage{}, fmt.Errorf("get custom page by id: %w", err)
 	}
 	return toDomainCustomPage(&row), nil
 }
@@ -87,7 +87,7 @@ func (r *CustomPageRepo) GetByID(ctx context.Context, id string) (domain.CustomP
 // ListByOwner —— owner 的所有 active 页。
 func (r *CustomPageRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]domain.CustomPage, error) {
+) ([]ownerdomain.CustomPage, error) {
 	ownerUUID, perr := parseUUID(ownerID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse owner id: %w", perr)
@@ -96,7 +96,7 @@ func (r *CustomPageRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list custom pages: %w", err)
 	}
-	out := make([]domain.CustomPage, 0, len(rows))
+	out := make([]ownerdomain.CustomPage, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainCustomPage(&rows[i]))
 	}
@@ -125,16 +125,16 @@ func parseBuildRefIDs(pageID, buildID string) (buildRefIDs, error) {
 // SetLive —— promote_to_live：当前 live 落到 previous，设新 live。
 func (r *CustomPageRepo) SetLive(
 	ctx context.Context, pageID, buildID string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	refs, perr := parseBuildRefIDs(pageID, buildID)
 	if perr != nil {
-		return domain.CustomPage{}, perr
+		return ownerdomain.CustomPage{}, perr
 	}
 	row, err := dbq.New(r.pool).SetCustomPageLive(ctx, dbq.SetCustomPageLiveParams{
 		ID: refs.Page, LiveBuildID: refs.Build,
 	})
 	if err != nil {
-		return domain.CustomPage{}, fmt.Errorf("set live: %w", err)
+		return ownerdomain.CustomPage{}, fmt.Errorf("set live: %w", err)
 	}
 	return toDomainCustomPage(&row), nil
 }
@@ -142,32 +142,34 @@ func (r *CustomPageRepo) SetLive(
 // SetStaging —— promote_to_staging。
 func (r *CustomPageRepo) SetStaging(
 	ctx context.Context, pageID, buildID string,
-) (domain.CustomPage, error) {
+) (ownerdomain.CustomPage, error) {
 	refs, perr := parseBuildRefIDs(pageID, buildID)
 	if perr != nil {
-		return domain.CustomPage{}, perr
+		return ownerdomain.CustomPage{}, perr
 	}
 	row, err := dbq.New(r.pool).SetCustomPageStaging(ctx, dbq.SetCustomPageStagingParams{
 		ID: refs.Page, StagingBuildID: refs.Build,
 	})
 	if err != nil {
-		return domain.CustomPage{}, fmt.Errorf("set staging: %w", err)
+		return ownerdomain.CustomPage{}, fmt.Errorf("set staging: %w", err)
 	}
 	return toDomainCustomPage(&row), nil
 }
 
 // Rollback —— previous_live_build_id → live；没 previous 时返 ErrCustomPageNotFound。
-func (r *CustomPageRepo) Rollback(ctx context.Context, pageID string) (domain.CustomPage, error) {
+func (r *CustomPageRepo) Rollback(
+	ctx context.Context, pageID string) (ownerdomain.CustomPage, error,
+) {
 	pgID, perr := parseUUID(pageID)
 	if perr != nil {
-		return domain.CustomPage{}, fmt.Errorf(errParsePageID, perr)
+		return ownerdomain.CustomPage{}, fmt.Errorf(errParsePageID, perr)
 	}
 	row, err := dbq.New(r.pool).RollbackCustomPageLive(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.CustomPage{}, domain.ErrCustomPageNotFound
+			return ownerdomain.CustomPage{}, ownerdomain.ErrCustomPageNotFound
 		}
-		return domain.CustomPage{}, fmt.Errorf("rollback: %w", err)
+		return ownerdomain.CustomPage{}, fmt.Errorf("rollback: %w", err)
 	}
 	return toDomainCustomPage(&row), nil
 }
@@ -188,8 +190,8 @@ func (r *CustomPageRepo) Delete(ctx context.Context, pageID string) error {
 //
 // custom_page_builds CRUD 在 custom_builds.go；这里只放 page 自己。
 
-func toDomainCustomPage(row *dbq.CustomPage) domain.CustomPage {
-	page := domain.CustomPage{
+func toDomainCustomPage(row *dbq.CustomPage) ownerdomain.CustomPage {
+	page := ownerdomain.CustomPage{
 		ID:        formatUUID(row.ID),
 		OwnerID:   formatUUID(row.OwnerID),
 		Slug:      row.Slug,

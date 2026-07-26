@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -41,19 +41,19 @@ type ClaimInput struct {
 //
 // 返回的 Owner 不含 password；password 已经在 input 里被 hash 后写进 DB。
 // pointer 接收 *ClaimInput 避免 gocritic hugeParam。
-func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (domain.Owner, error) {
+func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (ownerdomain.Owner, error) {
 	if err := validateClaimInput(in); err != nil {
-		return domain.Owner{}, err
+		return ownerdomain.Owner{}, err
 	}
 
 	passwordHash, err := session.HashPassword(in.Password)
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("hash password: %w", err)
+		return ownerdomain.Owner{}, fmt.Errorf("hash password: %w", err)
 	}
 
 	tokenHash := session.HashSetupToken(in.Token)
 
-	owner, err := deps.Instance.ClaimAndCreateOwner(ctx, tokenHash, &domain.CreateOwnerInput{
+	owner, err := deps.Instance.ClaimAndCreateOwner(ctx, tokenHash, &ownerdomain.CreateOwnerInput{
 		Email:        in.Email,
 		PasswordHash: passwordHash,
 		Handle:       in.Handle,
@@ -61,7 +61,7 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (domain.
 		PublicURL:    normalizePublicURL(in.PublicURL),
 	})
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("claim and create owner: %w", err)
+		return ownerdomain.Owner{}, fmt.Errorf("claim and create owner: %w", err)
 	}
 	// FK-violation debugging: log the owner ID created + the email/handle
 	// it's bound to. Cross-reference with create-token-fk-diag logs to see

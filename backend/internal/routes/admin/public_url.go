@@ -15,8 +15,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -57,7 +57,7 @@ func (h *Handlers) updatePublicURL() http.HandlerFunc {
 	}
 }
 
-func writePublicURLResp(log *slog.Logger, w http.ResponseWriter, owner *domain.Owner) {
+func writePublicURLResp(log *slog.Logger, w http.ResponseWriter, owner *ownerdomain.Owner) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := updatePublicURLResp{PublicURL: owner.PublicURL}

@@ -12,8 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -54,7 +54,7 @@ func (h *Handlers) updateHandle() http.HandlerFunc {
 	}
 }
 
-func writeHandleResp(log *slog.Logger, w http.ResponseWriter, owner *domain.Owner) {
+func writeHandleResp(log *slog.Logger, w http.ResponseWriter, owner *ownerdomain.Owner) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(updateHandleResp{Handle: owner.Handle}); err != nil {
@@ -63,7 +63,7 @@ func writeHandleResp(log *slog.Logger, w http.ResponseWriter, owner *domain.Owne
 }
 
 func handleUpdateHandleErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrHandleTaken) {
+	if errors.Is(err, ownerdomain.ErrHandleTaken) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusConflict, Code: "handle_taken",
 			Message: "that handle is already taken",

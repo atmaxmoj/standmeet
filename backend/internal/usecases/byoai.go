@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -27,12 +27,12 @@ type UpdateBYOAIInput struct {
 
 // UpdateBYOAI 把 byoai_enabled / providers / blurb 三字段一起写，返回新
 // OwnerSettings（aggregate 的 setting 切面，不含 identity）。
-// owner_id 不存在返 domain.ErrOwnerNotFound（handler 翻 401）。
+// owner_id 不存在返 ownerdomain.ErrOwnerNotFound（handler 翻 401）。
 func UpdateBYOAI(
 	ctx context.Context, deps BYOAIDeps, in *UpdateBYOAIInput,
-) (domain.OwnerSettings, error) {
+) (ownerdomain.OwnerSettings, error) {
 	if in.OwnerID == "" {
-		return domain.OwnerSettings{}, ErrEmptyField
+		return ownerdomain.OwnerSettings{}, ErrEmptyField
 	}
 	s, err := deps.Owners.UpdateBYOAI(ctx, &postgres.UpdateBYOAIInput{
 		OwnerID:   in.OwnerID,
@@ -41,7 +41,7 @@ func UpdateBYOAI(
 		Blurb:     in.Blurb,
 	})
 	if err != nil {
-		return domain.OwnerSettings{}, fmt.Errorf("update byoai: %w", err)
+		return ownerdomain.OwnerSettings{}, fmt.Errorf("update byoai: %w", err)
 	}
 	return s, nil
 }

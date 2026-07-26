@@ -9,8 +9,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -51,9 +51,9 @@ const (
 // （preset 给 UI 默认填值，server 端不做 fallback，避免 DB 落部分 row）。
 func UpdateOwnerAIProvider(
 	ctx context.Context, deps AIProviderDeps, in *UpdateOwnerAIProviderInput,
-) (domain.OwnerSettings, error) {
+) (ownerdomain.OwnerSettings, error) {
 	if verr := validateAIProviderInput(in); verr != nil {
-		return domain.OwnerSettings{}, verr
+		return ownerdomain.OwnerSettings{}, verr
 	}
 	s, err := deps.Owners.UpdateAIProvider(ctx, &postgres.UpdateAIProviderInput{
 		OwnerID:      in.OwnerID,
@@ -63,7 +63,7 @@ func UpdateOwnerAIProvider(
 		KeyPlaintext: resolveKeyArg(in.KeyChange, in.Key),
 	})
 	if err != nil {
-		return domain.OwnerSettings{}, fmt.Errorf("update ai provider: %w", err)
+		return ownerdomain.OwnerSettings{}, fmt.Errorf("update ai provider: %w", err)
 	}
 	return s, nil
 }
