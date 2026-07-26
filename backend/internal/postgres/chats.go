@@ -16,7 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -42,18 +42,18 @@ type CreateChatInput struct {
 // CreateChat 写一行 chat。
 func (r *ChatRepo) CreateChat(
 	ctx context.Context, in *CreateChatInput,
-) (domain.Chat, error) {
+) (conversationdomain.Chat, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.Chat{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return conversationdomain.Chat{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	codeUUID, err := parseOptionalUUID(in.CodeID)
 	if err != nil {
-		return domain.Chat{}, fmt.Errorf("parse code id: %w", err)
+		return conversationdomain.Chat{}, fmt.Errorf("parse code id: %w", err)
 	}
 	memberUUID, err := parseOptionalUUID(in.MemberID)
 	if err != nil {
-		return domain.Chat{}, fmt.Errorf("parse member id: %w", err)
+		return conversationdomain.Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateConversation(ctx, dbq.CreateConversationParams{
@@ -66,22 +66,22 @@ func (r *ChatRepo) CreateChat(
 		DocKey:      in.DocKey,
 	})
 	if err != nil {
-		return domain.Chat{}, fmt.Errorf("create chat: %w", err)
+		return conversationdomain.Chat{}, fmt.Errorf("create chat: %w", err)
 	}
 	return toDomainChat(&row), nil
 }
 
-// GetChat —— 拿一个 chat。不命中返 domain.ErrChatNotFound。
+// GetChat —— 拿一个 chat。不命中返 conversationdomain.ErrChatNotFound。
 func (r *ChatRepo) GetChat(
 	ctx context.Context, ownerID, chatID string,
-) (domain.Chat, error) {
+) (conversationdomain.Chat, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.Chat{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return conversationdomain.Chat{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	chatUUID, err := parseUUID(chatID)
 	if err != nil {
-		return domain.Chat{}, fmt.Errorf("parse chat id: %w", err)
+		return conversationdomain.Chat{}, fmt.Errorf("parse chat id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetConversation(ctx, dbq.GetConversationParams{
@@ -89,28 +89,28 @@ func (r *ChatRepo) GetChat(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Chat{}, domain.ErrChatNotFound
+			return conversationdomain.Chat{}, conversationdomain.ErrChatNotFound
 		}
-		return domain.Chat{}, fmt.Errorf("get chat: %w", err)
+		return conversationdomain.Chat{}, fmt.Errorf("get chat: %w", err)
 	}
 	return toDomainChat(&row), nil
 }
 
 // GetOpenChatByMember —— 「一个名字=一段续聊的会」:同名 member 的主对话就返它
-// 续上;没有 → domain.ErrChatNotFound (caller 新建)。对话不结束,同名永远续同一段。
+// 续上;没有 → conversationdomain.ErrChatNotFound (caller 新建)。对话不结束,同名永远续同一段。
 func (r *ChatRepo) GetOpenChatByMember(
 	ctx context.Context, memberID string,
-) (domain.Chat, error) {
+) (conversationdomain.Chat, error) {
 	memberUUID, err := parseUUID(memberID)
 	if err != nil {
-		return domain.Chat{}, fmt.Errorf("parse member id: %w", err)
+		return conversationdomain.Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
 	row, qerr := dbq.New(r.pool).GetOpenConversationByMember(ctx, memberUUID)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.Chat{}, domain.ErrChatNotFound
+			return conversationdomain.Chat{}, conversationdomain.ErrChatNotFound
 		}
-		return domain.Chat{}, fmt.Errorf("get open chat by member: %w", qerr)
+		return conversationdomain.Chat{}, fmt.Errorf("get open chat by member: %w", qerr)
 	}
 	return toDomainChat(&row), nil
 }
@@ -152,11 +152,11 @@ func (r *ChatRepo) CountVisitorTurns(
 	return n, nil
 }
 
-func toDomainChat(c *dbq.Conversation) domain.Chat {
-	out := domain.Chat{
+func toDomainChat(c *dbq.Conversation) conversationdomain.Chat {
+	out := conversationdomain.Chat{
 		ID:          formatUUID(c.ID),
 		OwnerID:     formatUUID(c.OwnerID),
-		Mode:        domain.ChatMode(c.Mode),
+		Mode:        conversationdomain.ChatMode(c.Mode),
 		VisitorName: c.VisitorName,
 		StartedAt:   c.StartedAt.Time,
 		LastAt:      c.LastAt.Time,
@@ -172,8 +172,8 @@ func toDomainChat(c *dbq.Conversation) domain.Chat {
 	return out
 }
 
-func toDomainMessage(m *dbq.Message) domain.Message {
-	return domain.Message{
+func toDomainMessage(m *dbq.Message) conversationdomain.Message {
+	return conversationdomain.Message{
 		ID:                   formatUUID(m.ID),
 		ConversationID:       formatUUID(m.ConversationID),
 		Role:                 m.Role,

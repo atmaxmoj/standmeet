@@ -12,6 +12,7 @@ package usecases
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -63,6 +64,8 @@ type WritingLister interface {
 // #129 一会话一份:Upsert 按 conversation 改写原行(revise)，report_id 稳定。eval 的
 // no-op store 忽略入参。
 type ReportStore interface {
-	Upsert(ctx context.Context, in *postgres.UpsertReportInput) (domain.ChatReport, error)
-	GetByID(ctx context.Context, reportID string) (domain.ChatReport, error)
+	Upsert(
+		ctx context.Context, in *postgres.UpsertReportInput,
+	) (conversationdomain.ChatReport, error)
+	GetByID(ctx context.Context, reportID string) (conversationdomain.ChatReport, error)
 }

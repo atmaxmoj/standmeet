@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -33,23 +33,23 @@ type UpsertReportInput struct {
 }
 
 // Upsert —— #129 一会话一份:conversation 已有 report 则改写 html(revise) 返同一行,
-// 否则新建。返 domain.ChatReport(report_id 稳定)。
+// 否则新建。返 conversationdomain.ChatReport(report_id 稳定)。
 func (r *ChatReportRepo) Upsert(
 	ctx context.Context, in *UpsertReportInput,
-) (domain.ChatReport, error) {
+) (conversationdomain.ChatReport, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.ChatReport{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return conversationdomain.ChatReport{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	convUUID, err := parseUUID(in.ConversationID)
 	if err != nil {
-		return domain.ChatReport{}, fmt.Errorf("parse conv id: %w", err)
+		return conversationdomain.ChatReport{}, fmt.Errorf("parse conv id: %w", err)
 	}
 	row, qerr := dbq.New(r.pool).UpsertChatReport(ctx, dbq.UpsertChatReportParams{
 		OwnerID: ownerUUID, ConversationID: convUUID, Html: in.HTML,
 	})
 	if qerr != nil {
-		return domain.ChatReport{}, fmt.Errorf("upsert chat report: %w", qerr)
+		return conversationdomain.ChatReport{}, fmt.Errorf("upsert chat report: %w", qerr)
 	}
 	return toDomainChatReport(&row), nil
 }
@@ -59,23 +59,23 @@ func (r *ChatReportRepo) Upsert(
 // 通过 id 跨 owner 读)。
 func (r *ChatReportRepo) GetByID(
 	ctx context.Context, reportID string,
-) (domain.ChatReport, error) {
+) (conversationdomain.ChatReport, error) {
 	reportUUID, err := parseUUID(reportID)
 	if err != nil {
-		return domain.ChatReport{}, fmt.Errorf("parse report id: %w", err)
+		return conversationdomain.ChatReport{}, fmt.Errorf("parse report id: %w", err)
 	}
 	row, qerr := dbq.New(r.pool).GetChatReport(ctx, reportUUID)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.ChatReport{}, domain.ErrReportNotFound
+			return conversationdomain.ChatReport{}, conversationdomain.ErrReportNotFound
 		}
-		return domain.ChatReport{}, fmt.Errorf("get chat report: %w", qerr)
+		return conversationdomain.ChatReport{}, fmt.Errorf("get chat report: %w", qerr)
 	}
 	return toDomainChatReport(&row), nil
 }
 
-func toDomainChatReport(row *dbq.ChatReport) domain.ChatReport {
-	return domain.ChatReport{
+func toDomainChatReport(row *dbq.ChatReport) conversationdomain.ChatReport {
+	return conversationdomain.ChatReport{
 		ID:             formatUUID(row.ID),
 		OwnerID:        formatUUID(row.OwnerID),
 		ConversationID: formatUUID(row.ConversationID),

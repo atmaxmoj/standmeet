@@ -6,7 +6,7 @@
 // 旧 SSE)。所以放在 domain 但留作内部 row 类型，prefer Dialog 作为 domain
 // 第一公民。
 
-package domain
+package conversationdomain
 
 import "time"
 

@@ -21,7 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -73,7 +73,7 @@ func writeReportPDF(h *Handlers, w http.ResponseWriter, id string, pdf []byte) {
 }
 
 func handleReportPDFErr(h *Handlers, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrReportNotFound) {
+	if errors.Is(err, conversationdomain.ErrReportNotFound) {
 		writeError(h.Log, w, reportNotFoundEnv())
 		return
 	}
@@ -94,7 +94,7 @@ func handleReportPDFErr(h *Handlers, w http.ResponseWriter, err error) {
 // sanitizing would strip the trusted <style>, and re-wrapping double-nests it. A legacy bare
 // fragment (pre-unification) is sanitized + styled through the same `ReportStyledDocument` the
 // card/page use, so the PDF matches them instead of carrying its own divergent stylesheet.
-func wrapReportHTML(report *domain.ChatReport) string {
+func wrapReportHTML(report *conversationdomain.ChatReport) string {
 	if usecases.IsFullReportDocument(report.HTML) {
 		return report.HTML
 	}

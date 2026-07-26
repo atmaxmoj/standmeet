@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -53,7 +53,7 @@ func runOpenDocConversation(h *Handlers, w http.ResponseWriter, r *http.Request,
 }
 
 func writeOpenConv(
-	h *Handlers, w http.ResponseWriter, r *http.Request, chat *domain.Chat,
+	h *Handlers, w http.ResponseWriter, r *http.Request, chat *conversationdomain.Chat,
 ) {
 	conv, err := usecases.ConversationForChat(r.Context(), &h.Visitor, chat.OwnerID, chat.ID)
 	if err != nil {

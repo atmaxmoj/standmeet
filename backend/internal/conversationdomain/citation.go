@@ -12,7 +12,9 @@
 // Genre 用 domain.DocumentGenre (跟 corpus entry 复用同一类型)；引入独
 // 立 CitationKind 是残留，已废。
 
-package domain
+package conversationdomain
+
+import "github.com/atmaxmoj/standmeet/internal/domain"
 
 // Citation —— 一个 corpus entry 引用 VO。
 type Citation struct {
@@ -25,4 +27,4 @@ type Citation struct {
 // Genre —— alias 给 DocumentGenre 用 (Citation.Genre 写起来短一些)。
 // 不引入第二个 enum；cited footer 覆盖的 genre 之外(raw)传进 Citation
 // 是 caller bug。
-type Genre = DocumentGenre
+type Genre = domain.DocumentGenre

@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -148,7 +149,7 @@ func loadGhostsForAdmin(
 }
 
 func handleConvErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrChatNotFound) {
+	if errors.Is(err, conversationdomain.ErrChatNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "not_found", Message: "conversation not found",
 		})
@@ -253,7 +254,7 @@ func bundleSummary(bundle *postgres.ChatWithMessages) convSummaryView {
 
 // countVisitorTurns —— 从 messages 派生 turn 数:一个 dialog 一条 visitor 消息。
 // count 一律从 dialog 派生,不存计数字段。
-func countVisitorTurns(msgs []domain.Message) int32 {
+func countVisitorTurns(msgs []conversationdomain.Message) int32 {
 	var n int32
 	for i := range msgs {
 		if msgs[i].Role == "visitor" {
@@ -280,7 +281,7 @@ func toConvSummaryView(s *postgres.ChatSummary) convSummaryView {
 	}
 }
 
-func toConvMessageView(m *domain.Message) convMessageView {
+func toConvMessageView(m *conversationdomain.Message) convMessageView {
 	return convMessageView{
 		ID:                   m.ID,
 		Role:                 m.Role,

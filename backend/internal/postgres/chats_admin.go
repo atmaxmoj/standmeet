@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -30,8 +30,8 @@ type ChatSummary struct {
 
 // ChatWithMessages —— GetWithMessages 返回的 transcript bundle。
 type ChatWithMessages struct {
-	Chat     domain.Chat
-	Messages []domain.Message
+	Chat     conversationdomain.Chat
+	Messages []conversationdomain.Message
 }
 
 // ListByOwner —— admin 列 owner 所有 chat 摘要（按 last_at DESC）。
@@ -57,7 +57,7 @@ func (r *ChatRepo) ListByOwner(
 }
 
 // GetWithMessages —— 拿 chat + 全部 messages（admin transcript 查看）。
-// 不命中 chat 返 domain.ErrChatNotFound（owner_id mismatch 也走这条分支，
+// 不命中 chat 返 conversationdomain.ErrChatNotFound（owner_id mismatch 也走这条分支，
 // 避免暴露 "存在但不属于你"）。
 func (r *ChatRepo) GetWithMessages(
 	ctx context.Context, ownerID, chatID string,
@@ -75,7 +75,7 @@ func (r *ChatRepo) GetWithMessages(
 
 func (r *ChatRepo) loadMessages(
 	ctx context.Context, chatID string,
-) ([]domain.Message, error) {
+) ([]conversationdomain.Message, error) {
 	chatUUID, perr := parseUUID(chatID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse chat id: %w", perr)
@@ -85,7 +85,7 @@ func (r *ChatRepo) loadMessages(
 	if lerr != nil {
 		return nil, fmt.Errorf("list messages: %w", lerr)
 	}
-	out := make([]domain.Message, 0, len(rows))
+	out := make([]conversationdomain.Message, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainMessage(&rows[i]))
 	}

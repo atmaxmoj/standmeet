@@ -5,7 +5,7 @@
 // 取代之前的 `Conversation` 命名 —— 前后端统一叫 Chat。table 名仍叫
 // `conversations` (落地细节)；domain 层不再透出来。
 
-package domain
+package conversationdomain
 
 import (
 	"errors"

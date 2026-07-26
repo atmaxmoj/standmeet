@@ -2,7 +2,7 @@
 // summarize_conversation tool 生成的 HTML 报告。每次调存一份新行 (允许
 // 同 conversation 多次重生)；conversation 不 mark ended，对话可继续。
 
-package domain
+package conversationdomain
 
 import (
 	"errors"
