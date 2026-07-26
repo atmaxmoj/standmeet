@@ -1,12 +1,11 @@
-// marketplace.go —— Skill marketplace value objects. The search proxy fetches GitHub
+// skill_types.go —— marketplace domain value objects. The search proxy fetches GitHub
 // `anthropics/skills` + SkillsMP, normalizes into MarketSkill, returns the union; install is a
-// separate shipped path (see below).
+// separate shipped path (SKILL.md download + frontmatter parse, #48-3).
 //
-// SKILL.md download + frontmatter parse + persistent install shipped (#48-3): the frontend POSTs to
-// the real /marketplace/install and the backend fetches + parses the SKILL.md server-side.
-// Nothing is simulated in client state anymore.
+// These live in the marketplace module itself (not the shared domain god-package): the
+// aggregation client + install usecase own their own entity types.
 
-package domain
+package marketplace
 
 // MarketSource —— marketplace origin a skill came from. Stable string
 // values both sides serialize.

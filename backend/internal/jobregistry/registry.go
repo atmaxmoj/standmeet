@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 
 type jobState struct {
@@ -51,19 +51,19 @@ func (r *Registry) Report(name, status string) {
 }
 
 // ScheduledJobs —— 当前所有任务快照，按名字排序。
-func (r *Registry) ScheduledJobs() []domain.ScheduledJob {
+func (r *Registry) ScheduledJobs() []stats.ScheduledJob {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	out := make([]domain.ScheduledJob, 0, len(r.jobs))
+	out := make([]stats.ScheduledJob, 0, len(r.jobs))
 	for _, j := range r.jobs {
-		out = append(out, domain.ScheduledJob{
+		out = append(out, stats.ScheduledJob{
 			LastRun:    j.lastRun,
 			Name:       j.name,
 			Schedule:   j.schedule,
 			LastStatus: j.lastStatus,
 		})
 	}
-	slices.SortFunc(out, func(a, b domain.ScheduledJob) int {
+	slices.SortFunc(out, func(a, b stats.ScheduledJob) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 	return out

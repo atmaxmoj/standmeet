@@ -13,6 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 
 const capInstanceBundle = "instance.bundle"
@@ -34,17 +35,17 @@ type instanceUsage interface {
 
 // instanceGrowth —— corpus growth series (admin stats_growth.go).
 type instanceGrowth interface {
-	CorpusGrowth(ctx context.Context, ownerID string) (domain.CorpusGrowth, error)
+	CorpusGrowth(ctx context.Context, ownerID string) (stats.CorpusGrowth, error)
 }
 
 // instanceActivity —— recent activity events (admin stats_activity.go).
 type instanceActivity interface {
-	RecentActivity(ctx context.Context, ownerID string, limit int) ([]domain.ActivityEvent, error)
+	RecentActivity(ctx context.Context, ownerID string, limit int) ([]stats.ActivityEvent, error)
 }
 
 // instanceJobs —— registered scheduled background jobs (admin stats_jobs.go). Not owner-scoped.
 type instanceJobs interface {
-	ScheduledJobs() []domain.ScheduledJob
+	ScheduledJobs() []stats.ScheduledJob
 }
 
 // InstanceDeps —— the five method-owning providers, each from a distinct concrete.

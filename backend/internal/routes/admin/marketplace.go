@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -138,7 +139,7 @@ func parseIntDefault(s string, def int) int {
 }
 
 func writeMarketplace(
-	log *slog.Logger, w http.ResponseWriter, items []domain.MarketSkill,
+	log *slog.Logger, w http.ResponseWriter, items []marketplace.MarketSkill,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

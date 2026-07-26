@@ -11,8 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // smpSearchResponse —— skillsmp.com/api/v1/skills/search shape: {success, data:{skills:[…]}}.
@@ -34,13 +32,13 @@ type smpSkill struct {
 	Stars       int    `json:"stars"`
 }
 
-func (c *Client) searchSkillsMP(ctx context.Context, query string) []domain.MarketSkill {
+func (c *Client) searchSkillsMP(ctx context.Context, query string) []MarketSkill {
 	resp, err := getSkillsMP(ctx, c.http, c.skillsmpBase, query)
 	if err != nil {
 		// Partial-result pattern — let GitHub's results carry the page.
-		return []domain.MarketSkill{}
+		return []MarketSkill{}
 	}
-	out := make([]domain.MarketSkill, 0, len(resp.Data.Skills))
+	out := make([]MarketSkill, 0, len(resp.Data.Skills))
 	for i := range resp.Data.Skills {
 		out = append(out, smpToMarketSkill(&resp.Data.Skills[i]))
 	}
@@ -94,15 +92,15 @@ func decodeSkillsMP(resp *http.Response) (smpSearchResponse, error) {
 	return decoded, nil
 }
 
-func smpToMarketSkill(s *smpSkill) domain.MarketSkill {
-	return domain.MarketSkill{
+func smpToMarketSkill(s *smpSkill) MarketSkill {
+	return MarketSkill{
 		ID:          s.ID,
 		Name:        s.Name,
 		Author:      s.Author,
 		Category:    "",
 		Description: s.Description,
 		SourceURL:   s.GithubURL, // where install fetches the SKILL.md from
-		Source:      domain.MarketSourceSkillsMP,
+		Source:      MarketSourceSkillsMP,
 		Stars:       s.Stars,
 	}
 }

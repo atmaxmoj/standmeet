@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
@@ -73,7 +72,7 @@ const (
 // "skillsmp"; any other value reduces to "all" (defensive).
 func (c *Client) Search(
 	ctx context.Context, query, source string,
-) []domain.MarketSkill {
+) []MarketSkill {
 	filter := SourceFilter(source)
 	out := newResultCollector()
 	var wg sync.WaitGroup
@@ -98,9 +97,9 @@ const asciiMax = 127
 // EN + translated variants of one skill as separate rows, and a skill can appear in both
 // the official repo and SkillsMP). Keys on name+author; among duplicates keeps the
 // more-English description (fewer non-ASCII runes), tie-broken by higher stars. Order kept.
-func dedupePreferEnglish(skills []domain.MarketSkill) []domain.MarketSkill {
+func dedupePreferEnglish(skills []MarketSkill) []MarketSkill {
 	at := make(map[string]int, len(skills))
-	out := make([]domain.MarketSkill, 0, len(skills))
+	out := make([]MarketSkill, 0, len(skills))
 	for i := range skills {
 		key := dedupeKey(skills[i].Name, skills[i].Author)
 		if idx, seen := at[key]; seen {
@@ -121,7 +120,7 @@ func dedupeKey(name, author string) string {
 }
 
 // preferable —— should `cand` replace the kept `cur`? More English wins; tie → more stars.
-func preferable(cand, cur *domain.MarketSkill) bool {
+func preferable(cand, cur *MarketSkill) bool {
 	ca, cb := nonASCIICount(cand.Description), nonASCIICount(cur.Description)
 	if ca != cb {
 		return ca < cb
@@ -141,24 +140,24 @@ func nonASCIICount(s string) int {
 
 // resultCollector —— thread-safe append-only slice.
 type resultCollector struct {
-	items []domain.MarketSkill
+	items []MarketSkill
 	mu    sync.Mutex
 }
 
 func newResultCollector() *resultCollector {
-	return &resultCollector{items: []domain.MarketSkill{}}
+	return &resultCollector{items: []MarketSkill{}}
 }
 
-func (r *resultCollector) append(batch []domain.MarketSkill) {
+func (r *resultCollector) append(batch []MarketSkill) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.items = append(r.items, batch...)
 }
 
-func (r *resultCollector) snapshot() []domain.MarketSkill {
+func (r *resultCollector) snapshot() []MarketSkill {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	out := make([]domain.MarketSkill, len(r.items))
+	out := make([]MarketSkill, len(r.items))
 	copy(out, r.items)
 	return out
 }

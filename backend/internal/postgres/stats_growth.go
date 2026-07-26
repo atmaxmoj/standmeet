@@ -9,9 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/stats"
 	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // corpusGrowthDays —— SystemPulse 序列窗口（今天往前数 14 天）。
@@ -31,12 +30,12 @@ func NewGrowthRepo(pool *Pool) *GrowthRepo { return &GrowthRepo{pool: pool} }
 // CorpusGrowth —— 分层总量 + 14 天新增序列 + 7 天增量。owner-scoped。
 func (r *GrowthRepo) CorpusGrowth(
 	ctx context.Context, ownerID string,
-) (domain.CorpusGrowth, error) {
+) (stats.CorpusGrowth, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.CorpusGrowth{}, fmt.Errorf("parse owner id: %w", err)
+		return stats.CorpusGrowth{}, fmt.Errorf("parse owner id: %w", err)
 	}
-	var tiers domain.CorpusTierCounts
+	var tiers stats.CorpusTierCounts
 	err = r.pool.QueryRow(ctx, `
 		SELECT
 		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'raw'),
@@ -49,11 +48,11 @@ func (r *GrowthRepo) CorpusGrowth(
 		&tiers.Raw, &tiers.Wiki, &tiers.Output, &tiers.Writing, &tiers.RawUnprocessed,
 	)
 	if err != nil {
-		return domain.CorpusGrowth{}, fmt.Errorf("count corpus tiers: %w", err)
+		return stats.CorpusGrowth{}, fmt.Errorf("count corpus tiers: %w", err)
 	}
 	byDay, err := r.corpusByDay(ctx, ownerUUID)
 	if err != nil {
-		return domain.CorpusGrowth{}, err
+		return stats.CorpusGrowth{}, err
 	}
 	return assembleCorpusGrowth(tiers, byDay), nil
 }
@@ -91,19 +90,19 @@ func (r *GrowthRepo) corpusByDay(
 }
 
 // assembleCorpusGrowth —— 铺满 14 天序列（缺天补 0）、算 7 天增量、组装分层总量。
-func assembleCorpusGrowth(tiers domain.CorpusTierCounts, byDay map[string]int) domain.CorpusGrowth {
+func assembleCorpusGrowth(tiers stats.CorpusTierCounts, byDay map[string]int) stats.CorpusGrowth {
 	now := time.Now().UTC()
-	series := make([]domain.CorpusDayCount, corpusGrowthDays)
+	series := make([]stats.CorpusDayCount, corpusGrowthDays)
 	delta7 := 0
 	for i := range corpusGrowthDays {
 		day := now.AddDate(0, 0, i-(corpusGrowthDays-1)).Format("2006-01-02")
 		count := byDay[day]
-		series[i] = domain.CorpusDayCount{Day: day, Count: count}
+		series[i] = stats.CorpusDayCount{Day: day, Count: count}
 		if i >= corpusGrowthDays-corpusDeltaDays {
 			delta7 += count
 		}
 	}
-	return domain.CorpusGrowth{
+	return stats.CorpusGrowth{
 		Series:  series,
 		ByTier:  tiers,
 		Total:   tiers.Raw + tiers.Wiki + tiers.Output,

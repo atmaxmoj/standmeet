@@ -13,10 +13,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/stats"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // ActivityRepo —— 近期活动流。
@@ -43,7 +42,7 @@ const activityQuery = `
 // RecentActivity —— owner-scoped 最近 limit 条事件，最新在前。
 func (r *ActivityRepo) RecentActivity(
 	ctx context.Context, ownerID string, limit int,
-) ([]domain.ActivityEvent, error) {
+) ([]stats.ActivityEvent, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
@@ -70,7 +69,7 @@ const graphQuery = `
 // CorpusGraph —— owner 的语料链接图前 limit 个 hub 节点（degree 降序）。
 func (r *ActivityRepo) CorpusGraph(
 	ctx context.Context, ownerID string, limit int,
-) ([]domain.GraphNode, error) {
+) ([]stats.GraphNode, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
@@ -83,8 +82,8 @@ func (r *ActivityRepo) CorpusGraph(
 	return scanGraphNodes(rows)
 }
 
-func scanGraphNodes(rows pgx.Rows) ([]domain.GraphNode, error) {
-	nodes := make([]domain.GraphNode, 0)
+func scanGraphNodes(rows pgx.Rows) ([]stats.GraphNode, error) {
+	nodes := make([]stats.GraphNode, 0)
 	for rows.Next() {
 		var id pgtype.UUID
 		var title, genre string
@@ -92,7 +91,7 @@ func scanGraphNodes(rows pgx.Rows) ([]domain.GraphNode, error) {
 		if serr := rows.Scan(&id, &title, &genre, &degree); serr != nil {
 			return nil, fmt.Errorf("scan graph node: %w", serr)
 		}
-		nodes = append(nodes, domain.GraphNode{
+		nodes = append(nodes, stats.GraphNode{
 			ID: formatUUID(id), Title: title, Genre: genre, Degree: int(degree),
 		})
 	}
@@ -102,15 +101,15 @@ func scanGraphNodes(rows pgx.Rows) ([]domain.GraphNode, error) {
 	return nodes, nil
 }
 
-func scanActivityEvents(rows pgx.Rows) ([]domain.ActivityEvent, error) {
-	events := make([]domain.ActivityEvent, 0)
+func scanActivityEvents(rows pgx.Rows) ([]stats.ActivityEvent, error) {
+	events := make([]stats.ActivityEvent, 0)
 	for rows.Next() {
 		var kind, label string
 		var at pgtype.Timestamptz
 		if serr := rows.Scan(&kind, &at, &label); serr != nil {
 			return nil, fmt.Errorf("scan activity event: %w", serr)
 		}
-		events = append(events, domain.ActivityEvent{At: at.Time, Kind: kind, Label: label})
+		events = append(events, stats.ActivityEvent{At: at.Time, Kind: kind, Label: label})
 	}
 	if rerr := rows.Err(); rerr != nil {
 		return nil, fmt.Errorf("iterate activity events: %w", rerr)

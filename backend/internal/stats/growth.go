@@ -1,7 +1,4 @@
-// stats_growth.go —— Monitor 观测面：corpus 增长脉搏（SystemPulse）。自成 domain，
-// 跟 SystemInfo / activity / jobs 各管各的，不共享 stats god-type。
-
-package domain
+package stats
 
 // CorpusDayCount —— 某一天的 corpus 新增条数（raw+wiki+output 合计）。
 type CorpusDayCount struct {

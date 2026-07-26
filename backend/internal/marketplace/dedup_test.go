@@ -3,8 +3,6 @@ package marketplace
 import (
 	"strings"
 	"testing"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const (
@@ -16,7 +14,7 @@ const (
 	cjkLen   = 20
 )
 
-func findSkill(skills []domain.MarketSkill, name string) *domain.MarketSkill {
+func findSkill(skills []MarketSkill, name string) *MarketSkill {
 	for i := range skills {
 		if skills[i].Name == name {
 			return &skills[i]
@@ -31,7 +29,7 @@ func TestDedupePreferEnglish(t *testing.T) {
 	t.Parallel()
 	cjk := strings.Repeat(string(rune(cjkRune)), cjkLen) // non-English (CJK) description
 	en := "Visualize whether skills followed"
-	in := []domain.MarketSkill{
+	in := []MarketSkill{
 		{Name: "skill-comply", Author: "affaan-m", Description: cjk, Stars: dupStars},
 		{Name: "skill-comply", Author: "affaan-m", Description: en, Stars: dupStars},
 		{Name: "pdf", Author: "anthropics", Description: "Use for PDFs", Stars: loStars},
@@ -52,7 +50,7 @@ func TestDedupePreferEnglish(t *testing.T) {
 // TestDedupeTieHigherStars —— same language → higher stars wins.
 func TestDedupeTieHigherStars(t *testing.T) {
 	t.Parallel()
-	in := []domain.MarketSkill{
+	in := []MarketSkill{
 		{Name: "x", Author: "a", Description: "same english", Stars: tieLo},
 		{Name: "x", Author: "a", Description: "same english", Stars: tieHi},
 	}

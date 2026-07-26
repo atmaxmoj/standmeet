@@ -8,13 +8,13 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 
 // GrowthProvider —— corpus 增长数据源（postgres GrowthRepo 实现）。
 type GrowthProvider interface {
-	CorpusGrowth(ctx context.Context, ownerID string) (domain.CorpusGrowth, error)
+	CorpusGrowth(ctx context.Context, ownerID string) (stats.CorpusGrowth, error)
 }
 
 type dayCountResp struct {
@@ -54,7 +54,7 @@ func (h *Handlers) getCorpusGrowth() http.HandlerFunc {
 	}
 }
 
-func toGrowthResp(g *domain.CorpusGrowth) growthResp {
+func toGrowthResp(g *stats.CorpusGrowth) growthResp {
 	series := make([]dayCountResp, 0, len(g.Series))
 	for i := range g.Series {
 		series = append(series, dayCountResp{Day: g.Series[i].Day, Count: g.Series[i].Count})

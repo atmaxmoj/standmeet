@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 
 // ActivityProvider —— 近期活动流 + 语料链接图数据源（postgres ActivityRepo 实现）。
 type ActivityProvider interface {
-	RecentActivity(ctx context.Context, ownerID string, limit int) ([]domain.ActivityEvent, error)
-	CorpusGraph(ctx context.Context, ownerID string, limit int) ([]domain.GraphNode, error)
+	RecentActivity(ctx context.Context, ownerID string, limit int) ([]stats.ActivityEvent, error)
+	CorpusGraph(ctx context.Context, ownerID string, limit int) ([]stats.GraphNode, error)
 }
 
 type graphNodeResp struct {
@@ -47,7 +47,7 @@ func (h *Handlers) getCorpusGraph() http.HandlerFunc {
 	}
 }
 
-func toGraphResp(nodes []domain.GraphNode) graphResp {
+func toGraphResp(nodes []stats.GraphNode) graphResp {
 	out := make([]graphNodeResp, 0, len(nodes))
 	for i := range nodes {
 		out = append(out, graphNodeResp{
@@ -85,7 +85,7 @@ func (h *Handlers) getRecentActivity() http.HandlerFunc {
 	}
 }
 
-func toActivityResp(events []domain.ActivityEvent) activityResp {
+func toActivityResp(events []stats.ActivityEvent) activityResp {
 	out := make([]activityEventResp, 0, len(events))
 	for i := range events {
 		out = append(out, activityEventResp{

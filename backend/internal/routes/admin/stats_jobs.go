@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 
 // JobsProvider —— 计划任务登记表（jobregistry.Registry 实现）。进程内、非 owner-scoped。
 type JobsProvider interface {
-	ScheduledJobs() []domain.ScheduledJob
+	ScheduledJobs() []stats.ScheduledJob
 }
 
 type jobResp struct {
@@ -36,7 +36,7 @@ func (h *Handlers) getScheduledJobs() http.HandlerFunc {
 	}
 }
 
-func toJobsResp(jobs []domain.ScheduledJob) jobsResp {
+func toJobsResp(jobs []stats.ScheduledJob) jobsResp {
 	out := make([]jobResp, 0, len(jobs))
 	for i := range jobs {
 		out = append(out, jobResp{

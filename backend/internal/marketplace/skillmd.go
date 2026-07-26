@@ -20,19 +20,17 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // FetchSkillContent fetches + parses a market skill's SKILL.md. `sourceURL` is the skill's
 // githubUrl (used by the SkillsMP path, which has no content endpoint); the GitHub source
 // ignores it and derives the path from `id`.
 func (c *Client) FetchSkillContent(
-	ctx context.Context, source domain.MarketSource, id, sourceURL string,
-) (domain.MarketSkillContent, error) {
+	ctx context.Context, source MarketSource, id, sourceURL string,
+) (MarketSkillContent, error) {
 	raw, err := c.fetchSkillMD(ctx, source, id, sourceURL)
 	if err != nil {
-		return domain.MarketSkillContent{}, err
+		return MarketSkillContent{}, err
 	}
 	return parseSkillMD(raw), nil
 }
@@ -40,17 +38,17 @@ func (c *Client) FetchSkillContent(
 // ParseSkillMD —— for manual install (owner pastes a SKILL.md they found/downloaded
 // anywhere): same parser the marketplace fetch path uses, no network. A Client method so
 // the usecase layer reaches it through the MarketplaceClient interface (no direct import).
-func (*Client) ParseSkillMD(raw string) domain.MarketSkillContent {
+func (*Client) ParseSkillMD(raw string) MarketSkillContent {
 	return parseSkillMD(raw)
 }
 
 func (c *Client) fetchSkillMD(
-	ctx context.Context, source domain.MarketSource, id, sourceURL string,
+	ctx context.Context, source MarketSource, id, sourceURL string,
 ) (string, error) {
 	switch source {
-	case domain.MarketSourceGitHub:
+	case MarketSourceGitHub:
 		return c.fetchGitHubSkillMD(ctx, id)
-	case domain.MarketSourceSkillsMP:
+	case MarketSourceSkillsMP:
 		return c.fetchSkillMDFromTreeURL(ctx, sourceURL)
 	default:
 		return "", fmt.Errorf("unknown market source %q", source)
@@ -139,9 +137,9 @@ func decodeGHFileContent(r io.Reader) (string, error) {
 
 // ─── SKILL.md frontmatter parser ──────────────────────────────
 
-func parseSkillMD(raw string) domain.MarketSkillContent {
+func parseSkillMD(raw string) MarketSkillContent {
 	r := splitFrontmatter(raw)
-	return domain.MarketSkillContent{
+	return MarketSkillContent{
 		Name:         r.fm.scalars["name"],
 		Description:  r.fm.scalars["description"],
 		Version:      r.fm.scalars["version"],

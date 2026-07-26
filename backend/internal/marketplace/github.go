@@ -17,8 +17,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // ghContentItem —— shape returned by GitHub Contents API. Name/Type/HTMLURL come
@@ -36,9 +34,9 @@ type ghContentItem struct {
 // directory cache, so a large repo doesn't fan out an unbounded burst at GitHub.
 const githubEnrichConcurrency = 8
 
-func (c *Client) searchGitHub(ctx context.Context, query string) []domain.MarketSkill {
+func (c *Client) searchGitHub(ctx context.Context, query string) []MarketSkill {
 	items := c.fetchGitHubDirectory(ctx)
-	out := make([]domain.MarketSkill, 0, len(items))
+	out := make([]MarketSkill, 0, len(items))
 	for i := range items {
 		it := items[i]
 		if it.Type != "dir" {
@@ -93,7 +91,7 @@ func (c *Client) enrichGitHubMetadata(ctx context.Context, items []ghContentItem
 // enrichOne —— best-effort SKILL.md fetch+parse for one skill dir; on any error the
 // item keeps its empty Description/Version (the card just shows less, never fails).
 func (c *Client) enrichOne(ctx context.Context, it *ghContentItem) {
-	content, err := c.FetchSkillContent(ctx, domain.MarketSourceGitHub, it.Name, "")
+	content, err := c.FetchSkillContent(ctx, MarketSourceGitHub, it.Name, "")
 	if err != nil {
 		return
 	}
@@ -140,8 +138,8 @@ func decodeGHContents(r io.Reader) ([]ghContentItem, error) {
 	return out, nil
 }
 
-func ghContentToMarketSkill(it *ghContentItem) domain.MarketSkill {
-	return domain.MarketSkill{
+func ghContentToMarketSkill(it *ghContentItem) MarketSkill {
+	return MarketSkill{
 		ID:          it.Name,
 		Name:        deriveDisplayName(it.Name),
 		Author:      "anthropics",
@@ -149,7 +147,7 @@ func ghContentToMarketSkill(it *ghContentItem) domain.MarketSkill {
 		Category:    "",
 		Description: it.Description, // ditto — so the card isn't blank (UX-13)
 		SourceURL:   it.HTMLURL,
-		Source:      domain.MarketSourceGitHub,
+		Source:      MarketSourceGitHub,
 		// GitHub skills are folders in one repo → no per-skill star count.
 		Stars: 0,
 	}

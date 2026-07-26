@@ -14,18 +14,19 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // MarketplaceClient —— matches marketplace.Client. Interfaces lets us
 // stub the network out in usecase-level tests.
 type MarketplaceClient interface {
-	Search(ctx context.Context, query, source string) []domain.MarketSkill
+	Search(ctx context.Context, query, source string) []marketplace.MarketSkill
 	FetchSkillContent(
-		ctx context.Context, source domain.MarketSource, id, sourceURL string,
-	) (domain.MarketSkillContent, error)
+		ctx context.Context, source marketplace.MarketSource, id, sourceURL string,
+	) (marketplace.MarketSkillContent, error)
 	// ParseSkillMD parses raw SKILL.md (no network) for manual install.
-	ParseSkillMD(raw string) domain.MarketSkillContent
+	ParseSkillMD(raw string) marketplace.MarketSkillContent
 }
 
 // MarketplaceDeps —— bundle for the marketplace search REST route.
@@ -48,16 +49,16 @@ type MarketSearchParams struct {
 // falls back to "all" on unknown values.
 func SearchMarketplace(
 	ctx context.Context, deps MarketplaceDeps, p MarketSearchParams,
-) []domain.MarketSkill {
+) []marketplace.MarketSkill {
 	return pageSlice(deps.Client.Search(ctx, p.Query, p.Source), p.Limit, p.Offset)
 }
 
-func pageSlice(items []domain.MarketSkill, limit, offset int) []domain.MarketSkill {
+func pageSlice(items []marketplace.MarketSkill, limit, offset int) []marketplace.MarketSkill {
 	if offset < 0 {
 		offset = 0
 	}
 	if offset >= len(items) {
-		return []domain.MarketSkill{}
+		return []marketplace.MarketSkill{}
 	}
 	end := offset + limit
 	if limit <= 0 || end > len(items) {
@@ -93,7 +94,7 @@ func InstallSkill(
 		return domain.Skill{}, ErrEmptyField
 	}
 	content, err := deps.Marketplace.FetchSkillContent(
-		ctx, domain.MarketSource(in.Source), in.ID, in.SourceURL,
+		ctx, marketplace.MarketSource(in.Source), in.ID, in.SourceURL,
 	)
 	if err != nil {
 		return domain.Skill{}, fmt.Errorf("fetch skill content: %w", err)
@@ -126,7 +127,7 @@ func InstallManualSkill(
 
 func persistManualSkill(
 	ctx context.Context, deps InstallSkillDeps,
-	ownerID, nameFallback string, content *domain.MarketSkillContent,
+	ownerID, nameFallback string, content *marketplace.MarketSkillContent,
 ) (domain.Skill, error) {
 	skill, cerr := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
 		OwnerID:      ownerID,
@@ -148,7 +149,7 @@ func persistManualSkill(
 
 func createInstalledSkill(
 	ctx context.Context, deps InstallSkillDeps,
-	in *InstallSkillInput, content *domain.MarketSkillContent,
+	in *InstallSkillInput, content *marketplace.MarketSkillContent,
 ) (domain.Skill, error) {
 	skill, cerr := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
 		OwnerID:      in.OwnerID,
