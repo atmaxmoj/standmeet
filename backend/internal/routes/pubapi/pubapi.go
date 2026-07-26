@@ -85,7 +85,7 @@ const (
 // (constant envelope). Over the limit → 429.
 func (h *Handlers) authRate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key, err := usecases.ResolveAPIKey(r.Context(), h.d.Keys, bearerSecret(r))
+		key, err := access.ResolveAPIKey(r.Context(), h.d.Keys, bearerSecret(r))
 		if err != nil {
 			h.writeErr(w, http.StatusUnauthorized, "unauthorized", "invalid or missing api key")
 			return

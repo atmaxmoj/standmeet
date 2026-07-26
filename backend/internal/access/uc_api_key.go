@@ -2,7 +2,7 @@
 // persist; return the raw secret ONCE) and resolve a presented secret back to its key row at auth
 // time. The raw `smk_…` secret is never stored — only its sha256.
 
-package usecases
+package access
 
 import (
 	"context"
@@ -13,8 +13,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 const (
@@ -29,16 +27,16 @@ var (
 	ErrAPIKeyRoleRequired  = errors.New("assumed_role_id is required")
 )
 
-// APIKeyStore —— the mint side (access.APIKeyRepo implements it).
+// APIKeyStore —— the mint side (APIKeyRepo implements it).
 type APIKeyStore interface {
 	Create(
-		ctx context.Context, in *access.CreateAPIKeyInput,
-	) (access.APIKey, error)
+		ctx context.Context, in *CreateAPIKeyInput,
+	) (APIKey, error)
 }
 
 // APIKeyRoleGetter —— validate the assumed role exists + belongs to the owner at mint time.
 type APIKeyRoleGetter interface {
-	GetByID(ctx context.Context, ownerID, roleID string) (access.Role, error)
+	GetByID(ctx context.Context, ownerID, roleID string) (Role, error)
 }
 
 // IssueAPIKeyDeps —— dependencies for minting a key.
@@ -67,7 +65,7 @@ type apiKeySecret struct {
 // IssuedAPIKey —— the mint result: the raw secret to show once + the persisted key.
 type IssuedAPIKey struct {
 	Secret string
-	Key    access.APIKey
+	Key    APIKey
 }
 
 // IssueAPIKey —— validate the role, generate + hash a secret, persist the key, and return the raw
@@ -82,7 +80,7 @@ func IssueAPIKey(
 	if serr != nil {
 		return IssuedAPIKey{}, serr
 	}
-	key, cerr := deps.Keys.Create(ctx, &access.CreateAPIKeyInput{
+	key, cerr := deps.Keys.Create(ctx, &CreateAPIKeyInput{
 		OwnerID: in.OwnerID, AssumedRoleID: in.AssumedRoleID, Label: in.Label,
 		Prefix: secret.Prefix, SecretHash: secret.Hash,
 		RateLimitRPM: in.RateLimitRPM, ExpiresAt: in.ExpiresAt,

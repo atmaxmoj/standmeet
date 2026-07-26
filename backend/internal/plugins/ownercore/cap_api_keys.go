@@ -16,7 +16,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const apiKeysBundle = "api_keys.bundle"
@@ -58,7 +57,7 @@ type apiKeyStore interface {
 // usecase); Roles validates the assumed role at mint (BOLA guard).
 type APIKeysOwnerDeps struct {
 	Keys  apiKeyStore
-	Roles usecases.APIKeyRoleGetter
+	Roles access.APIKeyRoleGetter
 }
 
 type apiKeysCapability struct {
@@ -188,9 +187,9 @@ func (c *apiKeysCapability) handleCreate(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	issued, err := usecases.IssueAPIKey(ctx, usecases.IssueAPIKeyDeps{
+	issued, err := access.IssueAPIKey(ctx, access.IssueAPIKeyDeps{
 		Keys: c.deps.Keys, Roles: c.deps.Roles,
-	}, &usecases.IssueAPIKeyInput{
+	}, &access.IssueAPIKeyInput{
 		OwnerID: ownerID, AssumedRoleID: args.AssumedRoleID, Label: args.Label,
 		RateLimitRPM: args.RateLimitRPM, ExpiresAt: args.ExpiresAt,
 	})
@@ -203,8 +202,8 @@ func (c *apiKeysCapability) handleCreate(
 }
 
 func (c *apiKeysCapability) createErr(err error) capreg.MCPResult {
-	if errors.Is(err, usecases.ErrAPIKeyLabelRequired) ||
-		errors.Is(err, usecases.ErrAPIKeyRoleRequired) {
+	if errors.Is(err, access.ErrAPIKeyLabelRequired) ||
+		errors.Is(err, access.ErrAPIKeyRoleRequired) {
 		return capreg.MCPError(err.Error())
 	}
 	return c.failf("api_keys.create", err)
