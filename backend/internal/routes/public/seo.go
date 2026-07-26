@@ -16,8 +16,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // SEOHandlers —— SEO 路由依赖。
@@ -26,7 +26,7 @@ import (
 // owners.public_url 读（首位 owner，v1 单 owner instance）。pre-claim 阶段
 // FirstOwner 返 ok=false → robots Disallow / sitemap 空。
 type SEOHandlers struct {
-	Deps usecases.SEODeps
+	Deps owner.SEODeps
 	// Sessions —— 可选;wiki-tree 端点用它把 bearer token 换 RoleSnapshot 做
 	// code-scope。nil(如 MountRoot 那条只挂 robots/sitemap)→ 退到匿名 scope。
 	Sessions *session.VisitorSessionStore
@@ -63,13 +63,13 @@ func (h *SEOHandlers) robotsTxt() http.HandlerFunc {
 }
 
 // robotsBody —— pre-claim / index-disabled / public_url 未填 → Disallow all。
-// readiness check 集中在 usecases.PublicReady 里。
-func robotsBody(ctx context.Context, deps usecases.SEODeps) string {
-	owner, ready := usecases.PublicReady(ctx, deps)
+// readiness check 集中在 owner.PublicReady 里。
+func robotsBody(ctx context.Context, deps owner.SEODeps) string {
+	soleOwner, ready := owner.PublicReady(ctx, deps)
 	if !ready {
 		return "User-agent: *\nDisallow: /\n"
 	}
-	return fmt.Sprintf("User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n", owner.PublicURL)
+	return fmt.Sprintf("User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n", soleOwner.PublicURL)
 }
 
 func (h *SEOHandlers) sitemapXML() http.HandlerFunc {
@@ -89,19 +89,19 @@ type sitemapURL struct {
 	LastMod string
 }
 
-func sitemapURLs(ctx context.Context, deps usecases.SEODeps) []sitemapURL {
-	owner, ok := usecases.FirstOwner(ctx, deps)
-	if !ok || owner.PublicURL == "" {
+func sitemapURLs(ctx context.Context, deps owner.SEODeps) []sitemapURL {
+	soleOwner, ok := owner.FirstOwner(ctx, deps)
+	if !ok || soleOwner.PublicURL == "" {
 		return []sitemapURL{}
 	}
-	out := []sitemapURL{{Loc: owner.PublicURL}}
-	out = appendLandings(out, owner.PublicURL, "wiki", usecases.IndexedWikiLandings(ctx, deps))
-	out = appendLandings(out, owner.PublicURL, "output", usecases.IndexedOutputLandings(ctx, deps))
+	out := []sitemapURL{{Loc: soleOwner.PublicURL}}
+	out = appendLandings(out, soleOwner.PublicURL, "wiki", owner.IndexedWikiLandings(ctx, deps))
+	out = appendLandings(out, soleOwner.PublicURL, "output", owner.IndexedOutputLandings(ctx, deps))
 	return out
 }
 
 func appendLandings(
-	urls []sitemapURL, base, segment string, landings []usecases.LandingURL,
+	urls []sitemapURL, base, segment string, landings []owner.LandingURL,
 ) []sitemapURL {
 	for i := range landings {
 		urls = append(urls, sitemapURL{

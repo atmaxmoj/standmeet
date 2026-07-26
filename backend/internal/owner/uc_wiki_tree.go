@@ -13,7 +13,7 @@
 // path 跟 GetWikiLanding 同口径(树派生,corpus.PathSegment(title) 顺链拼),前端拿 path
 // 直接拼 /wiki/<path>。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -91,11 +91,11 @@ type wikiTreeQuery struct {
 // WikiTreeStats —— 侧栏脚定位计数(owner 级聚合:总数/根数/非公开数),不按访客 scope,
 // 纯 COUNT 不 load 树。
 func WikiTreeStats(ctx context.Context, deps SEODeps) (corpus.WikiStats, error) {
-	owner, ok := FirstOwner(ctx, deps)
+	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return corpus.WikiStats{}, nil
 	}
-	stats, err := deps.Wiki.CountStats(ctx, owner.ID)
+	stats, err := deps.Wiki.CountStats(ctx, soleOwner.ID)
 	if err != nil {
 		return corpus.WikiStats{}, fmt.Errorf("wiki tree stats: %w", err)
 	}
@@ -107,11 +107,11 @@ func WikiTreeStats(ctx context.Context, deps SEODeps) (corpus.WikiStats, error) 
 func WikiTreeChildren(
 	ctx context.Context, deps SEODeps, parentID string, scope WikiTreeScope,
 ) ([]WikiTreeNode, error) {
-	owner, ok := FirstOwner(ctx, deps)
+	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return []WikiTreeNode{}, nil
 	}
-	q := &wikiTreeQuery{repo: deps.Wiki, ownerID: owner.ID, scope: scope}
+	q := &wikiTreeQuery{repo: deps.Wiki, ownerID: soleOwner.ID, scope: scope}
 	parentPath := ""
 	if parentID != "" {
 		chain, err := q.visibleChain(ctx, parentID)

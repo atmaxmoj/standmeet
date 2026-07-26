@@ -620,6 +620,7 @@ deps:
       - apierr
       - session
       - corpus
+      - access
     anyVendorDeps: true
 
 

@@ -289,7 +289,7 @@ func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 
 func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
 	return publicroutes.SEOHandlers{
-		Deps: usecases.SEODeps{
+		Deps: owner.SEODeps{
 			Owners: d.ownerRepo, SEO: d.seoRepo,
 			Wiki: d.wikiRepo, Output: d.outputRepo,
 			NoteRefs: d.noteRefRepo,

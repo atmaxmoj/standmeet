@@ -5,7 +5,7 @@
 //
 // landing 页 SSR 拿这个画 breadcrumb + sub-rail;client 树 sidebar 走 WikiTreeChildren。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -26,18 +26,18 @@ type WikiContext struct {
 func WikiNodeContext(
 	ctx context.Context, deps SEODeps, path string, scope WikiTreeScope,
 ) (WikiContext, error) {
-	owner, ok := FirstOwner(ctx, deps)
+	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return emptyWikiContext(), nil
 	}
-	nodeID, err := corpus.ResolveWikiNodeID(ctx, deps.Wiki, owner.ID, path)
+	nodeID, err := corpus.ResolveWikiNodeID(ctx, deps.Wiki, soleOwner.ID, path)
 	if err != nil {
 		if errors.Is(err, corpus.ErrWikiNotFound) {
 			return emptyWikiContext(), nil // path 不存在 → 空(不报错)
 		}
 		return WikiContext{}, fmt.Errorf("wiki context resolve: %w", err)
 	}
-	q := &wikiTreeQuery{repo: deps.Wiki, ownerID: owner.ID, scope: scope}
+	q := &wikiTreeQuery{repo: deps.Wiki, ownerID: soleOwner.ID, scope: scope}
 	return q.context(ctx, nodeID)
 }
 

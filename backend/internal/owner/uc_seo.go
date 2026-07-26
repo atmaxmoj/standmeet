@@ -2,20 +2,19 @@
 // path-based (替代旧 slug)：landing URL 形如 /<handle>/wiki/<path>，path
 // 可含 `/`（前端路由用 catch-all），同 retrieval ACL 复用同一列。
 
-package usecases
+package owner
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // SEODeps —— SEO usecases 所需。Wiki/Output 用来 load 全树算公开 landing 地址
 // (纯树派生,不读已退役的 path 列)。
 type SEODeps struct {
-	Owners   *owner.Repo
+	Owners   *Repo
 	SEO      *corpus.SEORepo
 	Wiki     *corpus.WikiRepo
 	Output   *corpus.OutputRepo
@@ -23,14 +22,14 @@ type SEODeps struct {
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
-func FirstOwner(ctx context.Context, deps SEODeps) (owner.Owner, bool) {
+func FirstOwner(ctx context.Context, deps SEODeps) (Owner, bool) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil || handle == "" {
-		return owner.Owner{}, false
+		return Owner{}, false
 	}
 	soleOwner, oerr := deps.Owners.GetByHandle(ctx, handle)
 	if oerr != nil {
-		return owner.Owner{}, false
+		return Owner{}, false
 	}
 	return soleOwner, true
 }
@@ -49,14 +48,14 @@ func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpus.SEOSettings, 
 }
 
 // PublicReady —— 集中 robots/sitemap readiness check。
-func PublicReady(ctx context.Context, deps SEODeps) (owner.Owner, bool) {
+func PublicReady(ctx context.Context, deps SEODeps) (Owner, bool) {
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok || soleOwner.PublicURL == "" {
-		return owner.Owner{}, false
+		return Owner{}, false
 	}
 	settings, ok := FirstOwnerSettings(ctx, deps)
 	if !ok || !settings.IndexRobots {
-		return owner.Owner{}, false
+		return Owner{}, false
 	}
 	return soleOwner, true
 }
@@ -90,7 +89,7 @@ func GetWikiLanding(
 	}
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return WikiLanding{}, owner.ErrOwnerNotFound
+		return WikiLanding{}, ErrOwnerNotFound
 	}
 	// 全量 meta(无 body、无 50-cap):算树派生 path 定位条目 + 建 [[X]] 渲染 title 索引。
 	// deep entry(超出旧 newest-50)也找得到,链接也不断。正文单独 GetByID 拉。
@@ -207,7 +206,7 @@ func GetOutputLanding(
 	}
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return corpus.Output{}, owner.ErrOwnerNotFound
+		return corpus.Output{}, ErrOwnerNotFound
 	}
 	return resolveOutputLanding(ctx, deps, soleOwner.ID, path)
 }

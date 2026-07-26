@@ -19,7 +19,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
@@ -28,7 +27,7 @@ func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 		// F-L-11 bearer-aware reader: a valid code bearer reads in-scope gated entries; anonymous
 		// (no/dead token) → published-only (SEO). Same scope predicate the wiki-tree/context use.
 		token, _ := bearerToken(r)
-		scope := usecases.WikiTreeScopeFor(r.Context(), h.Sessions, token)
+		scope := owner.WikiTreeScopeFor(r.Context(), h.Sessions, token)
 		view, err := loadWikiLandingView(r.Context(), h.Deps, slug, scope)
 		if err != nil {
 			handleLandingErr(h.Log, w, err)
@@ -58,9 +57,9 @@ type wikiLandingView struct {
 }
 
 func loadWikiLandingView(
-	ctx context.Context, deps usecases.SEODeps, slug string, scope usecases.WikiTreeScope,
+	ctx context.Context, deps owner.SEODeps, slug string, scope owner.WikiTreeScope,
 ) (wikiLandingView, error) {
-	res, err := usecases.GetWikiLanding(ctx, deps, slug, scope)
+	res, err := owner.GetWikiLanding(ctx, deps, slug, scope)
 	if err != nil {
 		return wikiLandingView{}, err
 	}
@@ -154,9 +153,9 @@ type outputLandingView struct {
 }
 
 func loadOutputLandingView(
-	ctx context.Context, deps usecases.SEODeps, slug string,
+	ctx context.Context, deps owner.SEODeps, slug string,
 ) (outputLandingView, error) {
-	out, err := usecases.GetOutputLanding(ctx, deps, slug)
+	out, err := owner.GetOutputLanding(ctx, deps, slug)
 	if err != nil {
 		return outputLandingView{}, err
 	}

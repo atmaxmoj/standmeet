@@ -11,14 +11,14 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 func (h *SEOHandlers) getWikiTree() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, _ := bearerToken(r)
-		scope := usecases.WikiTreeScopeFor(r.Context(), h.Sessions, token)
-		nodes, err := usecases.WikiTreeChildren(
+		scope := owner.WikiTreeScopeFor(r.Context(), h.Sessions, token)
+		nodes, err := owner.WikiTreeChildren(
 			r.Context(), h.Deps, r.URL.Query().Get("parent"), scope,
 		)
 		if err != nil {
@@ -43,7 +43,7 @@ const logErrKey = "err"
 
 func (h *SEOHandlers) getWikiTreeStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		stats, err := usecases.WikiTreeStats(r.Context(), h.Deps)
+		stats, err := owner.WikiTreeStats(r.Context(), h.Deps)
 		if err != nil {
 			h.Log.Error("wiki tree stats", logErrKey, err)
 			writeError(h.Log, w, serverErr())
@@ -63,8 +63,8 @@ func (h *SEOHandlers) getWikiTreeStats() http.HandlerFunc {
 func (h *SEOHandlers) getWikiTreeContext() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, _ := bearerToken(r)
-		scope := usecases.WikiTreeScopeFor(r.Context(), h.Sessions, token)
-		out, err := usecases.WikiNodeContext(
+		scope := owner.WikiTreeScopeFor(r.Context(), h.Sessions, token)
+		out, err := owner.WikiNodeContext(
 			r.Context(), h.Deps, r.URL.Query().Get("path"), scope,
 		)
 		if err != nil {
@@ -92,7 +92,7 @@ type wikiTreeContextResponse struct {
 	Children  []wikiTreeNodeView `json:"children"`
 }
 
-func writeWikiTreeContext(log *slog.Logger, w http.ResponseWriter, ctx *usecases.WikiContext) {
+func writeWikiTreeContext(log *slog.Logger, w http.ResponseWriter, ctx *owner.WikiContext) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := wikiTreeContextResponse{
@@ -104,7 +104,7 @@ func writeWikiTreeContext(log *slog.Logger, w http.ResponseWriter, ctx *usecases
 	}
 }
 
-func writeWikiTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.WikiTreeNode) {
+func writeWikiTree(log *slog.Logger, w http.ResponseWriter, nodes []owner.WikiTreeNode) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(wikiTreeResponse{Nodes: toNodeViews(nodes)}); err != nil {
@@ -112,7 +112,7 @@ func writeWikiTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.Wik
 	}
 }
 
-func toNodeViews(nodes []usecases.WikiTreeNode) []wikiTreeNodeView {
+func toNodeViews(nodes []owner.WikiTreeNode) []wikiTreeNodeView {
 	views := make([]wikiTreeNodeView, 0, len(nodes))
 	for i := range nodes {
 		views = append(views, wikiTreeNodeView{
