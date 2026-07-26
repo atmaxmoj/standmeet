@@ -13,51 +13,9 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
-// WikiLister —— owner-scoped wiki corpus for retrieval (buildRetriever)。除了内存
-// 窗口的 ListByOwner,加上 DB 懒加载三件套:全量搜(Search)、按 id 读 meta
-// (GetMetaByID,上溯算 path)、按 id 读正文(GetByID)。prod *corpus.WikiRepo
-// 原样满足;eval-harness 内存 fixture 需补这三个。
-type WikiLister interface {
-	ListByOwner(ctx context.Context, ownerID string, limit int32) ([]corpus.Wiki, error)
-	Search(
-		ctx context.Context, ownerID, query string, limit, offset int32,
-	) ([]corpus.WikiMeta, error)
-	ListChildren(
-		ctx context.Context, ownerID string, parentID *string, limit, offset int32,
-	) ([]corpus.WikiMeta, error)
-	GetMetaByID(ctx context.Context, ownerID, id string) (corpus.WikiMeta, error)
-	GetByID(ctx context.Context, ownerID, id string) (corpus.Wiki, error)
-}
-
-// OutputLister —— owner-scoped output corpus for retrieval。wiki 的孪生:内存窗口的
-// ListByOwner 之外,加 DB 懒加载:全量搜(Search)、按 id 读 meta(GetMetaByID,上溯算
-// path)、按 id 读正文(GetByID)。prod *corpus.OutputRepo 原样满足。
-type OutputLister interface {
-	ListByOwner(ctx context.Context, ownerID string, limit int32) ([]corpus.Output, error)
-	Search(
-		ctx context.Context, ownerID, query string, limit, offset int32,
-	) ([]corpus.OutputMeta, error)
-	ListChildren(
-		ctx context.Context, ownerID string, parentID *string, limit, offset int32,
-	) ([]corpus.OutputMeta, error)
-	GetMetaByID(ctx context.Context, ownerID, id string) (corpus.OutputMeta, error)
-	GetByID(ctx context.Context, ownerID, id string) (corpus.Output, error)
-}
-
-// WritingLister —— owner-scoped published writings for retrieval。wiki/output 的
-// 第三个孪生:DB 全量搜(Search)+ 按树派生 path 读(GetPublishedByPath),不走内存窗口。
-// (writing 按 published 准入 + 自带 path 列,无需 tree 上溯。)corpus_list 仍用
-// ListPublishedByOwner 的内存列表(扁平 genre,同 output)。
-type WritingLister interface {
-	ListPublishedByOwner(ctx context.Context, ownerID string) ([]corpus.Writing, error)
-	Search(
-		ctx context.Context, ownerID, query string, limit, offset int32,
-	) ([]corpus.Writing, error)
-	GetPublishedByPath(ctx context.Context, ownerID, path string) (corpus.Writing, error)
-}
+// corpus.WikiLister —— owner-scoped wiki corpus for retrieval (buildRetriever)。除了内存
 
 // ReportStore —— summarize_conversation persistence + the report read path.
 // #129 一会话一份:Upsert 按 conversation 改写原行(revise)，report_id 稳定。eval 的

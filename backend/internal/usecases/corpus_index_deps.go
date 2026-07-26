@@ -18,9 +18,9 @@ import (
 // CorpusIndexDeps —— 窄依赖(#131):corpus 四类 lister(wiki/output/writing/subjectivity)。
 // composition root 建一份喂 RegisterCorpusIndexSocket。
 type CorpusIndexDeps struct {
-	Wiki         WikiLister
-	Output       OutputLister
-	Writings     WritingLister
+	Wiki         corpus.WikiLister
+	Output       corpus.OutputLister
+	Writings     corpus.WritingLister
 	Subjectivity *corpus.NoteRepo
 	VaultSync    *corpus.VaultSyncRepo // standmeet-query 解析 + corpus_links 取邻居 genre/path
 	NoteRefs     *corpus.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks

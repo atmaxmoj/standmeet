@@ -4,7 +4,7 @@
 // in-memory windows + seen-cache: every lookup is DB, path resolves fresh, and ACL is
 // applied INSIDE each method against the granted globs (not by the caller afterwards).
 //
-// The genre repos (WikiLister/OutputLister/WritingLister) survive only as this impl's
+// The genre repos (Wiki/Output/WritingLister) survive only as this impl's
 // private sub-ports — GetMetaByID etc. are now internal path-walk plumbing, never seen
 // by a consumer. Construct inline (&pgCorpusLister{...}); no constructor (ireturn).
 
@@ -28,9 +28,9 @@ var (
 
 // pgCorpusLister —— CorpusLister over the genre repos.
 type pgCorpusLister struct {
-	wiki         WikiLister
-	output       OutputLister
-	writing      WritingLister
+	wiki         corpus.WikiLister
+	output       corpus.OutputLister
+	writing      corpus.WritingLister
 	subjectivity *corpus.NoteRepo
 	queryRepo    *corpus.VaultSyncRepo // standmeet-query 跨-genre 过滤 + corpus_links 取邻居 genre/path
 	noteRefs     *corpus.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks 邻居

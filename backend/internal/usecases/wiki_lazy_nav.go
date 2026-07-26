@@ -19,7 +19,7 @@ const resolveChildPageLimit = 200
 // wikiPathByID —— 顺 parent_id 上溯算一条 wiki 的树派生 path(meta-only,不读 body)。
 // 跟 WikiTreePaths 同款 slug;懒加载下不做同名兄弟去重(罕见,边缘略过)。
 func wikiPathByID(
-	ctx context.Context, repo WikiLister, ownerID, id string,
+	ctx context.Context, repo corpus.WikiLister, ownerID, id string,
 ) (string, error) {
 	segs := make([]string, 0, treeMaxDepth)
 	cur := id
@@ -40,7 +40,7 @@ func wikiPathByID(
 // outputPathByID —— wikiPathByID 的 output 孪生:顺 parent_id 上溯算 output 的树派生
 // path(meta-only,不读 body)。
 func outputPathByID(
-	ctx context.Context, repo OutputLister, ownerID, id string,
+	ctx context.Context, repo corpus.OutputLister, ownerID, id string,
 ) (string, error) {
 	segs := make([]string, 0, treeMaxDepth)
 	cur := id
@@ -61,12 +61,16 @@ func outputPathByID(
 // WikiEntryPath —— 导出:一条 wiki 的树派生 path(meta-only 上溯)。corpus 写工具
 // (promote_to_wiki / update_wiki)在响应里回它,让调用方拿到"东西落在哪"的地址
 // (= corpus_read 的入参),不用自己从 title slug 反推。
-func WikiEntryPath(ctx context.Context, repo WikiLister, ownerID, id string) (string, error) {
+func WikiEntryPath(
+	ctx context.Context, repo corpus.WikiLister, ownerID, id string,
+) (string, error) {
 	return wikiPathByID(ctx, repo, ownerID, id)
 }
 
 // OutputEntryPath —— WikiEntryPath 的 output 孪生(promote_wiki_to_output / update_output 用)。
-func OutputEntryPath(ctx context.Context, repo OutputLister, ownerID, id string) (string, error) {
+func OutputEntryPath(
+	ctx context.Context, repo corpus.OutputLister, ownerID, id string,
+) (string, error) {
 	return outputPathByID(ctx, repo, ownerID, id)
 }
 
@@ -74,7 +78,7 @@ func OutputEntryPath(ctx context.Context, repo OutputLister, ownerID, id string)
 // load 全树:每层 ListChildren meta-only,按 pathSegment(title) 匹配 segment)。任一段
 // 无匹配 → ErrWikiNotFound。根层(path 空)由调用方直接用 nil parentID,不进这里。
 func resolveWikiNodeID(
-	ctx context.Context, repo WikiLister, ownerID, path string,
+	ctx context.Context, repo corpus.WikiLister, ownerID, path string,
 ) (string, error) {
 	var parentID *string
 	id := ""
@@ -92,7 +96,7 @@ func resolveWikiNodeID(
 // findChildBySegment —— 在 parentID 的直接子里翻页找 pathSegment(title)==seg 的那个,
 // 返其 id。翻完没有 → ErrWikiNotFound。
 func findChildBySegment(
-	ctx context.Context, repo WikiLister, ownerID string, parentID *string, seg string,
+	ctx context.Context, repo corpus.WikiLister, ownerID string, parentID *string, seg string,
 ) (string, error) {
 	for offset := int32(0); ; offset += resolveChildPageLimit {
 		kids, err := repo.ListChildren(ctx, ownerID, parentID, resolveChildPageLimit, offset)
@@ -121,7 +125,7 @@ func segInPage(kids []corpus.WikiMeta, seg string) (string, bool) {
 // resolveOutputNodeID —— resolveWikiNodeID 的 output 孪生(output 跟 wiki 同构,都是
 // 带 parent_id 的树);顺 root→下逐层 ListChildren meta-only 解 path→id。
 func resolveOutputNodeID(
-	ctx context.Context, repo OutputLister, ownerID, path string,
+	ctx context.Context, repo corpus.OutputLister, ownerID, path string,
 ) (string, error) {
 	var parentID *string
 	id := ""
@@ -137,7 +141,7 @@ func resolveOutputNodeID(
 }
 
 func findOutputChildBySegment(
-	ctx context.Context, repo OutputLister, ownerID string, parentID *string, seg string,
+	ctx context.Context, repo corpus.OutputLister, ownerID string, parentID *string, seg string,
 ) (string, error) {
 	for offset := int32(0); ; offset += resolveChildPageLimit {
 		kids, err := repo.ListChildren(ctx, ownerID, parentID, resolveChildPageLimit, offset)

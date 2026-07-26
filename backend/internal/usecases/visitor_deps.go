@@ -9,6 +9,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
@@ -26,9 +27,9 @@ type VisitorSessionDeps struct {
 	Roles    *access.RoleRepo
 	Prompts  *owner.PromptRepo
 	Sessions *session.VisitorSessionStore
-	Wiki     WikiLister // 历史恢复 hydrate conversation view
-	Writing  WritingLister
-	Output   OutputLister
+	Wiki     corpus.WikiLister // 历史恢复 hydrate conversation view
+	Writing  corpus.WritingLister
+	Output   corpus.OutputLister
 	// AgentSkills —— session 装配时算 capability states / tool specs(retrieval /
 	// booker / ext-mcp / owner-skill)。
 	AgentSkills *capreg.Registry
@@ -51,9 +52,9 @@ type CodeDenialReader interface {
 // 接线那一半)。RegisterVisitorSkills 据此构造各 capability 的窄 deps。prod wireup +
 // eval facade 都构造它。不漏进业务逻辑,只在注册口用一次。
 type VisitorSkillsDeps struct {
-	Wiki     WikiLister
-	Output   OutputLister
-	Writings WritingLister
+	Wiki     corpus.WikiLister
+	Output   corpus.OutputLister
+	Writings corpus.WritingLister
 	// #135: booker 外置到沙箱后,它的原料(CalendarProxy / booking store / owner /
 	// owner-notify)不再进这里 —— booker 经固定词表 reach-back 网关自取。
 	Skills     SkillGetter

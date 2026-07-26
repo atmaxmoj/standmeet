@@ -83,7 +83,7 @@ func sessionRoleSnapshot(
 // wikiTreeQuery —— 一次树查询的公共上下文(repo + owner + scope),把 ctx 之外的
 // 共参收进 receiver,守 argument-limit。
 type wikiTreeQuery struct {
-	repo    WikiLister
+	repo    corpus.WikiLister
 	scope   WikiTreeScope
 	ownerID string
 }
