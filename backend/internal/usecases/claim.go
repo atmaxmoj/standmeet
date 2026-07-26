@@ -11,9 +11,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -22,7 +22,7 @@ type ClaimDeps struct {
 	Instance *owner.InstanceRepo
 	Skills   *marketplace.SkillRepo
 	Prompts  *owner.PromptRepo
-	Roles    *postgres.RoleRepo
+	Roles    *access.RoleRepo
 }
 
 // ClaimInput 是 ClaimInstance 的入参。

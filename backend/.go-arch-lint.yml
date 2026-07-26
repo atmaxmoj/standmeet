@@ -756,6 +756,7 @@ deps:
       - security
       - plugins
       - owner
+      - access
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。

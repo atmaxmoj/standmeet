@@ -14,15 +14,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // SkillsDeps —— skills CRUD 需要的 repo 集合。Code 用来 SetCodeSkills 时
 // 校验 code 属于同 owner。
 type SkillsDeps struct {
 	Skills *marketplace.SkillRepo
-	Codes  *postgres.CodeRepo
+	Codes  *access.CodeRepo
 }
 
 // CreateSkillInput —— skill.create 入参。

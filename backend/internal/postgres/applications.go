@@ -189,7 +189,7 @@ func insertAccessCode(
 	if err != nil {
 		return access.Code{}, fmt.Errorf("create access code: %w", err)
 	}
-	return toDomainCode(&row), nil
+	return access.CodeFromRow(&row), nil
 }
 
 // recruiterBriefing —— 从 draft 的 job_snapshot 拼一段 persona 上下文，冻进 app-码的 inline_prompt

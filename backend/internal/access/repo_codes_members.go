@@ -1,7 +1,7 @@
 // codes_members.go —— CodeMember (code_members 表) CRUD。从 codes.go 拆出
 // 守 max-lines 350 line cap。
 
-package postgres
+package access
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -21,17 +21,17 @@ import (
 // 个人(续会);is_anonymous 永远 false(匿名走 CreateAnonymousMember)。
 func (r *CodeRepo) GetOrCreateMember(
 	ctx context.Context, codeID, displayName string,
-) (access.CodeMember, error) {
-	codeUUID, err := parseUUID(codeID)
+) (CodeMember, error) {
+	codeUUID, err := pgstore.ParseUUID(codeID)
 	if err != nil {
-		return access.CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, err)
+		return CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.GetOrCreateCodeMember(ctx, dbq.GetOrCreateCodeMemberParams{
 		CodeID: codeUUID, DisplayName: displayName, IsAnonymous: false,
 	})
 	if qerr != nil {
-		return access.CodeMember{}, fmt.Errorf("upsert code member: %w", qerr)
+		return CodeMember{}, fmt.Errorf("upsert code member: %w", qerr)
 	}
 	return toDomainMember(&row), nil
 }
@@ -41,27 +41,27 @@ func (r *CodeRepo) GetOrCreateMember(
 // 不会跟别的匿名者塌成一个。
 func (r *CodeRepo) CreateAnonymousMember(
 	ctx context.Context, codeID string,
-) (access.CodeMember, error) {
-	codeUUID, err := parseUUID(codeID)
+) (CodeMember, error) {
+	codeUUID, err := pgstore.ParseUUID(codeID)
 	if err != nil {
-		return access.CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, err)
+		return CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	name, gerr := genGuestName()
 	if gerr != nil {
-		return access.CodeMember{}, gerr
+		return CodeMember{}, gerr
 	}
 	row, qerr := dbq.New(r.pool).GetOrCreateCodeMember(ctx, dbq.GetOrCreateCodeMemberParams{
 		CodeID: codeUUID, DisplayName: name, IsAnonymous: true,
 	})
 	if qerr != nil {
-		return access.CodeMember{}, fmt.Errorf("create anonymous member: %w", qerr)
+		return CodeMember{}, fmt.Errorf("create anonymous member: %w", qerr)
 	}
 	return toDomainMember(&row), nil
 }
 
 // CountMembers —— 这张码已有几个 member(名字选择器 pre-issue 显 "N of M")。
 func (r *CodeRepo) CountMembers(ctx context.Context, codeID string) (int32, error) {
-	codeUUID, err := parseUUID(codeID)
+	codeUUID, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return 0, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
@@ -73,26 +73,26 @@ func (r *CodeRepo) CountMembers(ctx context.Context, codeID string) (int32, erro
 }
 
 // GetMemberByID —— 按 member id + code 取(client 存 member_id 续会用);
-// 不存在 → access.ErrMemberNotFound,caller 退到按名字 / 新建匿名。
+// 不存在 → ErrMemberNotFound,caller 退到按名字 / 新建匿名。
 func (r *CodeRepo) GetMemberByID(
 	ctx context.Context, memberID, codeID string,
-) (access.CodeMember, error) {
-	mUUID, err := parseUUID(memberID)
+) (CodeMember, error) {
+	mUUID, err := pgstore.ParseUUID(memberID)
 	if err != nil {
-		return access.CodeMember{}, fmt.Errorf("parse member id: %w", err)
+		return CodeMember{}, fmt.Errorf("parse member id: %w", err)
 	}
-	cUUID, cerr := parseUUID(codeID)
+	cUUID, cerr := pgstore.ParseUUID(codeID)
 	if cerr != nil {
-		return access.CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, cerr)
+		return CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, cerr)
 	}
 	row, qerr := dbq.New(r.pool).GetCodeMemberByID(ctx, dbq.GetCodeMemberByIDParams{
 		ID: mUUID, CodeID: cUUID,
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return access.CodeMember{}, access.ErrMemberNotFound
+			return CodeMember{}, ErrMemberNotFound
 		}
-		return access.CodeMember{}, fmt.Errorf("get member by id: %w", qerr)
+		return CodeMember{}, fmt.Errorf("get member by id: %w", qerr)
 	}
 	return toDomainMember(&row), nil
 }
@@ -114,9 +114,9 @@ func genGuestName() (string, error) {
 
 // ListMembers —— admin 看 code 下所有 member（含 revoked，UI 自己分组）。
 func (r *CodeRepo) ListMembers(
-	ctx context.Context, codeID string) ([]access.CodeMember, error,
+	ctx context.Context, codeID string) ([]CodeMember, error,
 ) {
-	codeUUID, err := parseUUID(codeID)
+	codeUUID, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
@@ -125,17 +125,17 @@ func (r *CodeRepo) ListMembers(
 	if qerr != nil {
 		return nil, fmt.Errorf("list code members: %w", qerr)
 	}
-	out := make([]access.CodeMember, 0, len(rows))
+	out := make([]CodeMember, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainMember(&rows[i]))
 	}
 	return out, nil
 }
 
-func toDomainMember(m *dbq.CodeMember) access.CodeMember {
-	out := access.CodeMember{
-		ID:          formatUUID(m.ID),
-		CodeID:      formatUUID(m.CodeID),
+func toDomainMember(m *dbq.CodeMember) CodeMember {
+	out := CodeMember{
+		ID:          pgstore.FormatUUID(m.ID),
+		CodeID:      pgstore.FormatUUID(m.CodeID),
 		DisplayName: m.DisplayName,
 		IsAnonymous: m.IsAnonymous,
 	}

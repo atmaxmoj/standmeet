@@ -9,15 +9,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // MCPServersDeps —— mcp servers CRUD + per-code 关联用的 repo 集合。
 type MCPServersDeps struct {
 	Servers *marketplace.MCPServerRepo
-	Codes   *postgres.CodeRepo
+	Codes   *access.CodeRepo
 }
 
 // CreateMCPServerInput —— create 入参。AuthHeaderValue 是明文，本函数

@@ -63,7 +63,7 @@ const (
 type ApplicationsDeps struct {
 	Apps     CommitStore
 	Owners   OwnerLookup
-	Roles    *postgres.RoleRepo
+	Roles    *access.RoleRepo
 	Renderer PDFRenderer
 }
 

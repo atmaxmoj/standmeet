@@ -169,3 +169,13 @@ func FormatUUIDList(uu []pgtype.UUID) []string {
 	}
 	return out
 }
+
+// OptUUIDStr —— 可空 UUID → *string（invalid → nil）。repo 层把 nullable 外键
+// 转前端可省略字段的通用 helper。
+func OptUUIDStr(u pgtype.UUID) *string {
+	if !u.Valid {
+		return nil
+	}
+	s := FormatUUID(u)
+	return &s
+}

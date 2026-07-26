@@ -160,7 +160,7 @@ func (r *NoteRepo) GetMetaByID(ctx context.Context, ownerID, id string) (NoteMet
 		return NoteMeta{}, fmt.Errorf("get note meta: %w", err)
 	}
 	return NoteMeta{
-		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published,
 	}, nil
 }
@@ -196,7 +196,7 @@ func (r *NoteRepo) ListChildren(
 		},
 		func(row dbq.ListNoteChildrenRow) NoteMeta {
 			return NoteMeta{
-				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+				ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
@@ -219,7 +219,7 @@ func (r *NoteRepo) Search(
 	out := make([]NoteMeta, 0, len(rows))
 	for i := range rows {
 		out = append(out, NoteMeta{
-			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
+			ID: formatUUID(rows[i].ID), ParentID: pgstore.OptUUIDStr(rows[i].ParentID),
 			Title: rows[i].Title, Published: rows[i].Published, Snippet: rows[i].Snippet,
 		})
 	}

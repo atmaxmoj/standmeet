@@ -1,26 +1,27 @@
 // code_denials.go —— code 层 ACL deny 的读写（capability-acl-hierarchy.md）。
 // 纯 deny 稀疏表；owner-scope 由 handler 先校验 code 属本 owner，这里只按 code_id 读写。
 
-package postgres
+package access
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // CodeDenialRepo —— code_capability_denials / code_skill_denials CRUD。
 type CodeDenialRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewCodeDenialRepo 构造 CodeDenialRepo。
-func NewCodeDenialRepo(pool *Pool) *CodeDenialRepo { return &CodeDenialRepo{pool: pool} }
+func NewCodeDenialRepo(pool *pgstore.Pool) *CodeDenialRepo { return &CodeDenialRepo{pool: pool} }
 
 // ListCapabilities —— 这张 code deny 掉的 capability id 集（无行 = 完全继承 role）。
 func (r *CodeDenialRepo) ListCapabilities(ctx context.Context, codeID string) ([]string, error) {
-	id, err := parseUUID(codeID)
+	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
@@ -33,7 +34,7 @@ func (r *CodeDenialRepo) ListCapabilities(ctx context.Context, codeID string) ([
 
 // ListSkills —— 这张 code deny 掉的 skill id 集。
 func (r *CodeDenialRepo) ListSkills(ctx context.Context, codeID string) ([]string, error) {
-	id, err := parseUUID(codeID)
+	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
@@ -41,12 +42,12 @@ func (r *CodeDenialRepo) ListSkills(ctx context.Context, codeID string) ([]strin
 	if qerr != nil {
 		return nil, fmt.Errorf("list code skill denials: %w", qerr)
 	}
-	return uuidStrings(rows), nil
+	return pgstore.UUIDStrings(rows), nil
 }
 
 // AddCapability —— deny 一个 capability（幂等，PK 冲突 DO NOTHING）。
 func (r *CodeDenialRepo) AddCapability(ctx context.Context, codeID, capabilityID string) error {
-	id, err := parseUUID(codeID)
+	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
@@ -60,7 +61,7 @@ func (r *CodeDenialRepo) AddCapability(ctx context.Context, codeID, capabilityID
 
 // DeleteCapability —— 撤销一个 capability deny（幂等，无行也不报错）。
 func (r *CodeDenialRepo) DeleteCapability(ctx context.Context, codeID, capabilityID string) error {
-	id, err := parseUUID(codeID)
+	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
@@ -74,11 +75,11 @@ func (r *CodeDenialRepo) DeleteCapability(ctx context.Context, codeID, capabilit
 
 // AddSkill —— deny 一个 skill（幂等）。
 func (r *CodeDenialRepo) AddSkill(ctx context.Context, codeID, skillID string) error {
-	cid, err := parseUUID(codeID)
+	cid, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	sid, serr := parseUUID(skillID)
+	sid, serr := pgstore.ParseUUID(skillID)
 	if serr != nil {
 		return fmt.Errorf("parse skill id: %w", serr)
 	}
@@ -92,11 +93,11 @@ func (r *CodeDenialRepo) AddSkill(ctx context.Context, codeID, skillID string) e
 
 // DeleteSkill —— 撤销一个 skill deny（幂等）。
 func (r *CodeDenialRepo) DeleteSkill(ctx context.Context, codeID, skillID string) error {
-	cid, err := parseUUID(codeID)
+	cid, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	sid, serr := parseUUID(skillID)
+	sid, serr := pgstore.ParseUUID(skillID)
 	if serr != nil {
 		return fmt.Errorf("parse skill id: %w", serr)
 	}
@@ -111,7 +112,7 @@ func (r *CodeDenialRepo) DeleteSkill(ctx context.Context, codeID, skillID string
 // ListCorpusURIs —— 这张 code 收回的 corpus URI glob 集（无行 = 完全继承 role 的正列表）。
 // ACL 三层的第三类：capability/skill 是离散 id 的 deny 集，corpus 是 glob 的 deny 集 —— 同为纯减法。
 func (r *CodeDenialRepo) ListCorpusURIs(ctx context.Context, codeID string) ([]string, error) {
-	id, err := parseUUID(codeID)
+	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return []string{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
@@ -126,7 +127,7 @@ func (r *CodeDenialRepo) ListCorpusURIs(ctx context.Context, codeID string) ([]s
 func (r *CodeDenialRepo) SetCorpusURIs(
 	ctx context.Context, codeID string, patterns []string,
 ) error {
-	id, err := parseUUID(codeID)
+	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}

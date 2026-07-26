@@ -17,7 +17,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 const (
@@ -54,8 +53,8 @@ func OwnerCanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string
 // Proxy = 出站发信(连接器代调，凭据不出 vault)；Mail = 连接器状态读(Connected 预检)。
 type ApproveRequestDeps struct {
 	Reqs   *access.RequestRepo
-	Codes  *postgres.CodeRepo
-	Roles  *postgres.RoleRepo
+	Codes  *access.CodeRepo
+	Roles  *access.RoleRepo
 	Owners *owner.Repo
 	Proxy  OutboundSender
 }

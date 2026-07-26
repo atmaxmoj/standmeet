@@ -4,7 +4,7 @@
 // 所有 set 操作走 clear + bulk insert 形态，跟 mcp_servers.SetCodeMCPServers
 // 一致。caller usecase 已校验 join 项的 owner 归属。
 
-package postgres
+package access
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -21,7 +20,7 @@ import (
 // SetCorpusURIs —— clear + bulk insert role_corpus_uris。caller 已校验
 // pattern 形态合理（commit 2 接 retriever 时加 validator）。
 func (r *RoleRepo) SetCorpusURIs(ctx context.Context, roleID string, patterns []string) error {
-	roleUUID, perr := parseUUID(roleID)
+	roleUUID, perr := pgstore.ParseUUID(roleID)
 	if perr != nil {
 		return fmt.Errorf("parse role id: %w", perr)
 	}
@@ -43,9 +42,9 @@ func (r *RoleRepo) SetCorpusURIs(ctx context.Context, roleID string, patterns []
 // SetWaypoints —— clear + 逐条 insert role_waypoints。evidence_refs 存 jsonb
 // （json.Marshal []string）。caller usecase 已校验 waypoint 形态。
 func (r *RoleRepo) SetWaypoints(
-	ctx context.Context, roleID string, waypoints []access.Waypoint,
+	ctx context.Context, roleID string, waypoints []Waypoint,
 ) error {
-	roleUUID, perr := parseUUID(roleID)
+	roleUUID, perr := pgstore.ParseUUID(roleID)
 	if perr != nil {
 		return fmt.Errorf("parse role id: %w", perr)
 	}
@@ -62,7 +61,7 @@ func (r *RoleRepo) SetWaypoints(
 }
 
 func attachWaypoint(
-	ctx context.Context, q *dbq.Queries, roleUUID pgtype.UUID, w *access.Waypoint,
+	ctx context.Context, q *dbq.Queries, roleUUID pgtype.UUID, w *Waypoint,
 ) error {
 	refs, merr := json.Marshal(w.EvidenceRefs)
 	if merr != nil {
@@ -80,10 +79,10 @@ func attachWaypoint(
 // hydrateRoleWaypoints —— 读 role_waypoints → domain（行映射共用 waypointsFromRows）。
 func hydrateRoleWaypoints(
 	ctx context.Context, q *dbq.Queries, roleID pgtype.UUID,
-) ([]access.Waypoint, error) {
+) ([]Waypoint, error) {
 	rows, err := q.ListRoleWaypoints(ctx, roleID)
 	if err != nil {
-		return []access.Waypoint{}, fmt.Errorf("list role waypoints: %w", err)
+		return []Waypoint{}, fmt.Errorf("list role waypoints: %w", err)
 	}
 	shaped := make([]waypointRow, len(rows))
 	for i := range rows {
@@ -159,7 +158,7 @@ func setRoleUUIDJoin(ctx context.Context, op *roleJoinOp) error {
 // prepareRoleJoinClear —— parse role uuid + 调 op.drop。提出来降
 // setRoleUUIDJoin 的 cyclo。
 func prepareRoleJoinClear(ctx context.Context, op *roleJoinOp) (pgtype.UUID, error) {
-	roleUUID, perr := parseUUID(op.roleID)
+	roleUUID, perr := pgstore.ParseUUID(op.roleID)
 	if perr != nil {
 		return pgtype.UUID{}, fmt.Errorf("parse role id: %w", perr)
 	}
@@ -170,33 +169,25 @@ func prepareRoleJoinClear(ctx context.Context, op *roleJoinOp) (pgtype.UUID, err
 }
 
 // hydrateRole 从主表行起步，N+1 取 3 个 join 表组装完整 Role。
-func hydrateRole(ctx context.Context, q *dbq.Queries, row *dbq.Role) (access.Role, error) {
+func hydrateRole(ctx context.Context, q *dbq.Queries, row *dbq.Role) (Role, error) {
 	corpusURIs, cerr := q.ListRoleCorpusURIs(ctx, row.ID)
 	if cerr != nil {
-		return access.Role{}, fmt.Errorf("list role corpus uris: %w", cerr)
+		return Role{}, fmt.Errorf("list role corpus uris: %w", cerr)
 	}
 	skillUUIDs, serr := q.ListRoleSkillIDs(ctx, row.ID)
 	if serr != nil {
-		return access.Role{}, fmt.Errorf("list role skill ids: %w", serr)
+		return Role{}, fmt.Errorf("list role skill ids: %w", serr)
 	}
 	mcpUUIDs, merr := q.ListRoleMCPServerIDs(ctx, row.ID)
 	if merr != nil {
-		return access.Role{}, fmt.Errorf("list role mcp server ids: %w", merr)
+		return Role{}, fmt.Errorf("list role mcp server ids: %w", merr)
 	}
 	waypoints, werr := hydrateRoleWaypoints(ctx, q, row.ID)
 	if werr != nil {
-		return access.Role{}, werr
+		return Role{}, werr
 	}
 	return toDomainRole(&roleJoins{
-		row: row, corpusURIs: corpusURIs, skillIDs: uuidStrings(skillUUIDs),
-		mcpServerIDs: uuidStrings(mcpUUIDs), waypoints: waypoints,
+		row: row, corpusURIs: corpusURIs, skillIDs: pgstore.UUIDStrings(skillUUIDs),
+		mcpServerIDs: pgstore.UUIDStrings(mcpUUIDs), waypoints: waypoints,
 	}), nil
-}
-
-func uuidStrings(us []pgtype.UUID) []string {
-	out := make([]string, 0, len(us))
-	for _, u := range us {
-		out = append(out, formatUUID(u))
-	}
-	return out
 }

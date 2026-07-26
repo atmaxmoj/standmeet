@@ -1,10 +1,10 @@
-package postgres_test
+package access_test
 
 import (
 	"encoding/json"
 	"testing"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // TestDecodeStringJSON_NeverNil —— F-D-1 root cause. A slice-valued JSONB column can hold the
@@ -23,7 +23,7 @@ func TestDecodeStringJSON_NeverNil(t *testing.T) {
 		"empty-array":       "[]",
 	}
 	for name, raw := range cases {
-		got := postgres.DecodeStringJSON([]byte(raw))
+		got := access.DecodeStringJSON([]byte(raw))
 		if got == nil {
 			t.Fatalf("%s: DecodeStringJSON returned a nil slice — re-marshals to JSON `null`, "+
 				"which breaks the frontend z.array().optional() and blanks the list", name)
@@ -40,7 +40,7 @@ func TestDecodeStringJSON_NeverNil(t *testing.T) {
 
 func TestDecodeStringJSON_PreservesValues(t *testing.T) {
 	t.Parallel()
-	got := postgres.DecodeStringJSON([]byte(`["a","b"]`))
+	got := access.DecodeStringJSON([]byte(`["a","b"]`))
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
 		t.Fatalf("DecodeStringJSON lost values: %v", got)
 	}

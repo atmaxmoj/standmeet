@@ -52,8 +52,8 @@ type repoSet struct {
 	output         *postgres.OutputRepo
 	growth         *stats.GrowthRepo
 	activity       *stats.ActivityRepo
-	code           *postgres.CodeRepo
-	codeDenial     *postgres.CodeDenialRepo
+	code           *access.CodeRepo
+	codeDenial     *access.CodeDenialRepo
 	chat           *conversation.ChatRepo
 	seo            *postgres.SEORepo
 	customPage     *owner.CustomPageRepo
@@ -65,12 +65,12 @@ type repoSet struct {
 	skill          *marketplace.SkillRepo
 	mcpServer      *marketplace.MCPServerRepo
 	prompt         *owner.PromptRepo
-	role           *postgres.RoleRepo
+	role           *access.RoleRepo
 	asset          *postgres.AssetRepo
 	writing        *postgres.WritingRepo
 	writingRef     *postgres.WritingRefRepo
 	mailConnector  *postgres.MailRepo
-	capability     *postgres.CapabilityRepo
+	capability     *access.CapabilityRepo
 	ghost          *conversation.GhostRepo
 	chatReport     *conversation.ChatReportRepo
 	inferenceUsage *stats.InferenceUsageRepo
@@ -93,8 +93,8 @@ func newRepos(db *postgres.Pool) *repoSet {
 		output:         postgres.NewOutputRepo(db),
 		growth:         stats.NewGrowthRepo(db),
 		activity:       stats.NewActivityRepo(db),
-		code:           postgres.NewCodeRepo(db),
-		codeDenial:     postgres.NewCodeDenialRepo(db),
+		code:           access.NewCodeRepo(db),
+		codeDenial:     access.NewCodeDenialRepo(db),
 		chat:           conversation.NewChatRepo(db),
 		seo:            postgres.NewSEORepo(db),
 		customPage:     owner.NewCustomPageRepo(db),
@@ -106,12 +106,12 @@ func newRepos(db *postgres.Pool) *repoSet {
 		skill:          marketplace.NewSkillRepo(db),
 		mcpServer:      marketplace.NewMCPServerRepo(db),
 		prompt:         owner.NewPromptRepo(db),
-		role:           postgres.NewRoleRepo(db),
+		role:           access.NewRoleRepo(db),
 		asset:          postgres.NewAssetRepo(db),
 		writing:        postgres.NewWritingRepo(db),
 		writingRef:     postgres.NewWritingRefRepo(db),
 		mailConnector:  postgres.NewMailRepo(db),
-		capability:     postgres.NewCapabilityRepo(db),
+		capability:     access.NewCapabilityRepo(db),
 		ghost:          conversation.NewGhostRepo(db),
 		chatReport:     conversation.NewChatReportRepo(db),
 		inferenceUsage: stats.NewInferenceUsageRepo(db),

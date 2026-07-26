@@ -4,7 +4,7 @@
 // 主表 CRUD + 三组 attach/clear/list join helpers。
 // SeedPublicRole 走 UpsertBuiltin 幂等种入；删除 builtin 被 SQL 谓词锁。
 
-package postgres
+package access
 
 import (
 	"context"
@@ -14,18 +14,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // RoleRepo —— roles + 3 个 join 表 CRUD。
 type RoleRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewRoleRepo 构造。
-func NewRoleRepo(pool *Pool) *RoleRepo { return &RoleRepo{pool: pool} }
+func NewRoleRepo(pool *pgstore.Pool) *RoleRepo { return &RoleRepo{pool: pool} }
 
 // CreateRoleInput —— Create 入参。PromptID nil = NULL；caller 已校验 prompt
 // 属于同 owner。
@@ -35,30 +34,30 @@ type CreateRoleInput struct {
 	Name                 string
 	Description          string
 	Greeting             string
-	DockButtons          []access.DockButtonConfig
+	DockButtons          []DockButtonConfig
 	NotifyOwnerOnBooking bool
 }
 
 // Create 新建 role 主表行（不挂任何 join 项；attach 在 caller usecase 内单独调）。
-func (r *RoleRepo) Create(ctx context.Context, in *CreateRoleInput) (access.Role, error) {
+func (r *RoleRepo) Create(ctx context.Context, in *CreateRoleInput) (Role, error) {
 	params, perr := buildCreateRoleParams(in)
 	if perr != nil {
-		return access.Role{}, perr
+		return Role{}, perr
 	}
 	row, err := dbq.New(r.pool).CreateRole(ctx, params)
 	if err != nil {
-		return access.Role{}, mapRoleCreateErr(err)
+		return Role{}, mapRoleCreateErr(err)
 	}
 	return toDomainRoleBare(&row), nil
 }
 
 // buildCreateRoleParams —— 提出 owner/prompt UUID parse，降 Create 的 cyclo。
 func buildCreateRoleParams(in *CreateRoleInput) (dbq.CreateRoleParams, error) {
-	ownerUUID, oerr := parseUUID(in.OwnerID)
+	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
-		return dbq.CreateRoleParams{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return dbq.CreateRoleParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	promptUUID, perr := optionalUUID(in.PromptID)
+	promptUUID, perr := pgstore.ParseOptionalUUID(in.PromptID)
 	if perr != nil {
 		return dbq.CreateRoleParams{}, fmt.Errorf("parse prompt id: %w", perr)
 	}
@@ -76,7 +75,7 @@ func buildCreateRoleParams(in *CreateRoleInput) (dbq.CreateRoleParams, error) {
 // mapRoleCreateErr —— 把 unique violation 翻成 domain sentinel。
 func mapRoleCreateErr(err error) error {
 	if name, hit := pgstore.UniqueViolation(err); hit && name == "roles_owner_name_uniq" {
-		return access.ErrRoleNameTaken
+		return ErrRoleNameTaken
 	}
 	return fmt.Errorf("create role: %w", err)
 }
@@ -94,20 +93,20 @@ type UpsertBuiltinInput struct {
 // SetMCPServers 同步 join 表（public 公开 corpus 三 glob、无 skill、无 mcp）。
 func (r *RoleRepo) UpsertBuiltin(
 	ctx context.Context, in *UpsertBuiltinInput,
-) (access.Role, error) {
-	ownerUUID, oerr := parseUUID(in.OwnerID)
+) (Role, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
-		return access.Role{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return Role{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	promptUUID, perr := optionalUUID(in.PromptID)
+	promptUUID, perr := pgstore.ParseOptionalUUID(in.PromptID)
 	if perr != nil {
-		return access.Role{}, fmt.Errorf("parse prompt id: %w", perr)
+		return Role{}, fmt.Errorf("parse prompt id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).UpsertBuiltinRole(ctx, dbq.UpsertBuiltinRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description, PromptID: promptUUID,
 	})
 	if err != nil {
-		return access.Role{}, fmt.Errorf("upsert builtin role: %w", err)
+		return Role{}, fmt.Errorf("upsert builtin role: %w", err)
 	}
 	return toDomainRoleBare(&row), nil
 }
@@ -115,17 +114,17 @@ func (r *RoleRepo) UpsertBuiltin(
 // ListByOwner —— admin /admin/roles 列表 + visitor session issue 时 lookup。
 // 返的 Role 已 hydrate 三组 join 项（join 走 N+1，N 在 visitor 维度通常 ≤ 5 不
 // 优化；想优化在 commit 4 加 ListWithJoins 一个 batch query）。
-func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]access.Role, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]Role, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	q := dbq.New(r.pool)
 	rows, err := q.ListRolesByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list roles: %w", err)
 	}
-	out := make([]access.Role, 0, len(rows))
+	out := make([]Role, 0, len(rows))
 	for i := range rows {
 		hydrated, herr := hydrateRole(ctx, q, &rows[i])
 		if herr != nil {
@@ -137,10 +136,10 @@ func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]access.Ro
 }
 
 // GetByID —— 单条详情 hydrate 三组 join。
-func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (access.Role, error) {
+func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (Role, error) {
 	args, perr := parseRoleIDArgs(ownerID, roleID)
 	if perr != nil {
-		return access.Role{}, perr
+		return Role{}, perr
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetRoleByID(ctx, dbq.GetRoleByIDParams{
@@ -148,18 +147,18 @@ func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (access.
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return access.Role{}, access.ErrRoleNotFound
+			return Role{}, ErrRoleNotFound
 		}
-		return access.Role{}, fmt.Errorf("get role: %w", err)
+		return Role{}, fmt.Errorf("get role: %w", err)
 	}
 	return hydrateRole(ctx, q, &row)
 }
 
 // GetByName —— SeedPublicRole / access_code 默认 role 查找。
-func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (access.Role, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (Role, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return access.Role{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return Role{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetRoleByName(ctx, dbq.GetRoleByNameParams{
@@ -167,9 +166,9 @@ func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (access.
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return access.Role{}, access.ErrRoleNotFound
+			return Role{}, ErrRoleNotFound
 		}
-		return access.Role{}, fmt.Errorf("get role by name: %w", err)
+		return Role{}, fmt.Errorf("get role by name: %w", err)
 	}
 	return hydrateRole(ctx, q, &row)
 }
@@ -182,25 +181,25 @@ type UpdateRoleInput struct {
 	Name                 string
 	Description          string
 	Greeting             string
-	DockButtons          []access.DockButtonConfig
+	DockButtons          []DockButtonConfig
 	NotifyOwnerOnBooking bool
 	RequireGhostEvidence bool
 }
 
 // Update 改 role 主表行（不动 join 表；caller 用 SetCorpusURIs / SetSkills /
 // SetMCPServers 同步 join 表）。builtin rename 由 usecase 拦。
-func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (access.Role, error) {
+func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (Role, error) {
 	args, perr := parseRoleIDArgs(in.OwnerID, in.RoleID)
 	if perr != nil {
-		return access.Role{}, perr
+		return Role{}, perr
 	}
-	promptUUID, puerr := optionalUUID(in.PromptID)
+	promptUUID, puerr := pgstore.ParseOptionalUUID(in.PromptID)
 	if puerr != nil {
-		return access.Role{}, fmt.Errorf("parse prompt id: %w", puerr)
+		return Role{}, fmt.Errorf("parse prompt id: %w", puerr)
 	}
 	dock, derr := marshalDockButtons(in.DockButtons)
 	if derr != nil {
-		return access.Role{}, derr
+		return Role{}, derr
 	}
 	row, err := dbq.New(r.pool).UpdateRole(ctx, dbq.UpdateRoleParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
@@ -209,7 +208,7 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (access.Role
 		RequireGhostEvidence: in.RequireGhostEvidence,
 	})
 	if err != nil {
-		return access.Role{}, mapRoleUpdateErr(err)
+		return Role{}, mapRoleUpdateErr(err)
 	}
 	return toDomainRoleBare(&row), nil
 }
@@ -217,7 +216,7 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (access.Role
 // NotifiesOwnerOnBooking —— #130: 约成时实时读这个 role 的通知开关。EXISTS 查询恒返
 // 一行,role 不存在 / 开关关 → false(无 no-rows 特判)。
 func (r *RoleRepo) NotifiesOwnerOnBooking(ctx context.Context, roleID string) (bool, error) {
-	roleUUID, err := parseUUID(roleID)
+	roleUUID, err := pgstore.ParseUUID(roleID)
 	if err != nil {
 		return false, fmt.Errorf("parse role id: %w", err)
 	}
@@ -231,10 +230,10 @@ func (r *RoleRepo) NotifiesOwnerOnBooking(ctx context.Context, roleID string) (b
 // mapRoleUpdateErr —— 单独抽出来降 Update 的 cognitive complexity。
 func mapRoleUpdateErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
-		return access.ErrRoleNotFound
+		return ErrRoleNotFound
 	}
 	if name, hit := pgstore.UniqueViolation(err); hit && name == "roles_owner_name_uniq" {
-		return access.ErrRoleNameTaken
+		return ErrRoleNameTaken
 	}
 	return fmt.Errorf("update role: %w", err)
 }
@@ -256,7 +255,7 @@ func (r *RoleRepo) Delete(ctx context.Context, ownerID, roleID string) error {
 
 // CountActiveCodes —— /admin/roles 卡上 "N active codes" 指标用。
 func (r *RoleRepo) CountActiveCodes(ctx context.Context, roleID string) (int64, error) {
-	roleUUID, perr := parseUUID(roleID)
+	roleUUID, perr := pgstore.ParseUUID(roleID)
 	if perr != nil {
 		return 0, fmt.Errorf("parse role id: %w", perr)
 	}
@@ -273,22 +272,15 @@ type roleIDArgs struct {
 }
 
 func parseRoleIDArgs(ownerID, roleID string) (roleIDArgs, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return roleIDArgs{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return roleIDArgs{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	roleUUID, rerr := parseUUID(roleID)
+	roleUUID, rerr := pgstore.ParseUUID(roleID)
 	if rerr != nil {
 		return roleIDArgs{}, fmt.Errorf("parse role id: %w", rerr)
 	}
 	return roleIDArgs{ownerUUID: ownerUUID, roleUUID: roleUUID}, nil
-}
-
-func optionalUUID(s *string) (pgtype.UUID, error) {
-	if s == nil || *s == "" {
-		return pgtype.UUID{}, nil
-	}
-	return parseUUID(*s)
 }
 
 // toDomainRoleBare —— 不带 join 项的主表转换；Create/Update/UpsertBuiltin 用，
@@ -299,22 +291,22 @@ type roleJoins struct {
 	corpusURIs   []string
 	skillIDs     []string
 	mcpServerIDs []string
-	waypoints    []access.Waypoint
+	waypoints    []Waypoint
 }
 
-func toDomainRoleBare(row *dbq.Role) access.Role {
+func toDomainRoleBare(row *dbq.Role) Role {
 	return toDomainRole(&roleJoins{row: row})
 }
 
-func toDomainRole(j *roleJoins) access.Role {
+func toDomainRole(j *roleJoins) Role {
 	row := j.row
 	var promptIDPtr *string
 	if row.PromptID.Valid {
-		s := formatUUID(row.PromptID)
+		s := pgstore.FormatUUID(row.PromptID)
 		promptIDPtr = &s
 	}
-	return access.NewRole(&access.RoleInit{
-		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
+	return NewRole(&RoleInit{
+		ID: pgstore.FormatUUID(row.ID), OwnerID: pgstore.FormatUUID(row.OwnerID),
 		Name: row.Name, Description: row.Description, Greeting: row.Greeting,
 		PromptID:   promptIDPtr,
 		IsBuiltin:  row.IsBuiltin,

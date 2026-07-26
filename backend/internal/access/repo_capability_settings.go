@@ -2,30 +2,31 @@
 // 开关 CRUD。只存「显式关掉」的偏好；没行 = 默认开。
 // DisabledSet 给 capreg 的 EnableGate（访客装配闸）；SetEnabled 给 admin PATCH。
 
-package postgres
+package access
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // CapabilityRepo —— capability_settings 表读写。
 type CapabilityRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewCapabilityRepo 构造 CapabilityRepo。
-func NewCapabilityRepo(pool *Pool) *CapabilityRepo { return &CapabilityRepo{pool: pool} }
+func NewCapabilityRepo(pool *pgstore.Pool) *CapabilityRepo { return &CapabilityRepo{pool: pool} }
 
 // SetEnabled —— upsert owner 对某 capability 的开关。并发安全（PK 冲突 DO UPDATE）。
 func (r *CapabilityRepo) SetEnabled(
 	ctx context.Context, ownerID, capabilityID string, enabled bool,
 ) error {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	if uerr := dbq.New(r.pool).UpsertCapabilitySetting(ctx, dbq.UpsertCapabilitySettingParams{
 		OwnerID: ownerUUID, CapabilityID: capabilityID, Enabled: enabled,
@@ -40,9 +41,9 @@ func (r *CapabilityRepo) SetEnabled(
 func (r *CapabilityRepo) DisabledSet(
 	ctx context.Context, ownerID string,
 ) (map[string]bool, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	rows, qerr := dbq.New(r.pool).ListCapabilitySettings(ctx, ownerUUID)
 	if qerr != nil {

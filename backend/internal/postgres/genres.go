@@ -7,6 +7,13 @@
 
 package postgres
 
+import (
+	"context"
+	"fmt"
+
+	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+)
+
 const (
 	genreRaw          = "raw"
 	genreWiki         = "wiki"
@@ -14,3 +21,26 @@ const (
 	genreWriting      = "writing"
 	genreSubjectivity = "subjectivity"
 )
+
+// listNoteMetaBy —— wiki/output 的 ListAllMeta 共用体：按 genre 拉全量 note meta
+// 行，用 mk 把每行映射成各自的 Meta 类型（去重两处近乎一致的实现，dupl-clean）。
+func listNoteMetaBy[T any](
+	ctx context.Context, pool *Pool, ownerID, genre string,
+	mk func(*dbq.ListAllNoteMetaRow) T,
+) ([]T, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	rows, qerr := dbq.New(pool).ListAllNoteMeta(ctx, dbq.ListAllNoteMetaParams{
+		OwnerID: ownerUUID, Genre: genre,
+	})
+	if qerr != nil {
+		return nil, fmt.Errorf("list all %s meta: %w", genre, qerr)
+	}
+	out := make([]T, 0, len(rows))
+	for i := range rows {
+		out = append(out, mk(&rows[i]))
+	}
+	return out, nil
+}

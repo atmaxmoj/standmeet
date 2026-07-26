@@ -5,13 +5,11 @@
 // `dupl` 当场逮住 —— 而这正是 F-R-1 的病根（同一逻辑 4 份副本，改了 3 份，剩下那份继续漏 markup
 // 给 owner 看）。一份实现，两边共用，drift 无处可生。
 
-package postgres
+package access
 
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // waypointRow —— 两表共同的行形状（sqlc 给的是两个独立类型，字段却相同）。
@@ -23,15 +21,15 @@ type waypointRow struct {
 	IsTerminal   bool
 }
 
-// waypointsFromRows —— 同构行 → access.Waypoint，evidence_refs jsonb → []string。
-func waypointsFromRows(rows []waypointRow) ([]access.Waypoint, error) {
-	out := make([]access.Waypoint, 0, len(rows))
+// waypointsFromRows —— 同构行 → Waypoint，evidence_refs jsonb → []string。
+func waypointsFromRows(rows []waypointRow) ([]Waypoint, error) {
+	out := make([]Waypoint, 0, len(rows))
 	for i := range rows {
 		refs, err := decodeEvidenceRefs(rows[i].EvidenceRefs)
 		if err != nil {
-			return []access.Waypoint{}, err
+			return []Waypoint{}, err
 		}
-		out = append(out, access.Waypoint{
+		out = append(out, Waypoint{
 			WaypointID: rows[i].WaypointID, Description: rows[i].Description,
 			Weight: int(rows[i].Weight), EvidenceRefs: refs, IsTerminal: rows[i].IsTerminal,
 		})

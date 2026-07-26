@@ -41,7 +41,7 @@ type Code struct {
 }
 
 // CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +
-// 任何下游写入 Code 用)。postgres.CreateCodeInput 是 repo-local 镜像，
+// 任何下游写入 Code 用)。access.CreateCodeInput 是 repo-local 镜像，
 // CodeRepo.CreateAccessCode 把本类型转过去。
 type CreateAccessCodeInput struct {
 	ExpiresAt          *time.Time

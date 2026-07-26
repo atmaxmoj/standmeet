@@ -20,13 +20,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // RolesDeps —— roles CRUD 需要的 repos。Skills / MCPServers / Prompts 用来
 // 在 Create/Update 时校验 join 项的 owner 归属。
 type RolesDeps struct {
-	Roles      *postgres.RoleRepo
+	Roles      *access.RoleRepo
 	Prompts    *owner.PromptRepo
 	Skills     *marketplace.SkillRepo
 	MCPServers *marketplace.MCPServerRepo
@@ -91,7 +90,7 @@ func validateCreateRoleInput(
 func createRoleRow(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) (access.Role, error) {
-	role, err := deps.Roles.Create(ctx, &postgres.CreateRoleInput{
+	role, err := deps.Roles.Create(ctx, &access.CreateRoleInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,
@@ -177,7 +176,7 @@ func updateRoleMissingRequired(in *RoleWriteInput) bool {
 func updateRoleRow(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) (access.Role, error) {
-	role, err := deps.Roles.Update(ctx, &postgres.UpdateRoleInput{
+	role, err := deps.Roles.Update(ctx, &access.UpdateRoleInput{
 		OwnerID: in.OwnerID, RoleID: in.RoleID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,

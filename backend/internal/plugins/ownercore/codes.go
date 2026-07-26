@@ -23,7 +23,7 @@ import (
 const capCodesBundle = "codes.bundle"
 
 // CodesRevoker —— codes.bundle capability 需要的窄接口 (avoid 直接 import
-// postgres.CodeRepo)。
+// access.CodeRepo)。
 //
 // E-13: Revoke 现在在 repo 层 0-row → ErrCodeInvalid，cap 不再需要先 GetByID
 // 校 ownership。create / update_quotas 是 E-13 新加的 parity tools，复用同

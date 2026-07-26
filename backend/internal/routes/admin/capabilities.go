@@ -18,11 +18,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // CapabilityAdminDeps —— /capabilities handler 依赖。Registry 给 origin + 全
@@ -30,7 +30,7 @@ import (
 // Calendar/Mail 读 connector 依赖状态。
 type CapabilityAdminDeps struct {
 	Registry   *capreg.Registry
-	Settings   *postgres.CapabilityRepo
+	Settings   *access.CapabilityRepo
 	Skills     *marketplace.SkillRepo
 	Connectors *connector.Repo
 }

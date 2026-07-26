@@ -1,6 +1,6 @@
 // codes.go —— access_codes + code_members + conversations + messages Repository。
 
-package postgres
+package access
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -22,11 +21,11 @@ const errParseCodeIDPrefix = "parse code id: %w"
 
 // CodeRepo —— access_codes CRUD。
 type CodeRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewCodeRepo 构造 CodeRepo。
-func NewCodeRepo(pool *Pool) *CodeRepo { return &CodeRepo{pool: pool} }
+func NewCodeRepo(pool *pgstore.Pool) *CodeRepo { return &CodeRepo{pool: pool} }
 
 // CreateCodeInput —— 创建 access code 入参。AssumedRoleID 必填（caller
 // usecase 不显式给则默认指 public）。
@@ -46,28 +45,28 @@ type CreateCodeInput struct {
 
 // Create 写一条 access_code。
 func (r *CodeRepo) Create(
-	ctx context.Context, in *CreateCodeInput) (access.Code, error,
+	ctx context.Context, in *CreateCodeInput) (Code, error,
 ) {
 	params, perr := buildCreateCodeParams(in)
 	if perr != nil {
-		return access.Code{}, perr
+		return Code{}, perr
 	}
 	row, err := dbq.New(r.pool).CreateAccessCode(ctx, *params)
 	if err != nil {
 		if name, hit := pgstore.UniqueViolation(err); hit && name == "access_codes_code_key" {
-			return access.Code{}, access.ErrCodeTaken
+			return Code{}, ErrCodeTaken
 		}
-		return access.Code{}, fmt.Errorf("create access code: %w", err)
+		return Code{}, fmt.Errorf("create access code: %w", err)
 	}
-	return toDomainCode(&row), nil
+	return CodeFromRow(&row), nil
 }
 
 // CreateAccessCode —— Create 的 domain-input 包装；MCP cap 用 (mcp 包不能
-// import postgres struct)。内部只是把 access.CreateAccessCodeInput 复制到
-// postgres.CreateCodeInput 再 Create。
+// import postgres struct)。内部只是把 CreateAccessCodeInput 复制到
+// access.CreateCodeInput 再 Create。
 func (r *CodeRepo) CreateAccessCode(
-	ctx context.Context, in *access.CreateAccessCodeInput,
-) (access.Code, error) {
+	ctx context.Context, in *CreateAccessCodeInput,
+) (Code, error) {
 	return r.Create(ctx, &CreateCodeInput{
 		OwnerID:            in.OwnerID,
 		Code:               in.Code,
@@ -84,15 +83,15 @@ func (r *CodeRepo) CreateAccessCode(
 }
 
 func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	roleUUID, rerr := parseUUID(in.AssumedRoleID)
+	roleUUID, rerr := pgstore.ParseUUID(in.AssumedRoleID)
 	if rerr != nil {
 		return nil, fmt.Errorf("parse assumed_role_id: %w", rerr)
 	}
-	promptUUID, perr := optionalUUID(in.PromptID)
+	promptUUID, perr := pgstore.ParseOptionalUUID(in.PromptID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse prompt_id: %w", perr)
 	}
@@ -119,33 +118,33 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 // 校验过）。schema NOT NULL 后 role id 必填。
 func (r *CodeRepo) UpdateRole(
 	ctx context.Context, ownerID, codeID, roleID string,
-) (access.Code, error) {
+) (Code, error) {
 	params, perr := buildUpdateCodeRoleParams(ownerID, codeID, roleID)
 	if perr != nil {
-		return access.Code{}, perr
+		return Code{}, perr
 	}
 	row, qerr := dbq.New(r.pool).UpdateAccessCodeRole(ctx, *params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return access.Code{}, access.ErrCodeInvalid
+			return Code{}, ErrCodeInvalid
 		}
-		return access.Code{}, fmt.Errorf("update access code role: %w", qerr)
+		return Code{}, fmt.Errorf("update access code role: %w", qerr)
 	}
-	return toDomainCode(&row), nil
+	return CodeFromRow(&row), nil
 }
 
 func buildUpdateCodeRoleParams(
 	ownerID, codeID, roleID string,
 ) (*dbq.UpdateAccessCodeRoleParams, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	codeUUID, cerr := parseUUID(codeID)
+	codeUUID, cerr := pgstore.ParseUUID(codeID)
 	if cerr != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, cerr)
 	}
-	roleUUID, rerr := parseUUID(roleID)
+	roleUUID, rerr := pgstore.ParseUUID(roleID)
 	if rerr != nil {
 		return nil, fmt.Errorf("parse role id: %w", rerr)
 	}
@@ -159,16 +158,16 @@ func buildUpdateCodeRoleParams(
 
 // Revoke 把 code.status 改成 'revoked'；GetAccessCode（只查 active）从此跳过它。
 //
-// 0-row match (wrong owner / unknown code id) 返 access.ErrCodeInvalid 让上层
+// 0-row match (wrong owner / unknown code id) 返 ErrCodeInvalid 让上层
 // (admin REST + MCP) 都能统一翻译成"code not found"，而不是默默 OK 让 owner 误以
 // 为撤销成功。原 sqlc-generated RevokeAccessCode 走 Exec 丢弃 CommandTag，看不
 // 到 RowsAffected；这里 bypass 直接 pool.Exec 拿 tag。
 func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	codeUUID, err := parseUUID(codeID)
+	codeUUID, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
@@ -180,7 +179,7 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 		return fmt.Errorf("revoke access code: %w", rerr)
 	}
 	if tag.RowsAffected() == 0 {
-		return access.ErrCodeInvalid
+		return ErrCodeInvalid
 	}
 	return nil
 }
@@ -191,14 +190,14 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 // UpdateQuotas 改某 code 的配额；返回新行（让 admin UI 直接刷）。
 func (r *CodeRepo) UpdateQuotas(
 	ctx context.Context, ownerID, codeID string, maxTurns, maxMembers *int32,
-) (access.Code, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) (Code, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return access.Code{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Code{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	codeUUID, err := parseUUID(codeID)
+	codeUUID, err := pgstore.ParseUUID(codeID)
 	if err != nil {
-		return access.Code{}, fmt.Errorf(errParseCodeIDPrefix, err)
+		return Code{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateAccessCodeQuotas(ctx, dbq.UpdateAccessCodeQuotasParams{
@@ -207,24 +206,24 @@ func (r *CodeRepo) UpdateQuotas(
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return access.Code{}, access.ErrCodeInvalid
+			return Code{}, ErrCodeInvalid
 		}
-		return access.Code{}, fmt.Errorf("update access code quotas: %w", qerr)
+		return Code{}, fmt.Errorf("update access code quotas: %w", qerr)
 	}
-	return toDomainCode(&row), nil
+	return CodeFromRow(&row), nil
 }
 
 // SetGhostEvidence —— F-A-10 per-code 覆盖:nil = 继承 role 的开关;非 nil = 显式覆盖。返回新行。
 func (r *CodeRepo) SetGhostEvidence(
 	ctx context.Context, ownerID, codeID string, val *bool,
-) (access.Code, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) (Code, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return access.Code{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Code{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	codeUUID, err := parseUUID(codeID)
+	codeUUID, err := pgstore.ParseUUID(codeID)
 	if err != nil {
-		return access.Code{}, fmt.Errorf(errParseCodeIDPrefix, err)
+		return Code{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).SetAccessCodeGhostEvidence(ctx,
 		dbq.SetAccessCodeGhostEvidenceParams{
@@ -232,11 +231,11 @@ func (r *CodeRepo) SetGhostEvidence(
 		})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return access.Code{}, access.ErrCodeInvalid
+			return Code{}, ErrCodeInvalid
 		}
-		return access.Code{}, fmt.Errorf("set access code ghost evidence: %w", qerr)
+		return Code{}, fmt.Errorf("set access code ghost evidence: %w", qerr)
 	}
-	return toDomainCode(&row), nil
+	return CodeFromRow(&row), nil
 }
 
 // Get/List/decode helpers 拆到 codes_query.go 守 max-lines。

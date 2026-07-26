@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
@@ -87,9 +88,9 @@ type AdminDeps struct {
 	Writings        usecases.WritingsDeps
 	WritingRefs     *postgres.WritingRefRepo
 	SEO             *postgres.SEORepo
-	Codes           *postgres.CodeRepo
+	Codes           *access.CodeRepo
 	Booking         adminroutes.BookingQuotaStore // #135: booker 自管的 per-code 预约配额读写口
-	CodeDenials     *postgres.CodeDenialRepo
+	CodeDenials     *access.CodeDenialRepo
 	Owners          *owner.Repo
 	Drafts          *postgres.ResumeDraftRepo
 	Applications    *postgres.ApplicationRepo

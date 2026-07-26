@@ -55,8 +55,8 @@ type runtimeDeps struct {
 	activityRepo       *stats.ActivityRepo
 	jobRegistry        *jobregistry.Registry
 	corpus             *postgres.Corpus
-	codeRepo           *postgres.CodeRepo
-	codeDenialRepo     *postgres.CodeDenialRepo
+	codeRepo           *access.CodeRepo
+	codeDenialRepo     *access.CodeDenialRepo
 	chatRepo           *conversation.ChatRepo
 	seoRepo            *postgres.SEORepo
 	customPageRepo     *owner.CustomPageRepo
@@ -68,12 +68,12 @@ type runtimeDeps struct {
 	skillRepo          *marketplace.SkillRepo
 	mcpServerRepo      *marketplace.MCPServerRepo
 	promptRepo         *owner.PromptRepo
-	roleRepo           *postgres.RoleRepo
+	roleRepo           *access.RoleRepo
 	assetRepo          *postgres.AssetRepo
 	writingRepo        *postgres.WritingRepo
 	writingRefRepo     *postgres.WritingRefRepo
 	mailRepo           *postgres.MailRepo
-	capabilityRepo     *postgres.CapabilityRepo
+	capabilityRepo     *access.CapabilityRepo
 	ghostRepo          *conversation.GhostRepo
 	chatReportRepo     *conversation.ChatReportRepo
 	inferenceUsageRepo *stats.InferenceUsageRepo

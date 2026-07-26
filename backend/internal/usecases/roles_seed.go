@@ -15,14 +15,13 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // SeedPublicRole —— 对一个 owner 幂等 upsert public prompt + public role
 // + role_corpus_uris 三条公开 glob。
 func SeedPublicRole(
 	ctx context.Context,
-	prompts *owner.PromptRepo, roles *postgres.RoleRepo,
+	prompts *owner.PromptRepo, roles *access.RoleRepo,
 	ownerID string,
 ) error {
 	promptID, err := upsertPublicPrompt(ctx, prompts, ownerID)
@@ -49,9 +48,9 @@ func upsertPublicPrompt(
 }
 
 func upsertPublicRole(
-	ctx context.Context, roles *postgres.RoleRepo, ownerID, promptID string,
+	ctx context.Context, roles *access.RoleRepo, ownerID, promptID string,
 ) (access.Role, error) {
-	role, err := roles.UpsertBuiltin(ctx, &postgres.UpsertBuiltinInput{
+	role, err := roles.UpsertBuiltin(ctx, &access.UpsertBuiltinInput{
 		OwnerID:     ownerID,
 		Name:        access.PublicRoleName,
 		Description: access.PublicRoleDescription,
@@ -67,7 +66,7 @@ func upsertPublicRole(
 // public 无 skill / 无 mcp，但显式 clear 让 re-seed 幂等（若以前种过别的
 // 后又调回 public 形态，要清干净 join 表）。
 func syncPublicRoleJoins(
-	ctx context.Context, roles *postgres.RoleRepo, roleID string,
+	ctx context.Context, roles *access.RoleRepo, roleID string,
 ) error {
 	if err := roles.SetCorpusURIs(ctx, roleID, access.PublicRoleCorpusURIs); err != nil {
 		return fmt.Errorf("set public role corpus uris: %w", err)

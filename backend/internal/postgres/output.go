@@ -152,7 +152,7 @@ func (r *OutputRepo) ListChildren(
 		},
 		func(row dbq.ListNoteChildrenRow) OutputMeta {
 			return OutputMeta{
-				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+				ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
@@ -174,7 +174,7 @@ func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (Outpu
 		return OutputMeta{}, fmt.Errorf("get output meta: %w", err)
 	}
 	return OutputMeta{
-		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published,
 	}, nil
 }
@@ -203,32 +203,21 @@ func (r *OutputRepo) Search(
 
 func outputSearchRowMeta(row *dbq.SearchNotesRow) OutputMeta {
 	return OutputMeta{
-		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
 	}
 }
 
 // ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed output 用。
 func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputMeta, error) {
-	ownerUUID, err := parseUUID(ownerID)
-	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	mk := func(row *dbq.ListAllNoteMetaRow) OutputMeta {
+		return OutputMeta{
+			ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+			Title: row.Title, Published: row.Published,
+			UpdatedAt: row.UpdatedAt.Time.Unix(),
+		}
 	}
-	rows, qerr := dbq.New(r.pool).ListAllNoteMeta(ctx, dbq.ListAllNoteMetaParams{
-		OwnerID: ownerUUID, Genre: genreOutput,
-	})
-	if qerr != nil {
-		return nil, fmt.Errorf("list all output meta: %w", qerr)
-	}
-	out := make([]OutputMeta, 0, len(rows))
-	for i := range rows {
-		out = append(out, OutputMeta{
-			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
-			Title: rows[i].Title, Published: rows[i].Published,
-			UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
-		})
-	}
-	return out, nil
+	return listNoteMetaBy(ctx, r.pool, ownerID, genreOutput, mk)
 }
 
 func toDomainOutput(o *dbq.CorpusNote) corpus.Output {

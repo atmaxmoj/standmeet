@@ -140,7 +140,7 @@ func (r *WikiRepo) ListChildren(
 		},
 		func(row dbq.ListNoteChildrenRow) WikiMeta {
 			return WikiMeta{
-				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+				ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
@@ -162,7 +162,7 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 		return WikiMeta{}, fmt.Errorf("get wiki meta: %w", err)
 	}
 	return WikiMeta{
-		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published,
 	}, nil
 }
@@ -190,7 +190,7 @@ func (r *WikiRepo) Search(
 
 func wikiSearchRowMeta(row *dbq.SearchNotesRow) WikiMeta {
 	return WikiMeta{
-		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
 	}
 }
@@ -220,34 +220,14 @@ func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, e
 // ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed + landing
 // 的 [[X]] title→path 索引用。不带 newest-N cap。
 func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta, error) {
-	ownerUUID, err := parseUUID(ownerID)
-	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	mk := func(row *dbq.ListAllNoteMetaRow) WikiMeta {
+		return WikiMeta{
+			ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+			Title: row.Title, Published: row.Published,
+			UpdatedAt: row.UpdatedAt.Time.Unix(),
+		}
 	}
-	rows, qerr := dbq.New(r.pool).ListAllNoteMeta(ctx, dbq.ListAllNoteMetaParams{
-		OwnerID: ownerUUID, Genre: genreWiki,
-	})
-	if qerr != nil {
-		return nil, fmt.Errorf("list all wiki meta: %w", qerr)
-	}
-	out := make([]WikiMeta, 0, len(rows))
-	for i := range rows {
-		out = append(out, WikiMeta{
-			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
-			Title: rows[i].Title, Published: rows[i].Published,
-			UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
-		})
-	}
-	return out, nil
-}
-
-// optUUIDStr —— pgtype.UUID → *string(invalid → nil)。
-func optUUIDStr(u pgtype.UUID) *string {
-	if !u.Valid {
-		return nil
-	}
-	s := formatUUID(u)
-	return &s
+	return listNoteMetaBy(ctx, r.pool, ownerID, genreWiki, mk)
 }
 
 func toDomainWiki(w *dbq.CorpusNote) corpus.Wiki {

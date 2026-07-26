@@ -15,7 +15,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -23,10 +22,10 @@ import (
 // assumed_role_id 时查 public 兜底。Sessions:revoke 时清掉这张 code 的 visitor
 // session(token 真死,下一请求被发现无效 → 401 + 清 cookie)。
 type CodesDeps struct {
-	Codes    *postgres.CodeRepo
-	Roles    *postgres.RoleRepo
+	Codes    *access.CodeRepo
+	Roles    *access.RoleRepo
 	Sessions *session.VisitorSessionStore
-	Denials  *postgres.CodeDenialRepo // ACL code 层 deny 读写
+	Denials  *access.CodeDenialRepo // ACL code 层 deny 读写
 	// Booking —— #135: 预约配额不进内核 access_code,由 booker 能力自己管。见 codes_booking.go。
 	Booking BookingQuotaStore
 }
@@ -155,7 +154,7 @@ func handleCreateCodeErr(log *slog.Logger, w http.ResponseWriter, err error) {
 
 func buildCreateInput(
 	r *http.Request, h *Handlers, ownerID string, req *createCodeRequest,
-) (*postgres.CreateCodeInput, error) {
+) (*access.CreateCodeInput, error) {
 	if werr := access.ValidateWaypoints(req.Waypoints); werr != nil {
 		return nil, werr
 	}
@@ -163,7 +162,7 @@ func buildCreateInput(
 	if rerr != nil {
 		return nil, rerr
 	}
-	return &postgres.CreateCodeInput{
+	return &access.CreateCodeInput{
 		OwnerID:            ownerID,
 		Code:               req.Code,
 		Label:              req.Label,

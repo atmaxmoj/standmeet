@@ -6,11 +6,11 @@ package usecases
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -19,11 +19,11 @@ import (
 // 公开会话 / 续会 / 历史恢复 / 配额派生 / code intro)。不含任何 tool/capability 依赖
 // (那些走各 capability 的窄 deps + VisitorSkillsDeps)。god-struct 拆出来的一半。
 type VisitorSessionDeps struct {
-	Codes    *postgres.CodeRepo
+	Codes    *access.CodeRepo
 	Chats    *conversation.ChatRepo
 	Owners   OwnerGetter
 	Skills   SkillGetter // role snapshot freeze 读 ListSkillsForRole
-	Roles    *postgres.RoleRepo
+	Roles    *access.RoleRepo
 	Prompts  *owner.PromptRepo
 	Sessions *session.VisitorSessionStore
 	Wiki     WikiLister // 历史恢复 hydrate conversation view
@@ -39,7 +39,7 @@ type VisitorSessionDeps struct {
 }
 
 // CodeDenialReader —— 读一张 code 的 deny 集(capability / skill id)。纯 deny：
-// code 只能从所选 role 授的里再砍。postgres.CodeDenialRepo 实现它。
+// code 只能从所选 role 授的里再砍。access.CodeDenialRepo 实现它。
 type CodeDenialReader interface {
 	ListCapabilities(ctx context.Context, codeID string) ([]string, error)
 	ListSkills(ctx context.Context, codeID string) ([]string, error)
