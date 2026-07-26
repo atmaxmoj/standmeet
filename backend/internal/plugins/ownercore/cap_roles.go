@@ -10,8 +10,8 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
@@ -91,7 +91,7 @@ func (c *rolesCapability) setDockButtonsBinding() *capreg.MCPBinding {
 
 type setDockButtonsArgsWire struct {
 	RoleID  string                    `json:"role_id"`
-	Buttons []domain.DockButtonConfig `json:"buttons"`
+	Buttons []access.DockButtonConfig `json:"buttons"`
 }
 
 func (c *rolesCapability) handleSetDockButtons(
@@ -120,10 +120,10 @@ var dockButtonErrMessages = []struct {
 	err error
 	msg string
 }{
-	{domain.ErrTooManyDockButtons, "at most two dock buttons"},
-	{domain.ErrDockButtonEmptyTrigger, "dock button needs a non-empty trigger"},
-	{domain.ErrUnknownDockCapability, "dock button capability not available"},
-	{domain.ErrRoleNotFound, "role not found"},
+	{access.ErrTooManyDockButtons, "at most two dock buttons"},
+	{access.ErrDockButtonEmptyTrigger, "dock button needs a non-empty trigger"},
+	{access.ErrUnknownDockCapability, "dock button capability not available"},
+	{access.ErrRoleNotFound, "role not found"},
 }
 
 func dockButtonsErrToResult(log *slog.Logger, err error) capreg.MCPResult {
@@ -218,7 +218,7 @@ var roleCreateErrCases = []struct {
 	match error
 	msg   string
 }{
-	{domain.ErrRoleNameTaken, "role name already taken"},
+	{access.ErrRoleNameTaken, "role name already taken"},
 	{owner.ErrPromptNotFound, "prompt_id not found for this owner"},
 	{marketplace.ErrSkillNotFound, "one or more skill_ids not found"},
 	{marketplace.ErrMCPServerNotFound, "one or more mcp_server_ids not found"},
@@ -273,7 +273,7 @@ func (c *rolesCapability) handleList(
 	return mcputil.MarshalResult(c.log, "role_list", items)
 }
 
-func roleRowToCapView(rl *domain.Role) roleListRow {
+func roleRowToCapView(rl *access.Role) roleListRow {
 	row := roleListRow{
 		RoleID: rl.ID(), Name: rl.Name(), Description: rl.Description(),
 		Greeting:   rl.Greeting(),
@@ -327,10 +327,10 @@ func (c *rolesCapability) handleDelete(
 }
 
 func roleDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrRoleBuiltinImmutable) {
+	if errors.Is(err, access.ErrRoleBuiltinImmutable) {
 		return capreg.MCPError("builtin role cannot be deleted")
 	}
-	if errors.Is(err, domain.ErrRoleNotFound) {
+	if errors.Is(err, access.ErrRoleNotFound) {
 		return capreg.MCPError("role not found")
 	}
 	log.Error("cap role_delete", "err", err)

@@ -1,17 +1,16 @@
 // role_snapshot_acl_test.go —— §A 真值表（capability-acl-hierarchy-tests.md）。
 //
-// 三层 ACL 的 frozen 部分（role ∧ ¬code_deny）落在 RoleSnapshot.AllowsCapability —
+// 三层 ACL 的 frozen 部分（role ∧ ¬code_deny）落在 access.RoleSnapshot.AllowsCapability —
 // mcpAppGranted 直接委托它。穷尽 baseGrant(role-granted / ACL=always) × code deny，
 // 锁住「code 只能减、连 always 能力也能被 deny 挡」。纯 domain 单测（项目里少数走单测
 // 的纯判定逻辑，是整套 ACL 的真值之锚）。
-package domain_test
+package access_test
 
 import (
 	"testing"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/stretchr/testify/require"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 func TestRoleSnapshot_AllowsCapability(t *testing.T) {
@@ -34,7 +33,7 @@ func TestRoleSnapshot_AllowsCapability(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			snap := domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
+			snap := access.NewRoleSnapshot(&access.RoleSnapshotInit{
 				AllowedTools: tc.allowed, DeniedCapabilities: tc.denied,
 			})
 			require.Equal(t, tc.want, snap.AllowsCapability(target, tc.always))
@@ -42,17 +41,17 @@ func TestRoleSnapshot_AllowsCapability(t *testing.T) {
 	}
 }
 
-// TestRoleSnapshot_AllowsCapability_FrozenThroughWire —— deny 集随 RoleSnapshot 冻结
+// TestRoleSnapshot_AllowsCapability_FrozenThroughWire —— deny 集随 access.RoleSnapshot 冻结
 // 进 session_data（JSON wire）后仍生效（marshal→unmarshal round-trip 不丢）。
 func TestRoleSnapshot_AllowsCapability_FrozenThroughWire(t *testing.T) {
 	t.Parallel()
 	const target = "corpus.retrieval"
-	orig := domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
+	orig := access.NewRoleSnapshot(&access.RoleSnapshotInit{
 		DeniedCapabilities: []string{target},
 	})
 	blob, err := orig.MarshalJSON()
 	require.NoError(t, err)
-	var restored domain.RoleSnapshot
+	var restored access.RoleSnapshot
 	require.NoError(t, restored.UnmarshalJSON(blob))
 	// always 能力被 deny → 解冻后仍挡得住。
 	require.False(t, restored.AllowsCapability(target, true))

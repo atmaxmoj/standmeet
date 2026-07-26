@@ -10,14 +10,13 @@ package usecases
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // Links —— see file header.
 func (l *pgCorpusLister) Links(
-	ctx context.Context, ownerID string, scope domain.CorpusScope, path string,
+	ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 ) (CorpusLinks, error) {
 	// Get:准入 + 拿 subject id(denied/not-found 透传)
 	subject, err := l.Get(ctx, ownerID, scope, path)
@@ -56,7 +55,7 @@ func (l *pgCorpusLister) backlinkRefs(ctx context.Context, ownerID, id string) [
 
 // neighborMetas —— 邻居 ref(id+title)→ 补 genre/path → 逐条过 ACL → CorpusMeta。越权邻居剔除。
 func (l *pgCorpusLister) neighborMetas(
-	ctx context.Context, ownerID string, scope domain.CorpusScope, refs []postgres.NoteRef,
+	ctx context.Context, ownerID string, scope access.CorpusScope, refs []postgres.NoteRef,
 ) []CorpusMeta {
 	out := make([]CorpusMeta, 0, len(refs))
 	for i := range refs {
@@ -68,7 +67,7 @@ func (l *pgCorpusLister) neighborMetas(
 }
 
 func (l *pgCorpusLister) neighborMeta(
-	ctx context.Context, ownerID string, scope domain.CorpusScope, ref *postgres.NoteRef,
+	ctx context.Context, ownerID string, scope access.CorpusScope, ref *postgres.NoteRef,
 ) (CorpusMeta, bool) {
 	if l.queryRepo == nil {
 		return CorpusMeta{}, false

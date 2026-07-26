@@ -8,14 +8,13 @@ package usecases
 import (
 	"testing"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/stretchr/testify/require"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 func TestMarkAllTerminalOnSignal(t *testing.T) {
 	t.Parallel()
-	wps := []domain.Waypoint{
+	wps := []access.Waypoint{
 		{WaypointID: "learn-x", IsTerminal: false},
 		{WaypointID: "book-call", IsTerminal: true},
 	}
@@ -30,7 +29,7 @@ func TestMarkAllTerminalOnSignal(t *testing.T) {
 
 func TestMarkAllNoTerminalWhenSignalOff(t *testing.T) {
 	t.Parallel()
-	wps := []domain.Waypoint{{WaypointID: "book-call", IsTerminal: true}}
+	wps := []access.Waypoint{{WaypointID: "book-call", IsTerminal: true}}
 	visited := newStringSet(nil)
 
 	changed := markAll(&MarkWaypointsInput{TerminalOK: false}, wps, nil, visited)

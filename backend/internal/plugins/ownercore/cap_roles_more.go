@@ -9,8 +9,8 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -96,10 +96,10 @@ func buildRoleUpdateCapInput(args *roleUpdateArgsWire, ownerID string) *usecases
 }
 
 func roleUpdateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrRoleBuiltinImmutable) {
+	if errors.Is(err, access.ErrRoleBuiltinImmutable) {
 		return capreg.MCPError("builtin role cannot be renamed")
 	}
-	if errors.Is(err, domain.ErrRoleNotFound) {
+	if errors.Is(err, access.ErrRoleNotFound) {
 		return capreg.MCPError("role not found")
 	}
 	for _, rc := range roleCreateErrCases {
@@ -144,7 +144,7 @@ func (c *rolesCapability) handleGet(
 	}
 	role, err := usecases.GetRole(ctx, *c.roles, ownerID, args.RoleID)
 	if err != nil {
-		if errors.Is(err, domain.ErrRoleNotFound) {
+		if errors.Is(err, access.ErrRoleNotFound) {
 			return capreg.MCPError("role not found")
 		}
 		c.log.Error("cap roles.get", "err", err)

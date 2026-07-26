@@ -4,7 +4,7 @@
 // 访客点按钮 = 把触发词当自己的消息发出去（快捷方式）。title 解析 + code-deny 过滤在会话装配层，
 // domain 只管纯配置不变量：数量 ≤2、触发词非空。
 
-package domain
+package access
 
 import (
 	"errors"

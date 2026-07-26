@@ -10,7 +10,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -303,7 +302,7 @@ func createCodeConversation(
 
 func buildCodeSessionData(
 	code *access.Code, visitor access.VisitorProfile,
-	memberID string, snapshot *domain.RoleSnapshot,
+	memberID string, snapshot *access.RoleSnapshot,
 ) *session.VisitorSessionData {
 	return &session.VisitorSessionData{
 		OwnerID:      code.OwnerID,

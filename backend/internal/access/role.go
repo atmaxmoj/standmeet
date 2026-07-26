@@ -12,7 +12,7 @@
 // AllowsCorpus(uri) 一个 method —— positive-list only，没有 deny / order；
 // 唯一 hardcode 是 raw://** 永远 deny visitor。
 
-package domain
+package access
 
 import (
 	"errors"

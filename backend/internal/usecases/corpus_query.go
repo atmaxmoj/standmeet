@@ -12,9 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const queryDefaultLimit = 50
@@ -31,7 +30,7 @@ type QuerySpec struct {
 // queryResolver —— 能跑原生查询的 lister(pgCorpusLister 实现;eval mini-host 不实现 → 块留原样)。
 type queryResolver interface {
 	Query(
-		ctx context.Context, ownerID string, scope domain.CorpusScope, spec QuerySpec,
+		ctx context.Context, ownerID string, scope access.CorpusScope, spec QuerySpec,
 	) ([]CorpusMeta, error)
 }
 
@@ -40,7 +39,7 @@ var reQueryBlock = regexp.MustCompile("(?s)```standmeet-query[ \t]*\n(.*?)\n?```
 // ResolveQueryBlocks —— body 里每个 standmeet-query 块 → ACL-scoped 结果列表(`- [[Title]]`)。
 // 解析/查询失败 → 该块降级为空(不崩;容错)。
 func ResolveQueryBlocks(
-	ctx context.Context, qr queryResolver, ownerID string, scope domain.CorpusScope, body string,
+	ctx context.Context, qr queryResolver, ownerID string, scope access.CorpusScope, body string,
 ) string {
 	return reQueryBlock.ReplaceAllStringFunc(body, func(block string) string {
 		m := reQueryBlock.FindStringSubmatch(block)
@@ -86,7 +85,7 @@ func renderQueryList(rows []CorpusMeta) string {
 
 // Query —— pgCorpusLister 实现 queryResolver:按 spec 过滤 corp note,ACL + children-of + sort + cap。
 func (l *pgCorpusLister) Query(
-	ctx context.Context, ownerID string, scope domain.CorpusScope, spec QuerySpec,
+	ctx context.Context, ownerID string, scope access.CorpusScope, spec QuerySpec,
 ) ([]CorpusMeta, error) {
 	if l.queryRepo == nil {
 		return []CorpusMeta{}, nil
@@ -108,7 +107,7 @@ func (l *pgCorpusLister) Query(
 }
 
 func queryRowToMeta(
-	row *postgres.QueryNoteRow, scope domain.CorpusScope, childrenOf string,
+	row *postgres.QueryNoteRow, scope access.CorpusScope, childrenOf string,
 ) (CorpusMeta, bool) {
 	if len(row.PathTitles) == 0 {
 		return CorpusMeta{}, false

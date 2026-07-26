@@ -13,8 +13,8 @@ import (
 	"log/slog"
 	"slices"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -71,9 +71,9 @@ func MarkWaypointsVisited(ctx context.Context, deps *WaypointLedgerDeps, in *Mar
 }
 
 // ledgerWaypoints —— 有 RoleSnapshot 且冻了 waypoints 才走 ledger（否则 ok=false，caller 跳过）。
-func ledgerWaypoints(in *MarkWaypointsInput) ([]domain.Waypoint, bool) {
+func ledgerWaypoints(in *MarkWaypointsInput) ([]access.Waypoint, bool) {
 	if in.Data.RoleSnapshot == nil {
-		return []domain.Waypoint{}, false
+		return []access.Waypoint{}, false
 	}
 	wps := in.Data.RoleSnapshot.Waypoints()
 	return wps, len(wps) > 0
@@ -82,7 +82,7 @@ func ledgerWaypoints(in *MarkWaypointsInput) ([]domain.Waypoint, bool) {
 // markAll —— 引用命中 evidence_refs + 终点命中 → 标 visited。返 changed。
 // in 提供 TerminalOK（走结构体不走裸 bool flag，避 control-coupling）。
 func markAll(
-	in *MarkWaypointsInput, waypoints []domain.Waypoint, cited []string, visited *stringSet,
+	in *MarkWaypointsInput, waypoints []access.Waypoint, cited []string, visited *stringSet,
 ) bool {
 	changed := markByCitation(waypoints, cited, visited)
 	if in.TerminalOK {
@@ -108,7 +108,7 @@ func (d *WaypointLedgerDeps) resolveURIs(
 	return out
 }
 
-func markByCitation(waypoints []domain.Waypoint, citedURIs []string, visited *stringSet) bool {
+func markByCitation(waypoints []access.Waypoint, citedURIs []string, visited *stringSet) bool {
 	changed := false
 	for i := range waypoints {
 		if visited.has(waypoints[i].WaypointID) {
@@ -122,7 +122,7 @@ func markByCitation(waypoints []domain.Waypoint, citedURIs []string, visited *st
 	return changed
 }
 
-func markTerminals(waypoints []domain.Waypoint, visited *stringSet) bool {
+func markTerminals(waypoints []access.Waypoint, visited *stringSet) bool {
 	changed := false
 	for i := range waypoints {
 		if waypoints[i].IsTerminal && !visited.has(waypoints[i].WaypointID) {

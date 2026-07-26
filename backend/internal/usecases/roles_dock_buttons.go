@@ -7,25 +7,25 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // validateDockButtons —— dock 按钮校验：数量 ≤2 + 触发词非空（domain 纯不变量）+ 每个能力在
 // route 给的 valid 集里。create/update 共用。
 // validateWaypoints —— ghost-steering 目的地的形态校验（同 dock buttons：规则在 domain，
-// usecase 只包错误上下文）。role 面和 code 覆盖面共用 domain.ValidateWaypoints 这一条规则。
+// usecase 只包错误上下文）。role 面和 code 覆盖面共用 access.ValidateWaypoints 这一条规则。
 func validateWaypoints(in *RoleWriteInput) error {
-	if err := domain.ValidateWaypoints(in.Waypoints); err != nil {
+	if err := access.ValidateWaypoints(in.Waypoints); err != nil {
 		return fmt.Errorf("waypoints: %w", err)
 	}
 	return nil
 }
 
 func validateDockButtons(in *RoleWriteInput) error {
-	if err := domain.ValidateDockButtons(in.DockButtons); err != nil {
+	if err := access.ValidateDockButtons(in.DockButtons); err != nil {
 		return fmt.Errorf("dock buttons: %w", err)
 	}
-	capErr := domain.ValidateDockButtonCapabilities(in.DockButtons, in.ValidCapabilityIDs)
+	capErr := access.ValidateDockButtonCapabilities(in.DockButtons, in.ValidCapabilityIDs)
 	if capErr != nil {
 		return fmt.Errorf("dock buttons: %w", capErr)
 	}
@@ -36,7 +36,7 @@ func validateDockButtons(in *RoleWriteInput) error {
 type SetDockButtonsInput struct {
 	OwnerID            string
 	RoleID             string
-	Buttons            []domain.DockButtonConfig
+	Buttons            []access.DockButtonConfig
 	ValidCapabilityIDs []string
 }
 
@@ -45,10 +45,10 @@ type SetDockButtonsInput struct {
 // 走同一份服务端逻辑（#118 parity）。
 func SetRoleDockButtons(
 	ctx context.Context, deps RolesDeps, in *SetDockButtonsInput,
-) (domain.Role, error) {
+) (access.Role, error) {
 	role, err := GetRole(ctx, deps, in.OwnerID, in.RoleID)
 	if err != nil {
-		return domain.Role{}, err
+		return access.Role{}, err
 	}
 	w := &RoleWriteInput{
 		OwnerID: in.OwnerID, RoleID: in.RoleID,

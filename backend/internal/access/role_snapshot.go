@@ -12,7 +12,7 @@
 // ACL 评估：positive-list only，raw://** hardcode deny；其他走 glob 匹配。
 // Glob 方言跟 [[path_acl]] 共享（compileGlob 在 path_acl.go）。
 
-package domain
+package access
 
 import (
 	"encoding/json"

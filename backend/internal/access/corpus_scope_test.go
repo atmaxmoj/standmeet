@@ -3,14 +3,13 @@
 // 这是 gate 1 的代数，错一处就是泄露，所以它在这里被逐条钉死：纯减法、顺序无关、code 开不了
 // role 没给的。
 
-package domain_test
+package access_test
 
 import (
 	"testing"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/stretchr/testify/require"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // 这几条 URI 在下面反复出现（每个 case 都要一个"授了的"和一个"被收回的"）；提成常量。
@@ -26,15 +25,15 @@ const (
 // 给），但某张码不该看见 record 笔记（CV：真名/学历/雇主）。owner 在这张码上收回 `subjectivity://cv`。
 func TestAllowsCorpusScope_CodeNarrowsRole(t *testing.T) {
 	t.Parallel()
-	scope := domain.CorpusScope{
+	scope := access.CorpusScope{
 		Granted: []string{globWikiAll, globSubjAll},
 		Denied:  []string{uriCV},
 	}
-	require.False(t, domain.AllowsCorpusScope(scope, uriCV),
+	require.False(t, access.AllowsCorpusScope(scope, uriCV),
 		"the code took this one back — it must not be readable")
-	require.True(t, domain.AllowsCorpusScope(scope, uriStandpoint),
+	require.True(t, access.AllowsCorpusScope(scope, uriStandpoint),
 		"the rest of the grant is untouched")
-	require.True(t, domain.AllowsCorpusScope(scope, "wiki://math/logic"),
+	require.True(t, access.AllowsCorpusScope(scope, "wiki://math/logic"),
 		"other genres are untouched")
 }
 
@@ -42,11 +41,11 @@ func TestAllowsCorpusScope_CodeNarrowsRole(t *testing.T) {
 // 一条 deny 列表里的 glob 不会因为"被提到了"就变得可读；role 没授的照样不可读。
 func TestAllowsCorpusScope_DenyCannotOpen(t *testing.T) {
 	t.Parallel()
-	scope := domain.CorpusScope{
+	scope := access.CorpusScope{
 		Granted: []string{globWikiAll},
 		Denied:  []string{uriCV},
 	}
-	require.False(t, domain.AllowsCorpusScope(scope, uriStandpoint),
+	require.False(t, access.AllowsCorpusScope(scope, uriStandpoint),
 		"role never granted subjectivity — mentioning a subjectivity glob in DENY opens nothing")
 }
 
@@ -56,30 +55,30 @@ func TestAllowsCorpusScope_DenyCannotOpen(t *testing.T) {
 func TestAllowsCorpusScope_OrderIndependent(t *testing.T) {
 	t.Parallel()
 	const uri = uriCV
-	a := domain.CorpusScope{
+	a := access.CorpusScope{
 		Granted: []string{globSubjAll, globWikiAll},
 		Denied:  []string{uriCV, globWikiPriv},
 	}
-	b := domain.CorpusScope{ // 两个列表都反着写
+	b := access.CorpusScope{ // 两个列表都反着写
 		Granted: []string{globWikiAll, globSubjAll},
 		Denied:  []string{globWikiPriv, uriCV},
 	}
-	require.Equal(t, domain.AllowsCorpusScope(a, uri), domain.AllowsCorpusScope(b, uri),
+	require.Equal(t, access.AllowsCorpusScope(a, uri), access.AllowsCorpusScope(b, uri),
 		"reordering either list must not change the verdict — set intersection, not first-match")
-	require.False(t, domain.AllowsCorpusScope(a, uri))
+	require.False(t, access.AllowsCorpusScope(a, uri))
 }
 
 // TestAllowsCorpusScope_DenyGlobTakesSubtree —— deny 的单位跟 grant 同一种语言（glob，不是 note id）：
 // 一条 `subjectivity://**` 就把整个 genre 从这张码收回，逐条写也行。
 func TestAllowsCorpusScope_DenyGlobTakesSubtree(t *testing.T) {
 	t.Parallel()
-	scope := domain.CorpusScope{
+	scope := access.CorpusScope{
 		Granted: []string{globWikiAll},
 		Denied:  []string{globWikiPriv},
 	}
-	require.False(t, domain.AllowsCorpusScope(scope, "wiki://private/salary"))
-	require.False(t, domain.AllowsCorpusScope(scope, "wiki://private/deep/nested"))
-	require.True(t, domain.AllowsCorpusScope(scope, "wiki://public/thing"))
+	require.False(t, access.AllowsCorpusScope(scope, "wiki://private/salary"))
+	require.False(t, access.AllowsCorpusScope(scope, "wiki://private/deep/nested"))
+	require.True(t, access.AllowsCorpusScope(scope, "wiki://public/thing"))
 }
 
 // TestAllowsCorpusScope_EmptyDenyIsInheritance —— 没配 deny = 完全继承 role（向后兼容：既有的码
@@ -88,8 +87,8 @@ func TestAllowsCorpusScope_EmptyDenyIsInheritance(t *testing.T) {
 	t.Parallel()
 	granted := []string{globWikiAll, globSubjAll}
 	for _, denied := range [][]string{nil, {}} {
-		scope := domain.CorpusScope{Granted: granted, Denied: denied}
-		require.True(t, domain.AllowsCorpusScope(scope, uriCV),
+		scope := access.CorpusScope{Granted: granted, Denied: denied}
+		require.True(t, access.AllowsCorpusScope(scope, uriCV),
 			"no denials → the role's grant stands unchanged")
 	}
 }
@@ -98,7 +97,7 @@ func TestAllowsCorpusScope_EmptyDenyIsInheritance(t *testing.T) {
 // deny 层不该动摇这条既有的地板。
 func TestAllowsCorpusScope_RawStillHardDenied(t *testing.T) {
 	t.Parallel()
-	scope := domain.CorpusScope{Granted: []string{"raw://**", globWikiAll}}
-	require.False(t, domain.AllowsCorpusScope(scope, "raw://anything"),
+	scope := access.CorpusScope{Granted: []string{"raw://**", globWikiAll}}
+	require.False(t, access.AllowsCorpusScope(scope, "raw://anything"),
 		"raw is denied to visitors regardless of the grant list")
 }

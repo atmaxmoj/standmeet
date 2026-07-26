@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-func snapWithPrompts(rolePrompt, codePrompt string) *domain.RoleSnapshot {
-	s := domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
+func snapWithPrompts(rolePrompt, codePrompt string) *access.RoleSnapshot {
+	s := access.NewRoleSnapshot(&access.RoleSnapshotInit{
 		PromptBody:     rolePrompt,
 		CodePromptBody: codePrompt,
 	})

@@ -17,8 +17,8 @@ import (
 	mcpgoserver "github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/require"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 )
 
@@ -48,7 +48,7 @@ func stdioManifest(id, bin string) *mcpplugin.Manifest {
 // grantInput —— 一个 code 访客的 AssembleInput，其 role 授权了 pluginID
 // (AllowedTools 含它)。没授权就过不了 ACL gate。
 func grantInput(pluginID string) *capreg.AssembleInput {
-	snap := domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
+	snap := access.NewRoleSnapshot(&access.RoleSnapshotInit{
 		AllowedTools: []string{pluginID},
 	})
 	return &capreg.AssembleInput{OwnerID: "o", Mode: "code", RoleSnapshot: &snap}

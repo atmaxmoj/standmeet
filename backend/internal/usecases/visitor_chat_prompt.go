@@ -17,14 +17,14 @@ package usecases
 import (
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
 
 // ComposeBasePersona —— system prompt 的 "non-capability" 部分：visitor
 // header + role persona body + skill prompts。snapshot nil 时只返 header。
 // Capability fragments 由 registry.ComposeSystemPrompt 顺序追加。
-func ComposeBasePersona(snapshot *domain.RoleSnapshot) string {
+func ComposeBasePersona(snapshot *access.RoleSnapshot) string {
 	parts := append([]string{visitorHeader()}, snapshotPromptParts(snapshot)...)
 	return strings.Join(parts, "\n\n---\n\n")
 }
@@ -36,7 +36,7 @@ func ComposeBasePersona(snapshot *domain.RoleSnapshot) string {
 //
 // 跟 ComposeBasePersona 的区别：base 含 visitor-header；dynamic 不含
 // (避免重复，因为 frontend 已经按 part_ids fetch visitor-header 了)。
-func ComposeDynamicPersona(snapshot *domain.RoleSnapshot) string {
+func ComposeDynamicPersona(snapshot *access.RoleSnapshot) string {
 	parts := snapshotPromptParts(snapshot)
 	if len(parts) == 0 {
 		return ""
@@ -46,7 +46,7 @@ func ComposeDynamicPersona(snapshot *domain.RoleSnapshot) string {
 
 // snapshotPromptParts —— role persona body + 这张 code 自带 prompt（#104）+ 每条 skill prompt，
 // 去空 trim。
-func snapshotPromptParts(snapshot *domain.RoleSnapshot) []string {
+func snapshotPromptParts(snapshot *access.RoleSnapshot) []string {
 	if snapshot == nil {
 		return []string{}
 	}

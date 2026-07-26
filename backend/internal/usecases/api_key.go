@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const (
@@ -39,7 +38,7 @@ type APIKeyStore interface {
 
 // APIKeyRoleGetter —— validate the assumed role exists + belongs to the owner at mint time.
 type APIKeyRoleGetter interface {
-	GetByID(ctx context.Context, ownerID, roleID string) (domain.Role, error)
+	GetByID(ctx context.Context, ownerID, roleID string) (access.Role, error)
 }
 
 // IssueAPIKeyDeps —— dependencies for minting a key.

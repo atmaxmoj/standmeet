@@ -14,7 +14,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -80,7 +79,7 @@ type dockButtonResp struct {
 // resolveDockButtons —— 冻下的 dock 配置 → 可渲染按钮：只保留能力仍在本 session 可用集里的
 // （code-deny 的能力不在 caps → 其按钮不渲染，D2）；title 从对应 CapabilityState 透传。
 func resolveDockButtons(
-	cfg []domain.DockButtonConfig, caps []capreg.CapabilityState,
+	cfg []access.DockButtonConfig, caps []capreg.CapabilityState,
 ) []dockButtonResp {
 	title := capTitleMap(caps)
 	out := make([]dockButtonResp, 0, len(cfg))

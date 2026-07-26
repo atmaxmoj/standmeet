@@ -14,7 +14,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // mapEnumerateLimit —— upper bound on wiki nodes loaded for the map/resolve. High enough to be
@@ -24,7 +24,7 @@ const mapEnumerateLimit = 20000
 // visibleWikiNodes —— every wiki node the role may see, as (path, title). Shared by
 // MapEntries and Resolve; the full tree in one load, ACL-filtered.
 func (l *pgCorpusLister) visibleWikiNodes(
-	ctx context.Context, ownerID string, scope domain.CorpusScope,
+	ctx context.Context, ownerID string, scope access.CorpusScope,
 ) ([]CorpusMapEntry, error) {
 	wikis, err := l.wiki.ListByOwner(ctx, ownerID, mapEnumerateLimit)
 	if err != nil {
@@ -44,7 +44,7 @@ func (l *pgCorpusLister) visibleWikiNodes(
 
 // MapEntries —— see interface. Enumerate only; shaping is BuildCorpusMap (pure).
 func (l *pgCorpusLister) MapEntries(
-	ctx context.Context, ownerID string, scope domain.CorpusScope,
+	ctx context.Context, ownerID string, scope access.CorpusScope,
 ) ([]CorpusMapEntry, error) {
 	return l.visibleWikiNodes(ctx, ownerID, scope)
 }
@@ -53,7 +53,7 @@ func (l *pgCorpusLister) MapEntries(
 // Exact matches first (a [[link]] target is a name, not a query); empty result is a clean
 // "no such name" the agent can fall back to corpus_search on.
 func (l *pgCorpusLister) Resolve(
-	ctx context.Context, ownerID string, scope domain.CorpusScope, name string,
+	ctx context.Context, ownerID string, scope access.CorpusScope, name string,
 ) ([]CorpusMeta, error) {
 	nodes, err := l.visibleWikiNodes(ctx, ownerID, scope)
 	if err != nil {

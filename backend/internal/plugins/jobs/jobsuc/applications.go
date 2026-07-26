@@ -27,7 +27,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -163,7 +163,7 @@ func runCommitTx(
 	maxMembers := applicationMaxMembers
 	maxTurns := applicationMaxTurns
 	// A.3-IAM-5: application 自动 issue code 默认挂 owner 的 public role。
-	public, verr := deps.Roles.GetByName(ctx, ownerID, domain.PublicRoleName)
+	public, verr := deps.Roles.GetByName(ctx, ownerID, access.PublicRoleName)
 	if verr != nil {
 		return postgres.CommitOutput{}, fmt.Errorf("get public role: %w", verr)
 	}

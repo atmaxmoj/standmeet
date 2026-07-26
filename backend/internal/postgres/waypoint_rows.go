@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // waypointRow —— 两表共同的行形状（sqlc 给的是两个独立类型，字段却相同）。
@@ -23,15 +23,15 @@ type waypointRow struct {
 	IsTerminal   bool
 }
 
-// waypointsFromRows —— 同构行 → domain.Waypoint，evidence_refs jsonb → []string。
-func waypointsFromRows(rows []waypointRow) ([]domain.Waypoint, error) {
-	out := make([]domain.Waypoint, 0, len(rows))
+// waypointsFromRows —— 同构行 → access.Waypoint，evidence_refs jsonb → []string。
+func waypointsFromRows(rows []waypointRow) ([]access.Waypoint, error) {
+	out := make([]access.Waypoint, 0, len(rows))
 	for i := range rows {
 		refs, err := decodeEvidenceRefs(rows[i].EvidenceRefs)
 		if err != nil {
-			return []domain.Waypoint{}, err
+			return []access.Waypoint{}, err
 		}
-		out = append(out, domain.Waypoint{
+		out = append(out, access.Waypoint{
 			WaypointID: rows[i].WaypointID, Description: rows[i].Description,
 			Weight: int(rows[i].Weight), EvidenceRefs: refs, IsTerminal: rows[i].IsTerminal,
 		})

@@ -10,12 +10,12 @@ package usecases
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // Get —— see file header.
 func (l *pgCorpusLister) Get(
-	ctx context.Context, ownerID string, scope domain.CorpusScope, path string,
+	ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 ) (CorpusEntry, error) {
 	foundAny := false
 	for _, find := range l.finders() {

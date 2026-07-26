@@ -13,7 +13,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -50,15 +50,15 @@ func upsertPublicPrompt(
 
 func upsertPublicRole(
 	ctx context.Context, roles *postgres.RoleRepo, ownerID, promptID string,
-) (domain.Role, error) {
+) (access.Role, error) {
 	role, err := roles.UpsertBuiltin(ctx, &postgres.UpsertBuiltinInput{
 		OwnerID:     ownerID,
-		Name:        domain.PublicRoleName,
-		Description: domain.PublicRoleDescription,
+		Name:        access.PublicRoleName,
+		Description: access.PublicRoleDescription,
 		PromptID:    &promptID,
 	})
 	if err != nil {
-		return domain.Role{}, fmt.Errorf("upsert public role: %w", err)
+		return access.Role{}, fmt.Errorf("upsert public role: %w", err)
 	}
 	return role, nil
 }
@@ -69,7 +69,7 @@ func upsertPublicRole(
 func syncPublicRoleJoins(
 	ctx context.Context, roles *postgres.RoleRepo, roleID string,
 ) error {
-	if err := roles.SetCorpusURIs(ctx, roleID, domain.PublicRoleCorpusURIs); err != nil {
+	if err := roles.SetCorpusURIs(ctx, roleID, access.PublicRoleCorpusURIs); err != nil {
 		return fmt.Errorf("set public role corpus uris: %w", err)
 	}
 	if err := roles.SetSkills(ctx, roleID, []string{}); err != nil {

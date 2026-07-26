@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
-
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
 )
 
@@ -215,6 +214,6 @@ func marshalCorpusRows(metas []CorpusMeta) string {
 // corpusScopeOf —— the request's full corpus scope: role grant + this code's narrowing.
 // Built in ONE place so no op can accidentally pass the grant alone (which would serve what the
 // owner took back).
-func corpusScopeOf(req *corpusIndexReq) domain.CorpusScope {
-	return domain.CorpusScope{Granted: req.CorpusURIs, Denied: req.CorpusDenials}
+func corpusScopeOf(req *corpusIndexReq) access.CorpusScope {
+	return access.CorpusScope{Granted: req.CorpusURIs, Denied: req.CorpusDenials}
 }

@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -57,7 +57,7 @@ func ParseGhostEpilogue(f *EpilogueFrame) *GhostFrame {
 
 // Waypoint is an owner-authored steering destination. Out-of-module drivers (eval-harness)
 // inject these into BuildGhostPolicy instead of freezing a RoleSnapshot from the DB.
-type Waypoint = domain.Waypoint
+type Waypoint = access.Waypoint
 
 // BuildGhostPolicy is a DB-free ghost policy for out-of-module drivers (eval-harness). It runs
 // the same unvisited-gate + policy prompt + parse prod uses (usecases.UnvisitedWaypoints /

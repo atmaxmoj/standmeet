@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // marshalDockButtons —— []DockButtonConfig → jsonb 值（一个 bind 参数，不拼 SQL）。
 // nil/空 → "[]"（跟列的 DEFAULT 对齐，非 NULL）。
-func marshalDockButtons(buttons []domain.DockButtonConfig) ([]byte, error) {
+func marshalDockButtons(buttons []access.DockButtonConfig) ([]byte, error) {
 	if len(buttons) == 0 {
 		return []byte("[]"), nil
 	}
@@ -24,13 +24,13 @@ func marshalDockButtons(buttons []domain.DockButtonConfig) ([]byte, error) {
 }
 
 // decodeDockButtons —— jsonb 值 → []DockButtonConfig（row → domain）。空/坏 → 空切片（非 nil）。
-func decodeDockButtons(raw []byte) []domain.DockButtonConfig {
-	out := []domain.DockButtonConfig{}
+func decodeDockButtons(raw []byte) []access.DockButtonConfig {
+	out := []access.DockButtonConfig{}
 	if len(raw) == 0 {
 		return out
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return []domain.DockButtonConfig{}
+		return []access.DockButtonConfig{}
 	}
 	return out
 }

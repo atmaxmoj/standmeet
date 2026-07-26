@@ -19,9 +19,9 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -117,7 +117,7 @@ func fetchDriverEnv(ctx context.Context, d Driver) (driverEnv, error) {
 // otherwise compose the faithful prod prompt (base persona + capability fragments).
 func composePrompt(
 	ctx context.Context, reg *capreg.Registry,
-	snapshot *domain.RoleSnapshot, in *capreg.AssembleInput, override string,
+	snapshot *access.RoleSnapshot, in *capreg.AssembleInput, override string,
 ) string {
 	if override != "" {
 		return override
@@ -131,8 +131,8 @@ func composePrompt(
 // granted skill adds its id + prompt; a non-empty mcpURL adds its server id.
 func buildSnapshot(
 	roleBody string, corpusURIs []string, skill *VisitorSkillSpec, mcpURL string,
-) domain.RoleSnapshot {
-	init := &domain.RoleSnapshotInit{
+) access.RoleSnapshot {
+	init := &access.RoleSnapshotInit{
 		RoleID:     "eval-role",
 		RoleName:   "eval",
 		PromptBody: roleBody,
@@ -147,7 +147,7 @@ func buildSnapshot(
 	if mcpURL != "" {
 		init.MCPServerIDs = []string{evalMCPID}
 	}
-	return domain.NewRoleSnapshot(init)
+	return access.NewRoleSnapshot(init)
 }
 
 // buildDriverDeps —— VisitorSkillsDeps with only the ports the assembled capabilities

@@ -17,7 +17,6 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const (
@@ -49,7 +48,7 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 type VisitorSessionData struct {
 	ExpiresAt    time.Time            `json:"expires_at"`
 	MaxBookings  *int32               `json:"max_bookings,omitempty"`
-	RoleSnapshot *domain.RoleSnapshot `json:"role_snapshot"`
+	RoleSnapshot *access.RoleSnapshot `json:"role_snapshot"`
 	OwnerID      string               `json:"owner_id"`
 	Mode         string               `json:"mode"`
 	CodeID       string               `json:"code_id"`

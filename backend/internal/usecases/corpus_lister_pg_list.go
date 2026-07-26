@@ -10,9 +10,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // corpusRootLimit —— flat output/writing roots cap (mirrors the old retriever window of
@@ -21,7 +20,7 @@ const corpusRootLimit = 50
 
 // List —— see file header.
 func (l *pgCorpusLister) List(
-	ctx context.Context, ownerID string, scope domain.CorpusScope, parentPath string, page int,
+	ctx context.Context, ownerID string, scope access.CorpusScope, parentPath string, page int,
 ) ([]CorpusMeta, error) {
 	wikiRows, err := l.listWikiChildren(ctx, ownerID, scope, parentPath, page)
 	if err != nil {
@@ -38,7 +37,7 @@ func (l *pgCorpusLister) List(
 }
 
 func (l *pgCorpusLister) listWikiChildren(
-	ctx context.Context, ownerID string, scope domain.CorpusScope, parentPath string, page int,
+	ctx context.Context, ownerID string, scope access.CorpusScope, parentPath string, page int,
 ) ([]CorpusMeta, error) {
 	var parentID *string
 	if parentPath != "" {
@@ -58,7 +57,7 @@ func (l *pgCorpusLister) listWikiChildren(
 
 // wikiChildRows —— children meta → CorpusMeta with computed path, ACL-filtered.
 func wikiChildRows(
-	scope domain.CorpusScope, parentPath string, kids []postgres.WikiMeta,
+	scope access.CorpusScope, parentPath string, kids []postgres.WikiMeta,
 ) []CorpusMeta {
 	out := make([]CorpusMeta, 0, len(kids))
 	for i := range kids {
@@ -78,7 +77,7 @@ func wikiChildRows(
 }
 
 func (l *pgCorpusLister) listOutputRoots(
-	ctx context.Context, ownerID string, scope domain.CorpusScope,
+	ctx context.Context, ownerID string, scope access.CorpusScope,
 ) []CorpusMeta {
 	outputs, err := l.output.ListByOwner(ctx, ownerID, corpusRootLimit)
 	if err != nil {
@@ -99,7 +98,7 @@ func (l *pgCorpusLister) listOutputRoots(
 }
 
 func (l *pgCorpusLister) listWritingRoots(
-	ctx context.Context, ownerID string, scope domain.CorpusScope,
+	ctx context.Context, ownerID string, scope access.CorpusScope,
 ) []CorpusMeta {
 	writings, err := l.writing.ListPublishedByOwner(ctx, ownerID)
 	if err != nil {

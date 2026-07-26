@@ -454,6 +454,7 @@ deps:
       - sandbox
       - mcpplugin
       - capsocket
+      - access
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
@@ -520,6 +521,7 @@ deps:
       - jobcache
       - jobfetch
       - jobdedup
+      - access
     anyVendorDeps: true
 
   # jobdedup —— J.6c: cross-source dedup (canonical URL + composite key)。
@@ -686,6 +688,7 @@ deps:
       - sandboxws
       - connectorcontract  # #155 连接器 diag：CalendarProxy/DTO 类型契约
       - middleware  # #155 连接器 diag：owner id 从 context（middleware.OwnerIDFrom）
+      - access
     anyVendorDeps: true
 
   # sandboxws —— per-session 沙箱工作区生命周期 leaf：纯 stdlib (os/filepath/sync/time)。

@@ -8,7 +8,7 @@
 // Glob 方言：`**` 跨 `/` 递归 (`.*`)，`*` 不跨 `/` (`[^/]*`)，`?` 不跨 `/`
 // (`[^/]`)；其他元字符 escape。
 
-package domain
+package access
 
 import (
 	"regexp"

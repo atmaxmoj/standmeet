@@ -17,8 +17,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -116,7 +116,7 @@ func buildDiagSessionResp(
 }
 
 // diagWaypoints —— 冻结 waypoints 逐条附上 ledger visited（waypoint_id ∈ VisitedWaypoints）。
-func diagWaypoints(frozen []domain.Waypoint, visited []string) []diagWaypoint {
+func diagWaypoints(frozen []access.Waypoint, visited []string) []diagWaypoint {
 	vset := make(map[string]bool, len(visited))
 	for _, v := range visited {
 		vset[v] = true

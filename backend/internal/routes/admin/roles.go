@@ -12,8 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
@@ -37,9 +37,9 @@ type roleView struct {
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
 	// Waypoints —— ghost-steering 引导目的地（owner per-role 编辑，读回展示）。
-	Waypoints []domain.Waypoint `json:"waypoints"`
+	Waypoints []access.Waypoint `json:"waypoints"`
 	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮 [{capability_id, trigger}]。
-	DockButtons []domain.DockButtonConfig `json:"dock_buttons"`
+	DockButtons []access.DockButtonConfig `json:"dock_buttons"`
 	ActiveCodes int64                     `json:"active_codes"`
 	IsBuiltin   bool                      `json:"is_builtin"`
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关(owner 看/设)。
@@ -57,9 +57,9 @@ type writeRoleRequest struct {
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
 	// Waypoints —— ghost-steering 引导目的地（owner per-role 写）。
-	Waypoints []domain.Waypoint `json:"waypoints"`
+	Waypoints []access.Waypoint `json:"waypoints"`
 	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮 [{capability_id, trigger}]。
-	DockButtons []domain.DockButtonConfig `json:"dock_buttons"`
+	DockButtons []access.DockButtonConfig `json:"dock_buttons"`
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
 	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking"`
 	// RequireGhostEvidence —— F-A-10 per-role 开关。
@@ -91,7 +91,7 @@ func (h *Handlers) listRoles() http.HandlerFunc {
 }
 
 func writeRolesList(
-	r *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.Role,
+	r *http.Request, h *Handlers, w http.ResponseWriter, rows []access.Role,
 ) {
 	items := assembleRoleViews(r, h, rows)
 	w.Header().Set("Content-Type", "application/json")
@@ -101,7 +101,7 @@ func writeRolesList(
 	}
 }
 
-func assembleRoleViews(r *http.Request, h *Handlers, rows []domain.Role) []roleView {
+func assembleRoleViews(r *http.Request, h *Handlers, rows []access.Role) []roleView {
 	items := make([]roleView, 0, len(rows))
 	for i := range rows {
 		items = append(items, hydrateRoleView(r, h, &rows[i]))
@@ -111,7 +111,7 @@ func assembleRoleViews(r *http.Request, h *Handlers, rows []domain.Role) []roleV
 
 // hydrateRoleView —— 一条 role 的活跃 code 计数 + roleView 装配。提出来降
 // writeRolesList 的 cyclo。
-func hydrateRoleView(r *http.Request, h *Handlers, rl *domain.Role) roleView {
+func hydrateRoleView(r *http.Request, h *Handlers, rl *access.Role) roleView {
 	count, cerr := usecases.CountActiveCodesForRole(
 		r.Context(), h.RolesAdmin.Roles, rl.OwnerID(), rl.ID(),
 	)
@@ -122,7 +122,7 @@ func hydrateRoleView(r *http.Request, h *Handlers, rl *domain.Role) roleView {
 	return toRoleView(rl, count)
 }
 
-func toRoleView(rl *domain.Role, activeCodes int64) roleView {
+func toRoleView(rl *access.Role, activeCodes int64) roleView {
 	v := roleView{
 		ID: rl.ID(), Name: rl.Name(), Description: rl.Description(),
 		Greeting:   rl.Greeting(),
@@ -183,7 +183,7 @@ func (h *Handlers) getRole() http.HandlerFunc {
 
 var getRoleErrCases = []apierr.Case{
 	{
-		Match: domain.ErrRoleNotFound,
+		Match: access.ErrRoleNotFound,
 		Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "role_not_found", Message: "role not found",
 		},
@@ -241,24 +241,24 @@ func (h *Handlers) deleteRole() http.HandlerFunc {
 // writeRoleErrCases —— Create + Update 共用 error → envelope 翻译表。
 var writeRoleErrCases = []apierr.Case{
 	{Match: usecases.ErrEmptyField, Envelope: envBadReq("name is required")},
-	{Match: domain.ErrTooManyDockButtons, Envelope: envBadReq("at most two dock buttons")},
-	{Match: domain.ErrDockButtonEmptyTrigger, Envelope: envBadReq("dock button needs a trigger")},
-	{Match: domain.ErrUnknownDockCapability, Envelope: envBadReq("unknown dock capability")},
+	{Match: access.ErrTooManyDockButtons, Envelope: envBadReq("at most two dock buttons")},
+	{Match: access.ErrDockButtonEmptyTrigger, Envelope: envBadReq("dock button needs a trigger")},
+	{Match: access.ErrUnknownDockCapability, Envelope: envBadReq("unknown dock capability")},
 	{
-		Match: domain.ErrRoleNotFound,
+		Match: access.ErrRoleNotFound,
 		Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "role_not_found", Message: "role not found",
 		},
 	},
 	{
-		Match: domain.ErrRoleBuiltinImmutable,
+		Match: access.ErrRoleBuiltinImmutable,
 		Envelope: apierr.Envelope{
 			Status: http.StatusForbidden, Code: "role_builtin_immutable",
 			Message: "builtin role cannot be renamed",
 		},
 	},
 	{
-		Match: domain.ErrRoleNameTaken,
+		Match: access.ErrRoleNameTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "role_name_taken",
 			Message: "role name already taken",
@@ -288,14 +288,14 @@ func handleWriteRoleErr(log *slog.Logger, w http.ResponseWriter, err error, tag 
 
 var deleteRoleErrCases = []apierr.Case{
 	{
-		Match: domain.ErrRoleBuiltinImmutable,
+		Match: access.ErrRoleBuiltinImmutable,
 		Envelope: apierr.Envelope{
 			Status: http.StatusForbidden, Code: "role_builtin_immutable",
 			Message: "builtin role cannot be deleted",
 		},
 	},
 	{
-		Match: domain.ErrRoleNotFound,
+		Match: access.ErrRoleNotFound,
 		Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "role_not_found", Message: "role not found",
 		},
@@ -311,7 +311,7 @@ func handleDeleteRoleErr(log *slog.Logger, w http.ResponseWriter, err error) {
 }
 
 func writeOneRole(
-	r *http.Request, h *Handlers, w http.ResponseWriter, rl *domain.Role, status int,
+	r *http.Request, h *Handlers, w http.ResponseWriter, rl *access.Role, status int,
 ) {
 	count, cerr := usecases.CountActiveCodesForRole(
 		r.Context(), h.RolesAdmin.Roles, rl.OwnerID(), rl.ID(),

@@ -18,7 +18,7 @@ package usecases
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // CorpusMeta —— one corpus entry's listing/search row. Path is tree-derived, filled by
@@ -55,31 +55,31 @@ type CorpusLister interface {
 	// Search —— full-text across all genres (first page), returning only entries the role
 	// may see.
 	Search(
-		ctx context.Context, ownerID string, scope domain.CorpusScope, query string,
+		ctx context.Context, ownerID string, scope access.CorpusScope, query string,
 	) ([]CorpusMeta, error)
 	// List —— children at parentPath ("" = roots), page 0-based, only those the role may see.
 	List(
-		ctx context.Context, ownerID string, scope domain.CorpusScope, parentPath string, page int,
+		ctx context.Context, ownerID string, scope access.CorpusScope, parentPath string, page int,
 	) ([]CorpusMeta, error)
 	// Get —— full entry by path. ErrCorpusDenied if out of scope, ErrCorpusNotFound if
 	// no such path.
 	Get(
-		ctx context.Context, ownerID string, scope domain.CorpusScope, path string,
+		ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 	) (CorpusEntry, error)
 	// Links —— 1 跳 backlinks:本条的 outgoing links + backlinks 邻居(顺 note_refs)。每个邻居
 	// 逐条过 grantedGlobs ACL(防经链接侧漏);主体本身走 Get 的准入(denied/not-found 同语义)。
 	Links(
-		ctx context.Context, ownerID string, scope domain.CorpusScope, path string,
+		ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 	) (CorpusLinks, error)
 	// MapEntries —— every visible wiki node as {path,title} (ACL-filtered). The tree/budget
 	// shaping into a skeleton is pure (BuildCorpusMap), so the lister only enumerates.
 	MapEntries(
-		ctx context.Context, ownerID string, scope domain.CorpusScope,
+		ctx context.Context, ownerID string, scope access.CorpusScope,
 	) ([]CorpusMapEntry, error)
 	// Resolve —— a bare name (a [[wikilink]] target, title, or slug) → the matching node(s),
 	// so the agent navigates by name instead of guessing a path from a snippet.
 	Resolve(
-		ctx context.Context, ownerID string, scope domain.CorpusScope, name string,
+		ctx context.Context, ownerID string, scope access.CorpusScope, name string,
 	) ([]CorpusMeta, error)
 }
 

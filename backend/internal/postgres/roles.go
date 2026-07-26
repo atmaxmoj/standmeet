@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -34,19 +34,19 @@ type CreateRoleInput struct {
 	Name                 string
 	Description          string
 	Greeting             string
-	DockButtons          []domain.DockButtonConfig
+	DockButtons          []access.DockButtonConfig
 	NotifyOwnerOnBooking bool
 }
 
 // Create 新建 role 主表行（不挂任何 join 项；attach 在 caller usecase 内单独调）。
-func (r *RoleRepo) Create(ctx context.Context, in *CreateRoleInput) (domain.Role, error) {
+func (r *RoleRepo) Create(ctx context.Context, in *CreateRoleInput) (access.Role, error) {
 	params, perr := buildCreateRoleParams(in)
 	if perr != nil {
-		return domain.Role{}, perr
+		return access.Role{}, perr
 	}
 	row, err := dbq.New(r.pool).CreateRole(ctx, params)
 	if err != nil {
-		return domain.Role{}, mapRoleCreateErr(err)
+		return access.Role{}, mapRoleCreateErr(err)
 	}
 	return toDomainRoleBare(&row), nil
 }
@@ -75,7 +75,7 @@ func buildCreateRoleParams(in *CreateRoleInput) (dbq.CreateRoleParams, error) {
 // mapRoleCreateErr —— 把 unique violation 翻成 domain sentinel。
 func mapRoleCreateErr(err error) error {
 	if name, hit := pgUniqueViolation(err); hit && name == "roles_owner_name_uniq" {
-		return domain.ErrRoleNameTaken
+		return access.ErrRoleNameTaken
 	}
 	return fmt.Errorf("create role: %w", err)
 }
@@ -93,20 +93,20 @@ type UpsertBuiltinInput struct {
 // SetMCPServers 同步 join 表（public 公开 corpus 三 glob、无 skill、无 mcp）。
 func (r *RoleRepo) UpsertBuiltin(
 	ctx context.Context, in *UpsertBuiltinInput,
-) (domain.Role, error) {
+) (access.Role, error) {
 	ownerUUID, oerr := parseUUID(in.OwnerID)
 	if oerr != nil {
-		return domain.Role{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return access.Role{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	promptUUID, perr := optionalUUID(in.PromptID)
 	if perr != nil {
-		return domain.Role{}, fmt.Errorf("parse prompt id: %w", perr)
+		return access.Role{}, fmt.Errorf("parse prompt id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).UpsertBuiltinRole(ctx, dbq.UpsertBuiltinRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description, PromptID: promptUUID,
 	})
 	if err != nil {
-		return domain.Role{}, fmt.Errorf("upsert builtin role: %w", err)
+		return access.Role{}, fmt.Errorf("upsert builtin role: %w", err)
 	}
 	return toDomainRoleBare(&row), nil
 }
@@ -114,7 +114,7 @@ func (r *RoleRepo) UpsertBuiltin(
 // ListByOwner —— admin /admin/roles 列表 + visitor session issue 时 lookup。
 // 返的 Role 已 hydrate 三组 join 项（join 走 N+1，N 在 visitor 维度通常 ≤ 5 不
 // 优化；想优化在 commit 4 加 ListWithJoins 一个 batch query）。
-func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.Role, error) {
+func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]access.Role, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
@@ -124,7 +124,7 @@ func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.Ro
 	if err != nil {
 		return nil, fmt.Errorf("list roles: %w", err)
 	}
-	out := make([]domain.Role, 0, len(rows))
+	out := make([]access.Role, 0, len(rows))
 	for i := range rows {
 		hydrated, herr := hydrateRole(ctx, q, &rows[i])
 		if herr != nil {
@@ -136,10 +136,10 @@ func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.Ro
 }
 
 // GetByID —— 单条详情 hydrate 三组 join。
-func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (domain.Role, error) {
+func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (access.Role, error) {
 	args, perr := parseRoleIDArgs(ownerID, roleID)
 	if perr != nil {
-		return domain.Role{}, perr
+		return access.Role{}, perr
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetRoleByID(ctx, dbq.GetRoleByIDParams{
@@ -147,18 +147,18 @@ func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (domain.
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Role{}, domain.ErrRoleNotFound
+			return access.Role{}, access.ErrRoleNotFound
 		}
-		return domain.Role{}, fmt.Errorf("get role: %w", err)
+		return access.Role{}, fmt.Errorf("get role: %w", err)
 	}
 	return hydrateRole(ctx, q, &row)
 }
 
 // GetByName —— SeedPublicRole / access_code 默认 role 查找。
-func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (domain.Role, error) {
+func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (access.Role, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return domain.Role{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return access.Role{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetRoleByName(ctx, dbq.GetRoleByNameParams{
@@ -166,9 +166,9 @@ func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (domain.
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Role{}, domain.ErrRoleNotFound
+			return access.Role{}, access.ErrRoleNotFound
 		}
-		return domain.Role{}, fmt.Errorf("get role by name: %w", err)
+		return access.Role{}, fmt.Errorf("get role by name: %w", err)
 	}
 	return hydrateRole(ctx, q, &row)
 }
@@ -181,25 +181,25 @@ type UpdateRoleInput struct {
 	Name                 string
 	Description          string
 	Greeting             string
-	DockButtons          []domain.DockButtonConfig
+	DockButtons          []access.DockButtonConfig
 	NotifyOwnerOnBooking bool
 	RequireGhostEvidence bool
 }
 
 // Update 改 role 主表行（不动 join 表；caller 用 SetCorpusURIs / SetSkills /
 // SetMCPServers 同步 join 表）。builtin rename 由 usecase 拦。
-func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (domain.Role, error) {
+func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (access.Role, error) {
 	args, perr := parseRoleIDArgs(in.OwnerID, in.RoleID)
 	if perr != nil {
-		return domain.Role{}, perr
+		return access.Role{}, perr
 	}
 	promptUUID, puerr := optionalUUID(in.PromptID)
 	if puerr != nil {
-		return domain.Role{}, fmt.Errorf("parse prompt id: %w", puerr)
+		return access.Role{}, fmt.Errorf("parse prompt id: %w", puerr)
 	}
 	dock, derr := marshalDockButtons(in.DockButtons)
 	if derr != nil {
-		return domain.Role{}, derr
+		return access.Role{}, derr
 	}
 	row, err := dbq.New(r.pool).UpdateRole(ctx, dbq.UpdateRoleParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
@@ -208,7 +208,7 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (domain.Role
 		RequireGhostEvidence: in.RequireGhostEvidence,
 	})
 	if err != nil {
-		return domain.Role{}, mapRoleUpdateErr(err)
+		return access.Role{}, mapRoleUpdateErr(err)
 	}
 	return toDomainRoleBare(&row), nil
 }
@@ -230,10 +230,10 @@ func (r *RoleRepo) NotifiesOwnerOnBooking(ctx context.Context, roleID string) (b
 // mapRoleUpdateErr —— 单独抽出来降 Update 的 cognitive complexity。
 func mapRoleUpdateErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrRoleNotFound
+		return access.ErrRoleNotFound
 	}
 	if name, hit := pgUniqueViolation(err); hit && name == "roles_owner_name_uniq" {
-		return domain.ErrRoleNameTaken
+		return access.ErrRoleNameTaken
 	}
 	return fmt.Errorf("update role: %w", err)
 }
@@ -298,21 +298,21 @@ type roleJoins struct {
 	corpusURIs   []string
 	skillIDs     []string
 	mcpServerIDs []string
-	waypoints    []domain.Waypoint
+	waypoints    []access.Waypoint
 }
 
-func toDomainRoleBare(row *dbq.Role) domain.Role {
+func toDomainRoleBare(row *dbq.Role) access.Role {
 	return toDomainRole(&roleJoins{row: row})
 }
 
-func toDomainRole(j *roleJoins) domain.Role {
+func toDomainRole(j *roleJoins) access.Role {
 	row := j.row
 	var promptIDPtr *string
 	if row.PromptID.Valid {
 		s := formatUUID(row.PromptID)
 		promptIDPtr = &s
 	}
-	return domain.NewRole(&domain.RoleInit{
+	return access.NewRole(&access.RoleInit{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
 		Name: row.Name, Description: row.Description, Greeting: row.Greeting,
 		PromptID:   promptIDPtr,

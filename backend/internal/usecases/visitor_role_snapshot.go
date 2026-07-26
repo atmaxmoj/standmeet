@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
@@ -24,22 +23,22 @@ import (
 // RoleSnapshot。失败永远是真 error。
 func buildRoleSnapshotForCode(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
-) (domain.RoleSnapshot, error) {
+) (access.RoleSnapshot, error) {
 	denials, err := loadCodeDenials(ctx, deps, code.ID)
 	if err != nil {
-		return domain.RoleSnapshot{}, err
+		return access.RoleSnapshot{}, err
 	}
 	// #104(+扩展): code 自带的 prompt 冻进 snapshot，persona 在 role persona 之后叠加。
 	// 内联 prompt（发码方随码带，不查库，如 job-loop 的 recruiter 应聘身份）**优先**；空则走
 	// prompt_id 库引用（owner 集中管理那份）。都没 → 空串（persona 逐字不变）。
 	codePrompt, perr := resolveCodePrompt(ctx, deps, code)
 	if perr != nil {
-		return domain.RoleSnapshot{}, perr
+		return access.RoleSnapshot{}, perr
 	}
 	// ghost-steering: 这张 code 的 waypoint 覆盖层(空 = 完全继承 role 的)。
 	wps, werr := loadCodeWaypoints(ctx, deps, code.ID)
 	if werr != nil {
-		return domain.RoleSnapshot{}, werr
+		return access.RoleSnapshot{}, werr
 	}
 	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID,
 		&codeOverlay{
@@ -52,13 +51,13 @@ func buildRoleSnapshotForCode(
 // → 空覆盖,行为同从前(完全继承 role,向后兼容)。
 func loadCodeWaypoints(
 	ctx context.Context, deps *VisitorSessionDeps, codeID string,
-) ([]domain.Waypoint, error) {
+) ([]access.Waypoint, error) {
 	if deps.Codes == nil {
-		return []domain.Waypoint{}, nil
+		return []access.Waypoint{}, nil
 	}
 	wps, err := deps.Codes.Waypoints(ctx, codeID)
 	if err != nil {
-		return []domain.Waypoint{}, fmt.Errorf("list code waypoints: %w", err)
+		return []access.Waypoint{}, fmt.Errorf("list code waypoints: %w", err)
 	}
 	return wps, nil
 }
@@ -120,14 +119,14 @@ type APIKeyDenialReader interface {
 func BuildAPIKeyRoleSnapshot(
 	ctx context.Context, deps *VisitorSessionDeps, denials APIKeyDenialReader,
 	key *access.APIKey,
-) (domain.RoleSnapshot, error) {
+) (access.RoleSnapshot, error) {
 	caps, err := denials.ListCapabilityDenials(ctx, key.ID)
 	if err != nil {
-		return domain.RoleSnapshot{}, fmt.Errorf("list api key capability denials: %w", err)
+		return access.RoleSnapshot{}, fmt.Errorf("list api key capability denials: %w", err)
 	}
 	skills, serr := denials.ListSkillDenials(ctx, key.ID)
 	if serr != nil {
-		return domain.RoleSnapshot{}, fmt.Errorf("list api key skill denials: %w", serr)
+		return access.RoleSnapshot{}, fmt.Errorf("list api key skill denials: %w", serr)
 	}
 	return buildRoleSnapshotByID(ctx, deps, key.OwnerID, key.AssumedRoleID,
 		&codeOverlay{denials: roleDenials{Caps: caps, Skills: skills}})
@@ -138,10 +137,10 @@ func BuildAPIKeyRoleSnapshot(
 // 三个公开 glob。
 func buildRoleSnapshotForOwnerPublic(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID string,
-) (domain.RoleSnapshot, error) {
-	role, err := deps.Roles.GetByName(ctx, ownerID, domain.PublicRoleName)
+) (access.RoleSnapshot, error) {
+	role, err := deps.Roles.GetByName(ctx, ownerID, access.PublicRoleName)
 	if err != nil {
-		return domain.RoleSnapshot{}, fmt.Errorf("get public role: %w", err)
+		return access.RoleSnapshot{}, fmt.Errorf("get public role: %w", err)
 	}
 	// public + byoai (非 code 路径) 无 per-code prompt、无 deny。
 	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID(), &codeOverlay{})
@@ -156,27 +155,27 @@ type codeOverlay struct {
 	requireGhostEvidence *bool
 	// waypoints —— 这张 code 的 ghost-steering 覆盖层（空 = 完全继承 role 的）。放末位:slice 尾部
 	// len/cap 无指针,让 GC 少扫 16 字节（fieldalignment）。
-	waypoints []domain.Waypoint
+	waypoints []access.Waypoint
 }
 
 func buildRoleSnapshotByID(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID, roleID string, overlay *codeOverlay,
-) (domain.RoleSnapshot, error) {
+) (access.RoleSnapshot, error) {
 	role, err := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if err != nil {
-		return domain.RoleSnapshot{}, fmt.Errorf("get role for snapshot: %w", err)
+		return access.RoleSnapshot{}, fmt.Errorf("get role for snapshot: %w", err)
 	}
 	promptBody, err := loadPromptBody(ctx, deps, ownerID, &role)
 	if err != nil {
-		return domain.RoleSnapshot{}, err
+		return access.RoleSnapshot{}, err
 	}
 	// ACL code 层（capability-acl-hierarchy.md）：deny 的 skill 在装配源头就剔除，
 	// 这样它的 L1 prompt / tool 授权 / id 一并消失（只减 SkillIDs 漏掉了 L1 prompt）。
 	skills, err := loadRoleSkills(ctx, deps, role.ID(), overlay.denials.Skills)
 	if err != nil {
-		return domain.RoleSnapshot{}, err
+		return access.RoleSnapshot{}, err
 	}
-	return domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
+	return access.NewRoleSnapshot(&access.RoleSnapshotInit{
 		FrozenAt:       time.Now(),
 		RoleID:         role.ID(),
 		RoleName:       role.Name(),
@@ -200,8 +199,8 @@ func buildRoleSnapshotByID(
 		// （role = 这个受众的目的地，code = 这一次邀约的），**再**按 role 授权 glob 过滤
 		// （feasibility floor）—— 顺序要紧：过滤在合并之后，code 才不能借覆盖把 role 看不到的
 		// 证据引导出来。evidence_refs 全越界的 waypoint 整条丢弃。
-		Waypoints: domain.FilterWaypointsByCorpus(
-			domain.MergeWaypoints(role.Waypoints(), overlay.waypoints), role.CorpusURIs()),
+		Waypoints: access.FilterWaypointsByCorpus(
+			access.MergeWaypoints(role.Waypoints(), overlay.waypoints), role.CorpusURIs()),
 		// F-A-10: 有效开关 = code 覆盖(非 nil)否则 role 值。冻进 snapshot,ghost 选择时用。
 		RequireGhostEvidence: effectiveGhostEvidence(
 			role.RequireGhostEvidence(), overlay.requireGhostEvidence),
@@ -219,7 +218,7 @@ func effectiveGhostEvidence(roleVal bool, codeOverride *bool) bool {
 // loadPromptBody —— role 没挂 prompt 或挂的 prompt 不存在 → 返空串（public
 // 之类 role 不一定有 prompt，session 没问题）。
 func loadPromptBody(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID string, role *domain.Role,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID string, role *access.Role,
 ) (string, error) {
 	promptID, ok := role.PromptID()
 	if !ok {

@@ -3,16 +3,15 @@ package usecases
 import (
 	"testing"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/stretchr/testify/require"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // steerWps —— shared fixture: one no-evidence steering waypoint, one evidenced steering waypoint,
 // one terminal (booking) waypoint. Terminal completes via a tool, so it legitimately has no
 // corpus evidence and must survive the evidence filter.
-func steerWps() []domain.Waypoint {
-	return []domain.Waypoint{
+func steerWps() []access.Waypoint {
+	return []access.Waypoint{
 		{WaypointID: "steer-no-refs", IsTerminal: false},
 		{WaypointID: "steer-with-refs", EvidenceRefs: []string{"wiki://x"}},
 		{WaypointID: "book", IsTerminal: true},
@@ -34,12 +33,12 @@ func TestFilterSteeringByEvidence(t *testing.T) {
 // excluded either way.
 func TestSteeringCandidates(t *testing.T) {
 	t.Parallel()
-	lax := domain.NewRoleSnapshot(&domain.RoleSnapshotInit{Waypoints: steerWps()})
+	lax := access.NewRoleSnapshot(&access.RoleSnapshotInit{Waypoints: steerWps()})
 	require.Equal(t, []string{"steer-no-refs", "steer-with-refs", "book"},
 		waypointIDs(SteeringCandidates(&lax, nil)),
 		"require=false is the default — no evidence filtering")
 
-	strict := domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
+	strict := access.NewRoleSnapshot(&access.RoleSnapshotInit{
 		Waypoints: steerWps(), RequireGhostEvidence: true,
 	})
 	require.Equal(t, []string{"steer-with-refs", "book"},
@@ -51,7 +50,7 @@ func TestSteeringCandidates(t *testing.T) {
 		"visited waypoints are excluded before the evidence filter")
 }
 
-func waypointIDs(wps []domain.Waypoint) []string {
+func waypointIDs(wps []access.Waypoint) []string {
 	out := make([]string, 0, len(wps))
 	for i := range wps {
 		out = append(out, wps[i].WaypointID)

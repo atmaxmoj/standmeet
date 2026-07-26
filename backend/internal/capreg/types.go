@@ -20,7 +20,6 @@ import (
 	"errors"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // ErrHidden —— VisitorBinding 返此 sentinel 表示 capability 不暴露给本
@@ -39,7 +38,7 @@ var ErrHidden = errors.New("capreg: capability hidden from session")
 // ConversationID 在 dev endpoint introspection 时为空（无对话上下文）；
 // real SendMessage 时为当前消息所在 conv。
 type AssembleInput struct {
-	RoleSnapshot   *domain.RoleSnapshot
+	RoleSnapshot   *access.RoleSnapshot
 	OwnerID        string
 	Mode           string
 	CodeID         string

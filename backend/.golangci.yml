@@ -303,6 +303,9 @@ linters:
       # domain 的 compileGlob 缓存 / cmd/server 的 pingCheck 都是 unexported 白盒 UT;同上豁免。
       - path: internal/domain/
         linters: [testpackage, paralleltest]
+      # path_acl 的 compileGlobCached 缓存是 unexported 白盒 UT（随 role cluster 迁入 access）。
+      - path: internal/access/path_acl_cache_test.go
+        linters: [testpackage, paralleltest]
       - path: cmd/server/
         linters: [testpackage, paralleltest]
       # hnFirstLine / readOK are unexported job-fetch helpers with pure-logic white-box repros.

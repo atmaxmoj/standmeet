@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -42,7 +42,7 @@ func (r *RoleRepo) SetCorpusURIs(ctx context.Context, roleID string, patterns []
 // SetWaypoints —— clear + 逐条 insert role_waypoints。evidence_refs 存 jsonb
 // （json.Marshal []string）。caller usecase 已校验 waypoint 形态。
 func (r *RoleRepo) SetWaypoints(
-	ctx context.Context, roleID string, waypoints []domain.Waypoint,
+	ctx context.Context, roleID string, waypoints []access.Waypoint,
 ) error {
 	roleUUID, perr := parseUUID(roleID)
 	if perr != nil {
@@ -61,7 +61,7 @@ func (r *RoleRepo) SetWaypoints(
 }
 
 func attachWaypoint(
-	ctx context.Context, q *dbq.Queries, roleUUID pgtype.UUID, w *domain.Waypoint,
+	ctx context.Context, q *dbq.Queries, roleUUID pgtype.UUID, w *access.Waypoint,
 ) error {
 	refs, merr := json.Marshal(w.EvidenceRefs)
 	if merr != nil {
@@ -79,10 +79,10 @@ func attachWaypoint(
 // hydrateRoleWaypoints —— 读 role_waypoints → domain（行映射共用 waypointsFromRows）。
 func hydrateRoleWaypoints(
 	ctx context.Context, q *dbq.Queries, roleID pgtype.UUID,
-) ([]domain.Waypoint, error) {
+) ([]access.Waypoint, error) {
 	rows, err := q.ListRoleWaypoints(ctx, roleID)
 	if err != nil {
-		return []domain.Waypoint{}, fmt.Errorf("list role waypoints: %w", err)
+		return []access.Waypoint{}, fmt.Errorf("list role waypoints: %w", err)
 	}
 	shaped := make([]waypointRow, len(rows))
 	for i := range rows {
@@ -169,22 +169,22 @@ func prepareRoleJoinClear(ctx context.Context, op *roleJoinOp) (pgtype.UUID, err
 }
 
 // hydrateRole 从主表行起步，N+1 取 3 个 join 表组装完整 Role。
-func hydrateRole(ctx context.Context, q *dbq.Queries, row *dbq.Role) (domain.Role, error) {
+func hydrateRole(ctx context.Context, q *dbq.Queries, row *dbq.Role) (access.Role, error) {
 	corpusURIs, cerr := q.ListRoleCorpusURIs(ctx, row.ID)
 	if cerr != nil {
-		return domain.Role{}, fmt.Errorf("list role corpus uris: %w", cerr)
+		return access.Role{}, fmt.Errorf("list role corpus uris: %w", cerr)
 	}
 	skillUUIDs, serr := q.ListRoleSkillIDs(ctx, row.ID)
 	if serr != nil {
-		return domain.Role{}, fmt.Errorf("list role skill ids: %w", serr)
+		return access.Role{}, fmt.Errorf("list role skill ids: %w", serr)
 	}
 	mcpUUIDs, merr := q.ListRoleMCPServerIDs(ctx, row.ID)
 	if merr != nil {
-		return domain.Role{}, fmt.Errorf("list role mcp server ids: %w", merr)
+		return access.Role{}, fmt.Errorf("list role mcp server ids: %w", merr)
 	}
 	waypoints, werr := hydrateRoleWaypoints(ctx, q, row.ID)
 	if werr != nil {
-		return domain.Role{}, werr
+		return access.Role{}, werr
 	}
 	return toDomainRole(&roleJoins{
 		row: row, corpusURIs: corpusURIs, skillIDs: uuidStrings(skillUUIDs),

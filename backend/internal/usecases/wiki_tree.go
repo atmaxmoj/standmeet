@@ -21,7 +21,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -48,7 +48,7 @@ func PublicWikiScope(seoIndexed bool, _ string) bool {
 }
 
 // RoleWikiScope —— 有 code:role corpus_uris glob 准入 wiki://<path>。
-func RoleWikiScope(snap *domain.RoleSnapshot) WikiTreeScope {
+func RoleWikiScope(snap *access.RoleSnapshot) WikiTreeScope {
 	return func(_ bool, path string) bool {
 		return snap.AllowsCorpus("wiki://" + path)
 	}
@@ -69,7 +69,7 @@ func WikiTreeScopeFor(
 // sessionRoleSnapshot —— token 换 RoleSnapshot;任何缺失/错误 → nil(退匿名)。
 func sessionRoleSnapshot(
 	ctx context.Context, sessions *session.VisitorSessionStore, token string,
-) *domain.RoleSnapshot {
+) *access.RoleSnapshot {
 	if token == "" || sessions == nil {
 		return nil
 	}

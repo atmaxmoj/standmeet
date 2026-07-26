@@ -14,8 +14,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 )
@@ -292,7 +292,7 @@ func (c *mcpAppCapability) cachedInstructions(ctx context.Context) string {
 // mcpAppGranted —— 暴露门。ACL=always → 无条件暴露给所有 mode（外置的内建基础
 // 能力，如 ask_visitor）。否则 role-granted：role 的 AllowedTools 含本插件 ID 才暴露
 // （echoer / 第三方 server），无 role(public/byoai) → 隐藏。
-func mcpAppGranted(m *mcpplugin.Manifest, snap *domain.RoleSnapshot) bool {
+func mcpAppGranted(m *mcpplugin.Manifest, snap *access.RoleSnapshot) bool {
 	always := m.ACL == mcpplugin.ACLAlways
 	if snap == nil {
 		return always // 无 snapshot：没 code deny 来源，只 always 能力暴露

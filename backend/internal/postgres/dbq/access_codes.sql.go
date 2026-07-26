@@ -444,7 +444,7 @@ type ListCodeWaypointsRow struct {
 	IsTerminal   bool
 }
 
-// 这张 code 的 waypoint **覆盖层**(不含继承来的 role 的);合并在 domain.MergeWaypoints。
+// 这张 code 的 waypoint **覆盖层**(不含继承来的 role 的);合并在 access.MergeWaypoints。
 func (q *Queries) ListCodeWaypoints(ctx context.Context, codeID pgtype.UUID) ([]ListCodeWaypointsRow, error) {
 	rows, err := q.db.Query(ctx, listCodeWaypoints, codeID)
 	if err != nil {

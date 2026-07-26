@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -137,7 +136,7 @@ func loadApprovalContext(
 }
 
 func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID string) (string, error) {
-	public, verr := deps.Roles.GetByName(ctx, ownerID, domain.PublicRoleName)
+	public, verr := deps.Roles.GetByName(ctx, ownerID, access.PublicRoleName)
 	if verr != nil {
 		return "", fmt.Errorf("get public role: %w", verr)
 	}

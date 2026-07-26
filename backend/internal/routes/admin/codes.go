@@ -14,7 +14,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -43,7 +42,7 @@ type createCodeRequest struct {
 	Purpose            string   `json:"purpose"`
 	Ghosts             []string `json:"ghosts"`
 	// Waypoints —— ghost-steering 目的地的 per-code 覆盖层（空 = 完全继承 role 的）。
-	Waypoints []domain.Waypoint `json:"waypoints"`
+	Waypoints []access.Waypoint `json:"waypoints"`
 }
 
 type updateQuotasRequest struct {
@@ -157,7 +156,7 @@ func handleCreateCodeErr(log *slog.Logger, w http.ResponseWriter, err error) {
 func buildCreateInput(
 	r *http.Request, h *Handlers, ownerID string, req *createCodeRequest,
 ) (*postgres.CreateCodeInput, error) {
-	if werr := domain.ValidateWaypoints(req.Waypoints); werr != nil {
+	if werr := access.ValidateWaypoints(req.Waypoints); werr != nil {
 		return nil, werr
 	}
 	roleID, rerr := resolveCodeRoleID(r, h, ownerID, req.AssumedRoleID)
@@ -195,7 +194,7 @@ func nonEmptyPtr(s *string) string {
 }
 
 func lookupPublicRoleID(r *http.Request, h *Handlers, ownerID string) (string, error) {
-	public, err := h.CodesAdmin.Roles.GetByName(r.Context(), ownerID, domain.PublicRoleName)
+	public, err := h.CodesAdmin.Roles.GetByName(r.Context(), ownerID, access.PublicRoleName)
 	if err != nil {
 		return "", fmt.Errorf("get public role: %w", err)
 	}

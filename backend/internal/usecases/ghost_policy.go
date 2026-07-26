@@ -17,7 +17,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -54,8 +54,8 @@ type GhostCandidate struct {
 }
 
 // UnvisitedWaypoints —— 冻结 waypoints 里还没到访的(policy 只推这些;全到 → 空 → silence)。
-func UnvisitedWaypoints(waypoints []domain.Waypoint, visited []string) []domain.Waypoint {
-	out := make([]domain.Waypoint, 0, len(waypoints))
+func UnvisitedWaypoints(waypoints []access.Waypoint, visited []string) []access.Waypoint {
+	out := make([]access.Waypoint, 0, len(waypoints))
 	for i := range waypoints {
 		if !slices.Contains(visited, waypoints[i].WaypointID) {
 			out = append(out, waypoints[i])
@@ -67,7 +67,7 @@ func UnvisitedWaypoints(waypoints []domain.Waypoint, visited []string) []domain.
 // SteeringCandidates —— 从冻结 snapshot 取本轮可推的 steering waypoints:先去掉已访问的,再(当
 // snapshot 要求证据时)剔除空证据的非终点 waypoint。F-A-10。开关读自 snapshot(role 值,code 可覆盖),
 // 不作 flag 形参穿过边界。
-func SteeringCandidates(snap *domain.RoleSnapshot, visited []string) []domain.Waypoint {
+func SteeringCandidates(snap *access.RoleSnapshot, visited []string) []access.Waypoint {
 	unvisited := UnvisitedWaypoints(snap.Waypoints(), visited)
 	if !snap.RequireGhostEvidence() {
 		return unvisited
@@ -78,8 +78,8 @@ func SteeringCandidates(snap *domain.RoleSnapshot, visited []string) []domain.Wa
 // filterSteeringByEvidence —— 把**非终点**(steering)且 evidence_refs 为空的 waypoint 剔除 —— 让
 // prompt 规则6("no refs → not proposable")从"写着不强制"变成真强制。**终点/工具 waypoint(预约)永远
 // 保留** —— 它们靠工具而非语料完成,本就没有语料证据。
-func filterSteeringByEvidence(waypoints []domain.Waypoint) []domain.Waypoint {
-	out := make([]domain.Waypoint, 0, len(waypoints))
+func filterSteeringByEvidence(waypoints []access.Waypoint) []access.Waypoint {
+	out := make([]access.Waypoint, 0, len(waypoints))
 	for i := range waypoints {
 		if waypoints[i].IsTerminal || len(waypoints[i].EvidenceRefs) > 0 {
 			out = append(out, waypoints[i])
@@ -90,7 +90,7 @@ func filterSteeringByEvidence(waypoints []domain.Waypoint) []domain.Waypoint {
 
 // BuildGhostContext —— GhostPolicy 的 user 侧上下文:未访问 waypoints(id/描述/权重/terminal)+
 // 本轮末条 assistant 回复(COHERENCE 挂点)。system 侧是 GhostPolicyPrompt。
-func BuildGhostContext(unvisited []domain.Waypoint, lastMsg string) string {
+func BuildGhostContext(unvisited []access.Waypoint, lastMsg string) string {
 	lines := make([]string, 0, len(unvisited)+4)
 	lines = append(lines, "UNVISITED WAYPOINTS (advance exactly one):")
 	for i := range unvisited {

@@ -3,7 +3,7 @@
 // 从 role_snapshot.go 抽出来：snapshot 是"session 冻结的 role 状态"，waypoint 的合并规则
 // （role ⊕ code）是独立主题，跟 corpus/skill/capability 的冻结逻辑无关。
 
-package domain
+package access
 
 import (
 	"errors"
