@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -27,11 +27,11 @@ func NewAccessRequestRepo(pool *Pool) *AccessRequestRepo {
 
 // Create —— 落一条 access request。
 func (r *AccessRequestRepo) Create(
-	ctx context.Context, in *domain.CreateAccessRequestInput,
-) (domain.AccessRequest, error) {
+	ctx context.Context, in *accessdomain.CreateAccessRequestInput,
+) (accessdomain.AccessRequest, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.AccessRequest{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return accessdomain.AccessRequest{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateAccessRequest(ctx, dbq.CreateAccessRequestParams{
@@ -42,7 +42,7 @@ func (r *AccessRequestRepo) Create(
 		Message: in.Message,
 	})
 	if err != nil {
-		return domain.AccessRequest{}, fmt.Errorf("create access request: %w", err)
+		return accessdomain.AccessRequest{}, fmt.Errorf("create access request: %w", err)
 	}
 	return toDomainAccessRequest(&row), nil
 }
@@ -50,7 +50,7 @@ func (r *AccessRequestRepo) Create(
 // ListByOwner —— admin list；status 为空字符串视为"全部"。
 func (r *AccessRequestRepo) ListByOwner(
 	ctx context.Context, ownerID, status string,
-) ([]domain.AccessRequest, error) {
+) ([]accessdomain.AccessRequest, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -63,7 +63,7 @@ func (r *AccessRequestRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list access requests: %w", err)
 	}
-	out := make([]domain.AccessRequest, 0, len(rows))
+	out := make([]accessdomain.AccessRequest, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainAccessRequest(&rows[i]))
 	}
@@ -74,22 +74,22 @@ func (r *AccessRequestRepo) ListByOwner(
 // approve 流程先取出 email/name 再 issue+发信。
 func (r *AccessRequestRepo) GetByID(
 	ctx context.Context, ownerID, id string,
-) (domain.AccessRequest, error) {
+) (accessdomain.AccessRequest, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.AccessRequest{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return accessdomain.AccessRequest{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	reqUUID, ierr := parseUUID(id)
 	if ierr != nil {
-		return domain.AccessRequest{}, fmt.Errorf("parse request id: %w", ierr)
+		return accessdomain.AccessRequest{}, fmt.Errorf("parse request id: %w", ierr)
 	}
 	row, qerr := dbq.New(r.pool).GetAccessRequestByID(ctx,
 		dbq.GetAccessRequestByIDParams{ID: reqUUID, OwnerID: ownerUUID})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.AccessRequest{}, domain.ErrAccessRequestNotFound
+			return accessdomain.AccessRequest{}, accessdomain.ErrAccessRequestNotFound
 		}
-		return domain.AccessRequest{}, fmt.Errorf("get access request: %w", qerr)
+		return accessdomain.AccessRequest{}, fmt.Errorf("get access request: %w", qerr)
 	}
 	return toDomainAccessRequest(&row), nil
 }
@@ -97,14 +97,14 @@ func (r *AccessRequestRepo) GetByID(
 // UpdateStatus —— admin 标记 status；不命中返 ErrAccessRequestNotFound。
 func (r *AccessRequestRepo) UpdateStatus(
 	ctx context.Context, ownerID, id, status string,
-) (domain.AccessRequest, error) {
+) (accessdomain.AccessRequest, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.AccessRequest{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return accessdomain.AccessRequest{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	reqUUID, err := parseUUID(id)
 	if err != nil {
-		return domain.AccessRequest{}, fmt.Errorf("parse request id: %w", err)
+		return accessdomain.AccessRequest{}, fmt.Errorf("parse request id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.UpdateAccessRequestStatus(ctx, dbq.UpdateAccessRequestStatusParams{
@@ -114,9 +114,9 @@ func (r *AccessRequestRepo) UpdateStatus(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.AccessRequest{}, domain.ErrAccessRequestNotFound
+			return accessdomain.AccessRequest{}, accessdomain.ErrAccessRequestNotFound
 		}
-		return domain.AccessRequest{}, fmt.Errorf("update access request status: %w", err)
+		return accessdomain.AccessRequest{}, fmt.Errorf("update access request status: %w", err)
 	}
 	return toDomainAccessRequest(&row), nil
 }
@@ -129,8 +129,8 @@ func statusFilter(status string) *string {
 	return &status
 }
 
-func toDomainAccessRequest(a *dbq.AccessRequest) domain.AccessRequest {
-	return domain.AccessRequest{
+func toDomainAccessRequest(a *dbq.AccessRequest) accessdomain.AccessRequest {
+	return accessdomain.AccessRequest{
 		ID:        formatUUID(a.ID),
 		OwnerID:   formatUUID(a.OwnerID),
 		Name:      a.Name,

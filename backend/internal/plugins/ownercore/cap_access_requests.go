@@ -10,9 +10,9 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -75,7 +75,7 @@ type accessRequestRow struct {
 	Status    string `json:"status"`
 }
 
-func toAccessRequestRow(a *domain.AccessRequest) accessRequestRow {
+func toAccessRequestRow(a *accessdomain.AccessRequest) accessRequestRow {
 	return accessRequestRow{
 		ID: a.ID, Name: a.Name, Org: a.Org, Email: a.Email,
 		Message: a.Message, Status: a.Status,
@@ -228,9 +228,9 @@ func (c *accessRequestsCapability) errToResult(tool string, err error) capreg.MC
 	switch {
 	case errors.Is(err, usecases.ErrEmptyField):
 		return capreg.MCPError("missing required field")
-	case errors.Is(err, domain.ErrAccessRequestStatusInvalid):
+	case errors.Is(err, accessdomain.ErrAccessRequestStatusInvalid):
 		return capreg.MCPError("invalid status value (want open, replied, or closed)")
-	case errors.Is(err, domain.ErrAccessRequestNotFound):
+	case errors.Is(err, accessdomain.ErrAccessRequestNotFound):
 		return capreg.MCPError("access request not found")
 	default:
 		c.log.Error("cap "+tool, "err", err)
@@ -242,7 +242,7 @@ func (c *accessRequestsCapability) approveErrToResult(err error) capreg.MCPResul
 	switch {
 	case errors.Is(err, consumer.ErrMailNotConfigured):
 		return capreg.MCPError("configure and test your mail connector first")
-	case errors.Is(err, domain.ErrAccessRequestNotFound):
+	case errors.Is(err, accessdomain.ErrAccessRequestNotFound):
 		return capreg.MCPError("access request not found")
 	default:
 		c.log.Error("cap access_requests.approve", "err", err)

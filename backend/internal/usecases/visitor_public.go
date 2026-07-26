@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -87,7 +88,7 @@ func finalizePublicSession(
 	issued, err := deps.Sessions.Issue(ctx, &session.VisitorSessionData{
 		OwnerID:      owner.ID,
 		Mode:         mode,
-		Visitor:      domain.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},
+		Visitor:      accessdomain.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},
 		RoleSnapshot: &snapshot,
 	})
 	if err != nil {

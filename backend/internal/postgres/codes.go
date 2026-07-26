@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -44,27 +44,29 @@ type CreateCodeInput struct {
 }
 
 // Create 写一条 access_code。
-func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.AccessCode, error) {
+func (r *CodeRepo) Create(
+	ctx context.Context, in *CreateCodeInput) (accessdomain.AccessCode, error,
+) {
 	params, perr := buildCreateCodeParams(in)
 	if perr != nil {
-		return domain.AccessCode{}, perr
+		return accessdomain.AccessCode{}, perr
 	}
 	row, err := dbq.New(r.pool).CreateAccessCode(ctx, *params)
 	if err != nil {
 		if name, hit := pgUniqueViolation(err); hit && name == "access_codes_code_key" {
-			return domain.AccessCode{}, domain.ErrCodeTaken
+			return accessdomain.AccessCode{}, accessdomain.ErrCodeTaken
 		}
-		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)
+		return accessdomain.AccessCode{}, fmt.Errorf("create access code: %w", err)
 	}
 	return toDomainCode(&row), nil
 }
 
 // CreateAccessCode —— Create 的 domain-input 包装；MCP cap 用 (mcp 包不能
-// import postgres struct)。内部只是把 domain.CreateAccessCodeInput 复制到
+// import postgres struct)。内部只是把 accessdomain.CreateAccessCodeInput 复制到
 // postgres.CreateCodeInput 再 Create。
 func (r *CodeRepo) CreateAccessCode(
-	ctx context.Context, in *domain.CreateAccessCodeInput,
-) (domain.AccessCode, error) {
+	ctx context.Context, in *accessdomain.CreateAccessCodeInput,
+) (accessdomain.AccessCode, error) {
 	return r.Create(ctx, &CreateCodeInput{
 		OwnerID:            in.OwnerID,
 		Code:               in.Code,
@@ -116,17 +118,17 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 // 校验过）。schema NOT NULL 后 role id 必填。
 func (r *CodeRepo) UpdateRole(
 	ctx context.Context, ownerID, codeID, roleID string,
-) (domain.AccessCode, error) {
+) (accessdomain.AccessCode, error) {
 	params, perr := buildUpdateCodeRoleParams(ownerID, codeID, roleID)
 	if perr != nil {
-		return domain.AccessCode{}, perr
+		return accessdomain.AccessCode{}, perr
 	}
 	row, qerr := dbq.New(r.pool).UpdateAccessCodeRole(ctx, *params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.AccessCode{}, domain.ErrCodeInvalid
+			return accessdomain.AccessCode{}, accessdomain.ErrCodeInvalid
 		}
-		return domain.AccessCode{}, fmt.Errorf("update access code role: %w", qerr)
+		return accessdomain.AccessCode{}, fmt.Errorf("update access code role: %w", qerr)
 	}
 	return toDomainCode(&row), nil
 }
@@ -156,7 +158,7 @@ func buildUpdateCodeRoleParams(
 
 // Revoke 把 code.status 改成 'revoked'；GetAccessCode（只查 active）从此跳过它。
 //
-// 0-row match (wrong owner / unknown code id) 返 domain.ErrCodeInvalid 让上层
+// 0-row match (wrong owner / unknown code id) 返 accessdomain.ErrCodeInvalid 让上层
 // (admin REST + MCP) 都能统一翻译成"code not found"，而不是默默 OK 让 owner 误以
 // 为撤销成功。原 sqlc-generated RevokeAccessCode 走 Exec 丢弃 CommandTag，看不
 // 到 RowsAffected；这里 bypass 直接 pool.Exec 拿 tag。
@@ -177,7 +179,7 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 		return fmt.Errorf("revoke access code: %w", rerr)
 	}
 	if tag.RowsAffected() == 0 {
-		return domain.ErrCodeInvalid
+		return accessdomain.ErrCodeInvalid
 	}
 	return nil
 }
@@ -188,14 +190,14 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 // UpdateQuotas 改某 code 的配额；返回新行（让 admin UI 直接刷）。
 func (r *CodeRepo) UpdateQuotas(
 	ctx context.Context, ownerID, codeID string, maxTurns, maxMembers *int32,
-) (domain.AccessCode, error) {
+) (accessdomain.AccessCode, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.AccessCode{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return accessdomain.AccessCode{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	codeUUID, err := parseUUID(codeID)
 	if err != nil {
-		return domain.AccessCode{}, fmt.Errorf(errParseCodeIDPrefix, err)
+		return accessdomain.AccessCode{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateAccessCodeQuotas(ctx, dbq.UpdateAccessCodeQuotasParams{
@@ -204,9 +206,9 @@ func (r *CodeRepo) UpdateQuotas(
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.AccessCode{}, domain.ErrCodeInvalid
+			return accessdomain.AccessCode{}, accessdomain.ErrCodeInvalid
 		}
-		return domain.AccessCode{}, fmt.Errorf("update access code quotas: %w", qerr)
+		return accessdomain.AccessCode{}, fmt.Errorf("update access code quotas: %w", qerr)
 	}
 	return toDomainCode(&row), nil
 }
@@ -214,14 +216,14 @@ func (r *CodeRepo) UpdateQuotas(
 // SetGhostEvidence —— F-A-10 per-code 覆盖:nil = 继承 role 的开关;非 nil = 显式覆盖。返回新行。
 func (r *CodeRepo) SetGhostEvidence(
 	ctx context.Context, ownerID, codeID string, val *bool,
-) (domain.AccessCode, error) {
+) (accessdomain.AccessCode, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.AccessCode{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return accessdomain.AccessCode{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	codeUUID, err := parseUUID(codeID)
 	if err != nil {
-		return domain.AccessCode{}, fmt.Errorf(errParseCodeIDPrefix, err)
+		return accessdomain.AccessCode{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).SetAccessCodeGhostEvidence(ctx,
 		dbq.SetAccessCodeGhostEvidenceParams{
@@ -229,9 +231,9 @@ func (r *CodeRepo) SetGhostEvidence(
 		})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.AccessCode{}, domain.ErrCodeInvalid
+			return accessdomain.AccessCode{}, accessdomain.ErrCodeInvalid
 		}
-		return domain.AccessCode{}, fmt.Errorf("set access code ghost evidence: %w", qerr)
+		return accessdomain.AccessCode{}, fmt.Errorf("set access code ghost evidence: %w", qerr)
 	}
 	return toDomainCode(&row), nil
 }

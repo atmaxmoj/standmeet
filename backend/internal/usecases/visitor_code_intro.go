@@ -10,7 +10,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 )
 
 // CodeIntroResult —— 名字选择器展示用。
@@ -22,7 +22,7 @@ type CodeIntroResult struct {
 }
 
 // CodeIntro —— code → label + greeting(role 的;空则按 owner handle 拼默认)+
-// max_members + 已有 member 数。code 无效 / 撤销 → domain.ErrCodeInvalid(route
+// max_members + 已有 member 数。code 无效 / 撤销 → accessdomain.ErrCodeInvalid(route
 // 翻 404)。
 func CodeIntro(
 	ctx context.Context, deps *VisitorSessionDeps, codeStr string,
@@ -45,7 +45,7 @@ func CodeIntro(
 
 // resolveCodeGreeting —— role 设了 greeting 就用,否则按 owner handle 拼默认。
 func resolveCodeGreeting(
-	ctx context.Context, deps *VisitorSessionDeps, code *domain.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *accessdomain.AccessCode,
 ) string {
 	role, err := deps.Roles.GetByID(ctx, code.OwnerID, code.AssumedRoleID)
 	if err == nil && role.Greeting() != "" {

@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -182,7 +183,7 @@ func dispatchIssueSession(
 	})
 }
 
-func toMemberResps(members []domain.CodeMember) []sessionMemberResp {
+func toMemberResps(members []accessdomain.CodeMember) []sessionMemberResp {
 	if len(members) == 0 {
 		return []sessionMemberResp{}
 	}

@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
@@ -118,8 +118,8 @@ func parseCreateCodeArgs(raw json.RawMessage) (createCodeArgsWire, error) {
 
 func buildCreateCodeInputCap(
 	args *createCodeArgsWire, ownerID string,
-) (*domain.CreateAccessCodeInput, error) {
-	in := &domain.CreateAccessCodeInput{
+) (*accessdomain.CreateAccessCodeInput, error) {
+	in := &accessdomain.CreateAccessCodeInput{
 		OwnerID: ownerID, Code: args.Code, Label: args.Label,
 		Purpose: args.Purpose, AssumedRoleID: args.AssumedRoleID,
 		Ghosts:             mcputil.NonNilStrings(args.Ghosts),

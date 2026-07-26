@@ -15,8 +15,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
@@ -29,17 +29,17 @@ const capCodesBundle = "codes.bundle"
 // 校 ownership。create / update_quotas 是 E-13 新加的 parity tools，复用同
 // repo 接口。
 type CodesRevoker interface {
-	GetByID(ctx context.Context, codeID string) (domain.AccessCode, error)
-	ListByOwner(ctx context.Context, ownerID string) ([]domain.AccessCode, error)
-	ListMembers(ctx context.Context, codeID string) ([]domain.CodeMember, error)
+	GetByID(ctx context.Context, codeID string) (accessdomain.AccessCode, error)
+	ListByOwner(ctx context.Context, ownerID string) ([]accessdomain.AccessCode, error)
+	ListMembers(ctx context.Context, codeID string) ([]accessdomain.CodeMember, error)
 	Revoke(ctx context.Context, ownerID, codeID string) error
 	CreateAccessCode(
-		ctx context.Context, in *domain.CreateAccessCodeInput,
-	) (domain.AccessCode, error)
+		ctx context.Context, in *accessdomain.CreateAccessCodeInput,
+	) (accessdomain.AccessCode, error)
 	UpdateQuotas(
 		ctx context.Context, ownerID, codeID string,
 		maxTurns, maxMembers *int32,
-	) (domain.AccessCode, error)
+	) (accessdomain.AccessCode, error)
 }
 
 // CodeBookingQuota —— #135:per-code 预约配额由 booker 能力自管,不进内核 access_code。
@@ -139,7 +139,7 @@ func parseRevokeArgs(raw json.RawMessage) (revokeArgsWire, error) {
 }
 
 func codesRevokeErr(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrCodeInvalid) {
+	if errors.Is(err, accessdomain.ErrCodeInvalid) {
 		return capreg.MCPError("code not found")
 	}
 	log.Error("codes.revoke", "err", err)
@@ -219,7 +219,7 @@ func parseUpdateQuotasArgs(raw json.RawMessage) (updateQuotasArgsWire, error) {
 }
 
 func updateQuotasErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrCodeInvalid) {
+	if errors.Is(err, accessdomain.ErrCodeInvalid) {
 		return capreg.MCPError("code not found")
 	}
 	log.Error("cap codes.update_quotas", "err", err)
@@ -251,18 +251,18 @@ func (c *codesCapability) mergeQuotaArgs(
 
 func (c *codesCapability) lookupOwnedCode(
 	ctx context.Context, ownerID, codeID string,
-) (*domain.AccessCode, error) {
+) (*accessdomain.AccessCode, error) {
 	cur, err := c.codes.GetByID(ctx, codeID)
 	if err != nil {
 		return nil, fmt.Errorf("get code: %w", err)
 	}
 	if cur.OwnerID != ownerID {
-		return nil, domain.ErrCodeInvalid
+		return nil, accessdomain.ErrCodeInvalid
 	}
 	return &cur, nil
 }
 
-func buildMergedQuotas(args *updateQuotasArgsWire, cur *domain.AccessCode) *quotaPair {
+func buildMergedQuotas(args *updateQuotasArgsWire, cur *accessdomain.AccessCode) *quotaPair {
 	out := &quotaPair{maxMembers: args.MaxMembers, maxTurns: args.MaxTurns}
 	if out.maxMembers == nil {
 		out.maxMembers = cur.MaxMembers

@@ -2,7 +2,7 @@
 // owner 在 /admin/requests 看；open → replied (回邮件后) / closed (无视)。
 // 不自动通知 owner、不自动回邮件——owner-curated，是 product 设计的明确选择。
 
-package domain
+package accessdomain
 
 import (
 	"errors"

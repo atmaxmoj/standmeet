@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
@@ -116,20 +117,20 @@ var visitorErrCases = []apierr.Case{
 	{Match: usecases.ErrEmptyField, Envelope: apierr.Envelope{
 		Status: http.StatusBadRequest, Code: "bad_request", Message: "missing required field",
 	}},
-	{Match: domain.ErrCodeInvalid, Envelope: apierr.Envelope{
+	{Match: accessdomain.ErrCodeInvalid, Envelope: apierr.Envelope{
 		Status:  http.StatusUnauthorized,
 		Code:    "code_invalid",
 		Message: "access code invalid or revoked",
 	}},
-	{Match: domain.ErrCodeExpired, Envelope: apierr.Envelope{
+	{Match: accessdomain.ErrCodeExpired, Envelope: apierr.Envelope{
 		Status: http.StatusUnauthorized, Code: "code_expired", Message: "access code expired",
 	}},
-	{Match: domain.ErrMemberQuotaReached, Envelope: apierr.Envelope{
+	{Match: accessdomain.ErrMemberQuotaReached, Envelope: apierr.Envelope{
 		Status:  http.StatusForbidden,
 		Code:    "member_quota_reached",
 		Message: "this code is full — no more names available",
 	}},
-	{Match: domain.ErrTurnQuotaReached, Envelope: apierr.Envelope{
+	{Match: accessdomain.ErrTurnQuotaReached, Envelope: apierr.Envelope{
 		Status:  http.StatusForbidden,
 		Code:    "turn_quota_reached",
 		Message: "this session has reached its turn limit",

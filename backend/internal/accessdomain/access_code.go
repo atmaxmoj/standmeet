@@ -2,7 +2,7 @@
 // revoke 只在 code 级别（status='revoked'）做；单 member 不可单独 revoke ——
 // 那种复杂度不值。
 
-package domain
+package accessdomain
 
 import (
 	"errors"

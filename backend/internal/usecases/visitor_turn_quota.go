@@ -10,8 +10,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // TurnQuotaInput —— EnforceTurnQuota 入参 (拆出来让外部 caller pi-pivot
@@ -23,8 +23,8 @@ type TurnQuotaInput struct {
 
 // EnforceTurnQuota —— 检查 turns/session 配额。返:
 //   - nil = OK 继续
-//   - domain.ErrTurnQuotaReached = 已用完 max_turns_per_session
-//   - domain.ErrCodeInvalid = code 被 revoke
+//   - accessdomain.ErrTurnQuotaReached = 已用完 max_turns_per_session
+//   - accessdomain.ErrCodeInvalid = code 被 revoke
 //   - 其他 = DB error
 func EnforceTurnQuota(
 	ctx context.Context, deps *VisitorSessionDeps, in *TurnQuotaInput,
@@ -47,20 +47,20 @@ func enforceTurnQuotaForCode(
 		return turnQuotaCodeErr(cerr)
 	}
 	if code.Status == "revoked" {
-		return domain.ErrCodeInvalid
+		return accessdomain.ErrCodeInvalid
 	}
 	return turnQuotaCheck(ctx, deps, &code, conv)
 }
 
 func turnQuotaCodeErr(err error) error {
-	if errors.Is(err, domain.ErrCodeInvalid) {
+	if errors.Is(err, accessdomain.ErrCodeInvalid) {
 		return nil
 	}
 	return fmt.Errorf("load code for quota: %w", err)
 }
 
 func turnQuotaCheck(
-	ctx context.Context, deps *VisitorSessionDeps, code *domain.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *accessdomain.AccessCode,
 	conv *conversationdomain.Chat,
 ) error {
 	if code.MaxTurnsPerSession == nil || *code.MaxTurnsPerSession <= 0 {
@@ -71,7 +71,7 @@ func turnQuotaCheck(
 		return fmt.Errorf("count turns: %w", err)
 	}
 	if count >= *code.MaxTurnsPerSession {
-		return domain.ErrTurnQuotaReached
+		return accessdomain.ErrTurnQuotaReached
 	}
 	return nil
 }

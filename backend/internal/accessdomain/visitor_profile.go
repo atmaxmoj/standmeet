@@ -1,6 +1,6 @@
 // visitor_profile.go —— 访客的自述身份(profile)。
 
-package domain
+package accessdomain
 
 // VisitorProfile —— 访客进入时填 / 带的自述身份。挂在 session(visitor 身份),
 // 不挂 chat —— 一个人跨多段对话是同一个 profile。

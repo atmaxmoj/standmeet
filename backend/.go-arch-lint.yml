@@ -83,6 +83,8 @@ components:
     in: internal/conversationdomain        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpusdomain 拿 DocumentGenre
   corpusdomain:
     in: internal/corpusdomain              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
+  accessdomain:
+    in: internal/accessdomain              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -165,6 +167,7 @@ deps:
   # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
+      - accessdomain
       - corpusdomain
       - conversationdomain
       - domain
@@ -325,6 +328,7 @@ deps:
   # 具体 Capability 实现放在 usecases / mcp 等更高层，反向 import 本包注册。
   capreg:
     mayDependOn:
+      - accessdomain
       - inference
       - domain
     anyVendorDeps: true
@@ -356,6 +360,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
+      - accessdomain
       - corpusdomain
       - conversationdomain
       - jobsdomain
@@ -375,7 +380,7 @@ deps:
   # domain 是单向值对象（PathPermission 等）—— session 内置入参/出参字段，
   # 不耦合业务逻辑。其他 internal 包仍走 narrow interface 注入。
   session:
-    mayDependOn: [domain]
+    mayDependOn: [domain, accessdomain]
     anyVendorDeps: true
 
   config:
@@ -471,6 +476,7 @@ deps:
   # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
   pluginownercore:
     mayDependOn:
+      - accessdomain
       - corpusdomain
       - conversationdomain
       - plugins
@@ -590,10 +596,10 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # jobsdomain —— #135 jobs 领域值对象 leaf：只依赖 domain（CommittedApplication 内嵌 AccessCode）。
+  # jobsdomain —— #135 jobs 领域值对象 leaf：依赖 accessdomain（CommittedApplication 内嵌 AccessCode）。
   jobsdomain:
     mayDependOn:
-      - domain
+      - accessdomain
     anyVendorDeps: true
 
   # conversationdomain —— #135 conversation 领域值对象：Citation.Genre = corpusdomain.DocumentGenre。
@@ -606,6 +612,11 @@ deps:
   corpusdomain:
     mayDependOn:
       - domain
+    anyVendorDeps: true
+
+  # accessdomain —— #135 access 领域值对象 leaf：AccessCode/CodeMember/AccessRequest/VisitorProfile，无 internal 依赖。
+  accessdomain:
+    mayDependOn: []
     anyVendorDeps: true
 
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
@@ -664,6 +675,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - accessdomain
       - corpusdomain
       - conversationdomain
       - domain
@@ -702,6 +714,7 @@ deps:
   # token bearer auth；SSE 流式 chat。
   publicroutes:
     mayDependOn:
+      - accessdomain
       - corpusdomain
       - conversationdomain
       - domain

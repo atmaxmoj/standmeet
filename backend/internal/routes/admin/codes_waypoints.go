@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -103,7 +104,7 @@ func nonNilWaypoints(w []domain.Waypoint) []domain.Waypoint {
 // 码已建成，覆盖层写失败只 warn —— 不把一张已经发出去的码回滚成 500；owner 可在
 // PUT /codes/{id}/waypoints 重设。
 func (h *Handlers) attachCreateWaypoints(
-	r *http.Request, code *domain.AccessCode, ws []domain.Waypoint,
+	r *http.Request, code *accessdomain.AccessCode, ws []domain.Waypoint,
 ) {
 	if len(ws) == 0 {
 		return

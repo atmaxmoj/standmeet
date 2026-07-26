@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -109,7 +110,7 @@ func prepareApproval(
 }
 
 type approvalContext struct {
-	req   domain.AccessRequest
+	req   accessdomain.AccessRequest
 	owner domain.Owner
 }
 
@@ -145,7 +146,7 @@ func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID strin
 	}
 	expires := time.Now().AddDate(0, 0, inviteCodeDays)
 	maxMembers := int32(inviteMaxMembers)
-	if _, cerr := deps.Codes.CreateAccessCode(ctx, &domain.CreateAccessCodeInput{
+	if _, cerr := deps.Codes.CreateAccessCode(ctx, &accessdomain.CreateAccessCodeInput{
 		OwnerID: ownerID, Code: code, Label: "invite",
 		Purpose: "access request approval", AssumedRoleID: public.ID(),
 		ExpiresAt: &expires, MaxMembers: &maxMembers,
@@ -170,7 +171,7 @@ func buildCodeLink(publicURL, code string) string {
 	return strings.TrimRight(publicURL, "/") + "?code=" + code
 }
 
-func buildApprovalEmail(req *domain.AccessRequest, code, link string) OutboundMessage {
+func buildApprovalEmail(req *accessdomain.AccessRequest, code, link string) OutboundMessage {
 	greeting := "Hi there,"
 	if req.Name != "" {
 		greeting = "Hi " + req.Name + ","
