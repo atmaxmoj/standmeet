@@ -1,7 +1,6 @@
-// Package conversation —— socket controller。conversation.read host op —— conversation.read host op：断网沙箱 cap 经 socket 读本会话的
-// owner-scoped transcript。按业务分类:它跟 conversation 的其它代码住一起,不进任何机制 bucket。
+// Package conversation —— socket controller:conversation.read host op。断网沙箱 cap 经 socket 读本
+// 会话的 owner-scoped transcript。按业务分类:它跟 conversation 的其它代码住一起,不进机制 bucket。
 // capsocket 只是那根传输;cmd 按每个 cap 挂它允许的 op。
-
 package conversation
 
 import (
@@ -19,14 +18,14 @@ type SockMessage struct {
 	Content string `json:"content"`
 }
 
-// ConversationGetter —— 读一次会话的 owner-scoped transcript(消费侧窄口,组装根注入 chatRepo)。
-type ConversationGetter interface {
+// Getter —— 读一次会话的 owner-scoped transcript(消费侧窄口,组装根注入 chatRepo)。
+type Getter interface {
 	GetWithMessages(ctx context.Context, ownerID, chatID string) (postgres.ChatWithMessages, error)
 }
 
 // RegisterConversationReadOp —— 把 "conversation.read" 挂到 srv:{owner_id,conversation_id} →
 // GetWithMessages → {messages:[{role,content}]}。
-func RegisterConversationReadOp(srv *capsocket.Server, chats ConversationGetter) {
+func RegisterConversationReadOp(srv *capsocket.Server, chats Getter) {
 	srv.Handle("conversation.read", func(
 		ctx context.Context, raw json.RawMessage,
 	) (json.RawMessage, error) {
@@ -35,7 +34,7 @@ func RegisterConversationReadOp(srv *capsocket.Server, chats ConversationGetter)
 }
 
 func runConversationRead(
-	ctx context.Context, chats ConversationGetter, raw json.RawMessage,
+	ctx context.Context, chats Getter, raw json.RawMessage,
 ) (json.RawMessage, error) {
 	var req struct {
 		OwnerID        string `json:"owner_id"`

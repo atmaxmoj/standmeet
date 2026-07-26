@@ -1,7 +1,6 @@
 // Package owner —— socket 入站 controller。owner.meta host op：断网沙箱 cap 经 socket 读**白名单** owner 字段
 // (时区/名字/邮箱)。按业务分类:它跟 owner 数据一起,不进机制 bucket。非白名单字段一律拒
 // (不泄露任意 owner 数据)。cmd 按需要 owner 元数据的 cap 挂这个。
-
 package owner
 
 import (
