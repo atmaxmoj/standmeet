@@ -15,7 +15,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -96,7 +95,7 @@ func handleInstallSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, usecases.ErrEmptyField):
 		writeError(log, w, envBadReq("source, id, and a non-empty SKILL.md are required"))
-	case errors.Is(err, skilldomain.ErrSkillNameTaken):
+	case errors.Is(err, marketplace.ErrSkillNameTaken):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusConflict, Code: "skill_name_taken",
 			Message: "a skill with that name is already installed",

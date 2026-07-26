@@ -14,9 +14,8 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -265,9 +264,9 @@ var writeRoleErrCases = []apierr.Case{
 		},
 	},
 	{Match: domain.ErrPromptNotFound, Envelope: envBadReq("prompt id not found for this owner")},
-	{Match: skilldomain.ErrSkillNotFound, Envelope: envBadReq("one or more skill ids not found")},
+	{Match: marketplace.ErrSkillNotFound, Envelope: envBadReq("one or more skill ids not found")},
 	{
-		Match:    mcpdomain.ErrMCPServerNotFound,
+		Match:    marketplace.ErrMCPServerNotFound,
 		Envelope: envBadReq("one or more mcp server ids not found"),
 	},
 }

@@ -11,9 +11,8 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
-	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 // driverSandbox —— sandbox.Runner backed by Driver.RunSkill. Owns no stdout; forwards
@@ -31,24 +30,24 @@ func (s driverSandbox) Run(ctx context.Context, in *sandbox.RunInput) (sandbox.R
 }
 
 // driverSkillGetter —— SkillGetter over the Driver's one granted skill (already
-// translated to a skilldomain.Skill by the bridge).
-type driverSkillGetter struct{ skill *skilldomain.Skill }
+// translated to a marketplace.Skill by the bridge).
+type driverSkillGetter struct{ skill *marketplace.Skill }
 
-func (g driverSkillGetter) GetByID(_ context.Context, _, _ string) (skilldomain.Skill, error) {
+func (g driverSkillGetter) GetByID(_ context.Context, _, _ string) (marketplace.Skill, error) {
 	return *g.skill, nil
 }
 
 func (g driverSkillGetter) ListSkillsForRole(
-	_ context.Context, _ string) ([]skilldomain.Skill, error,
+	_ context.Context, _ string) ([]marketplace.Skill, error,
 ) {
-	return []skilldomain.Skill{*g.skill}, nil
+	return []marketplace.Skill{*g.skill}, nil
 }
 
 // driverMCPGetter —— MCPServerGetter returning the Driver's one ext-mcp server config.
-type driverMCPGetter struct{ cfg *mcpdomain.MCPServerConfig }
+type driverMCPGetter struct{ cfg *marketplace.MCPServerConfig }
 
 func (g driverMCPGetter) GetByID(
-	_ context.Context, _, _ string) (mcpdomain.MCPServerConfig, error,
+	_ context.Context, _, _ string) (marketplace.MCPServerConfig, error,
 ) {
 	return *g.cfg, nil
 }
@@ -66,20 +65,20 @@ func (r driverResolver) Resolve(
 	return &c, nil // agentcore.Cred is an alias of inference.Cred
 }
 
-// buildSkillFromSpec —— map a public VisitorSkillSpec into a skilldomain.Skill with one
+// buildSkillFromSpec —— map a public VisitorSkillSpec into a marketplace.Skill with one
 // script (the bridge translation; no canned data of its own).
-func buildSkillFromSpec(ownerID string, spec *VisitorSkillSpec) skilldomain.Skill {
-	params := make([]skilldomain.SkillScriptParam, 0, len(spec.Params))
+func buildSkillFromSpec(ownerID string, spec *VisitorSkillSpec) marketplace.Skill {
+	params := make([]marketplace.SkillScriptParam, 0, len(spec.Params))
 	for i := range spec.Params {
-		params = append(params, skilldomain.SkillScriptParam{
+		params = append(params, marketplace.SkillScriptParam{
 			Name: spec.Params[i].Name, Type: spec.Params[i].Type,
 			Description: spec.Params[i].Description, Required: spec.Params[i].Required,
 		})
 	}
-	return skilldomain.Skill{
+	return marketplace.Skill{
 		ID: evalSkillID, OwnerID: ownerID, Name: spec.Name,
 		Description: spec.Description, Prompt: spec.Prompt,
-		Scripts: []skilldomain.SkillScript{{
+		Scripts: []marketplace.SkillScript{{
 			Filename: spec.Name + scriptExt(spec.Language), Language: spec.Language,
 			Content: spec.Content, Description: spec.Description, Parameters: params,
 		}},

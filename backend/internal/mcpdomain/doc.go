@@ -1,3 +1,3 @@
-// Package mcpdomain —— MCP 轴的 owner 数据值对象:MCPServerConfig(owner 注册的外部 MCP server)、
-// AppStateRef(MCP App 卡片状态坐标 member×mcp_id×key)。从 internal/domain god-package 切出。pure leaf。
+// Package mcpdomain —— MCP App 卡片状态值对象:AppStateRef(member×mcp_id×key 坐标)。
+// (mcp_server 已并入 marketplace 模块。) pure leaf,无 internal 依赖。
 package mcpdomain

@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/accessdomain"
 	"github.com/atmaxmoj/standmeet/internal/credentialdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/skilldomain"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
 
 // buildRoleSnapshotForCode —— code.AssumedRoleID 必填（schema NOT NULL）→ 构造
@@ -267,11 +267,11 @@ func loadRoleSkills(
 
 // filterDeniedSkills —— ACL code 层：剔掉这张 code deny 的 skill（按 id）。源头剔除
 // 让 prompt / tool / id 一致消失。空 deny → 原样返回。
-func filterDeniedSkills(skills []skilldomain.Skill, denied []string) []skilldomain.Skill {
+func filterDeniedSkills(skills []marketplace.Skill, denied []string) []marketplace.Skill {
 	if len(denied) == 0 {
 		return skills
 	}
-	out := make([]skilldomain.Skill, 0, len(skills))
+	out := make([]marketplace.Skill, 0, len(skills))
 	for i := range skills {
 		if !slices.Contains(denied, skills[i].ID) {
 			out = append(out, skills[i])
@@ -284,7 +284,7 @@ func filterDeniedSkills(skills []skilldomain.Skill, denied []string) []skilldoma
 // 系统提示只放 name+description（L1 progressive disclosure），正文要 agent 调
 // skill_use 才披露（L2）；同时收 enabled skill id 冻进 snapshot，让 binding 只
 // 对 enabled 授权 skill 暴露 skill_use/skill_run_script。
-func collectRoleSkillBundle(skills []skilldomain.Skill) roleSkillBundle {
+func collectRoleSkillBundle(skills []marketplace.Skill) roleSkillBundle {
 	prompts := make([]string, 0, len(skills))
 	ids := make([]string, 0, len(skills))
 	toolSet := make(map[string]struct{}, len(skills)*2)
@@ -306,7 +306,7 @@ func collectRoleSkillBundle(skills []skilldomain.Skill) roleSkillBundle {
 
 // skillL1Line —— L1 注入系统提示的一行:name + 一句话 description + 提示用
 // skill_use 读正文。引导 agent 在相关时才把正文（L2）拉进上下文。
-func skillL1Line(s *skilldomain.Skill) string {
+func skillL1Line(s *marketplace.Skill) string {
 	name := strings.TrimSpace(s.Name)
 	if name == "" {
 		return ""

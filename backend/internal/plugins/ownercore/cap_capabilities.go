@@ -16,8 +16,8 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 const capCapabilitiesBundle = "capabilities.bundle"
@@ -38,10 +38,10 @@ type capSettingsStore interface {
 
 // capSkillStore —— owner-authored skills (their own enable flag + delete).
 type capSkillStore interface {
-	ListByOwner(ctx context.Context, ownerID string) ([]skilldomain.Skill, error)
+	ListByOwner(ctx context.Context, ownerID string) ([]marketplace.Skill, error)
 	SetEnabled(
 		ctx context.Context, ownerID, skillID string, enabled bool,
-	) (skilldomain.Skill, error)
+	) (marketplace.Skill, error)
 	Delete(ctx context.Context, ownerID, skillID string) error
 }
 
@@ -179,8 +179,8 @@ func dependencyConnected(id string, gcal, mail bool) *bool {
 }
 
 // skillRows —— owner-authored (non-builtin) skills; enabled is the skill's own
-// global flag (skilldomain.Skill.Enabled), not capability_settings.
-func skillRows(skills []skilldomain.Skill) []capabilityRow {
+// global flag (marketplace.Skill.Enabled), not capability_settings.
+func skillRows(skills []marketplace.Skill) []capabilityRow {
 	out := make([]capabilityRow, 0, len(skills))
 	for i := range skills {
 		s := &skills[i]
@@ -256,7 +256,7 @@ func (c *capabilitiesCapability) handleSetEnabled(
 		return capreg.MCPError(perr.Error())
 	}
 	if err := c.applyEnabled(ctx, ownerID, args.ID, args.Enabled); err != nil {
-		if errors.Is(err, skilldomain.ErrSkillNotFound) {
+		if errors.Is(err, marketplace.ErrSkillNotFound) {
 			return capreg.MCPError("capability or skill not found")
 		}
 		c.log.Error("cap capabilities.set_enabled", "err", err)
@@ -326,8 +326,8 @@ func (c *capabilitiesCapability) deleteOwnerCap(
 		return capreg.MCPError("this capability is built in and cannot be deleted")
 	}
 	if err := c.deps.Skills.Delete(ctx, ownerID, id); err != nil {
-		if errors.Is(err, skilldomain.ErrSkillNotFound) ||
-			errors.Is(err, skilldomain.ErrSkillBuiltinImmutable) {
+		if errors.Is(err, marketplace.ErrSkillNotFound) ||
+			errors.Is(err, marketplace.ErrSkillBuiltinImmutable) {
 			return capreg.MCPError("owner capability not found")
 		}
 		c.log.Error("cap capabilities.delete", "err", err)

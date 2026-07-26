@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
-	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 const (
@@ -119,12 +119,12 @@ func (c *skillRunnerCapability) VisitorBinding(
 // 全量（含 body + scripts），供两个 tool 内查 name。已删 skill id（race）→ skip。
 func loadSkillsForBinding(
 	ctx context.Context, skills SkillGetter, in *capreg.AssembleInput,
-) []skilldomain.Skill {
+) []marketplace.Skill {
 	if skills == nil || in.RoleSnapshot == nil {
-		return []skilldomain.Skill{}
+		return []marketplace.Skill{}
 	}
 	ids := in.RoleSnapshot.SkillIDs()
-	out := make([]skilldomain.Skill, 0, len(ids))
+	out := make([]marketplace.Skill, 0, len(ids))
 	for _, id := range ids {
 		s, err := skills.GetByID(ctx, in.OwnerID, id)
 		if err != nil {
@@ -136,8 +136,8 @@ func loadSkillsForBinding(
 }
 
 // skillsByName —— name → *skill（指针指进 slice，调用期不再改 slice）。
-func skillsByName(skills []skilldomain.Skill) map[string]*skilldomain.Skill {
-	m := make(map[string]*skilldomain.Skill, len(skills))
+func skillsByName(skills []marketplace.Skill) map[string]*marketplace.Skill {
+	m := make(map[string]*marketplace.Skill, len(skills))
 	for i := range skills {
 		m[skills[i].Name] = &skills[i]
 	}
@@ -146,7 +146,7 @@ func skillsByName(skills []skilldomain.Skill) map[string]*skilldomain.Skill {
 
 // ─── L2: skill_use ───────────────────────────────────────────────
 
-func makeSkillUse(skills []skilldomain.Skill) capreg.RunFn {
+func makeSkillUse(skills []marketplace.Skill) capreg.RunFn {
 	byName := skillsByName(skills)
 	return func(_ context.Context, argsJSON string) (string, error) {
 		name, ok := parseSkillName(argsJSON)
@@ -173,7 +173,7 @@ func parseSkillName(argsJSON string) (string, bool) {
 	return a.Name, true
 }
 
-func skillUsePayload(s *skilldomain.Skill) string {
+func skillUsePayload(s *marketplace.Skill) string {
 	out, err := json.Marshal(map[string]string{"skill_md": renderSkillMD(s)})
 	if err != nil {
 		return errJSON("marshal skill failed")
@@ -185,7 +185,7 @@ func skillUsePayload(s *skilldomain.Skill) string {
 // （YAML frontmatter: name + description；正文 = body；脚本清单附后）。这是
 // P.1e 的「render 成 SKILL.md 喂 runtime」—— DB 仍是管理存储，喂给 agent 的是
 // SKILL.md。
-func renderSkillMD(s *skilldomain.Skill) string {
+func renderSkillMD(s *marketplace.Skill) string {
 	lines := []string{"---", "name: " + s.Name}
 	if d := strings.TrimSpace(s.Description); d != "" {
 		lines = append(lines, "description: "+d)
@@ -199,7 +199,7 @@ func renderSkillMD(s *skilldomain.Skill) string {
 
 // renderSkillScriptsSection —— 正文末尾列出可跑脚本，引导 agent 用
 // skill_run_script(name, script) 调它们（L3）。无脚本则空。
-func renderSkillScriptsSection(s *skilldomain.Skill) string {
+func renderSkillScriptsSection(s *marketplace.Skill) string {
 	if len(s.Scripts) == 0 {
 		return ""
 	}
@@ -245,7 +245,7 @@ func parseRunScriptArgs(argsJSON string) (runScriptArgs, bool) {
 	return a, true
 }
 
-func makeSkillRunScript(runner sandbox.Runner, skills []skilldomain.Skill) capreg.RunFn {
+func makeSkillRunScript(runner sandbox.Runner, skills []marketplace.Skill) capreg.RunFn {
 	byName := skillsByName(skills)
 	return func(ctx context.Context, argsJSON string) (string, error) {
 		a, ok := parseRunScriptArgs(argsJSON)
@@ -267,7 +267,7 @@ func makeSkillRunScript(runner sandbox.Runner, skills []skilldomain.Skill) capre
 	}
 }
 
-func findSkillScript(s *skilldomain.Skill, filename string) *skilldomain.SkillScript {
+func findSkillScript(s *marketplace.Skill, filename string) *marketplace.SkillScript {
 	for i := range s.Scripts {
 		if s.Scripts[i].Filename == filename {
 			return &s.Scripts[i]

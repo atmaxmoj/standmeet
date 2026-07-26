@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -33,13 +33,13 @@ type CreateMCPServerInput struct {
 // CreateMCPServer —— 新建 mcp_server。name 冲突翻 ErrMCPServerNameTaken。
 func CreateMCPServer(
 	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerInput,
-) (mcpdomain.MCPServerConfig, error) {
+) (marketplace.MCPServerConfig, error) {
 	if verr := validateMCPCreateInput(in); verr != nil {
-		return mcpdomain.MCPServerConfig{}, verr
+		return marketplace.MCPServerConfig{}, verr
 	}
 	enc, eerr := encryptAuthValue(in.AuthHeaderValue, []byte(in.OwnerID))
 	if eerr != nil {
-		return mcpdomain.MCPServerConfig{}, eerr
+		return marketplace.MCPServerConfig{}, eerr
 	}
 	return persistMCPServer(ctx, deps, in, enc)
 }
@@ -53,16 +53,16 @@ func validateMCPCreateInput(in *CreateMCPServerInput) error {
 
 func persistMCPServer(
 	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerInput, enc []byte,
-) (mcpdomain.MCPServerConfig, error) {
+) (marketplace.MCPServerConfig, error) {
 	cfg, err := deps.Servers.Create(ctx, &postgres.CreateMCPServerInput{
 		OwnerID: in.OwnerID, Name: in.Name, URL: in.URL,
 		AuthHeaderName: in.AuthHeaderName, AuthHeaderValueEnc: enc,
 	})
 	if err != nil {
-		if errors.Is(err, mcpdomain.ErrMCPServerNameTaken) {
-			return mcpdomain.MCPServerConfig{}, mcpdomain.ErrMCPServerNameTaken
+		if errors.Is(err, marketplace.ErrMCPServerNameTaken) {
+			return marketplace.MCPServerConfig{}, marketplace.ErrMCPServerNameTaken
 		}
-		return mcpdomain.MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
+		return marketplace.MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
 	}
 	return cfg, nil
 }
@@ -84,7 +84,7 @@ func encryptAuthValue(plaintext string, aad []byte) ([]byte, error) {
 // ListMCPServers —— admin / MCP list。
 func ListMCPServers(
 	ctx context.Context, deps MCPServersDeps, ownerID string,
-) ([]mcpdomain.MCPServerConfig, error) {
+) ([]marketplace.MCPServerConfig, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}

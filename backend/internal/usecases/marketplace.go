@@ -15,7 +15,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
-	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 // MarketplaceClient —— matches marketplace.Client. Interfaces lets us
@@ -89,18 +88,18 @@ type InstallSkillInput struct {
 // the search metadata (name/version) is fallback. Empty body → ErrEmptyField.
 func InstallSkill(
 	ctx context.Context, deps InstallSkillDeps, in *InstallSkillInput,
-) (skilldomain.Skill, error) {
+) (marketplace.Skill, error) {
 	if !validInstallInput(in) {
-		return skilldomain.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, ErrEmptyField
 	}
 	content, err := deps.Marketplace.FetchSkillContent(
 		ctx, marketplace.MarketSource(in.Source), in.ID, in.SourceURL,
 	)
 	if err != nil {
-		return skilldomain.Skill{}, fmt.Errorf("fetch skill content: %w", err)
+		return marketplace.Skill{}, fmt.Errorf("fetch skill content: %w", err)
 	}
 	if strings.TrimSpace(content.Prompt) == "" {
-		return skilldomain.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, ErrEmptyField
 	}
 	return createInstalledSkill(ctx, deps, in, &content)
 }
@@ -114,13 +113,13 @@ func validInstallInput(in *InstallSkillInput) bool {
 // skill. Empty owner / empty body → ErrEmptyField.
 func InstallManualSkill(
 	ctx context.Context, deps InstallSkillDeps, ownerID, skillMD, nameFallback string,
-) (skilldomain.Skill, error) {
+) (marketplace.Skill, error) {
 	if ownerID == "" || strings.TrimSpace(skillMD) == "" {
-		return skilldomain.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, ErrEmptyField
 	}
 	content := deps.Marketplace.ParseSkillMD(skillMD)
 	if strings.TrimSpace(content.Prompt) == "" {
-		return skilldomain.Skill{}, ErrEmptyField
+		return marketplace.Skill{}, ErrEmptyField
 	}
 	return persistManualSkill(ctx, deps, ownerID, nameFallback, &content)
 }
@@ -128,7 +127,7 @@ func InstallManualSkill(
 func persistManualSkill(
 	ctx context.Context, deps InstallSkillDeps,
 	ownerID, nameFallback string, content *marketplace.MarketSkillContent,
-) (skilldomain.Skill, error) {
+) (marketplace.Skill, error) {
 	skill, cerr := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
 		OwnerID:      ownerID,
 		Name:         firstNonEmptyStr(content.Name, nameFallback),
@@ -139,10 +138,10 @@ func persistManualSkill(
 		Version:      content.Version,
 	})
 	if cerr != nil {
-		if errors.Is(cerr, skilldomain.ErrSkillNameTaken) {
-			return skilldomain.Skill{}, skilldomain.ErrSkillNameTaken
+		if errors.Is(cerr, marketplace.ErrSkillNameTaken) {
+			return marketplace.Skill{}, marketplace.ErrSkillNameTaken
 		}
-		return skilldomain.Skill{}, fmt.Errorf("create manual skill: %w", cerr)
+		return marketplace.Skill{}, fmt.Errorf("create manual skill: %w", cerr)
 	}
 	return skill, nil
 }
@@ -150,7 +149,7 @@ func persistManualSkill(
 func createInstalledSkill(
 	ctx context.Context, deps InstallSkillDeps,
 	in *InstallSkillInput, content *marketplace.MarketSkillContent,
-) (skilldomain.Skill, error) {
+) (marketplace.Skill, error) {
 	skill, cerr := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
 		OwnerID:      in.OwnerID,
 		Name:         firstNonEmptyStr(content.Name, in.Name, in.ID),
@@ -161,10 +160,10 @@ func createInstalledSkill(
 		Version:      in.Version,
 	})
 	if cerr != nil {
-		if errors.Is(cerr, skilldomain.ErrSkillNameTaken) {
-			return skilldomain.Skill{}, skilldomain.ErrSkillNameTaken
+		if errors.Is(cerr, marketplace.ErrSkillNameTaken) {
+			return marketplace.Skill{}, marketplace.ErrSkillNameTaken
 		}
-		return skilldomain.Skill{}, fmt.Errorf("create installed skill: %w", cerr)
+		return marketplace.Skill{}, fmt.Errorf("create installed skill: %w", cerr)
 	}
 	return skill, nil
 }

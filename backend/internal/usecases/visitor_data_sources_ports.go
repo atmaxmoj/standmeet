@@ -8,10 +8,9 @@ package usecases
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
-	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 // OwnerGetter —— the owner reads the visitor path needs: GetByID (calendar.book
@@ -37,8 +36,8 @@ type ConversationGetter interface {
 // ListSkillsForRole (role-snapshot freeze). VisitorDeps.Skills is this narrow
 // port so the eval can inject a fixture owner skill.
 type SkillGetter interface {
-	GetByID(ctx context.Context, ownerID, skillID string) (skilldomain.Skill, error)
-	ListSkillsForRole(ctx context.Context, roleID string) ([]skilldomain.Skill, error)
+	GetByID(ctx context.Context, ownerID, skillID string) (marketplace.Skill, error)
+	ListSkillsForRole(ctx context.Context, roleID string) ([]marketplace.Skill, error)
 }
 
 // MCPServerGetter —— the one MCP-server read the ext-mcp capability needs to
@@ -46,5 +45,5 @@ type SkillGetter interface {
 // this narrow port so the eval can inject a fixture server pointed at a real MCP
 // endpoint (the dial stays real — only the registry lookup is fixtured).
 type MCPServerGetter interface {
-	GetByID(ctx context.Context, ownerID, serverID string) (mcpdomain.MCPServerConfig, error)
+	GetByID(ctx context.Context, ownerID, serverID string) (marketplace.MCPServerConfig, error)
 }
