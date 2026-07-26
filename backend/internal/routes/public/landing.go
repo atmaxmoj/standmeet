@@ -78,7 +78,7 @@ func loadWikiLandingView(
 	}, nil
 }
 
-func toWikiRefViews(refs []usecases.WikiPathTitle) []wikiRefView {
+func toWikiRefViews(refs []corpus.WikiPathTitle) []wikiRefView {
 	out := make([]wikiRefView, 0, len(refs))
 	for i := range refs {
 		out = append(out, wikiRefView{Title: refs[i].Title, Path: refs[i].Path})

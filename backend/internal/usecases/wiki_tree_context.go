@@ -30,7 +30,7 @@ func WikiNodeContext(
 	if !ok {
 		return emptyWikiContext(), nil
 	}
-	nodeID, err := resolveWikiNodeID(ctx, deps.Wiki, owner.ID, path)
+	nodeID, err := corpus.ResolveWikiNodeID(ctx, deps.Wiki, owner.ID, path)
 	if err != nil {
 		if errors.Is(err, corpus.ErrWikiNotFound) {
 			return emptyWikiContext(), nil // path 不存在 → 空(不报错)

@@ -97,7 +97,8 @@ func fetchModelsFromProvider(
 	if req.Provider == "anthropic" {
 		// Anthropic 不暴露 /v1/models → UI 据此提示手输 model。
 		return nil, apierr.Display(
-			http.StatusBadRequest, "no_model_list", errProviderNoModelList.Error())
+			http.StatusBadRequest, "no_model_list", errProviderNoModelList.Error(),
+		)
 	}
 	if req.Endpoint == "" {
 		return nil, apierr.Display(http.StatusBadRequest, "endpoint_required",

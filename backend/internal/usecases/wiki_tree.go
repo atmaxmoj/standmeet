@@ -10,7 +10,7 @@
 // 列某 parent 的子前先顺 parent→root 验整条链可见(visibleChain),链断 → 返空层;
 // 链通 → parent 已可见,子的可见性就只看子自己过不过闸。
 //
-// path 跟 GetWikiLanding 同口径(树派生,pathSegment(title) 顺链拼),前端拿 path
+// path 跟 GetWikiLanding 同口径(树派生,corpus.PathSegment(title) 顺链拼),前端拿 path
 // 直接拼 /wiki/<path>。
 
 package usecases
@@ -138,7 +138,7 @@ func (q *wikiTreeQuery) visibleChain(
 	nodes := make([]WikiTreeNode, 0, len(metas))
 	segs := make([]string, 0, len(metas))
 	for _, meta := range slices.Backward(metas) {
-		segs = append(segs, pathSegment(meta.Title))
+		segs = append(segs, corpus.PathSegment(meta.Title))
 		path := strings.Join(segs, "/")
 		if !q.scope(meta.Published, path) {
 			return []WikiTreeNode{}, nil
@@ -152,9 +152,9 @@ func (q *wikiTreeQuery) visibleChain(
 func (q *wikiTreeQuery) walkToRoot(
 	ctx context.Context, nodeID string,
 ) ([]corpus.WikiMeta, error) {
-	out := make([]corpus.WikiMeta, 0, treeMaxDepth)
+	out := make([]corpus.WikiMeta, 0, corpus.TreeMaxDepth)
 	cur := nodeID
-	for range treeMaxDepth {
+	for range corpus.TreeMaxDepth {
 		meta, err := q.repo.GetMetaByID(ctx, q.ownerID, cur)
 		if err != nil {
 			return nil, fmt.Errorf("wiki meta walk: %w", err)
@@ -179,7 +179,7 @@ func (q *wikiTreeQuery) listChildren(
 	}
 	out := make([]WikiTreeNode, 0, len(kids))
 	for i := range kids {
-		path := joinSeg(parentPath, pathSegment(kids[i].Title))
+		path := joinSeg(parentPath, corpus.PathSegment(kids[i].Title))
 		if !q.scope(kids[i].Published, path) {
 			continue
 		}
@@ -203,7 +203,7 @@ func (q *wikiTreeQuery) hasVisibleChild(
 		return false, fmt.Errorf("peek wiki children: %w", err)
 	}
 	for i := range kids {
-		if q.scope(kids[i].Published, joinSeg(nodePath, pathSegment(kids[i].Title))) {
+		if q.scope(kids[i].Published, joinSeg(nodePath, corpus.PathSegment(kids[i].Title))) {
 			return true, nil
 		}
 	}

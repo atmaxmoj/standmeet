@@ -96,8 +96,10 @@ func BuildAgentIterator(
 		Description: "standmeet visitor chat agent",
 		Instruction: instructionWithDateTime(
 			instructionWithCrossConv(
-				instructionWithDoc(in.Req.System, in.Req.DocContext), in.CrossConvContext),
-			time.Now(), in.OwnerTimezone, in.VisitorTimezone),
+				instructionWithDoc(in.Req.System, in.Req.DocContext), in.CrossConvContext,
+			),
+			time.Now(), in.OwnerTimezone, in.VisitorTimezone,
+		),
 		Model: cm,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: in.Tools},

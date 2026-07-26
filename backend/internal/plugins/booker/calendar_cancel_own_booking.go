@@ -45,7 +45,8 @@ func CancelOwnBooking(
 	ctx context.Context, deps VisitorCancelDeps, in *CancelOwnBookingInput,
 ) (CancelledBooking, error) {
 	booking, err := deps.Store.BookingForMemberByEvent(
-		ctx, in.OwnerID, in.CodeID, in.MemberID, in.EventID)
+		ctx, in.OwnerID, in.CodeID, in.MemberID, in.EventID,
+	)
 	if err != nil {
 		// 越权或不存在都被 store 翻成 ErrBookingNotFound;%w 保留 Is 让 route 翻 404。
 		return CancelledBooking{}, fmt.Errorf("resolve own booking: %w", err)

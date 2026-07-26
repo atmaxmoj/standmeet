@@ -71,7 +71,7 @@ type AdminDeps struct {
 	Claim           usecases.ClaimDeps
 	Login           usecases.LoginDeps
 	Keypairs        owner.KeypairDeps
-	Corpus          usecases.CorpusDeps
+	Corpus          corpus.Deps
 	Conversations   usecases.ConversationsDeps
 	Ghosts          conversation.GhostDeps
 	BYOAI           owner.BYOAIDeps
@@ -87,8 +87,8 @@ type AdminDeps struct {
 	Prompts         owner.PromptsDeps
 	Roles           usecases.RolesDeps
 	MCPServers      marketplace.MCPServersDeps
-	Assets          usecases.AssetsDeps
-	Writings        usecases.WritingsDeps
+	Assets          corpus.AssetsDeps
+	Writings        corpus.WritingsDeps
 	WritingRefs     *corpus.WritingRefRepo
 	SEO             *corpus.SEORepo
 	Codes           *access.CodeRepo
@@ -204,7 +204,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Servers: deps.Admin.MCPServers},
 		WritingsAdmin: adminroutes.WritingsAdminDeps{
 			Writings: deps.Admin.Writings,
-			WritingsTx: usecases.WritingsTxDeps{
+			WritingsTx: corpus.WritingsTxDeps{
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
 			},
@@ -216,7 +216,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Storage:  deps.Admin.Assets.Storage,
 			Corpus:   deps.Admin.Corpus, // sync face: VaultSync + Raw + WikiRefs 都在这
 			CSS:      deps.Admin.Owners, // .obsidian/snippets harvest → owner CSS
-			WritingsTx: usecases.WritingsTxDeps{
+			WritingsTx: corpus.WritingsTxDeps{
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
 			},

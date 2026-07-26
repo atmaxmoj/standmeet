@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
+
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // StartRetrievalSocket —— listen at sockPath and serve the corpus ops backed by the
@@ -22,7 +23,7 @@ func StartRetrievalSocket(ctx context.Context, d Driver, sockPath string) (func(
 	if err != nil {
 		return nil, fmt.Errorf("retrieval socket listen: %w", err)
 	}
-	usecases.RegisterCorpusIndexLister(srv, driverCorpusLister{driver: d})
+	corpus.RegisterCorpusIndexLister(srv, driverCorpusLister{driver: d})
 	go srv.Serve(ctx)
 	return srv.Close, nil
 }

@@ -26,10 +26,10 @@ import (
 
 // WritingHandlers —— public writings endpoints。
 type WritingHandlers struct {
-	Writings  usecases.WritingsDeps
-	CrossLink usecases.CrossLinkQueryDeps
+	Writings  corpus.WritingsDeps
+	CrossLink corpus.CrossLinkQueryDeps
 	Page      usecases.PageDeps
-	Assets    usecases.AssetsDeps
+	Assets    corpus.AssetsDeps
 	Log       *slog.Logger
 }
 
@@ -88,7 +88,7 @@ func runListWritingsPage(
 	r *http.Request, h *WritingHandlers, w http.ResponseWriter, ownerID string,
 ) {
 	in := parseWritingsPageQuery(r, ownerID)
-	page, err := usecases.ListPublishedWritingsPage(r.Context(), h.Writings, in)
+	page, err := corpus.ListPublishedWritingsPage(r.Context(), h.Writings, in)
 	if err != nil {
 		h.handleWritingErr(w, "list writings page", err)
 		return
@@ -98,9 +98,9 @@ func runListWritingsPage(
 
 func parseWritingsPageQuery(
 	r *http.Request, ownerID string,
-) *usecases.ListPublishedWritingsPageInput {
+) *corpus.ListPublishedWritingsPageInput {
 	q := r.URL.Query()
-	in := &usecases.ListPublishedWritingsPageInput{
+	in := &corpus.ListPublishedWritingsPageInput{
 		OwnerID: ownerID, Limit: int32(parseIntOr(q.Get("limit"), 0)),
 	}
 	if c := q.Get("cursor"); c != "" {
@@ -124,7 +124,7 @@ func parseIntOr(s string, fallback int) int {
 
 func writeWritingsPage(
 	r *http.Request, h *WritingHandlers, w http.ResponseWriter,
-	page *usecases.ListPublishedWritingsPageResult,
+	page *corpus.ListPublishedWritingsPageResult,
 ) {
 	resp := buildWritingsPageResp(r, h, page)
 	w.Header().Set("Content-Type", "application/json")
@@ -135,13 +135,13 @@ func writeWritingsPage(
 }
 
 func buildWritingsPageResp(
-	r *http.Request, h *WritingHandlers, page *usecases.ListPublishedWritingsPageResult,
+	r *http.Request, h *WritingHandlers, page *corpus.ListPublishedWritingsPageResult,
 ) writingsPageResp {
 	index := loadCrossLinkIndex(r.Context(), h, page)
 	items := make([]writingView, 0, len(page.Writings))
 	for i := range page.Writings {
 		v := toWritingViewResolved(r, h, &page.Writings[i])
-		v.BodyMD = usecases.RewriteCrossLinksForRender(v.BodyMD, index)
+		v.BodyMD = corpus.RewriteCrossLinksForRender(v.BodyMD, index)
 		items = append(items, v)
 	}
 	resp := writingsPageResp{Writings: items}
@@ -154,15 +154,15 @@ func buildWritingsPageResp(
 // loadCrossLinkIndex —— 一次拉 owner published writing 的 slug+title 表，给
 // 这页所有 writing 的 body_md rewrite 复用，避开 N+1。空 page / index 失败 → 空 slice。
 func loadCrossLinkIndex(
-	ctx context.Context, h *WritingHandlers, page *usecases.ListPublishedWritingsPageResult,
-) []usecases.SlugTitle {
+	ctx context.Context, h *WritingHandlers, page *corpus.ListPublishedWritingsPageResult,
+) []corpus.SlugTitle {
 	if len(page.Writings) == 0 {
-		return []usecases.SlugTitle{}
+		return []corpus.SlugTitle{}
 	}
-	index, err := usecases.LoadCrossLinkIndex(ctx, h.CrossLink, page.Writings[0].OwnerID())
+	index, err := corpus.LoadCrossLinkIndex(ctx, h.CrossLink, page.Writings[0].OwnerID())
 	if err != nil {
 		h.Log.Error("crosslink slug index (list)", logErr, err)
-		return []usecases.SlugTitle{}
+		return []corpus.SlugTitle{}
 	}
 	return index
 }
@@ -175,7 +175,7 @@ func (h *WritingHandlers) get() http.HandlerFunc {
 			h.handleWritingErr(w, "load owner", err)
 			return
 		}
-		writing, perr := usecases.GetWritingBySlug(r.Context(), h.Writings, owner.ID, slug)
+		writing, perr := corpus.GetWritingBySlug(r.Context(), h.Writings, owner.ID, slug)
 		if perr != nil {
 			h.handleWritingErr(w, "get writing", perr)
 			return
@@ -203,15 +203,15 @@ func writeWritingResp(
 func rewriteBodyWithCrossLinks(
 	ctx context.Context, h *WritingHandlers, ownerID, body string,
 ) string {
-	if !usecases.HasCrossLinks(body) {
+	if !corpus.HasCrossLinks(body) {
 		return body
 	}
-	index, err := usecases.LoadCrossLinkIndex(ctx, h.CrossLink, ownerID)
+	index, err := corpus.LoadCrossLinkIndex(ctx, h.CrossLink, ownerID)
 	if err != nil {
 		h.Log.Error("crosslink slug index", logErr, err)
 		return body
 	}
-	return usecases.RewriteCrossLinksForRender(body, index)
+	return corpus.RewriteCrossLinksForRender(body, index)
 }
 
 // loadBacklinks —— 拉指向当前 writing 的所有 (源 published writing 的) backlink。
@@ -219,7 +219,7 @@ func rewriteBodyWithCrossLinks(
 func loadBacklinks(
 	ctx context.Context, h *WritingHandlers, ownerID, writingID string,
 ) []backlinkView {
-	refs, err := usecases.ListBacklinks(ctx, h.CrossLink, ownerID, writingID)
+	refs, err := corpus.ListBacklinks(ctx, h.CrossLink, ownerID, writingID)
 	if err != nil {
 		h.Log.Error("backlinks", logErr, err)
 		return []backlinkView{}
@@ -250,8 +250,8 @@ func resolveWritingAssetURLs(
 	if coverID != "" {
 		coverPtr = &coverID
 	}
-	ids := usecases.WritingAssetIDs(wg.Body(), coverPtr)
-	urls, err := usecases.ResolveAssetURLs(r.Context(), h.Assets.Repo, h.Assets.Storage, ids)
+	ids := corpus.WritingAssetIDs(wg.Body(), coverPtr)
+	urls, err := corpus.ResolveAssetURLs(r.Context(), h.Assets.Repo, h.Assets.Storage, ids)
 	if err != nil {
 		h.Log.Error("resolve asset urls", logErr, err)
 		return map[string]string{}
@@ -271,7 +271,7 @@ func toWritingView(wg *corpus.Writing) writingView {
 		CoverHue: wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
 		Tags: wg.Tags(), Visibility: wg.VisibilityMode(), CrossRefs: wg.CrossRefs(),
 		Path: wg.Path(), ReadMinutes: wg.ReadMinutes(), LockedBody: wg.LockedBody(),
-		PublishedAt: usecases.PublishedAtRFC3339(pubAtPtr),
+		PublishedAt: corpus.PublishedAtRFC3339(pubAtPtr),
 	}
 }
 

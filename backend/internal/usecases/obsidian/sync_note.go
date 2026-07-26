@@ -1,5 +1,5 @@
 // sync_note.go —— vault sync 的容错 frontmatter 解析。对齐真实 vault 的 .scripts 契约:frontmatter
-// 容错(畸形不崩,对齐 F)。`[[link]]` 提取复用 usecases.ExtractCrossLinks(已对齐 check-links.sh)。
+// 容错(畸形不崩,对齐 F)。`[[link]]` 提取复用 corpus.ExtractCrossLinks(已对齐 check-links.sh)。
 
 package obsidian
 

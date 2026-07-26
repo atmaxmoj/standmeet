@@ -23,7 +23,8 @@ func snapWithPrompts(rolePrompt, codePrompt string) *access.RoleSnapshot {
 func TestComposeDynamicPersona_AppendsCodePrompt(t *testing.T) {
 	t.Parallel()
 	out := usecases.ComposeDynamicPersona(
-		snapWithPrompts("You are Alice's assistant.", "For THIS code: focus on hiring."))
+		snapWithPrompts("You are Alice's assistant.", "For THIS code: focus on hiring."),
+	)
 	if !strings.Contains(out, "You are Alice's assistant.") {
 		t.Fatalf("role persona missing: %q", out)
 	}

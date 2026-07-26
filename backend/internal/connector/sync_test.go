@@ -30,7 +30,8 @@ func TestSyncConnector_KindAndConnected(t *testing.T) {
 	require.True(t, isIngester, "a sync connector must expose SyncIngester")
 	res, ierr := ing.Ingest(
 		context.Background(), "owner-1",
-		[]connector.SyncFile{{RelPath: "a.md"}}, connector.SyncOpts{})
+		[]connector.SyncFile{{RelPath: "a.md"}}, connector.SyncOpts{},
+	)
 	require.NoError(t, ierr)
 	require.True(t, called, "Ingest delegates to the injected port")
 	require.Equal(t, 1, res.Created)
@@ -52,7 +53,8 @@ func TestSyncConnector_PassesOptsThrough(t *testing.T) {
 	ing, ok := c.(connector.SyncIngester)
 	require.True(t, ok)
 	_, err := ing.Ingest(
-		context.Background(), "o", nil, connector.SyncOpts{Authoritative: true})
+		context.Background(), "o", nil, connector.SyncOpts{Authoritative: true},
+	)
 	require.NoError(t, err)
 	require.True(t, got.Authoritative, "the authoritative flag must reach the ingest port")
 }

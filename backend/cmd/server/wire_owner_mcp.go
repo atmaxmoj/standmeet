@@ -6,6 +6,7 @@ package main
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
@@ -13,22 +14,22 @@ import (
 )
 
 func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
-	corpusDeps := usecases.CorpusDeps{
+	corpusDeps := corpus.Deps{
 		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
 		Subjectivity: d.subjectivityRepo, Index: d.corpusIndexer,
 	}
 	convsDeps := usecases.ConversationsDeps{
 		Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
-		Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
+		Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
 	}
 	rolesDeps := usecases.RolesDeps{
 		Roles: d.roleRepo, Prompts: d.promptRepo,
 		Skills: d.skillRepo, MCPServers: d.mcpServerRepo,
 	}
-	writingsTxDeps := usecases.WritingsTxDeps{
+	writingsTxDeps := corpus.WritingsTxDeps{
 		Writings:    d.writingRepo,
 		WritingRefs: d.writingRefRepo,
-		Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+		Assets:      corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 	}
 	return &ownercore.Deps{
 		Owners:           d.ownerRepo,
@@ -42,7 +43,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Roles:            &rolesDeps,
 		MCPServers:       &marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Skills:           &marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
-		Writings:         &usecases.WritingsDeps{Writings: d.writingRepo},
+		Writings:         &corpus.WritingsDeps{Writings: d.writingRepo},
 		WritingsTx:       &writingsTxDeps,
 		CustomPages: &owner.CustomPageDeps{
 			Pages: d.customPageRepo, Builds: d.customBuildRepo,

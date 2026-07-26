@@ -31,7 +31,8 @@ var (
 	// ErrUnsupportedProvider —— v1 only supports anthropic-compatible
 	// upstreams. owner picking deepseek/openai/etc surfaces this.
 	ErrUnsupportedProvider = errors.New(
-		"inference: only anthropic-compatible providers supported in v1")
+		"inference: only anthropic-compatible providers supported in v1",
+	)
 )
 
 // StreamErrClass —— HTTP status + machine code carrier so classifier

@@ -11,21 +11,7 @@ package usecases
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/search"
 )
-
-// CorpusIndexDeps —— 窄依赖(#131):corpus 四类 lister(wiki/output/writing/subjectivity)。
-// composition root 建一份喂 RegisterCorpusIndexSocket。
-type CorpusIndexDeps struct {
-	Wiki         corpus.WikiLister
-	Output       corpus.OutputLister
-	Writings     corpus.WritingLister
-	Subjectivity *corpus.NoteRepo
-	VaultSync    *corpus.VaultSyncRepo // standmeet-query 解析 + corpus_links 取邻居 genre/path
-	NoteRefs     *corpus.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks
-	Searcher     *search.Client        // Meili 词法后端;nil → corpus_search 退 Postgres 全文
-}
 
 // CorpusScopeVisible —— corpus 检索能力的 fragment/enabled 闸：role snapshot 有任何 corpus
 // URI = 活跃（prompt 贡献 + CapabilityState.Enabled=true）。空 scope → fragment 不进

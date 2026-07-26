@@ -241,7 +241,7 @@ func (r *VaultSyncRepo) QueryNotes(
 	return out, nil
 }
 
-// GetCSSClasses —— 一条 note 的 cssclasses(best-effort,corpus_read 补进 CorpusEntry;错→空)。
+// GetCSSClasses —— 一条 note 的 cssclasses(best-effort,corpus_read 补进 Entry;错→空)。
 func (r *VaultSyncRepo) GetCSSClasses(ctx context.Context, ownerID, id string) []string {
 	ids, err := parseSrcAndOwner(id, ownerID)
 	if err != nil {

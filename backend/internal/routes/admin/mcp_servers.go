@@ -141,7 +141,8 @@ func (h *Handlers) deleteMCPServer() http.HandlerFunc {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		serverID := chi.URLParam(r, "id")
 		err := marketplace.DeleteMCPServer(
-			r.Context(), h.MCPServersAdmin.Servers, ownerID, serverID)
+			r.Context(), h.MCPServersAdmin.Servers, ownerID, serverID,
+		)
 		if err != nil {
 			handleDeleteMCPServerErr(h.Log, w, err)
 			return

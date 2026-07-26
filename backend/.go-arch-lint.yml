@@ -596,6 +596,12 @@ deps:
       - connector
       - pgstore
       - dbq
+      - apierr
+      - storage
+      - search
+      - capsocket
+      - access
+      - capreg
     anyVendorDeps: true
 
   # access —— #135 access 域(building full vertical)：entity + access_requests/api_keys repos。

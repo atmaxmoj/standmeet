@@ -39,7 +39,8 @@ func (r *oauthRefresher) doRefresh(
 		return err
 	}
 	tok, rerr := r.endpoints.RefreshToken(
-		ctx, r.doer, conn.RefreshToken, cred.ClientID, cred.ClientSecret)
+		ctx, r.doer, conn.RefreshToken, cred.ClientID, cred.ClientSecret,
+	)
 	if rerr != nil {
 		return r.handleRefreshErr(ctx, connectorID, ownerID, rerr)
 	}

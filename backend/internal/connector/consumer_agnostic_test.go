@@ -113,7 +113,8 @@ func TestConnector_ConsumerAgnostic_BidirectionalGateway(t *testing.T) {
 
 	gw := &fakeGateway{hub: hub}
 	history, err := gw.handleMention(
-		context.Background(), "owner-1", "#general", "hello from the agent")
+		context.Background(), "owner-1", "#general", "hello from the agent",
+	)
 	require.NoError(t, err)
 
 	// 双向都通：read 拿到了 channel 历史（进 agent 上下文）……

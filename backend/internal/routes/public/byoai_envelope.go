@@ -115,7 +115,8 @@ func requireBYOAIHeaders(
 	if !hdrs.complete() {
 		writeError(h.Log, w, unauthorizedEnv(
 			"byoai tier requires X-Byoai-Provider + X-Byoai-Key + "+
-				"X-Byoai-Endpoint + X-Byoai-Model headers"))
+				"X-Byoai-Endpoint + X-Byoai-Model headers",
+		))
 		return byoaiHeaders{}, false
 	}
 	return hdrs, true

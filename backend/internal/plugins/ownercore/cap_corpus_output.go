@@ -15,19 +15,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capCorpusOutputBundle = "corpus.output.bundle"
 
 type corpusOutputCapability struct {
-	corpusDeps *usecases.CorpusDeps
+	corpusDeps *corpus.Deps
 	seo        SEOWriter
 	log        *slog.Logger
 }
 
 func newCorpusOutputCapability(
-	corpusDeps *usecases.CorpusDeps, seo SEOWriter, log *slog.Logger,
+	corpusDeps *corpus.Deps, seo SEOWriter, log *slog.Logger,
 ) *corpusOutputCapability {
 	return &corpusOutputCapability{corpusDeps: corpusDeps, seo: seo, log: log}
 }
@@ -99,7 +98,7 @@ func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	out, err := usecases.PromoteWikiToOutput(ctx, *c.corpusDeps,
+	out, err := corpus.PromoteWikiToOutput(ctx, *c.corpusDeps,
 		buildPromoteToOutputCapInput(&args, ownerID))
 	if err != nil {
 		return promoteToOutputErrToResult(c.log, err)
@@ -110,7 +109,8 @@ func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 	return mcputil.MarshalResult(c.log, "promote_wiki_to_output", map[string]string{
 		"output_id": out.ID(),
 		"path": entryPathForResponse(
-			ctx, c.log, c.corpusDeps, entryRef{"output", ownerID, out.ID()}),
+			ctx, c.log, c.corpusDeps, entryRef{"output", ownerID, out.ID()},
+		),
 	})
 }
 
@@ -120,7 +120,7 @@ func (c *corpusOutputCapability) applyOutputShowAsSourceIfHidden(
 	if showAsSource == nil || *showAsSource {
 		return
 	}
-	_, uerr := usecases.UpdateOutput(ctx, *c.corpusDeps, &usecases.UpdateOutputInput{
+	_, uerr := corpus.UpdateOutput(ctx, *c.corpusDeps, &corpus.UpdateOutputReq{
 		OwnerID: out.OwnerID(), ID: out.ID(),
 		Title: out.Title(), Body: out.Body(), Tags: out.Tags(),
 		ParentID: ptrOrNil(out.ParentID), ShowAsSource: false,
@@ -146,8 +146,8 @@ func parsePromoteWikiToOutputArgs(raw json.RawMessage) (promoteWikiToOutputArgsW
 
 func buildPromoteToOutputCapInput(
 	args *promoteWikiToOutputArgsWire, ownerID string,
-) *usecases.PromoteToOutputInput {
-	in := &usecases.PromoteToOutputInput{
+) *corpus.PromoteToOutputInput {
+	in := &corpus.PromoteToOutputInput{
 		OwnerID: ownerID, WikiID: args.WikiID,
 		Title: args.Title, Tags: args.Tags,
 	}

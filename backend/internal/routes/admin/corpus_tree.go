@@ -11,7 +11,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func (h *Handlers) treeWiki() http.HandlerFunc {
@@ -92,7 +91,7 @@ func slugJoin(titles []string) string {
 	}
 	segs := make([]string, len(titles))
 	for i, t := range titles {
-		segs[i] = usecases.SlugifyTitle(t)
+		segs[i] = corpus.SlugifyTitle(t)
 	}
 	return strings.Join(segs, "/")
 }

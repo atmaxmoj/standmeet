@@ -85,7 +85,8 @@ func (h *Handlers) inheritedWaypoints(r *http.Request, codeID string) []access.W
 		return []access.Waypoint{}
 	}
 	role, rerr := h.CodesAdmin.Roles.GetByID(
-		r.Context(), code.OwnerID, code.AssumedRoleID)
+		r.Context(), code.OwnerID, code.AssumedRoleID,
+	)
 	if rerr != nil {
 		return []access.Waypoint{}
 	}

@@ -18,7 +18,8 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(ww, r)
 
-			log.Info("http",
+			log.Info(
+				"http",
 				"method", r.Method,
 				"path", r.URL.Path,
 				"status", ww.Status(),

@@ -1,6 +1,6 @@
 // import.go —— vault 目录的批量 ingest。route layer 接 multipart 上传（owner
 // 通过 webkitdirectory 选了整个 vault），解出 .md + attachment 两类文件，
-// 这里把每个 .md 转换成 usecases.SaveWriting 调用。
+// 这里把每个 .md 转换成 corpus.SaveWriting 调用。
 //
 // 流程：
 //   1. 按 .md / 非 .md 分类；非 .md 按 basename 入 attachment 索引
@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // VaultFile —— multipart 上传的一个文件。RelPath 是 vault 内相对路径
@@ -49,7 +48,7 @@ type ImportResult struct {
 // ImportVault —— route layer 主入口。owner 通过 multipart 上传整个 vault，
 // 这里 ingest 所有带 publish: true 的 .md。
 func ImportVault(
-	ctx context.Context, deps usecases.WritingsTxDeps, writingRepoSetter MetaSetter,
+	ctx context.Context, deps corpus.WritingsTxDeps, writingRepoSetter MetaSetter,
 	ownerID string, files []VaultFile,
 ) ImportResult {
 	parts := partitionFiles(files)
@@ -65,7 +64,7 @@ func ImportVault(
 
 // processArgs —— processOne 参数打包（避开 argument-limit 5）。
 type processArgs struct {
-	Deps        usecases.WritingsTxDeps
+	Deps        corpus.WritingsTxDeps
 	Setter      MetaSetter
 	MD          *VaultFile
 	Attachments map[string]VaultFile
@@ -171,7 +170,7 @@ const (
 
 // upsertArgs —— upsertFromVault 参数打包（避开 argument-limit 5 + hugeParam）。
 type upsertArgs struct {
-	Deps       usecases.WritingsTxDeps
+	Deps       corpus.WritingsTxDeps
 	Setter     MetaSetter
 	Parsed     *parsedVault
 	OwnerID    string
@@ -192,7 +191,7 @@ func upsertFromVault(ctx context.Context, a *upsertArgs) (upsertOutcome, error) 
 
 func runSaveAndMark(ctx context.Context, a *upsertArgs, existing *corpus.Writing) error {
 	in := buildSaveInputFromVault(a.OwnerID, existing, a.SourcePath, a.Parsed)
-	writing, serr := usecases.SaveWriting(ctx, a.Deps, &in)
+	writing, serr := corpus.SaveWriting(ctx, a.Deps, &in)
 	if serr != nil {
 		return fmt.Errorf("save writing: %w", serr)
 	}
@@ -239,9 +238,9 @@ func lookupWritingBySlug(
 
 func buildSaveInputFromVault(
 	ownerID string, existing *corpus.Writing, sourcePath string, p *parsedVault,
-) usecases.SaveWritingInput {
+) corpus.SaveWritingInput {
 	slug := pickSlug(p.fm.Slug, sourcePath)
-	in := usecases.SaveWritingInput{
+	in := corpus.SaveWritingInput{
 		OwnerID: ownerID, WritingID: existing.ID(), Slug: slug,
 		Title:         pickTitle(p.fm.Title, slug),
 		Excerpt:       p.fm.Excerpt,

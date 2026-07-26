@@ -42,7 +42,8 @@ func calendarSlots(t *testing.T) *connector.Slots {
 func TestInvoke_CalendarInsertEvent(t *testing.T) {
 	t.Parallel()
 	raw, err := calendarSlots(t).Invoke(
-		context.Background(), "owner-1", "calendar", "insert_event", json.RawMessage(`{}`))
+		context.Background(), "owner-1", "calendar", "insert_event", json.RawMessage(`{}`),
+	)
 	if err != nil {
 		t.Fatalf("invoke insert_event: %v", err)
 	}
@@ -54,7 +55,8 @@ func TestInvoke_CalendarInsertEvent(t *testing.T) {
 func TestInvoke_CalendarConnected(t *testing.T) {
 	t.Parallel()
 	raw, err := calendarSlots(t).Invoke(
-		context.Background(), "owner-1", "calendar", "connected", nil)
+		context.Background(), "owner-1", "calendar", "connected", nil,
+	)
 	if err != nil {
 		t.Fatalf("invoke connected: %v", err)
 	}

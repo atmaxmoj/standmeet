@@ -16,19 +16,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capCorpusRawBundle = "corpus.raw.bundle"
 
 type corpusRawCapability struct {
-	corpusDeps *usecases.CorpusDeps
+	corpusDeps *corpus.Deps
 	seo        SEOWriter
 	log        *slog.Logger
 }
 
 func newCorpusRawCapability(
-	corpusDeps *usecases.CorpusDeps, seo SEOWriter, log *slog.Logger,
+	corpusDeps *corpus.Deps, seo SEOWriter, log *slog.Logger,
 ) *corpusRawCapability {
 	return &corpusRawCapability{corpusDeps: corpusDeps, seo: seo, log: log}
 }
@@ -107,7 +106,7 @@ func (c *corpusRawCapability) handleRawDump(
 	if source == "" {
 		source = "mcp"
 	}
-	rawEntry, err := usecases.RawDump(ctx, *c.corpusDeps, &usecases.RawDumpInput{
+	rawEntry, err := corpus.RawDump(ctx, *c.corpusDeps, &corpus.RawDumpInput{
 		OwnerID: ownerID, Body: args.Body, Source: source,
 		Tags: args.Tags, FlaggedPrivate: args.FlaggedPrivate,
 	})
@@ -158,7 +157,7 @@ func (c *corpusRawCapability) handlePromoteToWiki(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	wikiEntry, err := usecases.PromoteToWiki(ctx, *c.corpusDeps,
+	wikiEntry, err := corpus.PromoteToWiki(ctx, *c.corpusDeps,
 		buildPromoteToWikiInput(&args, ownerID))
 	if err != nil {
 		return promoteErrToResult(c.log, err)
@@ -169,7 +168,8 @@ func (c *corpusRawCapability) handlePromoteToWiki(
 	return mcputil.MarshalResult(c.log, "promote_to_wiki", map[string]string{
 		"wiki_id": wikiEntry.ID(),
 		"path": entryPathForResponse(
-			ctx, c.log, c.corpusDeps, entryRef{"wiki", ownerID, wikiEntry.ID()}),
+			ctx, c.log, c.corpusDeps, entryRef{"wiki", ownerID, wikiEntry.ID()},
+		),
 	})
 }
 
@@ -179,7 +179,7 @@ func (c *corpusRawCapability) applyShowAsSourceIfHidden(
 	if showAsSource == nil || *showAsSource {
 		return
 	}
-	_, uerr := usecases.UpdateWiki(ctx, *c.corpusDeps, &usecases.UpdateWikiInput{
+	_, uerr := corpus.UpdateWiki(ctx, *c.corpusDeps, &corpus.UpdateWikiReq{
 		OwnerID: wikiEntry.OwnerID(), ID: wikiEntry.ID(),
 		Title: wikiEntry.Title(), Body: wikiEntry.Body(), Tags: wikiEntry.Tags(),
 		ParentID: ptrOrNil(wikiEntry.ParentID), ShowAsSource: false,
@@ -203,8 +203,8 @@ func parsePromoteToWikiArgs(raw json.RawMessage) (promoteToWikiArgsWire, error) 
 	return args, nil
 }
 
-func buildPromoteToWikiInput(args *promoteToWikiArgsWire, ownerID string) *usecases.PromoteInput {
-	in := &usecases.PromoteInput{
+func buildPromoteToWikiInput(args *promoteToWikiArgsWire, ownerID string) *corpus.PromoteInput {
+	in := &corpus.PromoteInput{
 		OwnerID: ownerID, RawID: args.RawID,
 		Title: args.Title, Tags: args.Tags,
 	}

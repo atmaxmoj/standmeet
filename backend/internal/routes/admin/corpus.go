@@ -16,12 +16,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // CorpusDeps —— admin corpus handlers 的依赖。
 type CorpusDeps struct {
-	Corpus usecases.CorpusDeps
+	Corpus corpus.Deps
 }
 
 const (
@@ -75,7 +74,7 @@ func (h *Handlers) createRaw() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		raw, err := usecases.RawDump(r.Context(), h.Corpus.Corpus, &usecases.RawDumpInput{
+		raw, err := corpus.RawDump(r.Context(), h.Corpus.Corpus, &corpus.RawDumpInput{
 			OwnerID: ownerID, Body: req.Body, Source: defaultSource(req.Source), Tags: req.Tags,
 		})
 		if err != nil {
@@ -116,7 +115,7 @@ func rawItemBase(row *corpus.Raw) rawListItem {
 	return rawListItem{
 		ID:        row.ID(),
 		Body:      row.Body(),
-		Preview:   usecases.LeadLine(row.Body(), excerptMaxLen), // clean lead (F-R-1)
+		Preview:   corpus.LeadLine(row.Body(), excerptMaxLen), // clean lead (F-R-1)
 		Source:    row.Source(),
 		Tags:      row.Tags(),
 		Status:    rawStatus(row),
@@ -171,7 +170,7 @@ func (h *Handlers) listRaw() http.HandlerFunc {
 }
 
 func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []corpus.Raw) {
-	paths := usecases.RawTreePaths(rows) // raw is now a corpus_notes tree — derive its address
+	paths := corpus.RawTreePaths(rows) // raw is now a corpus_notes tree — derive its address
 	items := make([]rawListItem, 0, len(rows))
 	for i := range rows {
 		items = append(items, rawItemOf(&rows[i], paths))
@@ -217,7 +216,7 @@ func (h *Handlers) listWiki() http.HandlerFunc {
 }
 
 func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []corpus.Wiki) {
-	paths := usecases.WikiTreePaths(rows)
+	paths := corpus.WikiTreePaths(rows)
 	items := make([]wikiListItem, 0, len(rows))
 	for i := range rows {
 		items = append(items, wikiItemFromDomain(&rows[i], paths[rows[i].ID()]))

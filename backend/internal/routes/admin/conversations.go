@@ -16,6 +16,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -270,7 +271,7 @@ func toConvSummaryView(s *conversation.ChatSummary) convSummaryView {
 		Turns:       s.Turns,
 		PrivateHits: s.PrivateHits,
 		ClientIP:    s.ClientIP,
-		Sentiment:   usecases.DeriveSentiment(s.Turns, s.PrivateHits, s.Mode),
+		Sentiment:   corpus.DeriveSentiment(s.Turns, s.PrivateHits, s.Mode),
 		CodeID:      s.CodeID,
 		CodeLabel:   s.CodeLabel,
 		CodeValue:   s.CodeValue,

@@ -99,8 +99,8 @@ type runtimeDeps struct {
 	printStore         *printsess.Store
 	marketplaceClient  *marketplace.Client
 	agentSkills        *capreg.Registry
-	searchClient       *search.Client         // corpus 词法检索(Meili);nil = 未配 → 退 Postgres 全文
-	corpusIndexer      usecases.CorpusIndexer // 写路径索引传播;nil = 未配 Meili
+	searchClient       *search.Client // corpus 词法检索(Meili);nil = 未配 → 退 Postgres 全文
+	corpusIndexer      corpus.Indexer // 写路径索引传播;nil = 未配 Meili
 	captchaSiteKey     string
 	buildsRoot         string
 	secureCookie       bool

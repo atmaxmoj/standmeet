@@ -103,7 +103,8 @@ func (h *Handlers) assemble(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := keyFromCtx(r.Context())
 		ts, err := usecases.AssembleAPIKeyToolset(
-			r.Context(), h.toolsetDeps(), key, paritymanifest.APIRenderableTools())
+			r.Context(), h.toolsetDeps(), key, paritymanifest.APIRenderableTools(),
+		)
 		if err != nil {
 			h.d.Log.Error("api assemble toolset", "err", err)
 			h.writeErr(w, http.StatusInternalServerError, "internal", "could not prepare tools")

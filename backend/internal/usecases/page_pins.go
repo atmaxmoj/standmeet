@@ -127,7 +127,7 @@ func LoadPinJoin(
 	if err != nil {
 		return PinJoin{}, fmt.Errorf("pin paths: %w", err)
 	}
-	return PinJoin{Cards: cards, Paths: WikiMetaTreePaths(metas)}, nil
+	return PinJoin{Cards: cards, Paths: corpus.WikiMetaTreePaths(metas)}, nil
 }
 
 func checkPinnable(ctx context.Context, deps PagePinDeps, ownerID, wikiID string) error {

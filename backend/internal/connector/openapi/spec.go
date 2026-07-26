@@ -97,7 +97,8 @@ func ParseSpec(raw []byte) (*Spec, error) {
 	}
 	if !strings.HasPrefix(s.OpenAPI, "3.0") && !strings.HasPrefix(s.OpenAPI, "3.1") {
 		return nil, fmt.Errorf(
-			"unsupported openapi version %q: only 3.0.x / 3.1.x is supported", s.OpenAPI)
+			"unsupported openapi version %q: only 3.0.x / 3.1.x is supported", s.OpenAPI,
+		)
 	}
 	if len(s.Paths) == 0 {
 		return nil, ErrSpecNoOperations

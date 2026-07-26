@@ -109,7 +109,8 @@ func pinErrToResult(c *pageCapability, tool string, err error) capreg.MCPResult 
 	if errors.Is(err, owner.ErrPinUnpublished) {
 		return capreg.MCPError(
 			"entry is not published — publish it first (seo.set_wiki_seo published:true), " +
-				"then pin it")
+				"then pin it",
+		)
 	}
 	if errors.Is(err, owner.ErrPinNotFound) {
 		return capreg.MCPError("wiki entry not found")

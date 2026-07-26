@@ -15,15 +15,15 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/google/uuid"
 )
 
 // parsedVault —— parseVaultMarkdown 的输出（避开 funcresult-limit）。
 // fieldalignment: 大 struct (Frontmatter) 最后，slice / string 先。
 type parsedVault struct {
-	files []usecases.FileInput
+	files []corpus.FileInput
 	body  string
 	cover string
 	fm    Frontmatter
@@ -51,9 +51,9 @@ func parseVaultMarkdown(
 // 在 tx 里 insert asset 行 + commit 后 upload blob。
 func rewriteBodyAttachments(
 	body string, attachments map[string]VaultFile,
-) (string, []usecases.FileInput) {
+) (string, []corpus.FileInput) {
 	refs := ExtractImageRefs(body)
-	files := make([]usecases.FileInput, 0, len(refs))
+	files := make([]corpus.FileInput, 0, len(refs))
 	for i := range refs {
 		ref := &refs[i]
 		att, ok := attachments[ref.Basename]
@@ -69,7 +69,7 @@ func rewriteBodyAttachments(
 
 func resolveCoverRef(
 	coverRef string, attachments map[string]VaultFile,
-) (string, *usecases.FileInput) {
+) (string, *corpus.FileInput) {
 	if coverRef == "" {
 		return "", nil
 	}
@@ -83,8 +83,8 @@ func resolveCoverRef(
 	return pid, &f
 }
 
-func fileInputFromAttachment(pendingID string, att *VaultFile) usecases.FileInput {
-	return usecases.FileInput{
+func fileInputFromAttachment(pendingID string, att *VaultFile) corpus.FileInput {
+	return corpus.FileInput{
 		PendingID:        pendingID,
 		ContentType:      http.DetectContentType(att.Body),
 		OriginalFilename: basename(att.RelPath),

@@ -11,6 +11,8 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
+
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
@@ -20,14 +22,14 @@ import (
 const capChatBundle = "chat.bundle"
 
 type chatCapability struct {
-	corpusDeps *usecases.CorpusDeps
+	corpusDeps *corpus.Deps
 	convs      *usecases.ConversationsDeps
 	ghosts     *conversation.GhostDeps
 	log        *slog.Logger
 }
 
 func newChatCapability(
-	corpusDeps *usecases.CorpusDeps, convs *usecases.ConversationsDeps,
+	corpusDeps *corpus.Deps, convs *usecases.ConversationsDeps,
 	ghosts *conversation.GhostDeps, log *slog.Logger,
 ) *chatCapability {
 	return &chatCapability{corpusDeps: corpusDeps, convs: convs, ghosts: ghosts, log: log}
@@ -105,7 +107,7 @@ func (c *chatCapability) handleListConversations(
 		row := convListRowView{
 			ID: s.ID, Mode: s.Mode, VisitorName: s.VisitorName,
 			Turns: s.Turns, PrivateHits: s.PrivateHits,
-			Sentiment: usecases.DeriveSentiment(s.Turns, s.PrivateHits, s.Mode),
+			Sentiment: corpus.DeriveSentiment(s.Turns, s.PrivateHits, s.Mode),
 			StartedAt: s.StartedAt.Format(mcpTimeFmt),
 			LastAt:    s.LastAt.Format(mcpTimeFmt),
 		}

@@ -5,14 +5,13 @@ package admin
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func rawItemFromDomain(r *corpus.Raw) rawListItem {
 	return rawListItem{
 		ID:        r.ID(),
 		Body:      r.Body(),
-		Preview:   usecases.LeadLine(r.Body(), excerptMaxLen), // F-R-1: clean excerpt
+		Preview:   corpus.LeadLine(r.Body(), excerptMaxLen), // F-R-1: clean excerpt
 		Source:    r.Source(),
 		Tags:      ensureSlice(r.Tags()),
 		CreatedAt: r.CreatedAt().UTC().Format(timeRFC3339),
@@ -29,7 +28,7 @@ func wikiItemFromDomain(w *corpus.Wiki, path string) wikiListItem {
 		// fallback the card shows only when Excerpt is empty — the truncation is never the
 		// excerpt itself.
 		Excerpt:      w.Excerpt(),
-		Preview:      usecases.LeadLine(w.Body(), excerptMaxLen), // clean lead (F-R-2)
+		Preview:      corpus.LeadLine(w.Body(), excerptMaxLen), // clean lead (F-R-2)
 		Tags:         ensureSlice(w.Tags()),
 		SourceRawIDs: ensureSlice(w.SourceRawIDs()),
 		ParentID:     optionalToPtr(w.ParentID),

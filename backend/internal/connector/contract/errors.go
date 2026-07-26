@@ -22,4 +22,5 @@ var ErrCalendarBadRequest = errors.New("calendar request invalid")
 // ErrCalendarBlockedEgress —— 连接器出站目标落在内网（SSRF 守卫拦下）。消息固定干净（不回显
 // 被拦的内网 URL，防 metadata 路径外泄）。
 var ErrCalendarBlockedEgress = errors.New(
-	"calendar connector blocked: target resolves to an internal/private address")
+	"calendar connector blocked: target resolves to an internal/private address",
+)

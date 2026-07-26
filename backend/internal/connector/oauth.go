@@ -148,7 +148,8 @@ func (e OAuthEndpoints) postToken(
 	ctx context.Context, doer openapi.Doer, form url.Values,
 ) (_ TokenResult, err error) {
 	req, rerr := http.NewRequestWithContext(
-		ctx, http.MethodPost, e.TokenURL, strings.NewReader(form.Encode()))
+		ctx, http.MethodPost, e.TokenURL, strings.NewReader(form.Encode()),
+	)
 	if rerr != nil {
 		return TokenResult{}, fmt.Errorf("build token request: %w", rerr)
 	}

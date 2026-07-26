@@ -38,7 +38,8 @@ func SeedPublicRole(
 func upsertPublicPrompt(
 	ctx context.Context, prompts *owner.PromptRepo, ownerID string,
 ) (string, error) {
-	prompt, err := prompts.UpsertBuiltin(ctx, ownerID,
+	prompt, err := prompts.UpsertBuiltin(
+		ctx, ownerID,
 		owner.PublicPromptName, owner.PublicPromptDescription, owner.PublicPromptBody,
 	)
 	if err != nil {

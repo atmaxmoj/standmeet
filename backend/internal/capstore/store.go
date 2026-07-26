@@ -41,7 +41,8 @@ func (s *Store) Provision(ctx context.Context, kind Kind, id string) error {
 		 );
 		 CREATE INDEX IF NOT EXISTS records_collection_idx ON %[1]s.records (collection);
 		 CREATE INDEX IF NOT EXISTS records_doc_gin_idx ON %[1]s.records USING gin (doc);`,
-		q)
+		q,
+	)
 	if _, eerr := s.pool.Exec(ctx, ddl); eerr != nil {
 		return fmt.Errorf("capstore provision %q: %w", schema, eerr)
 	}
@@ -79,7 +80,8 @@ func (s *Store) Insert(
 	}
 	var recID string
 	sql := fmt.Sprintf(
-		"INSERT INTO %s.records (collection, doc) VALUES ($1, $2) RETURNING id", schema)
+		"INSERT INTO %s.records (collection, doc) VALUES ($1, $2) RETURNING id", schema,
+	)
 	if qerr := s.pool.QueryRow(ctx, sql, collection, doc).Scan(&recID); qerr != nil {
 		return "", fmt.Errorf("capstore insert %q/%s: %w", schema, collection, qerr)
 	}
@@ -96,7 +98,8 @@ func (s *Store) Query(
 	}
 	sql := fmt.Sprintf(
 		"SELECT doc FROM %s.records WHERE collection = $1 AND doc @> $2 ORDER BY created_at",
-		schema)
+		schema,
+	)
 	rows, qerr := s.pool.Query(ctx, sql, collection, containment(filter))
 	if qerr != nil {
 		return nil, fmt.Errorf("capstore query %q/%s: %w", schema, collection, qerr)
@@ -114,7 +117,8 @@ func (s *Store) Count(
 		return 0, err
 	}
 	sql := fmt.Sprintf(
-		"SELECT count(*) FROM %s.records WHERE collection = $1 AND doc @> $2", schema)
+		"SELECT count(*) FROM %s.records WHERE collection = $1 AND doc @> $2", schema,
+	)
 	var n int64
 	if cerr := s.pool.QueryRow(ctx, sql, collection, containment(filter)).Scan(&n); cerr != nil {
 		return 0, fmt.Errorf("capstore count %q/%s: %w", schema, collection, cerr)
@@ -184,7 +188,8 @@ func (s *Store) QueryWithIDs(
 	}
 	sql := fmt.Sprintf(
 		"SELECT id, doc FROM %s.records WHERE collection = $1 AND doc @> $2 ORDER BY created_at",
-		schema)
+		schema,
+	)
 	rows, qerr := s.pool.Query(ctx, sql, collection, containment(filter))
 	if qerr != nil {
 		return nil, fmt.Errorf("capstore query-with-ids %q/%s: %w", schema, collection, qerr)

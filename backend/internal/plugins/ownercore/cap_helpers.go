@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // logErrKey —— slog 错误字段键(避免各 cap 文件重复 "err" 字面量)。
@@ -26,7 +25,7 @@ type entryRef struct {
 // 调用方拿到地址就能 corpus_read / 引用它,不用从 title 反推 slug。best-effort —— path
 // 算不出(理论上刚建就在)→ warn + 空串,不搅黄整个写。
 func entryPathForResponse(
-	ctx context.Context, log *slog.Logger, corpusDeps *usecases.CorpusDeps, ref entryRef,
+	ctx context.Context, log *slog.Logger, corpusDeps *corpus.Deps, ref entryRef,
 ) string {
 	var (
 		path string
@@ -34,9 +33,9 @@ func entryPathForResponse(
 	)
 	switch ref.genre {
 	case "wiki":
-		path, err = usecases.WikiEntryPath(ctx, corpusDeps.Wiki, ref.ownerID, ref.id)
+		path, err = corpus.WikiEntryPath(ctx, corpusDeps.Wiki, ref.ownerID, ref.id)
 	case "output":
-		path, err = usecases.OutputEntryPath(ctx, corpusDeps.Output, ref.ownerID, ref.id)
+		path, err = corpus.OutputEntryPath(ctx, corpusDeps.Output, ref.ownerID, ref.id)
 	default:
 		return ""
 	}

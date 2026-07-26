@@ -44,7 +44,8 @@ func (h *Handlers) putBYOAI() http.HandlerFunc {
 			r.Context(), h.BYOAI.BYOAI, &owner.UpdateBYOAIInputReq{
 				OwnerID: ownerID, Enabled: req.Enabled,
 				Providers: req.Providers, Blurb: req.Blurb,
-			})
+			},
+		)
 		if err != nil {
 			handleBYOAIErr(h.Log, w, err)
 			return

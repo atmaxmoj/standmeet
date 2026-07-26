@@ -7,9 +7,10 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
+
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func (c *writingsCapability) unpublishBinding() *capreg.MCPBinding {
@@ -31,7 +32,7 @@ func (c *writingsCapability) handleUnpublish(
 	if args.WritingID == "" {
 		return capreg.MCPError("writing_id is required")
 	}
-	wg, err := usecases.UnpublishWriting(ctx, *c.ro, ownerID, args.WritingID)
+	wg, err := corpus.UnpublishWriting(ctx, *c.ro, ownerID, args.WritingID)
 	if err != nil {
 		c.log.Error("cap writing_unpublish", "err", err)
 		return capreg.MCPError("unpublish writing failed")

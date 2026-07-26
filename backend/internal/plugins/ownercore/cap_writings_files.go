@@ -19,8 +19,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
+
 	"github.com/atmaxmoj/standmeet/internal/httpx"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const (
@@ -37,11 +38,11 @@ type writingFileWire struct {
 // 返 []FileInput 给 SaveWriting。任一失败 → 整批 fail (atomic)。
 func fetchInlineFiles(
 	ctx context.Context, files []writingFileWire,
-) ([]usecases.FileInput, error) {
+) ([]corpus.FileInput, error) {
 	if len(files) == 0 {
-		return []usecases.FileInput{}, nil
+		return []corpus.FileInput{}, nil
 	}
-	out := make([]usecases.FileInput, 0, len(files))
+	out := make([]corpus.FileInput, 0, len(files))
 	for i := range files {
 		fi, ferr := fetchOneInlineFile(ctx, i, &files[i])
 		if ferr != nil {
@@ -54,15 +55,15 @@ func fetchInlineFiles(
 
 func fetchOneInlineFile(
 	ctx context.Context, idx int, f *writingFileWire,
-) (usecases.FileInput, error) {
+) (corpus.FileInput, error) {
 	if f.PendingID == "" {
-		return usecases.FileInput{}, fmt.Errorf("files[%d]: pending_id is required", idx)
+		return corpus.FileInput{}, fmt.Errorf("files[%d]: pending_id is required", idx)
 	}
 	if f.URL == "" {
-		return usecases.FileInput{}, fmt.Errorf("files[%d]: url is required", idx)
+		return corpus.FileInput{}, fmt.Errorf("files[%d]: url is required", idx)
 	}
 	if verr := validateInlineFileURL(f.URL); verr != nil {
-		return usecases.FileInput{}, fmt.Errorf("files[%d]: %w", idx, verr)
+		return corpus.FileInput{}, fmt.Errorf("files[%d]: %w", idx, verr)
 	}
 	return doInlineFileFetch(ctx, f.PendingID, f.URL, idx)
 }
@@ -80,7 +81,7 @@ func validateInlineFileURL(raw string) error {
 
 func doInlineFileFetch(
 	ctx context.Context, pendingID, rawURL string, idx int,
-) (usecases.FileInput, error) {
+) (corpus.FileInput, error) {
 	// BlockInternalEgress —— owner-supplied URL, no allow-list: the fetch must not reach internal
 	// addresses (metadata endpoint / internal services). The https-only check above is not enough
 	// (a public-looking host can resolve/redirect to an internal IP).
@@ -89,11 +90,11 @@ func doInlineFileFetch(
 	})
 	req, rerr := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if rerr != nil {
-		return usecases.FileInput{}, fmt.Errorf("files[%d]: build req: %w", idx, rerr)
+		return corpus.FileInput{}, fmt.Errorf("files[%d]: build req: %w", idx, rerr)
 	}
 	resp, herr := client.Do(req)
 	if herr != nil {
-		return usecases.FileInput{}, fmt.Errorf("files[%d]: fetch: %w", idx, herr)
+		return corpus.FileInput{}, fmt.Errorf("files[%d]: fetch: %w", idx, herr)
 	}
 	defer closeInlineRespBestEffort(resp.Body)
 	return readInlineFetched(resp, pendingID, idx)
@@ -107,24 +108,24 @@ func closeInlineRespBestEffort(c io.Closer) {
 
 func readInlineFetched(
 	resp *http.Response, pendingID string, idx int,
-) (usecases.FileInput, error) {
+) (corpus.FileInput, error) {
 	if resp.StatusCode != http.StatusOK {
-		return usecases.FileInput{}, fmt.Errorf("files[%d]: status %d", idx, resp.StatusCode)
+		return corpus.FileInput{}, fmt.Errorf("files[%d]: status %d", idx, resp.StatusCode)
 	}
 	ct := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "image/") {
-		return usecases.FileInput{},
+		return corpus.FileInput{},
 			fmt.Errorf("files[%d]: content-type %s (must be image/*)", idx, ct)
 	}
 	body, rerr := io.ReadAll(io.LimitReader(resp.Body, capFileMaxBytes+1))
 	if rerr != nil {
-		return usecases.FileInput{}, fmt.Errorf("files[%d]: read body: %w", idx, rerr)
+		return corpus.FileInput{}, fmt.Errorf("files[%d]: read body: %w", idx, rerr)
 	}
 	if int64(len(body)) > capFileMaxBytes {
-		return usecases.FileInput{},
+		return corpus.FileInput{},
 			fmt.Errorf("files[%d]: body exceeds %d bytes", idx, capFileMaxBytes)
 	}
-	return usecases.FileInput{
+	return corpus.FileInput{
 		PendingID: pendingID, ContentType: ct,
 		OriginalFilename: lastInlineURLSegment(resp.Request.URL.Path),
 		Body:             body,

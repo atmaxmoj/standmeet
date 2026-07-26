@@ -35,7 +35,8 @@ func freeBusyQuery(start, end time.Time) string {
 		`<?xml version="1.0" encoding="utf-8"?>`+
 			`<C:free-busy-query xmlns:C="urn:ietf:params:xml:ns:caldav">`+
 			`<C:time-range start="%s" end="%s"/></C:free-busy-query>`,
-		start.UTC().Format(icalLayout), end.UTC().Format(icalLayout))
+		start.UTC().Format(icalLayout), end.UTC().Format(icalLayout),
+	)
 }
 
 // buildVEvent —— 一份最小 iCalendar VEVENT（建会 PUT 的 body）。

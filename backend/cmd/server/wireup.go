@@ -7,6 +7,8 @@ package main
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
+
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
@@ -36,12 +38,12 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:  buildPublicPasswordResetDeps(d),
 		PublicWritings: publicroutes.WritingHandlers{
-			Writings: usecases.WritingsDeps{Writings: d.writingRepo},
-			CrossLink: usecases.CrossLinkQueryDeps{
+			Writings: corpus.WritingsDeps{Writings: d.writingRepo},
+			CrossLink: corpus.CrossLinkQueryDeps{
 				Writings: d.writingRepo, WritingRefs: d.writingRefRepo,
 			},
 			Page:   usecases.PageDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
-			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+			Assets: corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 			Log:    d.log,
 		},
 		Builds:       sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
@@ -82,13 +84,13 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		},
 		Login:    usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
 		Keypairs: keypairDeps(d),
-		Corpus: usecases.CorpusDeps{
+		Corpus: corpus.Deps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
 			Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo, Index: d.corpusIndexer,
 		},
 		Conversations: usecases.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
-			Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
+			Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		},
 		Ghosts:         conversation.GhostDeps{Repo: d.ghostRepo},
 		BYOAI:          owner.BYOAIDeps{Owners: d.ownerRepo},
@@ -107,8 +109,8 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Skills: d.skillRepo, MCPServers: d.mcpServerRepo,
 		},
 		MCPServers:   marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
-		Assets:       usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
-		Writings:     usecases.WritingsDeps{Writings: d.writingRepo},
+		Assets:       corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+		Writings:     corpus.WritingsDeps{Writings: d.writingRepo},
 		WritingRefs:  d.writingRefRepo,
 		SEO:          d.seoRepo,
 		Codes:        d.codeRepo,
@@ -172,7 +174,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	// 做配额闸;connector-connected 仍由 manifest Requires:["calendar"] 的 global 闸把住)。
 	wireBookerGateway(ctx, d)
 	wireMailSenderGateway(ctx, d)
-	wireRetrievalSocket(ctx, d, &usecases.CorpusIndexDeps{
+	wireRetrievalSocket(ctx, d, &corpus.IndexDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
 		Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
 		NoteRefs: d.noteRefRepo, Searcher: d.searchClient,
@@ -262,7 +264,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Sessions:     d.visitorStore,
 		QueryQueue:   d.queryQueue,
 		Corpus:       d.corpus,
-		Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
+		Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		Ledger:       usecases.NewWaypointLedger(d.vaultSyncRepo, d.visitorStore, d.log),
 		Ghosts:       conversation.GhostDeps{Repo: d.ghostRepo},
 		PDFRenderer:  d.reportPDFRenderer,

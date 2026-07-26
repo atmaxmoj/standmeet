@@ -308,6 +308,14 @@ linters:
         linters: [testpackage, paralleltest]
       - path: internal/conversation/uc_ghost_policy_test.go
         linters: [testpackage]
+      # corpus map/stub/crosslink 白盒 UT：unexported tree/heading/crosslink 内部
+      # (findNode/extractHeadings/resolveNoteDstIDs) 的纯逻辑 repro → 必须 in-package。
+      - path: internal/corpus/uc_corpus_map_test.go
+        linters: [testpackage]
+      - path: internal/corpus/uc_corpus_stub_test.go
+        linters: [testpackage]
+      - path: internal/corpus/uc_wiki_crosslink_test.go
+        linters: [testpackage]
       - path: cmd/server/
         linters: [testpackage, paralleltest]
       # hnFirstLine / readOK are unexported job-fetch helpers with pure-logic white-box repros.

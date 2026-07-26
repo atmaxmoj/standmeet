@@ -38,9 +38,9 @@ type ObsidianDeps struct {
 	Writings   *corpus.WritingRepo
 	Assets     *corpus.AssetRepo
 	Storage    *storage.Client
-	Corpus     usecases.CorpusDeps // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
-	CSS        owner.CSSStore      // .obsidian/snippets harvest → owner CSS
-	WritingsTx usecases.WritingsTxDeps
+	Corpus     corpus.Deps    // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
+	CSS        owner.CSSStore // .obsidian/snippets harvest → owner CSS
+	WritingsTx corpus.WritingsTxDeps
 	// PagePins —— sync 是 published 的第三条写路径(frontmatter 可翻 publish);
 	// 批量 reconcile 后清扫失效 pin,保住 pinned ⊆ published(渲染过滤只是兜底)。
 	PagePins usecases.PagePinDeps
@@ -58,10 +58,10 @@ func (a cssSyncAdapter) SetCSS(ctx context.Context, ownerID, rawCSS string) erro
 }
 
 // refsSyncAdapter —— obsidian.SyncRefsPort over RebuildNoteRefs：整批 upsert 后重建一条的出度边。
-type refsSyncAdapter struct{ deps usecases.CorpusDeps }
+type refsSyncAdapter struct{ deps corpus.Deps }
 
 func (a refsSyncAdapter) RebuildForNote(ctx context.Context, ownerID, noteID, body string) error {
-	if err := usecases.RebuildNoteRefs(ctx, a.deps, ownerID, noteID, body); err != nil {
+	if err := corpus.RebuildNoteRefs(ctx, a.deps, ownerID, noteID, body); err != nil {
 		return fmt.Errorf("sync refs: %w", err)
 	}
 	return nil
@@ -69,7 +69,7 @@ func (a refsSyncAdapter) RebuildForNote(ctx context.Context, ownerID, noteID, bo
 
 // writingsSyncAdapter —— obsidian.SyncWritingsPort over ImportVault：writing/ 子树 → writings 表。
 type writingsSyncAdapter struct {
-	tx     usecases.WritingsTxDeps
+	tx     corpus.WritingsTxDeps
 	setter *corpus.WritingRepo
 }
 
@@ -109,7 +109,7 @@ func (d *ObsidianDeps) Ingest(
 		CSS:      cssSyncAdapter{store: d.CSS},
 	}, ownerID, vfiles, obsidian.SyncMode{Authoritative: opts.Authoritative})
 	// 批量 sync 后整批重建 Meili index(反映新增/改/删,漂移不留)。best-effort。
-	usecases.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
+	corpus.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
 	d.sweepPinsAfterSync(ctx, ownerID)
 	return connector.SyncResult{
 		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,

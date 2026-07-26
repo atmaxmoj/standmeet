@@ -200,10 +200,12 @@ func buildRoleSnapshotByID(
 		// （feasibility floor）—— 顺序要紧：过滤在合并之后，code 才不能借覆盖把 role 看不到的
 		// 证据引导出来。evidence_refs 全越界的 waypoint 整条丢弃。
 		Waypoints: access.FilterWaypointsByCorpus(
-			access.MergeWaypoints(role.Waypoints(), overlay.waypoints), role.CorpusURIs()),
+			access.MergeWaypoints(role.Waypoints(), overlay.waypoints), role.CorpusURIs(),
+		),
 		// F-A-10: 有效开关 = code 覆盖(非 nil)否则 role 值。冻进 snapshot,ghost 选择时用。
 		RequireGhostEvidence: effectiveGhostEvidence(
-			role.RequireGhostEvidence(), overlay.requireGhostEvidence),
+			role.RequireGhostEvidence(), overlay.requireGhostEvidence,
+		),
 	}), nil
 }
 

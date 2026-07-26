@@ -16,18 +16,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capCorpusMutationsBundle = "corpus.mutations.bundle"
 
 type corpusMutationsCapability struct {
-	corpusDeps *usecases.CorpusDeps
+	corpusDeps *corpus.Deps
 	log        *slog.Logger
 }
 
 func newCorpusMutationsCapability(
-	corpusDeps *usecases.CorpusDeps, log *slog.Logger,
+	corpusDeps *corpus.Deps, log *slog.Logger,
 ) *corpusMutationsCapability {
 	return &corpusMutationsCapability{corpusDeps: corpusDeps, log: log}
 }
@@ -104,7 +103,7 @@ func (c *corpusMutationsCapability) handleUpdateWiki(
 		return capreg.MCPError(perr.Error())
 	}
 	in := buildUpdateWikiInput(&args, ownerID)
-	wiki, err := usecases.UpdateWiki(ctx, *c.corpusDeps, in)
+	wiki, err := corpus.UpdateWiki(ctx, *c.corpusDeps, in)
 	if err != nil {
 		return wikiMutationErrToResult(c.log, err, "update_wiki")
 	}
@@ -135,8 +134,8 @@ func parseUpdateWikiArgs(raw json.RawMessage) (updateWikiArgsWire, error) {
 
 func buildUpdateWikiInput(
 	args *updateWikiArgsWire, ownerID string,
-) *usecases.UpdateWikiInput {
-	in := &usecases.UpdateWikiInput{
+) *corpus.UpdateWikiReq {
+	in := &corpus.UpdateWikiReq{
 		OwnerID: ownerID, ID: args.WikiID,
 		Title: args.Title, Body: args.Body, Tags: args.Tags,
 		ShowAsSource: args.ShowAsSource == nil || *args.ShowAsSource,
@@ -190,7 +189,7 @@ func (c *corpusMutationsCapability) handleUpdateOutput(
 		return capreg.MCPError(perr.Error())
 	}
 	in := buildUpdateOutputInput(&args, ownerID)
-	out, err := usecases.UpdateOutput(ctx, *c.corpusDeps, in)
+	out, err := corpus.UpdateOutput(ctx, *c.corpusDeps, in)
 	if err != nil {
 		return outputMutationErrToResult(c.log, err, "update_output")
 	}
@@ -221,8 +220,8 @@ func parseUpdateOutputArgs(raw json.RawMessage) (updateOutputArgsWire, error) {
 
 func buildUpdateOutputInput(
 	args *updateOutputArgsWire, ownerID string,
-) *usecases.UpdateOutputInput {
-	in := &usecases.UpdateOutputInput{
+) *corpus.UpdateOutputReq {
+	in := &corpus.UpdateOutputReq{
 		OwnerID: ownerID, ID: args.OutputID,
 		Title: args.Title, Body: args.Body, Tags: args.Tags,
 		ShowAsSource: args.ShowAsSource == nil || *args.ShowAsSource,
@@ -266,7 +265,7 @@ func (c *corpusMutationsCapability) handleDeleteWiki(
 	if args.WikiID == "" {
 		return capreg.MCPError("wiki_id is required")
 	}
-	if err := usecases.DeleteWiki(ctx, *c.corpusDeps, ownerID, args.WikiID); err != nil {
+	if err := corpus.DeleteWiki(ctx, *c.corpusDeps, ownerID, args.WikiID); err != nil {
 		return wikiMutationErrToResult(c.log, err, "delete_wiki")
 	}
 	return mcputil.MarshalResult(c.log, "delete_wiki", map[string]any{
@@ -301,7 +300,7 @@ func (c *corpusMutationsCapability) handleDeleteOutput(
 	if args.OutputID == "" {
 		return capreg.MCPError("output_id is required")
 	}
-	if err := usecases.DeleteOutput(ctx, *c.corpusDeps, ownerID, args.OutputID); err != nil {
+	if err := corpus.DeleteOutput(ctx, *c.corpusDeps, ownerID, args.OutputID); err != nil {
 		return outputMutationErrToResult(c.log, err, "delete_output")
 	}
 	return mcputil.MarshalResult(c.log, "delete_output", map[string]any{

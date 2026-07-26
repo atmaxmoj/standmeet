@@ -13,19 +13,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capWritingsBundle = "writings.bundle"
 
 type writingsCapability struct {
-	rw  *usecases.WritingsTxDeps
-	ro  *usecases.WritingsDeps
+	rw  *corpus.WritingsTxDeps
+	ro  *corpus.WritingsDeps
 	log *slog.Logger
 }
 
 func newWritingsCapability(
-	rw *usecases.WritingsTxDeps, ro *usecases.WritingsDeps, log *slog.Logger,
+	rw *corpus.WritingsTxDeps, ro *corpus.WritingsDeps, log *slog.Logger,
 ) *writingsCapability {
 	return &writingsCapability{rw: rw, ro: ro, log: log}
 }
@@ -129,7 +128,7 @@ func (c *writingsCapability) handleCreate(
 	}
 	in := buildWritingSaveInput(&args, ownerID)
 	in.Files = files
-	wg, err := usecases.SaveWriting(ctx, *c.rw, in)
+	wg, err := corpus.SaveWriting(ctx, *c.rw, in)
 	if err != nil {
 		return writingCreateErrToResult(c.log, err)
 	}
@@ -179,8 +178,8 @@ func applyWritingCreateDefaults(args *writingCreateArgsWire) {
 
 func buildWritingSaveInput(
 	args *writingCreateArgsWire, ownerID string,
-) *usecases.SaveWritingInput {
-	return &usecases.SaveWritingInput{
+) *corpus.SaveWritingInput {
+	return &corpus.SaveWritingInput{
 		OwnerID: ownerID, Slug: args.Slug, Title: args.Title,
 		Excerpt:       args.Excerpt,
 		BodyMD:        args.BodyMD,
@@ -223,7 +222,7 @@ type writingListRow struct {
 func (c *writingsCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) capreg.MCPResult {
-	rows, err := usecases.ListAllWritings(ctx, *c.ro, ownerID)
+	rows, err := corpus.ListAllWritings(ctx, *c.ro, ownerID)
 	if err != nil {
 		c.log.Error("cap writing_list", "err", err)
 		return capreg.MCPError("list writings failed")
@@ -243,7 +242,7 @@ func writingRowToCapView(w *corpus.Writing) writingListRow {
 		UpdatedAt: w.UpdatedAt().Format(mcpTimeFmt),
 	}
 	if pub, ok := w.PublishedAt(); ok {
-		row.PublishedAt = usecases.PublishedAtRFC3339(&pub)
+		row.PublishedAt = corpus.PublishedAtRFC3339(&pub)
 	}
 	return row
 }
@@ -283,7 +282,7 @@ func (c *writingsCapability) handlePublish(
 	if args.WritingID == "" {
 		return capreg.MCPError("writing_id is required")
 	}
-	wg, err := usecases.PublishWriting(ctx, *c.ro, ownerID, args.WritingID)
+	wg, err := corpus.PublishWriting(ctx, *c.ro, ownerID, args.WritingID)
 	if err != nil {
 		c.log.Error("cap writing_publish", "err", err)
 		return capreg.MCPError("publish writing failed")
@@ -314,7 +313,7 @@ func (c *writingsCapability) handleDelete(
 	if args.WritingID == "" {
 		return capreg.MCPError("writing_id is required")
 	}
-	if err := usecases.DeleteWritingWithAssets(
+	if err := corpus.DeleteWritingWithAssets(
 		ctx, *c.rw, ownerID, args.WritingID,
 	); err != nil {
 		c.log.Error("cap writing_delete", "err", err)

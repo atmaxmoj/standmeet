@@ -2,7 +2,7 @@ package ownercore
 
 // cap_corpus_get.go —— corpus.get: fetch one corpus entry (full body) by
 // genre + id over owner MCP. Mirrors admin GET /{raw,wiki,output}/{id}.
-// Method set of corpusMutationsCapability (shares its *usecases.CorpusDeps);
+// Method set of corpusMutationsCapability (shares its *corpus.Deps);
 // split into its own file to keep cap_corpus_mutations.go under the line cap.
 // Lookup is by id only — no by-path repo method exists yet (see report).
 

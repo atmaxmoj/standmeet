@@ -171,7 +171,8 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	tag, rerr := r.pool.Exec(ctx,
+	tag, rerr := r.pool.Exec(
+		ctx,
 		`UPDATE access_codes SET status='revoked' WHERE id=$1 AND owner_id=$2`,
 		codeUUID, ownerUUID,
 	)

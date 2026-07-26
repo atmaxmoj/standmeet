@@ -36,7 +36,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/stats"
 	"github.com/atmaxmoj/standmeet/internal/storage"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // repoSet —— 所有 postgres Repository 的 bundle，让 wireAndServe 不必逐行
@@ -141,7 +140,7 @@ func assembleRuntimeDeps(
 	printStore := printsess.New(c.rdb, 0)
 	// 词法检索(Meili)。MEILI_URL 空 → searchClient/indexer 为 nil,检索退 Postgres 全文、写不索引。
 	searchClient := search.New(cfg.MeiliURL, cfg.MeiliKey)
-	corpusIndexer := usecases.NewCorpusIndexer(searchClient, repos.vaultSync, log)
+	corpusIndexer := corpus.NewCorpusIndexer(searchClient, repos.vaultSync, log)
 	return runtimeDeps{
 		log: log, db: c.db, rdb: c.rdb,
 		instanceRepo: repos.instance, ownerRepo: repos.owner,
@@ -262,7 +261,8 @@ func buildPDFRenderer(
 		log.Info("pdf renderer: disabled (set GOTENBERG_URL + PRINT_BASE_URL to enable)")
 		return noopPDFRenderer{}
 	}
-	log.Info("pdf renderer: gotenberg",
+	log.Info(
+		"pdf renderer: gotenberg",
 		"endpoint", cfg.GotenbergURL, "print_base", cfg.PrintBaseURL,
 	)
 	return gotenbergPDFRenderer{

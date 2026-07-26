@@ -233,7 +233,7 @@ func (r *citationResolver) loadWikis(
 		return
 	}
 	if wikis, err := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis); err == nil {
-		r.wikiPaths = WikiTreePaths(wikis)
+		r.wikiPaths = corpus.WikiTreePaths(wikis)
 		r.wikiTitles = wikiTitleMap(wikis)
 	}
 }
@@ -257,7 +257,7 @@ func (r *citationResolver) loadOutputs(
 		return
 	}
 	if outputs, err := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs); err == nil {
-		r.outputPaths = OutputTreePaths(outputs)
+		r.outputPaths = corpus.OutputTreePaths(outputs)
 		r.outputTitles = outputTitleMap(outputs)
 	}
 }

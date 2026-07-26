@@ -93,7 +93,8 @@ func (gr *ghostRun) run(ctx context.Context, lastMsg string) *inference.Epilogue
 func (gr *ghostRun) candidate(ctx context.Context, lastMsg string) *conversation.GhostCandidate {
 	// F-A-10: 未访问的 waypoint,并按 role/code 的「需证据」开关剔除空证据的非终点 waypoint(终点保留)。
 	unvisited := conversation.SteeringCandidates(
-		gr.auth.Data.RoleSnapshot, gr.auth.Data.VisitedWaypoints)
+		gr.auth.Data.RoleSnapshot, gr.auth.Data.VisitedWaypoints,
+	)
 	if len(unvisited) == 0 {
 		return nil
 	}
@@ -237,7 +238,8 @@ func verifyConvMember(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
 ) bool {
 	ok, err := usecases.ChatBelongsToMember(
-		r.Context(), &h.Visitor, auth.Data.OwnerID, convID, auth.Data.MemberID)
+		r.Context(), &h.Visitor, auth.Data.OwnerID, convID, auth.Data.MemberID,
+	)
 	if err != nil {
 		h.Log.Error("conv ownership check", "err", err)
 		writeError(h.Log, w, serverErr())

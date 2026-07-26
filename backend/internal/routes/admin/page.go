@@ -145,7 +145,7 @@ func loadPinnable(
 	if err != nil {
 		return nil, err
 	}
-	paths := usecases.WikiMetaTreePaths(metas)
+	paths := corpus.WikiMetaTreePaths(metas)
 	return publishedPinnable(metas, paths), nil
 }
 

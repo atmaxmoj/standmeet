@@ -53,7 +53,8 @@ func registerBuiltins(d *runtimeDeps, hooks map[string]usecases.CapHooks) {
 		mailSenderManifest(),
 	}
 	dupes := usecases.RegisterDiscoveredPluginsHooked(
-		d.agentSkills, manifests, capreg.OriginBuiltin, hooks, d.capDialErrLog())
+		d.agentSkills, manifests, capreg.OriginBuiltin, hooks, d.capDialErrLog(),
+	)
 	for _, id := range dupes {
 		d.log.Warn("builtin register skipped (duplicate id)", "id", id)
 	}

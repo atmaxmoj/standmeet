@@ -231,7 +231,8 @@ func makeExtMCPRun(
 ) capreg.RunFn {
 	return func(ctx context.Context, args string) (string, error) {
 		return extCallToToolResult(
-			session.CallToolWithin(ctx, realToolName, []byte(args), sctx, budget))
+			session.CallToolWithin(ctx, realToolName, []byte(args), sctx, budget),
+		)
 	}
 }
 

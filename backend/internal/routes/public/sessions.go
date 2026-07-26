@@ -248,7 +248,8 @@ func writeCreateSession(
 		Members:       toMemberResps(res.Members),
 		OwnerCanEmail: canEmail,
 		DockButtons: resolveDockButtons(
-			res.Session.Data.RoleSnapshot.DockButtons(), bundle.States),
+			res.Session.Data.RoleSnapshot.DockButtons(), bundle.States,
+		),
 	}
 	// session token 也落一份 HttpOnly cookie(bearer 之外的兜底:跨 tab / 活过刷新 /
 	// SSR);Set-Cookie 必须在 WriteHeader 前。

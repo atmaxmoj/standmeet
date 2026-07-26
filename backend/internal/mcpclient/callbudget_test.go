@@ -44,12 +44,14 @@ func TestCallToolWithin_HonorsBudget(t *testing.T) {
 
 	// budget SHORTER than the tool's work → the call is cut off (the F-A-6 blank-card path).
 	_, tooShort := sess.CallToolWithin(
-		context.Background(), "slow", []byte(`{}`), nil, 50*time.Millisecond)
+		context.Background(), "slow", []byte(`{}`), nil, 50*time.Millisecond,
+	)
 	require.Error(t, tooShort, "a budget below the tool's runtime must time the call out")
 
 	// budget LONGER than the tool's work → the real result comes back intact.
 	out, ok := sess.CallToolWithin(
-		context.Background(), "slow", []byte(`{}`), nil, 5*time.Second)
+		context.Background(), "slow", []byte(`{}`), nil, 5*time.Second,
+	)
 	require.NoError(t, ok)
 	require.Equal(t, "REPORT-BODY", out)
 }

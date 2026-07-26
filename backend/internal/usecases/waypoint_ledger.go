@@ -4,7 +4,7 @@
 // → 标 visited;终点能力(如约成)命中 → 标 terminal waypoint visited。ledger 挂 redis visitor_session
 // (VisitedWaypoints)。变了才存盘;best-effort —— 失败只 warn,绝不压这轮答复。
 //
-// id→URI 解析复用 crawl-face 的 syncNotePath/dbParentOf(与检索 ACL 同口径,URI 一致)。
+// id→URI 解析复用 crawl-face 的 corpus.SyncNotePath/corpus.DBParentOf(与检索 ACL 同口径,URI 一致)。
 
 package usecases
 
@@ -90,7 +90,7 @@ func markAll(
 	return changed
 }
 
-// resolveURIs —— cited note id → genre://path URI(GetSyncNote + syncNotePath,与检索 ACL 同口径）。
+// resolveURIs —— cited note id → genre://path URI(GetSyncNote + corpus.SyncNotePath,与检索 ACL 同口径）。
 // 解析不到的 id 跳过(best-effort)。
 func (d *WaypointLedgerDeps) resolveURIs(
 	ctx context.Context, ownerID string, ids []string,
@@ -101,7 +101,9 @@ func (d *WaypointLedgerDeps) resolveURIs(
 		if err != nil {
 			continue
 		}
-		path := syncNotePath(note.Title, note.ParentID, dbParentOf(ctx, d.Notes, ownerID))
+		path := corpus.SyncNotePath(
+			note.Title, note.ParentID, corpus.DBParentOf(ctx, d.Notes, ownerID),
+		)
 		out = append(out, corpus.FormatURI(corpus.DocumentGenre(note.Genre), path))
 	}
 	return out

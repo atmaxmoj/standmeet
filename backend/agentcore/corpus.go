@@ -16,13 +16,12 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ErrCorpusNotFound —— a Driver's GetCorpus signals "no such path" with this.
 var ErrCorpusNotFound = errors.New("agentcore: corpus path not found")
 
-// CorpusHit —— a search/list row from the Driver (public mirror of usecases.CorpusMeta).
+// CorpusHit —— a search/list row from the Driver (public mirror of corpus.Meta).
 type CorpusHit struct {
 	ID      string
 	Path    string
@@ -47,7 +46,7 @@ type driverCorpusLister struct {
 
 func (l driverCorpusLister) Search(
 	ctx context.Context, _ string, scope access.CorpusScope, query string,
-) ([]usecases.CorpusMeta, error) {
+) ([]corpus.Meta, error) {
 	hits, err := l.driver.SearchCorpus(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("driver search corpus: %w", err)
@@ -57,7 +56,7 @@ func (l driverCorpusLister) Search(
 
 func (l driverCorpusLister) List(
 	ctx context.Context, _ string, scope access.CorpusScope, parentPath string, page int,
-) ([]usecases.CorpusMeta, error) {
+) ([]corpus.Meta, error) {
 	hits, err := l.driver.ListCorpus(ctx, parentPath, page)
 	if err != nil {
 		return nil, fmt.Errorf("driver list corpus: %w", err)
@@ -69,17 +68,17 @@ func (l driverCorpusLister) List(
 // Driver's whole-corpus listing) and keep genre=wiki, ACL-filtered; shaping is BuildCorpusMap.
 func (l driverCorpusLister) MapEntries(
 	ctx context.Context, _ string, scope access.CorpusScope,
-) ([]usecases.CorpusMapEntry, error) {
+) ([]corpus.MapEntry, error) {
 	all, err := l.driver.SearchCorpus(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf("driver enumerate corpus: %w", err)
 	}
-	out := make([]usecases.CorpusMapEntry, 0, len(all))
+	out := make([]corpus.MapEntry, 0, len(all))
 	for i := range all {
 		if all[i].Genre != "wiki" || !allowsCorpus(scope, all[i].Genre, all[i].Path) {
 			continue
 		}
-		out = append(out, usecases.CorpusMapEntry{Path: all[i].Path, Title: all[i].Title})
+		out = append(out, corpus.MapEntry{Path: all[i].Path, Title: all[i].Title})
 	}
 	return out, nil
 }
@@ -87,48 +86,48 @@ func (l driverCorpusLister) MapEntries(
 // Resolve —— name → matching wiki node(s), same slug rule as prod (pure resolveByName).
 func (l driverCorpusLister) Resolve(
 	ctx context.Context, ownerID string, scope access.CorpusScope, name string,
-) ([]usecases.CorpusMeta, error) {
+) ([]corpus.Meta, error) {
 	entries, err := l.MapEntries(ctx, ownerID, scope)
 	if err != nil {
 		return nil, err
 	}
-	return usecases.ResolveByName(entries, name), nil
+	return corpus.ResolveByName(entries, name), nil
 }
 
 func (l driverCorpusLister) Get(
 	ctx context.Context, _ string, scope access.CorpusScope, path string,
-) (usecases.CorpusEntry, error) {
+) (corpus.Entry, error) {
 	doc, err := l.driver.GetCorpus(ctx, path)
 	if errors.Is(err, ErrCorpusNotFound) {
-		return usecases.CorpusEntry{}, usecases.ErrCorpusNotFound
+		return corpus.Entry{}, corpus.ErrCorpusNotFound
 	}
 	if err != nil {
-		return usecases.CorpusEntry{}, fmt.Errorf("driver get corpus: %w", err)
+		return corpus.Entry{}, fmt.Errorf("driver get corpus: %w", err)
 	}
 	if !allowsCorpus(scope, doc.Genre, path) {
-		return usecases.CorpusEntry{}, usecases.ErrCorpusDenied
+		return corpus.Entry{}, corpus.ErrCorpusDenied
 	}
-	return usecases.CorpusEntry{
+	return corpus.Entry{
 		ID: doc.ID, Path: doc.Path, Title: doc.Title, Genre: doc.Genre, Body: doc.Body,
 	}, nil
 }
 
 // Links —— 在 eval Driver 语料上算真链图（不靠 prod 的 note_refs 表）：subject 的 [[X]] 出度
 // 用 slug/title 解析成条目（Outgoing），全语料反扫谁 [[link]] 指向 subject（Backlinks）。用
-// 既有 usecases.ExtractCrossLinks + SlugifyTitle，跟 prod 的 crosslink 解析同源。SearchCorpus("")
+// 既有 corpus.ExtractCrossLinks + SlugifyTitle，跟 prod 的 crosslink 解析同源。SearchCorpus("")
 // 空查询枚举全量（见 EvalDriver）。ACL 逐条过（同 Get/filterHits）。语料小，线性扫无碍。
 func (l driverCorpusLister) Links(
 	ctx context.Context, ownerID string, scope access.CorpusScope, path string,
-) (usecases.CorpusLinks, error) {
+) (corpus.Links, error) {
 	subject, err := l.Get(ctx, ownerID, scope, path)
 	if err != nil {
-		return usecases.CorpusLinks{}, err
+		return corpus.Links{}, err
 	}
 	all, serr := l.driver.SearchCorpus(ctx, "") // 空查询 = 枚举全量
 	if serr != nil {
-		return usecases.CorpusLinks{}, fmt.Errorf("driver enumerate corpus: %w", serr)
+		return corpus.Links{}, fmt.Errorf("driver enumerate corpus: %w", serr)
 	}
-	return usecases.CorpusLinks{
+	return corpus.Links{
 		Outgoing:  outgoingLinks(subject.Body, all, scope),
 		Backlinks: l.backlinks(ctx, path, subject.Title, all, scope),
 	}, nil
@@ -137,10 +136,10 @@ func (l driverCorpusLister) Links(
 // outgoingLinks —— subject body 里的 [[X]] 解析成语料条目（slug 或 title 命中，ACL 过、去重）。
 func outgoingLinks(
 	body string, all []CorpusHit, scope access.CorpusScope,
-) []usecases.CorpusMeta {
-	out := make([]usecases.CorpusMeta, 0)
+) []corpus.Meta {
+	out := make([]corpus.Meta, 0)
 	seen := map[string]bool{}
-	for _, ref := range usecases.ExtractCrossLinks(body) {
+	for _, ref := range corpus.ExtractCrossLinks(body) {
 		hit, ok := resolveRef(ref.Target, all)
 		if !ok || seen[hit.Path] || !allowsCorpus(scope, hit.Genre, hit.Path) {
 			continue
@@ -155,11 +154,11 @@ func outgoingLinks(
 func (l driverCorpusLister) backlinks(
 	ctx context.Context, subjectPath, subjectTitle string,
 	all []CorpusHit, scope access.CorpusScope,
-) []usecases.CorpusMeta {
+) []corpus.Meta {
 	targets := map[string]bool{
-		lastSegment(subjectPath): true, usecases.SlugifyTitle(subjectTitle): true,
+		lastSegment(subjectPath): true, corpus.SlugifyTitle(subjectTitle): true,
 	}
-	out := make([]usecases.CorpusMeta, 0)
+	out := make([]corpus.Meta, 0)
 	for i := range all {
 		if l.entryLinksTo(ctx, &all[i], subjectPath, targets, scope) {
 			out = append(out, hitToMeta(&all[i]))
@@ -185,9 +184,9 @@ func (l driverCorpusLister) entryLinksTo(
 
 // resolveRef —— 把一个 [[X]] target 解析成语料条目：slug（末段 path）或 title-slug 命中。
 func resolveRef(target string, all []CorpusHit) (*CorpusHit, bool) {
-	slug := usecases.SlugifyTitle(target)
+	slug := corpus.SlugifyTitle(target)
 	for i := range all {
-		if lastSegment(all[i].Path) == slug || usecases.SlugifyTitle(all[i].Title) == slug {
+		if lastSegment(all[i].Path) == slug || corpus.SlugifyTitle(all[i].Title) == slug {
 			return &all[i], true
 		}
 	}
@@ -195,8 +194,8 @@ func resolveRef(target string, all []CorpusHit) (*CorpusHit, bool) {
 }
 
 func bodyLinksTo(body string, targets map[string]bool) bool {
-	for _, ref := range usecases.ExtractCrossLinks(body) {
-		if targets[usecases.SlugifyTitle(ref.Target)] {
+	for _, ref := range corpus.ExtractCrossLinks(body) {
+		if targets[corpus.SlugifyTitle(ref.Target)] {
 			return true
 		}
 	}
@@ -210,19 +209,19 @@ func lastSegment(path string) string {
 	return path
 }
 
-func hitToMeta(h *CorpusHit) usecases.CorpusMeta {
-	return usecases.CorpusMeta{
+func hitToMeta(h *CorpusHit) corpus.Meta {
+	return corpus.Meta{
 		ID: h.ID, Path: h.Path, Title: h.Title, Genre: h.Genre, Snippet: h.Snippet,
 	}
 }
 
-func filterHits(hits []CorpusHit, scope access.CorpusScope) []usecases.CorpusMeta {
-	out := make([]usecases.CorpusMeta, 0, len(hits))
+func filterHits(hits []CorpusHit, scope access.CorpusScope) []corpus.Meta {
+	out := make([]corpus.Meta, 0, len(hits))
 	for i := range hits {
 		if !allowsCorpus(scope, hits[i].Genre, hits[i].Path) {
 			continue
 		}
-		out = append(out, usecases.CorpusMeta{
+		out = append(out, corpus.Meta{
 			ID: hits[i].ID, Path: hits[i].Path, Title: hits[i].Title,
 			Genre: hits[i].Genre, Snippet: hits[i].Snippet,
 		})

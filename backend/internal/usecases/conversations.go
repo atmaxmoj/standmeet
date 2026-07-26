@@ -21,7 +21,7 @@ type ConversationsDeps struct {
 	Wiki         *corpus.WikiRepo
 	Writing      *corpus.WritingRepo
 	Output       *corpus.OutputRepo
-	Subjectivity SubjectivityCiteLookup
+	Subjectivity corpus.SubjectivityCiteLookup
 }
 
 // TitledRef —— TranscriptBundle 暴露的 (id, title)；上层 (routes / mcp)
@@ -101,7 +101,7 @@ func GetConversationTranscript(
 // subjectivityCitedRefs —— cited subjectivity id → {id,path,title,body}。这些 id 已是 opt-in
 // 的（写入 message 前过了 show_as_source gate），此处纯 hydrate。lookup 未注入 / 解析失败 → 略过。
 func subjectivityCitedRefs(
-	ctx context.Context, lookup SubjectivityCiteLookup, ownerID string, ids []string,
+	ctx context.Context, lookup corpus.SubjectivityCiteLookup, ownerID string, ids []string,
 ) []SubjectivityRef {
 	out := make([]SubjectivityRef, 0, len(ids))
 	if lookup == nil {
@@ -120,7 +120,7 @@ func subjectivityCitedRefs(
 }
 
 // wikiCitedRefs —— 把 cited wiki id 解成 (id, title, 树派生 path)。地址纯树派生
-// (load 全树 → WikiTreePaths),不读已退役的 path 列。load 失败 / id 已删 → 略过,
+// (load 全树 → corpus.WikiTreePaths),不读已退役的 path 列。load 失败 / id 已删 → 略过,
 // transcript 主数据已在手,前端 fallback 显 id,不该让整个 transcript 502。
 func wikiCitedRefs(
 	ctx context.Context, repo *corpus.WikiRepo, ownerID string, ids []string,
@@ -133,7 +133,7 @@ func wikiCitedRefs(
 		if merr != nil {
 			continue
 		}
-		path, perr := wikiPathByID(ctx, repo, ownerID, id)
+		path, perr := corpus.WikiPathByID(ctx, repo, ownerID, id)
 		if perr != nil {
 			continue
 		}
@@ -175,7 +175,7 @@ func outputCitedRefs(
 		if merr != nil {
 			continue
 		}
-		path, perr := outputPathByID(ctx, repo, ownerID, id)
+		path, perr := corpus.OutputPathByID(ctx, repo, ownerID, id)
 		if perr != nil {
 			continue
 		}

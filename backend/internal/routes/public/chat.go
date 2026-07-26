@@ -25,6 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
@@ -40,7 +41,7 @@ type Handlers struct {
 	Usage        UsageRecorder
 	Reports      usecases.ReportStore
 	Corpus       usecases.DialogCorpusLookup
-	Subjectivity usecases.SubjectivityCiteLookup
+	Subjectivity corpus.SubjectivityCiteLookup
 	PDFRenderer  ReportPDFRenderer
 	AppState     AppStateStore
 	Resolver     inference.Resolver

@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
+
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -19,12 +21,12 @@ func (h *WritingHandlers) getWritingTree() http.HandlerFunc {
 			h.handleWritingErr(w, "load owner", err)
 			return
 		}
-		writings, lerr := usecases.ListPublishedWritings(r.Context(), h.Writings, owner.ID)
+		writings, lerr := corpus.ListPublishedWritings(r.Context(), h.Writings, owner.ID)
 		if lerr != nil {
 			h.handleWritingErr(w, "list published writings", lerr)
 			return
 		}
-		nodes := usecases.WritingTreeChildren(writings, r.URL.Query().Get("parent"))
+		nodes := corpus.WritingTreeChildren(writings, r.URL.Query().Get("parent"))
 		writeWritingTree(h.Log, w, nodes)
 	}
 }
@@ -38,12 +40,12 @@ func (h *WritingHandlers) getWritingTreeContext() http.HandlerFunc {
 			h.handleWritingErr(w, "load owner", err)
 			return
 		}
-		writings, lerr := usecases.ListPublishedWritings(r.Context(), h.Writings, owner.ID)
+		writings, lerr := corpus.ListPublishedWritings(r.Context(), h.Writings, owner.ID)
 		if lerr != nil {
 			h.handleWritingErr(w, "list published writings", lerr)
 			return
 		}
-		out := usecases.WritingNodeContext(writings, r.URL.Query().Get("slug"))
+		out := corpus.WritingNodeContext(writings, r.URL.Query().Get("slug"))
 		writeWritingTreeContext(h.Log, w, &out)
 	}
 }
@@ -65,7 +67,7 @@ type writingTreeContextResponse struct {
 	Children  []writingTreeNodeView `json:"children"`
 }
 
-func toWritingNodeViews(nodes []usecases.WritingTreeNode) []writingTreeNodeView {
+func toWritingNodeViews(nodes []corpus.WritingTreeNode) []writingTreeNodeView {
 	views := make([]writingTreeNodeView, 0, len(nodes))
 	for i := range nodes {
 		views = append(views, writingTreeNodeView{
@@ -76,7 +78,7 @@ func toWritingNodeViews(nodes []usecases.WritingTreeNode) []writingTreeNodeView 
 	return views
 }
 
-func writeWritingTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.WritingTreeNode) {
+func writeWritingTree(log *slog.Logger, w http.ResponseWriter, nodes []corpus.WritingTreeNode) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := writingTreeResponse{Nodes: toWritingNodeViews(nodes)}
@@ -85,7 +87,7 @@ func writeWritingTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.
 	}
 }
 
-func writeWritingTreeContext(log *slog.Logger, w http.ResponseWriter, c *usecases.WritingContext) {
+func writeWritingTreeContext(log *slog.Logger, w http.ResponseWriter, c *corpus.WritingContext) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := writingTreeContextResponse{

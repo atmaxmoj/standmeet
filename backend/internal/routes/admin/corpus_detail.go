@@ -14,7 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 )
 
-// detail 不含 path:地址树派生(浏览列表那条由 usecases.WikiTreePaths 算并回显);
+// detail 不含 path:地址树派生(浏览列表那条由 corpus.WikiTreePaths 算并回显);
 // 编辑表单不再有可改的 path 字段(owner 不能自设地址)。
 // refView —— 一条 note_ref 边端点（id + title），给 admin 详情的 outbound/backlinks 用。
 type refView struct {

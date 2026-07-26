@@ -11,7 +11,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type outputListItem struct {
@@ -42,7 +41,7 @@ func (h *Handlers) listOutput() http.HandlerFunc {
 }
 
 func writeOutputList(log *slog.Logger, w http.ResponseWriter, rows []corpus.Output) {
-	paths := usecases.OutputTreePaths(rows)
+	paths := corpus.OutputTreePaths(rows)
 	items := make([]outputListItem, 0, len(rows))
 	for i := range rows {
 		items = append(items, outputItemFromDomain(&rows[i], paths[rows[i].ID()]))

@@ -191,7 +191,8 @@ func (h *Handlers) updateConnector() http.HandlerFunc {
 		}
 		in := body.uploadedSpec()
 		if err := h.ConnectorsAdmin.Svc.UpdateUploaded(
-			r.Context(), ownerID, chi.URLParam(r, paramID), in); err != nil {
+			r.Context(), ownerID, chi.URLParam(r, paramID), in,
+		); err != nil {
 			h.writeConnErr(w, err)
 			return
 		}
@@ -215,7 +216,8 @@ func (h *Handlers) connectorCredentialForm() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		form, err := h.ConnectorsAdmin.Svc.CredentialForm(
-			r.Context(), ownerID, chi.URLParam(r, paramID))
+			r.Context(), ownerID, chi.URLParam(r, paramID),
+		)
 		if err != nil {
 			h.writeConnErr(w, err)
 			return
@@ -252,7 +254,8 @@ func (h *Handlers) saveConnectorCredentials() http.HandlerFunc {
 			return
 		}
 		if serr := h.ConnectorsAdmin.Svc.SaveCredentials(
-			r.Context(), ownerID, chi.URLParam(r, paramID), body); serr != nil {
+			r.Context(), ownerID, chi.URLParam(r, paramID), body,
+		); serr != nil {
 			h.writeConnErr(w, serr)
 			return
 		}
@@ -290,7 +293,8 @@ func (h *Handlers) activateConnector() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		if err := h.ConnectorsAdmin.Svc.Activate(
-			r.Context(), ownerID, chi.URLParam(r, paramID)); err != nil {
+			r.Context(), ownerID, chi.URLParam(r, paramID),
+		); err != nil {
 			h.writeConnErr(w, err)
 			return
 		}
@@ -302,7 +306,8 @@ func (h *Handlers) disconnectConnector() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		if err := h.ConnectorsAdmin.Svc.Disconnect(
-			r.Context(), ownerID, chi.URLParam(r, paramID)); err != nil {
+			r.Context(), ownerID, chi.URLParam(r, paramID),
+		); err != nil {
 			h.writeConnErr(w, err)
 			return
 		}

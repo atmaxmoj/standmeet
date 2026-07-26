@@ -52,7 +52,8 @@ func TestDisplayWrapSendsMessageButLogsCause(t *testing.T) {
 	// DisplayWrap 的分离：客户端只见 friendly message；日志（Error）+ errors.Is 能拿到底层 cause。
 	cause := errors.New("dial tcp 10.0.0.5:443: connect: connection refused")
 	de := apierr.DisplayWrap(
-		http.StatusBadGateway, "provider_unreachable", "Couldn't reach the provider.", cause)
+		http.StatusBadGateway, "provider_unreachable", "Couldn't reach the provider.", cause,
+	)
 
 	env := apierr.Classify(de, nil)
 	if env.Message != "Couldn't reach the provider." {

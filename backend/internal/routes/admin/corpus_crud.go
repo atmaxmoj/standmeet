@@ -26,7 +26,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // errInvalidJSONBody —— "invalid JSON body" 字面在本文件多次出现，提常量。
@@ -71,7 +70,7 @@ func (h *Handlers) updateRaw() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq(errInvalidJSONBody))
 			return
 		}
-		raw, err := usecases.UpdateRaw(r.Context(), h.Corpus.Corpus, &usecases.UpdateRawInput{
+		raw, err := corpus.UpdateRaw(r.Context(), h.Corpus.Corpus, &corpus.UpdateRawReq{
 			OwnerID: middleware.OwnerIDFrom(r.Context()), ID: chi.URLParam(r, "id"),
 			Body: body.Body, Tags: body.Tags, FlaggedPrivate: body.FlaggedPrivate,
 		})
@@ -81,7 +80,7 @@ func (h *Handlers) updateRaw() http.HandlerFunc {
 
 func (h *Handlers) archiveRaw() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := usecases.ArchiveRaw(
+		err := corpus.ArchiveRaw(
 			r.Context(), h.Corpus.Corpus,
 			middleware.OwnerIDFrom(r.Context()), chi.URLParam(r, "id"),
 		)
@@ -102,7 +101,7 @@ func (h *Handlers) promoteRaw() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq(errInvalidJSONBody))
 			return
 		}
-		wiki, err := usecases.PromoteToWiki(r.Context(), h.Corpus.Corpus, &usecases.PromoteInput{
+		wiki, err := corpus.PromoteToWiki(r.Context(), h.Corpus.Corpus, &corpus.PromoteInput{
 			OwnerID:  middleware.OwnerIDFrom(r.Context()),
 			RawID:    chi.URLParam(r, "id"),
 			ParentID: optionalString(body.ParentID),
@@ -131,7 +130,7 @@ func (h *Handlers) createWiki() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq(errInvalidJSONBody))
 			return
 		}
-		wiki, err := usecases.CreateWiki(r.Context(), h.Corpus.Corpus, &usecases.CreateWikiInput{
+		wiki, err := corpus.CreateWiki(r.Context(), h.Corpus.Corpus, &corpus.CreateWikiReq{
 			OwnerID:  middleware.OwnerIDFrom(r.Context()),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
@@ -148,7 +147,7 @@ func (h *Handlers) updateWiki() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq(errInvalidJSONBody))
 			return
 		}
-		wiki, err := usecases.UpdateWiki(r.Context(), h.Corpus.Corpus, &usecases.UpdateWikiInput{
+		wiki, err := corpus.UpdateWiki(r.Context(), h.Corpus.Corpus, &corpus.UpdateWikiReq{
 			OwnerID: middleware.OwnerIDFrom(r.Context()), ID: chi.URLParam(r, "id"),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
@@ -160,7 +159,7 @@ func (h *Handlers) updateWiki() http.HandlerFunc {
 
 func (h *Handlers) deleteWiki() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := usecases.DeleteWiki(
+		err := corpus.DeleteWiki(
 			r.Context(), h.Corpus.Corpus,
 			middleware.OwnerIDFrom(r.Context()), chi.URLParam(r, "id"),
 		)
@@ -170,7 +169,7 @@ func (h *Handlers) deleteWiki() http.HandlerFunc {
 
 func (h *Handlers) deleteSubjectivity() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := usecases.DeleteSubjectivity(
+		err := corpus.DeleteSubjectivity(
 			r.Context(), h.Corpus.Corpus,
 			middleware.OwnerIDFrom(r.Context()), chi.URLParam(r, "id"),
 		)
@@ -191,14 +190,15 @@ func (h *Handlers) promoteWiki() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq(errInvalidJSONBody))
 			return
 		}
-		out, err := usecases.PromoteWikiToOutput(
-			r.Context(), h.Corpus.Corpus, &usecases.PromoteToOutputInput{
+		out, err := corpus.PromoteWikiToOutput(
+			r.Context(), h.Corpus.Corpus, &corpus.PromoteToOutputInput{
 				OwnerID:  middleware.OwnerIDFrom(r.Context()),
 				WikiID:   chi.URLParam(r, "id"),
 				ParentID: optionalString(body.ParentID),
 				Title:    body.Title,
 				Tags:     body.Tags,
-			})
+			},
+		)
 		writeCorpusResult(h.Log, w, outputItemFromDomain(&out, ""), err, "promote wiki")
 	}
 }
@@ -220,7 +220,7 @@ func (h *Handlers) createOutput() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq(errInvalidJSONBody))
 			return
 		}
-		out, err := usecases.CreateOutput(r.Context(), h.Corpus.Corpus, &usecases.CreateOutputInput{
+		out, err := corpus.CreateOutput(r.Context(), h.Corpus.Corpus, &corpus.CreateOutputReq{
 			OwnerID:  middleware.OwnerIDFrom(r.Context()),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
@@ -237,7 +237,7 @@ func (h *Handlers) updateOutput() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq(errInvalidJSONBody))
 			return
 		}
-		out, err := usecases.UpdateOutput(r.Context(), h.Corpus.Corpus, &usecases.UpdateOutputInput{
+		out, err := corpus.UpdateOutput(r.Context(), h.Corpus.Corpus, &corpus.UpdateOutputReq{
 			OwnerID: middleware.OwnerIDFrom(r.Context()), ID: chi.URLParam(r, "id"),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
@@ -249,7 +249,7 @@ func (h *Handlers) updateOutput() http.HandlerFunc {
 
 func (h *Handlers) deleteOutput() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := usecases.DeleteOutput(
+		err := corpus.DeleteOutput(
 			r.Context(), h.Corpus.Corpus,
 			middleware.OwnerIDFrom(r.Context()), chi.URLParam(r, "id"),
 		)

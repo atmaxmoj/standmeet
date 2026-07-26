@@ -18,7 +18,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const timeFmt = time.RFC3339
@@ -26,8 +25,8 @@ const timeFmt = time.RFC3339
 // WritingsAdminDeps —— admin writings handlers 依赖。Writings (slim) 用于
 // 读 / publish；WritingsTx (with Assets) 用于 create / update / delete。
 type WritingsAdminDeps struct {
-	Writings   usecases.WritingsDeps
-	WritingsTx usecases.WritingsTxDeps
+	Writings   corpus.WritingsDeps
+	WritingsTx corpus.WritingsTxDeps
 	Tree       WritingsTreeProvider // lazy tree + grid pagination (concrete WritingRepo)
 }
 
@@ -94,7 +93,7 @@ func (h *Handlers) MountWritings(r chi.Router) {
 func (h *Handlers) listAdminWritings() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		rows, err := usecases.ListAllWritings(r.Context(), h.WritingsAdmin.Writings, ownerID)
+		rows, err := corpus.ListAllWritings(r.Context(), h.WritingsAdmin.Writings, ownerID)
 		if err != nil {
 			logEncodeErr(h.Log, "list writings", err)
 			writeError(h.Log, w, serverErr())
@@ -132,8 +131,8 @@ func resolveWritingAssetURLs(
 	if coverID != "" {
 		coverPtr = &coverID
 	}
-	ids := usecases.WritingAssetIDs(wg.Body(), coverPtr)
-	urls, err := usecases.ResolveAssetURLs(
+	ids := corpus.WritingAssetIDs(wg.Body(), coverPtr)
+	urls, err := corpus.ResolveAssetURLs(
 		r.Context(),
 		h.WritingsAdmin.WritingsTx.Assets.Repo,
 		h.WritingsAdmin.WritingsTx.Assets.Storage,
@@ -161,14 +160,14 @@ func toWritingView(wg *corpus.Writing) writingView {
 	return writingView{
 		ID: wg.ID(), Slug: wg.Slug(), Title: wg.Title(), Excerpt: wg.Excerpt(),
 		BodyMD:        wg.Body(),
-		Preview:       usecases.LeadLine(wg.Body(), excerptMaxLen), // clean lead (F-R-1 class)
+		Preview:       corpus.LeadLine(wg.Body(), excerptMaxLen), // clean lead (F-R-1 class)
 		CoverHeadline: wg.CoverHeadline(),
 		CoverHue:      wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
 		Tags: wg.Tags(), Visibility: wg.VisibilityMode(), CrossRefs: wg.CrossRefs(),
 		Path: wg.Path(), ReadMinutes: wg.ReadMinutes(), LockedBody: wg.LockedBody(),
 		ParentID:    writingParentIDOr(wg),
 		Published:   wg.IsPublished(),
-		PublishedAt: usecases.PublishedAtRFC3339(pubAtPtr),
+		PublishedAt: corpus.PublishedAtRFC3339(pubAtPtr),
 		CreatedAt:   wg.CreatedAt().Format(timeFmt),
 		UpdatedAt:   wg.UpdatedAt().Format(timeFmt),
 	}
@@ -211,7 +210,7 @@ type saveAdminWritingCtx struct {
 func runSaveAdminWriting(ctx context.Context, sc *saveAdminWritingCtx) {
 	ownerID := middleware.OwnerIDFrom(ctx)
 	in := buildSaveWritingInput(ownerID, sc.WritingID, &sc.Parsed.Req, sc.Parsed.Files)
-	wg, err := usecases.SaveWriting(ctx, sc.H.WritingsAdmin.WritingsTx, in)
+	wg, err := corpus.SaveWriting(ctx, sc.H.WritingsAdmin.WritingsTx, in)
 	if err != nil {
 		handleSaveWritingErr(sc.H.Log, sc.W, err)
 		return
@@ -224,9 +223,9 @@ func runSaveAdminWriting(ctx context.Context, sc *saveAdminWritingCtx) {
 }
 
 func buildSaveWritingInput(
-	ownerID, writingID string, req *writingSaveRequest, files []usecases.FileInput,
-) *usecases.SaveWritingInput {
-	return &usecases.SaveWritingInput{
+	ownerID, writingID string, req *writingSaveRequest, files []corpus.FileInput,
+) *corpus.SaveWritingInput {
+	return &corpus.SaveWritingInput{
 		OwnerID: ownerID, WritingID: writingID, Slug: req.Slug, Title: req.Title,
 		Excerpt: req.Excerpt, BodyMD: req.BodyMD,
 		CoverImageRef: req.CoverImageRef, CoverHeadline: req.CoverHeadline,
@@ -279,7 +278,7 @@ func (h *Handlers) publishAdminWriting() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		writingID := chi.URLParam(r, "id")
-		wg, err := usecases.PublishWriting(
+		wg, err := corpus.PublishWriting(
 			r.Context(), h.WritingsAdmin.Writings, ownerID, writingID,
 		)
 		if err != nil {
@@ -295,7 +294,7 @@ func (h *Handlers) unpublishAdminWriting() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		writingID := chi.URLParam(r, "id")
-		wg, err := usecases.UnpublishWriting(
+		wg, err := corpus.UnpublishWriting(
 			r.Context(), h.WritingsAdmin.Writings, ownerID, writingID,
 		)
 		if err != nil {
@@ -311,7 +310,7 @@ func (h *Handlers) deleteAdminWriting() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		writingID := chi.URLParam(r, "id")
-		err := usecases.DeleteWritingWithAssets(
+		err := corpus.DeleteWritingWithAssets(
 			r.Context(), h.WritingsAdmin.WritingsTx, ownerID, writingID,
 		)
 		if err != nil {

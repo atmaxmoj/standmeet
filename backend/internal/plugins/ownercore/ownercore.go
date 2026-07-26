@@ -8,6 +8,8 @@ package ownercore
 import (
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
+
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
@@ -36,21 +38,21 @@ type Deps struct {
 	CustomPages      *owner.CustomPageDeps
 	Handle           *owner.HandleDeps
 	Calendar         *CalendarOwnerDeps
-	Writings         *usecases.WritingsDeps
+	Writings         *corpus.WritingsDeps
 	MCPServers       *marketplace.MCPServersDeps
 	Domains          owner.AllowedDomainsDeps
 	AccessRequests   *AccessRequestsOwnerDeps
 	Capabilities     *CapabilitiesOwnerDeps
 	Instance         *InstanceDeps
 	APIKeys          *APIKeysOwnerDeps
-	WritingsTx       *usecases.WritingsTxDeps
+	WritingsTx       *corpus.WritingsTxDeps
 	Roles            *usecases.RolesDeps
 	Booking          *BookingOwnerDeps
 	Prompts          *owner.PromptsDeps
 	Conversations    *usecases.ConversationsDeps
 	PublicURL        usecases.PublicURLDeps
 	PagePins         usecases.PagePinDeps
-	Corpus           *usecases.CorpusDeps
+	Corpus           *corpus.Deps
 	Account          owner.AccountDeps
 	BYOAI            owner.BYOAIDeps
 	Log              *slog.Logger

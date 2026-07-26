@@ -14,18 +14,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capSubjectivityBundle = "corpus.subjectivity.bundle"
 
 type subjectivityCapability struct {
-	corpusDeps *usecases.CorpusDeps
+	corpusDeps *corpus.Deps
 	log        *slog.Logger
 }
 
 func newSubjectivityCapability(
-	corpusDeps *usecases.CorpusDeps, log *slog.Logger,
+	corpusDeps *corpus.Deps, log *slog.Logger,
 ) *subjectivityCapability {
 	return &subjectivityCapability{corpusDeps: corpusDeps, log: log}
 }
@@ -97,7 +96,7 @@ func (c *subjectivityCapability) handleSubjectivityWrite(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	res, err := usecases.WriteSubjectivity(
+	res, err := corpus.WriteSubjectivity(
 		ctx, *c.corpusDeps, buildWriteSubjectivityInput(&args, ownerID),
 	)
 	if err != nil {
@@ -123,8 +122,8 @@ func parseSubjectivityWriteArgs(raw json.RawMessage) (subjectivityWriteArgsWire,
 
 func buildWriteSubjectivityInput(
 	args *subjectivityWriteArgsWire, ownerID string,
-) *usecases.WriteSubjectivityInput {
-	in := &usecases.WriteSubjectivityInput{
+) *corpus.WriteSubjectivityInput {
+	in := &corpus.WriteSubjectivityInput{
 		OwnerID: ownerID, ID: args.ID,
 		Title: args.Title, Body: args.Body, Tags: args.Tags, CSSClasses: args.CSSClasses,
 		// 省略(nil) → false：subjectivity 默认私有,不进 visitor cited footer。

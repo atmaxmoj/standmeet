@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 const maxWritingMultipartSize = 50 << 20 // 50MB
@@ -24,7 +24,7 @@ const maxWritingMultipartSize = 50 << 20 // 50MB
 // parsedMultipart —— parseWritingMultipart 多返回打包（避开 funcresult-limit 2）。
 // fieldalignment: slice 24B 先，struct 后。
 type parsedMultipart struct {
-	Files []usecases.FileInput
+	Files []corpus.FileInput
 	Req   writingSaveRequest
 }
 
@@ -69,17 +69,17 @@ func decodeWritingJSON(r *http.Request) (writingSaveRequest, error) {
 	return req, nil
 }
 
-func readUploadedFiles(r *http.Request) ([]usecases.FileInput, error) {
+func readUploadedFiles(r *http.Request) ([]corpus.FileInput, error) {
 	if r.MultipartForm == nil {
-		return []usecases.FileInput{}, nil
+		return []corpus.FileInput{}, nil
 	}
 	return collectFileFields(r.MultipartForm.File)
 }
 
 func collectFileFields(
 	files map[string][]*multipart.FileHeader,
-) ([]usecases.FileInput, error) {
-	out := make([]usecases.FileInput, 0)
+) ([]corpus.FileInput, error) {
+	out := make([]corpus.FileInput, 0)
 	for name, fhs := range files {
 		next, err := appendOneFile(out, name, fhs)
 		if err != nil {
@@ -95,8 +95,8 @@ func collectFileFields(
 var errSkipFile = errors.New("skip-non-file-field")
 
 func appendOneFile(
-	out []usecases.FileInput, name string, fhs []*multipart.FileHeader,
-) ([]usecases.FileInput, error) {
+	out []corpus.FileInput, name string, fhs []*multipart.FileHeader,
+) ([]corpus.FileInput, error) {
 	fi, err := readUploadedFileEntry(name, fhs)
 	if errors.Is(err, errSkipFile) {
 		return out, nil
@@ -109,9 +109,9 @@ func appendOneFile(
 
 func readUploadedFileEntry(
 	name string, fhs []*multipart.FileHeader,
-) (usecases.FileInput, error) {
+) (corpus.FileInput, error) {
 	if !filePendingFieldMatch(name, fhs) {
-		return usecases.FileInput{}, errSkipFile
+		return corpus.FileInput{}, errSkipFile
 	}
 	return readOneFile(strings.TrimPrefix(name, "file:"), fhs[0])
 }
@@ -120,17 +120,17 @@ func filePendingFieldMatch(name string, fhs []*multipart.FileHeader) bool {
 	return strings.HasPrefix(name, "file:") && len(fhs) > 0
 }
 
-func readOneFile(pendingID string, fh *multipart.FileHeader) (usecases.FileInput, error) {
+func readOneFile(pendingID string, fh *multipart.FileHeader) (corpus.FileInput, error) {
 	f, oerr := fh.Open()
 	if oerr != nil {
-		return usecases.FileInput{}, errors.New("open file: " + oerr.Error())
+		return corpus.FileInput{}, errors.New("open file: " + oerr.Error())
 	}
 	body, rerr := io.ReadAll(f)
 	closeFileBestEffort(f)
 	if rerr != nil {
-		return usecases.FileInput{}, errors.New("read file: " + rerr.Error())
+		return corpus.FileInput{}, errors.New("read file: " + rerr.Error())
 	}
-	return usecases.FileInput{
+	return corpus.FileInput{
 		PendingID: pendingID, ContentType: fh.Header.Get("Content-Type"),
 		OriginalFilename: fh.Filename, Body: body,
 	}, nil

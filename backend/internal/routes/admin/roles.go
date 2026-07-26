@@ -317,7 +317,8 @@ func writeOneRole(
 		r.Context(), h.RolesAdmin.Roles, rl.OwnerID(), rl.ID(),
 	)
 	if cerr != nil {
-		h.Log.Error("count active codes for role",
+		h.Log.Error(
+			"count active codes for role",
 			"role_id", rl.ID(), "err", cerr,
 		)
 		count = 0

@@ -55,7 +55,8 @@ func (h *Handlers) approveAccessRequest() http.HandlerFunc {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		id := chi.URLParam(r, "id")
 		out, err := usecases.ApproveAccessRequest(
-			r.Context(), h.AccessRequests.Approve, ownerID, id)
+			r.Context(), h.AccessRequests.Approve, ownerID, id,
+		)
 		if err != nil {
 			handleApproveErr(h.Log, w, err)
 			return
@@ -154,7 +155,8 @@ func handleAdminAccessRequestErr(log *slog.Logger, w http.ResponseWriter, err er
 
 var approveErrCases = []apierr.Case{
 	{Match: consumer.ErrMailNotConfigured, Envelope: envBadReq(
-		"configure and test your mail connector first")},
+		"configure and test your mail connector first",
+	)},
 	{Match: access.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "not_found", Message: "request not found",
 	}},

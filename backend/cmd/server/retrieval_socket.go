@@ -11,11 +11,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
+
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *usecases.CorpusIndexDeps) {
+func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *corpus.IndexDeps) {
 	if mkErr := os.MkdirAll("/run/standmeet", socketDirMode); mkErr != nil {
 		d.log.Error("retrieval socket dir", "err", mkErr)
 		return
@@ -25,7 +27,7 @@ func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *usecases.Cor
 		d.log.Error("retrieval socket listen", "err", err)
 		return
 	}
-	usecases.RegisterCorpusIndexSocket(srv, deps)
+	corpus.RegisterCorpusIndexSocket(srv, deps)
 	go srv.Serve(ctx)
 }
 

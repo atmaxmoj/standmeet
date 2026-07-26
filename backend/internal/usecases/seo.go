@@ -65,15 +65,15 @@ func PublicReady(ctx context.Context, deps SEODeps) (owner.Owner, bool) {
 // 已 rewrite 成 /wiki/<path> 链接)+ 出链(Related)/入链(CitedBy)。
 type WikiLanding struct {
 	Body    string
-	Related []WikiPathTitle
-	CitedBy []WikiPathTitle
+	Related []corpus.WikiPathTitle
+	CitedBy []corpus.WikiPathTitle
 	Wiki    corpus.Wiki
 }
 
 // wikiRefSides —— 一条 wiki 的出链 + 入链(给 landing 返回用)。
 type wikiRefSides struct {
-	Related []WikiPathTitle
-	CitedBy []WikiPathTitle
+	Related []corpus.WikiPathTitle
+	CitedBy []corpus.WikiPathTitle
 }
 
 // GetWikiLanding —— 公开 landing 查询：path → wiki entry + 渲染好的 body + read-next/cited-by。
@@ -113,7 +113,7 @@ type landingLocate struct {
 func assembleWikiLanding(
 	ctx context.Context, deps SEODeps, ownerID string, loc *landingLocate,
 ) (WikiLanding, error) {
-	paths := WikiMetaTreePaths(loc.metas)
+	paths := corpus.WikiMetaTreePaths(loc.metas)
 	id, found := indexedWikiIDAtPath(loc.metas, paths, loc.path, loc.scope)
 	if !found {
 		return WikiLanding{}, corpus.ErrWikiNotFound
@@ -122,7 +122,9 @@ func assembleWikiLanding(
 	if gerr != nil {
 		return WikiLanding{}, fmt.Errorf("get wiki: %w", gerr)
 	}
-	body := RewriteWikiCrossLinksForRender(w.Body(), wikiMetaPathTitleIndex(loc.metas, paths))
+	body := corpus.RewriteWikiCrossLinksForRender(
+		w.Body(), corpus.WikiMetaPathTitleIndex(loc.metas, paths),
+	)
 	sides, serr := loadWikiRefSides(ctx, deps, ownerID, id, paths)
 	if serr != nil {
 		return WikiLanding{}, serr
@@ -162,10 +164,10 @@ func loadWikiRefSides(
 	}, nil
 }
 
-func wikiRefsToPathTitle(refs []corpus.NoteRef, paths map[string]string) []WikiPathTitle {
-	out := make([]WikiPathTitle, 0, len(refs))
+func wikiRefsToPathTitle(refs []corpus.NoteRef, paths map[string]string) []corpus.WikiPathTitle {
+	out := make([]corpus.WikiPathTitle, 0, len(refs))
 	for i := range refs {
-		out = append(out, WikiPathTitle{Title: refs[i].Title, Path: paths[refs[i].ID]})
+		out = append(out, corpus.WikiPathTitle{Title: refs[i].Title, Path: paths[refs[i].ID]})
 	}
 	return out
 }
@@ -186,7 +188,7 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	if err != nil {
 		return []LandingURL{}
 	}
-	paths := WikiMetaTreePaths(metas)
+	paths := corpus.WikiMetaTreePaths(metas)
 	out := make([]LandingURL, 0, len(metas))
 	for i := range metas {
 		if metas[i].Published {
@@ -218,7 +220,7 @@ func resolveOutputLanding(
 	if err != nil {
 		return corpus.Output{}, fmt.Errorf("list output meta: %w", err)
 	}
-	id, found := indexedOutputIDAtPath(metas, OutputMetaTreePaths(metas), path)
+	id, found := indexedOutputIDAtPath(metas, corpus.OutputMetaTreePaths(metas), path)
 	if !found {
 		return corpus.Output{}, corpus.ErrOutputNotFound
 	}
@@ -251,7 +253,7 @@ func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	if err != nil {
 		return []LandingURL{}
 	}
-	paths := OutputMetaTreePaths(metas)
+	paths := corpus.OutputMetaTreePaths(metas)
 	out := make([]LandingURL, 0, len(metas))
 	for i := range metas {
 		if metas[i].Published {

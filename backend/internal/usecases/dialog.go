@@ -38,7 +38,7 @@ type DialogCorpusLookup interface {
 type DialogDeps struct {
 	Chats        *conversation.ChatRepo
 	Corpus       DialogCorpusLookup
-	Subjectivity SubjectivityCiteLookup
+	Subjectivity corpus.SubjectivityCiteLookup
 	Log          *slog.Logger
 }
 
