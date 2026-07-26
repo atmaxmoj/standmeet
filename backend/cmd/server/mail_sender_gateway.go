@@ -12,7 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capstore"
-	"github.com/atmaxmoj/standmeet/internal/connector"
+	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -86,7 +86,7 @@ func wireMailSenderGateway(ctx context.Context, d *runtimeDeps) {
 		return
 	}
 	bound := boundCapStore{store: store, kind: mailSenderCapKind, id: mailSenderCapID}
-	connector.RegisterInvokeOp(srv, d.connectorSlots)
+	connectorroutes.RegisterInvokeOp(srv, d.connectorSlots)
 	capstore.RegisterOps(srv, bound)
 	usecases.RegisterOwnerMetaOp(srv, d.ownerRepo)
 	go srv.Serve(ctx)

@@ -125,6 +125,8 @@ components:
     in: internal/routes/public            # /api/v1/* — SDK / visitor entry
   pubapi:
     in: internal/routes/pubapi            # /api/pub/v1/* — API-key facade (facade-directions.md)
+  connectorroutes:
+    in: internal/routes/connector         # socket 入站 API controller: connector.invoke (薄壳→connector.Slots)
   server:
     in: internal/server
   cmd:
@@ -185,7 +187,6 @@ deps:
   # 复用 usecases 的 DTO 类型 (FreeBusyReq / MailMessage 等) → 依赖 usecases。
   connector:
     mayDependOn:
-      - capsocket
       - domain
       - usecases
       - connectorcontract
@@ -193,6 +194,13 @@ deps:
       - retry
       - httpx
       - connectoropenapi
+    anyVendorDeps: true
+
+  # connectorroutes —— socket 入站 API 的 controller 层(跟 HTTP routes 同层):connector.invoke 的薄壳,
+  # 只解 socket 参数 + 转发进 connector 业务域(Invoker,由 connector.Slots 满足)。只依赖 capsocket 那根传输。
+  connectorroutes:
+    mayDependOn:
+      - capsocket
     anyVendorDeps: true
 
   # connectorcontract —— #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)。
@@ -633,6 +641,7 @@ deps:
       - adminroutes
       - publicroutes
       - pubapi
+      - connectorroutes
       - mcphandle
       - inference
       - jobcache
