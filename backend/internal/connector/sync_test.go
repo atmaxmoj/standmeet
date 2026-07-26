@@ -5,9 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSyncConnector_KindAndConnected(t *testing.T) {

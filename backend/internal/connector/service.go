@@ -1,7 +1,8 @@
-// Package connectorsvc —— 连接器 admin 编排（存凭据 / connect / oauth callback / activate /
+// service.go —— 连接器 admin 编排（存凭据 / connect / oauth callback / activate /
 // disconnect）。把这套业务逻辑从 routes 层抽出来（routes handler 强制 cyclo ≤3，只做表现），
-// 这里跑在 cyclop ≤5 业务预算上。OAuth dance 复用 connector.OAuthEndpoints（provider 无关）。
-package connectorsvc
+// 这里跑在 cyclop ≤5 业务预算上。OAuth dance 复用 OAuthEndpoints（provider 无关）。
+
+package connector
 
 import (
 	"context"
@@ -12,8 +13,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -24,26 +23,26 @@ const (
 
 // sentinel 错误见 errors.go。
 
-// Verifier —— protocol 连接器 connect 时跑的连接测试（composition root 接 connector.Slots）。
-type Verifier interface {
+// ConnectionVerifier —— protocol 连接器 connect 时跑的连接测试（composition root 接 Slots）。
+type ConnectionVerifier interface {
 	VerifyConnector(ctx context.Context, connectorID, ownerID string) error
 }
 
 // Installer —— 校验（装配）一份上传 manifest + 注册进 live Hub，返回它声明的品类。composition
-// root 接 connector.AssembleOpenAPI + Slots.Register。
+// root 接 AssembleOpenAPI + Slots.Register。
 type Installer interface {
-	Install(m *connector.Manifest) (category string, err error)
+	Install(m *Manifest) (category string, err error)
 }
 
 // Deps —— 服务依赖（composition root 注入）。Manifests = 内置连接器（id→category/kind/spec）。
 type Deps struct {
-	Repo      *postgres.ConnectorRepo
+	Repo      *Repo
 	Owners    *postgres.OwnerRepo
 	Redis     *redis.Client
 	HTTP      *http.Client
-	Verifier  Verifier
+	Verifier  ConnectionVerifier
 	Installer Installer
-	Manifests []connector.Manifest
+	Manifests []Manifest
 }
 
 // Service —— 连接器 admin 编排。
@@ -53,7 +52,7 @@ type Service struct{ d *Deps }
 func New(d *Deps) *Service { return &Service{d: d} }
 
 // Manifest —— 内置 manifest 按 id 查。
-func (s *Service) Manifest(id string) *connector.Manifest {
+func (s *Service) Manifest(id string) *Manifest {
 	for i := range s.d.Manifests {
 		if s.d.Manifests[i].ID == id {
 			return &s.d.Manifests[i]
@@ -64,12 +63,12 @@ func (s *Service) Manifest(id string) *connector.Manifest {
 
 // Catalog —— 所有内置连接器（拉起时外置装配进来的 manifest），供 admin UI 渲染可连接的内置卡。
 // 各卡状态/凭据表单各自再取 /{id}/{status,credential-form}。不进 List（List 只列 owner 已建；内置
-// 混进去会被 reuse-by-category 的调用方误抓）。复用 connectordomain.ConnectorConnection，不新增公开类型。
-func (s *Service) Catalog() []connectordomain.ConnectorConnection {
-	out := make([]connectordomain.ConnectorConnection, 0, len(s.d.Manifests))
+// 混进去会被 reuse-by-category 的调用方误抓）。复用 Connection，不新增公开类型。
+func (s *Service) Catalog() []Connection {
+	out := make([]Connection, 0, len(s.d.Manifests))
 	for i := range s.d.Manifests {
 		m := &s.d.Manifests[i]
-		out = append(out, connectordomain.ConnectorConnection{
+		out = append(out, Connection{
 			ConnectorID: m.ID, Category: m.Category, Kind: m.Kind,
 		})
 	}
@@ -82,7 +81,7 @@ func (s *Service) SaveCredentials(ctx context.Context, ownerID, id string, body 
 	if merr != nil {
 		return merr
 	}
-	if err := s.d.Repo.SaveCredentials(ctx, &postgres.SaveConnectorCredsInput{
+	if err := s.d.Repo.SaveCredentials(ctx, &SaveConnectorCredsInput{
 		OwnerID: ownerID, ConnectorID: id,
 		Category: m.Category, Kind: m.Kind, Credentials: body,
 	}); err != nil {
@@ -153,7 +152,7 @@ func (s *Service) Disconnect(ctx context.Context, ownerID, id string) error {
 
 // List —— owner 已配的连接器。
 func (s *Service) List(ctx context.Context, ownerID string,
-) ([]connectordomain.ConnectorConnection, error) {
+) ([]Connection, error) {
 	conns, err := s.d.Repo.ListByOwner(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list connectors: %w", err)
@@ -164,7 +163,7 @@ func (s *Service) List(ctx context.Context, ownerID string,
 // Status —— 单连接器状态。
 func (s *Service) Status(
 	ctx context.Context, ownerID, id string,
-) (connectordomain.ConnectorConnection, error) {
+) (Connection, error) {
 	conn, err := s.d.Repo.Get(ctx, ownerID, id)
 	if err != nil {
 		return conn, fmt.Errorf("connector status: %w", err)
@@ -192,7 +191,7 @@ func (s *Service) promoteFallback(ctx context.Context, ownerID, category string)
 	return nil
 }
 
-func hasActiveConn(conns []connectordomain.ConnectorConnection) bool {
+func hasActiveConn(conns []Connection) bool {
 	for i := range conns {
 		if conns[i].Active {
 			return true
@@ -201,7 +200,7 @@ func hasActiveConn(conns []connectordomain.ConnectorConnection) bool {
 	return false
 }
 
-func firstConnectedID(conns []connectordomain.ConnectorConnection) string {
+func firstConnectedID(conns []Connection) string {
 	for i := range conns {
 		if conns[i].Connected {
 			return conns[i].ConnectorID
@@ -214,7 +213,7 @@ func firstConnectedID(conns []connectordomain.ConnectorConnection) string {
 // spec/binding）。都没有 → ErrNotFound。
 func (s *Service) manifestFor(
 	ctx context.Context, ownerID, id string,
-) (*connector.Manifest, error) {
+) (*Manifest, error) {
 	if m := s.Manifest(id); m != nil {
 		return m, nil
 	}
@@ -226,7 +225,7 @@ func (s *Service) manifestFor(
 	if len(um.Spec) == 0 && um.Kind != "protocol" {
 		return nil, ErrNotFound
 	}
-	return &connector.Manifest{
+	return &Manifest{
 		ID: id, Kind: um.Kind, Category: um.Category, Protocol: um.Protocol,
 		AuthScheme: um.AuthScheme, Spec: um.Spec, Binding: um.Binding,
 	}, nil
@@ -236,11 +235,11 @@ func (s *Service) manifestFor(
 // connectOpenAPI —— openapi 连接器的 connect：oauth2 → dance；非 oauth（apikey/bearer/basic）→ 存即用；
 // 声明了 oauth2 却配坏（缺 authorizationCode flow 等）→ 暴露错，不静默走非-dance（否则 markConnected 却无 token）。
 func (s *Service) connectOpenAPI(
-	ctx context.Context, ownerID, id string, m *connector.Manifest,
+	ctx context.Context, ownerID, id string, m *Manifest,
 ) (ConnectResult, error) {
-	ep, err := connector.OAuthEndpointsFor(m, m.AuthScheme)
+	ep, err := OAuthEndpointsFor(m, m.AuthScheme)
 	switch {
-	case errors.Is(err, connector.ErrNotDanceScheme):
+	case errors.Is(err, ErrNotDanceScheme):
 		return s.verifyAndConnect(ctx, ownerID, id)
 	case err != nil:
 		return ConnectResult{}, fmt.Errorf("connect oauth setup: %w", err)
@@ -260,7 +259,7 @@ func (s *Service) verifyAndConnect(ctx context.Context, ownerID, id string) (Con
 
 // verifyReason —— 连接测试失败的 owner 友好理由（分类 connect/tls/auth；非已知 → 通用）。
 func verifyReason(err error) string {
-	if r := connector.FriendlyVerifyError(err); r != "" {
+	if r := FriendlyVerifyError(err); r != "" {
 		return r
 	}
 	return "the connection test failed — check the host, port, and credentials"
@@ -318,7 +317,7 @@ func (s *Service) claimSlotIfFree(ctx context.Context, ownerID, id, category str
 	return nil
 }
 
-func hasActive(conns []connectordomain.ConnectorConnection) bool {
+func hasActive(conns []Connection) bool {
 	for i := range conns {
 		if conns[i].Active {
 			return true
@@ -328,7 +327,7 @@ func hasActive(conns []connectordomain.ConnectorConnection) bool {
 }
 
 func (s *Service) initDance(
-	ctx context.Context, ownerID, id string, ep connector.OAuthEndpoints,
+	ctx context.Context, ownerID, id string, ep OAuthEndpoints,
 ) (ConnectResult, error) {
 	cred, err := s.loadOAuthCred(ctx, ownerID, id)
 	if err != nil {

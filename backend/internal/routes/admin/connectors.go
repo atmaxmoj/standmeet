@@ -12,9 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/connectordomain"
-	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 )
 
@@ -25,7 +24,7 @@ const (
 
 // ConnectorsAdminDeps —— 通用连接器路由依赖：编排服务 + active mail 分派器（test-send 用）。
 type ConnectorsAdminDeps struct {
-	Svc      *connectorsvc.Service
+	Svc      *connector.Service
 	Mail     contract.MailProxy
 	MailKind func(ctx context.Context, ownerID string) string
 }
@@ -72,7 +71,7 @@ type connectInitResp struct {
 	Connected bool   `json:"connected"`
 }
 
-func statusRow(c *connectordomain.ConnectorConnection) connectorStatusResp {
+func statusRow(c *connector.Connection) connectorStatusResp {
 	return connectorStatusResp{
 		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind,
 		HasCredentials: len(c.Credentials) > 0,
@@ -110,10 +109,10 @@ type connectorWriteReq struct {
 	ExposeAsAgentTools bool            `json:"expose_as_agent_tools"`
 }
 
-// uploadedSpec —— connectorWriteReq → connectorsvc.UploadedSpec（create + update 共用）。admin UI
+// uploadedSpec —— connectorWriteReq → connector.UploadedSpec（create + update 共用）。admin UI
 // 走 spec_text/binding_text 原文（YAML 绑定不必前端解析）；e2e 直 POST 走 spec/binding 对象。
-func (b *connectorWriteReq) uploadedSpec() *connectorsvc.UploadedSpec {
-	return &connectorsvc.UploadedSpec{
+func (b *connectorWriteReq) uploadedSpec() *connector.UploadedSpec {
+	return &connector.UploadedSpec{
 		Spec: rawOrText(b.Spec, b.SpecText), Binding: rawOrText(b.Binding, b.BindingText),
 		AuthScheme: b.AuthScheme, ExposeAsAgentTools: b.ExposeAsAgentTools,
 	}
@@ -157,7 +156,7 @@ func (h *Handlers) deleteConnector() http.HandlerFunc {
 // createConnectorID —— 按 kind 建连接器：protocol 走 CreateProtocol（无 spec）；其余走 CreateUploaded
 // （openapi spec+binding）。
 func createConnectorID(
-	ctx context.Context, svc *connectorsvc.Service, ownerID string, body *connectorWriteReq,
+	ctx context.Context, svc *connector.Service, ownerID string, body *connectorWriteReq,
 ) (string, error) {
 	if body.Kind == "protocol" {
 		return svc.CreateProtocol(ctx, ownerID, body.Category, body.Protocol)
@@ -225,7 +224,7 @@ func (h *Handlers) connectorCredentialForm() http.HandlerFunc {
 	}
 }
 
-func toCredFormResp(f *connectorsvc.CredentialForm) credFormResp {
+func toCredFormResp(f *connector.CredentialForm) credFormResp {
 	fields := make([]credFormField, 0, len(f.Fields))
 	for _, k := range f.Fields {
 		fields = append(fields, credFormField{Key: k})

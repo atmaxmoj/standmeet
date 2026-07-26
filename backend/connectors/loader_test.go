@@ -12,7 +12,6 @@ import (
 	"github.com/atmaxmoj/standmeet/connectors"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 )
 
 // TestLoad_GCalScopesAreFullURLs —— F-B-3. The gcal OAuth scopes must be the FULL
@@ -42,8 +41,8 @@ type fakeStore struct{}
 
 func (fakeStore) Get(
 	_ context.Context, connectorID, _ string,
-) (connectordomain.ConnectorConnection, error) {
-	return connectordomain.ConnectorConnection{ConnectorID: connectorID, Connected: true}, nil
+) (connector.Connection, error) {
+	return connector.Connection{ConnectorID: connectorID, Connected: true}, nil
 }
 
 func (fakeStore) SaveTokens(

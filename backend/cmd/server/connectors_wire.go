@@ -17,8 +17,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
-	"github.com/atmaxmoj/standmeet/internal/connectordomain"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // connectorEgressAllow —— 出站 SSRF 白名单（CONNECTOR_EGRESS_ALLOW 逗号分隔 hostname；
@@ -33,11 +31,11 @@ func connectorEgressClient() *http.Client {
 }
 
 // connectionStoreAdapter —— ConnectorRepo → connector.ConnectionStore（换 arg 次序）。
-type connectionStoreAdapter struct{ repo *postgres.ConnectorRepo }
+type connectionStoreAdapter struct{ repo *connector.Repo }
 
 func (a connectionStoreAdapter) Get(
 	ctx context.Context, connectorID, ownerID string,
-) (connectordomain.ConnectorConnection, error) {
+) (connector.Connection, error) {
 	conn, err := a.repo.Get(ctx, ownerID, connectorID)
 	if err != nil {
 		return conn, fmt.Errorf("connection store get: %w", err)
@@ -49,7 +47,7 @@ func (a connectionStoreAdapter) Get(
 func (a connectionStoreAdapter) SaveTokens(
 	ctx context.Context, connectorID, ownerID string, tok *connector.TokenRefresh,
 ) error {
-	if err := a.repo.SaveTokens(ctx, &postgres.SaveConnectorTokensInput{
+	if err := a.repo.SaveTokens(ctx, &connector.SaveConnectorTokensInput{
 		OwnerID: ownerID, ConnectorID: connectorID,
 		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
 		ExpiresAt: tok.ExpiresAt, Scopes: tok.Scopes,
@@ -82,7 +80,7 @@ type smtpCredJSON struct {
 }
 
 // smtpVaultAdapter —— ConnectorRepo → connector.SMTPVault（解码 smtp 配置 JSON）。
-type smtpVaultAdapter struct{ repo *postgres.ConnectorRepo }
+type smtpVaultAdapter struct{ repo *connector.Repo }
 
 func (a smtpVaultAdapter) Connected(
 	ctx context.Context, connectorID, ownerID string,
@@ -125,7 +123,7 @@ type caldavCredJSON struct {
 }
 
 // caldavVaultAdapter —— ConnectorRepo → connector.CalDAVVault（解码 caldav 配置 JSON）。
-type caldavVaultAdapter struct{ repo *postgres.ConnectorRepo }
+type caldavVaultAdapter struct{ repo *connector.Repo }
 
 func (a caldavVaultAdapter) Connected(
 	ctx context.Context, connectorID, ownerID string,
@@ -154,7 +152,7 @@ func (a caldavVaultAdapter) CalDAVConfig(
 }
 
 // slotStoreAdapter —— ConnectorRepo → connector.SlotStore（同品类的 active 连接器 id）。
-type slotStoreAdapter struct{ repo *postgres.ConnectorRepo }
+type slotStoreAdapter struct{ repo *connector.Repo }
 
 func (a slotStoreAdapter) ActiveConnectorID(
 	ctx context.Context, ownerID, category string,
@@ -233,7 +231,7 @@ func (i uploadedInstaller) Install(m *connector.Manifest) (string, error) {
 // agentConnectorSource —— usecases.AgentConnectorSource 适配器：owner 的 connected 连接器里挑出
 // 暴露 agent 工具的 openapi 连接器（ListByOwner 过 connected → Hub 解析 → type-assert + expose）。
 type agentConnectorSource struct {
-	repo  *postgres.ConnectorRepo
+	repo  *connector.Repo
 	slots *connector.Slots
 }
 
@@ -248,7 +246,7 @@ func (s *agentConnectorSource) AgentConnectors(
 }
 
 // connectedIDs —— 已 connected 的连接器 id（agent-tools 闸：未连不暴露）。
-func connectedIDs(conns []connectordomain.ConnectorConnection) []string {
+func connectedIDs(conns []connector.Connection) []string {
 	out := make([]string, 0, len(conns))
 	for i := range conns {
 		if conns[i].Connected {
@@ -281,7 +279,7 @@ type assembleDeps struct {
 	allow       connector.EgressAllow
 }
 
-func newAssembleDeps(repo *postgres.ConnectorRepo) *assembleDeps {
+func newAssembleDeps(repo *connector.Repo) *assembleDeps {
 	allow := connectorEgressAllow()
 	return &assembleDeps{
 		doer:        allow.GuardedHTTPClient(),

@@ -89,8 +89,6 @@ components:
     in: internal/access              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
   owner:
     in: internal/owner               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
-  connectordomain:
-    in: internal/connectordomain           # #135: 连接器轴 owner 注册配置 (connector_connection)；pure leaf
   sandbox:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
   capreg:
@@ -119,8 +117,6 @@ components:
     in: internal/connector/consumer       # #135: 连接器轴消费者契约 leaf (AgentToolConnector/AgentOp/ErrMailNotConfigured)；无 CalendarProxy，内核可依赖
   connectorbuiltins:
     in: connectors                        # built-in connector data (embedded manifest/spec/binding) + Load — own top-level dir, out of internal/
-  connectorsvc:
-    in: internal/connectorsvc             # #155: 连接器 admin 编排（凭据/connect/oauth dance/activate）——routes 层之下，cyclop ≤5
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   capstore:
@@ -221,7 +217,7 @@ deps:
   # 复用 usecases 的 DTO 类型 (FreeBusyReq / MailMessage 等) → 依赖 usecases。
   connector:
     mayDependOn:
-      - connectordomain
+      - connector
       - domain
       - connectorcontract
       - connectorconsumer
@@ -229,6 +225,10 @@ deps:
       - retry
       - httpx
       - connectoropenapi
+      - postgres
+      - cryptobox
+      - pgstore
+      - dbq
     anyVendorDeps: true
 
   # connectorconsumer —— 连接器轴消费者契约 leaf(AgentToolConnector/AgentOp/ErrMailNotConfigured)。
@@ -303,18 +303,6 @@ deps:
       - connector
     anyVendorDeps: true
 
-  # connectorsvc —— #155 连接器 admin 编排：凭据/connect/oauth dance/activate/disconnect。
-  # routes 层之下（cyclop ≤5，不受 routes ≤3 约束）。读写连接器存储 + 走 OAuth dance。
-  connectorsvc:
-    mayDependOn:
-      - connectordomain
-      - connector
-      - postgres
-      - domain
-    anyVendorDeps: true
-
-  # retry —— #132 通用可配重试 infra leaf：纯 stdlib (context/time)，无 internal 依赖。
-  # connector 代调外部（gcal/mailer，第三方易抖）按 call-class 在它之上配策略（D-6/D-7）。
   retry:
     mayDependOn: []
     anyVendorDeps: true
@@ -369,7 +357,7 @@ deps:
   postgres:
     mayDependOn:
       - conversation
-      - connectordomain
+      - connector
       - owner
       - access
       - marketplace
@@ -499,7 +487,7 @@ deps:
   pluginownercore:
     mayDependOn:
       - conversation
-      - connectordomain
+      - connector
       - access
       - owner
       - marketplace
@@ -661,15 +649,6 @@ deps:
 
 
 
-  # connectordomain —— #135 连接器轴 owner 注册配置 leaf：ConnectorConnection，无 internal 依赖。
-  connectordomain:
-    mayDependOn: []
-    anyVendorDeps: true
-
-
-  # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
-  # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
-  # routes 不直接 import。
   marketplace:
     mayDependOn:
       - domain
@@ -720,7 +699,7 @@ deps:
   adminroutes:
     mayDependOn:
       - conversation
-      - connectordomain
+      - connector
       - owner
       - access
       - marketplace
@@ -735,9 +714,7 @@ deps:
       - storage
       - connectorconsumer
       - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
-      - connector   # /connectors/* 经连接器层（不直碰 gcal/mailer）
       - connectorcontract # #135 Slice 5: /connectors/mail 凭据表单 + 测试发信走 MailProxy 契约
-      - connectorsvc # #155 /connectors/* 编排（凭据/connect/oauth/activate）抽到 service
       - capreg      # Phase H /capabilities：列 registry origin + owner-enable 开关
       - pluginbooker # #190 /bookings + /booking-policy: booker.CodeBooking / BookingPolicy types
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
@@ -832,14 +809,12 @@ deps:
       - gotenberg
       - connector
       - connectorbuiltins
-      - connectorsvc
       - printsess
       - jobregistry
       - marketplace
       - security
       - access
       - stats
-      - connectordomain
       - cryptobox
       - sandbox
       - mcpclient

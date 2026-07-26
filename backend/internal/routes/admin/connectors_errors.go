@@ -8,25 +8,25 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
 // connErrCases —— sentinel → envelope（table-driven，apierr.Classify 派发；无匹配 → 500）。
 var connErrCases = []apierr.Case{
-	{Match: connectorsvc.ErrNotFound, Envelope: apierr.Envelope{
+	{Match: connector.ErrNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "not_found", Message: "not found",
 	}},
-	{Match: connectorsvc.ErrNoOAuthClient, Envelope: apierr.Envelope{
+	{Match: connector.ErrNoOAuthClient, Envelope: apierr.Envelope{
 		Status:  http.StatusBadRequest,
 		Code:    "bad_request",
 		Message: "connector credentials not set",
 	}},
-	{Match: connectorsvc.ErrConnectionFailed, Envelope: apierr.Envelope{
+	{Match: connector.ErrConnectionFailed, Envelope: apierr.Envelope{
 		Status:  http.StatusBadRequest,
 		Code:    "bad_request",
 		Message: "connection test failed — check host/port/credentials",
 	}},
-	{Match: connectorsvc.ErrBuiltinReadonly, Envelope: apierr.Envelope{
+	{Match: connector.ErrBuiltinReadonly, Envelope: apierr.Envelope{
 		Status:  http.StatusConflict,
 		Code:    "builtin_readonly",
 		Message: "this connector is built-in and cannot be edited or deleted",
@@ -38,7 +38,7 @@ var connErrCases = []apierr.Case{
 // writeConnErr —— 把 connectorsvc sentinel 翻成 HTTP envelope（dispatch 集中此处，handler 保 ≤3）。
 // 装配失败带上底层原因（坏 JSONata / 未知 op / 未知品类 / 不完整），owner 才知道改哪。
 func (h *Handlers) writeConnErr(w http.ResponseWriter, err error) {
-	if errors.Is(err, connectorsvc.ErrInvalidManifest) {
+	if errors.Is(err, connector.ErrInvalidManifest) {
 		writeError(h.Log, w, apierr.Envelope{
 			Status: http.StatusBadRequest, Code: "invalid_manifest", Message: err.Error(),
 		})

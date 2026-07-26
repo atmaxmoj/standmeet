@@ -19,6 +19,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -31,7 +32,7 @@ type CapabilityAdminDeps struct {
 	Registry   *capreg.Registry
 	Settings   *postgres.CapabilityRepo
 	Skills     *marketplace.SkillRepo
-	Connectors *postgres.ConnectorRepo
+	Connectors *connector.Repo
 }
 
 // connector 行的稳定 ID（kind=connector）。

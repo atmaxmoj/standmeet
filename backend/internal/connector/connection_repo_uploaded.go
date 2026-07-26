@@ -2,7 +2,7 @@
 // UI 贴的连接器持久化在 owner_connectors 的 spec/binding/auth_scheme 列；拉起时重装进 Hub。
 // 内置连接器的这些列为空（manifest 来自 go:embed）。
 
-package postgres
+package connector
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -28,10 +29,10 @@ type SaveUploadedInput struct {
 }
 
 // SaveUploaded —— 存一个 owner 自建连接器（openapi 带 spec/binding；protocol 带 protocol）。
-func (r *ConnectorRepo) SaveUploaded(ctx context.Context, in *SaveUploadedInput) error {
-	ownerUUID, err := parseUUID(in.OwnerID)
+func (r *Repo) SaveUploaded(ctx context.Context, in *SaveUploadedInput) error {
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	if _, qerr := dbq.New(r.pool).InsertUploadedConnector(ctx, dbq.InsertUploadedConnectorParams{
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID, Category: in.Category,
@@ -45,10 +46,10 @@ func (r *ConnectorRepo) SaveUploaded(ctx context.Context, in *SaveUploadedInput)
 }
 
 // UpdateUploaded —— 编辑已建上传连接器的 spec/binding/auth_scheme/category（重新装配后存档）。
-func (r *ConnectorRepo) UpdateUploaded(ctx context.Context, in *SaveUploadedInput) error {
-	ownerUUID, err := parseUUID(in.OwnerID)
+func (r *Repo) UpdateUploaded(ctx context.Context, in *SaveUploadedInput) error {
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	if qerr := dbq.New(r.pool).UpdateUploadedConnector(ctx, dbq.UpdateUploadedConnectorParams{
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID, Category: in.Category,
@@ -75,12 +76,12 @@ type UploadedManifest struct {
 // GetManifest —— 取一个连接器存档的 manifest 字段（上传连接器用：category/kind/spec/binding/
 // auth_scheme）。无行（或内置无 spec 的行）→ 返回 Spec 为空的零值；调用方据「Spec 空 = 非
 // 上传连接器」判定。
-func (r *ConnectorRepo) GetManifest(
+func (r *Repo) GetManifest(
 	ctx context.Context, ownerID, connectorID string,
 ) (UploadedManifest, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return UploadedManifest{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return UploadedManifest{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).GetConnectorManifest(ctx,
 		dbq.GetConnectorManifestParams{OwnerID: ownerUUID, ConnectorID: connectorID})
@@ -98,10 +99,10 @@ func (r *ConnectorRepo) GetManifest(
 }
 
 // DeleteUploaded —— 删一个 owner 自建连接器（行删除）。它填的品类槽随之空。
-func (r *ConnectorRepo) DeleteUploaded(ctx context.Context, ownerID, connectorID string) error {
-	ownerUUID, err := parseUUID(ownerID)
+func (r *Repo) DeleteUploaded(ctx context.Context, ownerID, connectorID string) error {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	if qerr := dbq.New(r.pool).DeleteUploadedConnector(ctx, dbq.DeleteUploadedConnectorParams{
 		OwnerID: ownerUUID, ConnectorID: connectorID,
@@ -112,7 +113,7 @@ func (r *ConnectorRepo) DeleteUploaded(ctx context.Context, ownerID, connectorID
 }
 
 // ListUploaded —— 所有上传的连接器 manifest（拉起重装，跨 owner；v1 单 owner）。
-func (r *ConnectorRepo) ListUploaded(ctx context.Context) ([]UploadedManifest, error) {
+func (r *Repo) ListUploaded(ctx context.Context) ([]UploadedManifest, error) {
 	rows, err := dbq.New(r.pool).ListUploadedConnectors(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list uploaded connectors: %w", err)

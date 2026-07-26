@@ -12,6 +12,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
@@ -74,7 +75,7 @@ type repoSet struct {
 	bannedIP       *security.BannedIPRepo
 	apiKey         *access.APIKeyRepo
 	appState       *postgres.AppStateRepo
-	connector      *postgres.ConnectorRepo
+	connector      *connector.Repo
 }
 
 func newRepos(db *postgres.Pool) *repoSet {
@@ -115,7 +116,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		bannedIP:       security.NewBannedIPRepo(db),
 		apiKey:         access.NewAPIKeyRepo(db),
 		appState:       postgres.NewAppStateRepo(db),
-		connector:      postgres.NewConnectorRepo(db),
+		connector:      connector.NewRepo(db),
 	}
 }
 

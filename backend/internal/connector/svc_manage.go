@@ -1,14 +1,11 @@
 // manage.go —— 连接器的「owner 自建/编辑」编排：上传 openapi、建 protocol、编辑 spec、派生凭据
 // 表单。跟 service.go 同 Service，拆出来守 max-lines。
 
-package connectorsvc
+package connector
 
 import (
 	"context"
 	"fmt"
-
-	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // CreateUploaded —— 从 owner 贴的 spec + JSONata binding 建一个 openapi 连接器：装配期校验
@@ -56,8 +53,8 @@ func bytesOrEmpty(b []byte) []byte {
 
 // openapiManifest —— 从 owner 贴的 UploadedSpec 建一份 openapi manifest。Create/Update 同一份字段
 // 映射，抽出来做单一事实源（否则加一个 manifest 字段要在建/改两处都改，易漏）。
-func openapiManifest(id string, in *UploadedSpec) *connector.Manifest {
-	return &connector.Manifest{
+func openapiManifest(id string, in *UploadedSpec) *Manifest {
+	return &Manifest{
 		ID: id, Kind: "openapi", AuthScheme: in.AuthScheme,
 		Spec: in.Spec, Binding: in.Binding, ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}
@@ -65,8 +62,8 @@ func openapiManifest(id string, in *UploadedSpec) *connector.Manifest {
 
 // uploadedSaveInput —— openapi 上传连接器的持久化输入。Create/Update 同一份映射（nil binding →
 // 空 bytea，列 NOT NULL），单一事实源。
-func uploadedSaveInput(ownerID, id, cat string, in *UploadedSpec) *postgres.SaveUploadedInput {
-	return &postgres.SaveUploadedInput{
+func uploadedSaveInput(ownerID, id, cat string, in *UploadedSpec) *SaveUploadedInput {
+	return &SaveUploadedInput{
 		OwnerID: ownerID, ConnectorID: id, Category: cat, Kind: "openapi",
 		Spec: bytesOrEmpty(in.Spec), Binding: bytesOrEmpty(in.Binding),
 		AuthScheme: in.AuthScheme, ExposeAsAgentTools: in.ExposeAsAgentTools,
@@ -82,14 +79,14 @@ func (s *Service) CreateProtocol(
 	if err != nil {
 		return "", err
 	}
-	m := &connector.Manifest{
+	m := &Manifest{
 		ID: "up-" + id, Kind: "protocol", Protocol: protocol, Category: category,
 	}
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {
 		return "", fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
 	}
-	if serr := s.d.Repo.SaveUploaded(ctx, &postgres.SaveUploadedInput{
+	if serr := s.d.Repo.SaveUploaded(ctx, &SaveUploadedInput{
 		OwnerID: ownerID, ConnectorID: m.ID, Category: cat, Kind: "protocol", Protocol: protocol,
 		Spec: []byte{}, Binding: []byte{}, // protocol 无 spec/binding，给空 bytea（列 NOT NULL）
 	}); serr != nil {
@@ -124,7 +121,7 @@ func (s *Service) CredentialForm(ctx context.Context, ownerID, id string) (Crede
 	if merr != nil {
 		return CredentialForm{}, merr
 	}
-	form, derr := connector.DeriveCredentialForm(m)
+	form, derr := DeriveCredentialForm(m)
 	if derr != nil {
 		return CredentialForm{}, fmt.Errorf("%w: %w", ErrInvalidManifest, derr)
 	}

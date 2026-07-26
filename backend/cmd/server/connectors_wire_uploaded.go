@@ -8,13 +8,12 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // registerUploadedConnectors —— 拉起重装 DB 里 owner 自建的连接器（跟内置同一路 assembleConnector）。
 // **故障隔离**：永不 abort boot——装不起来的连接器只跳过 + 留痕，不拖垮其余、更不拖垮整实例。
 func registerUploadedConnectors(
-	ctx context.Context, hub *connector.Hub, repo *postgres.ConnectorRepo,
+	ctx context.Context, hub *connector.Hub, repo *connector.Repo,
 	deps *assembleDeps, log *slog.Logger,
 ) {
 	uploaded, err := repo.ListUploaded(ctx)

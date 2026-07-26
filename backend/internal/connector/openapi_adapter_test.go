@@ -15,7 +15,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 )
 
 const futureYear = 2030
@@ -53,8 +52,8 @@ type fakeStore struct{ connected bool }
 
 func (f fakeStore) Get(
 	_ context.Context, connectorID, _ string,
-) (connectordomain.ConnectorConnection, error) {
-	return connectordomain.ConnectorConnection{
+) (connector.Connection, error) {
+	return connector.Connection{
 		ConnectorID: connectorID, Connected: f.connected,
 		Credentials: []byte(`{"token":"x"}`),
 	}, nil

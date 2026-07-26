@@ -11,9 +11,8 @@ package connector_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/stretchr/testify/require"
 )
 
 // F-C-2 —— protocol(smtp) 连接器必须能派生凭据表单（不跑 openapi 装配、不报错）。

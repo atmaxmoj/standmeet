@@ -1,7 +1,7 @@
 // errors.go —— connectorsvc 的 sentinel 错误。每个表达一种**调用方需要区分**的失败（routes 层据此
 // 翻成不同 HTTP envelope）；分得开才不会把「坏 manifest / 内置改不得 / state 失效」混成一个含糊错。
 
-package connectorsvc
+package connector
 
 import "errors"
 

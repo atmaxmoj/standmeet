@@ -1,7 +1,7 @@
 // oauth.go —— connectorsvc 的 OAuth dance 内部件：读 client_id、拼 redirect_uri、state 存取、
 // code 换 token + 存。endpoints/client 来自 manifest spec + owner 存的凭据，不写死 provider。
 
-package connectorsvc
+package connector
 
 import (
 	"context"
@@ -13,9 +13,6 @@ import (
 	"strings"
 
 	"github.com/redis/go-redis/v9"
-
-	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // oauthCred —— oauth2 连接器凭据（owner 的 OAuth app）+ owner 勾选的 scope 子集（带进 dance）。
@@ -98,7 +95,7 @@ func stateKey(state string) string { return "connector:oauth:" + state }
 type danceCtx struct {
 	cred     oauthCred
 	redirect string
-	ep       connector.OAuthEndpoints
+	ep       OAuthEndpoints
 }
 
 func (s *Service) exchangeAndStore(ctx context.Context, ownerID, id, code string) error {
@@ -106,14 +103,14 @@ func (s *Service) exchangeAndStore(ctx context.Context, ownerID, id, code string
 	if err != nil {
 		return err
 	}
-	tok, xerr := dc.ep.ExchangeCode(ctx, s.d.HTTP, &connector.ExchangeInput{
+	tok, xerr := dc.ep.ExchangeCode(ctx, s.d.HTTP, &ExchangeInput{
 		Code: code, ClientID: dc.cred.ClientID,
 		ClientSecret: dc.cred.ClientSecret, RedirectURI: dc.redirect,
 	})
 	if xerr != nil {
 		return fmt.Errorf("exchange oauth code: %w", xerr)
 	}
-	if serr := s.d.Repo.SaveTokens(ctx, &postgres.SaveConnectorTokensInput{
+	if serr := s.d.Repo.SaveTokens(ctx, &SaveConnectorTokensInput{
 		OwnerID: ownerID, ConnectorID: id,
 		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
 		ExpiresAt: tok.ExpiresAt, Scopes: tok.Scopes,
@@ -129,7 +126,7 @@ func (s *Service) danceContext(ctx context.Context, ownerID, id string) (danceCt
 	if merr != nil {
 		return danceCtx{}, merr
 	}
-	ep, eerr := connector.OAuthEndpointsFor(m, m.AuthScheme)
+	ep, eerr := OAuthEndpointsFor(m, m.AuthScheme)
 	if eerr != nil {
 		return danceCtx{}, fmt.Errorf("oauth endpoints: %w", eerr)
 	}

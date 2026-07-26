@@ -8,8 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/connectordomain"
-	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -19,8 +18,8 @@ import (
 
 // newConnectorService —— build the connector orchestration service. Shared by the
 // admin panel (connectorsAdminDeps) and the owner-MCP connectors capability.
-func newConnectorService(d *runtimeDeps) *connectorsvc.Service {
-	return connectorsvc.New(&connectorsvc.Deps{
+func newConnectorService(d *runtimeDeps) *connector.Service {
+	return connector.New(&connector.Deps{
 		Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
 		HTTP: connectorEgressClient(), Verifier: d.connectorSlots,
 		Installer: uploadedInstaller{
@@ -30,13 +29,13 @@ func newConnectorService(d *runtimeDeps) *connectorsvc.Service {
 	})
 }
 
-// connSvcAdapter —— maps the ownercore connector-service surface to *connectorsvc.Service,
+// connSvcAdapter —— maps the ownercore connector-service surface to *connector.Service,
 // translating the owner-MCP DTOs (UploadedSpecArg / SpecVerdict) to/from the svc types.
-type connSvcAdapter struct{ svc *connectorsvc.Service }
+type connSvcAdapter struct{ svc *connector.Service }
 
 func (a connSvcAdapter) List(
 	ctx context.Context, ownerID string,
-) ([]connectordomain.ConnectorConnection, error) {
+) ([]connector.Connection, error) {
 	out, err := a.svc.List(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("adapter connector list: %w", err)
@@ -44,11 +43,11 @@ func (a connSvcAdapter) List(
 	return out, nil
 }
 
-func (a connSvcAdapter) Catalog() []connectordomain.ConnectorConnection { return a.svc.Catalog() }
+func (a connSvcAdapter) Catalog() []connector.Connection { return a.svc.Catalog() }
 
 func (a connSvcAdapter) Status(
 	ctx context.Context, ownerID, id string,
-) (connectordomain.ConnectorConnection, error) {
+) (connector.Connection, error) {
 	out, err := a.svc.Status(ctx, ownerID, id)
 	if err != nil {
 		return out, fmt.Errorf("adapter connector status: %w", err)
@@ -113,8 +112,8 @@ func (a connSvcAdapter) ValidateSpec(
 	return ownercore.SpecVerdict{OK: v.OK, Title: v.Title, Reason: v.Reason, Auth: v.Auth}
 }
 
-func uploadedSpec(in ownercore.UploadedSpecArg) *connectorsvc.UploadedSpec {
-	return &connectorsvc.UploadedSpec{
+func uploadedSpec(in ownercore.UploadedSpecArg) *connector.UploadedSpec {
+	return &connector.UploadedSpec{
 		AuthScheme: in.AuthScheme, Spec: in.Spec, Binding: in.Binding,
 		ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}

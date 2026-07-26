@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
-	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 )
 
 // oauthRefresher —— 给一个 oauth2 连接器做静默刷新。装配期建（端点定，doer/store 注入）。
@@ -23,7 +22,7 @@ type oauthRefresher struct {
 
 // maybeRefresh —— token 没过期 / 无 refresh_token → 不动；否则走 doRefresh。
 func (r *oauthRefresher) maybeRefresh(
-	ctx context.Context, connectorID, ownerID string, conn *connectordomain.ConnectorConnection,
+	ctx context.Context, connectorID, ownerID string, conn *Connection,
 ) error {
 	if !tokenExpired(conn) || conn.RefreshToken == "" {
 		return nil
@@ -33,7 +32,7 @@ func (r *oauthRefresher) maybeRefresh(
 
 // doRefresh —— 拿 refresh_token 换新 token + 回写 + 就地更新 conn。
 func (r *oauthRefresher) doRefresh(
-	ctx context.Context, connectorID, ownerID string, conn *connectordomain.ConnectorConnection,
+	ctx context.Context, connectorID, ownerID string, conn *Connection,
 ) error {
 	cred, err := decodeClientCred(conn.Credentials)
 	if err != nil {
@@ -79,7 +78,7 @@ func pickRefreshToken(old, fresh string) string {
 }
 
 // tokenExpired —— 有过期时间且已过（无过期时间 = 不过期，不刷）。
-func tokenExpired(conn *connectordomain.ConnectorConnection) bool {
+func tokenExpired(conn *Connection) bool {
 	return conn.TokenExpiresAt != nil && nowUTC().After(*conn.TokenExpiresAt)
 }
 

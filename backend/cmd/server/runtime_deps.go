@@ -78,7 +78,7 @@ type runtimeDeps struct {
 	bannedIPRepo       *security.BannedIPRepo
 	apiKeyRepo         *access.APIKeyRepo
 	appStateRepo       *postgres.AppStateRepo
-	connectorRepo      *postgres.ConnectorRepo
+	connectorRepo      *connector.Repo
 	connectorHub       *connector.Hub
 	connectorSlots     *connector.Slots
 	sandboxRunner      sandbox.Runner
