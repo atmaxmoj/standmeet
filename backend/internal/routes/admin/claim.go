@@ -37,7 +37,7 @@ type Handlers struct {
 	MCPServersAdmin   MCPServersAdminDeps
 	BYOAI             BYOAIDeps
 	AccountAdmin      AccountDeps
-	Recovery          usecases.RecoveryDeps
+	Recovery          owner.RecoveryDeps
 	PromptsAdmin      PromptsAdminDeps
 	Domains           DomainsDeps
 	AIProviderAdmin   AIProviderDeps
@@ -165,7 +165,7 @@ var claimErrCases = []apierr.Case{
 		},
 	},
 	{
-		Match: usecases.ErrPublicURLInvalid,
+		Match: owner.ErrPublicURLInvalid,
 		Envelope: apierr.Envelope{
 			Status:  http.StatusBadRequest,
 			Code:    "public_url_invalid",
@@ -200,7 +200,7 @@ func (h *Handlers) runClaimAndAutoLogin(
 		handleClaimErr(h.Log, w, err)
 		return
 	}
-	loggedIn, lerr := usecases.Login(r.Context(), h.Auth.Login, &usecases.LoginInput{
+	loggedIn, lerr := owner.Login(r.Context(), h.Auth.Login, &owner.LoginInput{
 		Email: req.Email, Password: req.Password,
 	})
 	if lerr != nil {

@@ -3,7 +3,7 @@
 // QR / SEO canonical 都以 owner.public_url 为单一来源 —— 见
 // applications.go 的 buildQRURL。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -11,12 +11,11 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // PublicURLDeps —— UpdateOwnerPublicURL 的依赖。
 type PublicURLDeps struct {
-	Owners *owner.Repo
+	Owners *Repo
 }
 
 // UpdateOwnerPublicURL —— admin "change public URL" 入口。raw 经 trim/normalize
@@ -24,18 +23,18 @@ type PublicURLDeps struct {
 // 复用 ErrPublicURLInvalid（claim 同款 sentinel），让 routes 翻译 400。
 func UpdateOwnerPublicURL(
 	ctx context.Context, deps PublicURLDeps, ownerID, raw string,
-) (owner.Owner, error) {
+) (Owner, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return owner.Owner{}, apierr.ErrEmptyField
+		return Owner{}, apierr.ErrEmptyField
 	}
-	if !validPublicURL(trimmed) {
-		return owner.Owner{}, ErrPublicURLInvalid
+	if !ValidPublicURL(trimmed) {
+		return Owner{}, ErrPublicURLInvalid
 	}
-	normalized := normalizePublicURL(trimmed)
+	normalized := NormalizePublicURL(trimmed)
 	updated, err := deps.Owners.UpdatePublicURL(ctx, ownerID, normalized)
 	if err != nil {
-		return owner.Owner{}, fmt.Errorf("update public_url: %w", err)
+		return Owner{}, fmt.Errorf("update public_url: %w", err)
 	}
 	return updated, nil
 }

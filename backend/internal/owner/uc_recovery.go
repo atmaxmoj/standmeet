@@ -5,7 +5,7 @@
 // Recover(public):锁在外面时拿 {email, phrase} 对 hash,对上 → 作废(单次)→ 发 owner session。
 // 公开端点 brute-force 面由 route 层 login-guard 限速;这层只做「验对 → 换 session」。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -29,7 +28,7 @@ const (
 // RecoveryDeps —— recovery 依赖。Owners=读写 recovery_hash + creds;Sessions=recover 后发 session;
 // Proxy=走 owner SMTP 把 phrase 邮出去。
 type RecoveryDeps struct {
-	Owners   *owner.Repo
+	Owners   *Repo
 	Sessions *session.OwnerSessionStore
 	Proxy    OutboundSender
 }
@@ -100,23 +99,23 @@ func Recover(ctx context.Context, deps *RecoveryDeps, in *RecoverInput) (Recover
 // verifyRecovery —— email + phrase 对 recovery_hash。任何失败一律 ErrUnauthorized(防枚举)。
 func verifyRecovery(
 	ctx context.Context, deps *RecoveryDeps, in *RecoverInput,
-) (owner.Credentials, error) {
+) (Credentials, error) {
 	creds, err := deps.Owners.GetCredentialsByEmail(ctx, in.Email)
 	if err != nil {
-		return owner.Credentials{}, owner.ErrUnauthorized
+		return Credentials{}, ErrUnauthorized
 	}
 	if creds.RecoveryHash == "" {
-		return owner.Credentials{}, owner.ErrUnauthorized
+		return Credentials{}, ErrUnauthorized
 	}
 	if vperr := session.VerifyPassword(in.Phrase, creds.RecoveryHash); vperr != nil {
-		return owner.Credentials{}, owner.ErrUnauthorized
+		return Credentials{}, ErrUnauthorized
 	}
 	return creds, nil
 }
 
 // issueRecovered —— 单次用:先作废 recovery_hash 再发 session(并发也只有一个成)。
 func issueRecovered(
-	ctx context.Context, deps *RecoveryDeps, creds *owner.Credentials,
+	ctx context.Context, deps *RecoveryDeps, creds *Credentials,
 ) (RecoverOutput, error) {
 	if cerr := deps.Owners.ClearRecoveryHash(ctx, creds.OwnerID); cerr != nil {
 		return RecoverOutput{}, fmt.Errorf("clear recovery: %w", cerr)

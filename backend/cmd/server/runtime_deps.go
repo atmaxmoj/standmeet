@@ -33,7 +33,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/stats"
 	"github.com/atmaxmoj/standmeet/internal/storage"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // runtimeDeps 把 serve 的依赖打包，避免函数参数列表超过 revive argument-limit。
@@ -109,8 +108,8 @@ type runtimeDeps struct {
 
 // recoveryDeps —— #100 account recovery 的窄依赖(owner repo + session store + mail proxy)。
 // 抽出来让 wireup 的 buildAdminDeps 保持 ≤350 行。
-func recoveryDeps(d *runtimeDeps) usecases.RecoveryDeps {
-	return usecases.RecoveryDeps{
+func recoveryDeps(d *runtimeDeps) owner.RecoveryDeps {
+	return owner.RecoveryDeps{
 		Owners: d.ownerRepo, Sessions: d.sessionStore, Proxy: outboundSender(d),
 	}
 }

@@ -1,6 +1,6 @@
 // login.go —— owner 登录 use case：verify password + 颁发 session。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -9,13 +9,12 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // LoginDeps 把 Login 需要的依赖打包。
 type LoginDeps struct {
-	Owners   *owner.Repo
+	Owners   *Repo
 	Sessions *session.OwnerSessionStore
 }
 
@@ -34,7 +33,7 @@ type LoginOutput struct {
 	OwnerHandle  string
 }
 
-// Login 校验密码，颁发 session。错密码 / 不存在用户都返回 owner.ErrUnauthorized
+// Login 校验密码，颁发 session。错密码 / 不存在用户都返回 ErrUnauthorized
 // （不区分"用户不存在" vs "密码错"，避免暴露存在性）。
 func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, error) {
 	if in.Email == "" || in.Password == "" {
@@ -63,19 +62,19 @@ func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, er
 // authenticate 拆出 Login 中的密码校验部分，让 Login 本身 cognitive-complexity ≤ 7。
 func authenticate(
 	ctx context.Context, deps LoginDeps, in *LoginInput,
-) (owner.Credentials, error) {
+) (Credentials, error) {
 	creds, err := deps.Owners.GetCredentialsByEmail(ctx, in.Email)
 	if err != nil {
-		if errors.Is(err, owner.ErrOwnerNotFound) {
-			return owner.Credentials{}, owner.ErrUnauthorized
+		if errors.Is(err, ErrOwnerNotFound) {
+			return Credentials{}, ErrUnauthorized
 		}
-		return owner.Credentials{}, fmt.Errorf("get credentials: %w", err)
+		return Credentials{}, fmt.Errorf("get credentials: %w", err)
 	}
 	if verr := session.VerifyPassword(in.Password, creds.PasswordHash); verr != nil {
 		if errors.Is(verr, session.ErrPasswordMismatch) {
-			return owner.Credentials{}, owner.ErrUnauthorized
+			return Credentials{}, ErrUnauthorized
 		}
-		return owner.Credentials{}, fmt.Errorf("verify password: %w", verr)
+		return Credentials{}, fmt.Errorf("verify password: %w", verr)
 	}
 	return creds, nil
 }

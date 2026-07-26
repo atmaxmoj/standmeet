@@ -1,7 +1,7 @@
 // mail_otp.go —— 出站 SMTP connector 的「真 OTP」验证。老 test 只发探针信、SMTP
 // 不报错就标 connected —— 不证明 owner 真控制收件箱。改成:SendMailOTP 真发一封
 // 6 位码到 from_address;VerifyMailOTP 只有码对才标 connected,错满 MailOTPMaxAttempts
-// 次即作废。码只存 sha256,明文只进邮件。发信走 OutboundSender(凭据不出 vault)。
+// 次即作废。码只存 sha256,明文只进邮件。发信走 owner.OutboundSender(凭据不出 vault)。
 
 package usecases
 
@@ -21,7 +21,7 @@ import (
 type MailDeps struct {
 	Mail   *connector.MailRepo
 	Owners *owner.Repo
-	Proxy  OutboundSender
+	Proxy  owner.OutboundSender
 }
 
 var (
@@ -85,7 +85,7 @@ func loadConfiguredConnector(
 // 发 HTML(StandMeet 风格)+ 纯文本兜底。
 func sendOTPEmail(ctx context.Context, deps MailDeps, ownerID, toEmail, code string) error {
 	mins := int(connector.MailOTPTTL.Minutes())
-	if err := deps.Proxy.Send(ctx, ownerID, OutboundMessage{
+	if err := deps.Proxy.Send(ctx, ownerID, owner.OutboundMessage{
 		To:      toEmail,
 		Subject: "StandMeet email verification code",
 		Body: fmt.Sprintf("Your StandMeet verification code is %s\n\nEnter it under "+

@@ -50,7 +50,7 @@ type Deps struct {
 	Booking          *BookingOwnerDeps
 	Prompts          *owner.PromptsDeps
 	Conversations    *conversation.ConversationsDeps
-	PublicURL        usecases.PublicURLDeps
+	PublicURL        owner.PublicURLDeps
 	PagePins         owner.PagePinDeps
 	Corpus           *corpus.Deps
 	Account          owner.AccountDeps

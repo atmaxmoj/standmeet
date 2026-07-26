@@ -82,7 +82,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Instance: d.instanceRepo, Skills: d.skillRepo,
 			Prompts: d.promptRepo, Roles: d.roleRepo,
 		},
-		Login:    usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
+		Login:    owner.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
 		Keypairs: keypairDeps(d),
 		Corpus: corpus.Deps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
@@ -97,7 +97,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Domains:        owner.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
 		HandleAdmin:    owner.HandleDeps{Owners: d.ownerRepo},
-		PublicURLAdmin: usecases.PublicURLDeps{Owners: d.ownerRepo},
+		PublicURLAdmin: owner.PublicURLDeps{Owners: d.ownerRepo},
 		AccountAdmin:   owner.AccountDeps{Owners: d.ownerRepo},
 		Recovery:       recoveryDeps(d),
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},

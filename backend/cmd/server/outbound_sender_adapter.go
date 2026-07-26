@@ -1,5 +1,5 @@
 // outbound_sender_adapter.go —— #135 Slice 5: bridges the mail connector's typed CATEGORY proxy
-// (contract.MailProxy) to the kernel's neutral usecases.OutboundSender. The kernel sends OTP /
+// (contract.MailProxy) to the kernel's neutral owner.OutboundSender. The kernel sends OTP /
 // recovery / booking-confirmation mail through OutboundSender without knowing "mail"/SMTP exists;
 // the concrete transport (the active mail connector) is wired here in the composition root.
 
@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 type outboundSenderAdapter struct{ proxy contract.MailProxy }
@@ -24,7 +24,7 @@ func (a outboundSenderAdapter) Connected(ctx context.Context, ownerID string) (b
 }
 
 func (a outboundSenderAdapter) Send(
-	ctx context.Context, ownerID string, msg usecases.OutboundMessage,
+	ctx context.Context, ownerID string, msg owner.OutboundMessage,
 ) error {
 	if err := a.proxy.Send(ctx, ownerID, contract.MailMessage{
 		To: msg.To, Subject: msg.Subject, Body: msg.Body, HTML: msg.HTML,

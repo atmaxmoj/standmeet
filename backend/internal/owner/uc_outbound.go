@@ -4,7 +4,7 @@
 // mail 连接器由组装根注入(adapter over contract.MailProxy);SMTP 凭据从不进内核。这跟连接器
 // 品类契约(contract.MailProxy)分开:契约在连接器轴、消费者在连接器/路由层;内核只见中性口。
 
-package usecases
+package owner
 
 import "context"
 

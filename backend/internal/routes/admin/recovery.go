@@ -11,7 +11,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type recoverRequest struct {
@@ -43,7 +42,7 @@ var recoverErrCases = []apierr.Case{
 func (h *Handlers) generateRecovery() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		if err := usecases.GenerateRecovery(r.Context(), &h.Recovery, ownerID); err != nil {
+		if err := owner.GenerateRecovery(r.Context(), &h.Recovery, ownerID); err != nil {
 			h.Log.Warn("generate recovery", "err", err)
 			writeError(h.Log, w, apierr.Envelope{
 				Status:  http.StatusBadGateway,
@@ -64,7 +63,7 @@ func (h *Handlers) recover() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		out, err := usecases.Recover(r.Context(), &h.Recovery, &usecases.RecoverInput{
+		out, err := owner.Recover(r.Context(), &h.Recovery, &owner.RecoverInput{
 			Email: body.Email, Phrase: body.RecoveryPhrase,
 		})
 		if err != nil {

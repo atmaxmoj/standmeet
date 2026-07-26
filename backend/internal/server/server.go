@@ -69,7 +69,7 @@ type Deps struct {
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
 	Claim           usecases.ClaimDeps
-	Login           usecases.LoginDeps
+	Login           owner.LoginDeps
 	Keypairs        owner.KeypairDeps
 	Corpus          corpus.Deps
 	Conversations   conversation.ConversationsDeps
@@ -78,9 +78,9 @@ type AdminDeps struct {
 	Domains         owner.AllowedDomainsDeps
 	AccessRequests  usecases.AccessRequestsDeps
 	HandleAdmin     owner.HandleDeps
-	PublicURLAdmin  usecases.PublicURLDeps
+	PublicURLAdmin  owner.PublicURLDeps
 	AccountAdmin    owner.AccountDeps
-	Recovery        usecases.RecoveryDeps
+	Recovery        owner.RecoveryDeps
 	AIProvider      usecases.AIProviderDeps
 	CustomPages     owner.CustomPageDeps
 	Skills          marketplace.SkillsDeps

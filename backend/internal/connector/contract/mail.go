@@ -1,6 +1,6 @@
 // mail.go —— the mail CATEGORY contract (#135 Slice 5), sibling to the calendar contract.
 //
-// The kernel does NOT use this — it sends through its neutral usecases.OutboundSender. This typed
+// The kernel does NOT use this — it sends through its neutral owner.OutboundSender. This typed
 // proxy is the connector axis's mail category surface: the connector adapters implement it, the
 // connector-adjacent consumers (owner connectors cap, connector admin/diag routes) program to it,
 // and the composition root bridges it to the kernel's OutboundSender.

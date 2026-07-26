@@ -17,7 +17,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capPageBundle = "page.bundle"
@@ -33,14 +32,14 @@ type pageContentStore interface {
 type pageCapability struct {
 	pages     pageContentStore
 	handle    *owner.HandleDeps
-	publicURL usecases.PublicURLDeps
+	publicURL owner.PublicURLDeps
 	pins      owner.PagePinDeps
 	log       *slog.Logger
 }
 
 func newPageCapability(
 	handle *owner.HandleDeps, pages pageContentStore,
-	publicURL usecases.PublicURLDeps, pins owner.PagePinDeps, log *slog.Logger,
+	publicURL owner.PublicURLDeps, pins owner.PagePinDeps, log *slog.Logger,
 ) *pageCapability {
 	return &pageCapability{
 		handle: handle, pages: pages, publicURL: publicURL, pins: pins, log: log,
@@ -247,7 +246,7 @@ func (c *pageCapability) handleSetPublicURL(
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
-	updated, err := usecases.UpdateOwnerPublicURL(ctx, c.publicURL, ownerID, args.PublicURL)
+	updated, err := owner.UpdateOwnerPublicURL(ctx, c.publicURL, ownerID, args.PublicURL)
 	if err != nil {
 		return setPublicURLErrToResult(c.log, err)
 	}
@@ -260,7 +259,7 @@ func setPublicURLErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, apierr.ErrEmptyField) {
 		return capreg.MCPError("public_url is required")
 	}
-	if errors.Is(err, usecases.ErrPublicURLInvalid) {
+	if errors.Is(err, owner.ErrPublicURLInvalid) {
 		return capreg.MCPError("public_url must be http(s):// with a non-empty host")
 	}
 	log.Error("cap page.set_public_url", logErrKey, err)

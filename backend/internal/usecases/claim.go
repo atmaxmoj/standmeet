@@ -5,11 +5,9 @@ package usecases
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
@@ -60,7 +58,7 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (owner.O
 		PasswordHash: passwordHash,
 		Handle:       in.Handle,
 		FullName:     in.FullName,
-		PublicURL:    normalizePublicURL(in.PublicURL),
+		PublicURL:    owner.NormalizePublicURL(in.PublicURL),
 	})
 	if err != nil {
 		return owner.Owner{}, fmt.Errorf("claim and create owner: %w", err)
@@ -103,32 +101,11 @@ func validateClaimInput(in *ClaimInput) error {
 	if slices.Contains(fields, "") {
 		return apierr.ErrEmptyField
 	}
-	if !validPublicURL(in.PublicURL) {
-		return ErrPublicURLInvalid
+	if !owner.ValidPublicURL(in.PublicURL) {
+		return owner.ErrPublicURLInvalid
 	}
 	return nil
 }
 
-// ErrPublicURLInvalid —— public_url 不是 http(s):// 开头的 URL。
-var ErrPublicURLInvalid = errors.New("public_url must be a full URL with scheme")
-
-const (
-	httpPrefix  = "http://"
-	httpsPrefix = "https://"
-)
-
-// validPublicURL —— 必须 http:// 或 https:// 开头、host 非空。详细 URL 解析
-// 在 normalizePublicURL；这里只挡明显错的（空 scheme / 写了纯 host）。
-func validPublicURL(s string) bool {
-	return len(s) > len(httpsPrefix) &&
-		(strings.HasPrefix(s, httpPrefix) || strings.HasPrefix(s, httpsPrefix))
-}
-
-// normalizePublicURL —— 去末尾斜杠。dev "http://localhost:38127/" 跟
-// "http://localhost:38127" 写进 DB 后保持一致；QR builder 直接拼 "/?code=" 即可。
-func normalizePublicURL(s string) string {
-	for s != "" && s[len(s)-1] == '/' {
-		s = s[:len(s)-1]
-	}
-	return s
-}
+// owner.ValidPublicURL —— 必须 http:// 或 https:// 开头、host 非空。详细 URL 解析
+// 在 owner.NormalizePublicURL；这里只挡明显错的（空 scheme / 写了纯 host）。

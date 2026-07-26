@@ -17,12 +17,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PublicURLDeps —— admin public-url endpoint 的依赖（usecase 注入）。
 type PublicURLDeps struct {
-	PublicURL usecases.PublicURLDeps
+	PublicURL owner.PublicURLDeps
 }
 
 type updatePublicURLBody struct {
@@ -46,7 +45,7 @@ func (h *Handlers) updatePublicURL() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		updated, err := usecases.UpdateOwnerPublicURL(
+		updated, err := owner.UpdateOwnerPublicURL(
 			r.Context(), h.PublicURLAdmin.PublicURL, ownerID, body.PublicURL,
 		)
 		if err != nil {
@@ -71,7 +70,7 @@ func handleUpdatePublicURLErr(log *slog.Logger, w http.ResponseWriter, err error
 		writeError(log, w, envBadReq("public_url is required"))
 		return
 	}
-	if errors.Is(err, usecases.ErrPublicURLInvalid) {
+	if errors.Is(err, owner.ErrPublicURLInvalid) {
 		writeError(log, w, apierr.Envelope{
 			Status:  http.StatusBadRequest,
 			Code:    "public_url_invalid",

@@ -13,14 +13,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const ownerSessionMaxAge = 24 * 60 * 60 // 秒；和 OwnerSessionStore 的 TTL 对齐。
 
 // AuthDeps —— login / logout / me 需要的依赖（admin Deps 内嵌一个）。
 type AuthDeps struct {
-	Login    usecases.LoginDeps
+	Login    owner.LoginDeps
 	Sessions *session.OwnerSessionStore
 }
 
@@ -56,7 +55,7 @@ func (h *Handlers) login() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		out, err := usecases.Login(r.Context(), h.Auth.Login, &usecases.LoginInput{
+		out, err := owner.Login(r.Context(), h.Auth.Login, &owner.LoginInput{
 			Email: req.Email, Password: req.Password,
 		})
 		if err != nil {
@@ -76,7 +75,7 @@ func handleLoginErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, env)
 }
 
-func writeLoginResp(log *slog.Logger, w http.ResponseWriter, out *usecases.LoginOutput) {
+func writeLoginResp(log *slog.Logger, w http.ResponseWriter, out *owner.LoginOutput) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := loginResponse{

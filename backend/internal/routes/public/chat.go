@@ -36,7 +36,7 @@ import (
 // Handlers —— public routes deps.
 type Handlers struct {
 	Visitor      usecases.VisitorSessionDeps
-	MailStatus   usecases.OutboundSender // can-email gate in /sessions response (widget enable)
+	MailStatus   owner.OutboundSender // can-email gate in /sessions response (widget enable)
 	Cancel       booker.VisitorCancelDeps
 	Usage        UsageRecorder
 	Reports      usecases.ReportStore
