@@ -100,6 +100,15 @@ func (r *Repo) OwnerExists(ctx context.Context, id string) (bool, error) {
 	return exists, nil
 }
 
+// PublicURL —— owner 的 public base URL(connector 拼 oauth redirect 的窄读端口)。
+func (r *Repo) PublicURL(ctx context.Context, ownerID string) (string, error) {
+	o, err := r.GetByID(ctx, ownerID)
+	if err != nil {
+		return "", err
+	}
+	return o.PublicURL, nil
+}
+
 // GetByID 拿 owner 公开 profile，给 /api/admin/me 用。
 func (r *Repo) GetByID(ctx context.Context, id string) (Owner, error) {
 	q := dbq.New(r.pool)

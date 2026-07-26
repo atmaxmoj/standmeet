@@ -217,7 +217,6 @@ deps:
       - cryptobox
       - pgstore
       - dbq
-      - owner
     anyVendorDeps: true
 
   # connectorconsumer —— 连接器轴消费者契约 leaf(AgentToolConnector/AgentOp/ErrMailNotConfigured)。

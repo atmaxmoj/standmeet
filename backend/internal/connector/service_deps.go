@@ -5,8 +5,6 @@ package connector
 
 import (
 	"context"
-
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // ConnectionVerifier —— protocol 连接器 connect 时跑的连接测试（composition root 接 Slots）。
@@ -20,9 +18,9 @@ type Installer interface {
 	Install(m *Manifest) (category string, err error)
 }
 
-// OwnerLookup —— connector 拼 oauth redirect URI 只需 owner 的 public_url。用窄接口
-// 而不是 *owner.Repo，避免 connector 反依赖 postgres（repo 层）——composition
-// root 注入实际实现（owner.Repo 结构上满足）。
+// OwnerLookup —— connector 拼 oauth redirect URI 只需 owner 的 public_url。窄到只
+// 读这一个 string，connector 因此不反依赖 owner 模块；composition root 注入实现
+// （owner.Repo 结构上满足）。
 type OwnerLookup interface {
-	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
+	PublicURL(ctx context.Context, ownerID string) (string, error)
 }

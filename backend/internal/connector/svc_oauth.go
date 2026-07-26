@@ -41,11 +41,11 @@ func (s *Service) loadOAuthCred(ctx context.Context, ownerID, id string) (oauthC
 
 // redirectURI —— full redirect_uri = owner.PublicURL + callback path。
 func (s *Service) redirectURI(ctx context.Context, ownerID, id string) (string, error) {
-	o, err := s.d.Owners.GetByID(ctx, ownerID)
+	base, err := s.d.Owners.PublicURL(ctx, ownerID)
 	if err != nil {
-		return "", fmt.Errorf("load owner: %w", err)
+		return "", fmt.Errorf("load owner public url: %w", err)
 	}
-	return o.PublicURL + "/api/admin/connectors/" + id + "/callback", nil
+	return base + "/api/admin/connectors/" + id + "/callback", nil
 }
 
 func randomState() (string, error) {
