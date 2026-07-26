@@ -14,8 +14,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 // SkillsDeps —— skills CRUD 需要的 repo 集合。Code 用来 SetCodeSkills 时
@@ -32,15 +32,15 @@ type CreateSkillInput struct {
 	Description  string
 	Prompt       string
 	AllowedTools []string
-	Scripts      []domain.SkillScript
+	Scripts      []skilldomain.SkillScript
 }
 
 // CreateSkill 新建 owner-curated skill。
 func CreateSkill(
 	ctx context.Context, deps SkillsDeps, in *CreateSkillInput,
-) (domain.Skill, error) {
+) (skilldomain.Skill, error) {
 	if in.OwnerID == "" || in.Name == "" {
-		return domain.Skill{}, ErrEmptyField
+		return skilldomain.Skill{}, ErrEmptyField
 	}
 	skill, err := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
 		OwnerID:      in.OwnerID,
@@ -51,10 +51,10 @@ func CreateSkill(
 		Scripts:      in.Scripts,
 	})
 	if err != nil {
-		if errors.Is(err, domain.ErrSkillNameTaken) {
-			return domain.Skill{}, domain.ErrSkillNameTaken
+		if errors.Is(err, skilldomain.ErrSkillNameTaken) {
+			return skilldomain.Skill{}, skilldomain.ErrSkillNameTaken
 		}
-		return domain.Skill{}, fmt.Errorf("create skill: %w", err)
+		return skilldomain.Skill{}, fmt.Errorf("create skill: %w", err)
 	}
 	return skill, nil
 }
@@ -62,7 +62,7 @@ func CreateSkill(
 // ListSkills —— admin / MCP skill.list。
 func ListSkills(
 	ctx context.Context, deps SkillsDeps, ownerID string,
-) ([]domain.Skill, error) {
+) ([]skilldomain.Skill, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}
@@ -93,13 +93,13 @@ func DeleteSkill(
 // SetSkillEnabled —— #48-2: owner 全局开/关一个 skill(builtin 也可开关,只是删不掉)。
 func SetSkillEnabled(
 	ctx context.Context, deps SkillsDeps, ownerID, skillID string, enabled bool,
-) (domain.Skill, error) {
+) (skilldomain.Skill, error) {
 	if ownerID == "" || skillID == "" {
-		return domain.Skill{}, ErrEmptyField
+		return skilldomain.Skill{}, ErrEmptyField
 	}
 	out, err := deps.Skills.SetEnabled(ctx, ownerID, skillID, enabled)
 	if err != nil {
-		return domain.Skill{}, fmt.Errorf("set skill enabled: %w", err)
+		return skilldomain.Skill{}, fmt.Errorf("set skill enabled: %w", err)
 	}
 	return out, nil
 }
@@ -112,7 +112,7 @@ func checkSkillDeletable(
 		return fmt.Errorf("get skill: %w", gerr)
 	}
 	if skill.IsBuiltin {
-		return domain.ErrSkillBuiltinImmutable
+		return skilldomain.ErrSkillBuiltinImmutable
 	}
 	return nil
 }

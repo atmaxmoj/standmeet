@@ -14,8 +14,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -79,7 +79,7 @@ func (h *Handlers) patchSkill() http.HandlerFunc {
 	}
 }
 
-func writeSkillSingle(log *slog.Logger, w http.ResponseWriter, s *domain.Skill) {
+func writeSkillSingle(log *slog.Logger, w http.ResponseWriter, s *skilldomain.Skill) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(toSkillView(s)); err != nil {
@@ -91,7 +91,7 @@ func handlePatchSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, usecases.ErrEmptyField):
 		writeError(log, w, envBadReq("skill id required"))
-	case errors.Is(err, domain.ErrSkillNotFound):
+	case errors.Is(err, skilldomain.ErrSkillNotFound):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "skill_not_found",
 			Message: "skill not found",
@@ -115,7 +115,7 @@ func (h *Handlers) listSkills() http.HandlerFunc {
 	}
 }
 
-func writeSkillsList(log *slog.Logger, w http.ResponseWriter, rows []domain.Skill) {
+func writeSkillsList(log *slog.Logger, w http.ResponseWriter, rows []skilldomain.Skill) {
 	items := make([]skillView, 0, len(rows))
 	for i := range rows {
 		items = append(items, toSkillView(&rows[i]))
@@ -127,7 +127,7 @@ func writeSkillsList(log *slog.Logger, w http.ResponseWriter, rows []domain.Skil
 	}
 }
 
-func toSkillView(s *domain.Skill) skillView {
+func toSkillView(s *skilldomain.Skill) skillView {
 	tools := s.AllowedTools
 	if tools == nil {
 		tools = []string{}
@@ -165,7 +165,7 @@ func handleCreateSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, usecases.ErrEmptyField):
 		writeError(log, w, envBadReq("name and prompt are required"))
-	case errors.Is(err, domain.ErrSkillNameTaken):
+	case errors.Is(err, skilldomain.ErrSkillNameTaken):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusConflict, Code: "skill_name_taken",
 			Message: "skill name already taken",
@@ -176,7 +176,7 @@ func handleCreateSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	}
 }
 
-func writeCreatedSkill(log *slog.Logger, w http.ResponseWriter, s *domain.Skill) {
+func writeCreatedSkill(log *slog.Logger, w http.ResponseWriter, s *skilldomain.Skill) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(toSkillView(s)); err != nil {
@@ -199,12 +199,12 @@ func (h *Handlers) deleteSkill() http.HandlerFunc {
 
 func handleDeleteSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, domain.ErrSkillBuiltinImmutable):
+	case errors.Is(err, skilldomain.ErrSkillBuiltinImmutable):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusForbidden, Code: "skill_builtin_immutable",
 			Message: "builtin skill cannot be deleted",
 		})
-	case errors.Is(err, domain.ErrSkillNotFound):
+	case errors.Is(err, skilldomain.ErrSkillNotFound):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "skill_not_found",
 			Message: "skill not found",

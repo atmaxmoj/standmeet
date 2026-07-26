@@ -19,9 +19,9 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 // CapabilityAdminDeps —— /capabilities handler 依赖。Registry 给 origin + 全
@@ -98,7 +98,7 @@ func (h *Handlers) listCapabilities() http.HandlerFunc {
 // connector 状态 + owner skills）。
 type capabilityContext struct {
 	disabled map[string]bool
-	skills   []domain.Skill
+	skills   []skilldomain.Skill
 	gcalConn bool
 	mailConn bool
 }
@@ -195,7 +195,7 @@ func connectorRows(cc *capabilityContext) []capabilityRowResp {
 }
 
 // skillRows —— owner author 的 skill 各一行（kind=skill，origin=owner，可删）。
-// enabled 透出 skill 自己的全局开关（domain.Skill.Enabled —— skill runner 真读
+// enabled 透出 skill 自己的全局开关（skilldomain.Skill.Enabled —— skill runner 真读
 // 的那个），不是 capability_settings：skill 不是 registry capability，走自己那套
 // enable 机制（SetSkillEnabled），别拿 owner-enable 闸的表当真值。
 func skillRows(cc *capabilityContext) []capabilityRowResp {

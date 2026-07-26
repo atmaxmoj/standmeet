@@ -13,6 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -218,7 +219,7 @@ var roleCreateErrCases = []struct {
 }{
 	{domain.ErrRoleNameTaken, "role name already taken"},
 	{domain.ErrPromptNotFound, "prompt_id not found for this owner"},
-	{domain.ErrSkillNotFound, "one or more skill_ids not found"},
+	{skilldomain.ErrSkillNotFound, "one or more skill_ids not found"},
 	{domain.ErrMCPServerNotFound, "one or more mcp_server_ids not found"},
 }
 

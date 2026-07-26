@@ -11,6 +11,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 // OwnerGetter —— the owner reads the visitor path needs: GetByID (calendar.book
@@ -36,8 +37,8 @@ type ConversationGetter interface {
 // ListSkillsForRole (role-snapshot freeze). VisitorDeps.Skills is this narrow
 // port so the eval can inject a fixture owner skill.
 type SkillGetter interface {
-	GetByID(ctx context.Context, ownerID, skillID string) (domain.Skill, error)
-	ListSkillsForRole(ctx context.Context, roleID string) ([]domain.Skill, error)
+	GetByID(ctx context.Context, ownerID, skillID string) (skilldomain.Skill, error)
+	ListSkillsForRole(ctx context.Context, roleID string) ([]skilldomain.Skill, error)
 }
 
 // MCPServerGetter —— the one MCP-server read the ext-mcp capability needs to

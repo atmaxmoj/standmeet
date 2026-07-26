@@ -87,6 +87,8 @@ components:
     in: internal/accessdomain              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
   ownerdomain:
     in: internal/ownerdomain               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
+  skilldomain:
+    in: internal/skilldomain               # #135: skill 领域值对象 (skill/script)；pure leaf
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -169,6 +171,7 @@ deps:
   # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
+      - skilldomain
       - ownerdomain
       - accessdomain
       - corpusdomain
@@ -364,6 +367,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
+      - skilldomain
       - ownerdomain
       - accessdomain
       - corpusdomain
@@ -440,6 +444,7 @@ deps:
   # prod 同一套 agentic 功能，只换注入的 repo。backend 内部无人 import 它。
   agentcore:
     mayDependOn:
+      - skilldomain
       - corpusdomain
       - inference
       - usecases
@@ -481,6 +486,7 @@ deps:
   # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
   pluginownercore:
     mayDependOn:
+      - skilldomain
       - ownerdomain
       - accessdomain
       - corpusdomain
@@ -632,6 +638,11 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # skilldomain —— #135 skill 领域值对象 leaf：Skill/SkillScript/SkillScriptParam，无 internal 依赖。
+  skilldomain:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
   # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
   # routes 不直接 import。
@@ -689,6 +700,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - skilldomain
       - ownerdomain
       - accessdomain
       - corpusdomain

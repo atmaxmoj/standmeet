@@ -11,8 +11,8 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -84,11 +84,11 @@ func (c *skillsCapability) createBinding() *capreg.MCPBinding {
 }
 
 type skillCreateArgsWire struct {
-	Name         string               `json:"name"`
-	Prompt       string               `json:"prompt"`
-	Description  string               `json:"description"`
-	AllowedTools []string             `json:"allowed_tools"`
-	Scripts      []domain.SkillScript `json:"scripts"`
+	Name         string                    `json:"name"`
+	Prompt       string                    `json:"prompt"`
+	Description  string                    `json:"description"`
+	AllowedTools []string                  `json:"allowed_tools"`
+	Scripts      []skilldomain.SkillScript `json:"scripts"`
 }
 
 func (c *skillsCapability) handleCreate(
@@ -103,7 +103,7 @@ func (c *skillsCapability) handleCreate(
 		Description: args.Description, AllowedTools: args.AllowedTools, Scripts: args.Scripts,
 	})
 	if cerr != nil {
-		if errors.Is(cerr, domain.ErrSkillNameTaken) {
+		if errors.Is(cerr, skilldomain.ErrSkillNameTaken) {
 			return capreg.MCPError("skill name already taken")
 		}
 		c.log.Error("cap skill_create", "err", cerr)
@@ -126,7 +126,7 @@ func parseSkillCreateArgs(raw json.RawMessage) (skillCreateArgsWire, error) {
 		return args, errors.New("prompt is required")
 	}
 	if args.Scripts == nil {
-		args.Scripts = []domain.SkillScript{}
+		args.Scripts = []skilldomain.SkillScript{}
 	}
 	return args, nil
 }
@@ -212,10 +212,10 @@ func (c *skillsCapability) handleDelete(
 }
 
 func skillDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrSkillBuiltinImmutable) {
+	if errors.Is(err, skilldomain.ErrSkillBuiltinImmutable) {
 		return capreg.MCPError("builtin skill cannot be deleted")
 	}
-	if errors.Is(err, domain.ErrSkillNotFound) {
+	if errors.Is(err, skilldomain.ErrSkillNotFound) {
 		return capreg.MCPError("skill not found")
 	}
 	log.Error("cap skill_delete", "err", err)
@@ -259,7 +259,7 @@ func (c *skillsCapability) handleSetEnabled(
 	}
 	skill, err := usecases.SetSkillEnabled(ctx, *c.skills, ownerID, args.SkillID, args.Enabled)
 	if err != nil {
-		if errors.Is(err, domain.ErrSkillNotFound) {
+		if errors.Is(err, skilldomain.ErrSkillNotFound) {
 			return capreg.MCPError("skill not found")
 		}
 		c.log.Error("cap skill_set_enabled", "err", err)

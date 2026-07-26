@@ -13,6 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
+	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 // driverSandbox —— sandbox.Runner backed by Driver.RunSkill. Owns no stdout; forwards
@@ -30,15 +31,17 @@ func (s driverSandbox) Run(ctx context.Context, in *sandbox.RunInput) (sandbox.R
 }
 
 // driverSkillGetter —— SkillGetter over the Driver's one granted skill (already
-// translated to a domain.Skill by the bridge).
-type driverSkillGetter struct{ skill *domain.Skill }
+// translated to a skilldomain.Skill by the bridge).
+type driverSkillGetter struct{ skill *skilldomain.Skill }
 
-func (g driverSkillGetter) GetByID(_ context.Context, _, _ string) (domain.Skill, error) {
+func (g driverSkillGetter) GetByID(_ context.Context, _, _ string) (skilldomain.Skill, error) {
 	return *g.skill, nil
 }
 
-func (g driverSkillGetter) ListSkillsForRole(_ context.Context, _ string) ([]domain.Skill, error) {
-	return []domain.Skill{*g.skill}, nil
+func (g driverSkillGetter) ListSkillsForRole(
+	_ context.Context, _ string) ([]skilldomain.Skill, error,
+) {
+	return []skilldomain.Skill{*g.skill}, nil
 }
 
 // driverMCPGetter —— MCPServerGetter returning the Driver's one ext-mcp server config.
@@ -61,20 +64,20 @@ func (r driverResolver) Resolve(
 	return &c, nil // agentcore.Cred is an alias of inference.Cred
 }
 
-// buildSkillFromSpec —— map a public VisitorSkillSpec into a domain.Skill with one
+// buildSkillFromSpec —— map a public VisitorSkillSpec into a skilldomain.Skill with one
 // script (the bridge translation; no canned data of its own).
-func buildSkillFromSpec(ownerID string, spec *VisitorSkillSpec) domain.Skill {
-	params := make([]domain.SkillScriptParam, 0, len(spec.Params))
+func buildSkillFromSpec(ownerID string, spec *VisitorSkillSpec) skilldomain.Skill {
+	params := make([]skilldomain.SkillScriptParam, 0, len(spec.Params))
 	for i := range spec.Params {
-		params = append(params, domain.SkillScriptParam{
+		params = append(params, skilldomain.SkillScriptParam{
 			Name: spec.Params[i].Name, Type: spec.Params[i].Type,
 			Description: spec.Params[i].Description, Required: spec.Params[i].Required,
 		})
 	}
-	return domain.Skill{
+	return skilldomain.Skill{
 		ID: evalSkillID, OwnerID: ownerID, Name: spec.Name,
 		Description: spec.Description, Prompt: spec.Prompt,
-		Scripts: []domain.SkillScript{{
+		Scripts: []skilldomain.SkillScript{{
 			Filename: spec.Name + scriptExt(spec.Language), Language: spec.Language,
 			Content: spec.Content, Description: spec.Description, Parameters: params,
 		}},

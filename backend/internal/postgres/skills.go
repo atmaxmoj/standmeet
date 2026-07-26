@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
 
 // SkillRepo —— skills 表 + code_skills join 表 CRUD。
@@ -35,21 +35,21 @@ type CreateSkillInput struct {
 	License      string
 	Source       string // 'manual' / 'import' / 'marketplace'
 	AllowedTools []string
-	Scripts      []domain.SkillScript
+	Scripts      []skilldomain.SkillScript
 }
 
 // Create 写一条 owner-curated skill。name 冲突翻 ErrSkillNameTaken。
-func (r *SkillRepo) Create(ctx context.Context, in *CreateSkillInput) (domain.Skill, error) {
+func (r *SkillRepo) Create(ctx context.Context, in *CreateSkillInput) (skilldomain.Skill, error) {
 	params, perr := buildCreateSkillParams(in)
 	if perr != nil {
-		return domain.Skill{}, perr
+		return skilldomain.Skill{}, perr
 	}
 	row, err := dbq.New(r.pool).CreateSkill(ctx, *params)
 	if err != nil {
 		if name, hit := pgUniqueViolation(err); hit && name == "skills_owner_name_uniq" {
-			return domain.Skill{}, domain.ErrSkillNameTaken
+			return skilldomain.Skill{}, skilldomain.ErrSkillNameTaken
 		}
-		return domain.Skill{}, fmt.Errorf("create skill: %w", err)
+		return skilldomain.Skill{}, fmt.Errorf("create skill: %w", err)
 	}
 	return toDomainSkill(&row), nil
 }
@@ -82,22 +82,22 @@ func buildCreateSkillParams(in *CreateSkillInput) (*dbq.CreateSkillParams, error
 // description/prompt 字段会被新 seed 覆写让后续调整生效。
 func (r *SkillRepo) UpsertBuiltin(
 	ctx context.Context, ownerID, name, description, prompt string,
-) (domain.Skill, error) {
+) (skilldomain.Skill, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return domain.Skill{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return skilldomain.Skill{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).UpsertBuiltinSkill(ctx, dbq.UpsertBuiltinSkillParams{
 		OwnerID: ownerUUID, Name: name, Description: description, Prompt: prompt,
 	})
 	if err != nil {
-		return domain.Skill{}, fmt.Errorf("upsert builtin skill: %w", err)
+		return skilldomain.Skill{}, fmt.Errorf("upsert builtin skill: %w", err)
 	}
 	return toDomainSkill(&row), nil
 }
 
 // ListByOwner —— admin 列 owner 所有 skill (builtin 先，自定义后)。
-func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.Skill, error) {
+func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]skilldomain.Skill, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
@@ -106,7 +106,7 @@ func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.S
 	if err != nil {
 		return nil, fmt.Errorf("list skills: %w", err)
 	}
-	out := make([]domain.Skill, 0, len(rows))
+	out := make([]skilldomain.Skill, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainSkill(&rows[i]))
 	}
@@ -151,7 +151,9 @@ func parseOwnerAndSkillID(ownerID, skillID string) (skillIDArgs, error) {
 
 // ListSkillsForRole —— RoleSnapshot 构造时拼 prompt / allowed_tools 用。
 // 跟 ListSkillsForCode 同形态，dbq.ListRoleSkills 在 roles.sql 已声明。
-func (r *SkillRepo) ListSkillsForRole(ctx context.Context, roleID string) ([]domain.Skill, error) {
+func (r *SkillRepo) ListSkillsForRole(
+	ctx context.Context, roleID string) ([]skilldomain.Skill, error,
+) {
 	roleUUID, perr := parseUUID(roleID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse role id: %w", perr)
@@ -160,7 +162,7 @@ func (r *SkillRepo) ListSkillsForRole(ctx context.Context, roleID string) ([]dom
 	if err != nil {
 		return nil, fmt.Errorf("list skills for role: %w", err)
 	}
-	out := make([]domain.Skill, 0, len(rows))
+	out := make([]skilldomain.Skill, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainSkill(&rows[i]))
 	}
@@ -168,19 +170,21 @@ func (r *SkillRepo) ListSkillsForRole(ctx context.Context, roleID string) ([]dom
 }
 
 // GetByID —— admin / MCP get 单条。
-func (r *SkillRepo) GetByID(ctx context.Context, ownerID, skillID string) (domain.Skill, error) {
+func (r *SkillRepo) GetByID(
+	ctx context.Context, ownerID, skillID string) (skilldomain.Skill, error,
+) {
 	args, perr := parseOwnerAndSkillID(ownerID, skillID)
 	if perr != nil {
-		return domain.Skill{}, perr
+		return skilldomain.Skill{}, perr
 	}
 	row, err := dbq.New(r.pool).GetSkillByID(ctx, dbq.GetSkillByIDParams{
 		ID: args.skillUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Skill{}, domain.ErrSkillNotFound
+			return skilldomain.Skill{}, skilldomain.ErrSkillNotFound
 		}
-		return domain.Skill{}, fmt.Errorf("get skill: %w", err)
+		return skilldomain.Skill{}, fmt.Errorf("get skill: %w", err)
 	}
 	return toDomainSkill(&row), nil
 }
@@ -188,25 +192,25 @@ func (r *SkillRepo) GetByID(ctx context.Context, ownerID, skillID string) (domai
 // SetEnabled —— #48-2: owner 全局开/关一个 skill。
 func (r *SkillRepo) SetEnabled(
 	ctx context.Context, ownerID, skillID string, enabled bool,
-) (domain.Skill, error) {
+) (skilldomain.Skill, error) {
 	args, perr := parseOwnerAndSkillID(ownerID, skillID)
 	if perr != nil {
-		return domain.Skill{}, perr
+		return skilldomain.Skill{}, perr
 	}
 	row, err := dbq.New(r.pool).SetSkillEnabled(ctx, dbq.SetSkillEnabledParams{
 		ID: args.skillUUID, OwnerID: args.ownerUUID, Enabled: enabled,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Skill{}, domain.ErrSkillNotFound
+			return skilldomain.Skill{}, skilldomain.ErrSkillNotFound
 		}
-		return domain.Skill{}, fmt.Errorf("set skill enabled: %w", err)
+		return skilldomain.Skill{}, fmt.Errorf("set skill enabled: %w", err)
 	}
 	return toDomainSkill(&row), nil
 }
 
-func toDomainSkill(s *dbq.Skill) domain.Skill {
-	out := domain.Skill{
+func toDomainSkill(s *dbq.Skill) skilldomain.Skill {
+	out := skilldomain.Skill{
 		ID: formatUUID(s.ID), OwnerID: formatUUID(s.OwnerID),
 		Name: s.Name, Description: s.Description, Prompt: s.Prompt,
 		AllowedTools: s.AllowedTools, IsBuiltin: s.IsBuiltin, Enabled: s.Enabled,
@@ -218,13 +222,13 @@ func toDomainSkill(s *dbq.Skill) domain.Skill {
 	return out
 }
 
-func decodeSkillScripts(raw []byte) []domain.SkillScript {
+func decodeSkillScripts(raw []byte) []skilldomain.SkillScript {
 	if len(raw) == 0 {
-		return []domain.SkillScript{}
+		return []skilldomain.SkillScript{}
 	}
-	var out []domain.SkillScript
+	var out []skilldomain.SkillScript
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return []domain.SkillScript{}
+		return []skilldomain.SkillScript{}
 	}
 	return out
 }
