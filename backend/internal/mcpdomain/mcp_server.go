@@ -8,7 +8,7 @@
 //
 // AuthHeaderValueEnc 在 cryptobox.Decrypt 前是密文 bytes；空 = 无 auth。
 
-package domain
+package mcpdomain
 
 import (
 	"errors"

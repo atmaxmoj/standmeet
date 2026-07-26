@@ -15,8 +15,8 @@ import (
 	"encoding/json"
 	"slices"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
 )
 
 // DepConnected —— 命名 connector 依赖是否已连（capreg.DepRegistry 满足）。grant 在
@@ -28,7 +28,7 @@ type DepConnected interface {
 // extToolDepsAllowed —— 该 ext-mcp 工具的 connector-dep 是否放行（最低信任，默认拒）：
 // requires 必须 owner 全部显式 grant + 连接器已连。无 requires 的工具不受闸。
 func extToolDepsAllowed(
-	ctx context.Context, cfg *domain.MCPServerConfig, connected DepConnected, t *mcpclient.Tool,
+	ctx context.Context, cfg *mcpdomain.MCPServerConfig, connected DepConnected, t *mcpclient.Tool,
 ) bool {
 	requires := toolRequires(t)
 	if len(requires) == 0 {

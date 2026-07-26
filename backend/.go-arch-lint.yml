@@ -95,6 +95,8 @@ components:
     in: internal/instancedomain            # #135: 部署 singleton 配置 (instance_settings)；pure leaf
   connectordomain:
     in: internal/connectordomain           # #135: 连接器轴 owner 注册配置 (connector_connection)；pure leaf
+  mcpdomain:
+    in: internal/mcpdomain                 # #135: MCP 轴 owner 数据 (mcp_server/app_state)；pure leaf
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -177,6 +179,7 @@ deps:
   # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
+      - mcpdomain
       - credentialdomain
       - skilldomain
       - ownerdomain
@@ -376,6 +379,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
+      - mcpdomain
       - connectordomain
       - instancedomain
       - credentialdomain
@@ -457,6 +461,7 @@ deps:
   # prod 同一套 agentic 功能，只换注入的 repo。backend 内部无人 import 它。
   agentcore:
     mayDependOn:
+      - mcpdomain
       - skilldomain
       - corpusdomain
       - inference
@@ -499,6 +504,7 @@ deps:
   # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
   pluginownercore:
     mayDependOn:
+      - mcpdomain
       - connectordomain
       - credentialdomain
       - skilldomain
@@ -673,6 +679,11 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # mcpdomain —— #135 MCP 轴 owner 数据 leaf：MCPServerConfig/AppStateRef，无 internal 依赖。
+  mcpdomain:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
   # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
   # routes 不直接 import。
@@ -731,6 +742,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - mcpdomain
       - connectordomain
       - instancedomain
       - credentialdomain
@@ -775,6 +787,7 @@ deps:
   # token bearer auth；SSE 流式 chat。
   publicroutes:
     mayDependOn:
+      - mcpdomain
       - credentialdomain
       - ownerdomain
       - accessdomain

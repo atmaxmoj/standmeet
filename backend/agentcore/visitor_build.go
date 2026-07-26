@@ -22,6 +22,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -164,7 +165,7 @@ func buildDriverDeps(
 		deps.Sandbox = driverSandbox{driver: d}
 	}
 	if mcpURL != "" {
-		cfg := domain.MCPServerConfig{
+		cfg := mcpdomain.MCPServerConfig{
 			ID: evalMCPID, OwnerID: ownerID, Name: "eval-mcp", URL: mcpURL,
 		}
 		deps.MCPServers = driverMCPGetter{cfg: &cfg}

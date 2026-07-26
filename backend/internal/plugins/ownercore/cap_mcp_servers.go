@@ -10,7 +10,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -119,7 +119,7 @@ func parseMCPServerCreateArgs(raw json.RawMessage) (mcpServerCreateArgsWire, err
 }
 
 func mcpServerCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrMCPServerNameTaken) {
+	if errors.Is(err, mcpdomain.ErrMCPServerNameTaken) {
 		return capreg.MCPError("mcp server name already taken")
 	}
 	log.Error("cap mcp_server_create", "err", err)
@@ -197,7 +197,7 @@ func (c *mcpServersCapability) handleDelete(
 		return capreg.MCPError("server_id is required")
 	}
 	if err := usecases.DeleteMCPServer(ctx, *c.servers, ownerID, args.ServerID); err != nil {
-		if errors.Is(err, domain.ErrMCPServerNotFound) {
+		if errors.Is(err, mcpdomain.ErrMCPServerNotFound) {
 			return capreg.MCPError("mcp server not found")
 		}
 		c.log.Error("cap mcp_server_delete", "err", err)
@@ -256,7 +256,7 @@ func (c *mcpServersCapability) handleGrantDep(
 	}
 	err := usecases.GrantMCPServerDep(ctx, *c.servers, ownerID, args.ServerID, args.Dep)
 	if err != nil {
-		if errors.Is(err, domain.ErrMCPServerNotFound) {
+		if errors.Is(err, mcpdomain.ErrMCPServerNotFound) {
 			return capreg.MCPError("mcp server not found")
 		}
 		c.log.Error("cap mcp_server_grant_dep", "err", err)

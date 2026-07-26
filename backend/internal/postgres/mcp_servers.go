@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -37,10 +37,10 @@ type CreateMCPServerInput struct {
 // Create 新建 mcp_server 行。name 冲突翻 ErrMCPServerNameTaken。
 func (r *MCPServerRepo) Create(
 	ctx context.Context, in *CreateMCPServerInput,
-) (domain.MCPServerConfig, error) {
+) (mcpdomain.MCPServerConfig, error) {
 	ownerUUID, oerr := parseUUID(in.OwnerID)
 	if oerr != nil {
-		return domain.MCPServerConfig{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return mcpdomain.MCPServerConfig{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).CreateMCPServer(ctx, dbq.CreateMCPServerParams{
 		OwnerID: ownerUUID, Name: in.Name, Url: in.URL,
@@ -48,9 +48,9 @@ func (r *MCPServerRepo) Create(
 	})
 	if err != nil {
 		if name, hit := pgUniqueViolation(err); hit && name == "mcp_servers_owner_name_uniq" {
-			return domain.MCPServerConfig{}, domain.ErrMCPServerNameTaken
+			return mcpdomain.MCPServerConfig{}, mcpdomain.ErrMCPServerNameTaken
 		}
-		return domain.MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
+		return mcpdomain.MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
 	}
 	return toDomainMCPServer(&row), nil
 }
@@ -58,7 +58,7 @@ func (r *MCPServerRepo) Create(
 // ListByOwner —— admin / MCP list。
 func (r *MCPServerRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]domain.MCPServerConfig, error) {
+) ([]mcpdomain.MCPServerConfig, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
@@ -67,7 +67,7 @@ func (r *MCPServerRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list mcp servers: %w", err)
 	}
-	out := make([]domain.MCPServerConfig, 0, len(rows))
+	out := make([]mcpdomain.MCPServerConfig, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainMCPServer(&rows[i]))
 	}
@@ -77,19 +77,19 @@ func (r *MCPServerRepo) ListByOwner(
 // GetByID —— 单条；属于 owner 校验。
 func (r *MCPServerRepo) GetByID(
 	ctx context.Context, ownerID, serverID string,
-) (domain.MCPServerConfig, error) {
+) (mcpdomain.MCPServerConfig, error) {
 	args, perr := parseOwnerAndServerID(ownerID, serverID)
 	if perr != nil {
-		return domain.MCPServerConfig{}, perr
+		return mcpdomain.MCPServerConfig{}, perr
 	}
 	row, err := dbq.New(r.pool).GetMCPServerByID(ctx, dbq.GetMCPServerByIDParams{
 		ID: args.serverUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.MCPServerConfig{}, domain.ErrMCPServerNotFound
+			return mcpdomain.MCPServerConfig{}, mcpdomain.ErrMCPServerNotFound
 		}
-		return domain.MCPServerConfig{}, fmt.Errorf("get mcp server: %w", err)
+		return mcpdomain.MCPServerConfig{}, fmt.Errorf("get mcp server: %w", err)
 	}
 	return toDomainMCPServer(&row), nil
 }
@@ -142,8 +142,8 @@ func (r *MCPServerRepo) GrantDep(ctx context.Context, ownerID, serverID, dep str
 	return nil
 }
 
-func toDomainMCPServer(row *dbq.McpServer) domain.MCPServerConfig {
-	return domain.MCPServerConfig{
+func toDomainMCPServer(row *dbq.McpServer) mcpdomain.MCPServerConfig {
+	return mcpdomain.MCPServerConfig{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
 		Name: row.Name, URL: row.Url,
 		AuthHeaderName:     row.AuthHeaderName,

@@ -8,7 +8,7 @@ package usecases
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/skilldomain"
@@ -46,5 +46,5 @@ type SkillGetter interface {
 // this narrow port so the eval can inject a fixture server pointed at a real MCP
 // endpoint (the dial stays real — only the registry lookup is fixtured).
 type MCPServerGetter interface {
-	GetByID(ctx context.Context, ownerID, serverID string) (domain.MCPServerConfig, error)
+	GetByID(ctx context.Context, ownerID, serverID string) (mcpdomain.MCPServerConfig, error)
 }

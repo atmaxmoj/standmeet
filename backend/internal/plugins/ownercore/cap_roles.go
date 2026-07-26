@@ -12,6 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -220,7 +221,7 @@ var roleCreateErrCases = []struct {
 	{domain.ErrRoleNameTaken, "role name already taken"},
 	{domain.ErrPromptNotFound, "prompt_id not found for this owner"},
 	{skilldomain.ErrSkillNotFound, "one or more skill_ids not found"},
-	{domain.ErrMCPServerNotFound, "one or more mcp_server_ids not found"},
+	{mcpdomain.ErrMCPServerNotFound, "one or more mcp_server_ids not found"},
 }
 
 func roleCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {

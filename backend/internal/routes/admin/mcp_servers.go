@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -63,7 +63,9 @@ func (h *Handlers) listMCPServers() http.HandlerFunc {
 	}
 }
 
-func writeMCPServersList(log *slog.Logger, w http.ResponseWriter, rows []domain.MCPServerConfig) {
+func writeMCPServersList(
+	log *slog.Logger, w http.ResponseWriter, rows []mcpdomain.MCPServerConfig,
+) {
 	items := make([]mcpServerView, 0, len(rows))
 	for i := range rows {
 		items = append(items, toMCPServerView(&rows[i]))
@@ -75,7 +77,7 @@ func writeMCPServersList(log *slog.Logger, w http.ResponseWriter, rows []domain.
 	}
 }
 
-func toMCPServerView(s *domain.MCPServerConfig) mcpServerView {
+func toMCPServerView(s *mcpdomain.MCPServerConfig) mcpServerView {
 	return mcpServerView{
 		ID: s.ID, Name: s.Name, URL: s.URL,
 		AuthHeaderName: s.AuthHeaderName,
@@ -114,7 +116,7 @@ func handleCreateMCPServerErr(log *slog.Logger, w http.ResponseWriter, err error
 	switch {
 	case errors.Is(err, usecases.ErrEmptyField):
 		writeError(log, w, envBadReq("name and url are required"))
-	case errors.Is(err, domain.ErrMCPServerNameTaken):
+	case errors.Is(err, mcpdomain.ErrMCPServerNameTaken):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusConflict, Code: "mcp_server_name_taken",
 			Message: "mcp server name already taken",
@@ -125,7 +127,7 @@ func handleCreateMCPServerErr(log *slog.Logger, w http.ResponseWriter, err error
 	}
 }
 
-func writeCreatedMCPServer(log *slog.Logger, w http.ResponseWriter, s *domain.MCPServerConfig) {
+func writeCreatedMCPServer(log *slog.Logger, w http.ResponseWriter, s *mcpdomain.MCPServerConfig) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(toMCPServerView(s)); err != nil {
@@ -147,7 +149,7 @@ func (h *Handlers) deleteMCPServer() http.HandlerFunc {
 }
 
 func handleDeleteMCPServerErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrMCPServerNotFound) {
+	if errors.Is(err, mcpdomain.ErrMCPServerNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "mcp_server_not_found",
 			Message: "mcp server not found",
@@ -186,7 +188,7 @@ func handleGrantMCPServerDepErr(log *slog.Logger, w http.ResponseWriter, err err
 	switch {
 	case errors.Is(err, usecases.ErrEmptyField):
 		writeError(log, w, envBadReq("dep is required"))
-	case errors.Is(err, domain.ErrMCPServerNotFound):
+	case errors.Is(err, mcpdomain.ErrMCPServerNotFound):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "mcp_server_not_found",
 			Message: "mcp server not found",

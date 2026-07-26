@@ -10,8 +10,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/mcpdomain"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/skilldomain"
 )
@@ -45,9 +45,11 @@ func (g driverSkillGetter) ListSkillsForRole(
 }
 
 // driverMCPGetter —— MCPServerGetter returning the Driver's one ext-mcp server config.
-type driverMCPGetter struct{ cfg *domain.MCPServerConfig }
+type driverMCPGetter struct{ cfg *mcpdomain.MCPServerConfig }
 
-func (g driverMCPGetter) GetByID(_ context.Context, _, _ string) (domain.MCPServerConfig, error) {
+func (g driverMCPGetter) GetByID(
+	_ context.Context, _, _ string) (mcpdomain.MCPServerConfig, error,
+) {
 	return *g.cfg, nil
 }
 
