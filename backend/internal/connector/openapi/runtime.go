@@ -87,6 +87,51 @@ func (r *Runtime) Call(ctx context.Context, op string, input, dst any, auth Auth
 	return decodeInto(out, dst)
 }
 
+// Invoke —— Call 的 **JSON 进 / JSON 出** 版:op = 绑定操作名,argsJSON 原样喂 request JSONata,
+// 回契约出参的 JSON。泛型 connector 调用面用它 —— 消费方只见 (op, argsJSON) → JSON,不碰任何
+// typed 契约结构(CalendarProxy 那种)。走同一条 resolve→build→send,只是两端换成 JSON。
+func (r *Runtime) Invoke(
+	ctx context.Context, op string, argsJSON json.RawMessage, auth AuthInjector,
+) (json.RawMessage, error) {
+	bo, err := r.resolve(op)
+	if err != nil {
+		return nil, err
+	}
+	input, err := decodeInvokeArgs(op, argsJSON)
+	if err != nil {
+		return nil, err
+	}
+	req, err := r.buildRequest(ctx, &bo, input, auth)
+	if err != nil {
+		return nil, err
+	}
+	out, err := r.send(req, bo.binding)
+	if err != nil {
+		return nil, err
+	}
+	return marshalInvokeOut(op, out)
+}
+
+// decodeInvokeArgs —— 空 args → nil；否则解成 JSON 值(JSONata 输入形态)。
+func decodeInvokeArgs(op string, argsJSON json.RawMessage) (any, error) {
+	if len(argsJSON) == 0 {
+		return nil, nil
+	}
+	var input any
+	if err := json.Unmarshal(argsJSON, &input); err != nil {
+		return nil, fmt.Errorf("connector invoke %q args: %w", op, err)
+	}
+	return input, nil
+}
+
+func marshalInvokeOut(op string, out any) (json.RawMessage, error) {
+	res, err := json.Marshal(out)
+	if err != nil {
+		return nil, fmt.Errorf("connector invoke %q marshal: %w", op, err)
+	}
+	return res, nil
+}
+
 // resolve —— 契约方法名 → 绑定 + 具体 HTTP 操作。绑定缺该方法 / spec 缺该 op → 错。
 func (r *Runtime) resolve(op string) (boundOp, error) {
 	ob, ok := r.binding.Operations[op]
