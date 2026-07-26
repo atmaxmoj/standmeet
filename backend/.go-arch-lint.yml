@@ -87,8 +87,6 @@ components:
     in: internal/accessdomain              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
   ownerdomain:
     in: internal/ownerdomain               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
-  instancedomain:
-    in: internal/instancedomain            # #135: 部署 singleton 配置 (instance_settings)；pure leaf
   connectordomain:
     in: internal/connectordomain           # #135: 连接器轴 owner 注册配置 (connector_connection)；pure leaf
   mcpdomain:
@@ -373,9 +371,8 @@ deps:
     mayDependOn:
       - mcpdomain
       - connectordomain
-      - instancedomain
-      - accessdomain
       - ownerdomain
+      - accessdomain
       - marketplace
       - corpusdomain
       - conversationdomain
@@ -653,10 +650,6 @@ deps:
 
 
 
-  # instancedomain —— #135 部署 singleton 配置 leaf：InstanceSettings + setup/claim 错误，无 internal 依赖。
-  instancedomain:
-    mayDependOn: []
-    anyVendorDeps: true
 
   # connectordomain —— #135 连接器轴 owner 注册配置 leaf：ConnectorConnection，无 internal 依赖。
   connectordomain:
@@ -696,7 +689,6 @@ deps:
   # /internal/builds/claim 在 no-pending 时返 ErrCustomPageBuildNotFound。
   sysroutes:
     mayDependOn:
-      - instancedomain
       - ownerdomain
       - domain
       - postgres
@@ -721,9 +713,8 @@ deps:
     mayDependOn:
       - mcpdomain
       - connectordomain
-      - instancedomain
-      - accessdomain
       - ownerdomain
+      - accessdomain
       - marketplace
       - corpusdomain
       - conversationdomain

@@ -19,9 +19,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/go-chi/chi/v5"
-
-	"github.com/atmaxmoj/standmeet/internal/instancedomain"
 )
 
 // AllowedDomainLookup —— instance_settings 表的窄接口。让 sys 不直接 import
@@ -82,5 +81,5 @@ func writeAllowedOrDeny(log *slog.Logger, w http.ResponseWriter, o askOutcome) {
 }
 
 func isLookupErr(err error) bool {
-	return err != nil && !errors.Is(err, instancedomain.ErrInstanceSettingsNotFound)
+	return err != nil && !errors.Is(err, ownerdomain.ErrInstanceSettingsNotFound)
 }
