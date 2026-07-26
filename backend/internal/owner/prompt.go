@@ -4,7 +4,7 @@
 // public（is_builtin=true）由 SeedPublicRole 在 owner claim 时种入；删除被
 // repo 层挡（ErrPromptBuiltinImmutable）。
 
-package domain
+package owner
 
 import (
 	"errors"

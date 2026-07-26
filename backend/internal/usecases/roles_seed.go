@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -39,7 +40,7 @@ func upsertPublicPrompt(
 	ctx context.Context, prompts *postgres.PromptRepo, ownerID string,
 ) (string, error) {
 	prompt, err := prompts.UpsertBuiltin(ctx, ownerID,
-		domain.PublicPromptName, domain.PublicPromptDescription, domain.PublicPromptBody,
+		owner.PublicPromptName, owner.PublicPromptDescription, owner.PublicPromptBody,
 	)
 	if err != nil {
 		return "", fmt.Errorf("upsert public prompt: %w", err)

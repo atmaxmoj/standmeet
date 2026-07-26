@@ -1,7 +1,7 @@
 // prompts.go —— prompts 表 CRUD。owner-scoped persona library。
 //
 // 设计 [[iam-role-pivot-plan]]：public（is_builtin=true）由 SeedPublicRole
-// 在 owner claim 时 upsert 种入；删除被 repo 层挡（domain.ErrPromptBuiltinImmutable）。
+// 在 owner claim 时 upsert 种入；删除被 repo 层挡（owner.ErrPromptBuiltinImmutable）。
 
 package postgres
 
@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -34,19 +34,19 @@ type CreatePromptInput struct {
 }
 
 // Create 新建 prompt。name 冲突翻 ErrPromptNameTaken。
-func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (domain.Prompt, error) {
+func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (owner.Prompt, error) {
 	ownerUUID, oerr := parseUUID(in.OwnerID)
 	if oerr != nil {
-		return domain.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return owner.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).CreatePrompt(ctx, dbq.CreatePromptParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
 		if name, hit := pgUniqueViolation(err); hit && name == "prompts_owner_name_uniq" {
-			return domain.Prompt{}, domain.ErrPromptNameTaken
+			return owner.Prompt{}, owner.ErrPromptNameTaken
 		}
-		return domain.Prompt{}, fmt.Errorf("create prompt: %w", err)
+		return owner.Prompt{}, fmt.Errorf("create prompt: %w", err)
 	}
 	return toDomainPrompt(&row), nil
 }
@@ -54,22 +54,22 @@ func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (domain.
 // UpsertBuiltin —— SeedPublicRole 用。同 (owner_id, name) 覆盖 description / body。
 func (r *PromptRepo) UpsertBuiltin(
 	ctx context.Context, ownerID, name, description, body string,
-) (domain.Prompt, error) {
+) (owner.Prompt, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return domain.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return owner.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).UpsertBuiltinPrompt(ctx, dbq.UpsertBuiltinPromptParams{
 		OwnerID: ownerUUID, Name: name, Description: description, Body: body,
 	})
 	if err != nil {
-		return domain.Prompt{}, fmt.Errorf("upsert builtin prompt: %w", err)
+		return owner.Prompt{}, fmt.Errorf("upsert builtin prompt: %w", err)
 	}
 	return toDomainPrompt(&row), nil
 }
 
 // ListByOwner —— admin /admin/prompts 列表 + visitor session issue 时 lookup。
-func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.Prompt, error) {
+func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]owner.Prompt, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
@@ -78,7 +78,7 @@ func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.
 	if err != nil {
 		return nil, fmt.Errorf("list prompts: %w", err)
 	}
-	out := make([]domain.Prompt, 0, len(rows))
+	out := make([]owner.Prompt, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainPrompt(&rows[i]))
 	}
@@ -86,37 +86,37 @@ func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.
 }
 
 // GetByID —— 单条详情；属于 owner 校验。
-func (r *PromptRepo) GetByID(ctx context.Context, ownerID, promptID string) (domain.Prompt, error) {
+func (r *PromptRepo) GetByID(ctx context.Context, ownerID, promptID string) (owner.Prompt, error) {
 	args, perr := parsePromptIDArgs(ownerID, promptID)
 	if perr != nil {
-		return domain.Prompt{}, perr
+		return owner.Prompt{}, perr
 	}
 	row, err := dbq.New(r.pool).GetPromptByID(ctx, dbq.GetPromptByIDParams{
 		ID: args.promptUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Prompt{}, domain.ErrPromptNotFound
+			return owner.Prompt{}, owner.ErrPromptNotFound
 		}
-		return domain.Prompt{}, fmt.Errorf("get prompt: %w", err)
+		return owner.Prompt{}, fmt.Errorf("get prompt: %w", err)
 	}
 	return toDomainPrompt(&row), nil
 }
 
 // GetByName —— SeedPublicRole 用：public prompt 先 upsert 再 get id 给 Role 引用。
-func (r *PromptRepo) GetByName(ctx context.Context, ownerID, name string) (domain.Prompt, error) {
+func (r *PromptRepo) GetByName(ctx context.Context, ownerID, name string) (owner.Prompt, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return domain.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return owner.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).GetPromptByName(ctx, dbq.GetPromptByNameParams{
 		OwnerID: ownerUUID, Name: name,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Prompt{}, domain.ErrPromptNotFound
+			return owner.Prompt{}, owner.ErrPromptNotFound
 		}
-		return domain.Prompt{}, fmt.Errorf("get prompt by name: %w", err)
+		return owner.Prompt{}, fmt.Errorf("get prompt by name: %w", err)
 	}
 	return toDomainPrompt(&row), nil
 }
@@ -133,17 +133,17 @@ type UpdatePromptInput struct {
 // Update 改 prompt。builtin 可以改 body / description 但不可 rename —— 这层
 // 检查由 usecase 拦（usecase 调 GetByID 看 IsBuiltin + Name diff → 翻 ErrPromptBuiltinImmutable）。
 // repo 这里只翻 unique 冲突。
-func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (domain.Prompt, error) {
+func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (owner.Prompt, error) {
 	args, perr := parsePromptIDArgs(in.OwnerID, in.PromptID)
 	if perr != nil {
-		return domain.Prompt{}, perr
+		return owner.Prompt{}, perr
 	}
 	row, err := dbq.New(r.pool).UpdatePrompt(ctx, dbq.UpdatePromptParams{
 		ID: args.promptUUID, OwnerID: args.ownerUUID,
 		Name: in.Name, Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
-		return domain.Prompt{}, mapPromptUpdateErr(err)
+		return owner.Prompt{}, mapPromptUpdateErr(err)
 	}
 	return toDomainPrompt(&row), nil
 }
@@ -151,10 +151,10 @@ func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (domain.
 // mapPromptUpdateErr —— 单独抽出来降 Update 的 cyclomatic complexity。
 func mapPromptUpdateErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrPromptNotFound
+		return owner.ErrPromptNotFound
 	}
 	if name, hit := pgUniqueViolation(err); hit && name == "prompts_owner_name_uniq" {
-		return domain.ErrPromptNameTaken
+		return owner.ErrPromptNameTaken
 	}
 	return fmt.Errorf("update prompt: %w", err)
 }
@@ -191,8 +191,8 @@ func parsePromptIDArgs(ownerID, promptID string) (promptIDArgs, error) {
 	return promptIDArgs{ownerUUID: ownerUUID, promptUUID: promptUUID}, nil
 }
 
-func toDomainPrompt(row *dbq.Prompt) domain.Prompt {
-	return domain.NewPrompt(&domain.PromptInit{
+func toDomainPrompt(row *dbq.Prompt) owner.Prompt {
+	return owner.NewPrompt(&owner.PromptInit{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
 		Name: row.Name, Body: row.Body, Description: row.Description,
 		IsBuiltin: row.IsBuiltin,

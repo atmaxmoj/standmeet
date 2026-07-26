@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -31,19 +31,19 @@ type CreatePromptInput struct {
 // CreatePrompt 新建 prompt。
 func CreatePrompt(
 	ctx context.Context, deps PromptsDeps, in *CreatePromptInput,
-) (domain.Prompt, error) {
+) (owner.Prompt, error) {
 	if in.OwnerID == "" || in.Name == "" {
-		return domain.Prompt{}, ErrEmptyField
+		return owner.Prompt{}, ErrEmptyField
 	}
 	prompt, err := deps.Prompts.Create(ctx, &postgres.CreatePromptInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
-		if errors.Is(err, domain.ErrPromptNameTaken) {
-			return domain.Prompt{}, domain.ErrPromptNameTaken
+		if errors.Is(err, owner.ErrPromptNameTaken) {
+			return owner.Prompt{}, owner.ErrPromptNameTaken
 		}
-		return domain.Prompt{}, fmt.Errorf("create prompt: %w", err)
+		return owner.Prompt{}, fmt.Errorf("create prompt: %w", err)
 	}
 	return prompt, nil
 }
@@ -51,7 +51,7 @@ func CreatePrompt(
 // ListPrompts —— admin / MCP prompt.list。
 func ListPrompts(
 	ctx context.Context, deps PromptsDeps, ownerID string,
-) ([]domain.Prompt, error) {
+) ([]owner.Prompt, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}
@@ -65,13 +65,13 @@ func ListPrompts(
 // GetPrompt —— admin / MCP prompt.get 单条详情。
 func GetPrompt(
 	ctx context.Context, deps PromptsDeps, ownerID, promptID string,
-) (domain.Prompt, error) {
+) (owner.Prompt, error) {
 	if ownerID == "" || promptID == "" {
-		return domain.Prompt{}, ErrEmptyField
+		return owner.Prompt{}, ErrEmptyField
 	}
 	prompt, err := deps.Prompts.GetByID(ctx, ownerID, promptID)
 	if err != nil {
-		return domain.Prompt{}, fmt.Errorf("get prompt: %w", err)
+		return owner.Prompt{}, fmt.Errorf("get prompt: %w", err)
 	}
 	return prompt, nil
 }
@@ -89,16 +89,16 @@ type UpdatePromptInput struct {
 // repo Update 不挡，本层先 GetByID 校验。
 func UpdatePrompt(
 	ctx context.Context, deps PromptsDeps, in *UpdatePromptInput,
-) (domain.Prompt, error) {
+) (owner.Prompt, error) {
 	if uerr := validateUpdatePromptInput(ctx, deps, in); uerr != nil {
-		return domain.Prompt{}, uerr
+		return owner.Prompt{}, uerr
 	}
 	prompt, err := deps.Prompts.Update(ctx, &postgres.UpdatePromptInput{
 		OwnerID: in.OwnerID, PromptID: in.PromptID,
 		Name: in.Name, Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
-		return domain.Prompt{}, fmt.Errorf("update prompt: %w", err)
+		return owner.Prompt{}, fmt.Errorf("update prompt: %w", err)
 	}
 	return prompt, nil
 }
@@ -123,7 +123,7 @@ func checkPromptRenameAllowed(
 		return fmt.Errorf("get prompt for rename check: %w", err)
 	}
 	if existing.IsBuiltin() && existing.Name() != in.Name {
-		return domain.ErrPromptBuiltinImmutable
+		return owner.ErrPromptBuiltinImmutable
 	}
 	return nil
 }
@@ -155,7 +155,7 @@ func validatePromptDeletable(
 		return fmt.Errorf("get prompt: %w", gerr)
 	}
 	if prompt.IsBuiltin() {
-		return domain.ErrPromptBuiltinImmutable
+		return owner.ErrPromptBuiltinImmutable
 	}
 	return nil
 }

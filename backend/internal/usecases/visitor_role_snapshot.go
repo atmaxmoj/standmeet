@@ -17,6 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // buildRoleSnapshotForCode —— code.AssumedRoleID 必填（schema NOT NULL）→ 构造
@@ -237,7 +238,7 @@ func promptBodyByID(
 	}
 	prompt, err := deps.Prompts.GetByID(ctx, ownerID, *promptID)
 	if err != nil {
-		if errors.Is(err, domain.ErrPromptNotFound) {
+		if errors.Is(err, owner.ErrPromptNotFound) {
 			return "", nil
 		}
 		return "", fmt.Errorf("get prompt for snapshot: %w", err)

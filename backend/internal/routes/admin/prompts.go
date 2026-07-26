@@ -13,8 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -63,7 +63,7 @@ func (h *Handlers) listPrompts() http.HandlerFunc {
 	}
 }
 
-func writePromptsList(log *slog.Logger, w http.ResponseWriter, rows []domain.Prompt) {
+func writePromptsList(log *slog.Logger, w http.ResponseWriter, rows []owner.Prompt) {
 	items := make([]promptView, 0, len(rows))
 	for i := range rows {
 		items = append(items, toPromptView(&rows[i]))
@@ -75,7 +75,7 @@ func writePromptsList(log *slog.Logger, w http.ResponseWriter, rows []domain.Pro
 	}
 }
 
-func toPromptView(p *domain.Prompt) promptView {
+func toPromptView(p *owner.Prompt) promptView {
 	return promptView{
 		ID: p.ID(), Name: p.Name(), Description: p.Description(),
 		Body: p.Body(), IsBuiltin: p.IsBuiltin(),
@@ -109,7 +109,7 @@ func (h *Handlers) createPrompt() http.HandlerFunc {
 var createPromptErrCases = []apierr.Case{
 	{Match: usecases.ErrEmptyField, Envelope: envBadReq("name is required")},
 	{
-		Match: domain.ErrPromptNameTaken,
+		Match: owner.ErrPromptNameTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "prompt_name_taken",
 			Message: "prompt name already taken",
@@ -140,7 +140,7 @@ func (h *Handlers) getPrompt() http.HandlerFunc {
 
 var getPromptErrCases = []apierr.Case{
 	{
-		Match: domain.ErrPromptNotFound,
+		Match: owner.ErrPromptNotFound,
 		Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "prompt_not_found", Message: "prompt not found",
 		},
@@ -180,20 +180,20 @@ func (h *Handlers) updatePrompt() http.HandlerFunc {
 
 var updatePromptErrCases = []apierr.Case{
 	{
-		Match: domain.ErrPromptNotFound,
+		Match: owner.ErrPromptNotFound,
 		Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "prompt_not_found", Message: "prompt not found",
 		},
 	},
 	{
-		Match: domain.ErrPromptBuiltinImmutable,
+		Match: owner.ErrPromptBuiltinImmutable,
 		Envelope: apierr.Envelope{
 			Status: http.StatusForbidden, Code: "prompt_builtin_immutable",
 			Message: "builtin prompt cannot be renamed",
 		},
 	},
 	{
-		Match: domain.ErrPromptNameTaken,
+		Match: owner.ErrPromptNameTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "prompt_name_taken",
 			Message: "prompt name already taken",
@@ -224,14 +224,14 @@ func (h *Handlers) deletePrompt() http.HandlerFunc {
 
 var deletePromptErrCases = []apierr.Case{
 	{
-		Match: domain.ErrPromptBuiltinImmutable,
+		Match: owner.ErrPromptBuiltinImmutable,
 		Envelope: apierr.Envelope{
 			Status: http.StatusForbidden, Code: "prompt_builtin_immutable",
 			Message: "builtin prompt cannot be deleted",
 		},
 	},
 	{
-		Match: domain.ErrPromptNotFound,
+		Match: owner.ErrPromptNotFound,
 		Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "prompt_not_found", Message: "prompt not found",
 		},
@@ -246,7 +246,7 @@ func handleDeletePromptErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, env)
 }
 
-func writeOnePrompt(log *slog.Logger, w http.ResponseWriter, p *domain.Prompt, status int) {
+func writeOnePrompt(log *slog.Logger, w http.ResponseWriter, p *owner.Prompt, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(toPromptView(p)); err != nil {

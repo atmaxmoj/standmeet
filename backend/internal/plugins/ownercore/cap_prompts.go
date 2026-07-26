@@ -12,8 +12,8 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -113,7 +113,7 @@ func (c *promptsCapability) handleCreate(
 }
 
 func promptCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrPromptNameTaken) {
+	if errors.Is(err, owner.ErrPromptNameTaken) {
 		return capreg.MCPError("prompt name already taken")
 	}
 	log.Error("cap prompt_create", "err", err)
@@ -194,10 +194,10 @@ func (c *promptsCapability) handleDelete(
 }
 
 func promptDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrPromptBuiltinImmutable) {
+	if errors.Is(err, owner.ErrPromptBuiltinImmutable) {
 		return capreg.MCPError("builtin prompt cannot be deleted")
 	}
-	if errors.Is(err, domain.ErrPromptNotFound) {
+	if errors.Is(err, owner.ErrPromptNotFound) {
 		return capreg.MCPError("prompt not found")
 	}
 	log.Error("cap prompt_delete", "err", err)
@@ -270,13 +270,13 @@ func (c *promptsCapability) handleUpdate(
 }
 
 func promptUpdateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, domain.ErrPromptBuiltinImmutable) {
+	if errors.Is(err, owner.ErrPromptBuiltinImmutable) {
 		return capreg.MCPError("builtin prompt cannot be renamed")
 	}
-	if errors.Is(err, domain.ErrPromptNameTaken) {
+	if errors.Is(err, owner.ErrPromptNameTaken) {
 		return capreg.MCPError("prompt name already taken")
 	}
-	if errors.Is(err, domain.ErrPromptNotFound) {
+	if errors.Is(err, owner.ErrPromptNotFound) {
 		return capreg.MCPError("prompt not found")
 	}
 	log.Error("cap prompt_update", "err", err)
@@ -316,7 +316,7 @@ func (c *promptsCapability) handleGet(
 	}
 	prompt, err := usecases.GetPrompt(ctx, *c.prompts, ownerID, args.PromptID)
 	if err != nil {
-		if errors.Is(err, domain.ErrPromptNotFound) {
+		if errors.Is(err, owner.ErrPromptNotFound) {
 			return capreg.MCPError("prompt not found")
 		}
 		c.log.Error("cap prompts.get", "err", err)
@@ -325,7 +325,7 @@ func (c *promptsCapability) handleGet(
 	return mcputil.MarshalResult(c.log, "prompts.get", promptToCapView(&prompt))
 }
 
-func promptToCapView(p *domain.Prompt) map[string]any {
+func promptToCapView(p *owner.Prompt) map[string]any {
 	return map[string]any{
 		"prompt_id": p.ID(), "name": p.Name(), "body": p.Body(),
 		"description": p.Description(), "is_builtin": p.IsBuiltin(),

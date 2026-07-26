@@ -14,6 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -218,7 +219,7 @@ var roleCreateErrCases = []struct {
 	msg   string
 }{
 	{domain.ErrRoleNameTaken, "role name already taken"},
-	{domain.ErrPromptNotFound, "prompt_id not found for this owner"},
+	{owner.ErrPromptNotFound, "prompt_id not found for this owner"},
 	{marketplace.ErrSkillNotFound, "one or more skill_ids not found"},
 	{marketplace.ErrMCPServerNotFound, "one or more mcp_server_ids not found"},
 }

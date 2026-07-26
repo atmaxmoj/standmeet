@@ -16,6 +16,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -263,7 +264,7 @@ var writeRoleErrCases = []apierr.Case{
 			Message: "role name already taken",
 		},
 	},
-	{Match: domain.ErrPromptNotFound, Envelope: envBadReq("prompt id not found for this owner")},
+	{Match: owner.ErrPromptNotFound, Envelope: envBadReq("prompt id not found for this owner")},
 	{Match: marketplace.ErrSkillNotFound, Envelope: envBadReq("one or more skill ids not found")},
 	{
 		Match:    marketplace.ErrMCPServerNotFound,
