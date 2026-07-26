@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -56,11 +57,11 @@ func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateNoteParams, error
 	if err != nil {
 		return dbq.CreateNoteParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	parent, err := parseOptionalUUID(in.ParentID)
+	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
 		return dbq.CreateNoteParams{}, fmt.Errorf("parse parent id: %w", err)
 	}
-	sourceWikis, err := parseUUIDArray(in.SourceWikiIDs)
+	sourceWikis, err := pgstore.ParseUUIDArray(in.SourceWikiIDs)
 	if err != nil {
 		return dbq.CreateNoteParams{}, fmt.Errorf("parse source wiki ids: %w", err)
 	}
@@ -237,7 +238,7 @@ func toDomainOutput(o *dbq.CorpusNote) corpus.Output {
 		Title:         o.Title,
 		Body:          o.Body,
 		Tags:          o.Tags,
-		SourceWikiIDs: formatUUIDList(o.SourceIds),
+		SourceWikiIDs: pgstore.FormatUUIDList(o.SourceIds),
 		ShowAsSource:  o.ShowAsSource,
 		Excerpt:       o.Excerpt,
 		Published:     o.Published,

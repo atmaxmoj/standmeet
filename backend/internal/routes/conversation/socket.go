@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 // SockMessage —— socket op 交换的一条消息(role/content;避开 inference/domain 包耦合)。
@@ -20,7 +20,9 @@ type SockMessage struct {
 
 // Getter —— 读一次会话的 owner-scoped transcript(消费侧窄口,组装根注入 chatRepo)。
 type Getter interface {
-	GetWithMessages(ctx context.Context, ownerID, chatID string) (postgres.ChatWithMessages, error)
+	GetWithMessages(
+		ctx context.Context, ownerID, chatID string,
+	) (conversation.ChatWithMessages, error)
 }
 
 // RegisterConversationReadOp —— 把 "conversation.read" 挂到 srv:{owner_id,conversation_id} →

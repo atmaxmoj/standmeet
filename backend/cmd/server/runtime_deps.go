@@ -13,6 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
@@ -55,7 +56,7 @@ type runtimeDeps struct {
 	corpus             *postgres.Corpus
 	codeRepo           *postgres.CodeRepo
 	codeDenialRepo     *postgres.CodeDenialRepo
-	chatRepo           *postgres.ChatRepo
+	chatRepo           *conversation.ChatRepo
 	seoRepo            *postgres.SEORepo
 	customPageRepo     *postgres.CustomPageRepo
 	customBuildRepo    *postgres.CustomBuildRepo
@@ -72,12 +73,12 @@ type runtimeDeps struct {
 	writingRefRepo     *postgres.WritingRefRepo
 	mailRepo           *postgres.MailRepo
 	capabilityRepo     *postgres.CapabilityRepo
-	ghostRepo          *postgres.GhostRepo
-	chatReportRepo     *postgres.ChatReportRepo
+	ghostRepo          *conversation.GhostRepo
+	chatReportRepo     *conversation.ChatReportRepo
 	inferenceUsageRepo *stats.InferenceUsageRepo
 	bannedIPRepo       *security.BannedIPRepo
 	apiKeyRepo         *access.APIKeyRepo
-	appStateRepo       *postgres.AppStateRepo
+	appStateRepo       *conversation.AppStateRepo
 	connectorRepo      *connector.Repo
 	connectorHub       *connector.Hub
 	connectorSlots     *connector.Slots

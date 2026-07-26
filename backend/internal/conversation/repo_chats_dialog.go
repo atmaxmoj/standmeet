@@ -1,11 +1,11 @@
 // chats_dialog.go —— ChatRepo.AppendDialog (一个 Dialog → 2 行 messages
 // 单事务原子) 实现细节。从 chats.go 拆出来守 max-lines 350 cap。
 //
-// 设计：caller 传 *conversation.Dialog；这里负责拆 citations、parse uuid、开 tx、
+// 设计：caller 传 *Dialog；这里负责拆 citations、parse uuid、开 tx、
 // 落 2 行 messages、bump conversation、commit。Bump / rollback / 错误翻译都
 // 在这一个文件里。
 
-package postgres
+package conversation
 
 import (
 	"context"
@@ -15,8 +15,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -24,9 +24,9 @@ import (
 // 单事务原子。dialog.Citations 拆成 wiki_ids / output_ids 落 assistant 那行。
 // 返真 dialog id（dialogs 表；曾经借 assistant message id 冒充）。
 func (r *ChatRepo) AppendDialog(
-	ctx context.Context, chatID string, dialog *conversation.Dialog,
+	ctx context.Context, chatID string, dialog *Dialog,
 ) (string, error) {
-	chatUUID, perr := parseUUID(chatID)
+	chatUUID, perr := pgstore.ParseUUID(chatID)
 	if perr != nil {
 		return "", fmt.Errorf("parse chat id: %w", perr)
 	}
@@ -53,19 +53,19 @@ type citedUUIDs struct {
 
 // parseCitedUUIDs —— 四组 cited id string → pgtype.UUID,任一组解析失败即冒泡。
 func parseCitedUUIDs(ids *splitCitedIDs) (citedUUIDs, error) {
-	wiki, werr := parseUUIDArray(ids.Wiki)
+	wiki, werr := pgstore.ParseUUIDArray(ids.Wiki)
 	if werr != nil {
 		return citedUUIDs{}, fmt.Errorf("parse cited wiki ids: %w", werr)
 	}
-	writing, wrerr := parseUUIDArray(ids.Writing)
+	writing, wrerr := pgstore.ParseUUIDArray(ids.Writing)
 	if wrerr != nil {
 		return citedUUIDs{}, fmt.Errorf("parse cited writing ids: %w", wrerr)
 	}
-	output, oerr := parseUUIDArray(ids.Output)
+	output, oerr := pgstore.ParseUUIDArray(ids.Output)
 	if oerr != nil {
 		return citedUUIDs{}, fmt.Errorf("parse cited output ids: %w", oerr)
 	}
-	subj, serr := parseUUIDArray(ids.Subjectivity)
+	subj, serr := pgstore.ParseUUIDArray(ids.Subjectivity)
 	if serr != nil {
 		return citedUUIDs{}, fmt.Errorf("parse cited subjectivity ids: %w", serr)
 	}
@@ -119,7 +119,7 @@ func (r *ChatRepo) runInTx(
 func (r *ChatRepo) AppendVisitorOnly(
 	ctx context.Context, chatID, question string,
 ) (string, error) {
-	chatUUID, perr := parseUUID(chatID)
+	chatUUID, perr := pgstore.ParseUUID(chatID)
 	if perr != nil {
 		return "", fmt.Errorf("parse chat id: %w", perr)
 	}
@@ -145,7 +145,7 @@ func runAppendVisitorOnlyQueries(
 	if berr := q.BumpConversation(ctx, chatUUID); berr != nil {
 		return "", fmt.Errorf("bump chat: %w", berr)
 	}
-	return formatUUID(dialogID), nil
+	return pgstore.FormatUUID(dialogID), nil
 }
 
 // runAppendDialogQueries —— 在 tx 上跑 1 条 CreateDialog + 2 条 AppendMessage (挂 dialog_id) +
@@ -175,7 +175,7 @@ func runAppendDialogQueries(
 	if berr := q.BumpConversation(ctx, args.ChatUUID); berr != nil {
 		return "", fmt.Errorf("bump chat: %w", berr)
 	}
-	return formatUUID(dialogID), nil
+	return pgstore.FormatUUID(dialogID), nil
 }
 
 // rollbackQuiet —— defer 用。Commit 之后 Rollback 返 ErrTxClosed，正常吞掉。
@@ -195,7 +195,7 @@ type splitCitedIDs struct {
 	Subjectivity []string
 }
 
-func splitCitations(cites []conversation.Citation) splitCitedIDs {
+func splitCitations(cites []Citation) splitCitedIDs {
 	out := splitCitedIDs{
 		Wiki:         make([]string, 0, len(cites)),
 		Writing:      make([]string, 0, len(cites)),
@@ -211,7 +211,7 @@ func splitCitations(cites []conversation.Citation) splitCitedIDs {
 // appendCitedID —— Citation 按 genre 路由到 wiki / writing / output / subjectivity 列；
 // 其他 genre (raw / 未来新加) 丢弃(bucket 表里没有 → 不 append)。writing 是 public blog,
 // 一律进 cited(无 gate);subjectivity 能到这里的都已过 show_as_source gate。
-func appendCitedID(acc *splitCitedIDs, c conversation.Citation) {
+func appendCitedID(acc *splitCitedIDs, c Citation) {
 	bucket := map[corpus.DocumentGenre]*[]string{
 		corpus.GenreWiki:         &acc.Wiki,
 		corpus.GenreWriting:      &acc.Writing,

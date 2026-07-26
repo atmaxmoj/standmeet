@@ -10,7 +10,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -286,7 +285,7 @@ func createCodeConversation(
 		return conversation.Chat{}, fmt.Errorf("look up member's open chat: %w", gerr)
 	}
 	memberID := member.ID
-	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
+	chat, err := deps.Chats.CreateChat(ctx, &conversation.CreateChatInput{
 		OwnerID:     code.OwnerID,
 		Mode:        "code",
 		CodeID:      &code.ID,

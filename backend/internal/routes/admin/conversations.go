@@ -17,7 +17,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -158,7 +157,7 @@ func handleConvErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, serverErr())
 }
 
-func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []postgres.ChatSummary) {
+func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []conversation.ChatSummary) {
 	items := make([]convSummaryView, 0, len(rows))
 	for i := range rows {
 		items = append(items, toConvSummaryView(&rows[i]))
@@ -238,7 +237,7 @@ func toSubjectivityRefViews(refs []usecases.SubjectivityRef) []subjectivityRefVi
 	return out
 }
 
-func bundleSummary(bundle *postgres.ChatWithMessages) convSummaryView {
+func bundleSummary(bundle *conversation.ChatWithMessages) convSummaryView {
 	c := bundle.Chat
 	return convSummaryView{
 		ID:          c.ID,
@@ -263,7 +262,7 @@ func countVisitorTurns(msgs []conversation.Message) int32 {
 	return n
 }
 
-func toConvSummaryView(s *postgres.ChatSummary) convSummaryView {
+func toConvSummaryView(s *conversation.ChatSummary) convSummaryView {
 	return convSummaryView{
 		ID:          s.ID,
 		Mode:        s.Mode,

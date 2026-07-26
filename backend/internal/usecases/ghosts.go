@@ -12,12 +12,11 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // GhostDeps —— routes 注入。
 type GhostDeps struct {
-	Repo *postgres.GhostRepo
+	Repo *conversation.GhostRepo
 }
 
 // RecordGhostShownInput —— POST sessions/{id}/ghosts/shown 入参。
@@ -42,7 +41,7 @@ func RecordGhostShown(
 	if in.GhostText == "" {
 		return conversation.Ghost{}, ErrEmptyField
 	}
-	row, err := deps.Repo.RecordShown(ctx, &postgres.RecordShownInput{
+	row, err := deps.Repo.RecordShown(ctx, &conversation.RecordShownInput{
 		OwnerID:        in.OwnerID,
 		ConversationID: in.ConversationID,
 		GhostText:      in.GhostText,

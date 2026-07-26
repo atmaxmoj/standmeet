@@ -65,7 +65,7 @@ type WritingLister interface {
 // no-op store 忽略入参。
 type ReportStore interface {
 	Upsert(
-		ctx context.Context, in *postgres.UpsertReportInput,
+		ctx context.Context, in *conversation.UpsertReportInput,
 	) (conversation.ChatReport, error)
 	GetByID(ctx context.Context, reportID string) (conversation.ChatReport, error)
 }

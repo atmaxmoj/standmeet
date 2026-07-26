@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -115,7 +116,7 @@ func buildWikiUpdateParams(in *UpdateWikiInput) (dbq.UpdateNoteBodyParams, error
 	if err != nil {
 		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse wiki id: %w", err)
 	}
-	parent, err := parseOptionalUUID(in.ParentID)
+	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
 		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse parent id: %w", err)
 	}
@@ -192,7 +193,7 @@ func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateNoteBodyParams, e
 	if err != nil {
 		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse output id: %w", err)
 	}
-	parent, err := parseOptionalUUID(in.ParentID)
+	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
 		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse parent id: %w", err)
 	}

@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -28,7 +28,7 @@ func RegisterReportStoreOp(srv *capsocket.Server, reports usecases.ReportStore) 
 			return nil, fmt.Errorf("report.store: decode: %w", err)
 		}
 		styled := usecases.ReportStyledDocument(usecases.SanitizeReportHTML(req.HTML))
-		row, uerr := reports.Upsert(ctx, &postgres.UpsertReportInput{
+		row, uerr := reports.Upsert(ctx, &conversation.UpsertReportInput{
 			OwnerID: req.OwnerID, ConversationID: req.ConversationID, HTML: styled,
 		})
 		if uerr != nil {

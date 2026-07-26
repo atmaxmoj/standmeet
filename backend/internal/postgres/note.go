@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -72,7 +73,7 @@ func (r *NoteRepo) Create(ctx context.Context, in *CreateNoteInput) (Note, error
 	if err != nil {
 		return Note{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	parent, err := parseOptionalUUID(in.ParentID)
+	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
 		return Note{}, fmt.Errorf("parse parent id: %w", err)
 	}
@@ -95,7 +96,7 @@ func (r *NoteRepo) UpdateBody(ctx context.Context, in *UpdateNoteInput) (Note, e
 	if perr != nil {
 		return Note{}, perr
 	}
-	parent, err := parseOptionalUUID(in.ParentID)
+	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
 		return Note{}, fmt.Errorf("parse parent id: %w", err)
 	}

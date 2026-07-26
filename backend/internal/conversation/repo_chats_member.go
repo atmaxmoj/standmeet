@@ -2,7 +2,7 @@
 // 计数(配额)、按 doc_key 找对话(浮窗 find-or-create)、拉其他对话消息给「互通」
 // 注入。从 chats.go 拆出来守 max-lines 350 cap。
 
-package postgres
+package conversation
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -23,11 +23,11 @@ import (
 func (r *ChatRepo) ConversationMemberID(
 	ctx context.Context, ownerID, conversationID string,
 ) (string, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return "", fmt.Errorf("parse owner id: %w", err)
 	}
-	convUUID, err := parseUUID(conversationID)
+	convUUID, err := pgstore.ParseUUID(conversationID)
 	if err != nil {
 		return "", fmt.Errorf("parse conversation id: %w", err)
 	}
@@ -40,14 +40,14 @@ func (r *ChatRepo) ConversationMemberID(
 		}
 		return "", fmt.Errorf("conversation member: %w", qerr)
 	}
-	return formatUUID(conv.MemberID), nil
+	return pgstore.FormatUUID(conv.MemberID), nil
 }
 
 // CountVisitorTurnsForMember —— 该 member 名下全部对话的访客发言合计(member 级配额)。
 func (r *ChatRepo) CountVisitorTurnsForMember(
 	ctx context.Context, memberID string,
 ) (int32, error) {
-	memberUUID, err := parseUUID(memberID)
+	memberUUID, err := pgstore.ParseUUID(memberID)
 	if err != nil {
 		return 0, fmt.Errorf("parse member id: %w", err)
 	}
@@ -59,21 +59,21 @@ func (r *ChatRepo) CountVisitorTurnsForMember(
 }
 
 // GetOpenChatByMemberAndDoc —— 该 member 在某 surface(doc_key)未结束的那段对话;
-// 没有返 conversation.ErrChatNotFound(caller 新建)。
+// 没有返 ErrChatNotFound(caller 新建)。
 func (r *ChatRepo) GetOpenChatByMemberAndDoc(
 	ctx context.Context, memberID, docKey string,
-) (conversation.Chat, error) {
-	memberUUID, err := parseUUID(memberID)
+) (Chat, error) {
+	memberUUID, err := pgstore.ParseUUID(memberID)
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf("parse member id: %w", err)
+		return Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
 	row, qerr := dbq.New(r.pool).GetOpenConversationByMemberAndDoc(ctx,
 		dbq.GetOpenConversationByMemberAndDocParams{MemberID: memberUUID, DocKey: docKey})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return conversation.Chat{}, conversation.ErrChatNotFound
+			return Chat{}, ErrChatNotFound
 		}
-		return conversation.Chat{}, fmt.Errorf("get open chat by member+doc: %w", qerr)
+		return Chat{}, fmt.Errorf("get open chat by member+doc: %w", qerr)
 	}
 	return toDomainChat(&row), nil
 }
@@ -91,11 +91,11 @@ type MemberOtherMessage struct {
 func (r *ChatRepo) ListMemberOtherMessages(
 	ctx context.Context, memberID, excludeConvID string,
 ) ([]MemberOtherMessage, error) {
-	memberUUID, err := parseUUID(memberID)
+	memberUUID, err := pgstore.ParseUUID(memberID)
 	if err != nil {
 		return nil, fmt.Errorf("parse member id: %w", err)
 	}
-	exclUUID, eerr := parseUUID(excludeConvID)
+	exclUUID, eerr := pgstore.ParseUUID(excludeConvID)
 	if eerr != nil {
 		return nil, fmt.Errorf("parse exclude conv id: %w", eerr)
 	}

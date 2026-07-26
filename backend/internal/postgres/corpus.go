@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
@@ -155,25 +154,6 @@ func (r *RawRepo) MarkPromoted(ctx context.Context, ownerID, rawID, wikiID strin
 // path-string lookup(byPathQuery/loadByPath)退役了:地址树派生,不再按 path
 // 列反查 entry;cite/寻址走 id(GetByID),公开 landing 走 usecases load 全树算地址。
 
-func parseOptionalUUID(s *string) (pgtype.UUID, error) {
-	if s == nil || *s == "" {
-		return pgtype.UUID{}, nil
-	}
-	return parseUUID(*s)
-}
-
-func parseUUIDArray(ids []string) ([]pgtype.UUID, error) {
-	out := make([]pgtype.UUID, 0, len(ids))
-	for _, id := range ids {
-		u, err := parseUUID(id)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, u)
-	}
-	return out, nil
-}
-
 // toDomainRaw —— corpus_notes(genre='raw')行 → corpus.Raw。inbox_source→Source。
 func toDomainRaw(r *dbq.CorpusNote) corpus.Raw {
 	in := corpus.RawInit{
@@ -197,12 +177,4 @@ func toDomainRaw(r *dbq.CorpusNote) corpus.Raw {
 		in.ParentID = &s
 	}
 	return corpus.NewRaw(&in)
-}
-
-func formatUUIDList(uu []pgtype.UUID) []string {
-	out := make([]string, 0, len(uu))
-	for _, u := range uu {
-		out = append(out, formatUUID(u))
-	}
-	return out
 }

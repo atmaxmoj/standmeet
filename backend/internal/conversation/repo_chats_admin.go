@@ -1,14 +1,14 @@
 // chats_admin.go —— ChatRepo 的 admin 读侧 (list + transcript)。从 chats.go
 // 拆出来守 max-lines 350 cap。chats.go 留 CRUD + AppendDialog (write 路径)。
 
-package postgres
+package conversation
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -30,17 +30,17 @@ type ChatSummary struct {
 
 // ChatWithMessages —— GetWithMessages 返回的 transcript bundle。
 type ChatWithMessages struct {
-	Chat     conversation.Chat
-	Messages []conversation.Message
+	Chat     Chat
+	Messages []Message
 }
 
 // ListByOwner —— admin 列 owner 所有 chat 摘要（按 last_at DESC）。
 func (r *ChatRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
 ) ([]ChatSummary, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	rows, qerr := q.ListConversationsByOwner(ctx, dbq.ListConversationsByOwnerParams{
@@ -57,7 +57,7 @@ func (r *ChatRepo) ListByOwner(
 }
 
 // GetWithMessages —— 拿 chat + 全部 messages（admin transcript 查看）。
-// 不命中 chat 返 conversation.ErrChatNotFound（owner_id mismatch 也走这条分支，
+// 不命中 chat 返 ErrChatNotFound（owner_id mismatch 也走这条分支，
 // 避免暴露 "存在但不属于你"）。
 func (r *ChatRepo) GetWithMessages(
 	ctx context.Context, ownerID, chatID string,
@@ -75,8 +75,8 @@ func (r *ChatRepo) GetWithMessages(
 
 func (r *ChatRepo) loadMessages(
 	ctx context.Context, chatID string,
-) ([]conversation.Message, error) {
-	chatUUID, perr := parseUUID(chatID)
+) ([]Message, error) {
+	chatUUID, perr := pgstore.ParseUUID(chatID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse chat id: %w", perr)
 	}
@@ -85,7 +85,7 @@ func (r *ChatRepo) loadMessages(
 	if lerr != nil {
 		return nil, fmt.Errorf("list messages: %w", lerr)
 	}
-	out := make([]conversation.Message, 0, len(rows))
+	out := make([]Message, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainMessage(&rows[i]))
 	}
@@ -94,7 +94,7 @@ func (r *ChatRepo) loadMessages(
 
 func toChatSummary(row *dbq.ListConversationsByOwnerRow) ChatSummary {
 	out := ChatSummary{
-		ID:          formatUUID(row.ID),
+		ID:          pgstore.FormatUUID(row.ID),
 		Mode:        row.Mode,
 		VisitorName: row.VisitorName,
 		StartedAt:   row.StartedAt.Time,
@@ -105,7 +105,7 @@ func toChatSummary(row *dbq.ListConversationsByOwnerRow) ChatSummary {
 		CodeValue:   row.CodeValue,
 	}
 	if row.CodeID.Valid {
-		s := formatUUID(row.CodeID)
+		s := pgstore.FormatUUID(row.CodeID)
 		out.CodeID = &s
 	}
 	return out

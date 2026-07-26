@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -145,7 +146,7 @@ func (*AssetRepo) DeleteByIDsTx(
 	if len(ids) == 0 {
 		return []string{}, nil
 	}
-	uuids, perr := parseUUIDArray(ids)
+	uuids, perr := pgstore.ParseUUIDArray(ids)
 	if perr != nil {
 		return []string{}, fmt.Errorf("parse asset ids: %w", perr)
 	}

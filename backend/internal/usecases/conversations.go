@@ -16,7 +16,7 @@ import (
 // Wiki + Writing + Output 是给 transcript 把 cited_*_ids 解到 id+title 用；Subjectivity 解
 // cited_subjectivity_ids（仅 opt-in 的会落进 message，此处只做 id→ref 展示）。
 type ConversationsDeps struct {
-	Chats        *postgres.ChatRepo
+	Chats        *conversation.ChatRepo
 	Wiki         *postgres.WikiRepo
 	Writing      *postgres.WritingRepo
 	Output       *postgres.OutputRepo
@@ -45,7 +45,7 @@ type SubjectivityRef struct {
 // TranscriptBundle —— GetConversationTranscript 返：conversation + messages
 // + cited wiki / output / subjectivity 的 id→ref 索引（hydration 一次性，前端按需查）。
 type TranscriptBundle struct {
-	ConvBundle       postgres.ChatWithMessages
+	ConvBundle       conversation.ChatWithMessages
 	WikiRefs         []TitledRef
 	WritingRefs      []TitledRef
 	OutputRefs       []TitledRef
@@ -61,7 +61,7 @@ const (
 // 超 max 截断。
 func ListConversations(
 	ctx context.Context, deps ConversationsDeps, ownerID string, limit int32,
-) ([]postgres.ChatSummary, error) {
+) ([]conversation.ChatSummary, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}

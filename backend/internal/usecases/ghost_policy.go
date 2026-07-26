@@ -18,7 +18,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 // GhostPolicyPrompt —— platform-owned、稳定、versioned 的机制 prompt(part_ids + hash 纪律)。
@@ -134,7 +134,7 @@ type PolicyGhostInput struct {
 
 // RecordPolicyGhost —— 落一条 policy ghost，返回 row id(帧回填给前端 accept)。route 经此不碰 postgres。
 func RecordPolicyGhost(ctx context.Context, deps GhostDeps, in *PolicyGhostInput) (string, error) {
-	row, err := deps.Repo.RecordPolicy(ctx, &postgres.RecordPolicyInput{
+	row, err := deps.Repo.RecordPolicy(ctx, &conversation.RecordPolicyInput{
 		OwnerID: in.OwnerID, ConversationID: in.ConversationID, GhostText: in.Text,
 		TargetWaypoint: in.TargetWaypoint, FollowsFrom: in.FollowsFrom,
 	})

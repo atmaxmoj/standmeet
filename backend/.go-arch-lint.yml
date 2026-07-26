@@ -249,11 +249,13 @@ deps:
       - capsocket
       - usecases
       - postgres
+      - conversation
     anyVendorDeps: true
   conversationroutes:
     mayDependOn:
       - capsocket
       - postgres
+      - conversation
     anyVendorDeps: true
   inferenceroutes:
     mayDependOn:
@@ -352,6 +354,7 @@ deps:
       - cryptobox
       - stats
       - security
+      - pgstore
     anyVendorDeps: true
 
   # sqlc 生成的查询代码；其他业务不该直接 import，必须经 postgres Repository。
@@ -599,6 +602,8 @@ deps:
   conversation:
     mayDependOn:
       - corpus
+      - pgstore
+      - dbq
     anyVendorDeps: true
 
   # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
@@ -798,4 +803,5 @@ deps:
       - search
       - connectorcontract
       - pluginbooker
+      - conversation
     anyVendorDeps: true

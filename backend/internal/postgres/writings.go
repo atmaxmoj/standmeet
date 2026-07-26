@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -87,7 +88,7 @@ func buildCreateWritingParams(in *CreateWritingInput) (*dbq.CreateWritingParams,
 	if aerr != nil {
 		return nil, aerr
 	}
-	parentID, perr := parseOptionalUUID(&in.ParentID)
+	parentID, perr := pgstore.ParseOptionalUUID(&in.ParentID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse writing parent id: %w", perr)
 	}
@@ -172,7 +173,7 @@ func buildUpdateWritingParams(in *UpdateWritingInput) (*dbq.UpdateWritingParams,
 	if aerr != nil {
 		return nil, aerr
 	}
-	parentID, perr := parseOptionalUUID(&in.ParentID)
+	parentID, perr := pgstore.ParseOptionalUUID(&in.ParentID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse writing parent id: %w", perr)
 	}

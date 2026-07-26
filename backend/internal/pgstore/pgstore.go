@@ -138,3 +138,34 @@ func UUIDStrings(us []pgtype.UUID) []string {
 	}
 	return out
 }
+
+// ParseOptionalUUID —— nil/空串 → 零值 UUID（无错）；否则解析。repo 层把可空外键
+// 转 pgtype.UUID 的通用 helper。
+func ParseOptionalUUID(s *string) (pgtype.UUID, error) {
+	if s == nil || *s == "" {
+		return pgtype.UUID{}, nil
+	}
+	return ParseUUID(*s)
+}
+
+// ParseUUIDArray —— 一批 id 串 → []pgtype.UUID；任一失败即返错。
+func ParseUUIDArray(ids []string) ([]pgtype.UUID, error) {
+	out := make([]pgtype.UUID, 0, len(ids))
+	for _, id := range ids {
+		u, err := ParseUUID(id)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, nil
+}
+
+// FormatUUIDList —— []pgtype.UUID → []string。
+func FormatUUIDList(uu []pgtype.UUID) []string {
+	out := make([]string, 0, len(uu))
+	for _, u := range uu {
+		out = append(out, FormatUUID(u))
+	}
+	return out
+}

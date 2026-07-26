@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -125,7 +126,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 	if err != nil {
 		return "", fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	parent, err := parseOptionalUUID(in.ParentID)
+	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
 		return "", fmt.Errorf("parse parent id: %w", err)
 	}
@@ -162,7 +163,7 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 	if perr != nil {
 		return perr
 	}
-	parent, err := parseOptionalUUID(in.ParentID)
+	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
 		return fmt.Errorf("parse parent id: %w", err)
 	}

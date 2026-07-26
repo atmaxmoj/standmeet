@@ -8,9 +8,9 @@ package usecases
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // OwnerGetter —— the owner reads the visitor path needs: GetByID (calendar.book
@@ -28,7 +28,9 @@ type OwnerGetter interface {
 // returns the eval conversation; VisitorDeps.Chats stays the concrete repo
 // (broadly used by session/dialog persistence the eval doesn't exercise).
 type ConversationGetter interface {
-	GetWithMessages(ctx context.Context, ownerID, chatID string) (postgres.ChatWithMessages, error)
+	GetWithMessages(
+		ctx context.Context, ownerID, chatID string,
+	) (conversation.ChatWithMessages, error)
 }
 
 // SkillGetter —— the owner-skill reads the visitor path needs: GetByID (the

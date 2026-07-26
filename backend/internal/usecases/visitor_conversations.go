@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 const (
@@ -57,7 +56,7 @@ func createDocConversation(
 	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
 ) (conversation.Chat, error) {
 	memberID := in.MemberID
-	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
+	chat, err := deps.Chats.CreateChat(ctx, &conversation.CreateChatInput{
 		OwnerID:     in.OwnerID,
 		Mode:        in.Mode,
 		CodeID:      nullableProvider(in.CodeID),
@@ -87,7 +86,7 @@ func BuildCrossConvDigest(
 	return formatCrossConvDigest(msgs), nil
 }
 
-func formatCrossConvDigest(msgs []postgres.MemberOtherMessage) string {
+func formatCrossConvDigest(msgs []conversation.MemberOtherMessage) string {
 	if len(msgs) > crossConvMaxMessages {
 		msgs = msgs[len(msgs)-crossConvMaxMessages:]
 	}
@@ -104,7 +103,7 @@ func formatCrossConvDigest(msgs []postgres.MemberOtherMessage) string {
 	return strings.Join(lines, "")
 }
 
-func crossConvLine(m *postgres.MemberOtherMessage) string {
+func crossConvLine(m *conversation.MemberOtherMessage) string {
 	where := "main chat"
 	if m.DocKey != "" {
 		where = m.DocKey

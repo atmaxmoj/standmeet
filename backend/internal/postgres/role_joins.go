@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -145,7 +146,7 @@ func setRoleUUIDJoin(ctx context.Context, op *roleJoinOp) error {
 	if len(op.ids) == 0 {
 		return nil
 	}
-	uuids, uerr := parseUUIDArray(op.ids)
+	uuids, uerr := pgstore.ParseUUIDArray(op.ids)
 	if uerr != nil {
 		return fmt.Errorf("parse %s ids: %w", op.tag, uerr)
 	}

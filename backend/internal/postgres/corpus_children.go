@@ -8,6 +8,7 @@ package postgres
 import (
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -21,7 +22,7 @@ func listChildrenMeta[Row any, Meta any](
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	parentUUID, perr := parseOptionalUUID(parentID)
+	parentUUID, perr := pgstore.ParseOptionalUUID(parentID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse parent id: %w", perr)
 	}

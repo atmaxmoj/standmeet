@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
@@ -18,7 +19,7 @@ import (
 // (那些走各 capability 的窄 deps + VisitorSkillsDeps)。god-struct 拆出来的一半。
 type VisitorSessionDeps struct {
 	Codes    *postgres.CodeRepo
-	Chats    *postgres.ChatRepo
+	Chats    *conversation.ChatRepo
 	Owners   OwnerGetter
 	Skills   SkillGetter // role snapshot freeze 读 ListSkillsForRole
 	Roles    *postgres.RoleRepo

@@ -2,34 +2,34 @@
 // scope = (member, mcp_id)；mcp_id 由调用方（route）从 tool 派生后传入，repo 不碰
 // ACL / 派生，只读写那一格。value 是 app 自定义 jsonb，repo 当 opaque []byte 透传。
 
-package postgres
+package conversation
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // AppStateRepo —— mcp_app_state 表 repo。
 type AppStateRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewAppStateRepo 构造 AppStateRepo。
-func NewAppStateRepo(pool *Pool) *AppStateRepo { return &AppStateRepo{pool: pool} }
+func NewAppStateRepo(pool *pgstore.Pool) *AppStateRepo { return &AppStateRepo{pool: pool} }
 
 // Set —— upsert 一格（ref = member × mcp × key）的 value（opaque jsonb）。
 func (r *AppStateRepo) Set(
-	ctx context.Context, ref conversation.AppStateRef, value []byte,
+	ctx context.Context, ref AppStateRef, value []byte,
 ) error {
-	ownerUUID, err := parseUUID(ref.OwnerID)
+	ownerUUID, err := pgstore.ParseUUID(ref.OwnerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	memberUUID, err := parseUUID(ref.MemberID)
+	memberUUID, err := pgstore.ParseUUID(ref.MemberID)
 	if err != nil {
 		return fmt.Errorf("parse member id: %w", err)
 	}
@@ -45,7 +45,7 @@ func (r *AppStateRepo) Set(
 func (r *AppStateRepo) Get(
 	ctx context.Context, memberID, mcpID string,
 ) (map[string]json.RawMessage, error) {
-	memberUUID, err := parseUUID(memberID)
+	memberUUID, err := pgstore.ParseUUID(memberID)
 	if err != nil {
 		return nil, fmt.Errorf("parse member id: %w", err)
 	}
@@ -66,7 +66,7 @@ func (r *AppStateRepo) Get(
 func (r *AppStateRepo) Delete(
 	ctx context.Context, memberID, mcpID, key string,
 ) error {
-	memberUUID, err := parseUUID(memberID)
+	memberUUID, err := pgstore.ParseUUID(memberID)
 	if err != nil {
 		return fmt.Errorf("parse member id: %w", err)
 	}

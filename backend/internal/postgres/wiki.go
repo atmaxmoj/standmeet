@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -41,11 +42,11 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (corpus.Wiki
 	if err != nil {
 		return corpus.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	parent, err := parseOptionalUUID(in.ParentID)
+	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
 		return corpus.Wiki{}, fmt.Errorf("parse parent id: %w", err)
 	}
-	sourceRaws, err := parseUUIDArray(in.SourceRawIDs)
+	sourceRaws, err := pgstore.ParseUUIDArray(in.SourceRawIDs)
 	if err != nil {
 		return corpus.Wiki{}, fmt.Errorf("parse source raw ids: %w", err)
 	}
@@ -257,7 +258,7 @@ func toDomainWiki(w *dbq.CorpusNote) corpus.Wiki {
 		Body:         w.Body,
 		Tags:         w.Tags,
 		CSSClasses:   w.CssClasses,
-		SourceRawIDs: formatUUIDList(w.SourceIds),
+		SourceRawIDs: pgstore.FormatUUIDList(w.SourceIds),
 		ShowAsSource: w.ShowAsSource,
 		Excerpt:      w.Excerpt,
 		Published:    w.Published,

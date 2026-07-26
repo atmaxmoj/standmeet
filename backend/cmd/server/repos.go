@@ -13,6 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
@@ -52,7 +53,7 @@ type repoSet struct {
 	activity       *stats.ActivityRepo
 	code           *postgres.CodeRepo
 	codeDenial     *postgres.CodeDenialRepo
-	chat           *postgres.ChatRepo
+	chat           *conversation.ChatRepo
 	seo            *postgres.SEORepo
 	customPage     *postgres.CustomPageRepo
 	customBuild    *postgres.CustomBuildRepo
@@ -69,12 +70,12 @@ type repoSet struct {
 	writingRef     *postgres.WritingRefRepo
 	mailConnector  *postgres.MailRepo
 	capability     *postgres.CapabilityRepo
-	ghost          *postgres.GhostRepo
-	chatReport     *postgres.ChatReportRepo
+	ghost          *conversation.GhostRepo
+	chatReport     *conversation.ChatReportRepo
 	inferenceUsage *stats.InferenceUsageRepo
 	bannedIP       *security.BannedIPRepo
 	apiKey         *access.APIKeyRepo
-	appState       *postgres.AppStateRepo
+	appState       *conversation.AppStateRepo
 	connector      *connector.Repo
 }
 
@@ -93,7 +94,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		activity:       stats.NewActivityRepo(db),
 		code:           postgres.NewCodeRepo(db),
 		codeDenial:     postgres.NewCodeDenialRepo(db),
-		chat:           postgres.NewChatRepo(db),
+		chat:           conversation.NewChatRepo(db),
 		seo:            postgres.NewSEORepo(db),
 		customPage:     postgres.NewCustomPageRepo(db),
 		customBuild:    postgres.NewCustomBuildRepo(db),
@@ -110,12 +111,12 @@ func newRepos(db *postgres.Pool) *repoSet {
 		writingRef:     postgres.NewWritingRefRepo(db),
 		mailConnector:  postgres.NewMailRepo(db),
 		capability:     postgres.NewCapabilityRepo(db),
-		ghost:          postgres.NewGhostRepo(db),
-		chatReport:     postgres.NewChatReportRepo(db),
+		ghost:          conversation.NewGhostRepo(db),
+		chatReport:     conversation.NewChatReportRepo(db),
 		inferenceUsage: stats.NewInferenceUsageRepo(db),
 		bannedIP:       security.NewBannedIPRepo(db),
 		apiKey:         access.NewAPIKeyRepo(db),
-		appState:       postgres.NewAppStateRepo(db),
+		appState:       conversation.NewAppStateRepo(db),
 		connector:      connector.NewRepo(db),
 	}
 }

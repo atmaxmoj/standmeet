@@ -20,7 +20,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // DialogCorpusLookup —— Dialog cited 反查 entry 的窄接口。*postgres.Corpus
@@ -37,7 +36,7 @@ type DialogCorpusLookup interface {
 // facade 只 dispatch 4 个 genre，subjectivity 不在内），gate show_as_source 用。nil = 不解析
 // subjectivity cite（无 subjectivity 装配的调用方）。
 type DialogDeps struct {
-	Chats        *postgres.ChatRepo
+	Chats        *conversation.ChatRepo
 	Corpus       DialogCorpusLookup
 	Subjectivity SubjectivityCiteLookup
 	Log          *slog.Logger

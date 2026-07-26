@@ -7,7 +7,7 @@
 // 命名：domain Chat → DB conversations row 的映射在 toDomainChat。
 // AppendMessage 仍存在但收成 unexported，dialog 写路径走 AppendDialog。
 
-package postgres
+package conversation
 
 import (
 	"context"
@@ -16,17 +16,17 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // ChatRepo —— conversations + messages 表的访问入口。
 type ChatRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewChatRepo 构造 ChatRepo。
-func NewChatRepo(pool *Pool) *ChatRepo { return &ChatRepo{pool: pool} }
+func NewChatRepo(pool *pgstore.Pool) *ChatRepo { return &ChatRepo{pool: pool} }
 
 // CreateChatInput —— 创建 chat 入参。
 type CreateChatInput struct {
@@ -42,18 +42,18 @@ type CreateChatInput struct {
 // CreateChat 写一行 chat。
 func (r *ChatRepo) CreateChat(
 	ctx context.Context, in *CreateChatInput,
-) (conversation.Chat, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+) (Chat, error) {
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Chat{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	codeUUID, err := parseOptionalUUID(in.CodeID)
+	codeUUID, err := pgstore.ParseOptionalUUID(in.CodeID)
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf("parse code id: %w", err)
+		return Chat{}, fmt.Errorf("parse code id: %w", err)
 	}
-	memberUUID, err := parseOptionalUUID(in.MemberID)
+	memberUUID, err := pgstore.ParseOptionalUUID(in.MemberID)
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf("parse member id: %w", err)
+		return Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateConversation(ctx, dbq.CreateConversationParams{
@@ -66,22 +66,22 @@ func (r *ChatRepo) CreateChat(
 		DocKey:      in.DocKey,
 	})
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf("create chat: %w", err)
+		return Chat{}, fmt.Errorf("create chat: %w", err)
 	}
 	return toDomainChat(&row), nil
 }
 
-// GetChat —— 拿一个 chat。不命中返 conversation.ErrChatNotFound。
+// GetChat —— 拿一个 chat。不命中返 ErrChatNotFound。
 func (r *ChatRepo) GetChat(
 	ctx context.Context, ownerID, chatID string,
-) (conversation.Chat, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) (Chat, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Chat{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	chatUUID, err := parseUUID(chatID)
+	chatUUID, err := pgstore.ParseUUID(chatID)
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf("parse chat id: %w", err)
+		return Chat{}, fmt.Errorf("parse chat id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetConversation(ctx, dbq.GetConversationParams{
@@ -89,28 +89,28 @@ func (r *ChatRepo) GetChat(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return conversation.Chat{}, conversation.ErrChatNotFound
+			return Chat{}, ErrChatNotFound
 		}
-		return conversation.Chat{}, fmt.Errorf("get chat: %w", err)
+		return Chat{}, fmt.Errorf("get chat: %w", err)
 	}
 	return toDomainChat(&row), nil
 }
 
 // GetOpenChatByMember —— 「一个名字=一段续聊的会」:同名 member 的主对话就返它
-// 续上;没有 → conversation.ErrChatNotFound (caller 新建)。对话不结束,同名永远续同一段。
+// 续上;没有 → ErrChatNotFound (caller 新建)。对话不结束,同名永远续同一段。
 func (r *ChatRepo) GetOpenChatByMember(
 	ctx context.Context, memberID string,
-) (conversation.Chat, error) {
-	memberUUID, err := parseUUID(memberID)
+) (Chat, error) {
+	memberUUID, err := pgstore.ParseUUID(memberID)
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf("parse member id: %w", err)
+		return Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
 	row, qerr := dbq.New(r.pool).GetOpenConversationByMember(ctx, memberUUID)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return conversation.Chat{}, conversation.ErrChatNotFound
+			return Chat{}, ErrChatNotFound
 		}
-		return conversation.Chat{}, fmt.Errorf("get open chat by member: %w", qerr)
+		return Chat{}, fmt.Errorf("get open chat by member: %w", qerr)
 	}
 	return toDomainChat(&row), nil
 }
@@ -124,7 +124,7 @@ func (r *ChatRepo) GetOpenChatByMember(
 func (r *ChatRepo) CountSessionsForMember(
 	ctx context.Context, memberID string,
 ) (int32, error) {
-	memberUUID, err := parseUUID(memberID)
+	memberUUID, err := pgstore.ParseUUID(memberID)
 	if err != nil {
 		return 0, fmt.Errorf("parse member id: %w", err)
 	}
@@ -140,7 +140,7 @@ func (r *ChatRepo) CountSessionsForMember(
 func (r *ChatRepo) CountVisitorTurns(
 	ctx context.Context, chatID string,
 ) (int32, error) {
-	chatUUID, err := parseUUID(chatID)
+	chatUUID, err := pgstore.ParseUUID(chatID)
 	if err != nil {
 		return 0, fmt.Errorf("parse chat id: %w", err)
 	}
@@ -152,36 +152,36 @@ func (r *ChatRepo) CountVisitorTurns(
 	return n, nil
 }
 
-func toDomainChat(c *dbq.Conversation) conversation.Chat {
-	out := conversation.Chat{
-		ID:          formatUUID(c.ID),
-		OwnerID:     formatUUID(c.OwnerID),
-		Mode:        conversation.ChatMode(c.Mode),
+func toDomainChat(c *dbq.Conversation) Chat {
+	out := Chat{
+		ID:          pgstore.FormatUUID(c.ID),
+		OwnerID:     pgstore.FormatUUID(c.OwnerID),
+		Mode:        ChatMode(c.Mode),
 		VisitorName: c.VisitorName,
 		StartedAt:   c.StartedAt.Time,
 		LastAt:      c.LastAt.Time,
 	}
 	if c.CodeID.Valid {
-		s := formatUUID(c.CodeID)
+		s := pgstore.FormatUUID(c.CodeID)
 		out.CodeID = &s
 	}
 	if c.MemberID.Valid {
-		s := formatUUID(c.MemberID)
+		s := pgstore.FormatUUID(c.MemberID)
 		out.MemberID = &s
 	}
 	return out
 }
 
-func toDomainMessage(m *dbq.Message) conversation.Message {
-	return conversation.Message{
-		ID:                   formatUUID(m.ID),
-		ConversationID:       formatUUID(m.ConversationID),
+func toDomainMessage(m *dbq.Message) Message {
+	return Message{
+		ID:                   pgstore.FormatUUID(m.ID),
+		ConversationID:       pgstore.FormatUUID(m.ConversationID),
 		Role:                 m.Role,
 		Body:                 m.Body,
-		CitedWikiIDs:         formatUUIDList(m.CitedWikiIds),
-		CitedWritingIDs:      formatUUIDList(m.CitedWritingIds),
-		CitedOutputIDs:       formatUUIDList(m.CitedOutputIds),
-		CitedSubjectivityIDs: formatUUIDList(m.CitedSubjectivityIds),
+		CitedWikiIDs:         pgstore.FormatUUIDList(m.CitedWikiIds),
+		CitedWritingIDs:      pgstore.FormatUUIDList(m.CitedWritingIds),
+		CitedOutputIDs:       pgstore.FormatUUIDList(m.CitedOutputIds),
+		CitedSubjectivityIDs: pgstore.FormatUUIDList(m.CitedSubjectivityIds),
 		ToolCalls:            m.ToolCalls,
 		CreatedAt:            m.CreatedAt.Time,
 	}
