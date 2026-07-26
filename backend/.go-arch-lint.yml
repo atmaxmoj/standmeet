@@ -816,6 +816,7 @@ deps:
       - jobregistry
       - marketplace
       - security
+      - stats
       - captcha
       - cryptobox
       - sandbox

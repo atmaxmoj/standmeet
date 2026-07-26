@@ -14,8 +14,8 @@ import (
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/search"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
@@ -42,11 +42,11 @@ func newSysInfoProvider(d *runtimeDeps) *sysInfoProvider {
 }
 
 // SystemInfo —— 真实快照:version/uptime/go runtime + 真 health ping + 主机资源。
-func (p *sysInfoProvider) SystemInfo(ctx context.Context) domain.SystemInfo {
+func (p *sysInfoProvider) SystemInfo(ctx context.Context) stats.SystemInfo {
 	var goMem runtime.MemStats
 	runtime.ReadMemStats(&goMem)
 	host := readHostMetrics(ctx)
-	return domain.SystemInfo{
+	return stats.SystemInfo{
 		Version:       appVersion,
 		UptimeSeconds: int64(time.Since(p.started).Seconds()),
 		Goroutines:    runtime.NumGoroutine(),
@@ -88,8 +88,8 @@ func readHostMetrics(ctx context.Context) hostMetrics {
 	return h
 }
 
-func (p *sysInfoProvider) healthChecks(ctx context.Context) []domain.HealthCheck {
-	checks := []domain.HealthCheck{
+func (p *sysInfoProvider) healthChecks(ctx context.Context) []stats.HealthCheck {
+	checks := []stats.HealthCheck{
 		pingCheck("database", "postgres", p.db.Ping(ctx)),
 		pingCheck("redis", "job cache + sessions", p.rdb.Ping(ctx).Err()),
 		pingCheck("storage", "asset blob storage (minio)", p.storage.Health(ctx)),
@@ -100,6 +100,6 @@ func (p *sysInfoProvider) healthChecks(ctx context.Context) []domain.HealthCheck
 	return checks
 }
 
-func pingCheck(name, detail string, err error) domain.HealthCheck {
-	return domain.HealthCheck{Name: name, Detail: detail, OK: err == nil}
+func pingCheck(name, detail string, err error) stats.HealthCheck {
+	return stats.HealthCheck{Name: name, Detail: detail, OK: err == nil}
 }

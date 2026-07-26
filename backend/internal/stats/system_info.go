@@ -1,4 +1,4 @@
-package domain
+package stats
 
 // SystemInfo —— /admin/system 的真实运行时快照:go runtime + 真 health ping + 主机资源
 // (磁盘/内存/负载 —— 自托管 owner 的第一眼运维数据)。

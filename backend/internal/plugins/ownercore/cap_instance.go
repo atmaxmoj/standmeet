@@ -25,7 +25,7 @@ const emptyObjectSchema = `{"type":"object","properties":{}}`
 
 // instanceSystemInfo —— system health/version/uptime/mem/disk snapshot (admin system.go).
 type instanceSystemInfo interface {
-	SystemInfo(ctx context.Context) domain.SystemInfo
+	SystemInfo(ctx context.Context) stats.SystemInfo
 }
 
 // instanceUsage —— 7-day LLM usage by day×model (admin inference_usage.go).

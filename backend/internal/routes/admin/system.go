@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 
 // SystemInfoProvider —— #101 admin system 面板数据源。
 type SystemInfoProvider interface {
-	SystemInfo(ctx context.Context) domain.SystemInfo
+	SystemInfo(ctx context.Context) stats.SystemInfo
 }
 
 type healthCheckResp struct {
@@ -47,7 +47,7 @@ func (h *Handlers) getSystemInfo() http.HandlerFunc {
 	}
 }
 
-func toSystemInfoResp(info *domain.SystemInfo) systemInfoResp {
+func toSystemInfoResp(info *stats.SystemInfo) systemInfoResp {
 	health := make([]healthCheckResp, 0, len(info.Health))
 	for i := range info.Health {
 		health = append(health, healthCheckResp{
