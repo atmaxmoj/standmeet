@@ -5,6 +5,7 @@
 package main
 
 import (
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
@@ -77,7 +78,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Account:     owner.AccountDeps{Owners: d.ownerRepo},
 		BYOAI:       owner.BYOAIDeps{Owners: d.ownerRepo},
 		AIPresets:   ownerAIPresets(),
-		Ghosts:      &usecases.GhostDeps{Repo: d.ghostRepo},
+		Ghosts:      &conversation.GhostDeps{Repo: d.ghostRepo},
 		Log:         d.log,
 	}
 }

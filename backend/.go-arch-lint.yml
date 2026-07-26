@@ -586,6 +586,8 @@ deps:
       - corpus
       - pgstore
       - dbq
+      - access
+      - apierr
     anyVendorDeps: true
 
   # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
@@ -747,6 +749,7 @@ deps:
       - corpus
       - jobsuc
       - marketplace
+      - conversation
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。

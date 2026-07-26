@@ -22,13 +22,13 @@ const capChatBundle = "chat.bundle"
 type chatCapability struct {
 	corpusDeps *usecases.CorpusDeps
 	convs      *usecases.ConversationsDeps
-	ghosts     *usecases.GhostDeps
+	ghosts     *conversation.GhostDeps
 	log        *slog.Logger
 }
 
 func newChatCapability(
 	corpusDeps *usecases.CorpusDeps, convs *usecases.ConversationsDeps,
-	ghosts *usecases.GhostDeps, log *slog.Logger,
+	ghosts *conversation.GhostDeps, log *slog.Logger,
 ) *chatCapability {
 	return &chatCapability{corpusDeps: corpusDeps, convs: convs, ghosts: ghosts, log: log}
 }
@@ -139,7 +139,7 @@ type waypointStatRowView struct {
 func (c *chatCapability) handleGhostTelemetry(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) capreg.MCPResult {
-	stats, err := usecases.GhostTelemetry(ctx, c.ghosts, ownerID)
+	stats, err := conversation.GhostTelemetry(ctx, c.ghosts, ownerID)
 	if err != nil {
 		c.log.Error("cap conversations.ghost_telemetry", "err", err)
 		return capreg.MCPError("ghost_telemetry failed")

@@ -13,6 +13,7 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -89,30 +90,30 @@ func (gr *ghostRun) run(ctx context.Context, lastMsg string) *inference.Epilogue
 
 // candidate —— unvisited 检查(空 → silence,不调 LLM)→ GhostPolicy(owner 单模型)→ 解析。
 // 沉默/失败/无效 → nil。
-func (gr *ghostRun) candidate(ctx context.Context, lastMsg string) *usecases.GhostCandidate {
+func (gr *ghostRun) candidate(ctx context.Context, lastMsg string) *conversation.GhostCandidate {
 	// F-A-10: 未访问的 waypoint,并按 role/code 的「需证据」开关剔除空证据的非终点 waypoint(终点保留)。
-	unvisited := usecases.SteeringCandidates(
+	unvisited := conversation.SteeringCandidates(
 		gr.auth.Data.RoleSnapshot, gr.auth.Data.VisitedWaypoints)
 	if len(unvisited) == 0 {
 		return nil
 	}
 	out, err := inference.Generate(ctx, gr.cred, &inference.ChatRequest{
-		System: usecases.GhostPolicyPrompt,
+		System: conversation.GhostPolicyPrompt,
 		Messages: []inference.ChatRequestMsg{
-			{Role: "user", Content: usecases.BuildGhostContext(unvisited, lastMsg)},
+			{Role: "user", Content: conversation.BuildGhostContext(unvisited, lastMsg)},
 		},
 	})
 	if err != nil {
 		gr.h.Log.Warn("ghost policy generate", logErrKey, err)
 		return nil
 	}
-	return usecases.ParseGhost(out)
+	return conversation.ParseGhost(out)
 }
 
 func (gr *ghostRun) persist(
-	ctx context.Context, cand *usecases.GhostCandidate,
+	ctx context.Context, cand *conversation.GhostCandidate,
 ) *inference.EpilogueFrame {
-	id, perr := usecases.RecordPolicyGhost(ctx, gr.h.Ghosts, &usecases.PolicyGhostInput{
+	id, perr := conversation.RecordPolicyGhost(ctx, gr.h.Ghosts, &conversation.PolicyGhostInput{
 		OwnerID: gr.auth.Data.OwnerID, ConversationID: gr.convID,
 		Text: cand.Text, TargetWaypoint: cand.TargetWaypoint, FollowsFrom: cand.FollowsFrom,
 	})

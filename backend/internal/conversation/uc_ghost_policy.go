@@ -8,7 +8,7 @@
 // ghost 是 conversation 的能力(不是外置 plugin):policy/telemetry 跟 conversation 代码一起住核心。
 // inference 只发通用 EpilogueFrame;route 把本文件出的候选包成 Kind="ghost" 的 epilogue。
 
-package usecases
+package conversation
 
 import (
 	"context"
@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 // GhostPolicyPrompt —— platform-owned、稳定、versioned 的机制 prompt(part_ids + hash 纪律)。
@@ -134,7 +133,7 @@ type PolicyGhostInput struct {
 
 // RecordPolicyGhost —— 落一条 policy ghost，返回 row id(帧回填给前端 accept)。route 经此不碰 postgres。
 func RecordPolicyGhost(ctx context.Context, deps GhostDeps, in *PolicyGhostInput) (string, error) {
-	row, err := deps.Repo.RecordPolicy(ctx, &conversation.RecordPolicyInput{
+	row, err := deps.Repo.RecordPolicy(ctx, &RecordPolicyInput{
 		OwnerID: in.OwnerID, ConversationID: in.ConversationID, GhostText: in.Text,
 		TargetWaypoint: in.TargetWaypoint, FollowsFrom: in.FollowsFrom,
 	})

@@ -10,7 +10,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type waypointStatView struct {
@@ -36,7 +35,7 @@ type ghostTelemetryResp struct {
 func (h *Handlers) ghostTelemetry() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		stats, err := usecases.GhostTelemetry(r.Context(), &h.Conversations.Ghosts, ownerID)
+		stats, err := conversation.GhostTelemetry(r.Context(), &h.Conversations.Ghosts, ownerID)
 		if err != nil {
 			h.Log.Error("ghost telemetry", logErrKey, err)
 			writeError(h.Log, w, apierr.Envelope{

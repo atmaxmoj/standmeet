@@ -13,6 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
@@ -72,7 +73,7 @@ type AdminDeps struct {
 	Keypairs        owner.KeypairDeps
 	Corpus          usecases.CorpusDeps
 	Conversations   usecases.ConversationsDeps
-	Ghosts          usecases.GhostDeps
+	Ghosts          conversation.GhostDeps
 	BYOAI           owner.BYOAIDeps
 	Domains         owner.AllowedDomainsDeps
 	AccessRequests  usecases.AccessRequestsDeps

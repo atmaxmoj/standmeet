@@ -21,7 +21,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type shownRequest struct {
@@ -60,8 +59,8 @@ type shownArgs struct {
 }
 
 func runRecordShown(h *Handlers, w http.ResponseWriter, r *http.Request, a *shownArgs) {
-	row, err := usecases.RecordGhostShown(r.Context(), &h.Ghosts,
-		&usecases.RecordGhostShownInput{
+	row, err := conversation.RecordGhostShown(r.Context(), &h.Ghosts,
+		&conversation.RecordGhostShownInput{
 			OwnerID:        a.av.Data.OwnerID,
 			ConversationID: a.convID,
 			GhostText:      a.req.GhostText,
@@ -105,7 +104,7 @@ func dispatchAccept(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	}
 	convID := chi.URLParam(r, "id")
 	sid := chi.URLParam(r, "sid")
-	_, err := usecases.AcceptGhost(r.Context(), &h.Ghosts, av.Data.OwnerID, convID, sid)
+	_, err := conversation.AcceptGhost(r.Context(), &h.Ghosts, av.Data.OwnerID, convID, sid)
 	if err != nil {
 		handleGhostErr(h, w, err)
 		return

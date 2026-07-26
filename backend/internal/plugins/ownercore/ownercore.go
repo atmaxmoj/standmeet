@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
@@ -53,7 +54,7 @@ type Deps struct {
 	Account          owner.AccountDeps
 	BYOAI            owner.BYOAIDeps
 	Log              *slog.Logger
-	Ghosts           *usecases.GhostDeps
+	Ghosts           *conversation.GhostDeps
 	AIPresets        []AIProviderPreset
 }
 

@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // GhostFrame is the single ghost-steering suggestion. Its OWN struct now (inference no
@@ -60,27 +60,27 @@ func ParseGhostEpilogue(f *EpilogueFrame) *GhostFrame {
 type Waypoint = access.Waypoint
 
 // BuildGhostPolicy is a DB-free ghost policy for out-of-module drivers (eval-harness). It runs
-// the same unvisited-gate + policy prompt + parse prod uses (usecases.UnvisitedWaypoints /
+// the same unvisited-gate + policy prompt + parse prod uses (conversation.UnvisitedWaypoints /
 // GhostPolicyPrompt / BuildGhostContext / ParseGhost), taking waypoints + visited injected (no
 // DB) and persists nothing. nil = silence: empty unvisited, LLM error, or unparseable output.
 // Returns the typed GhostFrame; wrap with GhostEpilogue to feed inference.EpilogueFunc.
 func BuildGhostPolicy(
 	ctx context.Context, cred *Cred, waypoints []Waypoint, visited []string, lastMsg string,
 ) *GhostFrame {
-	unvisited := usecases.UnvisitedWaypoints(waypoints, visited)
+	unvisited := conversation.UnvisitedWaypoints(waypoints, visited)
 	if len(unvisited) == 0 {
 		return nil
 	}
 	out, err := inference.Generate(ctx, cred, &inference.ChatRequest{
-		System: usecases.GhostPolicyPrompt,
+		System: conversation.GhostPolicyPrompt,
 		Messages: []inference.ChatRequestMsg{
-			{Role: "user", Content: usecases.BuildGhostContext(unvisited, lastMsg)},
+			{Role: "user", Content: conversation.BuildGhostContext(unvisited, lastMsg)},
 		},
 	})
 	if err != nil {
 		return nil // silence-on-error (matches prod epilogue)
 	}
-	cand := usecases.ParseGhost(out)
+	cand := conversation.ParseGhost(out)
 	if cand == nil {
 		return nil
 	}

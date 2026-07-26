@@ -23,7 +23,7 @@ import (
 // ConversationsDeps —— admin conversations handlers 依赖。
 type ConversationsDeps struct {
 	Chats  usecases.ConversationsDeps
-	Ghosts usecases.GhostDeps
+	Ghosts conversation.GhostDeps
 }
 
 type convSummaryView struct {
@@ -136,7 +136,7 @@ func dispatchGetConversation(h *Handlers, w http.ResponseWriter, r *http.Request
 func loadGhostsForAdmin(
 	h *Handlers, r *http.Request, ownerID, convID string,
 ) []conversation.Ghost {
-	rows, err := usecases.ListGhostsForConversation(
+	rows, err := conversation.ListGhostsForConversation(
 		r.Context(), &h.Conversations.Ghosts, ownerID, convID,
 	)
 	if err != nil {

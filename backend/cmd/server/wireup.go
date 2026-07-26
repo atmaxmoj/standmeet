@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
@@ -89,7 +90,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
 			Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		},
-		Ghosts:         usecases.GhostDeps{Repo: d.ghostRepo},
+		Ghosts:         conversation.GhostDeps{Repo: d.ghostRepo},
 		BYOAI:          owner.BYOAIDeps{Owners: d.ownerRepo},
 		Domains:        owner.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
@@ -263,7 +264,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Corpus:       d.corpus,
 		Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		Ledger:       usecases.NewWaypointLedger(d.vaultSyncRepo, d.visitorStore, d.log),
-		Ghosts:       usecases.GhostDeps{Repo: d.ghostRepo},
+		Ghosts:       conversation.GhostDeps{Repo: d.ghostRepo},
 		PDFRenderer:  d.reportPDFRenderer,
 		AppState:     d.appStateRepo,
 		Usage:        d.inferenceUsageRepo,

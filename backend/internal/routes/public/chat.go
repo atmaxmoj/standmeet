@@ -24,6 +24,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
@@ -47,7 +48,7 @@ type Handlers struct {
 	Sessions     *session.VisitorSessionStore
 	QueryQueue   *session.QueryQueue
 	Ledger       *usecases.WaypointLedger
-	Ghosts       usecases.GhostDeps
+	Ghosts       conversation.GhostDeps
 	Log          *slog.Logger
 	SecureCookie bool
 }
