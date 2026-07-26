@@ -69,21 +69,21 @@ type Deps struct {
 type AdminDeps struct {
 	Claim           usecases.ClaimDeps
 	Login           usecases.LoginDeps
-	Keypairs        usecases.KeypairDeps
+	Keypairs        owner.KeypairDeps
 	Corpus          usecases.CorpusDeps
 	Conversations   usecases.ConversationsDeps
 	Ghosts          usecases.GhostDeps
-	BYOAI           usecases.BYOAIDeps
-	Domains         usecases.AllowedDomainsDeps
+	BYOAI           owner.BYOAIDeps
+	Domains         owner.AllowedDomainsDeps
 	AccessRequests  usecases.AccessRequestsDeps
-	HandleAdmin     usecases.HandleDeps
+	HandleAdmin     owner.HandleDeps
 	PublicURLAdmin  usecases.PublicURLDeps
-	AccountAdmin    usecases.AccountDeps
+	AccountAdmin    owner.AccountDeps
 	Recovery        usecases.RecoveryDeps
 	AIProvider      usecases.AIProviderDeps
-	CustomPages     usecases.CustomPageDeps
+	CustomPages     owner.CustomPageDeps
 	Skills          marketplace.SkillsDeps
-	Prompts         usecases.PromptsDeps
+	Prompts         owner.PromptsDeps
 	Roles           usecases.RolesDeps
 	MCPServers      marketplace.MCPServersDeps
 	Assets          usecases.AssetsDeps

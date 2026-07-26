@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // MountCustomPages 挂 GET /custom-pages（admin 列表，只读视图）。
@@ -41,7 +40,7 @@ type customPageView struct {
 func (h *Handlers) listCustomPages() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		pages, err := usecases.ListPages(r.Context(), h.CustomPages, ownerID)
+		pages, err := owner.ListPages(r.Context(), h.CustomPages, ownerID)
 		if err != nil {
 			logEncodeErr(h.Log, "list custom pages", err)
 			writeError(h.Log, w, serverErr())

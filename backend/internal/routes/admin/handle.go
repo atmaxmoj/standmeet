@@ -14,12 +14,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // HandleDeps —— admin handle endpoint 的依赖。
 type HandleDeps struct {
-	Handle usecases.HandleDeps
+	Handle owner.HandleDeps
 }
 
 type updateHandleBody struct {
@@ -43,7 +42,7 @@ func (h *Handlers) updateHandle() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		updated, err := usecases.UpdateOwnerHandle(
+		updated, err := owner.UpdateOwnerHandle(
 			r.Context(), h.HandleAdmin.Handle, ownerID, body.Handle,
 		)
 		if err != nil {

@@ -10,18 +10,18 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 const capAppearanceBundle = "appearance.bundle"
 
 type appearanceCapability struct {
-	store usecases.OwnerCSSStore
+	store owner.CSSStore
 	log   *slog.Logger
 }
 
 func newAppearanceCapability(
-	store usecases.OwnerCSSStore, log *slog.Logger,
+	store owner.CSSStore, log *slog.Logger,
 ) *appearanceCapability {
 	return &appearanceCapability{store: store, log: log}
 }
@@ -94,7 +94,7 @@ func (c *appearanceCapability) handleSetOwnerCSS(
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
-	if err := usecases.SetOwnerCSS(ctx, c.store, ownerID, args.CSS); err != nil {
+	if err := owner.SetOwnerCSS(ctx, c.store, ownerID, args.CSS); err != nil {
 		return capreg.MCPError(err.Error())
 	}
 	return mcputil.MarshalResult(c.log, "set_owner_css", map[string]string{"status": "ok"})

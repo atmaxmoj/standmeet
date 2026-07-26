@@ -32,14 +32,14 @@ type pageContentStore interface {
 
 type pageCapability struct {
 	pages     pageContentStore
-	handle    *usecases.HandleDeps
+	handle    *owner.HandleDeps
 	publicURL usecases.PublicURLDeps
 	pins      usecases.PagePinDeps
 	log       *slog.Logger
 }
 
 func newPageCapability(
-	handle *usecases.HandleDeps, pages pageContentStore,
+	handle *owner.HandleDeps, pages pageContentStore,
 	publicURL usecases.PublicURLDeps, pins usecases.PagePinDeps, log *slog.Logger,
 ) *pageCapability {
 	return &pageCapability{
@@ -106,7 +106,7 @@ func (c *pageCapability) handleUpdateHandle(
 	if args.Handle == "" {
 		return capreg.MCPError("handle is required")
 	}
-	updated, err := usecases.UpdateOwnerHandle(ctx, *c.handle, ownerID, args.Handle)
+	updated, err := owner.UpdateOwnerHandle(ctx, *c.handle, ownerID, args.Handle)
 	if err != nil {
 		return updateHandleErrToResult(c.log, err)
 	}

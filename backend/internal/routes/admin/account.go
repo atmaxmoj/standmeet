@@ -19,12 +19,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // AccountDeps —— admin account endpoints 的依赖。
 type AccountDeps struct {
-	Account usecases.AccountDeps
+	Account owner.AccountDeps
 }
 
 // MountAccount 挂 /account/* （caller 前缀 /api/admin）。
@@ -57,7 +56,7 @@ func (h *Handlers) updateFullName() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		updated, err := usecases.UpdateOwnerFullName(
+		updated, err := owner.UpdateOwnerFullName(
 			r.Context(), h.AccountAdmin.Account, ownerID, body.FullName,
 		)
 		if err != nil {
@@ -83,8 +82,8 @@ func (h *Handlers) updateEmail() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		updated, err := usecases.UpdateOwnerEmail(r.Context(), h.AccountAdmin.Account,
-			&usecases.EmailUpdateInput{
+		updated, err := owner.UpdateOwnerEmail(r.Context(), h.AccountAdmin.Account,
+			&owner.EmailUpdateInput{
 				OwnerID: ownerID, CurrentPassword: body.CurrentPassword, NewEmail: body.NewEmail,
 			})
 		if err != nil {
@@ -110,8 +109,8 @@ func (h *Handlers) updatePassword() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		err := usecases.UpdateOwnerPassword(r.Context(), h.AccountAdmin.Account,
-			&usecases.PasswordUpdateInput{
+		err := owner.UpdateOwnerPassword(r.Context(), h.AccountAdmin.Account,
+			&owner.PasswordUpdateInput{
 				OwnerID:         ownerID,
 				CurrentPassword: body.CurrentPassword,
 				NewPassword:     body.NewPassword,
@@ -161,7 +160,7 @@ var accountErrCases = []apierr.Case{
 		},
 	},
 	{
-		Match:    usecases.ErrPasswordTooShort,
+		Match:    owner.ErrPasswordTooShort,
 		Envelope: envBadReq("password must be at least 12 characters"),
 	},
 	{

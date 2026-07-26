@@ -1,4 +1,4 @@
-// sigv1_nonce.go —— usecases.NonceStore 的 Redis 实现（Sigv1 一次性 nonce，防重放）。
+// sigv1_nonce.go —— owner.NonceStore 的 Redis 实现（Sigv1 一次性 nonce，防重放）。
 // SetNX：key 不存在则设并返 true（首见）；已存在返 false（重放）。TTL 让 nonce 自动回收
 // （ts 早已过窗口，无需永久保留）。
 
@@ -9,9 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/redis/go-redis/v9"
-
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type redisNonceStore struct{ rdb *redis.Client }
@@ -26,6 +25,6 @@ func (s redisNonceStore) Fresh(ctx context.Context, key string, ttl time.Duratio
 }
 
 // keypairDeps —— 组 KeypairDeps（含 Sigv1 nonce store），两处 composition 共用。
-func keypairDeps(d *runtimeDeps) usecases.KeypairDeps {
-	return usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log, Nonce: redisNonceStore{rdb: d.rdb}}
+func keypairDeps(d *runtimeDeps) owner.KeypairDeps {
+	return owner.KeypairDeps{Repo: d.keypairRepo, Log: d.log, Nonce: redisNonceStore{rdb: d.rdb}}
 }

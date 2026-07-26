@@ -3,7 +3,7 @@
 // sig=base64`；本 usecase 解 header → 查公钥 → ed25519.Verify。无 session
 // cookie / 无 token mint / 无 nonce 表，依靠 ts 窗口防 replay。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -21,7 +21,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // challengeNS —— Sigv1 challenge 命名空间，跟 e2e/fixtures/sigv1.ts 对齐。
@@ -32,7 +31,7 @@ const sigv1MaxSkew = 5 * time.Minute
 
 // KeypairDeps —— keypair 用例所需。
 type KeypairDeps struct {
-	Repo  *owner.KeypairRepo
+	Repo  *KeypairRepo
 	Log   *slog.Logger
 	Nonce NonceStore
 }
@@ -43,22 +42,22 @@ type NonceStore interface {
 	Fresh(ctx context.Context, key string, ttl time.Duration) (bool, error)
 }
 
-// CreateKeypairInput —— admin POST /api/admin/keypairs 入参。
-type CreateKeypairInput struct {
+// CreateKeypairInputReq —— admin POST /api/admin/keypairs 入参。
+type CreateKeypairInputReq struct {
 	OwnerID string
 	Label   string
 }
 
 // CreatedKeypair —— Create 返结果 (含 PrivateKeyPEM，**只在创建时返回一次**)。
 type CreatedKeypair struct {
-	Record        owner.Keypair
+	Record        Keypair
 	PrivateKeyPEM string
 }
 
 // CreateKeypair —— 服务端生成 Ed25519 keypair，落库存公钥，返私钥 PEM 给
 // owner 一次。
 func CreateKeypair(
-	ctx context.Context, deps KeypairDeps, in *CreateKeypairInput,
+	ctx context.Context, deps KeypairDeps, in *CreateKeypairInputReq,
 ) (CreatedKeypair, error) {
 	if in.OwnerID == "" || in.Label == "" {
 		return CreatedKeypair{}, apierr.ErrEmptyField
@@ -67,7 +66,7 @@ func CreateKeypair(
 	if gerr != nil {
 		return CreatedKeypair{}, gerr
 	}
-	rec, err := deps.Repo.Create(ctx, &owner.CreateKeypairInput{
+	rec, err := deps.Repo.Create(ctx, &CreateKeypairInput{
 		OwnerID: in.OwnerID, KeyID: uuid.NewString(),
 		PublicKeyPEM: pems.PublicPEM, Label: in.Label,
 	})
@@ -105,7 +104,7 @@ func generateKeypairPEMs() (keypairPEMs, error) {
 // ListKeypairs —— admin GET /api/admin/keypairs 用，metadata only。
 func ListKeypairs(
 	ctx context.Context, deps KeypairDeps, ownerID string,
-) ([]owner.KeypairMetadata, error) {
+) ([]KeypairMetadata, error) {
 	if ownerID == "" {
 		return nil, apierr.ErrEmptyField
 	}
@@ -140,13 +139,13 @@ func ensureKeypairOwned(
 ) error {
 	kp, err := deps.Repo.GetByKeyID(ctx, keyID)
 	if err != nil {
-		if errors.Is(err, owner.ErrKeypairUnauthorized) {
-			return owner.ErrKeypairUnauthorized
+		if errors.Is(err, ErrKeypairUnauthorized) {
+			return ErrKeypairUnauthorized
 		}
 		return fmt.Errorf("get keypair: %w", err)
 	}
 	if kp.OwnerID != ownerID {
-		return owner.ErrKeypairUnauthorized
+		return ErrKeypairUnauthorized
 	}
 	return nil
 }
@@ -169,10 +168,10 @@ func VerifySigv1(
 ) (string, error) {
 	parsed, perr := parseSigv1Header(authHeader)
 	if perr != nil {
-		return "", owner.ErrKeypairUnauthorized
+		return "", ErrKeypairUnauthorized
 	}
 	if !withinSkew(parsed.ts) {
-		return "", owner.ErrKeypairUnauthorized
+		return "", ErrKeypairUnauthorized
 	}
 	return verifyParsedSig(ctx, deps, parsed)
 }
@@ -260,16 +259,16 @@ func verifyParsedSig(
 ) (string, error) {
 	kp, err := deps.Repo.GetByKeyID(ctx, p.keyID)
 	if err != nil {
-		return "", owner.ErrKeypairUnauthorized
+		return "", ErrKeypairUnauthorized
 	}
 	pub, perr := decodePublicKey(kp.PublicKeyPEM)
 	if perr != nil {
 		deps.Log.Error("keypair: decode stored public key", "err", perr, "key_id", p.keyID)
-		return "", owner.ErrKeypairUnauthorized
+		return "", ErrKeypairUnauthorized
 	}
 	challenge := fmt.Sprintf("%s\n%s\n%d\n%s", challengeNS, p.keyID, p.ts, p.nonce)
 	if !ed25519.Verify(pub, []byte(challenge), p.sig) {
-		return "", owner.ErrKeypairUnauthorized
+		return "", ErrKeypairUnauthorized
 	}
 	if rerr := checkNonceFresh(ctx, deps, p); rerr != nil {
 		return "", rerr
@@ -293,7 +292,7 @@ func checkNonceFresh(ctx context.Context, deps KeypairDeps, p parsedSigv1) error
 		return nil
 	}
 	if !fresh {
-		return owner.ErrKeypairUnauthorized
+		return ErrKeypairUnauthorized
 	}
 	return nil
 }

@@ -15,12 +15,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PromptsAdminDeps —— admin prompts handlers 依赖。
 type PromptsAdminDeps struct {
-	Prompts usecases.PromptsDeps
+	Prompts owner.PromptsDeps
 }
 
 type promptView struct {
@@ -53,7 +52,7 @@ func (h *Handlers) MountPrompts(r chi.Router) {
 func (h *Handlers) listPrompts() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		rows, err := usecases.ListPrompts(r.Context(), h.PromptsAdmin.Prompts, ownerID)
+		rows, err := owner.ListPrompts(r.Context(), h.PromptsAdmin.Prompts, ownerID)
 		if err != nil {
 			logEncodeErr(h.Log, "list prompts", err)
 			writeError(h.Log, w, serverErr())
@@ -92,8 +91,8 @@ func (h *Handlers) createPrompt() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		prompt, err := usecases.CreatePrompt(
-			r.Context(), h.PromptsAdmin.Prompts, &usecases.CreatePromptInput{
+		prompt, err := owner.CreatePrompt(
+			r.Context(), h.PromptsAdmin.Prompts, &owner.CreatePromptInputReq{
 				OwnerID: ownerID, Name: req.Name,
 				Description: req.Description, Body: req.Body,
 			},
@@ -129,7 +128,7 @@ func (h *Handlers) getPrompt() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		promptID := chi.URLParam(r, "id")
-		prompt, err := usecases.GetPrompt(r.Context(), h.PromptsAdmin.Prompts, ownerID, promptID)
+		prompt, err := owner.GetPrompt(r.Context(), h.PromptsAdmin.Prompts, ownerID, promptID)
 		if err != nil {
 			handleGetPromptErr(h.Log, w, err)
 			return
@@ -164,8 +163,8 @@ func (h *Handlers) updatePrompt() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		promptID := chi.URLParam(r, "id")
-		prompt, err := usecases.UpdatePrompt(
-			r.Context(), h.PromptsAdmin.Prompts, &usecases.UpdatePromptInput{
+		prompt, err := owner.UpdatePrompt(
+			r.Context(), h.PromptsAdmin.Prompts, &owner.UpdatePromptInputReq{
 				OwnerID: ownerID, PromptID: promptID,
 				Name: req.Name, Description: req.Description, Body: req.Body,
 			},
@@ -213,7 +212,7 @@ func (h *Handlers) deletePrompt() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		promptID := chi.URLParam(r, "id")
-		err := usecases.DeletePrompt(r.Context(), h.PromptsAdmin.Prompts, ownerID, promptID)
+		err := owner.DeletePrompt(r.Context(), h.PromptsAdmin.Prompts, ownerID, promptID)
 		if err != nil {
 			handleDeletePromptErr(h.Log, w, err)
 			return

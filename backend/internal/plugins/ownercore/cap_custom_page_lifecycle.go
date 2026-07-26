@@ -12,7 +12,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ───── promote_to_staging ──────────────────────────────────────
@@ -23,7 +22,7 @@ func (c *customPageCapability) promoteStagingBinding() *capreg.MCPBinding {
 		Description: "Promote a built build to staging (owner-visible preview).",
 		InputSchema: promoteToBuildIDSchema(),
 		Handler: c.handlePromote(
-			"custom_page.promote_to_staging", usecases.PromoteToStaging,
+			"custom_page.promote_to_staging", owner.PromoteToStaging,
 		),
 	}
 }
@@ -36,7 +35,7 @@ func (c *customPageCapability) promoteLiveBinding() *capreg.MCPBinding {
 		Description: "Promote a built build to live (visitor-facing).",
 		InputSchema: promoteToBuildIDSchema(),
 		Handler: c.handlePromote(
-			"custom_page.promote_to_live", usecases.PromoteToLive,
+			"custom_page.promote_to_live", owner.PromoteToLive,
 		),
 	}
 }
@@ -58,7 +57,7 @@ type promoteArgsWire struct {
 }
 
 type promoteUsecaseFn func(
-	ctx context.Context, deps usecases.CustomPageDeps,
+	ctx context.Context, deps owner.CustomPageDeps,
 	ownerID, slug, buildID string,
 ) (owner.CustomPage, error)
 
@@ -112,7 +111,7 @@ func (c *customPageCapability) handleRollback(
 	if args.Slug == "" {
 		return capreg.MCPError("slug is required")
 	}
-	page, err := usecases.Rollback(ctx, *c.pages, ownerID, args.Slug)
+	page, err := owner.Rollback(ctx, *c.pages, ownerID, args.Slug)
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.rollback")
 	}
@@ -140,7 +139,7 @@ func (c *customPageCapability) handleDelete(
 	if args.Slug == "" {
 		return capreg.MCPError("slug is required")
 	}
-	if err := usecases.DeletePage(ctx, *c.pages, ownerID, args.Slug); err != nil {
+	if err := owner.DeletePage(ctx, *c.pages, ownerID, args.Slug); err != nil {
 		return customPageCapErr(c.log, err, "custom_page.delete")
 	}
 	return mcputil.MarshalResult(c.log, "custom_page.delete", map[string]bool{"ok": true})
@@ -160,7 +159,7 @@ func (c *customPageCapability) listBinding() *capreg.MCPBinding {
 func (c *customPageCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) capreg.MCPResult {
-	pages, err := usecases.ListPages(ctx, *c.pages, ownerID)
+	pages, err := owner.ListPages(ctx, *c.pages, ownerID)
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.list")
 	}

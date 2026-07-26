@@ -14,12 +14,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // BYOAIDeps —— admin BYOAI handlers 依赖。
 type BYOAIDeps struct {
-	BYOAI usecases.BYOAIDeps
+	BYOAI owner.BYOAIDeps
 }
 
 type byoaiRequest struct {
@@ -41,8 +40,8 @@ func (h *Handlers) putBYOAI() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		settings, err := usecases.UpdateBYOAI(
-			r.Context(), h.BYOAI.BYOAI, &usecases.UpdateBYOAIInput{
+		settings, err := owner.UpdateBYOAI(
+			r.Context(), h.BYOAI.BYOAI, &owner.UpdateBYOAIInputReq{
 				OwnerID: ownerID, Enabled: req.Enabled,
 				Providers: req.Providers, Blurb: req.Blurb,
 			})

@@ -4,7 +4,7 @@
 // system prompt。owner 通过 admin / MCP CRUD；public（is_builtin=true）由
 // claim 时 SeedPublicRole 种入，不可删 / 不可改 name（repo + usecase 双护栏）。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -12,16 +12,15 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // PromptsDeps —— prompts CRUD 需要的 repo。
 type PromptsDeps struct {
-	Prompts *owner.PromptRepo
+	Prompts *PromptRepo
 }
 
-// CreatePromptInput —— prompt.create 入参。
-type CreatePromptInput struct {
+// CreatePromptInputReq —— prompt.create 入参。
+type CreatePromptInputReq struct {
 	OwnerID     string
 	Name        string
 	Description string
@@ -30,20 +29,20 @@ type CreatePromptInput struct {
 
 // CreatePrompt 新建 prompt。
 func CreatePrompt(
-	ctx context.Context, deps PromptsDeps, in *CreatePromptInput,
-) (owner.Prompt, error) {
+	ctx context.Context, deps PromptsDeps, in *CreatePromptInputReq,
+) (Prompt, error) {
 	if in.OwnerID == "" || in.Name == "" {
-		return owner.Prompt{}, apierr.ErrEmptyField
+		return Prompt{}, apierr.ErrEmptyField
 	}
-	prompt, err := deps.Prompts.Create(ctx, &owner.CreatePromptInput{
+	prompt, err := deps.Prompts.Create(ctx, &CreatePromptInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
-		if errors.Is(err, owner.ErrPromptNameTaken) {
-			return owner.Prompt{}, owner.ErrPromptNameTaken
+		if errors.Is(err, ErrPromptNameTaken) {
+			return Prompt{}, ErrPromptNameTaken
 		}
-		return owner.Prompt{}, fmt.Errorf("create prompt: %w", err)
+		return Prompt{}, fmt.Errorf("create prompt: %w", err)
 	}
 	return prompt, nil
 }
@@ -51,7 +50,7 @@ func CreatePrompt(
 // ListPrompts —— admin / MCP prompt.list。
 func ListPrompts(
 	ctx context.Context, deps PromptsDeps, ownerID string,
-) ([]owner.Prompt, error) {
+) ([]Prompt, error) {
 	if ownerID == "" {
 		return nil, apierr.ErrEmptyField
 	}
@@ -65,19 +64,19 @@ func ListPrompts(
 // GetPrompt —— admin / MCP prompt.get 单条详情。
 func GetPrompt(
 	ctx context.Context, deps PromptsDeps, ownerID, promptID string,
-) (owner.Prompt, error) {
+) (Prompt, error) {
 	if ownerID == "" || promptID == "" {
-		return owner.Prompt{}, apierr.ErrEmptyField
+		return Prompt{}, apierr.ErrEmptyField
 	}
 	prompt, err := deps.Prompts.GetByID(ctx, ownerID, promptID)
 	if err != nil {
-		return owner.Prompt{}, fmt.Errorf("get prompt: %w", err)
+		return Prompt{}, fmt.Errorf("get prompt: %w", err)
 	}
 	return prompt, nil
 }
 
-// UpdatePromptInput —— prompt.update 入参。
-type UpdatePromptInput struct {
+// UpdatePromptInputReq —— prompt.update 入参。
+type UpdatePromptInputReq struct {
 	OwnerID     string
 	PromptID    string
 	Name        string
@@ -88,17 +87,17 @@ type UpdatePromptInput struct {
 // UpdatePrompt —— builtin (public) 可改 body / description，不可改 name。
 // repo Update 不挡，本层先 GetByID 校验。
 func UpdatePrompt(
-	ctx context.Context, deps PromptsDeps, in *UpdatePromptInput,
-) (owner.Prompt, error) {
+	ctx context.Context, deps PromptsDeps, in *UpdatePromptInputReq,
+) (Prompt, error) {
 	if uerr := validateUpdatePromptInput(ctx, deps, in); uerr != nil {
-		return owner.Prompt{}, uerr
+		return Prompt{}, uerr
 	}
-	prompt, err := deps.Prompts.Update(ctx, &owner.UpdatePromptInput{
+	prompt, err := deps.Prompts.Update(ctx, &UpdatePromptInput{
 		OwnerID: in.OwnerID, PromptID: in.PromptID,
 		Name: in.Name, Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
-		return owner.Prompt{}, fmt.Errorf("update prompt: %w", err)
+		return Prompt{}, fmt.Errorf("update prompt: %w", err)
 	}
 	return prompt, nil
 }
@@ -106,7 +105,7 @@ func UpdatePrompt(
 // validateUpdatePromptInput —— 必填检查 + builtin rename 拦。提出来降
 // UpdatePrompt 的 cyclo。
 func validateUpdatePromptInput(
-	ctx context.Context, deps PromptsDeps, in *UpdatePromptInput,
+	ctx context.Context, deps PromptsDeps, in *UpdatePromptInputReq,
 ) error {
 	if in.OwnerID == "" || in.PromptID == "" || in.Name == "" {
 		return apierr.ErrEmptyField
@@ -116,14 +115,14 @@ func validateUpdatePromptInput(
 
 // checkPromptRenameAllowed —— builtin prompt 不能 rename；其它都行。
 func checkPromptRenameAllowed(
-	ctx context.Context, deps PromptsDeps, in *UpdatePromptInput,
+	ctx context.Context, deps PromptsDeps, in *UpdatePromptInputReq,
 ) error {
 	existing, err := deps.Prompts.GetByID(ctx, in.OwnerID, in.PromptID)
 	if err != nil {
 		return fmt.Errorf("get prompt for rename check: %w", err)
 	}
 	if existing.IsBuiltin() && existing.Name() != in.Name {
-		return owner.ErrPromptBuiltinImmutable
+		return ErrPromptBuiltinImmutable
 	}
 	return nil
 }
@@ -155,7 +154,7 @@ func validatePromptDeletable(
 		return fmt.Errorf("get prompt: %w", gerr)
 	}
 	if prompt.IsBuiltin() {
-		return owner.ErrPromptBuiltinImmutable
+		return ErrPromptBuiltinImmutable
 	}
 	return nil
 }

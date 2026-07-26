@@ -1,4 +1,4 @@
-// appearance.go —— admin /appearance/css:owner 自定义 CSS 的读/写。写时经 usecases.SetOwnerCSS
+// appearance.go —— admin /appearance/css:owner 自定义 CSS 的读/写。写时经 owner.SetOwnerCSS
 // sanitize+scope 后落库;读回的是那个安全版本。owner CSS 三面(UI/MCP/sync)写同一处(owners.custom_css)。
 
 package admin
@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // MountAppearance —— /appearance 子路由。
@@ -43,7 +43,7 @@ func (h *Handlers) setOwnerCSS() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid body"))
 			return
 		}
-		if err := usecases.SetOwnerCSS(
+		if err := owner.SetOwnerCSS(
 			r.Context(), h.AccountAdmin.Account.Owners, ownerID, body.CSS,
 		); err != nil {
 			writeError(h.Log, w, envBadReq("save css"))

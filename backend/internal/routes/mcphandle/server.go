@@ -17,7 +17,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 type ctxKey struct{ name string }
@@ -29,7 +29,7 @@ var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 //   - Keypairs: Sigv1 验签
 //   - AgentSkills: owner MCP facade 的唯一工具来源（core cap + 插件 owner 工具汇成单端点）
 type Deps struct {
-	Keypairs    usecases.KeypairDeps
+	Keypairs    owner.KeypairDeps
 	AgentSkills *capreg.Registry
 	Log         *slog.Logger
 }
@@ -63,7 +63,7 @@ func New(deps *Deps) http.Handler {
 func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
-		ownerID, err := usecases.VerifySigv1(r.Context(), deps.Keypairs, authHeader)
+		ownerID, err := owner.VerifySigv1(r.Context(), deps.Keypairs, authHeader)
 		if err != nil {
 			http.Error(w, "unauthorized: invalid Sigv1", http.StatusUnauthorized)
 			return

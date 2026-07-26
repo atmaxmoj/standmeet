@@ -14,17 +14,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 const capAccountBundle = "account.bundle"
 
 type accountCapability struct {
-	account usecases.AccountDeps
+	account owner.AccountDeps
 	log     *slog.Logger
 }
 
-func newAccountCapability(account usecases.AccountDeps, log *slog.Logger) *accountCapability {
+func newAccountCapability(account owner.AccountDeps, log *slog.Logger) *accountCapability {
 	return &accountCapability{account: account, log: log}
 }
 
@@ -74,7 +74,7 @@ func (c *accountCapability) handleSetFullName(
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
-	owner, err := usecases.UpdateOwnerFullName(ctx, c.account, ownerID, args.FullName)
+	updated, err := owner.UpdateOwnerFullName(ctx, c.account, ownerID, args.FullName)
 	if err != nil {
 		if errors.Is(err, apierr.ErrEmptyField) {
 			return capreg.MCPError("full_name is required (max 200 chars)")
@@ -83,6 +83,6 @@ func (c *accountCapability) handleSetFullName(
 		return capreg.MCPError("account.set_full_name failed")
 	}
 	return mcputil.MarshalResult(c.log, "account.set_full_name", map[string]string{
-		"owner_id": owner.ID, "full_name": owner.FullName,
+		"owner_id": updated.ID, "full_name": updated.FullName,
 	})
 }

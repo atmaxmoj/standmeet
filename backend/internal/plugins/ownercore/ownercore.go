@@ -10,6 +10,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -20,7 +21,7 @@ const Name = "ownercore"
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
 	Marketplace      marketplace.InstallSkillDeps
-	Appearance       usecases.OwnerCSSStore
+	Appearance       owner.CSSStore
 	Codes            CodesRevoker
 	CodeBookingQuota CodeBookingQuota
 	SEO              SEOWriter
@@ -31,12 +32,12 @@ type Deps struct {
 	Owners           OwnerLookup
 	Skills           *marketplace.SkillsDeps
 	Connectors       *ConnectorsOwnerDeps
-	CustomPages      *usecases.CustomPageDeps
-	Handle           *usecases.HandleDeps
+	CustomPages      *owner.CustomPageDeps
+	Handle           *owner.HandleDeps
 	Calendar         *CalendarOwnerDeps
 	Writings         *usecases.WritingsDeps
 	MCPServers       *marketplace.MCPServersDeps
-	Domains          usecases.AllowedDomainsDeps
+	Domains          owner.AllowedDomainsDeps
 	AccessRequests   *AccessRequestsOwnerDeps
 	Capabilities     *CapabilitiesOwnerDeps
 	Instance         *InstanceDeps
@@ -44,13 +45,13 @@ type Deps struct {
 	WritingsTx       *usecases.WritingsTxDeps
 	Roles            *usecases.RolesDeps
 	Booking          *BookingOwnerDeps
-	Prompts          *usecases.PromptsDeps
+	Prompts          *owner.PromptsDeps
 	Conversations    *usecases.ConversationsDeps
 	PublicURL        usecases.PublicURLDeps
 	PagePins         usecases.PagePinDeps
 	Corpus           *usecases.CorpusDeps
-	Account          usecases.AccountDeps
-	BYOAI            usecases.BYOAIDeps
+	Account          owner.AccountDeps
+	BYOAI            owner.BYOAIDeps
 	Log              *slog.Logger
 	Ghosts           *usecases.GhostDeps
 	AIPresets        []AIProviderPreset

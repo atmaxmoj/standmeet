@@ -26,7 +26,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // logErr —— slog key 常量，避免 "err" literal 在本文件出现过多次触发
@@ -35,8 +34,8 @@ const logErr = "err"
 
 // CustomPageHandlers —— 访客 custom page asset 路由依赖。
 type CustomPageHandlers struct {
-	Deps       usecases.CustomPageDeps
-	Owners     usecases.SoleOwnerLookup
+	Deps       owner.CustomPageDeps
+	Owners     owner.SoleOwnerLookup
 	Log        *slog.Logger
 	BuildsRoot string
 }
@@ -72,7 +71,7 @@ func baseHrefFor(r *http.Request) string {
 func resolveAssetPath(
 	ctx context.Context, h *CustomPageHandlers, r *http.Request,
 ) (string, error) {
-	build, err := usecases.ResolveLiveBuild(ctx, h.Deps, h.Owners, chi.URLParam(r, "slug"))
+	build, err := owner.ResolveLiveBuild(ctx, h.Deps, h.Owners, chi.URLParam(r, "slug"))
 	if err != nil {
 		return "", err
 	}

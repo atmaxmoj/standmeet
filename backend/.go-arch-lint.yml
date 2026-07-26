@@ -385,6 +385,7 @@ deps:
       - jobsuc
       - jobsmcp
       - httpx
+      - owner
     anyVendorDeps: true
 
   # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
@@ -608,6 +609,8 @@ deps:
       - pgstore
       - dbq
       - cryptobox
+      - apierr
+      - session
     anyVendorDeps: true
 
 

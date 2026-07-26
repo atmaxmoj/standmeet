@@ -19,12 +19,11 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PasswordResetHandlers —— /api/v1/account/reset-password 路由依赖。
 type PasswordResetHandlers struct {
-	Deps usecases.PasswordResetDeps
+	Deps owner.PasswordResetDeps
 	Log  *slog.Logger
 }
 
@@ -47,7 +46,7 @@ func (h *PasswordResetHandlers) resetPassword() http.HandlerFunc {
 			})
 			return
 		}
-		err := usecases.ConsumePasswordResetToken(r.Context(), h.Deps, body.Token, body.NewPassword)
+		err := owner.ConsumePasswordResetToken(r.Context(), h.Deps, body.Token, body.NewPassword)
 		if err != nil {
 			handlePasswordResetErr(h.Log, w, err)
 			return
@@ -58,7 +57,7 @@ func (h *PasswordResetHandlers) resetPassword() http.HandlerFunc {
 
 func handlePasswordResetErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, usecases.ErrPasswordTooShort):
+	case errors.Is(err, owner.ErrPasswordTooShort):
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusBadRequest, Code: "password_too_short",
 			Message: "password must be at least 12 characters",

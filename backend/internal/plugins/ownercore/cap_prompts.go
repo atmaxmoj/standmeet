@@ -14,18 +14,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capPromptsBundle = "prompts.bundle"
 
 type promptsCapability struct {
-	prompts *usecases.PromptsDeps
+	prompts *owner.PromptsDeps
 	log     *slog.Logger
 }
 
 func newPromptsCapability(
-	prompts *usecases.PromptsDeps, log *slog.Logger,
+	prompts *owner.PromptsDeps, log *slog.Logger,
 ) *promptsCapability {
 	return &promptsCapability{prompts: prompts, log: log}
 }
@@ -100,7 +99,7 @@ func (c *promptsCapability) handleCreate(
 	if args.Body == "" {
 		return capreg.MCPError("body is required")
 	}
-	prompt, err := usecases.CreatePrompt(ctx, *c.prompts, &usecases.CreatePromptInput{
+	prompt, err := owner.CreatePrompt(ctx, *c.prompts, &owner.CreatePromptInputReq{
 		OwnerID: ownerID, Name: args.Name, Body: args.Body,
 		Description: args.Description,
 	})
@@ -141,7 +140,7 @@ type promptListRow struct {
 func (c *promptsCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) capreg.MCPResult {
-	rows, err := usecases.ListPrompts(ctx, *c.prompts, ownerID)
+	rows, err := owner.ListPrompts(ctx, *c.prompts, ownerID)
 	if err != nil {
 		c.log.Error("cap prompt_list", "err", err)
 		return capreg.MCPError("list prompts failed")
@@ -187,7 +186,7 @@ func (c *promptsCapability) handleDelete(
 	if args.PromptID == "" {
 		return capreg.MCPError("prompt_id is required")
 	}
-	if err := usecases.DeletePrompt(ctx, *c.prompts, ownerID, args.PromptID); err != nil {
+	if err := owner.DeletePrompt(ctx, *c.prompts, ownerID, args.PromptID); err != nil {
 		return promptDeleteErrToResult(c.log, err)
 	}
 	return mcputil.MarshalResult(c.log, "prompt_delete", map[string]bool{"ok": true})
@@ -259,7 +258,7 @@ func (c *promptsCapability) handleUpdate(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	prompt, err := usecases.UpdatePrompt(ctx, *c.prompts, &usecases.UpdatePromptInput{
+	prompt, err := owner.UpdatePrompt(ctx, *c.prompts, &owner.UpdatePromptInputReq{
 		OwnerID: ownerID, PromptID: args.PromptID, Name: args.Name,
 		Body: args.Body, Description: args.Description,
 	})
@@ -314,7 +313,7 @@ func (c *promptsCapability) handleGet(
 	if args.PromptID == "" {
 		return capreg.MCPError("prompt_id is required")
 	}
-	prompt, err := usecases.GetPrompt(ctx, *c.prompts, ownerID, args.PromptID)
+	prompt, err := owner.GetPrompt(ctx, *c.prompts, ownerID, args.PromptID)
 	if err != nil {
 		if errors.Is(err, owner.ErrPromptNotFound) {
 			return capreg.MCPError("prompt not found")

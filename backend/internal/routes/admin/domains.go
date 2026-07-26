@@ -13,12 +13,12 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // DomainsDeps —— admin domains handlers 依赖。
 type DomainsDeps struct {
-	Domains usecases.AllowedDomainsDeps
+	Domains owner.AllowedDomainsDeps
 }
 
 type addDomainRequest struct {
@@ -38,7 +38,7 @@ func (h *Handlers) MountDomains(r chi.Router) {
 
 func (h *Handlers) listDomains() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		list, err := usecases.ListAllowedDomains(r.Context(), h.Domains.Domains)
+		list, err := owner.ListAllowedDomains(r.Context(), h.Domains.Domains)
 		if err != nil {
 			h.Log.Error("list domains", "err", err)
 			writeError(h.Log, w, serverErr())
@@ -55,7 +55,7 @@ func (h *Handlers) addDomain() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		err := usecases.AddAllowedDomain(r.Context(), h.Domains.Domains, req.Domain)
+		err := owner.AddAllowedDomain(r.Context(), h.Domains.Domains, req.Domain)
 		if err != nil {
 			handleDomainsErr(h.Log, w, err, "add")
 			return
@@ -67,7 +67,7 @@ func (h *Handlers) addDomain() http.HandlerFunc {
 func (h *Handlers) removeDomain() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dom := chi.URLParam(r, "domain")
-		if err := usecases.RemoveAllowedDomain(r.Context(), h.Domains.Domains, dom); err != nil {
+		if err := owner.RemoveAllowedDomain(r.Context(), h.Domains.Domains, dom); err != nil {
 			handleDomainsErr(h.Log, w, err, "remove")
 			return
 		}

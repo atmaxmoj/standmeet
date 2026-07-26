@@ -13,17 +13,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capBYOAIBundle = "byoai.bundle"
 
 type byoaiCapability struct {
-	byoai usecases.BYOAIDeps
+	byoai owner.BYOAIDeps
 	log   *slog.Logger
 }
 
-func newBYOAICapability(byoai usecases.BYOAIDeps, log *slog.Logger) *byoaiCapability {
+func newBYOAICapability(byoai owner.BYOAIDeps, log *slog.Logger) *byoaiCapability {
 	return &byoaiCapability{byoai: byoai, log: log}
 }
 
@@ -97,7 +96,7 @@ func (c *byoaiCapability) handleSet(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	s, err := usecases.UpdateBYOAI(ctx, c.byoai, &usecases.UpdateBYOAIInput{
+	s, err := owner.UpdateBYOAI(ctx, c.byoai, &owner.UpdateBYOAIInputReq{
 		OwnerID:   ownerID,
 		Blurb:     args.Blurb,
 		Providers: args.Providers,

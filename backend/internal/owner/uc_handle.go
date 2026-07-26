@@ -1,7 +1,7 @@
 // handle.go —— owner 改 handle 的 usecase。校验 + 转交 repo（repo 内 tx
 // 保证原子 UPDATE owners + INSERT handle_aliases）。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -9,12 +9,11 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // HandleDeps —— UpdateOwnerHandle 依赖。
 type HandleDeps struct {
-	Owners *owner.Repo
+	Owners *Repo
 }
 
 const (
@@ -26,15 +25,15 @@ const (
 // 字符；新 handle 跟旧一致直接返当前。返 ErrHandleTaken 让 routes 翻译 409。
 func UpdateOwnerHandle(
 	ctx context.Context, deps HandleDeps, ownerID, raw string,
-) (owner.Owner, error) {
+) (Owner, error) {
 	h := strings.ToLower(strings.TrimSpace(raw))
 	if !validHandle(h) {
-		return owner.Owner{}, fmt.Errorf("%w: handle must be %d-%d chars of a-z0-9-",
+		return Owner{}, fmt.Errorf("%w: handle must be %d-%d chars of a-z0-9-",
 			apierr.ErrEmptyField, minHandleLen, maxHandleLen)
 	}
 	updated, err := deps.Owners.UpdateHandle(ctx, ownerID, h)
 	if err != nil {
-		return owner.Owner{}, fmt.Errorf("update handle: %w", err)
+		return Owner{}, fmt.Errorf("update handle: %w", err)
 	}
 	return updated, nil
 }

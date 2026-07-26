@@ -1,24 +1,23 @@
 // byoai.go —— BYOAI settings 更新 use case。
 // admin UI PUT /api/admin/byoai 来这里。验证 + 写库 + 返回更新后的 owner。
 
-package usecases
+package owner
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // BYOAIDeps —— UpdateBYOAI 需要的 repo（owners 包）。
 type BYOAIDeps struct {
-	Owners *owner.Repo
+	Owners *Repo
 }
 
-// UpdateBYOAIInput —— PUT /api/admin/byoai 入参（owner_id 从 session 来）。
+// UpdateBYOAIInputReq —— PUT /api/admin/byoai 入参（owner_id 从 session 来）。
 // 字段顺序按 govet fieldalignment：strings 先、slice 紧跟、bool 末尾。
-type UpdateBYOAIInput struct {
+type UpdateBYOAIInputReq struct {
 	OwnerID   string
 	Blurb     string
 	Providers []string
@@ -27,21 +26,21 @@ type UpdateBYOAIInput struct {
 
 // UpdateBYOAI 把 byoai_enabled / providers / blurb 三字段一起写，返回新
 // OwnerSettings（aggregate 的 setting 切面，不含 identity）。
-// owner_id 不存在返 owner.ErrOwnerNotFound（handler 翻 401）。
+// owner_id 不存在返 ErrOwnerNotFound（handler 翻 401）。
 func UpdateBYOAI(
-	ctx context.Context, deps BYOAIDeps, in *UpdateBYOAIInput,
-) (owner.Settings, error) {
+	ctx context.Context, deps BYOAIDeps, in *UpdateBYOAIInputReq,
+) (Settings, error) {
 	if in.OwnerID == "" {
-		return owner.Settings{}, apierr.ErrEmptyField
+		return Settings{}, apierr.ErrEmptyField
 	}
-	s, err := deps.Owners.UpdateBYOAI(ctx, &owner.UpdateBYOAIInput{
+	s, err := deps.Owners.UpdateBYOAI(ctx, &UpdateBYOAIInput{
 		OwnerID:   in.OwnerID,
 		Enabled:   in.Enabled,
 		Providers: in.Providers,
 		Blurb:     in.Blurb,
 	})
 	if err != nil {
-		return owner.Settings{}, fmt.Errorf("update byoai: %w", err)
+		return Settings{}, fmt.Errorf("update byoai: %w", err)
 	}
 	return s, nil
 }

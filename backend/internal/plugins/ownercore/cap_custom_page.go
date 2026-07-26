@@ -17,18 +17,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capCustomPageBundle = "custom_page.bundle"
 
 type customPageCapability struct {
-	pages *usecases.CustomPageDeps
+	pages *owner.CustomPageDeps
 	log   *slog.Logger
 }
 
 func newCustomPageCapability(
-	pages *usecases.CustomPageDeps, log *slog.Logger,
+	pages *owner.CustomPageDeps, log *slog.Logger,
 ) *customPageCapability {
 	return &customPageCapability{pages: pages, log: log}
 }
@@ -99,7 +98,7 @@ func (c *customPageCapability) handleCreate(
 	if title == "" {
 		title = args.Slug
 	}
-	page, err := usecases.CreatePage(ctx, *c.pages, &usecases.CreatePageInput{
+	page, err := owner.CreatePage(ctx, *c.pages, &owner.CreatePageInput{
 		OwnerID: ownerID, Slug: args.Slug, Title: title,
 	})
 	if err != nil {
@@ -140,7 +139,7 @@ func (c *customPageCapability) handleWriteFile(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	build, err := usecases.WriteFile(ctx, *c.pages, &usecases.WriteFileInput{
+	build, err := owner.WriteFile(ctx, *c.pages, &owner.WriteFileInput{
 		OwnerID: ownerID, Slug: args.Slug, Path: args.Path, Content: args.Content,
 	})
 	if err != nil {
@@ -191,7 +190,7 @@ func (c *customPageCapability) handleBuild(
 	if args.Slug == "" {
 		return capreg.MCPError("slug is required")
 	}
-	build, err := usecases.Build(ctx, *c.pages, ownerID, args.Slug)
+	build, err := owner.Build(ctx, *c.pages, ownerID, args.Slug)
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.build")
 	}
@@ -229,7 +228,7 @@ func (c *customPageCapability) handleGetBuild(
 	if args.BuildID == "" {
 		return capreg.MCPError("build_id is required")
 	}
-	build, err := usecases.GetBuild(ctx, *c.pages, args.BuildID)
+	build, err := owner.GetBuild(ctx, *c.pages, args.BuildID)
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.get_build")
 	}

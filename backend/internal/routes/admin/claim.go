@@ -32,7 +32,7 @@ type Handlers struct {
 	Auth              AuthDeps
 	KeypairsAdmin     KeypairsAdminDeps
 	SkillsAdmin       SkillsAdminDeps
-	CustomPages       usecases.CustomPageDeps
+	CustomPages       owner.CustomPageDeps
 	MarketplaceAdmin  MarketplaceAdminDeps
 	MCPServersAdmin   MCPServersAdminDeps
 	BYOAI             BYOAIDeps

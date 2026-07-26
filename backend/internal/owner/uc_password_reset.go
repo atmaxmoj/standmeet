@@ -9,9 +9,9 @@
 //   3. 这个 usecase：找 sole owner，TTL 检查 (<= 30min)，SHA-256 const-time
 //      比对，过了就 HashPassword(new) + repo.UpdatePasswordHash + clear。
 //
-// 失败一律返 owner.ErrUnauthorized（不告诉 token 错 vs 过期 vs 用过）。
+// 失败一律返 ErrUnauthorized（不告诉 token 错 vs 过期 vs 用过）。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -21,13 +21,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // PasswordResetDeps —— ConsumePasswordResetToken 的依赖。
 type PasswordResetDeps struct {
-	Owners *owner.Repo
+	Owners *Repo
 }
 
 // PasswordResetTTL —— token 颁发后多久内有效；CLI stdout 跟前端 / 文档要
@@ -36,7 +35,7 @@ type PasswordResetDeps struct {
 const PasswordResetTTL = 30 * time.Minute
 
 // ConsumePasswordResetToken —— 拿明文 token + 新密码：验证 + 改密码 + 清。
-// 任何步骤失败统一返 owner.ErrUnauthorized；ErrPasswordTooShort 单独保留
+// 任何步骤失败统一返 ErrUnauthorized；ErrPasswordTooShort 单独保留
 // 给前端 inline hint 区分（密码太短不算 "auth failure"）。
 func ConsumePasswordResetToken(
 	ctx context.Context, deps PasswordResetDeps, tokenPlaintext, newPassword string,
@@ -45,14 +44,14 @@ func ConsumePasswordResetToken(
 		return ErrPasswordTooShort
 	}
 	if tokenPlaintext == "" {
-		return owner.ErrUnauthorized
+		return ErrUnauthorized
 	}
 	resetToken, err := deps.Owners.GetActiveResetToken(ctx)
 	if err != nil {
 		return fmt.Errorf("load reset token: %w", err)
 	}
 	if !matchesAndFresh(tokenPlaintext, resetToken.Hash, resetToken.IssuedAt) {
-		return owner.ErrUnauthorized
+		return ErrUnauthorized
 	}
 	return applyNewPassword(ctx, deps, resetToken.OwnerID, newPassword)
 }

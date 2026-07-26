@@ -2,7 +2,7 @@
 // 攻击面:剥 @import(外部拉取/CSP)、外部 url()/javascript:(数据外泄/追踪)、expression()/-moz-binding
 // (老式 JS 执行);再把每条规则的选择器锚到 .corpus-content(动不了 app chrome,防 clickjacking/redress)。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -21,14 +21,14 @@ var (
 	reCSSBinding     = regexp.MustCompile(`(?i)-moz-binding[^;]*;`)
 )
 
-// OwnerCSSStore —— owner CSS 存取(owner.Repo 实现)。
-type OwnerCSSStore interface {
+// CSSStore —— owner CSS 存取(Repo 实现)。
+type CSSStore interface {
 	GetCSS(ctx context.Context, ownerID string) (string, error)
 	SetCSS(ctx context.Context, ownerID, css string) error
 }
 
 // SetOwnerCSS —— 从任一面(admin/MCP/sync)写 owner CSS:先 sanitize+scope 再存安全版本。
-func SetOwnerCSS(ctx context.Context, store OwnerCSSStore, ownerID, raw string) error {
+func SetOwnerCSS(ctx context.Context, store CSSStore, ownerID, raw string) error {
 	if err := store.SetCSS(ctx, ownerID, SanitizeAndScopeCSS(raw)); err != nil {
 		return err //nolint:wrapcheck // store 已 wrap
 	}

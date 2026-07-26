@@ -17,12 +17,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // KeypairsAdminDeps —— admin keypairs handlers 需要的依赖。
 type KeypairsAdminDeps struct {
-	Deps usecases.KeypairDeps
+	Deps owner.KeypairDeps
 	Log  *slog.Logger
 }
 
@@ -54,7 +53,7 @@ func (h *Handlers) MountKeypairs(r chi.Router) {
 func (h *Handlers) listKeypairs() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		list, err := usecases.ListKeypairs(r.Context(), h.KeypairsAdmin.Deps, ownerID)
+		list, err := owner.ListKeypairs(r.Context(), h.KeypairsAdmin.Deps, ownerID)
 		if err != nil {
 			h.Log.Error("list keypairs", "err", err)
 			writeError(h.Log, w, serverErr())
@@ -102,8 +101,8 @@ func (h *Handlers) createKeypair() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		created, err := usecases.CreateKeypair(r.Context(), h.KeypairsAdmin.Deps,
-			&usecases.CreateKeypairInput{OwnerID: ownerID, Label: req.Label})
+		created, err := owner.CreateKeypair(r.Context(), h.KeypairsAdmin.Deps,
+			&owner.CreateKeypairInputReq{OwnerID: ownerID, Label: req.Label})
 		if err != nil {
 			writeError(h.Log, w, createKeypairEnv(err))
 			return
@@ -123,7 +122,7 @@ func createKeypairEnv(err error) apierr.Envelope {
 }
 
 func writeCreatedKeypair(
-	log *slog.Logger, w http.ResponseWriter, c *usecases.CreatedKeypair,
+	log *slog.Logger, w http.ResponseWriter, c *owner.CreatedKeypair,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -142,7 +141,7 @@ func (h *Handlers) deleteKeypair() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		keyID := chi.URLParam(r, "key_id")
-		err := usecases.DeleteKeypair(r.Context(), h.KeypairsAdmin.Deps, ownerID, keyID)
+		err := owner.DeleteKeypair(r.Context(), h.KeypairsAdmin.Deps, ownerID, keyID)
 		if err != nil {
 			writeError(h.Log, w, deleteKeypairEnv(err))
 			return

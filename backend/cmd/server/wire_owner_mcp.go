@@ -6,6 +6,7 @@ package main
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -36,22 +37,22 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		PagePins:         usecases.PagePinDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
 		Corpus:           &corpusDeps,
 		Conversations:    &convsDeps,
-		Prompts:          &usecases.PromptsDeps{Prompts: d.promptRepo},
+		Prompts:          &owner.PromptsDeps{Prompts: d.promptRepo},
 		Roles:            &rolesDeps,
 		MCPServers:       &marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Skills:           &marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		Writings:         &usecases.WritingsDeps{Writings: d.writingRepo},
 		WritingsTx:       &writingsTxDeps,
-		CustomPages: &usecases.CustomPageDeps{
+		CustomPages: &owner.CustomPageDeps{
 			Pages: d.customPageRepo, Builds: d.customBuildRepo,
 		},
-		Handle: &usecases.HandleDeps{Owners: d.ownerRepo},
+		Handle: &owner.HandleDeps{Owners: d.ownerRepo},
 		Calendar: &ownercore.CalendarOwnerDeps{
 			Proxy: d.connectorSlots.Calendar(), Store: newCapstoreBookingStore(d),
 		},
 		Appearance:     d.ownerRepo,
 		IPBans:         ipBanStoreAdapter{repo: d.bannedIPRepo},
-		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
+		Domains:        owner.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: ownerAccessRequestsDeps(d),
 		Capabilities: &ownercore.CapabilitiesOwnerDeps{
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
@@ -73,8 +74,8 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		PageContent: d.ownerRepo,
 		PublicURL:   usecases.PublicURLDeps{Owners: d.ownerRepo},
 		SEOStats:    seoStatsAdapter{repo: d.seoRepo},
-		Account:     usecases.AccountDeps{Owners: d.ownerRepo},
-		BYOAI:       usecases.BYOAIDeps{Owners: d.ownerRepo},
+		Account:     owner.AccountDeps{Owners: d.ownerRepo},
+		BYOAI:       owner.BYOAIDeps{Owners: d.ownerRepo},
 		AIPresets:   ownerAIPresets(),
 		Ghosts:      &usecases.GhostDeps{Repo: d.ghostRepo},
 		Log:         d.log,

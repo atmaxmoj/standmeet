@@ -2,7 +2,7 @@
 // CRUD use case。verify DNS 是 Caddy 侧 /internal/tls-ask 的事；这里
 // 只管 instance_settings.allowed_domains 这个 jsonb 数组本身。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -10,12 +10,11 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // AllowedDomainsDeps —— List / Add / Remove 需要 InstanceRepo。
 type AllowedDomainsDeps struct {
-	Instance *owner.InstanceRepo
+	Instance *InstanceRepo
 }
 
 // ListAllowedDomains —— 返当前白名单（empty slice if none）。

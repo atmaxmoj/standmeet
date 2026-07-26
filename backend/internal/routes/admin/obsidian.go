@@ -27,6 +27,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 	"github.com/atmaxmoj/standmeet/internal/usecases/obsidian"
@@ -37,8 +38,8 @@ type ObsidianDeps struct {
 	Writings   *corpus.WritingRepo
 	Assets     *corpus.AssetRepo
 	Storage    *storage.Client
-	Corpus     usecases.CorpusDeps    // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
-	CSS        usecases.OwnerCSSStore // .obsidian/snippets harvest → owner CSS
+	Corpus     usecases.CorpusDeps // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
+	CSS        owner.CSSStore      // .obsidian/snippets harvest → owner CSS
 	WritingsTx usecases.WritingsTxDeps
 	// PagePins —— sync 是 published 的第三条写路径(frontmatter 可翻 publish);
 	// 批量 reconcile 后清扫失效 pin,保住 pinned ⊆ published(渲染过滤只是兜底)。
@@ -47,10 +48,10 @@ type ObsidianDeps struct {
 }
 
 // cssSyncAdapter —— SyncCSSPort:harvest 的 CSS 经 SetOwnerCSS(sanitize+scope)。
-type cssSyncAdapter struct{ store usecases.OwnerCSSStore }
+type cssSyncAdapter struct{ store owner.CSSStore }
 
 func (a cssSyncAdapter) SetCSS(ctx context.Context, ownerID, rawCSS string) error {
-	if err := usecases.SetOwnerCSS(ctx, a.store, ownerID, rawCSS); err != nil {
+	if err := owner.SetOwnerCSS(ctx, a.store, ownerID, rawCSS); err != nil {
 		return fmt.Errorf("sync css: %w", err)
 	}
 	return nil

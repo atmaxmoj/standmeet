@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
@@ -89,17 +90,17 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		},
 		Ghosts:         usecases.GhostDeps{Repo: d.ghostRepo},
-		BYOAI:          usecases.BYOAIDeps{Owners: d.ownerRepo},
-		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
+		BYOAI:          owner.BYOAIDeps{Owners: d.ownerRepo},
+		Domains:        owner.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
-		HandleAdmin:    usecases.HandleDeps{Owners: d.ownerRepo},
+		HandleAdmin:    owner.HandleDeps{Owners: d.ownerRepo},
 		PublicURLAdmin: usecases.PublicURLDeps{Owners: d.ownerRepo},
-		AccountAdmin:   usecases.AccountDeps{Owners: d.ownerRepo},
+		AccountAdmin:   owner.AccountDeps{Owners: d.ownerRepo},
 		Recovery:       recoveryDeps(d),
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
-		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
+		CustomPages:    owner.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Skills:         marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
-		Prompts:        usecases.PromptsDeps{Prompts: d.promptRepo},
+		Prompts:        owner.PromptsDeps{Prompts: d.promptRepo},
 		Roles: usecases.RolesDeps{
 			Roles: d.roleRepo, Prompts: d.promptRepo,
 			Skills: d.skillRepo, MCPServers: d.mcpServerRepo,
@@ -297,7 +298,7 @@ func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
 
 func buildPublicCustomPageDeps(d *runtimeDeps) publicroutes.CustomPageHandlers {
 	return publicroutes.CustomPageHandlers{
-		Deps:       usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
+		Deps:       owner.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Owners:     d.ownerRepo,
 		Log:        d.log,
 		BuildsRoot: d.buildsRoot,
@@ -313,7 +314,7 @@ func buildPublicAccessRequestsDeps(d *runtimeDeps) publicroutes.AccessRequestsHa
 
 func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHandlers {
 	return publicroutes.PasswordResetHandlers{
-		Deps: usecases.PasswordResetDeps{Owners: d.ownerRepo},
+		Deps: owner.PasswordResetDeps{Owners: d.ownerRepo},
 		Log:  d.log,
 	}
 }
