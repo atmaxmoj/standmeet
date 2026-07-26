@@ -5,17 +5,15 @@
 // 字字对齐。owner 可在 admin UI 创建自己的 skill；builtin 不可删（repo
 // DeleteSkill 加了 is_builtin=false 谓词）。
 
-package usecases
+package marketplace
 
 import (
 	"context"
 	"fmt"
-
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
 
 // SeedBuiltinSkills —— 对一个 owner 幂等 upsert 全部 builtin skills。
-func SeedBuiltinSkills(ctx context.Context, repo *marketplace.SkillRepo, ownerID string) error {
+func SeedBuiltinSkills(ctx context.Context, repo *SkillRepo, ownerID string) error {
 	for i := range builtinSkillSeeds {
 		s := &builtinSkillSeeds[i]
 		if _, err := repo.UpsertBuiltin(ctx, ownerID, s.Name, s.Description, s.Prompt); err != nil {

@@ -13,18 +13,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capSkillsBundle = "skills.bundle"
 
 type skillsCapability struct {
-	skills *usecases.SkillsDeps
+	skills *marketplace.SkillsDeps
 	log    *slog.Logger
 }
 
 func newSkillsCapability(
-	skills *usecases.SkillsDeps, log *slog.Logger,
+	skills *marketplace.SkillsDeps, log *slog.Logger,
 ) *skillsCapability {
 	return &skillsCapability{skills: skills, log: log}
 }
@@ -98,7 +97,7 @@ func (c *skillsCapability) handleCreate(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	skill, cerr := usecases.CreateSkill(ctx, *c.skills, &usecases.CreateSkillInput{
+	skill, cerr := marketplace.CreateSkill(ctx, *c.skills, &marketplace.CreateSkillReq{
 		OwnerID: ownerID, Name: args.Name, Prompt: args.Prompt,
 		Description: args.Description, AllowedTools: args.AllowedTools, Scripts: args.Scripts,
 	})
@@ -155,7 +154,7 @@ type skillListRow struct {
 func (c *skillsCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) capreg.MCPResult {
-	rows, err := usecases.ListSkills(ctx, *c.skills, ownerID)
+	rows, err := marketplace.ListSkills(ctx, *c.skills, ownerID)
 	if err != nil {
 		c.log.Error("cap skill_list", "err", err)
 		return capreg.MCPError("list skills failed")
@@ -203,7 +202,7 @@ func (c *skillsCapability) handleDelete(
 	if args.SkillID == "" {
 		return capreg.MCPError("skill_id is required")
 	}
-	if err := usecases.DeleteSkill(ctx, *c.skills, ownerID, args.SkillID); err != nil {
+	if err := marketplace.DeleteSkill(ctx, *c.skills, ownerID, args.SkillID); err != nil {
 		return skillDeleteErrToResult(c.log, err)
 	}
 	return mcputil.MarshalResult(c.log, "skill_delete", map[string]string{
@@ -257,7 +256,7 @@ func (c *skillsCapability) handleSetEnabled(
 	if args.SkillID == "" {
 		return capreg.MCPError("skill_id is required")
 	}
-	skill, err := usecases.SetSkillEnabled(ctx, *c.skills, ownerID, args.SkillID, args.Enabled)
+	skill, err := marketplace.SetSkillEnabled(ctx, *c.skills, ownerID, args.SkillID, args.Enabled)
 	if err != nil {
 		if errors.Is(err, marketplace.ErrSkillNotFound) {
 			return capreg.MCPError("skill not found")

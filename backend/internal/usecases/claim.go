@@ -81,7 +81,7 @@ func seedClaimSkills(ctx context.Context, deps ClaimDeps, ownerID string) {
 	if deps.Skills == nil {
 		return
 	}
-	if err := SeedBuiltinSkills(ctx, deps.Skills, ownerID); err != nil {
+	if err := marketplace.SeedBuiltinSkills(ctx, deps.Skills, ownerID); err != nil {
 		slog.Default().Error("seed builtin skills", "owner_id", ownerID, "err", err)
 	}
 }

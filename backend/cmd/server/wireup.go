@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
@@ -97,13 +98,13 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Recovery:       recoveryDeps(d),
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
 		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
-		Skills:         usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
+		Skills:         marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		Prompts:        usecases.PromptsDeps{Prompts: d.promptRepo},
 		Roles: usecases.RolesDeps{
 			Roles: d.roleRepo, Prompts: d.promptRepo,
 			Skills: d.skillRepo, MCPServers: d.mcpServerRepo,
 		},
-		MCPServers:   usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
+		MCPServers:   marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Assets:       usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 		Writings:     usecases.WritingsDeps{Writings: d.writingRepo},
 		WritingRefs:  d.writingRefRepo,
@@ -114,7 +115,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Owners:       d.ownerRepo,
 		Drafts:       d.resumeDraftRepo,
 		Applications: d.applicationRepo,
-		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
+		Marketplace:  marketplace.SearchDeps{Client: d.marketplaceClient},
 		Calendar: adminroutes.CalendarAdminDeps{
 			Repo: newCapstoreBookingStore(d), Policy: newBookerPolicyStore(d),
 		},

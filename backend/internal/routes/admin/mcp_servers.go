@@ -15,12 +15,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // MCPServersAdminDeps —— admin mcp-servers handlers 依赖。
 type MCPServersAdminDeps struct {
-	Servers usecases.MCPServersDeps
+	Servers marketplace.MCPServersDeps
 }
 
 type mcpServerView struct {
@@ -53,7 +52,7 @@ func (h *Handlers) MountMCPServers(r chi.Router) {
 func (h *Handlers) listMCPServers() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		rows, err := usecases.ListMCPServers(r.Context(), h.MCPServersAdmin.Servers, ownerID)
+		rows, err := marketplace.ListMCPServers(r.Context(), h.MCPServersAdmin.Servers, ownerID)
 		if err != nil {
 			logEncodeErr(h.Log, "list mcp servers", err)
 			writeError(h.Log, w, serverErr())
@@ -100,11 +99,11 @@ func runCreateMCPServer(
 	r *http.Request, h *Handlers, w http.ResponseWriter, req *createMCPServerRequest,
 ) {
 	ownerID := middleware.OwnerIDFrom(r.Context())
-	in := &usecases.CreateMCPServerInput{
+	in := &marketplace.CreateMCPServerReq{
 		OwnerID: ownerID, Name: req.Name, URL: req.URL,
 		AuthHeaderName: req.AuthHeaderName, AuthHeaderValue: req.AuthHeaderValue,
 	}
-	cfg, err := usecases.CreateMCPServer(r.Context(), h.MCPServersAdmin.Servers, in)
+	cfg, err := marketplace.CreateMCPServer(r.Context(), h.MCPServersAdmin.Servers, in)
 	if err != nil {
 		handleCreateMCPServerErr(h.Log, w, err)
 		return
@@ -141,7 +140,8 @@ func (h *Handlers) deleteMCPServer() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		serverID := chi.URLParam(r, "id")
-		err := usecases.DeleteMCPServer(r.Context(), h.MCPServersAdmin.Servers, ownerID, serverID)
+		err := marketplace.DeleteMCPServer(
+			r.Context(), h.MCPServersAdmin.Servers, ownerID, serverID)
 		if err != nil {
 			handleDeleteMCPServerErr(h.Log, w, err)
 			return
@@ -175,7 +175,7 @@ func (h *Handlers) grantMCPServerDep() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		serverID := chi.URLParam(r, "id")
-		err := usecases.GrantMCPServerDep(
+		err := marketplace.GrantMCPServerDep(
 			r.Context(), h.MCPServersAdmin.Servers, ownerID, serverID, req.Dep,
 		)
 		if err != nil {

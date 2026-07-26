@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -18,7 +19,7 @@ const Name = "ownercore"
 
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
-	Marketplace      usecases.InstallSkillDeps
+	Marketplace      marketplace.InstallSkillDeps
 	Appearance       usecases.OwnerCSSStore
 	Codes            CodesRevoker
 	CodeBookingQuota CodeBookingQuota
@@ -28,13 +29,13 @@ type Deps struct {
 	CodeDenials      codeDenialsStore
 	IPBans           ipBansStore
 	Owners           OwnerLookup
-	Skills           *usecases.SkillsDeps
+	Skills           *marketplace.SkillsDeps
 	Connectors       *ConnectorsOwnerDeps
 	CustomPages      *usecases.CustomPageDeps
 	Handle           *usecases.HandleDeps
 	Calendar         *CalendarOwnerDeps
 	Writings         *usecases.WritingsDeps
-	MCPServers       *usecases.MCPServersDeps
+	MCPServers       *marketplace.MCPServersDeps
 	Domains          usecases.AllowedDomainsDeps
 	AccessRequests   *AccessRequestsOwnerDeps
 	Capabilities     *CapabilitiesOwnerDeps

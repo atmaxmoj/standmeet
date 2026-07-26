@@ -16,12 +16,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // SkillsAdminDeps —— admin skills handlers 依赖。
 type SkillsAdminDeps struct {
-	Skills usecases.SkillsDeps
+	Skills marketplace.SkillsDeps
 }
 
 type skillView struct {
@@ -68,7 +67,7 @@ func (h *Handlers) patchSkill() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		skillID := chi.URLParam(r, "id")
-		skill, err := usecases.SetSkillEnabled(
+		skill, err := marketplace.SetSkillEnabled(
 			r.Context(), h.SkillsAdmin.Skills, ownerID, skillID, req.Enabled,
 		)
 		if err != nil {
@@ -105,7 +104,7 @@ func handlePatchSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 func (h *Handlers) listSkills() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		rows, err := usecases.ListSkills(r.Context(), h.SkillsAdmin.Skills, ownerID)
+		rows, err := marketplace.ListSkills(r.Context(), h.SkillsAdmin.Skills, ownerID)
 		if err != nil {
 			logEncodeErr(h.Log, "list skills", err)
 			writeError(h.Log, w, serverErr())
@@ -148,11 +147,11 @@ func (h *Handlers) createSkill() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		in := &usecases.CreateSkillInput{
+		in := &marketplace.CreateSkillReq{
 			OwnerID: ownerID, Name: req.Name, Description: req.Description, Prompt: req.Prompt,
 			AllowedTools: req.AllowedTools,
 		}
-		skill, err := usecases.CreateSkill(r.Context(), h.SkillsAdmin.Skills, in)
+		skill, err := marketplace.CreateSkill(r.Context(), h.SkillsAdmin.Skills, in)
 		if err != nil {
 			handleCreateSkillErr(h.Log, w, err)
 			return
@@ -188,7 +187,7 @@ func (h *Handlers) deleteSkill() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		skillID := chi.URLParam(r, "id")
-		err := usecases.DeleteSkill(r.Context(), h.SkillsAdmin.Skills, ownerID, skillID)
+		err := marketplace.DeleteSkill(r.Context(), h.SkillsAdmin.Skills, ownerID, skillID)
 		if err != nil {
 			handleDeleteSkillErr(h.Log, w, err)
 			return

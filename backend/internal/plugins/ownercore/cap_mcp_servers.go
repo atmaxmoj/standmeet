@@ -12,18 +12,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capMCPServersBundle = "mcp_servers.bundle"
 
 type mcpServersCapability struct {
-	servers *usecases.MCPServersDeps
+	servers *marketplace.MCPServersDeps
 	log     *slog.Logger
 }
 
 func newMCPServersCapability(
-	servers *usecases.MCPServersDeps, log *slog.Logger,
+	servers *marketplace.MCPServersDeps, log *slog.Logger,
 ) *mcpServersCapability {
 	return &mcpServersCapability{servers: servers, log: log}
 }
@@ -92,7 +91,7 @@ func (c *mcpServersCapability) handleCreate(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	cfg, err := usecases.CreateMCPServer(ctx, *c.servers, &usecases.CreateMCPServerInput{
+	cfg, err := marketplace.CreateMCPServer(ctx, *c.servers, &marketplace.CreateMCPServerReq{
 		OwnerID: ownerID, Name: args.Name, URL: args.URL,
 		AuthHeaderName: args.AuthHeaderName, AuthHeaderValue: args.AuthHeaderValue,
 	})
@@ -148,7 +147,7 @@ type mcpServerListRow struct {
 func (c *mcpServersCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) capreg.MCPResult {
-	rows, err := usecases.ListMCPServers(ctx, *c.servers, ownerID)
+	rows, err := marketplace.ListMCPServers(ctx, *c.servers, ownerID)
 	if err != nil {
 		c.log.Error("cap mcp_server_list", "err", err)
 		return capreg.MCPError("list mcp servers failed")
@@ -196,7 +195,7 @@ func (c *mcpServersCapability) handleDelete(
 	if args.ServerID == "" {
 		return capreg.MCPError("server_id is required")
 	}
-	if err := usecases.DeleteMCPServer(ctx, *c.servers, ownerID, args.ServerID); err != nil {
+	if err := marketplace.DeleteMCPServer(ctx, *c.servers, ownerID, args.ServerID); err != nil {
 		if errors.Is(err, marketplace.ErrMCPServerNotFound) {
 			return capreg.MCPError("mcp server not found")
 		}
@@ -254,7 +253,7 @@ func (c *mcpServersCapability) handleGrantDep(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	err := usecases.GrantMCPServerDep(ctx, *c.servers, ownerID, args.ServerID, args.Dep)
+	err := marketplace.GrantMCPServerDep(ctx, *c.servers, ownerID, args.ServerID, args.Dep)
 	if err != nil {
 		if errors.Is(err, marketplace.ErrMCPServerNotFound) {
 			return capreg.MCPError("mcp server not found")

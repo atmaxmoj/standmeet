@@ -2,7 +2,7 @@
 // 落 cryptobox 加密 (跟 BYOAI key 同套模式)。InviteCode 选中后 visitor chat
 // 拉这一组 server 的 tools 加进 ToolSpec 列表。
 
-package usecases
+package marketplace
 
 import (
 	"context"
@@ -12,18 +12,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
 
 // MCPServersDeps —— mcp servers CRUD + per-code 关联用的 repo 集合。
 type MCPServersDeps struct {
-	Servers *marketplace.MCPServerRepo
+	Servers *MCPServerRepo
 	Codes   *access.CodeRepo
 }
 
-// CreateMCPServerInput —— create 入参。AuthHeaderValue 是明文，本函数
+// CreateMCPServerReq —— create 入参。AuthHeaderValue 是明文，本函数
 // cryptobox.Encrypt 一次再落库。
-type CreateMCPServerInput struct {
+type CreateMCPServerReq struct {
 	OwnerID         string
 	Name            string
 	URL             string
@@ -33,19 +32,19 @@ type CreateMCPServerInput struct {
 
 // CreateMCPServer —— 新建 mcp_server。name 冲突翻 ErrMCPServerNameTaken。
 func CreateMCPServer(
-	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerInput,
-) (marketplace.MCPServerConfig, error) {
+	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerReq,
+) (MCPServerConfig, error) {
 	if verr := validateMCPCreateInput(in); verr != nil {
-		return marketplace.MCPServerConfig{}, verr
+		return MCPServerConfig{}, verr
 	}
 	enc, eerr := encryptAuthValue(in.AuthHeaderValue, []byte(in.OwnerID))
 	if eerr != nil {
-		return marketplace.MCPServerConfig{}, eerr
+		return MCPServerConfig{}, eerr
 	}
 	return persistMCPServer(ctx, deps, in, enc)
 }
 
-func validateMCPCreateInput(in *CreateMCPServerInput) error {
+func validateMCPCreateInput(in *CreateMCPServerReq) error {
 	if in.OwnerID == "" || in.Name == "" || in.URL == "" {
 		return apierr.ErrEmptyField
 	}
@@ -53,17 +52,17 @@ func validateMCPCreateInput(in *CreateMCPServerInput) error {
 }
 
 func persistMCPServer(
-	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerInput, enc []byte,
-) (marketplace.MCPServerConfig, error) {
-	cfg, err := deps.Servers.Create(ctx, &marketplace.CreateMCPServerInput{
+	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerReq, enc []byte,
+) (MCPServerConfig, error) {
+	cfg, err := deps.Servers.Create(ctx, &CreateMCPServerInput{
 		OwnerID: in.OwnerID, Name: in.Name, URL: in.URL,
 		AuthHeaderName: in.AuthHeaderName, AuthHeaderValueEnc: enc,
 	})
 	if err != nil {
-		if errors.Is(err, marketplace.ErrMCPServerNameTaken) {
-			return marketplace.MCPServerConfig{}, marketplace.ErrMCPServerNameTaken
+		if errors.Is(err, ErrMCPServerNameTaken) {
+			return MCPServerConfig{}, ErrMCPServerNameTaken
 		}
-		return marketplace.MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
+		return MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
 	}
 	return cfg, nil
 }
@@ -85,7 +84,7 @@ func encryptAuthValue(plaintext string, aad []byte) ([]byte, error) {
 // ListMCPServers —— admin / MCP list。
 func ListMCPServers(
 	ctx context.Context, deps MCPServersDeps, ownerID string,
-) ([]marketplace.MCPServerConfig, error) {
+) ([]MCPServerConfig, error) {
 	if ownerID == "" {
 		return nil, apierr.ErrEmptyField
 	}

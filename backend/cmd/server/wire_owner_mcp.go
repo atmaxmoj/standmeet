@@ -5,6 +5,7 @@
 package main
 
 import (
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -37,8 +38,8 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Conversations:    &convsDeps,
 		Prompts:          &usecases.PromptsDeps{Prompts: d.promptRepo},
 		Roles:            &rolesDeps,
-		MCPServers:       &usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
-		Skills:           &usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
+		MCPServers:       &marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
+		Skills:           &marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		Writings:         &usecases.WritingsDeps{Writings: d.writingRepo},
 		WritingsTx:       &writingsTxDeps,
 		CustomPages: &usecases.CustomPageDeps{
@@ -62,7 +63,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
 			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,
 		},
-		Marketplace: usecases.InstallSkillDeps{
+		Marketplace: marketplace.InstallSkillDeps{
 			Marketplace: d.marketplaceClient, Skills: d.skillRepo,
 		},
 		Booking: &ownercore.BookingOwnerDeps{

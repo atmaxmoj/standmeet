@@ -618,6 +618,9 @@ deps:
       - httpx
       - pgstore
       - dbq
+      - access
+      - apierr
+      - cryptobox
     anyVendorDeps: true
 
 
@@ -740,6 +743,7 @@ deps:
       - access
       - corpus
       - jobsuc
+      - marketplace
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。

@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
@@ -81,10 +82,10 @@ type AdminDeps struct {
 	Recovery        usecases.RecoveryDeps
 	AIProvider      usecases.AIProviderDeps
 	CustomPages     usecases.CustomPageDeps
-	Skills          usecases.SkillsDeps
+	Skills          marketplace.SkillsDeps
 	Prompts         usecases.PromptsDeps
 	Roles           usecases.RolesDeps
-	MCPServers      usecases.MCPServersDeps
+	MCPServers      marketplace.MCPServersDeps
 	Assets          usecases.AssetsDeps
 	Writings        usecases.WritingsDeps
 	WritingRefs     *corpus.WritingRefRepo
@@ -95,7 +96,7 @@ type AdminDeps struct {
 	Owners          *owner.Repo
 	Drafts          *jobsuc.ResumeDraftRepo
 	Applications    *jobsuc.ApplicationRepo
-	Marketplace     usecases.MarketplaceDeps
+	Marketplace     marketplace.SearchDeps
 	Calendar        adminroutes.CalendarAdminDeps
 	Connectors      adminroutes.ConnectorsAdminDeps
 	Capabilities    adminroutes.CapabilityAdminDeps

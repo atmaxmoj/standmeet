@@ -15,14 +15,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // MarketplaceAdminDeps —— the slice of MarketplaceDeps the admin route
-// needs. We re-declare instead of importing usecases.MarketplaceDeps
+// needs. We re-declare instead of importing marketplace.SearchDeps
 // directly so the route file stays a thin handler.
 type MarketplaceAdminDeps struct {
-	Deps usecases.MarketplaceDeps
+	Deps marketplace.SearchDeps
 }
 
 // MountMarketplace —— GET /search → JSON array of MarketSkill; POST /install
@@ -58,7 +57,7 @@ func (h *Handlers) marketplaceInstallManual() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		skill, err := usecases.InstallManualSkill(r.Context(), usecases.InstallSkillDeps{
+		skill, err := marketplace.InstallManualSkill(r.Context(), marketplace.InstallSkillDeps{
 			Marketplace: h.MarketplaceAdmin.Deps.Client, Skills: h.SkillsAdmin.Skills.Skills,
 		}, ownerID, req.SkillMD, req.Name)
 		if err != nil {
@@ -77,9 +76,9 @@ func (h *Handlers) marketplaceInstall() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		skill, err := usecases.InstallSkill(r.Context(), usecases.InstallSkillDeps{
+		skill, err := marketplace.InstallSkill(r.Context(), marketplace.InstallSkillDeps{
 			Marketplace: h.MarketplaceAdmin.Deps.Client, Skills: h.SkillsAdmin.Skills.Skills,
-		}, &usecases.InstallSkillInput{
+		}, &marketplace.InstallSkillInput{
 			OwnerID: ownerID, Source: req.Source, ID: req.ID,
 			SourceURL: req.SourceURL, Name: req.Name, Version: req.Version,
 		})
@@ -118,8 +117,8 @@ const (
 func (h *Handlers) marketplaceSearch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		items := usecases.SearchMarketplace(r.Context(), h.MarketplaceAdmin.Deps,
-			usecases.MarketSearchParams{
+		items := marketplace.SearchMarketplace(r.Context(), h.MarketplaceAdmin.Deps,
+			marketplace.SearchParams{
 				Query:  q.Get("q"),
 				Source: q.Get("source"),
 				Limit:  parseIntDefault(q.Get("limit"), marketDefaultLimit),

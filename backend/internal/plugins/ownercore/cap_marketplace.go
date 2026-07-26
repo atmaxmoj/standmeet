@@ -4,7 +4,7 @@ package ownercore
 // marketplace.search (read) / marketplace.install (action). owner-only.
 // Mirrors the admin /api/admin/marketplace routes over MCP so the owner can
 // browse + install skills from Claude Code. search delegates to
-// usecases.SearchMarketplace; install to usecases.InstallSkill (fetch the
+// marketplace.SearchMarketplace; install to marketplace.InstallSkill (fetch the
 // SKILL.md, persist it as a source='marketplace' skill).
 
 import (
@@ -17,7 +17,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capMarketplaceBundle = "marketplace.bundle"
@@ -25,16 +24,16 @@ const capMarketplaceBundle = "marketplace.bundle"
 // marketSearchDefaultLimit —— one page of results per search call.
 const marketSearchDefaultLimit = 24
 
-// marketplaceCapability —— deps is usecases.InstallSkillDeps: it carries both the
+// marketplaceCapability —— deps is marketplace.InstallSkillDeps: it carries both the
 // marketplace client (search + SKILL.md fetch) and the skill repo (install
 // persistence), so one value serves both tools.
 type marketplaceCapability struct {
-	deps usecases.InstallSkillDeps
+	deps marketplace.InstallSkillDeps
 	log  *slog.Logger
 }
 
 func newMarketplaceCapability(
-	deps usecases.InstallSkillDeps, log *slog.Logger,
+	deps marketplace.InstallSkillDeps, log *slog.Logger,
 ) *marketplaceCapability {
 	return &marketplaceCapability{deps: deps, log: log}
 }
@@ -106,9 +105,9 @@ func (c *marketplaceCapability) handleSearch(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	items := usecases.SearchMarketplace(ctx,
-		usecases.MarketplaceDeps{Client: c.deps.Marketplace},
-		usecases.MarketSearchParams{
+	items := marketplace.SearchMarketplace(ctx,
+		marketplace.SearchDeps{Client: c.deps.Marketplace},
+		marketplace.SearchParams{
 			Query: args.Query, Source: args.Source, Limit: marketSearchDefaultLimit,
 		})
 	return mcputil.MarshalResult(c.log, "marketplace.search", items)
@@ -162,7 +161,7 @@ func (c *marketplaceCapability) handleInstall(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	skill, err := usecases.InstallSkill(ctx, c.deps, &usecases.InstallSkillInput{
+	skill, err := marketplace.InstallSkill(ctx, c.deps, &marketplace.InstallSkillInput{
 		OwnerID: ownerID, Source: args.Source, ID: args.ID,
 		Name: args.Name, Version: args.Version,
 	})

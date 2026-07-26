@@ -7,7 +7,7 @@
 // builtin skill 在 owner 首次 claim 时 seed，is_builtin=true，不可删（repo
 // DeleteSkill 加了 is_builtin=false 谓词）。
 
-package usecases
+package marketplace
 
 import (
 	"context"
@@ -16,34 +16,33 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
 
 // SkillsDeps —— skills CRUD 需要的 repo 集合。Code 用来 SetCodeSkills 时
 // 校验 code 属于同 owner。
 type SkillsDeps struct {
-	Skills *marketplace.SkillRepo
+	Skills *SkillRepo
 	Codes  *access.CodeRepo
 }
 
-// CreateSkillInput —— skill.create 入参。
-type CreateSkillInput struct {
+// CreateSkillReq —— skill.create 入参。
+type CreateSkillReq struct {
 	OwnerID      string
 	Name         string
 	Description  string
 	Prompt       string
 	AllowedTools []string
-	Scripts      []marketplace.SkillScript
+	Scripts      []SkillScript
 }
 
 // CreateSkill 新建 owner-curated skill。
 func CreateSkill(
-	ctx context.Context, deps SkillsDeps, in *CreateSkillInput,
-) (marketplace.Skill, error) {
+	ctx context.Context, deps SkillsDeps, in *CreateSkillReq,
+) (Skill, error) {
 	if in.OwnerID == "" || in.Name == "" {
-		return marketplace.Skill{}, apierr.ErrEmptyField
+		return Skill{}, apierr.ErrEmptyField
 	}
-	skill, err := deps.Skills.Create(ctx, &marketplace.CreateSkillInput{
+	skill, err := deps.Skills.Create(ctx, &CreateSkillInput{
 		OwnerID:      in.OwnerID,
 		Name:         in.Name,
 		Description:  in.Description,
@@ -52,10 +51,10 @@ func CreateSkill(
 		Scripts:      in.Scripts,
 	})
 	if err != nil {
-		if errors.Is(err, marketplace.ErrSkillNameTaken) {
-			return marketplace.Skill{}, marketplace.ErrSkillNameTaken
+		if errors.Is(err, ErrSkillNameTaken) {
+			return Skill{}, ErrSkillNameTaken
 		}
-		return marketplace.Skill{}, fmt.Errorf("create skill: %w", err)
+		return Skill{}, fmt.Errorf("create skill: %w", err)
 	}
 	return skill, nil
 }
@@ -63,7 +62,7 @@ func CreateSkill(
 // ListSkills —— admin / MCP skill.list。
 func ListSkills(
 	ctx context.Context, deps SkillsDeps, ownerID string,
-) ([]marketplace.Skill, error) {
+) ([]Skill, error) {
 	if ownerID == "" {
 		return nil, apierr.ErrEmptyField
 	}
@@ -94,13 +93,13 @@ func DeleteSkill(
 // SetSkillEnabled —— #48-2: owner 全局开/关一个 skill(builtin 也可开关,只是删不掉)。
 func SetSkillEnabled(
 	ctx context.Context, deps SkillsDeps, ownerID, skillID string, enabled bool,
-) (marketplace.Skill, error) {
+) (Skill, error) {
 	if ownerID == "" || skillID == "" {
-		return marketplace.Skill{}, apierr.ErrEmptyField
+		return Skill{}, apierr.ErrEmptyField
 	}
 	out, err := deps.Skills.SetEnabled(ctx, ownerID, skillID, enabled)
 	if err != nil {
-		return marketplace.Skill{}, fmt.Errorf("set skill enabled: %w", err)
+		return Skill{}, fmt.Errorf("set skill enabled: %w", err)
 	}
 	return out, nil
 }
@@ -113,7 +112,7 @@ func checkSkillDeletable(
 		return fmt.Errorf("get skill: %w", gerr)
 	}
 	if skill.IsBuiltin {
-		return marketplace.ErrSkillBuiltinImmutable
+		return ErrSkillBuiltinImmutable
 	}
 	return nil
 }
