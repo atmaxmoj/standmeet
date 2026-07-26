@@ -12,8 +12,9 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capstore"
+	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	ownerroutes "github.com/atmaxmoj/standmeet/internal/routes/owner"
 )
 
 // boundCapStore —— 把通用 capstore.Store 绑死到某个 cap 的隔离命名空间(reachback.CapStore 接口里
@@ -87,7 +88,7 @@ func wireMailSenderGateway(ctx context.Context, d *runtimeDeps) {
 	}
 	bound := boundCapStore{store: store, kind: mailSenderCapKind, id: mailSenderCapID}
 	connectorroutes.RegisterInvokeOp(srv, d.connectorSlots)
-	capstore.RegisterOps(srv, bound)
-	usecases.RegisterOwnerMetaOp(srv, d.ownerRepo)
+	capstoreroutes.RegisterOps(srv, bound)
+	ownerroutes.RegisterOwnerMetaOp(srv, d.ownerRepo)
 	go srv.Serve(ctx)
 }

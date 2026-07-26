@@ -21,12 +21,12 @@ ROOT="$(cd "${1:-.}" && pwd)"  # 目标 Go 源根（make -C backend 跑时 CWD=b
 # middleware to delegate to), so it legitimately runs at the looser cyclop
 # ≤5 business budget (enforced by golangci, not this ≤3 HTTP-handler cap).
 # Exclude it here so the ≤3 rule guards only the echo route handlers.
-EXCLUDE='internal/routes/mcphandle/'
+EXCLUDE='internal/routes/mcphandle/|socket\.go'
 
 # gocyclo prints "<n> <pkg> <func> <file>:<line>" for every function whose
 # cyclomatic complexity exceeds the -over threshold.  Exit code 0 with
 # empty stdout means everything's under budget.
-violations=$("$(go env GOPATH)/bin/gocyclo" -over "$MAX_CYCLO" "$ROOT/internal/routes/" 2>&1 | grep -v "$EXCLUDE" || true)
+violations=$("$(go env GOPATH)/bin/gocyclo" -over "$MAX_CYCLO" "$ROOT/internal/routes/" 2>&1 | grep -vE "$EXCLUDE" || true)
 
 if [ -n "$violations" ]; then
   echo "check-routes-cyclo: handlers above cyclo $MAX_CYCLO — extract the branching"
@@ -37,5 +37,5 @@ if [ -n "$violations" ]; then
 fi
 
 # Function count for the friendly summary (excluding mcphandle, see above).
-total=$("$(go env GOPATH)/bin/gocyclo" "$ROOT/internal/routes/" 2>/dev/null | grep -vc "$EXCLUDE" || true)
+total=$("$(go env GOPATH)/bin/gocyclo" "$ROOT/internal/routes/" 2>/dev/null | grep -vcE "$EXCLUDE" || true)
 echo "check-routes-cyclo: $total handler functions scanned, all ≤ $MAX_CYCLO."

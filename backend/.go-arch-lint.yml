@@ -127,6 +127,10 @@ components:
     in: internal/routes/pubapi            # /api/pub/v1/* — API-key facade (facade-directions.md)
   connectorroutes:
     in: internal/routes/connector         # socket 入站 API controller: connector.invoke (薄壳→connector.Slots)
+  capstoreroutes:
+    in: internal/routes/capstore          # socket 入站 API controller: capstore.* (薄壳→BoundStore)
+  ownerroutes:
+    in: internal/routes/owner             # socket 入站 API controller: owner.meta (薄壳→OwnerMetaLookup)
   server:
     in: internal/server
   cmd:
@@ -201,6 +205,17 @@ deps:
   connectorroutes:
     mayDependOn:
       - capsocket
+    anyVendorDeps: true
+
+  # capstoreroutes / ownerroutes —— 同 connectorroutes,socket 入站 API 的 controller 薄壳。
+  capstoreroutes:
+    mayDependOn:
+      - capsocket
+    anyVendorDeps: true
+  ownerroutes:
+    mayDependOn:
+      - capsocket
+      - domain
     anyVendorDeps: true
 
   # connectorcontract —— #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)。
@@ -528,8 +543,7 @@ deps:
   # capstore —— per-plugin 隔离文档存储（每 connector/mcp 一 schema）。leaf：只依赖 pgx，
   # 不绕回任何 internal 业务模块。schema 名从 host 可信 (kind,id) 推 + DROP 守卫见包内。
   capstore:
-    mayDependOn:
-      - capsocket   # #135: capstore.* host op(socket.go)挂到沙箱 cap 的 socket
+    mayDependOn: []   # #135: socket.go(capstore.* host op)已移到 internal/routes/capstore;本包回归纯 leaf
     anyVendorDeps: true
 
 
@@ -642,6 +656,8 @@ deps:
       - publicroutes
       - pubapi
       - connectorroutes
+      - capstoreroutes
+      - ownerroutes
       - mcphandle
       - inference
       - jobcache

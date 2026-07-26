@@ -17,8 +17,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capstore"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
+	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	ownerroutes "github.com/atmaxmoj/standmeet/internal/routes/owner"
 )
 
 // policyDoc —— booker capstore "policy" collection 的落盘形状。json 键跟沙箱 booker 的
@@ -152,8 +153,8 @@ func wireBookerGateway(ctx context.Context, d *runtimeDeps) {
 		return
 	}
 	connectorroutes.RegisterInvokeOp(srv, d.connectorSlots)
-	capstore.RegisterOps(srv, bookerCapStore{store: store})
-	usecases.RegisterOwnerMetaOp(srv, d.ownerRepo)
+	capstoreroutes.RegisterOps(srv, bookerCapStore{store: store})
+	ownerroutes.RegisterOwnerMetaOp(srv, d.ownerRepo)
 	go srv.Serve(ctx)
 }
 

@@ -1,8 +1,8 @@
-// owner_meta_socket.go —— owner.meta host op：断网沙箱 cap 经 socket 读**白名单** owner 字段
+// Package owner —— socket 入站 controller。owner.meta host op：断网沙箱 cap 经 socket 读**白名单** owner 字段
 // (时区/名字/邮箱)。按业务分类:它跟 owner 数据一起,不进机制 bucket。非白名单字段一律拒
 // (不泄露任意 owner 数据)。cmd 按需要 owner 元数据的 cap 挂这个。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -13,13 +13,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
-// OwnerMetaLookup —— 取 owner 记录(owner.meta 只读它的白名单字段)。
-type OwnerMetaLookup interface {
+// MetaLookup —— 取 owner 记录(owner.meta 只读它的白名单字段)。
+type MetaLookup interface {
 	GetByID(ctx context.Context, ownerID string) (domain.Owner, error)
 }
 
 // RegisterOwnerMetaOp —— 把 "owner.meta" 挂到 srv:{owner_id,field} → 白名单字段值,否则拒。
-func RegisterOwnerMetaOp(srv *capsocket.Server, owners OwnerMetaLookup) {
+func RegisterOwnerMetaOp(srv *capsocket.Server, owners MetaLookup) {
 	srv.Handle("owner.meta", func(
 		ctx context.Context, raw json.RawMessage,
 	) (json.RawMessage, error) {
@@ -28,7 +28,7 @@ func RegisterOwnerMetaOp(srv *capsocket.Server, owners OwnerMetaLookup) {
 }
 
 func runOwnerMeta(
-	ctx context.Context, owners OwnerMetaLookup, raw json.RawMessage,
+	ctx context.Context, owners MetaLookup, raw json.RawMessage,
 ) (json.RawMessage, error) {
 	var req struct {
 		OwnerID string `json:"owner_id"`
