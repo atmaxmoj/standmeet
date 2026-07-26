@@ -2,14 +2,14 @@
 // 走裸 pgx（跟 calendar_bookings 一样的 sqlc-bypass 先例）—— 一个 date_trunc GROUP BY
 // 不值当往共享 dbq 加查询。三层 raw/wiki/output 各有 owner_id + created_at。
 
-package postgres
+package stats
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -21,21 +21,21 @@ const corpusDeltaDays = 7
 
 // GrowthRepo —— corpus 增长统计。
 type GrowthRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewGrowthRepo 构造。
-func NewGrowthRepo(pool *Pool) *GrowthRepo { return &GrowthRepo{pool: pool} }
+func NewGrowthRepo(pool *pgstore.Pool) *GrowthRepo { return &GrowthRepo{pool: pool} }
 
 // CorpusGrowth —— 分层总量 + 14 天新增序列 + 7 天增量。owner-scoped。
 func (r *GrowthRepo) CorpusGrowth(
 	ctx context.Context, ownerID string,
-) (stats.CorpusGrowth, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) (CorpusGrowth, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return stats.CorpusGrowth{}, fmt.Errorf("parse owner id: %w", err)
+		return CorpusGrowth{}, fmt.Errorf("parse owner id: %w", err)
 	}
-	var tiers stats.CorpusTierCounts
+	var tiers CorpusTierCounts
 	err = r.pool.QueryRow(ctx, `
 		SELECT
 		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'raw'),
@@ -48,11 +48,11 @@ func (r *GrowthRepo) CorpusGrowth(
 		&tiers.Raw, &tiers.Wiki, &tiers.Output, &tiers.Writing, &tiers.RawUnprocessed,
 	)
 	if err != nil {
-		return stats.CorpusGrowth{}, fmt.Errorf("count corpus tiers: %w", err)
+		return CorpusGrowth{}, fmt.Errorf("count corpus tiers: %w", err)
 	}
 	byDay, err := r.corpusByDay(ctx, ownerUUID)
 	if err != nil {
-		return stats.CorpusGrowth{}, err
+		return CorpusGrowth{}, err
 	}
 	return assembleCorpusGrowth(tiers, byDay), nil
 }
@@ -90,19 +90,19 @@ func (r *GrowthRepo) corpusByDay(
 }
 
 // assembleCorpusGrowth —— 铺满 14 天序列（缺天补 0）、算 7 天增量、组装分层总量。
-func assembleCorpusGrowth(tiers stats.CorpusTierCounts, byDay map[string]int) stats.CorpusGrowth {
+func assembleCorpusGrowth(tiers CorpusTierCounts, byDay map[string]int) CorpusGrowth {
 	now := time.Now().UTC()
-	series := make([]stats.CorpusDayCount, corpusGrowthDays)
+	series := make([]CorpusDayCount, corpusGrowthDays)
 	delta7 := 0
 	for i := range corpusGrowthDays {
 		day := now.AddDate(0, 0, i-(corpusGrowthDays-1)).Format("2006-01-02")
 		count := byDay[day]
-		series[i] = stats.CorpusDayCount{Day: day, Count: count}
+		series[i] = CorpusDayCount{Day: day, Count: count}
 		if i >= corpusGrowthDays-corpusDeltaDays {
 			delta7 += count
 		}
 	}
-	return stats.CorpusGrowth{
+	return CorpusGrowth{
 		Series:  series,
 		ByTier:  tiers,
 		Total:   tiers.Raw + tiers.Wiki + tiers.Output,

@@ -29,6 +29,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/search"
 	"github.com/atmaxmoj/standmeet/internal/security"
 	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -45,8 +46,8 @@ type repoSet struct {
 	vaultSync      *postgres.VaultSyncRepo
 	noteRef        *postgres.NoteRefRepo
 	output         *postgres.OutputRepo
-	growth         *postgres.GrowthRepo
-	activity       *postgres.ActivityRepo
+	growth         *stats.GrowthRepo
+	activity       *stats.ActivityRepo
 	code           *postgres.CodeRepo
 	codeDenial     *postgres.CodeDenialRepo
 	chat           *postgres.ChatRepo
@@ -68,7 +69,7 @@ type repoSet struct {
 	capability     *postgres.CapabilityRepo
 	ghost          *postgres.GhostRepo
 	chatReport     *postgres.ChatReportRepo
-	inferenceUsage *postgres.InferenceUsageRepo
+	inferenceUsage *stats.InferenceUsageRepo
 	bannedIP       *security.BannedIPRepo
 	apiKey         *postgres.APIKeyRepo
 	appState       *postgres.AppStateRepo
@@ -86,8 +87,8 @@ func newRepos(db *postgres.Pool) *repoSet {
 		vaultSync:      postgres.NewVaultSyncRepo(db),
 		noteRef:        postgres.NewNoteRefRepo(db),
 		output:         postgres.NewOutputRepo(db),
-		growth:         postgres.NewGrowthRepo(db),
-		activity:       postgres.NewActivityRepo(db),
+		growth:         stats.NewGrowthRepo(db),
+		activity:       stats.NewActivityRepo(db),
 		code:           postgres.NewCodeRepo(db),
 		codeDenial:     postgres.NewCodeDenialRepo(db),
 		chat:           postgres.NewChatRepo(db),
@@ -109,7 +110,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		capability:     postgres.NewCapabilityRepo(db),
 		ghost:          postgres.NewGhostRepo(db),
 		chatReport:     postgres.NewChatReportRepo(db),
-		inferenceUsage: postgres.NewInferenceUsageRepo(db),
+		inferenceUsage: stats.NewInferenceUsageRepo(db),
 		bannedIP:       security.NewBannedIPRepo(db),
 		apiKey:         postgres.NewAPIKeyRepo(db),
 		appState:       postgres.NewAppStateRepo(db),

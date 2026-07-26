@@ -1,5 +1,5 @@
 // inference_usage.go —— #106 计费:GET /inference-usage 出 owner 近 7 天 LLM 用量
-// (按天×model 聚合 + 合计)。数据由 postgres.InferenceUsageRepo.Summarize7Day 提供。
+// (按天×model 聚合 + 合计)。数据由 stats.InferenceUsageRepo.Summarize7Day 提供。
 
 package admin
 

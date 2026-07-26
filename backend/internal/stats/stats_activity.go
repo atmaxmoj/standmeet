@@ -7,24 +7,24 @@
 // (它对空的 code_bookings 本就 0 行,行为不变)。要在 feed 里恢复 booking 事件,走注入式
 // booking-activity 源(组装根接 capstore),是独立的 feature pass。
 
-package postgres
+package stats
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ActivityRepo —— 近期活动流。
 type ActivityRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewActivityRepo 构造。
-func NewActivityRepo(pool *Pool) *ActivityRepo { return &ActivityRepo{pool: pool} }
+func NewActivityRepo(pool *pgstore.Pool) *ActivityRepo { return &ActivityRepo{pool: pool} }
 
 const activityQuery = `
 	SELECT kind, at, label FROM (
@@ -42,8 +42,8 @@ const activityQuery = `
 // RecentActivity —— owner-scoped 最近 limit 条事件，最新在前。
 func (r *ActivityRepo) RecentActivity(
 	ctx context.Context, ownerID string, limit int,
-) ([]stats.ActivityEvent, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) ([]ActivityEvent, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
 	}
@@ -69,8 +69,8 @@ const graphQuery = `
 // CorpusGraph —— owner 的语料链接图前 limit 个 hub 节点（degree 降序）。
 func (r *ActivityRepo) CorpusGraph(
 	ctx context.Context, ownerID string, limit int,
-) ([]stats.GraphNode, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) ([]GraphNode, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
 	}
@@ -82,8 +82,8 @@ func (r *ActivityRepo) CorpusGraph(
 	return scanGraphNodes(rows)
 }
 
-func scanGraphNodes(rows pgx.Rows) ([]stats.GraphNode, error) {
-	nodes := make([]stats.GraphNode, 0)
+func scanGraphNodes(rows pgx.Rows) ([]GraphNode, error) {
+	nodes := make([]GraphNode, 0)
 	for rows.Next() {
 		var id pgtype.UUID
 		var title, genre string
@@ -91,8 +91,8 @@ func scanGraphNodes(rows pgx.Rows) ([]stats.GraphNode, error) {
 		if serr := rows.Scan(&id, &title, &genre, &degree); serr != nil {
 			return nil, fmt.Errorf("scan graph node: %w", serr)
 		}
-		nodes = append(nodes, stats.GraphNode{
-			ID: formatUUID(id), Title: title, Genre: genre, Degree: int(degree),
+		nodes = append(nodes, GraphNode{
+			ID: pgstore.FormatUUID(id), Title: title, Genre: genre, Degree: int(degree),
 		})
 	}
 	if rerr := rows.Err(); rerr != nil {
@@ -101,15 +101,15 @@ func scanGraphNodes(rows pgx.Rows) ([]stats.GraphNode, error) {
 	return nodes, nil
 }
 
-func scanActivityEvents(rows pgx.Rows) ([]stats.ActivityEvent, error) {
-	events := make([]stats.ActivityEvent, 0)
+func scanActivityEvents(rows pgx.Rows) ([]ActivityEvent, error) {
+	events := make([]ActivityEvent, 0)
 	for rows.Next() {
 		var kind, label string
 		var at pgtype.Timestamptz
 		if serr := rows.Scan(&kind, &at, &label); serr != nil {
 			return nil, fmt.Errorf("scan activity event: %w", serr)
 		}
-		events = append(events, stats.ActivityEvent{At: at.Time, Kind: kind, Label: label})
+		events = append(events, ActivityEvent{At: at.Time, Kind: kind, Label: label})
 	}
 	if rerr := rows.Err(); rerr != nil {
 		return nil, fmt.Errorf("iterate activity events: %w", rerr)

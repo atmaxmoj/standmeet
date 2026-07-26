@@ -28,6 +28,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/search"
 	"github.com/atmaxmoj/standmeet/internal/security"
 	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -47,8 +48,8 @@ type runtimeDeps struct {
 	vaultSyncRepo      *postgres.VaultSyncRepo
 	noteRefRepo        *postgres.NoteRefRepo
 	outputRepo         *postgres.OutputRepo
-	growthRepo         *postgres.GrowthRepo
-	activityRepo       *postgres.ActivityRepo
+	growthRepo         *stats.GrowthRepo
+	activityRepo       *stats.ActivityRepo
 	jobRegistry        *jobregistry.Registry
 	corpus             *postgres.Corpus
 	codeRepo           *postgres.CodeRepo
@@ -72,7 +73,7 @@ type runtimeDeps struct {
 	capabilityRepo     *postgres.CapabilityRepo
 	ghostRepo          *postgres.GhostRepo
 	chatReportRepo     *postgres.ChatReportRepo
-	inferenceUsageRepo *postgres.InferenceUsageRepo
+	inferenceUsageRepo *stats.InferenceUsageRepo
 	bannedIPRepo       *security.BannedIPRepo
 	apiKeyRepo         *postgres.APIKeyRepo
 	appStateRepo       *postgres.AppStateRepo

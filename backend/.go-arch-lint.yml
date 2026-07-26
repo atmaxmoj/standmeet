@@ -613,9 +613,11 @@ deps:
       - stats
     anyVendorDeps: true
 
-  # stats —— #135 Monitor 观测面领域值对象 leaf：从现有行派生的只读快照，无 internal 依赖。
+  # stats —— #135 Monitor 观测域(full vertical)：观测值对象 + activity/growth/inference_usage repo。
   stats:
-    mayDependOn: []
+    mayDependOn:
+      - pgstore
+      - dbq
     anyVendorDeps: true
 
   # security —— #135 请求级防护域模块(full vertical)：BannedIP entity + repo + captcha verifier。
