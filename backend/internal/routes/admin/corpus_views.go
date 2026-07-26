@@ -4,11 +4,11 @@
 package admin
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-func rawItemFromDomain(r *corpusdomain.Raw) rawListItem {
+func rawItemFromDomain(r *corpus.Raw) rawListItem {
 	return rawListItem{
 		ID:        r.ID(),
 		Body:      r.Body(),
@@ -21,7 +21,7 @@ func rawItemFromDomain(r *corpusdomain.Raw) rawListItem {
 
 // wikiItemFromDomain —— path 由 caller 传(树派生地址,纯从 parent 链算,不读
 // 已退役的 path 列);单条上下文(promote 结果)没全树可算就传 ""。
-func wikiItemFromDomain(w *corpusdomain.Wiki, path string) wikiListItem {
+func wikiItemFromDomain(w *corpus.Wiki, path string) wikiListItem {
 	return wikiListItem{
 		ID:    w.ID(),
 		Title: w.Title(),
@@ -50,7 +50,7 @@ func ptrIfNonEmpty(s string) *string {
 
 const excerptMaxLen = 200
 
-func outputItemFromDomain(o *corpusdomain.Output, path string) outputListItem {
+func outputItemFromDomain(o *corpus.Output, path string) outputListItem {
 	return outputListItem{
 		ID:            o.ID(),
 		Title:         o.Title(),

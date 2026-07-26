@@ -11,7 +11,7 @@
 // Integration interface，caller 通过 Integrations().Find(domain.IntegrationObsidian)
 // 拿）。
 
-package corpusdomain
+package corpus
 
 import (
 	"errors"

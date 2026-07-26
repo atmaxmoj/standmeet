@@ -14,7 +14,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -23,7 +23,7 @@ import (
 type WikiSEOUpdater interface {
 	UpdateWikiSEO(
 		ctx context.Context, ownerID, wikiID, description string, indexed bool,
-	) (corpusdomain.Wiki, error)
+	) (corpus.Wiki, error)
 }
 
 // WikiSEOUpdate —— 一次 wiki SEO 更新的入参(excerpt + publish 开关)。
@@ -37,7 +37,7 @@ type WikiSEOUpdate struct {
 // WikiSEOResult —— 更新后的 wiki + 因 unpublish 被自动摘除的栏目名。
 type WikiSEOResult struct {
 	Unpinned []string
-	Wiki     corpusdomain.Wiki
+	Wiki     corpus.Wiki
 }
 
 // UpdateWikiSEOWithPins —— 改 excerpt/published,unpublish 时自动 unpin。

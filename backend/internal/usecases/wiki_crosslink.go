@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -65,7 +65,7 @@ func applyOneWikiRewrite(
 
 // WikiPathTitleIndex —— 从全树 + 派生 path 抽出可作链接目标的 (title, path) 列。
 // 只收 published:公开链接目标必须可访问,否则点进去 404。
-func WikiPathTitleIndex(wikis []corpusdomain.Wiki, paths map[string]string) []WikiPathTitle {
+func WikiPathTitleIndex(wikis []corpus.Wiki, paths map[string]string) []WikiPathTitle {
 	out := make([]WikiPathTitle, 0, len(wikis))
 	for i := range wikis {
 		if wikis[i].Published() {

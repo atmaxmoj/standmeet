@@ -10,7 +10,7 @@
 // Published / SourceWikiIDs —— Output 跟 Wiki 唯一形式差别是
 // SourceWikiIDs vs SourceRawIDs，其它对称。
 
-package corpusdomain
+package corpus
 
 import (
 	"errors"

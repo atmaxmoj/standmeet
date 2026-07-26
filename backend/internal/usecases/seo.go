@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -37,14 +37,14 @@ func FirstOwner(ctx context.Context, deps SEODeps) (ownerdomain.Owner, bool) {
 }
 
 // FirstOwnerSettings —— SEO 渲染入口：拿首位 owner 的 SEOSettings。
-func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpusdomain.SEOSettings, bool) {
+func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpus.SEOSettings, bool) {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return corpusdomain.SEOSettings{}, false
+		return corpus.SEOSettings{}, false
 	}
 	settings, err := deps.SEO.GetSettings(ctx, owner.ID)
 	if err != nil {
-		return corpusdomain.SEOSettings{}, false
+		return corpus.SEOSettings{}, false
 	}
 	return settings, true
 }
@@ -68,7 +68,7 @@ type WikiLanding struct {
 	Body    string
 	Related []WikiPathTitle
 	CitedBy []WikiPathTitle
-	Wiki    corpusdomain.Wiki
+	Wiki    corpus.Wiki
 }
 
 // wikiRefSides —— 一条 wiki 的出链 + 入链(给 landing 返回用)。
@@ -87,7 +87,7 @@ func GetWikiLanding(
 	ctx context.Context, deps SEODeps, path string, scope WikiTreeScope,
 ) (WikiLanding, error) {
 	if path == "" {
-		return WikiLanding{}, corpusdomain.ErrWikiNotFound
+		return WikiLanding{}, corpus.ErrWikiNotFound
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
@@ -117,7 +117,7 @@ func assembleWikiLanding(
 	paths := WikiMetaTreePaths(loc.metas)
 	id, found := indexedWikiIDAtPath(loc.metas, paths, loc.path, loc.scope)
 	if !found {
-		return WikiLanding{}, corpusdomain.ErrWikiNotFound
+		return WikiLanding{}, corpus.ErrWikiNotFound
 	}
 	w, gerr := deps.Wiki.GetByID(ctx, ownerID, id)
 	if gerr != nil {
@@ -200,13 +200,13 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 // GetOutputLanding —— 公开 output landing 查询（同 wiki 的树派生口径）。
 func GetOutputLanding(
 	ctx context.Context, deps SEODeps, path string,
-) (corpusdomain.Output, error) {
+) (corpus.Output, error) {
 	if path == "" {
-		return corpusdomain.Output{}, corpusdomain.ErrOutputNotFound
+		return corpus.Output{}, corpus.ErrOutputNotFound
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return corpusdomain.Output{}, ownerdomain.ErrOwnerNotFound
+		return corpus.Output{}, ownerdomain.ErrOwnerNotFound
 	}
 	return resolveOutputLanding(ctx, deps, owner.ID, path)
 }
@@ -214,18 +214,18 @@ func GetOutputLanding(
 // resolveOutputLanding —— 全量 meta 定位 indexed + path 命中那条,正文 GetByID 拉。
 func resolveOutputLanding(
 	ctx context.Context, deps SEODeps, ownerID, path string,
-) (corpusdomain.Output, error) {
+) (corpus.Output, error) {
 	metas, err := deps.Output.ListAllMeta(ctx, ownerID)
 	if err != nil {
-		return corpusdomain.Output{}, fmt.Errorf("list output meta: %w", err)
+		return corpus.Output{}, fmt.Errorf("list output meta: %w", err)
 	}
 	id, found := indexedOutputIDAtPath(metas, OutputMetaTreePaths(metas), path)
 	if !found {
-		return corpusdomain.Output{}, corpusdomain.ErrOutputNotFound
+		return corpus.Output{}, corpus.ErrOutputNotFound
 	}
 	o, gerr := deps.Output.GetByID(ctx, ownerID, id)
 	if gerr != nil {
-		return corpusdomain.Output{}, fmt.Errorf("get output: %w", gerr)
+		return corpus.Output{}, fmt.Errorf("get output: %w", gerr)
 	}
 	return o, nil
 }

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -26,7 +26,7 @@ type entryRef struct {
 // 调用方拿到地址就能 corpus_read / 引用它,不用从 title 反推 slug。best-effort —— path
 // 算不出(理论上刚建就在)→ warn + 空串,不搅黄整个写。
 func entryPathForResponse(
-	ctx context.Context, log *slog.Logger, corpus *usecases.CorpusDeps, ref entryRef,
+	ctx context.Context, log *slog.Logger, corpusDeps *usecases.CorpusDeps, ref entryRef,
 ) string {
 	var (
 		path string
@@ -34,9 +34,9 @@ func entryPathForResponse(
 	)
 	switch ref.genre {
 	case "wiki":
-		path, err = usecases.WikiEntryPath(ctx, corpus.Wiki, ref.ownerID, ref.id)
+		path, err = usecases.WikiEntryPath(ctx, corpusDeps.Wiki, ref.ownerID, ref.id)
 	case "output":
-		path, err = usecases.OutputEntryPath(ctx, corpus.Output, ref.ownerID, ref.id)
+		path, err = usecases.OutputEntryPath(ctx, corpusDeps.Output, ref.ownerID, ref.id)
 	default:
 		return ""
 	}
@@ -74,7 +74,7 @@ type rawCapView struct {
 	Archived  bool     `json:"archived"`
 }
 
-func rawRowsToView(rows []corpusdomain.Raw) []rawCapView {
+func rawRowsToView(rows []corpus.Raw) []rawCapView {
 	out := make([]rawCapView, 0, len(rows))
 	for i := range rows {
 		out = append(out, rawCapView{
@@ -97,7 +97,7 @@ type wikiCapView struct {
 	Tags      []string `json:"tags"`
 }
 
-func wikiRowsToView(rows []corpusdomain.Wiki) []wikiCapView {
+func wikiRowsToView(rows []corpus.Wiki) []wikiCapView {
 	out := make([]wikiCapView, 0, len(rows))
 	for i := range rows {
 		out = append(out, wikiCapView{

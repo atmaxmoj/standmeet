@@ -8,7 +8,7 @@
 // **A.2 阶段纯 additive** —— 不删任何现有 type/method，只让 4 个具体 corpus
 // 类型实现 Document，旧 callers 继续 work。A.3-IAM 才把 retriever 内核切过来。
 
-package corpusdomain
+package corpus
 
 import (
 	"errors"

@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 // CrossLinkRefScheme —— body_md 里的双链字面前缀。
@@ -72,7 +72,7 @@ func crossLinkFromMatch(m []string) (CrossLinkRef, bool) {
 
 // ResolvedLink —— Resolution 完后的一条 link。dst nil 表示 unresolved。
 type ResolvedLink struct {
-	Dst *corpusdomain.Writing // nil = unresolved（render 留 literal）
+	Dst *corpus.Writing // nil = unresolved（render 留 literal）
 	Ref CrossLinkRef
 }
 
@@ -80,7 +80,7 @@ type ResolvedLink struct {
 // 有 writing（caller 已查过，避免反复 round-trip）。规则 Quartz-style：slug
 // 先（case-insensitive 精确），title fallback（同 normalize）。
 func ResolveCrossLinks(
-	refs []CrossLinkRef, candidates []corpusdomain.Writing,
+	refs []CrossLinkRef, candidates []corpus.Writing,
 ) []ResolvedLink {
 	idx := indexCandidates(candidates)
 	out := make([]ResolvedLink, 0, len(refs))
@@ -92,13 +92,13 @@ func ResolveCrossLinks(
 
 // writingIndex —— slug+title 两张 case-insensitive 索引打包。
 type writingIndex struct {
-	bySlug, byTitle map[string]*corpusdomain.Writing
+	bySlug, byTitle map[string]*corpus.Writing
 }
 
-func indexCandidates(candidates []corpusdomain.Writing) writingIndex {
+func indexCandidates(candidates []corpus.Writing) writingIndex {
 	idx := writingIndex{
-		bySlug:  make(map[string]*corpusdomain.Writing, len(candidates)),
-		byTitle: make(map[string]*corpusdomain.Writing, len(candidates)),
+		bySlug:  make(map[string]*corpus.Writing, len(candidates)),
+		byTitle: make(map[string]*corpus.Writing, len(candidates)),
 	}
 	for i := range candidates {
 		idx.bySlug[strings.ToLower(candidates[i].Slug())] = &candidates[i]
@@ -158,7 +158,7 @@ func DedupResolvedDsts(resolved []ResolvedLink) []string {
 
 // resolveAndDedupForOwner —— SaveWriting 用的便捷封装：从 body 抽 refs →
 // resolve against candidates → 输出去重后的 dst id 列表（用来重建边表）。
-func resolveAndDedupForOwner(body string, candidates []corpusdomain.Writing) []string {
+func resolveAndDedupForOwner(body string, candidates []corpus.Writing) []string {
 	refs := ExtractCrossLinks(body)
 	if len(refs) == 0 {
 		return []string{}
@@ -185,7 +185,7 @@ type SlugTitle struct {
 // 标准 markdown；unresolved 留原文。
 //
 // 跟 SaveWriting 那边走的 ResolveCrossLinks 是同一套 resolver，但只需要 slug
-// + title（不需要 full corpusdomain.Writing），所以走自己的轻 index。
+// + title（不需要 full corpus.Writing），所以走自己的轻 index。
 func RewriteCrossLinksForRender(body string, index []SlugTitle) string {
 	if !HasCrossLinks(body) || len(index) == 0 {
 		return body

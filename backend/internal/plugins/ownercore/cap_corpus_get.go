@@ -14,7 +14,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
@@ -104,7 +104,7 @@ func (c *corpusMutationsCapability) fetchEntry(
 func (c *corpusMutationsCapability) fetchRaw(
 	ctx context.Context, ownerID, id string,
 ) (*corpusEntryView, error) {
-	r, err := c.corpus.Raw.GetByID(ctx, ownerID, id)
+	r, err := c.corpusDeps.Raw.GetByID(ctx, ownerID, id)
 	if err != nil {
 		return nil, fmt.Errorf("get raw: %w", err)
 	}
@@ -119,7 +119,7 @@ func (c *corpusMutationsCapability) fetchRaw(
 func (c *corpusMutationsCapability) fetchWiki(
 	ctx context.Context, ownerID, id string,
 ) (*corpusEntryView, error) {
-	w, err := c.corpus.Wiki.GetByID(ctx, ownerID, id)
+	w, err := c.corpusDeps.Wiki.GetByID(ctx, ownerID, id)
 	if err != nil {
 		return nil, fmt.Errorf("get wiki: %w", err)
 	}
@@ -135,7 +135,7 @@ func (c *corpusMutationsCapability) fetchWiki(
 func (c *corpusMutationsCapability) fetchOutput(
 	ctx context.Context, ownerID, id string,
 ) (*corpusEntryView, error) {
-	o, err := c.corpus.Output.GetByID(ctx, ownerID, id)
+	o, err := c.corpusDeps.Output.GetByID(ctx, ownerID, id)
 	if err != nil {
 		return nil, fmt.Errorf("get output: %w", err)
 	}
@@ -152,9 +152,9 @@ func corpusGetErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	switch {
 	case errors.Is(err, errUnknownGenre):
 		return capreg.MCPError("genre must be 'raw', 'wiki', or 'output'")
-	case errors.Is(err, corpusdomain.ErrRawNotFound),
-		errors.Is(err, corpusdomain.ErrWikiNotFound),
-		errors.Is(err, corpusdomain.ErrOutputNotFound):
+	case errors.Is(err, corpus.ErrRawNotFound),
+		errors.Is(err, corpus.ErrWikiNotFound),
+		errors.Is(err, corpus.ErrOutputNotFound):
 		return capreg.MCPError("corpus entry not found")
 	default:
 		log.Error("cap corpus.get", "err", err)

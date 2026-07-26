@@ -13,7 +13,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -21,14 +21,14 @@ import (
 const capCorpusMutationsBundle = "corpus.mutations.bundle"
 
 type corpusMutationsCapability struct {
-	corpus *usecases.CorpusDeps
-	log    *slog.Logger
+	corpusDeps *usecases.CorpusDeps
+	log        *slog.Logger
 }
 
 func newCorpusMutationsCapability(
-	corpus *usecases.CorpusDeps, log *slog.Logger,
+	corpusDeps *usecases.CorpusDeps, log *slog.Logger,
 ) *corpusMutationsCapability {
-	return &corpusMutationsCapability{corpus: corpus, log: log}
+	return &corpusMutationsCapability{corpusDeps: corpusDeps, log: log}
 }
 
 func (*corpusMutationsCapability) ID() string          { return capCorpusMutationsBundle }
@@ -103,14 +103,15 @@ func (c *corpusMutationsCapability) handleUpdateWiki(
 		return capreg.MCPError(perr.Error())
 	}
 	in := buildUpdateWikiInput(&args, ownerID)
-	wiki, err := usecases.UpdateWiki(ctx, *c.corpus, in)
+	wiki, err := usecases.UpdateWiki(ctx, *c.corpusDeps, in)
 	if err != nil {
 		return wikiMutationErrToResult(c.log, err, "update_wiki")
 	}
 	// path 也回:改了 title 会移动树派生地址,调用方要拿到新 path 才能继续 read/引用。
+	wikiPath := entryPathForResponse(ctx, c.log, c.corpusDeps, entryRef{"wiki", ownerID, wiki.ID()})
 	return mcputil.MarshalResult(c.log, "update_wiki", map[string]any{
 		"id": wiki.ID(), "title": wiki.Title(), "body": wiki.Body(),
-		"path": entryPathForResponse(ctx, c.log, c.corpus, entryRef{"wiki", ownerID, wiki.ID()}),
+		"path": wikiPath,
 	})
 }
 
@@ -188,14 +189,15 @@ func (c *corpusMutationsCapability) handleUpdateOutput(
 		return capreg.MCPError(perr.Error())
 	}
 	in := buildUpdateOutputInput(&args, ownerID)
-	out, err := usecases.UpdateOutput(ctx, *c.corpus, in)
+	out, err := usecases.UpdateOutput(ctx, *c.corpusDeps, in)
 	if err != nil {
 		return outputMutationErrToResult(c.log, err, "update_output")
 	}
 	// path 也回:改了 title 会移动树派生地址,调用方要拿到新 path 才能继续 read/引用。
+	outPath := entryPathForResponse(ctx, c.log, c.corpusDeps, entryRef{"output", ownerID, out.ID()})
 	return mcputil.MarshalResult(c.log, "update_output", map[string]any{
 		"id": out.ID(), "title": out.Title(), "body": out.Body(),
-		"path": entryPathForResponse(ctx, c.log, c.corpus, entryRef{"output", ownerID, out.ID()}),
+		"path": outPath,
 	})
 }
 
@@ -263,7 +265,7 @@ func (c *corpusMutationsCapability) handleDeleteWiki(
 	if args.WikiID == "" {
 		return capreg.MCPError("wiki_id is required")
 	}
-	if err := usecases.DeleteWiki(ctx, *c.corpus, ownerID, args.WikiID); err != nil {
+	if err := usecases.DeleteWiki(ctx, *c.corpusDeps, ownerID, args.WikiID); err != nil {
 		return wikiMutationErrToResult(c.log, err, "delete_wiki")
 	}
 	return mcputil.MarshalResult(c.log, "delete_wiki", map[string]any{
@@ -298,7 +300,7 @@ func (c *corpusMutationsCapability) handleDeleteOutput(
 	if args.OutputID == "" {
 		return capreg.MCPError("output_id is required")
 	}
-	if err := usecases.DeleteOutput(ctx, *c.corpus, ownerID, args.OutputID); err != nil {
+	if err := usecases.DeleteOutput(ctx, *c.corpusDeps, ownerID, args.OutputID); err != nil {
 		return outputMutationErrToResult(c.log, err, "delete_output")
 	}
 	return mcputil.MarshalResult(c.log, "delete_output", map[string]any{
@@ -311,13 +313,13 @@ func (c *corpusMutationsCapability) handleDeleteOutput(
 func wikiMutationErrToResult(
 	log *slog.Logger, err error, name string,
 ) capreg.MCPResult {
-	if errors.Is(err, corpusdomain.ErrWikiNotFound) {
+	if errors.Is(err, corpus.ErrWikiNotFound) {
 		return capreg.MCPError("wiki entry not found")
 	}
-	if errors.Is(err, corpusdomain.ErrParentNotFound) {
+	if errors.Is(err, corpus.ErrParentNotFound) {
 		return capreg.MCPError("parent entry not found")
 	}
-	if errors.Is(err, corpusdomain.ErrParentCycle) {
+	if errors.Is(err, corpus.ErrParentCycle) {
 		return capreg.MCPError("parent would create a cycle")
 	}
 	if errors.Is(err, usecases.ErrEmptyField) {
@@ -330,7 +332,7 @@ func wikiMutationErrToResult(
 func outputMutationErrToResult(
 	log *slog.Logger, err error, name string,
 ) capreg.MCPResult {
-	if errors.Is(err, corpusdomain.ErrOutputNotFound) {
+	if errors.Is(err, corpus.ErrOutputNotFound) {
 		return capreg.MCPError("output entry not found")
 	}
 	if errors.Is(err, usecases.ErrEmptyField) {

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -125,7 +125,7 @@ func validateNoteParent(
 	}
 	if _, err := repo.GetByID(ctx, ownerID, *parentID); err != nil {
 		if errors.Is(err, postgres.ErrNoteNotFound) {
-			return corpusdomain.ErrParentNotFound
+			return corpus.ErrParentNotFound
 		}
 		return fmt.Errorf("validate note parent: %w", err)
 	}
@@ -151,7 +151,7 @@ func checkNoteCycle(
 	cur := parentID
 	for range treeMaxDepth {
 		if cur == nodeID {
-			return corpusdomain.ErrParentCycle
+			return corpus.ErrParentCycle
 		}
 		n, err := repo.GetByID(ctx, ownerID, cur)
 		if err != nil {

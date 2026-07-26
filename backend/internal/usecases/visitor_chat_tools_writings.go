@@ -4,15 +4,15 @@
 
 package usecases
 
-import "github.com/atmaxmoj/standmeet/internal/corpusdomain"
+import "github.com/atmaxmoj/standmeet/internal/corpus"
 
 // writingBodyText —— writing 正文转纯文本(去 markdown),corpus_read 返这个。
-func writingBodyText(w *corpusdomain.Writing) string {
+func writingBodyText(w *corpus.Writing) string {
 	return StripMarkdown(w.Body())
 }
 
 // writingRowSummary —— corpus_search 行摘要:优先 excerpt，否则截正文。
-func writingRowSummary(w *corpusdomain.Writing) string {
+func writingRowSummary(w *corpus.Writing) string {
 	if w.Excerpt() != "" {
 		return snippet(w.Excerpt())
 	}

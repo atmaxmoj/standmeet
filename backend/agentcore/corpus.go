@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -233,6 +233,6 @@ func filterHits(hits []CorpusHit, scope domain.CorpusScope) []usecases.CorpusMet
 // allowsCorpus —— same readability rule as the prod facade: the role's grant AND NOT the code's
 // narrowing. Routed through the one domain function so the eval driver and prod can never diverge.
 func allowsCorpus(scope domain.CorpusScope, genre, path string) bool {
-	uri := corpusdomain.FormatURI(corpusdomain.DocumentGenre(genre), path)
+	uri := corpus.FormatURI(corpus.DocumentGenre(genre), path)
 	return domain.AllowsCorpusScope(scope, uri)
 }

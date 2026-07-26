@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -92,23 +92,23 @@ func (h *Handlers) pageRaw() http.HandlerFunc {
 
 // nextWikiCursor —— empty unless the LIMIT+1 fetch overflowed the page; then the last
 // in-page row's keyset. Per-genre (domain accessors have pointer receivers).
-func nextWikiCursor(rows []postgres.TreeChild[corpusdomain.Wiki]) string {
+func nextWikiCursor(rows []postgres.TreeChild[corpus.Wiki]) string {
 	last := &rows[gridPageSize-1].Entry
 	return encodeCursor(last.CreatedAt(), last.ID())
 }
 
-func nextOutputCursor(rows []postgres.TreeChild[corpusdomain.Output]) string {
+func nextOutputCursor(rows []postgres.TreeChild[corpus.Output]) string {
 	last := &rows[gridPageSize-1].Entry
 	return encodeCursor(last.CreatedAt(), last.ID())
 }
 
-func nextRawCursor(rows []postgres.TreeChild[corpusdomain.Raw]) string {
+func nextRawCursor(rows []postgres.TreeChild[corpus.Raw]) string {
 	last := &rows[gridPageSize-1].Entry
 	return encodeCursor(last.CreatedAt(), last.ID())
 }
 
 func writeWikiPage(
-	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpusdomain.Wiki],
+	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpus.Wiki],
 ) {
 	over := len(rows) > gridPageSize
 	page := rows
@@ -127,7 +127,7 @@ func writeWikiPage(
 }
 
 func writeOutputPage(
-	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpusdomain.Output],
+	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpus.Output],
 ) {
 	over := len(rows) > gridPageSize
 	page := rows
@@ -146,7 +146,7 @@ func writeOutputPage(
 }
 
 func writeRawPage(
-	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpusdomain.Raw],
+	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpus.Raw],
 ) {
 	over := len(rows) > gridPageSize
 	page := rows

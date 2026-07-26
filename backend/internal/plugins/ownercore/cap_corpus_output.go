@@ -13,7 +13,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -21,15 +21,15 @@ import (
 const capCorpusOutputBundle = "corpus.output.bundle"
 
 type corpusOutputCapability struct {
-	corpus *usecases.CorpusDeps
-	seo    SEOWriter
-	log    *slog.Logger
+	corpusDeps *usecases.CorpusDeps
+	seo        SEOWriter
+	log        *slog.Logger
 }
 
 func newCorpusOutputCapability(
-	corpus *usecases.CorpusDeps, seo SEOWriter, log *slog.Logger,
+	corpusDeps *usecases.CorpusDeps, seo SEOWriter, log *slog.Logger,
 ) *corpusOutputCapability {
-	return &corpusOutputCapability{corpus: corpus, seo: seo, log: log}
+	return &corpusOutputCapability{corpusDeps: corpusDeps, seo: seo, log: log}
 }
 
 func (*corpusOutputCapability) ID() string          { return capCorpusOutputBundle }
@@ -99,7 +99,7 @@ func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	out, err := usecases.PromoteWikiToOutput(ctx, *c.corpus,
+	out, err := usecases.PromoteWikiToOutput(ctx, *c.corpusDeps,
 		buildPromoteToOutputCapInput(&args, ownerID))
 	if err != nil {
 		return promoteToOutputErrToResult(c.log, err)
@@ -110,17 +110,17 @@ func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 	return mcputil.MarshalResult(c.log, "promote_wiki_to_output", map[string]string{
 		"output_id": out.ID(),
 		"path": entryPathForResponse(
-			ctx, c.log, c.corpus, entryRef{"output", ownerID, out.ID()}),
+			ctx, c.log, c.corpusDeps, entryRef{"output", ownerID, out.ID()}),
 	})
 }
 
 func (c *corpusOutputCapability) applyOutputShowAsSourceIfHidden(
-	ctx context.Context, out *corpusdomain.Output, showAsSource *bool,
+	ctx context.Context, out *corpus.Output, showAsSource *bool,
 ) {
 	if showAsSource == nil || *showAsSource {
 		return
 	}
-	_, uerr := usecases.UpdateOutput(ctx, *c.corpus, &usecases.UpdateOutputInput{
+	_, uerr := usecases.UpdateOutput(ctx, *c.corpusDeps, &usecases.UpdateOutputInput{
 		OwnerID: out.OwnerID(), ID: out.ID(),
 		Title: out.Title(), Body: out.Body(), Tags: out.Tags(),
 		ParentID: ptrOrNil(out.ParentID), ShowAsSource: false,
@@ -159,7 +159,7 @@ func buildPromoteToOutputCapInput(
 }
 
 func promoteToOutputErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, corpusdomain.ErrWikiNotFound) {
+	if errors.Is(err, corpus.ErrWikiNotFound) {
 		return capreg.MCPError("wiki entry not found")
 	}
 	log.Error("cap promote_wiki_to_output", "err", err)
@@ -186,7 +186,7 @@ func (c *corpusOutputCapability) handleListRecentOutput(
 	ctx context.Context, ownerID string, raw json.RawMessage,
 ) capreg.MCPResult {
 	limit := parseListLimit(raw)
-	rows, err := c.corpus.Output.ListByOwner(ctx, ownerID, limit)
+	rows, err := c.corpusDeps.Output.ListByOwner(ctx, ownerID, limit)
 	if err != nil {
 		c.log.Error("cap list_recent_output", "err", err)
 		return capreg.MCPError("list failed")
@@ -204,7 +204,7 @@ type outputCapView struct {
 	SourceWikiIDs []string `json:"source_wiki_ids"`
 }
 
-func outputRowsToView(rows []corpusdomain.Output) []outputCapView {
+func outputRowsToView(rows []corpus.Output) []outputCapView {
 	out := make([]outputCapView, 0, len(rows))
 	for i := range rows {
 		out = append(out, outputCapView{

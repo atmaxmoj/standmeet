@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -104,7 +104,7 @@ func findChildBySegment(
 			return id, nil
 		}
 		if len(kids) < resolveChildPageLimit {
-			return "", corpusdomain.ErrWikiNotFound
+			return "", corpus.ErrWikiNotFound
 		}
 	}
 }
@@ -149,7 +149,7 @@ func findOutputChildBySegment(
 			return id, nil
 		}
 		if len(kids) < resolveChildPageLimit {
-			return "", corpusdomain.ErrOutputNotFound
+			return "", corpus.ErrOutputNotFound
 		}
 	}
 }

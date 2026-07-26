@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -18,10 +18,10 @@ import (
 // import 过的行；命中 = re-import / 没命中 = 新行。
 func (r *WritingRepo) GetByObsidianSourcePath(
 	ctx context.Context, ownerID, sourcePath string,
-) (corpusdomain.Writing, error) {
+) (corpus.Writing, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
-		return corpusdomain.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return corpus.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).GetWritingByObsidianSourcePath(ctx,
 		dbq.GetWritingByObsidianSourcePathParams{
@@ -29,9 +29,9 @@ func (r *WritingRepo) GetByObsidianSourcePath(
 		})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return corpusdomain.Writing{}, corpusdomain.ErrWritingNotFound
+			return corpus.Writing{}, corpus.ErrWritingNotFound
 		}
-		return corpusdomain.Writing{}, fmt.Errorf("get writing by obsidian path: %w", err)
+		return corpus.Writing{}, fmt.Errorf("get writing by obsidian path: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }

@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -78,8 +78,8 @@ type processArgs struct {
 type MetaSetter interface {
 	GetByObsidianSourcePath(
 		ctx context.Context, ownerID, sourcePath string,
-	) (corpusdomain.Writing, error)
-	GetBySlug(ctx context.Context, ownerID, slug string) (corpusdomain.Writing, error)
+	) (corpus.Writing, error)
+	GetBySlug(ctx context.Context, ownerID, slug string) (corpus.Writing, error)
 	SetObsidianMeta(ctx context.Context, ownerID, writingID, sourcePath string) error
 }
 
@@ -190,7 +190,7 @@ func upsertFromVault(ctx context.Context, a *upsertArgs) (upsertOutcome, error) 
 	return outcome, nil
 }
 
-func runSaveAndMark(ctx context.Context, a *upsertArgs, existing *corpusdomain.Writing) error {
+func runSaveAndMark(ctx context.Context, a *upsertArgs, existing *corpus.Writing) error {
 	in := buildSaveInputFromVault(a.OwnerID, existing, a.SourcePath, a.Parsed)
 	writing, serr := usecases.SaveWriting(ctx, a.Deps, &in)
 	if serr != nil {
@@ -204,19 +204,19 @@ func runSaveAndMark(ctx context.Context, a *upsertArgs, existing *corpusdomain.W
 
 func lookupExistingWriting(
 	ctx context.Context, setter MetaSetter, ownerID, sourcePath string,
-) (corpusdomain.Writing, bool) {
+) (corpus.Writing, bool) {
 	w, err := setter.GetByObsidianSourcePath(ctx, ownerID, sourcePath)
 	if err != nil {
-		if errors.Is(err, corpusdomain.ErrWritingNotFound) {
-			return corpusdomain.Writing{}, false
+		if errors.Is(err, corpus.ErrWritingNotFound) {
+			return corpus.Writing{}, false
 		}
-		return corpusdomain.Writing{}, false
+		return corpus.Writing{}, false
 	}
 	return w, true
 }
 
 // findWriting —— 先按 source_path 认领;认不到再按 slug(move/rename → source_path 变但 slug 稳)。
-func findWriting(ctx context.Context, a *upsertArgs) (corpusdomain.Writing, bool) {
+func findWriting(ctx context.Context, a *upsertArgs) (corpus.Writing, bool) {
 	if w, found := lookupExistingWriting(ctx, a.Setter, a.OwnerID, a.SourcePath); found {
 		return w, true
 	}
@@ -226,19 +226,19 @@ func findWriting(ctx context.Context, a *upsertArgs) (corpusdomain.Writing, bool
 // lookupWritingBySlug —— source_path 没认到时按 slug 认(move/rename 的稳定身份)。
 func lookupWritingBySlug(
 	ctx context.Context, setter MetaSetter, ownerID, slug string,
-) (corpusdomain.Writing, bool) {
+) (corpus.Writing, bool) {
 	if slug == "" {
-		return corpusdomain.Writing{}, false
+		return corpus.Writing{}, false
 	}
 	w, err := setter.GetBySlug(ctx, ownerID, slug)
 	if err != nil {
-		return corpusdomain.Writing{}, false
+		return corpus.Writing{}, false
 	}
 	return w, true
 }
 
 func buildSaveInputFromVault(
-	ownerID string, existing *corpusdomain.Writing, sourcePath string, p *parsedVault,
+	ownerID string, existing *corpus.Writing, sourcePath string, p *parsedVault,
 ) usecases.SaveWritingInput {
 	slug := pickSlug(p.fm.Slug, sourcePath)
 	in := usecases.SaveWritingInput{
@@ -277,16 +277,16 @@ func pickTitle(fmTitle, slug string) string {
 
 func pickHue(h string) string {
 	switch h {
-	case corpusdomain.WritingCoverHueAmber, corpusdomain.WritingCoverHueViolet,
-		corpusdomain.WritingCoverHueAcid:
+	case corpus.WritingCoverHueAmber, corpus.WritingCoverHueViolet,
+		corpus.WritingCoverHueAcid:
 		return h
 	}
-	return corpusdomain.WritingCoverHueAmber
+	return corpus.WritingCoverHueAmber
 }
 
 func pickVisibility(v string) string {
-	if v == corpusdomain.WritingVisibilityPrivate {
-		return corpusdomain.WritingVisibilityPrivate
+	if v == corpus.WritingVisibilityPrivate {
+		return corpus.WritingVisibilityPrivate
 	}
-	return corpusdomain.WritingVisibilityPublic
+	return corpus.WritingVisibilityPublic
 }

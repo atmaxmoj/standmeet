@@ -9,7 +9,7 @@
 // Published / SourceRawIDs —— caller type-assert 回 Wiki 用。Path/Parent
 // 走 TreeNode sub-object；SEO 走 SEO sub-object。
 
-package corpusdomain
+package corpus
 
 import (
 	"errors"

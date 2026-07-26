@@ -34,7 +34,7 @@ components:
   session:
     in: internal/session
   config:
-    in: internal/config
+    in: cmd/server/config
   apierr:
     in: internal/apierr                   # HTTP error envelope 翻译 helper
   middleware:
@@ -82,9 +82,9 @@ components:
   jobsdomain:
     in: internal/jobsdomain                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
   conversation:
-    in: internal/conversation        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpusdomain 拿 DocumentGenre
-  corpusdomain:
-    in: internal/corpusdomain              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
+    in: internal/conversation        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpus 拿 DocumentGenre
+  corpus:
+    in: internal/corpus              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
   access:
     in: internal/access              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
   ownerdomain:
@@ -175,7 +175,7 @@ deps:
       - access
       - ownerdomain
       - marketplace
-      - corpusdomain
+      - corpus
       - domain
       - postgres
       - session
@@ -373,7 +373,7 @@ deps:
       - ownerdomain
       - access
       - marketplace
-      - corpusdomain
+      - corpus
       - jobsdomain
       - domain
       - dbq
@@ -457,7 +457,7 @@ deps:
     mayDependOn:
       - conversation
       - marketplace
-      - corpusdomain
+      - corpus
       - inference
       - usecases
       - capreg
@@ -503,7 +503,7 @@ deps:
       - access
       - ownerdomain
       - marketplace
-      - corpusdomain
+      - corpus
       - plugins
       - capreg
       - domain
@@ -634,14 +634,14 @@ deps:
       - access
     anyVendorDeps: true
 
-  # conversation —— #135 conversation 领域值对象：Citation.Genre = corpusdomain.DocumentGenre。
+  # conversation —— #135 conversation 领域值对象：Citation.Genre = corpus.DocumentGenre。
   conversation:
     mayDependOn:
-      - corpusdomain
+      - corpus
     anyVendorDeps: true
 
-  # corpusdomain —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
-  corpusdomain:
+  # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
+  corpus:
     mayDependOn:
       - domain
     anyVendorDeps: true
@@ -724,7 +724,7 @@ deps:
       - ownerdomain
       - access
       - marketplace
-      - corpusdomain
+      - corpus
       - domain
       - usecases
       - obsidian
@@ -749,7 +749,7 @@ deps:
   # 那条 atomic asset 路径，所以单向依赖 usecases；不被 usecases 反向 import。
   obsidian:
     mayDependOn:
-      - corpusdomain
+      - corpus
       - domain
       - usecases
       - postgres
@@ -763,7 +763,7 @@ deps:
       - conversation
       - access
       - ownerdomain
-      - corpusdomain
+      - corpus
       - domain
       - usecases
       - session

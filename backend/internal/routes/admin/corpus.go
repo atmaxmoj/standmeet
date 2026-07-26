@@ -14,7 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -102,7 +102,7 @@ func handleCreateRawErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, serverErr())
 }
 
-func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *corpusdomain.Raw) {
+func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *corpus.Raw) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	item := rawItemBase(raw)
@@ -112,7 +112,7 @@ func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *corpusdomain.
 // rawItemBase —— the shared raw list-item fields EVERY construction site needs, so none can drift
 // on Preview/Status/etc. (F-R-1 shipped broken because the tree path built its own item and missed
 // Preview). Path / ParentID / HasChildren are position-specific — the caller sets those.
-func rawItemBase(row *corpusdomain.Raw) rawListItem {
+func rawItemBase(row *corpus.Raw) rawListItem {
 	return rawListItem{
 		ID:        row.ID(),
 		Body:      row.Body(),
@@ -170,7 +170,7 @@ func (h *Handlers) listRaw() http.HandlerFunc {
 	}
 }
 
-func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []corpusdomain.Raw) {
+func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []corpus.Raw) {
 	paths := usecases.RawTreePaths(rows) // raw is now a corpus_notes tree — derive its address
 	items := make([]rawListItem, 0, len(rows))
 	for i := range rows {
@@ -180,7 +180,7 @@ func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []corpusdomain.R
 }
 
 // rawItemOf —— one raw row → list item, with its derived tree path + parent.
-func rawItemOf(row *corpusdomain.Raw, paths map[string]string) rawListItem {
+func rawItemOf(row *corpus.Raw, paths map[string]string) rawListItem {
 	item := rawItemBase(row)
 	if p, ok := paths[row.ID()]; ok {
 		item.Path = &p
@@ -195,7 +195,7 @@ func rawItemOf(row *corpusdomain.Raw, paths map[string]string) rawListItem {
 // curation. A raw dump is "unprocessed" until the owner promotes it to wiki
 // (MarkPromoted sets promoted_to); after that it's "promoted". Archived rows
 // never reach this list. The admin badge filters on status == "unprocessed".
-func rawStatus(row *corpusdomain.Raw) string {
+func rawStatus(row *corpus.Raw) string {
 	if row.IsPromoted() {
 		return "promoted"
 	}
@@ -216,7 +216,7 @@ func (h *Handlers) listWiki() http.HandlerFunc {
 	}
 }
 
-func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []corpusdomain.Wiki) {
+func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []corpus.Wiki) {
 	paths := usecases.WikiTreePaths(rows)
 	items := make([]wikiListItem, 0, len(rows))
 	for i := range rows {

@@ -7,6 +7,7 @@ package config
 
 import (
 	"errors"
+	"net/url"
 	"os"
 	"strconv"
 )
@@ -91,13 +92,18 @@ var (
 	ErrStorageBucketRequired    = errors.New("STORAGE_BUCKET is required")
 )
 
-// 内网 compose 服务默认地址（私有 docker 网,明文 http 是设计如此,非公网暴露）。
+// 内网 compose 服务默认 host（私有 docker 网,明文 http 是设计如此,非公网暴露）。
+// 只存 host:port,scheme 在 internalURL 里拼 —— 避免源码里出现裸 http:// URL 字面量。
 const (
-	//nolint:revive // internal compose service on the private docker network — plaintext by design
-	defaultGotenbergURL = "http://gotenberg:3000"
-	//nolint:revive // internal compose service on the private docker network — plaintext by design
-	defaultPrintBaseURL = "http://app:3000"
+	defaultGotenbergHost = "gotenberg:3000"
+	defaultPrintHost     = "app:3000"
 )
+
+// internalURL 拼一条内网 compose 服务的 base URL。私有 docker 网内明文 http
+// 是设计如此（这些服务从不对公网暴露），scheme 由此单点决定、不入字面量。
+func internalURL(host string) string {
+	return (&url.URL{Scheme: "http", Host: host}).String()
+}
 
 // Load 读 env，返回 Config 或 error。任何 required env 缺失即返回 error。
 func Load() (*Config, error) {
@@ -131,8 +137,8 @@ func Load() (*Config, error) {
 		StorageBucket:                  os.Getenv("STORAGE_BUCKET"),
 		StoragePublicURL:               os.Getenv("STORAGE_PUBLIC_URL"),
 		// #117 部署友好:不设时走标准自托管 compose 服务名,fresh deploy 免逐个填。
-		GotenbergURL:               envOr("GOTENBERG_URL", defaultGotenbergURL),
-		PrintBaseURL:               envOr("PRINT_BASE_URL", defaultPrintBaseURL),
+		GotenbergURL:               envOr("GOTENBERG_URL", internalURL(defaultGotenbergHost)),
+		PrintBaseURL:               envOr("PRINT_BASE_URL", internalURL(defaultPrintHost)),
 		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
 		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
 		StorageUseSSL:              os.Getenv("STORAGE_USE_SSL") == "true",

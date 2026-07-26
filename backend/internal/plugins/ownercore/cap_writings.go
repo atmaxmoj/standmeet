@@ -11,7 +11,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -139,7 +139,7 @@ func (c *writingsCapability) handleCreate(
 }
 
 func writingCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, corpusdomain.ErrWritingSlugTaken) {
+	if errors.Is(err, corpus.ErrWritingSlugTaken) {
 		return capreg.MCPError("writing slug already taken")
 	}
 	log.Error("cap writing_create", "err", err)
@@ -235,7 +235,7 @@ func (c *writingsCapability) handleList(
 	return mcputil.MarshalResult(c.log, "writing_list", out)
 }
 
-func writingRowToCapView(w *corpusdomain.Writing) writingListRow {
+func writingRowToCapView(w *corpus.Writing) writingListRow {
 	row := writingListRow{
 		ID: w.ID(), Slug: w.Slug(), Title: w.Title(),
 		Excerpt: w.Excerpt(), Visibility: w.VisibilityMode(),

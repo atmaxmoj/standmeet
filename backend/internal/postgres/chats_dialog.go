@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -212,11 +212,11 @@ func splitCitations(cites []conversation.Citation) splitCitedIDs {
 // 其他 genre (raw / 未来新加) 丢弃(bucket 表里没有 → 不 append)。writing 是 public blog,
 // 一律进 cited(无 gate);subjectivity 能到这里的都已过 show_as_source gate。
 func appendCitedID(acc *splitCitedIDs, c conversation.Citation) {
-	bucket := map[corpusdomain.DocumentGenre]*[]string{
-		corpusdomain.GenreWiki:         &acc.Wiki,
-		corpusdomain.GenreWriting:      &acc.Writing,
-		corpusdomain.GenreOutput:       &acc.Output,
-		corpusdomain.GenreSubjectivity: &acc.Subjectivity,
+	bucket := map[corpus.DocumentGenre]*[]string{
+		corpus.GenreWiki:         &acc.Wiki,
+		corpus.GenreWriting:      &acc.Writing,
+		corpus.GenreOutput:       &acc.Output,
+		corpus.GenreSubjectivity: &acc.Subjectivity,
 	}[c.Genre]
 	if bucket == nil {
 		return // raw / 未来新加的 genre：caller 误传时丢弃。

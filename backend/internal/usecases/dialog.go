@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -30,7 +30,7 @@ import (
 // 不直接用 postgres.Corpus 类型 (publicroutes 不能 import postgres)，靠
 // 接口模式让 mcp / publicroutes 这两个组件都能传它。
 type DialogCorpusLookup interface {
-	Get(ctx context.Context, ownerID, uri string) (corpusdomain.Document, error)
+	Get(ctx context.Context, ownerID, uri string) (corpus.Document, error)
 }
 
 // DialogDeps —— RecordDialog 需要的依赖。Subjectivity 单独一个 lookup（不走 Corpus facade——
@@ -101,15 +101,15 @@ func resolveCitations(
 			len(in.CitedOutputIDs)+len(in.CitedSubjectivityIDs))
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
 		OwnerID: in.OwnerID, IDs: in.CitedWikiIDs,
-		Genre: corpusdomain.GenreWiki,
+		Genre: corpus.GenreWiki,
 	}, cites)
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
 		OwnerID: in.OwnerID, IDs: in.CitedWritingIDs,
-		Genre: corpusdomain.GenreWriting,
+		Genre: corpus.GenreWriting,
 	}, cites)
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
 		OwnerID: in.OwnerID, IDs: in.CitedOutputIDs,
-		Genre: corpusdomain.GenreOutput,
+		Genre: corpus.GenreOutput,
 	}, cites)
 	return appendSubjectivityCitations(ctx, deps, in.OwnerID, in.CitedSubjectivityIDs, cites)
 }
@@ -127,14 +127,14 @@ func appendSubjectivityCitations(
 	for _, id := range ids {
 		ref, err := deps.Subjectivity.ResolveCite(ctx, ownerID, id)
 		if err != nil {
-			logIfUnexpectedNotFound(deps.Log, err, corpusdomain.GenreSubjectivity, id)
+			logIfUnexpectedNotFound(deps.Log, err, corpus.GenreSubjectivity, id)
 			continue
 		}
 		if !ref.ShowAsSource {
 			continue // 私有：ground 了 voice 但不进 visitor footer。
 		}
 		acc = append(acc, conversation.Citation{
-			Genre: corpusdomain.GenreSubjectivity, DocID: ref.ID,
+			Genre: corpus.GenreSubjectivity, DocID: ref.ID,
 			Path: ref.Path, Title: ref.Title,
 		})
 	}
@@ -147,7 +147,7 @@ func appendSubjectivityCitations(
 // 连续)。
 type resolveCiteArgs struct {
 	OwnerID string
-	Genre   corpusdomain.DocumentGenre
+	Genre   corpus.DocumentGenre
 	IDs     []string
 }
 
@@ -162,7 +162,7 @@ func appendResolvedCitations(
 		return acc
 	}
 	for _, id := range args.IDs {
-		uri := corpusdomain.FormatURI(args.Genre, id)
+		uri := corpus.FormatURI(args.Genre, id)
 		doc, err := deps.Corpus.Get(ctx, args.OwnerID, uri)
 		if err != nil {
 			logIfUnexpectedNotFound(deps.Log, err, args.Genre, id)
@@ -176,7 +176,7 @@ func appendResolvedCitations(
 }
 
 func logIfUnexpectedNotFound(
-	log *slog.Logger, err error, genre corpusdomain.DocumentGenre, id string,
+	log *slog.Logger, err error, genre corpus.DocumentGenre, id string,
 ) {
 	if errors.Is(err, notFoundForGenre(genre)) {
 		return
@@ -184,13 +184,13 @@ func logIfUnexpectedNotFound(
 	log.Warn("dialog cited lookup", "genre", genre, "id", id, "err", err)
 }
 
-func notFoundForGenre(g corpusdomain.DocumentGenre) error {
+func notFoundForGenre(g corpus.DocumentGenre) error {
 	// dialog cited 覆盖 wiki + writing + output + subjectivity；其他 genre (raw) 返 nil，
 	// errors.Is(err, nil) 恒 false → 任何 err 都算 unexpected 并记一行。
-	return map[corpusdomain.DocumentGenre]error{
-		corpusdomain.GenreWiki:         corpusdomain.ErrWikiNotFound,
-		corpusdomain.GenreWriting:      corpusdomain.ErrWritingNotFound,
-		corpusdomain.GenreOutput:       corpusdomain.ErrOutputNotFound,
-		corpusdomain.GenreSubjectivity: corpusdomain.ErrSubjectivityNotFound,
+	return map[corpus.DocumentGenre]error{
+		corpus.GenreWiki:         corpus.ErrWikiNotFound,
+		corpus.GenreWriting:      corpus.ErrWritingNotFound,
+		corpus.GenreOutput:       corpus.ErrOutputNotFound,
+		corpus.GenreSubjectivity: corpus.ErrSubjectivityNotFound,
 	}[g]
 }

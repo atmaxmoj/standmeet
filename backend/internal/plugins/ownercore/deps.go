@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 // SEOWriter —— seo.* + corpus SEO MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
@@ -15,14 +15,14 @@ import (
 type SEOWriter interface {
 	UpdateWikiSEO(
 		ctx context.Context, ownerID, wikiID, description string, indexed bool,
-	) (corpusdomain.Wiki, error)
+	) (corpus.Wiki, error)
 	UpdateOutputSEO(
 		ctx context.Context, ownerID, outputID, description string, indexed bool,
-	) (corpusdomain.Output, error)
-	GetSettings(ctx context.Context, ownerID string) (corpusdomain.SEOSettings, error)
+	) (corpus.Output, error)
+	GetSettings(ctx context.Context, ownerID string) (corpus.SEOSettings, error)
 	UpsertSettings(
-		ctx context.Context, in *corpusdomain.SEOSettings,
-	) (corpusdomain.SEOSettings, error)
+		ctx context.Context, in *corpus.SEOSettings,
+	) (corpus.SEOSettings, error)
 }
 
 // CalendarOwnerDeps —— newCalendarCapability 入参打包（connector proxy + calendar store）。

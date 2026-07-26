@@ -3,7 +3,7 @@ package config_test
 import (
 	"testing"
 
-	"github.com/atmaxmoj/standmeet/internal/config"
+	"github.com/atmaxmoj/standmeet/cmd/server/config"
 )
 
 // setRequired —— Load 的 fail-fast 必填项(不填这些 Load 直接报错)。测默认值前先满足。

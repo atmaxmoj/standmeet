@@ -20,17 +20,17 @@ import (
 const capChatBundle = "chat.bundle"
 
 type chatCapability struct {
-	corpus *usecases.CorpusDeps
-	convs  *usecases.ConversationsDeps
-	ghosts *usecases.GhostDeps
-	log    *slog.Logger
+	corpusDeps *usecases.CorpusDeps
+	convs      *usecases.ConversationsDeps
+	ghosts     *usecases.GhostDeps
+	log        *slog.Logger
 }
 
 func newChatCapability(
-	corpus *usecases.CorpusDeps, convs *usecases.ConversationsDeps,
+	corpusDeps *usecases.CorpusDeps, convs *usecases.ConversationsDeps,
 	ghosts *usecases.GhostDeps, log *slog.Logger,
 ) *chatCapability {
-	return &chatCapability{corpus: corpus, convs: convs, ghosts: ghosts, log: log}
+	return &chatCapability{corpusDeps: corpusDeps, convs: convs, ghosts: ghosts, log: log}
 }
 
 func (*chatCapability) ID() string          { return capChatBundle }
@@ -264,7 +264,7 @@ func (c *chatCapability) loadWikiBodies(
 ) []corpusCapEntryView {
 	out := make([]corpusCapEntryView, 0, len(ids))
 	for _, id := range ids {
-		w, err := c.corpus.Wiki.GetByID(ctx, ownerID, id)
+		w, err := c.corpusDeps.Wiki.GetByID(ctx, ownerID, id)
 		if err != nil {
 			continue
 		}
@@ -278,7 +278,7 @@ func (c *chatCapability) loadOutputBodies(
 ) []corpusCapEntryView {
 	out := make([]corpusCapEntryView, 0, len(ids))
 	for _, id := range ids {
-		o, err := c.corpus.Output.GetByID(ctx, ownerID, id)
+		o, err := c.corpusDeps.Output.GetByID(ctx, ownerID, id)
 		if err != nil {
 			continue
 		}

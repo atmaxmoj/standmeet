@@ -11,7 +11,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -19,14 +19,14 @@ import (
 const capSubjectivityBundle = "corpus.subjectivity.bundle"
 
 type subjectivityCapability struct {
-	corpus *usecases.CorpusDeps
-	log    *slog.Logger
+	corpusDeps *usecases.CorpusDeps
+	log        *slog.Logger
 }
 
 func newSubjectivityCapability(
-	corpus *usecases.CorpusDeps, log *slog.Logger,
+	corpusDeps *usecases.CorpusDeps, log *slog.Logger,
 ) *subjectivityCapability {
-	return &subjectivityCapability{corpus: corpus, log: log}
+	return &subjectivityCapability{corpusDeps: corpusDeps, log: log}
 }
 
 func (*subjectivityCapability) ID() string          { return capSubjectivityBundle }
@@ -97,7 +97,7 @@ func (c *subjectivityCapability) handleSubjectivityWrite(
 		return capreg.MCPError(perr.Error())
 	}
 	res, err := usecases.WriteSubjectivity(
-		ctx, *c.corpus, buildWriteSubjectivityInput(&args, ownerID),
+		ctx, *c.corpusDeps, buildWriteSubjectivityInput(&args, ownerID),
 	)
 	if err != nil {
 		return subjectivityWriteErrToResult(c.log, err)
@@ -138,9 +138,9 @@ func buildWriteSubjectivityInput(
 
 func subjectivityWriteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	switch {
-	case errors.Is(err, corpusdomain.ErrParentNotFound):
+	case errors.Is(err, corpus.ErrParentNotFound):
 		return capreg.MCPError("parent entry not found")
-	case errors.Is(err, corpusdomain.ErrParentCycle):
+	case errors.Is(err, corpus.ErrParentCycle):
 		return capreg.MCPError("cannot reparent: would create a cycle")
 	case errors.Is(err, usecases.ErrEmptyField):
 		return capreg.MCPError("title and body are required")

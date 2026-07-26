@@ -13,7 +13,7 @@
 // **A.2 阶段不用 net/url** —— 避免它对 host / 端口 / query 的语义介入，纯
 // 字符串 split-by-"://" 即可。未来真要更严格的 URI 校验再换。
 
-package corpusdomain
+package corpus
 
 import (
 	"errors"

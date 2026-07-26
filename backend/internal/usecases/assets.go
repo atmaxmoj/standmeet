@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 )
@@ -54,7 +54,7 @@ type PreparedAsset struct {
 	Body        []byte
 	PendingID   string
 	ContentType string
-	Asset       corpusdomain.Asset
+	Asset       corpus.Asset
 }
 
 // InsertAssetRowTx —— 在 caller 给的 tx 里 insert assets 行（不动 MinIO）。
@@ -92,14 +92,14 @@ type insertAssetArgs struct {
 	Key      string
 }
 
-func insertAssetRow(ctx context.Context, a *insertAssetArgs) (corpusdomain.Asset, error) {
+func insertAssetRow(ctx context.Context, a *insertAssetArgs) (corpus.Asset, error) {
 	asset, cerr := a.Deps.Repo.CreateTx(ctx, a.Tx, &postgres.CreateAssetInput{
 		ID: a.ID, HolderID: a.HolderID, StorageKey: a.Key,
 		ContentType: a.In.ContentType, SizeBytes: int64(len(a.In.Body)),
 		SHA256: sha256Hex(a.In.Body), OriginalFilename: a.In.OriginalFilename,
 	})
 	if cerr != nil {
-		return corpusdomain.Asset{}, fmt.Errorf("create asset row: %w", cerr)
+		return corpus.Asset{}, fmt.Errorf("create asset row: %w", cerr)
 	}
 	return asset, nil
 }

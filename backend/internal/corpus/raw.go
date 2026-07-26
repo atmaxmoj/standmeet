@@ -11,7 +11,7 @@
 // Raw-specific 字段（不进 Document interface）：Source / FlaggedPrivate /
 // Archived / PromotedTo —— caller type-assert 回 Raw 用。
 
-package corpusdomain
+package corpus
 
 import (
 	"errors"

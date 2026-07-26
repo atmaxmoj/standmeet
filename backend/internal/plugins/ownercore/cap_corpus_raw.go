@@ -14,7 +14,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -22,15 +22,15 @@ import (
 const capCorpusRawBundle = "corpus.raw.bundle"
 
 type corpusRawCapability struct {
-	corpus *usecases.CorpusDeps
-	seo    SEOWriter
-	log    *slog.Logger
+	corpusDeps *usecases.CorpusDeps
+	seo        SEOWriter
+	log        *slog.Logger
 }
 
 func newCorpusRawCapability(
-	corpus *usecases.CorpusDeps, seo SEOWriter, log *slog.Logger,
+	corpusDeps *usecases.CorpusDeps, seo SEOWriter, log *slog.Logger,
 ) *corpusRawCapability {
-	return &corpusRawCapability{corpus: corpus, seo: seo, log: log}
+	return &corpusRawCapability{corpusDeps: corpusDeps, seo: seo, log: log}
 }
 
 func (*corpusRawCapability) ID() string          { return capCorpusRawBundle }
@@ -107,7 +107,7 @@ func (c *corpusRawCapability) handleRawDump(
 	if source == "" {
 		source = "mcp"
 	}
-	rawEntry, err := usecases.RawDump(ctx, *c.corpus, &usecases.RawDumpInput{
+	rawEntry, err := usecases.RawDump(ctx, *c.corpusDeps, &usecases.RawDumpInput{
 		OwnerID: ownerID, Body: args.Body, Source: source,
 		Tags: args.Tags, FlaggedPrivate: args.FlaggedPrivate,
 	})
@@ -158,7 +158,7 @@ func (c *corpusRawCapability) handlePromoteToWiki(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	wikiEntry, err := usecases.PromoteToWiki(ctx, *c.corpus,
+	wikiEntry, err := usecases.PromoteToWiki(ctx, *c.corpusDeps,
 		buildPromoteToWikiInput(&args, ownerID))
 	if err != nil {
 		return promoteErrToResult(c.log, err)
@@ -169,17 +169,17 @@ func (c *corpusRawCapability) handlePromoteToWiki(
 	return mcputil.MarshalResult(c.log, "promote_to_wiki", map[string]string{
 		"wiki_id": wikiEntry.ID(),
 		"path": entryPathForResponse(
-			ctx, c.log, c.corpus, entryRef{"wiki", ownerID, wikiEntry.ID()}),
+			ctx, c.log, c.corpusDeps, entryRef{"wiki", ownerID, wikiEntry.ID()}),
 	})
 }
 
 func (c *corpusRawCapability) applyShowAsSourceIfHidden(
-	ctx context.Context, wikiEntry *corpusdomain.Wiki, showAsSource *bool,
+	ctx context.Context, wikiEntry *corpus.Wiki, showAsSource *bool,
 ) {
 	if showAsSource == nil || *showAsSource {
 		return
 	}
-	_, uerr := usecases.UpdateWiki(ctx, *c.corpus, &usecases.UpdateWikiInput{
+	_, uerr := usecases.UpdateWiki(ctx, *c.corpusDeps, &usecases.UpdateWikiInput{
 		OwnerID: wikiEntry.OwnerID(), ID: wikiEntry.ID(),
 		Title: wikiEntry.Title(), Body: wikiEntry.Body(), Tags: wikiEntry.Tags(),
 		ParentID: ptrOrNil(wikiEntry.ParentID), ShowAsSource: false,
@@ -216,13 +216,13 @@ func buildPromoteToWikiInput(args *promoteToWikiArgsWire, ownerID string) *useca
 }
 
 func promoteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
-	if errors.Is(err, corpusdomain.ErrRawNotFound) {
+	if errors.Is(err, corpus.ErrRawNotFound) {
 		return capreg.MCPError("raw entry not found")
 	}
-	if errors.Is(err, corpusdomain.ErrParentNotFound) {
+	if errors.Is(err, corpus.ErrParentNotFound) {
 		return capreg.MCPError("parent entry not found")
 	}
-	if errors.Is(err, corpusdomain.ErrSiblingSlugTaken) {
+	if errors.Is(err, corpus.ErrSiblingSlugTaken) {
 		return capreg.MCPError("an entry with the same name already exists here")
 	}
 	log.Error("cap promote_to_wiki", "err", err)
@@ -249,7 +249,7 @@ func (c *corpusRawCapability) handleListRecentRaw(
 	ctx context.Context, ownerID string, raw json.RawMessage,
 ) capreg.MCPResult {
 	limit := parseListLimit(raw)
-	rows, err := c.corpus.Raw.ListByOwner(ctx, ownerID, limit)
+	rows, err := c.corpusDeps.Raw.ListByOwner(ctx, ownerID, limit)
 	if err != nil {
 		c.log.Error("cap list_recent_raw", "err", err)
 		return capreg.MCPError("list failed")
@@ -277,7 +277,7 @@ func (c *corpusRawCapability) handleListRecentWiki(
 	ctx context.Context, ownerID string, raw json.RawMessage,
 ) capreg.MCPResult {
 	limit := parseListLimit(raw)
-	rows, err := c.corpus.Wiki.ListByOwner(ctx, ownerID, limit)
+	rows, err := c.corpusDeps.Wiki.ListByOwner(ctx, ownerID, limit)
 	if err != nil {
 		c.log.Error("cap list_recent_wiki", "err", err)
 		return capreg.MCPError("list failed")

@@ -22,7 +22,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/atmaxmoj/standmeet/internal/config"
+	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 

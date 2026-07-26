@@ -1,7 +1,7 @@
 // corpus_facade.go —— Corpus: 跨 Genre 的统一访问入口。
 //
 // 把 Raw / Wiki / Output / WritingRepo 4 个 repo 包到一个 facade 后面，
-// 对外按 URI / Genre 寻址。集合操作返 []corpusdomain.Document（type-erased），
+// 对外按 URI / Genre 寻址。集合操作返 []corpus.Document（type-erased），
 // caller 不再分 Genre 写对称代码。
 //
 // 类型本身就叫 Corpus（无 Repo 后缀） —— 它对应 corpus 集合本身。
@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 // Corpus —— 统一 corpus 访问入口。
@@ -41,7 +41,7 @@ var ErrCorpusGenreNotSupported = errors.New("corpus genre not supported")
 
 // Get —— 按 URI 拿一个 document。dispatch by Genre。
 //
-// URI 形态 (见 corpusdomain.ParseURI)：
+// URI 形态 (见 corpus.ParseURI)：
 //   - raw://<uuid>        → RawRepo.GetByID(ownerID, uuid)
 //   - wiki://<path>       → WikiRepo 找 path 一样的 entry；fallback wiki://<id>
 //   - output://<path>     → 同 wiki 逻辑
@@ -50,8 +50,8 @@ var ErrCorpusGenreNotSupported = errors.New("corpus genre not supported")
 // **注意**：这里需要 ownerID 因为所有 corpus 表都 owner-scoped；URI 本身不
 // 带 owner（pre-launch single-owner instance，多 tenant 后 URI 也不会带 —
 // owner scope 来自 visitor session）。
-func (c *Corpus) Get(ctx context.Context, ownerID, uri string) (corpusdomain.Document, error) {
-	ref, perr := corpusdomain.ParseURI(uri)
+func (c *Corpus) Get(ctx context.Context, ownerID, uri string) (corpus.Document, error) {
+	ref, perr := corpus.ParseURI(uri)
 	if perr != nil {
 		return nil, fmt.Errorf("parse uri: %w", perr)
 	}
@@ -64,43 +64,43 @@ func (c *Corpus) Get(ctx context.Context, ownerID, uri string) (corpusdomain.Doc
 
 // genreGetter —— dispatch by genre 拍平到 map 里，避免 Get switch 的
 // cyclomatic 上限。每个值是把对应 repo 包成统一签名的 closure。
-type genreGetter func(ctx context.Context, ownerID, idOrPath string) (corpusdomain.Document, error)
+type genreGetter func(ctx context.Context, ownerID, idOrPath string) (corpus.Document, error)
 
 // List —— 列 owner 的 documents，过滤指定 genres。空 genres → 全部 4 个 genre。
-// 返 []corpusdomain.Document type-erased，caller 通过 Document.Genre() 知道每条来源。
+// 返 []corpus.Document type-erased，caller 通过 Document.Genre() 知道每条来源。
 //
 // A.2 阶段 List 走 repo 现有 ListByOwner，未来要支持 limit/cursor 时改这里。
 // **不接 retriever / route** —— 那是 A.3-IAM。
 func (c *Corpus) List(
-	ctx context.Context, ownerID string, genres []corpusdomain.DocumentGenre,
-) ([]corpusdomain.Document, error) {
+	ctx context.Context, ownerID string, genres []corpus.DocumentGenre,
+) ([]corpus.Document, error) {
 	want := genreSet(genres)
-	out := []corpusdomain.Document{}
+	out := []corpus.Document{}
 	if err := c.appendRawIfWanted(ctx, ownerID, want, &out); err != nil {
-		return []corpusdomain.Document{}, err
+		return []corpus.Document{}, err
 	}
 	if err := c.appendWikiIfWanted(ctx, ownerID, want, &out); err != nil {
-		return []corpusdomain.Document{}, err
+		return []corpus.Document{}, err
 	}
 	if err := c.appendOutputIfWanted(ctx, ownerID, want, &out); err != nil {
-		return []corpusdomain.Document{}, err
+		return []corpus.Document{}, err
 	}
 	if err := c.appendWritingsIfWanted(ctx, ownerID, want, &out); err != nil {
-		return []corpusdomain.Document{}, err
+		return []corpus.Document{}, err
 	}
 	return out, nil
 }
 
 // genreSet —— 空 genres 列表当"全要"；否则按列表精确过滤。
-func genreSet(genres []corpusdomain.DocumentGenre) map[corpusdomain.DocumentGenre]struct{} {
+func genreSet(genres []corpus.DocumentGenre) map[corpus.DocumentGenre]struct{} {
 	if len(genres) == 0 {
-		out := make(map[corpusdomain.DocumentGenre]struct{}, len(corpusdomain.AllGenres))
-		for _, g := range corpusdomain.AllGenres {
+		out := make(map[corpus.DocumentGenre]struct{}, len(corpus.AllGenres))
+		for _, g := range corpus.AllGenres {
 			out[g] = struct{}{}
 		}
 		return out
 	}
-	out := make(map[corpusdomain.DocumentGenre]struct{}, len(genres))
+	out := make(map[corpus.DocumentGenre]struct{}, len(genres))
 	for _, g := range genres {
 		out[g] = struct{}{}
 	}
@@ -112,10 +112,10 @@ func genreSet(genres []corpusdomain.DocumentGenre) map[corpusdomain.DocumentGenr
 const listLimitDefault = 1000
 
 func (c *Corpus) appendRawIfWanted(
-	ctx context.Context, ownerID string, want map[corpusdomain.DocumentGenre]struct{},
-	out *[]corpusdomain.Document,
+	ctx context.Context, ownerID string, want map[corpus.DocumentGenre]struct{},
+	out *[]corpus.Document,
 ) error {
-	if _, ok := want[corpusdomain.GenreRaw]; !ok {
+	if _, ok := want[corpus.GenreRaw]; !ok {
 		return nil
 	}
 	rows, err := c.raw.ListByOwner(ctx, ownerID, listLimitDefault)
@@ -129,10 +129,10 @@ func (c *Corpus) appendRawIfWanted(
 }
 
 func (c *Corpus) appendWikiIfWanted(
-	ctx context.Context, ownerID string, want map[corpusdomain.DocumentGenre]struct{},
-	out *[]corpusdomain.Document,
+	ctx context.Context, ownerID string, want map[corpus.DocumentGenre]struct{},
+	out *[]corpus.Document,
 ) error {
-	if _, ok := want[corpusdomain.GenreWiki]; !ok {
+	if _, ok := want[corpus.GenreWiki]; !ok {
 		return nil
 	}
 	rows, err := c.wiki.ListByOwner(ctx, ownerID, listLimitDefault)
@@ -146,10 +146,10 @@ func (c *Corpus) appendWikiIfWanted(
 }
 
 func (c *Corpus) appendOutputIfWanted(
-	ctx context.Context, ownerID string, want map[corpusdomain.DocumentGenre]struct{},
-	out *[]corpusdomain.Document,
+	ctx context.Context, ownerID string, want map[corpus.DocumentGenre]struct{},
+	out *[]corpus.Document,
 ) error {
-	if _, ok := want[corpusdomain.GenreOutput]; !ok {
+	if _, ok := want[corpus.GenreOutput]; !ok {
 		return nil
 	}
 	rows, err := c.output.ListByOwner(ctx, ownerID, listLimitDefault)
@@ -163,10 +163,10 @@ func (c *Corpus) appendOutputIfWanted(
 }
 
 func (c *Corpus) appendWritingsIfWanted(
-	ctx context.Context, ownerID string, want map[corpusdomain.DocumentGenre]struct{},
-	out *[]corpusdomain.Document,
+	ctx context.Context, ownerID string, want map[corpus.DocumentGenre]struct{},
+	out *[]corpus.Document,
 ) error {
-	if _, ok := want[corpusdomain.GenreWriting]; !ok {
+	if _, ok := want[corpus.GenreWriting]; !ok {
 		return nil
 	}
 	rows, err := c.writings.ListPublishedByOwner(ctx, ownerID)
@@ -183,21 +183,21 @@ func (c *Corpus) appendWritingsIfWanted(
 
 // getterFor —— Get 的 dispatch entry。返 (genreGetter, true) 或 (nil, false)
 // 表示不识别。switch 长度 = AllGenres 长度，加 genre 时需要在此扩 case。
-func (c *Corpus) getterFor(g corpusdomain.DocumentGenre) (genreGetter, bool) {
+func (c *Corpus) getterFor(g corpus.DocumentGenre) (genreGetter, bool) {
 	// map lookup 而非 switch：cyclo=1，且加 genre 只需在 map 里加一行。subjectivity 不在表内
 	// （私有 tier，走专用 SubjectivityCiteLookup），未命中 → (nil, false)。
-	getter, ok := map[corpusdomain.DocumentGenre]genreGetter{
-		corpusdomain.GenreRaw:     c.getRaw,
-		corpusdomain.GenreWiki:    c.getWiki,
-		corpusdomain.GenreOutput:  c.getOutput,
-		corpusdomain.GenreWriting: c.getWriting,
+	getter, ok := map[corpus.DocumentGenre]genreGetter{
+		corpus.GenreRaw:     c.getRaw,
+		corpus.GenreWiki:    c.getWiki,
+		corpus.GenreOutput:  c.getOutput,
+		corpus.GenreWriting: c.getWriting,
 	}[g]
 	return getter, ok
 }
 
 func (c *Corpus) getRaw(
 	ctx context.Context, ownerID, idOrPath string,
-) (corpusdomain.Document, error) {
+) (corpus.Document, error) {
 	r, err := c.raw.GetByID(ctx, ownerID, idOrPath)
 	if err != nil {
 		return nil, fmt.Errorf("corpus get raw: %w", err)
@@ -209,7 +209,7 @@ func (c *Corpus) getRaw(
 // wiki://<id> / output://<id>(见 domain.URI),所以 ref 永远是 uuid。
 func (c *Corpus) getWiki(
 	ctx context.Context, ownerID, id string,
-) (corpusdomain.Document, error) {
+) (corpus.Document, error) {
 	w, err := c.wiki.GetByID(ctx, ownerID, id)
 	if err != nil {
 		return nil, fmt.Errorf("corpus get wiki: %w", err)
@@ -219,7 +219,7 @@ func (c *Corpus) getWiki(
 
 func (c *Corpus) getOutput(
 	ctx context.Context, ownerID, id string,
-) (corpusdomain.Document, error) {
+) (corpus.Document, error) {
 	o, err := c.output.GetByID(ctx, ownerID, id)
 	if err != nil {
 		return nil, fmt.Errorf("corpus get output: %w", err)
@@ -232,7 +232,7 @@ func (c *Corpus) getOutput(
 // 故 uuid → GetByID，slug → GetBySlug；slug 从不是合法 uuid，两条路不会撞。
 func (c *Corpus) getWriting(
 	ctx context.Context, ownerID, idOrSlug string,
-) (corpusdomain.Document, error) {
+) (corpus.Document, error) {
 	w, err := c.getWritingRow(ctx, ownerID, idOrSlug)
 	if err != nil {
 		return nil, fmt.Errorf("corpus get writing: %w", err)
@@ -242,7 +242,7 @@ func (c *Corpus) getWriting(
 
 func (c *Corpus) getWritingRow(
 	ctx context.Context, ownerID, idOrSlug string,
-) (corpusdomain.Writing, error) {
+) (corpus.Writing, error) {
 	if isUUID(idOrSlug) {
 		return c.writings.GetByID(ctx, ownerID, idOrSlug)
 	}
