@@ -8,13 +8,13 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 
 // InferenceUsageSummarizer —— #106 admin 计费面板数据源。
 type InferenceUsageSummarizer interface {
-	Summarize7Day(ctx context.Context, ownerID string) ([]domain.InferenceUsageDay, error)
+	Summarize7Day(ctx context.Context, ownerID string) ([]stats.InferenceUsageDay, error)
 }
 
 type usageRowResp struct {
@@ -53,7 +53,7 @@ func (h *Handlers) getInferenceUsage() http.HandlerFunc {
 	}
 }
 
-func toUsageResp(days []domain.InferenceUsageDay) usageResp {
+func toUsageResp(days []stats.InferenceUsageDay) usageResp {
 	rows := make([]usageRowResp, 0, len(days))
 	var total usageTotalResp
 	for i := range days {

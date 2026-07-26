@@ -11,7 +11,6 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/stats"
 )
@@ -30,7 +29,7 @@ type instanceSystemInfo interface {
 
 // instanceUsage —— 7-day LLM usage by day×model (admin inference_usage.go).
 type instanceUsage interface {
-	Summarize7Day(ctx context.Context, ownerID string) ([]domain.InferenceUsageDay, error)
+	Summarize7Day(ctx context.Context, ownerID string) ([]stats.InferenceUsageDay, error)
 }
 
 // instanceGrowth —— corpus growth series (admin stats_growth.go).

@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 
 // InferenceUsageRepo —— inference_usage 表入口。
@@ -44,7 +44,7 @@ func (r *InferenceUsageRepo) Record(
 // Summarize7Day —— 某 owner 近 7 天按天×model 聚合。
 func (r *InferenceUsageRepo) Summarize7Day(
 	ctx context.Context, ownerID string,
-) ([]domain.InferenceUsageDay, error) {
+) ([]stats.InferenceUsageDay, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -53,9 +53,9 @@ func (r *InferenceUsageRepo) Summarize7Day(
 	if qerr != nil {
 		return nil, fmt.Errorf("summarize inference usage: %w", qerr)
 	}
-	out := make([]domain.InferenceUsageDay, 0, len(rows))
+	out := make([]stats.InferenceUsageDay, 0, len(rows))
 	for i := range rows {
-		out = append(out, domain.InferenceUsageDay{
+		out = append(out, stats.InferenceUsageDay{
 			Day:          rows[i].Day.Time,
 			Model:        rows[i].Model,
 			Calls:        rows[i].Calls,
