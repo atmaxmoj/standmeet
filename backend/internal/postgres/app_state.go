@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -23,7 +23,7 @@ func NewAppStateRepo(pool *Pool) *AppStateRepo { return &AppStateRepo{pool: pool
 
 // Set —— upsert 一格（ref = member × mcp × key）的 value（opaque jsonb）。
 func (r *AppStateRepo) Set(
-	ctx context.Context, ref conversationdomain.AppStateRef, value []byte,
+	ctx context.Context, ref conversation.AppStateRef, value []byte,
 ) error {
 	ownerUUID, err := parseUUID(ref.OwnerID)
 	if err != nil {

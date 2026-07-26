@@ -1,7 +1,7 @@
 // chats_dialog.go —— ChatRepo.AppendDialog (一个 Dialog → 2 行 messages
 // 单事务原子) 实现细节。从 chats.go 拆出来守 max-lines 350 cap。
 //
-// 设计：caller 传 *conversationdomain.Dialog；这里负责拆 citations、parse uuid、开 tx、
+// 设计：caller 传 *conversation.Dialog；这里负责拆 citations、parse uuid、开 tx、
 // 落 2 行 messages、bump conversation、commit。Bump / rollback / 错误翻译都
 // 在这一个文件里。
 
@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -24,7 +24,7 @@ import (
 // 单事务原子。dialog.Citations 拆成 wiki_ids / output_ids 落 assistant 那行。
 // 返真 dialog id（dialogs 表；曾经借 assistant message id 冒充）。
 func (r *ChatRepo) AppendDialog(
-	ctx context.Context, chatID string, dialog *conversationdomain.Dialog,
+	ctx context.Context, chatID string, dialog *conversation.Dialog,
 ) (string, error) {
 	chatUUID, perr := parseUUID(chatID)
 	if perr != nil {
@@ -195,7 +195,7 @@ type splitCitedIDs struct {
 	Subjectivity []string
 }
 
-func splitCitations(cites []conversationdomain.Citation) splitCitedIDs {
+func splitCitations(cites []conversation.Citation) splitCitedIDs {
 	out := splitCitedIDs{
 		Wiki:         make([]string, 0, len(cites)),
 		Writing:      make([]string, 0, len(cites)),
@@ -211,7 +211,7 @@ func splitCitations(cites []conversationdomain.Citation) splitCitedIDs {
 // appendCitedID —— Citation 按 genre 路由到 wiki / writing / output / subjectivity 列；
 // 其他 genre (raw / 未来新加) 丢弃(bucket 表里没有 → 不 append)。writing 是 public blog,
 // 一律进 cited(无 gate);subjectivity 能到这里的都已过 show_as_source gate。
-func appendCitedID(acc *splitCitedIDs, c conversationdomain.Citation) {
+func appendCitedID(acc *splitCitedIDs, c conversation.Citation) {
 	bucket := map[corpusdomain.DocumentGenre]*[]string{
 		corpusdomain.GenreWiki:         &acc.Wiki,
 		corpusdomain.GenreWriting:      &acc.Writing,

@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -51,7 +51,7 @@ type IssueCodeSessionResult struct {
 	CodeLabel   string
 	VisitorName string
 	MemberID    string
-	Chat        conversationdomain.Chat
+	Chat        conversation.Chat
 	Members     []access.CodeMember
 	Ghosts      []string
 	Quota       SessionQuota
@@ -60,7 +60,7 @@ type IssueCodeSessionResult struct {
 // codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
 type codeSessionArtifacts struct {
 	Issued session.IssuedVisitor
-	Conv   conversationdomain.Chat
+	Conv   conversation.Chat
 	Member access.CodeMember
 }
 
@@ -120,7 +120,7 @@ func finalizeCodeSession(
 // 各算。数不出来(DB 抖)→ 退回 0。
 func codeSessionQuotaWithUsed(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode,
-	conv *conversationdomain.Chat,
+	conv *conversation.Chat,
 ) SessionQuota {
 	q := codeSessionQuota(code)
 	if used, err := countTurnsForQuota(ctx, deps, conv); err == nil {
@@ -278,13 +278,13 @@ func memberExists(members []access.CodeMember, name string) bool {
 func createCodeConversation(
 	ctx context.Context, deps *VisitorSessionDeps,
 	code *access.AccessCode, member *access.CodeMember, in *IssueCodeSessionInput,
-) (conversationdomain.Chat, error) {
+) (conversation.Chat, error) {
 	existing, gerr := deps.Chats.GetOpenChatByMember(ctx, member.ID)
 	if gerr == nil {
 		return existing, nil
 	}
-	if !errors.Is(gerr, conversationdomain.ErrChatNotFound) {
-		return conversationdomain.Chat{}, fmt.Errorf("look up member's open chat: %w", gerr)
+	if !errors.Is(gerr, conversation.ErrChatNotFound) {
+		return conversation.Chat{}, fmt.Errorf("look up member's open chat: %w", gerr)
 	}
 	memberID := member.ID
 	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
@@ -296,7 +296,7 @@ func createCodeConversation(
 		ClientIP:    in.ClientIP,
 	})
 	if err != nil {
-		return conversationdomain.Chat{}, fmt.Errorf("create chat: %w", err)
+		return conversation.Chat{}, fmt.Errorf("create chat: %w", err)
 	}
 	return chat, nil
 }

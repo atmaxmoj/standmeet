@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -125,7 +125,7 @@ func loadConversation(
 		return Conversation{}, nil
 	}
 	chat, err := deps.Chats.GetOpenChatByMember(ctx, memberID)
-	if errors.Is(err, conversationdomain.ErrChatNotFound) {
+	if errors.Is(err, conversation.ErrChatNotFound) {
 		return Conversation{}, nil
 	}
 	if err != nil {
@@ -164,7 +164,7 @@ type dialogAnswer struct {
 //
 // 只有 return_directly 轮会以「空 body + tool_calls」落库(persistTurn 的 producedContentForPersist:
 // 纯 grounding narration 不落),所以这里放行带 tool 的空答案不会把 F-A-4 的规划旁白放进来。
-func pairDialogs(msgs []conversationdomain.Message, r *citationResolver) []ConvDialog {
+func pairDialogs(msgs []conversation.Message, r *citationResolver) []ConvDialog {
 	out := make([]ConvDialog, 0, len(msgs))
 	for i := range msgs {
 		if msgs[i].Role != "visitor" {
@@ -187,7 +187,7 @@ func toolCallsNonEmpty(raw []byte) bool {
 	return s != "" && s != "null" && s != "[]"
 }
 
-func answerAfter(msgs []conversationdomain.Message, i int, r *citationResolver) dialogAnswer {
+func answerAfter(msgs []conversation.Message, i int, r *citationResolver) dialogAnswer {
 	if i+1 < len(msgs) && msgs[i+1].Role == "assistant" {
 		return dialogAnswer{
 			CreatedAt: msgs[i+1].CreatedAt, Body: msgs[i+1].Body,
@@ -216,7 +216,7 @@ const (
 
 func newCitationResolver(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID string,
-	msgs []conversationdomain.Message,
+	msgs []conversation.Message,
 ) *citationResolver {
 	r := &citationResolver{}
 	cited := collectCitedIDs(msgs)
@@ -262,7 +262,7 @@ func (r *citationResolver) loadOutputs(
 	}
 }
 
-func (r *citationResolver) resolve(m *conversationdomain.Message) []DialogCitation {
+func (r *citationResolver) resolve(m *conversation.Message) []DialogCitation {
 	out := make([]DialogCitation, 0,
 		len(m.CitedWikiIDs)+len(m.CitedWritingIDs)+len(m.CitedOutputIDs))
 	out = appendCites(out, "wiki", m.CitedWikiIDs, r.wikiPaths, r.wikiTitles)

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -35,16 +35,16 @@ type OpenConvForDocInput struct {
 // ErrEmptyField。
 func OpenConversationForDoc(
 	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
-) (conversationdomain.Chat, error) {
+) (conversation.Chat, error) {
 	if !validOpenConvInput(in) {
-		return conversationdomain.Chat{}, ErrEmptyField
+		return conversation.Chat{}, ErrEmptyField
 	}
 	existing, gerr := deps.Chats.GetOpenChatByMemberAndDoc(ctx, in.MemberID, in.DocKey)
 	if gerr == nil {
 		return existing, nil
 	}
-	if !errors.Is(gerr, conversationdomain.ErrChatNotFound) {
-		return conversationdomain.Chat{}, fmt.Errorf("lookup member doc chat: %w", gerr)
+	if !errors.Is(gerr, conversation.ErrChatNotFound) {
+		return conversation.Chat{}, fmt.Errorf("lookup member doc chat: %w", gerr)
 	}
 	return createDocConversation(ctx, deps, in)
 }
@@ -55,7 +55,7 @@ func validOpenConvInput(in *OpenConvForDocInput) bool {
 
 func createDocConversation(
 	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
-) (conversationdomain.Chat, error) {
+) (conversation.Chat, error) {
 	memberID := in.MemberID
 	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
 		OwnerID:     in.OwnerID,
@@ -66,7 +66,7 @@ func createDocConversation(
 		DocKey:      in.DocKey,
 	})
 	if err != nil {
-		return conversationdomain.Chat{}, fmt.Errorf("create doc chat: %w", err)
+		return conversation.Chat{}, fmt.Errorf("create doc chat: %w", err)
 	}
 	return chat, nil
 }
@@ -127,7 +127,7 @@ func ChatBelongsToMember(
 ) (bool, error) {
 	conv, err := deps.Chats.GetChat(ctx, ownerID, convID)
 	if err != nil {
-		if errors.Is(err, conversationdomain.ErrChatNotFound) {
+		if errors.Is(err, conversation.ErrChatNotFound) {
 			return false, nil
 		}
 		return false, fmt.Errorf("load conv for ownership: %w", err)

@@ -12,7 +12,7 @@ package usecases
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -66,6 +66,6 @@ type WritingLister interface {
 type ReportStore interface {
 	Upsert(
 		ctx context.Context, in *postgres.UpsertReportInput,
-	) (conversationdomain.ChatReport, error)
-	GetByID(ctx context.Context, reportID string) (conversationdomain.ChatReport, error)
+	) (conversation.ChatReport, error)
+	GetByID(ctx context.Context, reportID string) (conversation.ChatReport, error)
 }

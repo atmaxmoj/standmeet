@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -210,7 +210,7 @@ const citedSetInitialCap = 16
 
 // collectCitedIDs —— 扫所有 message 的 CitedWikiIDs / CitedWritingIDs / CitedOutputIDs /
 // CitedSubjectivityIDs，去重。
-func collectCitedIDs(messages []conversationdomain.Message) citedIDs {
+func collectCitedIDs(messages []conversation.Message) citedIDs {
 	wikiSet := make(map[string]struct{}, citedSetInitialCap)
 	writingSet := make(map[string]struct{}, citedSetInitialCap)
 	outputSet := make(map[string]struct{}, citedSetInitialCap)

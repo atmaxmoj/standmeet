@@ -18,7 +18,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpusdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -70,7 +70,7 @@ func RecordDialog(
 		return appendVisitorOnly(ctx, deps, in)
 	}
 	cites := resolveCitations(ctx, deps, in)
-	dlg := conversationdomain.NewDialog(&conversationdomain.DialogInit{
+	dlg := conversation.NewDialog(&conversation.DialogInit{
 		ChatID: in.ConversationID, Question: in.Question, Answer: in.Answer,
 		Citations: cites, ToolCalls: in.ToolCalls, CreatedAt: time.Now(),
 	})
@@ -95,8 +95,8 @@ func appendVisitorOnly(
 // (genre + doc_id + uri + title)。lookup 失败的丢弃 (不阻塞 dialog 落)。
 func resolveCitations(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
-) []conversationdomain.Citation {
-	cites := make([]conversationdomain.Citation, 0,
+) []conversation.Citation {
+	cites := make([]conversation.Citation, 0,
 		len(in.CitedWikiIDs)+len(in.CitedWritingIDs)+
 			len(in.CitedOutputIDs)+len(in.CitedSubjectivityIDs))
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
@@ -119,8 +119,8 @@ func resolveCitations(
 // 不信 client，源头查 DB。lookup 未注入 / 未命中 → 略过（不阻塞 dialog 落）。
 func appendSubjectivityCitations(
 	ctx context.Context, deps *DialogDeps, ownerID string, ids []string,
-	acc []conversationdomain.Citation,
-) []conversationdomain.Citation {
+	acc []conversation.Citation,
+) []conversation.Citation {
 	if deps.Subjectivity == nil {
 		return acc
 	}
@@ -133,7 +133,7 @@ func appendSubjectivityCitations(
 		if !ref.ShowAsSource {
 			continue // 私有：ground 了 voice 但不进 visitor footer。
 		}
-		acc = append(acc, conversationdomain.Citation{
+		acc = append(acc, conversation.Citation{
 			Genre: corpusdomain.GenreSubjectivity, DocID: ref.ID,
 			Path: ref.Path, Title: ref.Title,
 		})
@@ -156,8 +156,8 @@ type resolveCiteArgs struct {
 // 引用稳:不受树路径在 ACL 子集下对不上影响。corpus 没注入时返空。
 func appendResolvedCitations(
 	ctx context.Context, deps *DialogDeps, args *resolveCiteArgs,
-	acc []conversationdomain.Citation,
-) []conversationdomain.Citation {
+	acc []conversation.Citation,
+) []conversation.Citation {
 	if deps.Corpus == nil {
 		return acc
 	}
@@ -168,7 +168,7 @@ func appendResolvedCitations(
 			logIfUnexpectedNotFound(deps.Log, err, args.Genre, id)
 			continue
 		}
-		acc = append(acc, conversationdomain.Citation{
+		acc = append(acc, conversation.Citation{
 			Genre: args.Genre, DocID: doc.ID(), Path: doc.URI(), Title: doc.Title(),
 		})
 	}

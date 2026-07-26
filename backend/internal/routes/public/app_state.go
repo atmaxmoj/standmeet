@@ -21,13 +21,13 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // AppStateStore —— mcp_app_state 持久层（route 注入；wireup 接 postgres repo）。
 type AppStateStore interface {
-	Set(ctx context.Context, ref conversationdomain.AppStateRef, value []byte) error
+	Set(ctx context.Context, ref conversation.AppStateRef, value []byte) error
 	Get(ctx context.Context, memberID, mcpID string) (map[string]json.RawMessage, error)
 	Delete(ctx context.Context, memberID, mcpID, key string) error
 }
@@ -80,7 +80,7 @@ func (h *Handlers) doSetAppState(w http.ResponseWriter, r *http.Request, sc appS
 	if !ok {
 		return
 	}
-	ref := conversationdomain.AppStateRef{
+	ref := conversation.AppStateRef{
 		OwnerID: sc.ownerID, MemberID: sc.memberID,
 		McpID: sc.mcpID, Key: chi.URLParam(r, "key"),
 	}

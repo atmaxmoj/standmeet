@@ -12,7 +12,7 @@
 // Genre 用 corpusdomain.DocumentGenre (跟 corpus entry 复用同一类型)；引入独
 // 立 CitationKind 是残留，已废。
 
-package conversationdomain
+package conversation
 
 import "github.com/atmaxmoj/standmeet/internal/corpusdomain"
 

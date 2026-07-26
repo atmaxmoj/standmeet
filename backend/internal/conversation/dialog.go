@@ -6,7 +6,7 @@
 // 前端 `Turn` 是同一个概念的旧名 (D-5 pi-pivot 时取的，从 agent loop
 // iteration 视角)。统一叫 Dialog。
 
-package conversationdomain
+package conversation
 
 import "time"
 

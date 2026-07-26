@@ -81,8 +81,8 @@ components:
     in: internal/security                 # #135: 请求级防护域 (banned_ip; captcha/replay 后续并入)
   jobsdomain:
     in: internal/jobsdomain                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
-  conversationdomain:
-    in: internal/conversationdomain        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpusdomain 拿 DocumentGenre
+  conversation:
+    in: internal/conversation        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpusdomain 拿 DocumentGenre
   corpusdomain:
     in: internal/corpusdomain              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
   access:
@@ -171,7 +171,7 @@ deps:
   # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
-      - conversationdomain
+      - conversation
       - access
       - ownerdomain
       - marketplace
@@ -368,7 +368,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
-      - conversationdomain
+      - conversation
       - connectordomain
       - ownerdomain
       - access
@@ -455,7 +455,7 @@ deps:
   # prod 同一套 agentic 功能，只换注入的 repo。backend 内部无人 import 它。
   agentcore:
     mayDependOn:
-      - conversationdomain
+      - conversation
       - marketplace
       - corpusdomain
       - inference
@@ -498,7 +498,7 @@ deps:
   # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
   pluginownercore:
     mayDependOn:
-      - conversationdomain
+      - conversation
       - connectordomain
       - access
       - ownerdomain
@@ -634,8 +634,8 @@ deps:
       - access
     anyVendorDeps: true
 
-  # conversationdomain —— #135 conversation 领域值对象：Citation.Genre = corpusdomain.DocumentGenre。
-  conversationdomain:
+  # conversation —— #135 conversation 领域值对象：Citation.Genre = corpusdomain.DocumentGenre。
+  conversation:
     mayDependOn:
       - corpusdomain
     anyVendorDeps: true
@@ -719,7 +719,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
-      - conversationdomain
+      - conversation
       - connectordomain
       - ownerdomain
       - access
@@ -760,7 +760,7 @@ deps:
   # token bearer auth；SSE 流式 chat。
   publicroutes:
     mayDependOn:
-      - conversationdomain
+      - conversation
       - access
       - ownerdomain
       - corpusdomain

@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -59,21 +59,21 @@ func (r *ChatRepo) CountVisitorTurnsForMember(
 }
 
 // GetOpenChatByMemberAndDoc —— 该 member 在某 surface(doc_key)未结束的那段对话;
-// 没有返 conversationdomain.ErrChatNotFound(caller 新建)。
+// 没有返 conversation.ErrChatNotFound(caller 新建)。
 func (r *ChatRepo) GetOpenChatByMemberAndDoc(
 	ctx context.Context, memberID, docKey string,
-) (conversationdomain.Chat, error) {
+) (conversation.Chat, error) {
 	memberUUID, err := parseUUID(memberID)
 	if err != nil {
-		return conversationdomain.Chat{}, fmt.Errorf("parse member id: %w", err)
+		return conversation.Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
 	row, qerr := dbq.New(r.pool).GetOpenConversationByMemberAndDoc(ctx,
 		dbq.GetOpenConversationByMemberAndDocParams{MemberID: memberUUID, DocKey: docKey})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return conversationdomain.Chat{}, conversationdomain.ErrChatNotFound
+			return conversation.Chat{}, conversation.ErrChatNotFound
 		}
-		return conversationdomain.Chat{}, fmt.Errorf("get open chat by member+doc: %w", qerr)
+		return conversation.Chat{}, fmt.Errorf("get open chat by member+doc: %w", qerr)
 	}
 	return toDomainChat(&row), nil
 }

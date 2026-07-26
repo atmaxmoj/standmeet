@@ -12,7 +12,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -190,7 +190,7 @@ func (c *chatCapability) handleShowGrounding(
 		ctx, *c.convs, ownerID, args.ConversationID,
 	)
 	if err != nil {
-		if errors.Is(err, conversationdomain.ErrChatNotFound) {
+		if errors.Is(err, conversation.ErrChatNotFound) {
 			return capreg.MCPError("conversation not found")
 		}
 		c.log.Error("cap chat.show_grounding", "err", err)
@@ -245,7 +245,7 @@ func transcriptRefIDs(refs []usecases.TitledRef) []string {
 	return out
 }
 
-func toGroundingCapMessageViews(msgs []conversationdomain.Message) []groundingCapMessageView {
+func toGroundingCapMessageViews(msgs []conversation.Message) []groundingCapMessageView {
 	out := make([]groundingCapMessageView, 0, len(msgs))
 	for i := range msgs {
 		out = append(out, groundingCapMessageView{

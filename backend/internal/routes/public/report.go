@@ -20,7 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/conversationdomain"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 type reportResponse struct {
@@ -55,20 +55,20 @@ func dispatchGetReport(h *Handlers, w http.ResponseWriter, r *http.Request) {
 // 请求的 member**」，访客只能读自己会话的 report。
 func fetchOwnedReport(
 	h *Handlers, r *http.Request, id, ownerID, memberID string,
-) (conversationdomain.ChatReport, error) {
+) (conversation.ChatReport, error) {
 	report, err := h.Reports.GetByID(r.Context(), id)
 	if err != nil {
-		return conversationdomain.ChatReport{}, err
+		return conversation.ChatReport{}, err
 	}
 	if reportVisibleTo(h, r, &report, ownerID, memberID) {
 		return report, nil
 	}
-	return conversationdomain.ChatReport{}, conversationdomain.ErrReportNotFound
+	return conversation.ChatReport{}, conversation.ErrReportNotFound
 }
 
 // reportVisibleTo —— report 属于该 owner 且其会话由该 member 拥有。
 func reportVisibleTo(
-	h *Handlers, r *http.Request, report *conversationdomain.ChatReport, ownerID, memberID string,
+	h *Handlers, r *http.Request, report *conversation.ChatReport, ownerID, memberID string,
 ) bool {
 	return report.OwnerID == ownerID &&
 		conversationOwnedByMember(h, r, ownerID, report.ConversationID, memberID)
@@ -82,7 +82,7 @@ func conversationOwnedByMember(
 	return err == nil && chat.MemberID != nil && *chat.MemberID == memberID
 }
 
-func writeReport(h *Handlers, w http.ResponseWriter, report *conversationdomain.ChatReport) {
+func writeReport(h *Handlers, w http.ResponseWriter, report *conversation.ChatReport) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	body := reportResponse{
@@ -97,7 +97,7 @@ func writeReport(h *Handlers, w http.ResponseWriter, report *conversationdomain.
 }
 
 func handleReportErr(h *Handlers, w http.ResponseWriter, err error) {
-	if errors.Is(err, conversationdomain.ErrReportNotFound) {
+	if errors.Is(err, conversation.ErrReportNotFound) {
 		writeError(h.Log, w, reportNotFoundEnv())
 		return
 	}
