@@ -11,7 +11,7 @@
 //
 // 字段顺序按 govet fieldalignment：slice / map 先（含 ptr），time / strings 后。
 
-package domain
+package jobsdomain
 
 // ResumeContent —— 一份简历的完整结构化内容。
 type ResumeContent struct {

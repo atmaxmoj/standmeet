@@ -3,7 +3,7 @@
 // projects）。保留这个文件是为了让 ResumeContent 字段定义分散在两个 file
 // 不致超 lint 行数；rename 不动以减少 import 改动。
 
-package domain
+package jobsdomain
 
 // ResumeEducation —— 一段教育经历。
 type ResumeEducation struct {

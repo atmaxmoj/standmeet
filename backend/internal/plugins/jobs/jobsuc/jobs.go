@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/dedup"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
@@ -35,19 +35,19 @@ type JobsDeps struct {
 
 // RegisterJobSource —— 校验 kind/config + 写 postgres。
 func RegisterJobSource(
-	ctx context.Context, deps JobsDeps, in *domain.CreateJobSourceInput,
-) (domain.JobSource, error) {
+	ctx context.Context, deps JobsDeps, in *jobsdomain.CreateJobSourceInput,
+) (jobsdomain.JobSource, error) {
 	if err := validateRegisterInput(in); err != nil {
-		return domain.JobSource{}, err
+		return jobsdomain.JobSource{}, err
 	}
 	src, err := deps.Sources.Create(ctx, in)
 	if err != nil {
-		return domain.JobSource{}, fmt.Errorf("create source: %w", err)
+		return jobsdomain.JobSource{}, fmt.Errorf("create source: %w", err)
 	}
 	return src, nil
 }
 
-func validateRegisterInput(in *domain.CreateJobSourceInput) error {
+func validateRegisterInput(in *jobsdomain.CreateJobSourceInput) error {
 	if in.OwnerID == "" || in.Kind == "" || in.Label == "" {
 		return usecases.ErrEmptyField
 	}
@@ -60,7 +60,7 @@ func validateRegisterInput(in *domain.CreateJobSourceInput) error {
 // ListJobSources —— owner 的全部 source。
 func ListJobSources(
 	ctx context.Context, deps JobsDeps, ownerID string,
-) ([]domain.JobSource, error) {
+) ([]jobsdomain.JobSource, error) {
 	if ownerID == "" {
 		return nil, usecases.ErrEmptyField
 	}
@@ -88,7 +88,7 @@ func UnregisterJobSource(
 // sourceID 非空 → 跑该 source。返回新 jobs（已 dedup + 已进池子，附 cache_id）。
 func FetchNewJobs(
 	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	if ownerID == "" {
 		return nil, usecases.ErrEmptyField
 	}
@@ -96,7 +96,7 @@ func FetchNewJobs(
 	if err != nil {
 		return nil, err
 	}
-	var allNew []domain.FetchedJob
+	var allNew []jobsdomain.FetchedJob
 	for i := range sources {
 		nu, ferr := fetchOneSourceAndDedup(ctx, deps, &sources[i])
 		if ferr != nil {
@@ -115,13 +115,13 @@ func FetchNewJobs(
 
 func selectSourcesToFetch(
 	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string,
-) ([]domain.JobSource, error) {
+) ([]jobsdomain.JobSource, error) {
 	if sourceID != nil && *sourceID != "" {
 		src, err := deps.Sources.GetByID(ctx, ownerID, *sourceID)
 		if err != nil {
 			return nil, fmt.Errorf("get source by id: %w", err)
 		}
-		return []domain.JobSource{src}, nil
+		return []jobsdomain.JobSource{src}, nil
 	}
 	list, err := deps.Sources.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -131,8 +131,8 @@ func selectSourcesToFetch(
 }
 
 func fetchOneSourceAndDedup(
-	ctx context.Context, deps JobsDeps, src *domain.JobSource,
-) ([]domain.FetchedJob, error) {
+	ctx context.Context, deps JobsDeps, src *jobsdomain.JobSource,
+) ([]jobsdomain.FetchedJob, error) {
 	raw, err := fetchAndStampSourceID(ctx, deps, src)
 	if err != nil {
 		return nil, err
@@ -145,8 +145,8 @@ func fetchOneSourceAndDedup(
 }
 
 func persistNewJobs(
-	ctx context.Context, deps JobsDeps, src *domain.JobSource, newJobs []domain.FetchedJob,
-) ([]domain.FetchedJob, error) {
+	ctx context.Context, deps JobsDeps, src *jobsdomain.JobSource, newJobs []jobsdomain.FetchedJob,
+) ([]jobsdomain.FetchedJob, error) {
 	if len(newJobs) == 0 {
 		return nil, touchSource(ctx, deps, src.ID)
 	}
@@ -161,8 +161,8 @@ func persistNewJobs(
 }
 
 func fetchAndStampSourceID(
-	ctx context.Context, deps JobsDeps, src *domain.JobSource,
-) ([]domain.FetchedJob, error) {
+	ctx context.Context, deps JobsDeps, src *jobsdomain.JobSource,
+) ([]jobsdomain.FetchedJob, error) {
 	raw, err := deps.Registry.Fetch(ctx, src.Kind, src.Config)
 	if err != nil {
 		return nil, fmt.Errorf("fetch source %s: %w", src.ID, err)
@@ -174,8 +174,8 @@ func fetchAndStampSourceID(
 }
 
 func keepUnseen(
-	ctx context.Context, deps JobsDeps, sourceID string, raw []domain.FetchedJob,
-) ([]domain.FetchedJob, error) {
+	ctx context.Context, deps JobsDeps, sourceID string, raw []jobsdomain.FetchedJob,
+) ([]jobsdomain.FetchedJob, error) {
 	unseen, err := deps.Sources.FilterUnseenExternalIDs(ctx, sourceID, externalIDsOf(raw))
 	if err != nil {
 		return nil, fmt.Errorf("filter unseen: %w", err)
@@ -183,7 +183,7 @@ func keepUnseen(
 	return pickByIDSet(raw, unseen), nil
 }
 
-func externalIDsOf(raw []domain.FetchedJob) []string {
+func externalIDsOf(raw []jobsdomain.FetchedJob) []string {
 	out := make([]string, 0, len(raw))
 	for i := range raw {
 		out = append(out, raw[i].ExternalID)
@@ -191,7 +191,7 @@ func externalIDsOf(raw []domain.FetchedJob) []string {
 	return out
 }
 
-func pickByIDSet(raw []domain.FetchedJob, allowed []string) []domain.FetchedJob {
+func pickByIDSet(raw []jobsdomain.FetchedJob, allowed []string) []jobsdomain.FetchedJob {
 	set := make(map[string]struct{}, len(allowed))
 	for _, e := range allowed {
 		set[e] = struct{}{}
@@ -206,7 +206,7 @@ func pickByIDSet(raw []domain.FetchedJob, allowed []string) []domain.FetchedJob 
 }
 
 func recordSeenAndTouch(
-	ctx context.Context, deps JobsDeps, sourceID string, jobs []domain.FetchedJob,
+	ctx context.Context, deps JobsDeps, sourceID string, jobs []jobsdomain.FetchedJob,
 ) error {
 	newIDs := make([]string, 0, len(jobs))
 	for i := range jobs {
@@ -228,16 +228,16 @@ func touchSource(ctx context.Context, deps JobsDeps, sourceID string) error {
 // ShowJob —— 池子里反查；过期 / discard 后返 ErrJobCacheMiss。
 func ShowJob(
 	ctx context.Context, deps JobsDeps, ownerID, cacheID string,
-) (domain.FetchedJob, error) {
+) (jobsdomain.FetchedJob, error) {
 	if ownerID == "" || cacheID == "" {
-		return domain.FetchedJob{}, usecases.ErrEmptyField
+		return jobsdomain.FetchedJob{}, usecases.ErrEmptyField
 	}
 	job, err := deps.Cache.Get(ctx, ownerID, cacheID)
 	if err != nil {
 		if errors.Is(err, jobcache.ErrCacheMiss) {
-			return domain.FetchedJob{}, domain.ErrJobCacheMiss
+			return jobsdomain.FetchedJob{}, jobsdomain.ErrJobCacheMiss
 		}
-		return domain.FetchedJob{}, fmt.Errorf("cache get: %w", err)
+		return jobsdomain.FetchedJob{}, fmt.Errorf("cache get: %w", err)
 	}
 	return job, nil
 }

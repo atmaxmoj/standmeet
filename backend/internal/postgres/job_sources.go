@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -28,11 +28,11 @@ func NewJobSourceRepo(pool *Pool) *JobSourceRepo {
 // Create —— 注册一条新 job source。in.Config 是已 marshal 好的 JSON bytes
 // （usecase 层负责 marshal，让 postgres 层不感知 jsonb 的 Go shape）。
 func (r *JobSourceRepo) Create(
-	ctx context.Context, in *domain.CreateJobSourceInput,
-) (domain.JobSource, error) {
+	ctx context.Context, in *jobsdomain.CreateJobSourceInput,
+) (jobsdomain.JobSource, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.JobSource{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return jobsdomain.JobSource{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	cfg := in.Config
 	if len(cfg) == 0 {
@@ -46,7 +46,7 @@ func (r *JobSourceRepo) Create(
 		Label:   in.Label,
 	})
 	if err != nil {
-		return domain.JobSource{}, fmt.Errorf("create job source: %w", err)
+		return jobsdomain.JobSource{}, fmt.Errorf("create job source: %w", err)
 	}
 	return toDomainJobSource(&row), nil
 }
@@ -54,14 +54,14 @@ func (r *JobSourceRepo) Create(
 // GetByID —— 按 (id, owner_id) 查一条；未命中 / owner 不匹配返 ErrJobSourceNotFound。
 func (r *JobSourceRepo) GetByID(
 	ctx context.Context, ownerID, id string,
-) (domain.JobSource, error) {
+) (jobsdomain.JobSource, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.JobSource{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return jobsdomain.JobSource{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	sourceUUID, err := parseUUID(id)
 	if err != nil {
-		return domain.JobSource{}, fmt.Errorf("parse source id: %w", err)
+		return jobsdomain.JobSource{}, fmt.Errorf("parse source id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetJobSource(ctx, dbq.GetJobSourceParams{
@@ -69,9 +69,9 @@ func (r *JobSourceRepo) GetByID(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.JobSource{}, domain.ErrJobSourceNotFound
+			return jobsdomain.JobSource{}, jobsdomain.ErrJobSourceNotFound
 		}
-		return domain.JobSource{}, fmt.Errorf("get job source: %w", err)
+		return jobsdomain.JobSource{}, fmt.Errorf("get job source: %w", err)
 	}
 	return toDomainJobSource(&row), nil
 }
@@ -79,7 +79,7 @@ func (r *JobSourceRepo) GetByID(
 // ListByOwner —— admin / MCP list_sources 走这条。
 func (r *JobSourceRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]domain.JobSource, error) {
+) ([]jobsdomain.JobSource, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -89,7 +89,7 @@ func (r *JobSourceRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list job sources: %w", err)
 	}
-	out := make([]domain.JobSource, 0, len(rows))
+	out := make([]jobsdomain.JobSource, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainJobSource(&rows[i]))
 	}
@@ -197,10 +197,10 @@ func diffUnseen(candidates, seen []string) []string {
 	return unseen
 }
 
-// toDomainJobSource —— sqlc Row → domain.JobSource。Config jsonb 直接 pass
+// toDomainJobSource —— sqlc Row → jobsdomain.JobSource。Config jsonb 直接 pass
 // through 成 []byte，由 fetcher adapter 各自 unmarshal 到 typed struct。
-func toDomainJobSource(o *dbq.JobSource) domain.JobSource {
-	out := domain.JobSource{
+func toDomainJobSource(o *dbq.JobSource) jobsdomain.JobSource {
+	out := jobsdomain.JobSource{
 		ID:        formatUUID(o.ID),
 		OwnerID:   formatUUID(o.OwnerID),
 		Kind:      o.Kind,

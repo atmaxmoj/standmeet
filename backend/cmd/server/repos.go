@@ -12,10 +12,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/config"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/plugins/jobs"
@@ -283,7 +283,7 @@ type gotenbergPDFRenderer struct {
 }
 
 func (r gotenbergPDFRenderer) RenderApplicationPDF(
-	ctx context.Context, app *domain.Application, qrURL string,
+	ctx context.Context, app *jobsdomain.Application, qrURL string,
 ) ([]byte, error) {
 	token, err := r.store.Stash(ctx, &printsess.Payload{
 		ApplicationID: app.ID,
@@ -308,7 +308,7 @@ func (r gotenbergPDFRenderer) RenderApplicationPDF(
 type noopPDFRenderer struct{}
 
 func (noopPDFRenderer) RenderApplicationPDF(
-	_ context.Context, _ *domain.Application, _ string,
+	_ context.Context, _ *jobsdomain.Application, _ string,
 ) ([]byte, error) {
 	return nil, gotenberg.ErrNotConfigured
 }

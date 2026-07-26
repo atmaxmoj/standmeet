@@ -28,6 +28,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -38,7 +39,7 @@ import (
 // gotenberg.ErrNotConfigured 失败 —— 这是 task 13 完成前的预期行为。
 type PDFRenderer interface {
 	RenderApplicationPDF(
-		ctx context.Context, app *domain.Application, qrURL string,
+		ctx context.Context, app *jobsdomain.Application, qrURL string,
 	) ([]byte, error)
 }
 
@@ -85,9 +86,9 @@ type OwnerLookup interface {
 // code + QR URL + 最终 PDF bytes。
 func CommitApplication(
 	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string,
-) (domain.CommittedApplication, error) {
+) (jobsdomain.CommittedApplication, error) {
 	if ownerID == "" || draftID == "" {
-		return domain.CommittedApplication{}, usecases.ErrEmptyField
+		return jobsdomain.CommittedApplication{}, usecases.ErrEmptyField
 	}
 	return renderThenCommit(ctx, deps, ownerID, draftID)
 }
@@ -98,20 +99,20 @@ func CommitApplication(
 // hand do we commit.
 func renderThenCommit(
 	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string,
-) (domain.CommittedApplication, error) {
+) (jobsdomain.CommittedApplication, error) {
 	rp, err := prepareRender(ctx, deps, ownerID, draftID)
 	if err != nil {
-		return domain.CommittedApplication{}, err
+		return jobsdomain.CommittedApplication{}, err
 	}
 	pdf, err := deps.Renderer.RenderApplicationPDF(ctx, &rp.renderApp, rp.qrURL)
 	if err != nil {
-		return domain.CommittedApplication{}, fmt.Errorf("render final pdf: %w", err)
+		return jobsdomain.CommittedApplication{}, fmt.Errorf("render final pdf: %w", err)
 	}
 	out, err := runCommitTx(ctx, deps, ownerID, draftID, &rp)
 	if err != nil {
-		return domain.CommittedApplication{}, err
+		return jobsdomain.CommittedApplication{}, err
 	}
-	return domain.CommittedApplication{
+	return jobsdomain.CommittedApplication{
 		Application: out.Application,
 		AccessCode:  out.AccessCode,
 		QRURL:       rp.qrURL,
@@ -124,7 +125,7 @@ type renderPrep struct {
 	qrURL     string
 	code      string
 	appID     string
-	renderApp domain.Application
+	renderApp jobsdomain.Application
 }
 
 func prepareRender(
@@ -147,7 +148,7 @@ func prepareRender(
 	}
 	appID := uuid.NewString()
 	return renderPrep{
-		renderApp: domain.Application{
+		renderApp: jobsdomain.Application{
 			ID: appID, ResumeContent: data.Resume, JobSnapshot: data.Job,
 		},
 		qrURL: buildQRURL(owner.PublicURL, code), code: code, appID: appID,
@@ -179,9 +180,9 @@ func runCommitTx(
 	}
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {
-		if errors.Is(err, domain.ErrResumeDraftNotFound) {
+		if errors.Is(err, jobsdomain.ErrResumeDraftNotFound) {
 			return postgres.CommitOutput{},
-				fmt.Errorf("draft missing: %w", domain.ErrResumeDraftNotFound)
+				fmt.Errorf("draft missing: %w", jobsdomain.ErrResumeDraftNotFound)
 		}
 		return postgres.CommitOutput{}, fmt.Errorf("commit application: %w", err)
 	}

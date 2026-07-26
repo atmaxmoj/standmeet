@@ -35,7 +35,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 )
 
 const (
@@ -98,7 +98,7 @@ type jbaEntry struct {
 // Fetch —— 单源 entry point。
 func (f *jbaFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	cfg, err := decodeJBAConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -128,10 +128,10 @@ func (f *jbaFetcher) fetchManifest(ctx context.Context) (*jbaManifest, error) {
 
 func (f *jbaFetcher) fetchChunks(
 	ctx context.Context, m *jbaManifest, cfg *jbaConfig,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	limit := pickJBAChunkLimit(cfg.MaxChunks, len(m.Chunks))
 	matcher := newJBAMatcher(cfg)
-	out := make([]domain.FetchedJob, 0, jbaInitialOutCap(limit))
+	out := make([]jobsdomain.FetchedJob, 0, jbaInitialOutCap(limit))
 	for i := range limit {
 		appended, err := f.appendMatchingFromChunk(ctx, m.Chunks[i], matcher, out)
 		if err != nil {
@@ -143,8 +143,8 @@ func (f *jbaFetcher) fetchChunks(
 }
 
 func (f *jbaFetcher) appendMatchingFromChunk(
-	ctx context.Context, name string, matcher *jbaMatcher, out []domain.FetchedJob,
-) ([]domain.FetchedJob, error) {
+	ctx context.Context, name string, matcher *jbaMatcher, out []jobsdomain.FetchedJob,
+) ([]jobsdomain.FetchedJob, error) {
 	entries, err := f.fetchOneChunk(ctx, name)
 	if err != nil {
 		return nil, err
@@ -280,7 +280,7 @@ func (m *jbaMatcher) titleMatches(title string) bool {
 	return false
 }
 
-func jbaEntryToDomain(e *jbaEntry) domain.FetchedJob {
+func jbaEntryToDomain(e *jbaEntry) jobsdomain.FetchedJob {
 	var published time.Time
 	if t, perr := time.Parse(time.RFC3339Nano, e.ScrapedAt); perr == nil {
 		published = t
@@ -288,7 +288,7 @@ func jbaEntryToDomain(e *jbaEntry) domain.FetchedJob {
 	tags := make([]string, 0, defaultTagCap)
 	tags = appendIfNonEmpty(tags, e.ATS)
 	tags = appendIfNonEmpty(tags, e.SkillLevel)
-	return domain.FetchedJob{
+	return jobsdomain.FetchedJob{
 		ExternalID:  e.URL,
 		Title:       strings.TrimSpace(e.Title),
 		Company:     strings.TrimSpace(e.Company),

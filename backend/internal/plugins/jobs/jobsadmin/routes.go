@@ -23,7 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -37,7 +37,7 @@ const (
 // PoolLister —— jobsadmin 对 job 池子的只读视图（#50 listings）。用接口而非
 // 直接依赖 plugins/jobs/cache，避免 arch-lint 组件越界依赖；cache.Pool 满足它。
 type PoolLister interface {
-	ListByOwner(ctx context.Context, ownerID string) ([]domain.FetchedJob, error)
+	ListByOwner(ctx context.Context, ownerID string) ([]jobsdomain.FetchedJob, error)
 }
 
 // Deps —— jobs admin 路由依赖。Log 必填 (encode 失败要 log)。
@@ -101,7 +101,7 @@ func listListings(deps Deps) http.HandlerFunc {
 }
 
 func writeListingsList(
-	log *slog.Logger, w http.ResponseWriter, jobs []domain.FetchedJob,
+	log *slog.Logger, w http.ResponseWriter, jobs []jobsdomain.FetchedJob,
 ) {
 	items := make([]listingView, 0, len(jobs))
 	for i := range jobs {
@@ -154,7 +154,7 @@ func listSources(deps Deps) http.HandlerFunc {
 }
 
 func writeSourcesList(
-	log *slog.Logger, w http.ResponseWriter, sources []domain.JobSource,
+	log *slog.Logger, w http.ResponseWriter, sources []jobsdomain.JobSource,
 ) {
 	items := make([]sourceView, 0, len(sources))
 	for i := range sources {
@@ -199,10 +199,10 @@ func listDrafts(deps Deps) http.HandlerFunc {
 // draftDetailView —— #52: composer 打开时拿真 resume_content(+ job context),
 // 替代 mockDraft 占位。resume_content 直接透传 domain 形状(已有 json tags)。
 type draftDetailView struct {
-	ID            string               `json:"id"`
-	Company       string               `json:"company"`
-	Role          string               `json:"role"`
-	ResumeContent domain.ResumeContent `json:"resume_content"`
+	ID            string                   `json:"id"`
+	Company       string                   `json:"company"`
+	Role          string                   `json:"role"`
+	ResumeContent jobsdomain.ResumeContent `json:"resume_content"`
 }
 
 func getDraft(deps Deps) http.HandlerFunc {
@@ -226,7 +226,7 @@ func getDraft(deps Deps) http.HandlerFunc {
 }
 
 func handleDraftDetailErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrResumeDraftNotFound) {
+	if errors.Is(err, jobsdomain.ErrResumeDraftNotFound) {
 		writeJSONErr(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "draft_not_found", Message: "draft not found",
 		})
@@ -237,7 +237,7 @@ func handleDraftDetailErr(log *slog.Logger, w http.ResponseWriter, err error) {
 }
 
 func writeDraftsList(
-	log *slog.Logger, w http.ResponseWriter, drafts []domain.ResumeDraft,
+	log *slog.Logger, w http.ResponseWriter, drafts []jobsdomain.ResumeDraft,
 ) {
 	items := make([]draftView, 0, len(drafts))
 	for i := range drafts {
@@ -281,7 +281,7 @@ func listApplications(deps Deps) http.HandlerFunc {
 }
 
 func writeApplicationsList(
-	log *slog.Logger, w http.ResponseWriter, apps []domain.Application,
+	log *slog.Logger, w http.ResponseWriter, apps []jobsdomain.Application,
 ) {
 	items := make([]applicationView, 0, len(apps))
 	for i := range apps {

@@ -7,7 +7,7 @@
 //
 // 配合 docs/design/job-loop.md 读。
 
-package domain
+package jobsdomain
 
 import (
 	"errors"

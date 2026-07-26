@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 )
 
 const workableDefaultBase = "https://apply.workable.com"
@@ -40,7 +40,7 @@ func newWorkableFetcher(client *http.Client, envBase string) *workableFetcher {
 // Fetch reads {base}/spi/v3/accounts/{company}/jobs with the owner's SPI token.
 func (f *workableFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	cfg, err := parseWorkableConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (f *workableFetcher) Fetch(
 	if uerr := json.Unmarshal(body, &payload); uerr != nil {
 		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
-	out := make([]domain.FetchedJob, 0, len(payload.Jobs))
+	out := make([]jobsdomain.FetchedJob, 0, len(payload.Jobs))
 	for i := range payload.Jobs {
 		out = append(out, workableToDomain(&payload.Jobs[i], payload.Name))
 	}
@@ -68,14 +68,15 @@ func parseWorkableConfig(raw []byte) (workableConfig, error) {
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("workable config decode: %w: %w",
-				domain.ErrJobSourceConfigInvalid, err)
+				jobsdomain.ErrJobSourceConfigInvalid, err)
 		}
 	}
 	if cfg.Company == "" {
-		return cfg, fmt.Errorf("workable missing company: %w", domain.ErrJobSourceConfigInvalid)
+		return cfg, fmt.Errorf("workable missing company: %w", jobsdomain.ErrJobSourceConfigInvalid)
 	}
 	if cfg.APIToken == "" {
-		return cfg, fmt.Errorf("workable missing api_token: %w", domain.ErrJobSourceConfigInvalid)
+		return cfg, fmt.Errorf("workable missing api_token: %w",
+			jobsdomain.ErrJobSourceConfigInvalid)
 	}
 	return cfg, nil
 }
@@ -106,8 +107,8 @@ type workableLocation struct {
 	LocationStr string `json:"location_str"`
 }
 
-func workableToDomain(j *workableJob, accountName string) domain.FetchedJob {
-	return domain.FetchedJob{
+func workableToDomain(j *workableJob, accountName string) jobsdomain.FetchedJob {
+	return jobsdomain.FetchedJob{
 		ExternalID:  j.Shortcode,
 		Title:       firstNonEmpty(j.FullTitle, j.Title),
 		Company:     accountName,

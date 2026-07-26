@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 )
 
 const (
@@ -50,7 +50,7 @@ func newWorkdayFetcher(client *http.Client, envBase string) *workdayFetcher {
 // Fetch POSTs the CXS jobs query and decodes the first page.
 func (f *workdayFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	cfg, err := parseWorkdayConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (f *workdayFetcher) Fetch(
 	if uerr := json.Unmarshal(body, &payload); uerr != nil {
 		return nil, fmt.Errorf("decode %s: %w: %w", u.jobsURL, ErrUpstreamSchema, uerr)
 	}
-	out := make([]domain.FetchedJob, 0, len(payload.JobPostings))
+	out := make([]jobsdomain.FetchedJob, 0, len(payload.JobPostings))
 	for i := range payload.JobPostings {
 		out = append(out, workdayToDomain(&payload.JobPostings[i], u.host, cfg.Tenant))
 	}
@@ -119,12 +119,12 @@ func parseWorkdayConfig(raw []byte) (workdayConfig, error) {
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("workday config decode: %w: %w",
-				domain.ErrJobSourceConfigInvalid, err)
+				jobsdomain.ErrJobSourceConfigInvalid, err)
 		}
 	}
 	if missing := firstMissingWorkdayField(&cfg); missing != "" {
 		return cfg, fmt.Errorf("workday missing %s: %w",
-			missing, domain.ErrJobSourceConfigInvalid)
+			missing, jobsdomain.ErrJobSourceConfigInvalid)
 	}
 	return cfg, nil
 }
@@ -162,7 +162,7 @@ type workdayJob struct {
 	BulletFields  string `json:"bulletFields"`
 }
 
-func workdayToDomain(j *workdayJob, host, tenant string) domain.FetchedJob {
+func workdayToDomain(j *workdayJob, host, tenant string) jobsdomain.FetchedJob {
 	url := host + j.ExternalPath
 	// externalPath 形如 /en-US/{site}/job/.../R-12345；ExternalID = path 末
 	// 段，稳定且全 tenant 唯一。fallback 全 path。
@@ -173,7 +173,7 @@ func workdayToDomain(j *workdayJob, host, tenant string) domain.FetchedJob {
 	// Workday 用 "Posted N Days Ago" 自然语言串而非 ISO；当前 PublishedAt
 	// 留 zero (caller 排序兼容 zero time)。J 期后续真要 sort by date 再加
 	// relative-time parser。
-	return domain.FetchedJob{
+	return jobsdomain.FetchedJob{
 		ExternalID:  externalID,
 		Title:       j.Title,
 		Company:     tenant,

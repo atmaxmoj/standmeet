@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 )
 
 const wwrDefaultBase = "https://weworkremotely.com"
@@ -51,7 +51,7 @@ func newWWRFetcher(client *http.Client, envBase string) *wwrFetcher {
 
 func (f *wwrFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	cfg, err := parseWWRConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -64,21 +64,21 @@ func parseWWRConfig(raw []byte) (wwrConfig, error) {
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("wwr config decode: %w: %w",
-				domain.ErrJobSourceConfigInvalid, err)
+				jobsdomain.ErrJobSourceConfigInvalid, err)
 		}
 	}
 	if len(nonEmptyCategories(cfg.Categories)) == 0 {
 		return cfg, fmt.Errorf("wwr requires non-empty categories: %w",
-			domain.ErrJobSourceConfigInvalid)
+			jobsdomain.ErrJobSourceConfigInvalid)
 	}
 	return cfg, nil
 }
 
 func (f *wwrFetcher) fetchAllCategories(
 	ctx context.Context, cats []string,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	seen := make(map[string]struct{}, len(cats)*16)
-	all := make([]domain.FetchedJob, 0, len(cats)*16)
+	all := make([]jobsdomain.FetchedJob, 0, len(cats)*16)
 	for _, cat := range cats {
 		jobs, ferr := f.fetchCategory(ctx, cat)
 		if ferr != nil {
@@ -90,8 +90,8 @@ func (f *wwrFetcher) fetchAllCategories(
 }
 
 func mergeDedupedByExternalID(
-	all, incoming []domain.FetchedJob, seen map[string]struct{},
-) []domain.FetchedJob {
+	all, incoming []jobsdomain.FetchedJob, seen map[string]struct{},
+) []jobsdomain.FetchedJob {
 	for i := range incoming {
 		if _, dup := seen[incoming[i].ExternalID]; dup {
 			continue
@@ -119,7 +119,7 @@ func nonEmptyCategories(in []string) []string {
 
 func (f *wwrFetcher) fetchCategory(
 	ctx context.Context, slug string,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	url := fmt.Sprintf("%s/categories/%s.rss", f.base, slug)
 	body, err := getBody(ctx, f.client, url)
 	if err != nil {
@@ -129,7 +129,7 @@ func (f *wwrFetcher) fetchCategory(
 	if uerr := xml.Unmarshal(body, &feed); uerr != nil {
 		return nil, fmt.Errorf("decode rss %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
-	out := make([]domain.FetchedJob, 0, len(feed.Channel.Items))
+	out := make([]jobsdomain.FetchedJob, 0, len(feed.Channel.Items))
 	for i := range feed.Channel.Items {
 		out = append(out, wwrToDomain(&feed.Channel.Items[i]))
 	}
@@ -159,13 +159,13 @@ type wwrItem struct {
 	Link        string `xml:"link"`
 }
 
-func wwrToDomain(it *wwrItem) domain.FetchedJob {
+func wwrToDomain(it *wwrItem) jobsdomain.FetchedJob {
 	tc := splitWWRTitle(it.Title)
 	url := it.Link
 	if url == "" {
 		url = it.GUID
 	}
-	return domain.FetchedJob{
+	return jobsdomain.FetchedJob{
 		ExternalID:  it.GUID,
 		Title:       tc.title,
 		Company:     tc.company,

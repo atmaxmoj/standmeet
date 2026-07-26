@@ -14,7 +14,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
@@ -82,8 +82,8 @@ func (c *resumeCapability) draftBinding() *capreg.MCPBinding {
 }
 
 type resumeDraftArgsWire struct {
-	ResumeContent *domain.ResumeContent `json:"resume_content"`
-	JobCacheID    string                `json:"job_cache_id"`
+	ResumeContent *jobsdomain.ResumeContent `json:"resume_content"`
+	JobCacheID    string                    `json:"job_cache_id"`
 }
 
 func (c *resumeCapability) handleDraft(
@@ -129,8 +129,8 @@ func (c *resumeCapability) updateDraftBinding() *capreg.MCPBinding {
 }
 
 type resumeUpdateArgsWire struct {
-	ResumeContent *domain.ResumeContent `json:"resume_content"`
-	DraftID       string                `json:"draft_id"`
+	ResumeContent *jobsdomain.ResumeContent `json:"resume_content"`
+	DraftID       string                    `json:"draft_id"`
 }
 
 func (c *resumeCapability) handleUpdateDraft(
@@ -206,11 +206,11 @@ func resumeCapErrToResult(log *slog.Logger, err error, op string) capreg.MCPResu
 
 func resumeCapClientErr(err error) (string, bool) {
 	switch {
-	case errors.Is(err, domain.ErrJobCacheMiss):
+	case errors.Is(err, jobsdomain.ErrJobCacheMiss):
 		return "job cache miss (expired or never existed)", true
-	case errors.Is(err, domain.ErrResumeDraftNotFound):
+	case errors.Is(err, jobsdomain.ErrResumeDraftNotFound):
 		return "draft not found (expired or wrong owner)", true
-	case errors.Is(err, domain.ErrResumeContentInvalid):
+	case errors.Is(err, jobsdomain.ErrResumeContentInvalid):
 		return "resume_content invalid: " + err.Error(), true
 	}
 	return "", false

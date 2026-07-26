@@ -25,19 +25,19 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 )
 
 // Apply —— 输入 fetched job list, 返回 cross-source dedup 后的子集。保
 // 持原顺序。input 为 nil / empty 时直接返回。caller 负责 input 已经按"想
 // 让谁先赢"的顺序排好 (source 注册顺序 = ListByOwner 顺序就行)。
-func Apply(jobs []domain.FetchedJob) []domain.FetchedJob {
+func Apply(jobs []jobsdomain.FetchedJob) []jobsdomain.FetchedJob {
 	if len(jobs) == 0 {
 		return jobs
 	}
 	seenURL := make(map[string]struct{}, len(jobs))
 	seenComposite := make(map[string]struct{}, len(jobs))
-	out := make([]domain.FetchedJob, 0, len(jobs))
+	out := make([]jobsdomain.FetchedJob, 0, len(jobs))
 	for i := range jobs {
 		if dropDuplicate(&jobs[i], seenURL, seenComposite) {
 			continue
@@ -50,7 +50,7 @@ func Apply(jobs []domain.FetchedJob) []domain.FetchedJob {
 // dropDuplicate —— 单条决策：L1 / L2 任一已见就丢；否则两个 set 都记一笔。
 // 拆出来让 Apply 的 cognitive complexity ≤ 5。
 func dropDuplicate(
-	j *domain.FetchedJob,
+	j *jobsdomain.FetchedJob,
 	seenURL, seenComposite map[string]struct{},
 ) bool {
 	if k := canonicalURL(j.URL); k != "" {
@@ -91,7 +91,7 @@ func canonicalURL(raw string) string {
 //
 // 触发场景：JBA 透传的 Greenhouse 跟 owner 自己的 Greenhouse company / title 一字不差，
 // 但 URL 末尾 query string 带 gh_jid 微差 —— L1 漏了，L2 兜底。
-func compositeKey(j *domain.FetchedJob) string {
+func compositeKey(j *jobsdomain.FetchedJob) string {
 	co := normalizeCompany(j.Company)
 	ti := normalizeTitle(j.Title)
 	if co == "" || ti == "" {

@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 )
 
 const leverDefaultBase = "https://api.lever.co"
@@ -38,7 +38,7 @@ func newLeverFetcher(client *http.Client, envBase string) *leverFetcher {
 
 func (f *leverFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	cfg, err := parseLeverConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (f *leverFetcher) Fetch(
 	if uerr := json.Unmarshal(body, &arr); uerr != nil {
 		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
-	out := make([]domain.FetchedJob, 0, len(arr))
+	out := make([]jobsdomain.FetchedJob, 0, len(arr))
 	for i := range arr {
 		out = append(out, leverToDomain(&arr[i], cfg.Company))
 	}
@@ -64,11 +64,11 @@ func parseLeverConfig(raw []byte) (leverConfig, error) {
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("lever config decode: %w: %w",
-				domain.ErrJobSourceConfigInvalid, err)
+				jobsdomain.ErrJobSourceConfigInvalid, err)
 		}
 	}
 	if cfg.Company == "" {
-		return cfg, fmt.Errorf("lever missing company: %w", domain.ErrJobSourceConfigInvalid)
+		return cfg, fmt.Errorf("lever missing company: %w", jobsdomain.ErrJobSourceConfigInvalid)
 	}
 	return cfg, nil
 }
@@ -97,12 +97,12 @@ type leverCategory struct {
 	AllLocations []string `json:"allLocations"`
 }
 
-func leverToDomain(p *leverPosting, company string) domain.FetchedJob {
+func leverToDomain(p *leverPosting, company string) jobsdomain.FetchedJob {
 	url := p.ApplyURL
 	if url == "" {
 		url = p.HostedURL
 	}
-	return domain.FetchedJob{
+	return jobsdomain.FetchedJob{
 		ExternalID:  p.ID,
 		Title:       p.Text,
 		Company:     company,

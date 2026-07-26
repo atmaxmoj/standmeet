@@ -8,11 +8,13 @@
 // 'submitted'（Playwright 已成功提交）→ 'failed' / 'withdrawn'。
 // Phase 3 只用 'pending'；Phase 4 Playwright 投递成功回填 submitted_at + status。
 
-package domain
+package jobsdomain
 
 import (
 	"errors"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // Application —— DB-backed application row。
@@ -40,7 +42,7 @@ type CreateApplicationInput struct {
 // 的 AccessCode（plaintext code 给 QR URL）+ 最终 PDF bytes。
 type CommittedApplication struct {
 	Application Application
-	AccessCode  AccessCode
+	AccessCode  domain.AccessCode
 	QRURL       string
 	PDF         []byte
 }

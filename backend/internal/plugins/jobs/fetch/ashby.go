@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 )
 
 const ashbyDefaultBase = "https://api.ashbyhq.com"
@@ -40,7 +40,7 @@ func newAshbyFetcher(client *http.Client, envBase string) *ashbyFetcher {
 
 func (f *ashbyFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	cfg, err := parseAshbyConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (f *ashbyFetcher) Fetch(
 	if uerr := json.Unmarshal(body, &payload); uerr != nil {
 		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
-	out := make([]domain.FetchedJob, 0, len(payload.Jobs))
+	out := make([]jobsdomain.FetchedJob, 0, len(payload.Jobs))
 	for i := range payload.Jobs {
 		out = append(out, ashbyToDomain(&payload.Jobs[i], cfg.Company))
 	}
@@ -66,11 +66,11 @@ func parseAshbyConfig(raw []byte) (ashbyConfig, error) {
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("ashby config decode: %w: %w",
-				domain.ErrJobSourceConfigInvalid, err)
+				jobsdomain.ErrJobSourceConfigInvalid, err)
 		}
 	}
 	if cfg.Company == "" {
-		return cfg, fmt.Errorf("ashby missing company: %w", domain.ErrJobSourceConfigInvalid)
+		return cfg, fmt.Errorf("ashby missing company: %w", jobsdomain.ErrJobSourceConfigInvalid)
 	}
 	return cfg, nil
 }
@@ -98,8 +98,8 @@ type ashbyJob struct {
 	IsRemote         bool    `json:"isRemote"`
 }
 
-func ashbyToDomain(j *ashbyJob, company string) domain.FetchedJob {
-	return domain.FetchedJob{
+func ashbyToDomain(j *ashbyJob, company string) jobsdomain.FetchedJob {
+	return jobsdomain.FetchedJob{
 		ExternalID:  j.ID,
 		Title:       j.Title,
 		Company:     company,

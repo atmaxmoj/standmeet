@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 )
 
 const bambooHRDefaultBase = "https://%s.bamboohr.com"
@@ -40,7 +40,7 @@ func newBambooHRFetcher(client *http.Client, envBase string) *bambooHRFetcher {
 // per-company host pattern。
 func (f *bambooHRFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
-) ([]domain.FetchedJob, error) {
+) ([]jobsdomain.FetchedJob, error) {
 	cfg, err := parseBambooHRConfig(cfgRaw)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (f *bambooHRFetcher) Fetch(
 	if uerr := json.Unmarshal(body, &payload); uerr != nil {
 		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
-	out := make([]domain.FetchedJob, 0, len(payload.Result))
+	out := make([]jobsdomain.FetchedJob, 0, len(payload.Result))
 	for i := range payload.Result {
 		out = append(out, bambooHRToDomain(&payload.Result[i], cfg.Company))
 	}
@@ -75,11 +75,11 @@ func parseBambooHRConfig(raw []byte) (bambooHRConfig, error) {
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("bamboohr config decode: %w: %w",
-				domain.ErrJobSourceConfigInvalid, err)
+				jobsdomain.ErrJobSourceConfigInvalid, err)
 		}
 	}
 	if cfg.Company == "" {
-		return cfg, fmt.Errorf("bamboohr missing company: %w", domain.ErrJobSourceConfigInvalid)
+		return cfg, fmt.Errorf("bamboohr missing company: %w", jobsdomain.ErrJobSourceConfigInvalid)
 	}
 	return cfg, nil
 }
@@ -110,12 +110,12 @@ type bambooHRLocation struct {
 	Country string `json:"country"`
 }
 
-func bambooHRToDomain(j *bambooHRJob, slug string) domain.FetchedJob {
+func bambooHRToDomain(j *bambooHRJob, slug string) jobsdomain.FetchedJob {
 	url := fmt.Sprintf("https://"+slug+".bamboohr.com/careers/%d", j.ID)
 	tags := make([]string, 0, defaultTagCap)
 	tags = appendIfNonEmpty(tags, j.DepartmentLabel)
 	tags = appendIfNonEmpty(tags, j.EmploymentStatusLabel)
-	return domain.FetchedJob{
+	return jobsdomain.FetchedJob{
 		ExternalID:  strconv.FormatInt(j.ID, decimalRadix),
 		Title:       j.JobOpeningName,
 		Company:     slug,

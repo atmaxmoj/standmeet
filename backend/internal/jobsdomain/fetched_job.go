@@ -5,7 +5,7 @@
 // 跟 JobSource aggregate 平行 —— references it by SourceID 但不在那个 aggregate
 // 里（这条 job 的生命周期独立于 source 的生命周期，owner 可以丢弃单条而不动 source）。
 
-package domain
+package jobsdomain
 
 import (
 	"errors"

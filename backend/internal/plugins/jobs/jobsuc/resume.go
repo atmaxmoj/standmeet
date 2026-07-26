@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -32,13 +32,14 @@ type ResumeDeps struct {
 // DraftedResume —— resume.draft / update_draft 的返回。结构化 view only；PDF
 // 由 admin 浏览器现场渲染（React `ResumePage`），不经 server。
 type DraftedResume struct {
-	Draft domain.ResumeDraft
+	Draft jobsdomain.ResumeDraft
 }
 
 // DraftResume —— Claude 调 resume.draft：拿 Redis 池子里的 job snapshot，
 // 落 draft 表。
 func DraftResume(
-	ctx context.Context, deps ResumeDeps, ownerID, jobCacheID string, content *domain.ResumeContent,
+	ctx context.Context, deps ResumeDeps, ownerID, jobCacheID string,
+	content *jobsdomain.ResumeContent,
 ) (DraftedResume, error) {
 	if err := requireFields(ownerID, jobCacheID, content); err != nil {
 		return DraftedResume{}, err
@@ -47,7 +48,7 @@ func DraftResume(
 	if err != nil {
 		return DraftedResume{}, err
 	}
-	draft, err := deps.Drafts.Create(ctx, &domain.CreateResumeDraftInput{
+	draft, err := deps.Drafts.Create(ctx, &jobsdomain.CreateResumeDraftInput{
 		OwnerID:       ownerID,
 		JobCacheID:    jobCacheID,
 		JobSnapshot:   snapshot,
@@ -62,7 +63,8 @@ func DraftResume(
 // UpdateResumeDraft —— Claude 调 resume.update_draft 调整 content。
 // job_snapshot 不变（draft 创建时即固化）。
 func UpdateResumeDraft(
-	ctx context.Context, deps ResumeDeps, ownerID, draftID string, content *domain.ResumeContent,
+	ctx context.Context, deps ResumeDeps, ownerID, draftID string,
+	content *jobsdomain.ResumeContent,
 ) (DraftedResume, error) {
 	if err := requireFields(ownerID, draftID, content); err != nil {
 		return DraftedResume{}, err
@@ -74,7 +76,7 @@ func UpdateResumeDraft(
 	return DraftedResume{Draft: draft}, nil
 }
 
-func requireFields(s1, s2 string, content *domain.ResumeContent) error {
+func requireFields(s1, s2 string, content *jobsdomain.ResumeContent) error {
 	if s1 == "" || s2 == "" || content == nil {
 		return usecases.ErrEmptyField
 	}
@@ -83,13 +85,13 @@ func requireFields(s1, s2 string, content *domain.ResumeContent) error {
 
 func loadJobSnapshot(
 	ctx context.Context, deps ResumeDeps, ownerID, jobCacheID string,
-) (domain.FetchedJob, error) {
+) (jobsdomain.FetchedJob, error) {
 	snapshot, err := deps.Cache.Get(ctx, ownerID, jobCacheID)
 	if err != nil {
 		if errors.Is(err, jobcache.ErrCacheMiss) {
-			return domain.FetchedJob{}, domain.ErrJobCacheMiss
+			return jobsdomain.FetchedJob{}, jobsdomain.ErrJobCacheMiss
 		}
-		return domain.FetchedJob{}, fmt.Errorf("cache get: %w", err)
+		return jobsdomain.FetchedJob{}, fmt.Errorf("cache get: %w", err)
 	}
 	return snapshot, nil
 }

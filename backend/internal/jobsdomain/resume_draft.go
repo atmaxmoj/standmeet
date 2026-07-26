@@ -7,7 +7,7 @@
 // PDF 永远 ephemeral —— 每次 MCP 调用现场用 gopdf 渲染 bytes 塞响应，
 // server 端不存任何文件，draft 表里也没有 PDF 路径列。
 
-package domain
+package jobsdomain
 
 import (
 	"errors"

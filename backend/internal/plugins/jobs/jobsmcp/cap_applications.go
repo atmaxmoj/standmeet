@@ -15,6 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
@@ -103,7 +104,7 @@ func (c *applicationsCapability) handleCommit(
 }
 
 func buildCommitResult(
-	log *slog.Logger, committed *domain.CommittedApplication,
+	log *slog.Logger, committed *jobsdomain.CommittedApplication,
 ) capreg.MCPResult {
 	view := committedApplicationView(committed)
 	jsonBytes, err := json.Marshal(view)
@@ -127,9 +128,9 @@ func applicationsCapErrToResult(
 	log *slog.Logger, err error, op string,
 ) capreg.MCPResult {
 	switch {
-	case errors.Is(err, domain.ErrResumeDraftNotFound):
+	case errors.Is(err, jobsdomain.ErrResumeDraftNotFound):
 		return capreg.MCPError("draft not found (expired or wrong owner)")
-	case errors.Is(err, domain.ErrApplicationNotFound):
+	case errors.Is(err, jobsdomain.ErrApplicationNotFound):
 		return capreg.MCPError("application not found")
 	case errors.Is(err, domain.ErrOwnerNotFound):
 		return capreg.MCPError("owner not found")
