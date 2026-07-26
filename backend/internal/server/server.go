@@ -13,6 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
@@ -89,7 +90,7 @@ type AdminDeps struct {
 	Codes           *postgres.CodeRepo
 	Booking         adminroutes.BookingQuotaStore // #135: booker 自管的 per-code 预约配额读写口
 	CodeDenials     *postgres.CodeDenialRepo
-	Owners          *postgres.OwnerRepo
+	Owners          *owner.Repo
 	Drafts          *postgres.ResumeDraftRepo
 	Applications    *postgres.ApplicationRepo
 	Marketplace     usecases.MarketplaceDeps

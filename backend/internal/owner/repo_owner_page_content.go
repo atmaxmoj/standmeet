@@ -1,10 +1,10 @@
 // owner_page_content.go —— Owner aggregate 的 "公开页内容" 切面（与
 // identity / settings 平行）。物理上 page_content 是独立表（FK 到
 // owners.id），但聚合边界上跟 Owner 走同一事务边界，所以这里是
-// OwnerRepo 的方法而非独立 PageRepo。jsonb 列在 Repo 层 marshal /
-// unmarshal，让 usecase / routes 拿到 typed owner.PageContent。
+// Repo 的方法而非独立 PageRepo。jsonb 列在 Repo 层 marshal /
+// unmarshal，让 usecase / routes 拿到 typed PageContent。
 
-package postgres
+package owner
 
 import (
 	"context"
@@ -14,46 +14,46 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // GetPageContent 拿 owner 的 page_content；不存在返 ErrPageNotFound
 // （usecase 层用默认值兜底）。
-func (r *OwnerRepo) GetPageContent(
+func (r *Repo) GetPageContent(
 	ctx context.Context, ownerID string,
-) (owner.PageContent, error) {
+) (PageContent, error) {
 	q := dbq.New(r.pool)
-	pgID, perr := parseUUID(ownerID)
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return owner.PageContent{}, fmt.Errorf("parse owner id: %w", perr)
+		return PageContent{}, fmt.Errorf("parse owner id: %w", perr)
 	}
 	row, err := q.GetPageContent(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
-			return owner.PageContent{}, owner.ErrPageNotFound
+			return PageContent{}, ErrPageNotFound
 		}
-		return owner.PageContent{}, fmt.Errorf("get page content: %w", err)
+		return PageContent{}, fmt.Errorf("get page content: %w", err)
 	}
 	return rowToPageContent(&row)
 }
 
 // UpsertPageContent 写入 / 更新 owner 的 page_content（admin PUT 用）。
-func (r *OwnerRepo) UpsertPageContent(
-	ctx context.Context, ownerID string, in *owner.PageContent,
-) (owner.PageContent, error) {
+func (r *Repo) UpsertPageContent(
+	ctx context.Context, ownerID string, in *PageContent,
+) (PageContent, error) {
 	q := dbq.New(r.pool)
-	pgID, perr := parseUUID(ownerID)
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return owner.PageContent{}, fmt.Errorf("parse owner id: %w", perr)
+		return PageContent{}, fmt.Errorf("parse owner id: %w", perr)
 	}
 	params, perr := pageContentToParams(pgID, in)
 	if perr != nil {
-		return owner.PageContent{}, perr
+		return PageContent{}, perr
 	}
 	row, err := q.UpsertPageContent(ctx, params)
 	if err != nil {
-		return owner.PageContent{}, fmt.Errorf("upsert page content: %w", err)
+		return PageContent{}, fmt.Errorf("upsert page content: %w", err)
 	}
 	return rowToPageContent(&row)
 }
@@ -64,7 +64,7 @@ type marshaledSections struct {
 	examples, insights, projects, where, contact []byte
 }
 
-func marshalSections(in *owner.PageContent) (marshaledSections, error) {
+func marshalSections(in *PageContent) (marshaledSections, error) {
 	var out marshaledSections
 	// 字段顺序按 govet fieldalignment：src (interface, 2 ptrs) 在前，
 	// dst (slice ptr, 1 ptr) 在中，name (string, 1 ptr) 在尾。
@@ -90,7 +90,7 @@ func marshalSections(in *owner.PageContent) (marshaledSections, error) {
 }
 
 func pageContentToParams(
-	pgID pgtype.UUID, in *owner.PageContent,
+	pgID pgtype.UUID, in *PageContent,
 ) (dbq.UpsertPageContentParams, error) {
 	sections, err := marshalSections(in)
 	if err != nil {
@@ -107,19 +107,19 @@ func pageContentToParams(
 	}, nil
 }
 
-func rowToPageContent(row *dbq.PageContent) (owner.PageContent, error) {
-	pc := owner.PageContent{
-		OwnerID:   formatUUID(row.OwnerID),
+func rowToPageContent(row *dbq.PageContent) (PageContent, error) {
+	pc := PageContent{
+		OwnerID:   pgstore.FormatUUID(row.OwnerID),
 		HeroProse: row.HeroProse,
 		UpdatedAt: row.UpdatedAt.Time,
 	}
 	if err := unmarshalSections(row, &pc); err != nil {
-		return owner.PageContent{}, err
+		return PageContent{}, err
 	}
 	return pc, nil
 }
 
-func unmarshalSections(row *dbq.PageContent, pc *owner.PageContent) error {
+func unmarshalSections(row *dbq.PageContent, pc *PageContent) error {
 	// 字段顺序按 govet fieldalignment：dst (interface, 2 ptrs) 在前，
 	// name (string, 1 ptr) 在中，raw (slice, len/cap 无 ptr 尾段) 在尾。
 	parts := []struct {

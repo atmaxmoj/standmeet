@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // AllowedDomainsDeps —— List / Add / Remove 需要 InstanceRepo。
 type AllowedDomainsDeps struct {
-	Instance *postgres.InstanceRepo
+	Instance *owner.InstanceRepo
 }
 
 // ListAllowedDomains —— 返当前白名单（empty slice if none）。

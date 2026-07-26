@@ -618,9 +618,12 @@ deps:
       - dbq
     anyVendorDeps: true
 
-  # owner —— #135 owner 领域值对象 leaf：Owner/OwnerSettings/PageContent/CustomPage，无 internal 依赖。
+  # owner —— #135 owner 模块：实体 + repo（连接器 OwnerLookup 消费 owner.Owner）。
   owner:
-    mayDependOn: []
+    mayDependOn:
+      - pgstore
+      - dbq
+      - cryptobox
     anyVendorDeps: true
 
 
@@ -752,6 +755,7 @@ deps:
       - postgres
       - security
       - plugins
+      - owner
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
@@ -804,4 +808,5 @@ deps:
       - connectorcontract
       - pluginbooker
       - conversation
+      - owner
     anyVendorDeps: true

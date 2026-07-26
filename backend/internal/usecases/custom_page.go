@@ -18,13 +18,12 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // CustomPageDeps —— custom page usecase 依赖。
 type CustomPageDeps struct {
-	Pages  *postgres.CustomPageRepo
-	Builds *postgres.CustomBuildRepo
+	Pages  *owner.CustomPageRepo
+	Builds *owner.CustomBuildRepo
 }
 
 // CreatePageInput —— 创建一个 custom page 入参。

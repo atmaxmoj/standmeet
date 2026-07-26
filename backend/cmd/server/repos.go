@@ -18,6 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/plugins/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
@@ -40,9 +41,9 @@ import (
 // repoSet —— 所有 postgres Repository 的 bundle，让 wireAndServe 不必逐行
 // `xxxRepo := postgres.NewXxx(c.db)`，cyclo / function-length 友好。
 type repoSet struct {
-	instance       *postgres.InstanceRepo
-	owner          *postgres.OwnerRepo
-	keypair        *postgres.OwnerKeypairRepo
+	instance       *owner.InstanceRepo
+	owner          *owner.Repo
+	keypair        *owner.KeypairRepo
 	raw            *postgres.RawRepo
 	wiki           *postgres.WikiRepo
 	subjectivity   *postgres.NoteRepo
@@ -55,15 +56,15 @@ type repoSet struct {
 	codeDenial     *postgres.CodeDenialRepo
 	chat           *conversation.ChatRepo
 	seo            *postgres.SEORepo
-	customPage     *postgres.CustomPageRepo
-	customBuild    *postgres.CustomBuildRepo
+	customPage     *owner.CustomPageRepo
+	customBuild    *owner.CustomBuildRepo
 	accessRequest  *access.RequestRepo
 	jobSource      *postgres.JobSourceRepo
 	resumeDraft    *postgres.ResumeDraftRepo
 	application    *postgres.ApplicationRepo
 	skill          *marketplace.SkillRepo
 	mcpServer      *marketplace.MCPServerRepo
-	prompt         *postgres.PromptRepo
+	prompt         *owner.PromptRepo
 	role           *postgres.RoleRepo
 	asset          *postgres.AssetRepo
 	writing        *postgres.WritingRepo
@@ -81,9 +82,9 @@ type repoSet struct {
 
 func newRepos(db *postgres.Pool) *repoSet {
 	return &repoSet{
-		instance:       postgres.NewInstanceRepo(db),
-		owner:          postgres.NewOwnerRepo(db),
-		keypair:        postgres.NewOwnerKeypairRepo(db),
+		instance:       owner.NewInstanceRepo(db),
+		owner:          owner.NewRepo(db),
+		keypair:        owner.NewKeypairRepo(db),
 		raw:            postgres.NewRawRepo(db),
 		wiki:           postgres.NewWikiRepo(db),
 		subjectivity:   postgres.NewNoteRepo(db, "subjectivity"),
@@ -96,15 +97,15 @@ func newRepos(db *postgres.Pool) *repoSet {
 		codeDenial:     postgres.NewCodeDenialRepo(db),
 		chat:           conversation.NewChatRepo(db),
 		seo:            postgres.NewSEORepo(db),
-		customPage:     postgres.NewCustomPageRepo(db),
-		customBuild:    postgres.NewCustomBuildRepo(db),
+		customPage:     owner.NewCustomPageRepo(db),
+		customBuild:    owner.NewCustomBuildRepo(db),
 		accessRequest:  access.NewAccessRequestRepo(db),
 		jobSource:      postgres.NewJobSourceRepo(db),
 		resumeDraft:    postgres.NewResumeDraftRepo(db),
 		application:    postgres.NewApplicationRepo(db),
 		skill:          marketplace.NewSkillRepo(db),
 		mcpServer:      marketplace.NewMCPServerRepo(db),
-		prompt:         postgres.NewPromptRepo(db),
+		prompt:         owner.NewPromptRepo(db),
 		role:           postgres.NewRoleRepo(db),
 		asset:          postgres.NewAssetRepo(db),
 		writing:        postgres.NewWritingRepo(db),

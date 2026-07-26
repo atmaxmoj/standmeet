@@ -22,7 +22,7 @@ import (
 // + role_corpus_uris 三条公开 glob。
 func SeedPublicRole(
 	ctx context.Context,
-	prompts *postgres.PromptRepo, roles *postgres.RoleRepo,
+	prompts *owner.PromptRepo, roles *postgres.RoleRepo,
 	ownerID string,
 ) error {
 	promptID, err := upsertPublicPrompt(ctx, prompts, ownerID)
@@ -37,7 +37,7 @@ func SeedPublicRole(
 }
 
 func upsertPublicPrompt(
-	ctx context.Context, prompts *postgres.PromptRepo, ownerID string,
+	ctx context.Context, prompts *owner.PromptRepo, ownerID string,
 ) (string, error) {
 	prompt, err := prompts.UpsertBuiltin(ctx, ownerID,
 		owner.PublicPromptName, owner.PublicPromptDescription, owner.PublicPromptBody,

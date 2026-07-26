@@ -1,7 +1,7 @@
-// keypairs.go —— OwnerKeypairRepo wrap sqlc 生成的 dbq query。
+// keypairs.go —— KeypairRepo wrap sqlc 生成的 dbq query。
 // Create / List / GetByKeyID / Touch / Delete。
 
-package postgres
+package owner
 
 import (
 	"context"
@@ -13,18 +13,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// OwnerKeypairRepo 提供 owner Ed25519 keypair CRUD。
-type OwnerKeypairRepo struct {
-	pool *Pool
+// KeypairRepo 提供 owner Ed25519 keypair CRUD。
+type KeypairRepo struct {
+	pool *pgstore.Pool
 }
 
-// NewOwnerKeypairRepo 构造。
-func NewOwnerKeypairRepo(pool *Pool) *OwnerKeypairRepo {
-	return &OwnerKeypairRepo{pool: pool}
+// NewKeypairRepo 构造。
+func NewKeypairRepo(pool *pgstore.Pool) *KeypairRepo {
+	return &KeypairRepo{pool: pool}
 }
 
 // CreateKeypairInput —— Create 入参。
@@ -36,12 +36,12 @@ type CreateKeypairInput struct {
 }
 
 // Create 写入新 keypair (caller 已在外面生成 key_id + 公钥 PEM)。
-func (r *OwnerKeypairRepo) Create(
+func (r *KeypairRepo) Create(
 	ctx context.Context, in *CreateKeypairInput,
-) (owner.Keypair, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+) (Keypair, error) {
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return owner.Keypair{}, fmt.Errorf("parse owner id: %w", err)
+		return Keypair{}, fmt.Errorf("parse owner id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateOwnerKeypair(ctx, dbq.CreateOwnerKeypairParams{
@@ -51,16 +51,16 @@ func (r *OwnerKeypairRepo) Create(
 		Label:        in.Label,
 	})
 	if err != nil {
-		return owner.Keypair{}, fmt.Errorf("create owner keypair: %w", err)
+		return Keypair{}, fmt.Errorf("create owner keypair: %w", err)
 	}
 	return toDomainKeypair(&row), nil
 }
 
 // ListByOwner —— admin UI 用，metadata only (无 PEM)。
-func (r *OwnerKeypairRepo) ListByOwner(
+func (r *KeypairRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]owner.KeypairMetadata, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) ([]KeypairMetadata, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
 	}
@@ -69,7 +69,7 @@ func (r *OwnerKeypairRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list owner keypairs: %w", err)
 	}
-	out := make([]owner.KeypairMetadata, 0, len(rows))
+	out := make([]KeypairMetadata, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainKeypairMetadata(&rows[i]))
 	}
@@ -78,25 +78,25 @@ func (r *OwnerKeypairRepo) ListByOwner(
 
 // GetByKeyID —— sigv1 验签用 (caller 拿公钥 PEM 验)。不命中返
 // ErrKeypairUnauthorized 让上层翻 401 不泄露存在性。
-func (r *OwnerKeypairRepo) GetByKeyID(
+func (r *KeypairRepo) GetByKeyID(
 	ctx context.Context, keyID string,
-) (owner.Keypair, error) {
+) (Keypair, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetOwnerKeypairByKeyID(ctx, keyID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return owner.Keypair{}, owner.ErrKeypairUnauthorized
+			return Keypair{}, ErrKeypairUnauthorized
 		}
-		return owner.Keypair{}, fmt.Errorf("get keypair: %w", err)
+		return Keypair{}, fmt.Errorf("get keypair: %w", err)
 	}
 	return toDomainKeypair(&row), nil
 }
 
 // Touch —— best-effort 更新 last_used_at；失败 log warn 不影响验签结果。
-func (r *OwnerKeypairRepo) Touch(
+func (r *KeypairRepo) Touch(
 	ctx context.Context, log *slog.Logger, keypairID string,
 ) {
-	kpUUID, err := parseUUID(keypairID)
+	kpUUID, err := pgstore.ParseUUID(keypairID)
 	if err != nil {
 		log.Warn("touch keypair: parse id", "err", err)
 		return
@@ -109,8 +109,8 @@ func (r *OwnerKeypairRepo) Touch(
 
 // Delete —— hard delete (= revoke)。owner_id 同时 WHERE 防止跨 owner 删。
 // 0-row 命中也不报错 (调用方自己先 GetByKeyID 验存在性)。
-func (r *OwnerKeypairRepo) Delete(ctx context.Context, ownerID, keyID string) error {
-	ownerUUID, err := parseUUID(ownerID)
+func (r *KeypairRepo) Delete(ctx context.Context, ownerID, keyID string) error {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return fmt.Errorf("parse owner id: %w", err)
 	}
@@ -123,10 +123,10 @@ func (r *OwnerKeypairRepo) Delete(ctx context.Context, ownerID, keyID string) er
 	return nil
 }
 
-func toDomainKeypair(r *dbq.OwnerKeypair) owner.Keypair {
-	return owner.Keypair{
-		ID:           formatUUID(r.ID),
-		OwnerID:      formatUUID(r.OwnerID),
+func toDomainKeypair(r *dbq.OwnerKeypair) Keypair {
+	return Keypair{
+		ID:           pgstore.FormatUUID(r.ID),
+		OwnerID:      pgstore.FormatUUID(r.OwnerID),
 		KeyID:        r.KeyID,
 		PublicKeyPEM: r.PublicKeyPem,
 		Label:        r.Label,
@@ -135,9 +135,9 @@ func toDomainKeypair(r *dbq.OwnerKeypair) owner.Keypair {
 	}
 }
 
-func toDomainKeypairMetadata(r *dbq.ListOwnerKeypairsRow) owner.KeypairMetadata {
-	return owner.KeypairMetadata{
-		ID:         formatUUID(r.ID),
+func toDomainKeypairMetadata(r *dbq.ListOwnerKeypairsRow) KeypairMetadata {
+	return KeypairMetadata{
+		ID:         pgstore.FormatUUID(r.ID),
 		KeyID:      r.KeyID,
 		Label:      r.Label,
 		LastUsedAt: tsPtr(r.LastUsedAt),

@@ -21,7 +21,7 @@ import (
 
 const capPageBundle = "page.bundle"
 
-// pageContentStore —— owner page_content 读写（避开直接 import postgres.OwnerRepo）。
+// pageContentStore —— owner page_content 读写（避开直接 import owner.Repo）。
 type pageContentStore interface {
 	GetPageContent(ctx context.Context, ownerID string) (owner.PageContent, error)
 	UpsertPageContent(

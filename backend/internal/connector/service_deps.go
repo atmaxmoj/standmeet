@@ -21,8 +21,8 @@ type Installer interface {
 }
 
 // OwnerLookup —— connector 拼 oauth redirect URI 只需 owner 的 public_url。用窄接口
-// 而不是 *postgres.OwnerRepo，避免 connector 反依赖 postgres（repo 层）——composition
-// root 注入实际实现（postgres.OwnerRepo 结构上满足）。
+// 而不是 *owner.Repo，避免 connector 反依赖 postgres（repo 层）——composition
+// root 注入实际实现（owner.Repo 结构上满足）。
 type OwnerLookup interface {
 	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
 }

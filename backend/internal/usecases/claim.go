@@ -19,9 +19,9 @@ import (
 
 // ClaimDeps 把 ClaimInstance 需要的依赖打包，避免参数列表超长。
 type ClaimDeps struct {
-	Instance *postgres.InstanceRepo
+	Instance *owner.InstanceRepo
 	Skills   *marketplace.SkillRepo
-	Prompts  *postgres.PromptRepo
+	Prompts  *owner.PromptRepo
 	Roles    *postgres.RoleRepo
 }
 

@@ -24,7 +24,7 @@ import (
 // Pins 给 pin 校验(insights/projects 是 corpus pin 列表,pinned ⊆ published
 // 在写入点由 usecases.ValidatePagePins 维护)+ pinnable 候选列表。
 type PageAdminDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 	Pins   usecases.PagePinDeps
 }
 
@@ -49,7 +49,7 @@ func (h *Handlers) getPage() http.HandlerFunc {
 }
 
 func loadOwnerPage(
-	ctx context.Context, repo *postgres.OwnerRepo, ownerID string,
+	ctx context.Context, repo *owner.Repo, ownerID string,
 ) (owner.PageContent, error) {
 	content, err := repo.GetPageContent(ctx, ownerID)
 	if err == nil {

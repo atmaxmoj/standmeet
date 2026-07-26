@@ -9,13 +9,12 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // LoginDeps 把 Login 需要的依赖打包。
 type LoginDeps struct {
-	Owners   *postgres.OwnerRepo
+	Owners   *owner.Repo
 	Sessions *session.OwnerSessionStore
 }
 
@@ -63,19 +62,19 @@ func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, er
 // authenticate 拆出 Login 中的密码校验部分，让 Login 本身 cognitive-complexity ≤ 7。
 func authenticate(
 	ctx context.Context, deps LoginDeps, in *LoginInput,
-) (postgres.Credentials, error) {
+) (owner.Credentials, error) {
 	creds, err := deps.Owners.GetCredentialsByEmail(ctx, in.Email)
 	if err != nil {
 		if errors.Is(err, owner.ErrOwnerNotFound) {
-			return postgres.Credentials{}, owner.ErrUnauthorized
+			return owner.Credentials{}, owner.ErrUnauthorized
 		}
-		return postgres.Credentials{}, fmt.Errorf("get credentials: %w", err)
+		return owner.Credentials{}, fmt.Errorf("get credentials: %w", err)
 	}
 	if verr := session.VerifyPassword(in.Password, creds.PasswordHash); verr != nil {
 		if errors.Is(verr, session.ErrPasswordMismatch) {
-			return postgres.Credentials{}, owner.ErrUnauthorized
+			return owner.Credentials{}, owner.ErrUnauthorized
 		}
-		return postgres.Credentials{}, fmt.Errorf("verify password: %w", verr)
+		return owner.Credentials{}, fmt.Errorf("verify password: %w", verr)
 	}
 	return creds, nil
 }

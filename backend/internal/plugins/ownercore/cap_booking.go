@@ -57,7 +57,7 @@ type bookingRepo interface {
 }
 
 // bookingOwners —— owner timezone read (GetByID → ProfileTimezone) + write.
-// *postgres.OwnerRepo satisfies it directly.
+// *owner.Repo satisfies it directly.
 type bookingOwners interface {
 	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
 	UpdateProfileTimezone(ctx context.Context, ownerID, tz string) error

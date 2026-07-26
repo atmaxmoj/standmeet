@@ -56,7 +56,7 @@ type ApproveRequestDeps struct {
 	Reqs   *access.RequestRepo
 	Codes  *postgres.CodeRepo
 	Roles  *postgres.RoleRepo
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 	Proxy  OutboundSender
 }
 

@@ -14,13 +14,12 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // AccountDeps —— UpdateOwnerFullName / Email / Password 的依赖。
 type AccountDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 }
 
 const (

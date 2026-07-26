@@ -21,7 +21,7 @@ var (
 	reCSSBinding     = regexp.MustCompile(`(?i)-moz-binding[^;]*;`)
 )
 
-// OwnerCSSStore —— owner CSS 存取(postgres.OwnerRepo 实现)。
+// OwnerCSSStore —— owner CSS 存取(owner.Repo 实现)。
 type OwnerCSSStore interface {
 	GetCSS(ctx context.Context, ownerID string) (string, error)
 	SetCSS(ctx context.Context, ownerID, css string) error

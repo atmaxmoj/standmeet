@@ -16,7 +16,7 @@ import (
 // OwnerGetter —— the owner reads the visitor path needs: GetByID (calendar.book
 // reads owner.ProfileTimezone) + FirstHandle/GetByHandle (public/byoai tier
 // resolves the sole owner). VisitorDeps.Owners is this narrow port so the eval
-// can inject a fixture owner; prod's *postgres.OwnerRepo satisfies it as-is.
+// can inject a fixture owner; prod's *owner.Repo satisfies it as-is.
 type OwnerGetter interface {
 	GetByID(ctx context.Context, id string) (owner.Owner, error)
 	FirstHandle(ctx context.Context) (string, error)

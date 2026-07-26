@@ -32,7 +32,7 @@ type Owner struct {
 // 等也归这里。
 //
 // 这是 Owner aggregate 的值对象（不是独立 aggregate root），跟着 Owner 一起
-// 走事务边界——save AI key 跟 save BYOAI 各自落 DB，但都通过 OwnerRepo。
+// 走事务边界——save AI key 跟 save BYOAI 各自落 DB，但都通过 Repo。
 type Settings struct {
 	AI    AISettings
 	BYOAI BYOAISettings

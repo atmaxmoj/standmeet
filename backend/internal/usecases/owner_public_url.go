@@ -11,12 +11,11 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // PublicURLDeps —— UpdateOwnerPublicURL 的依赖。
 type PublicURLDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 }
 
 // UpdateOwnerPublicURL —— admin "change public URL" 入口。raw 经 trim/normalize

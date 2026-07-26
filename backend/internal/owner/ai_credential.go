@@ -4,7 +4,7 @@
 //
 //  1. visitor BYOAI：route layer 从 X-BYOAI-Provider + X-BYOAI-Key headers
 //     信封解封得到 → 直接构造一份 AICredential 喂给 resolver。
-//  2. owner 自己配的 provider：postgres.OwnerRepo 从 owners.ai_provider +
+//  2. owner 自己配的 provider：owner.Repo 从 owners.ai_provider +
 //     ai_provider_key_enc 读 + cryptobox.Decrypt → 同一份 AICredential 形态。
 //
 // request-scoped value object。**plaintext** key 字段；server 任何持久层

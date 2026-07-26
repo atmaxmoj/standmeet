@@ -13,6 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -20,7 +21,7 @@ import (
 // SMTP 凭据不出 vault);Mail = OTP/connector 状态读写;Owners = 收件人(owner 邮箱)。
 type MailDeps struct {
 	Mail   *postgres.MailRepo
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 	Proxy  OutboundSender
 }
 
@@ -48,7 +49,7 @@ func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
 	if _, err := loadConfiguredConnector(ctx, deps, ownerID); err != nil {
 		return err
 	}
-	owner, oerr := deps.Owners.GetByID(ctx, ownerID)
+	ownerRow, oerr := deps.Owners.GetByID(ctx, ownerID)
 	if oerr != nil {
 		return fmt.Errorf("get owner: %w", oerr)
 	}
@@ -60,7 +61,7 @@ func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
 		time.Now().Add(connector.MailOTPTTL)); serr != nil {
 		return fmt.Errorf("set mail otp: %w", serr)
 	}
-	return sendOTPEmail(ctx, deps, ownerID, owner.Email, code)
+	return sendOTPEmail(ctx, deps, ownerID, ownerRow.Email, code)
 }
 
 // loadConfiguredConnector —— 取 connector 并确认已填凭据(没填 → ErrMailNotConfigured)

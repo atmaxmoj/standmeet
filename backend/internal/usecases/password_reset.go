@@ -22,13 +22,12 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // PasswordResetDeps —— ConsumePasswordResetToken 的依赖。
 type PasswordResetDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 }
 
 // PasswordResetTTL —— token 颁发后多久内有效；CLI stdout 跟前端 / 文档要

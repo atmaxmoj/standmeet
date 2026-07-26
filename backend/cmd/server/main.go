@@ -27,6 +27,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/server"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -152,7 +153,7 @@ func initStorage(
 func ensureSetupToken(
 	ctx context.Context,
 	log *slog.Logger,
-	repo *postgres.InstanceRepo,
+	repo *owner.InstanceRepo,
 	holder *session.SetupTokenHolder,
 ) error {
 	inst, err := repo.Get(ctx)
@@ -178,12 +179,12 @@ func captchaSiteKeyFor(cfg *config.Config) string {
 	return cfg.TurnstileSiteKey
 }
 
-// setupTokenIssuerAdapter —— 把 *postgres.InstanceRepo + *session.SetupTokenHolder
+// setupTokenIssuerAdapter —— 把 *owner.InstanceRepo + *session.SetupTokenHolder
 // 包成 usecases.SetupTokenIssuer。让 /api/v1/instance handler 通过 usecase 拿
 // self-healing 的 unclaimed setup token，而 usecase 层不直接 import session 包。
 type setupTokenIssuerAdapter struct {
 	log    *slog.Logger
-	repo   *postgres.InstanceRepo
+	repo   *owner.InstanceRepo
 	holder *session.SetupTokenHolder
 }
 
@@ -206,10 +207,10 @@ func (a *setupTokenIssuerAdapter) HolderPlaintext() string {
 	return a.holder.Plaintext()
 }
 
-// ownerLookupAdapter —— 把 postgres.OwnerRepo 包成 inference.OwnerLookup。
+// ownerLookupAdapter —— 把 owner.Repo 包成 inference.OwnerLookup。
 // resolver 不该直接 import postgres（arch-lint 禁），所以胶水放在 cmd 层。
 type ownerLookupAdapter struct {
-	repo *postgres.OwnerRepo
+	repo *owner.Repo
 }
 
 func (a *ownerLookupAdapter) LookupForResolver(

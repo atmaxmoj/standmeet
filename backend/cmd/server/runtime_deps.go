@@ -17,6 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
@@ -41,9 +42,9 @@ type runtimeDeps struct {
 	sandboxWorkspaces  *sandboxws.Manager
 	db                 *pgxpool.Pool
 	rdb                *redis.Client
-	instanceRepo       *postgres.InstanceRepo
-	ownerRepo          *postgres.OwnerRepo
-	keypairRepo        *postgres.OwnerKeypairRepo
+	instanceRepo       *owner.InstanceRepo
+	ownerRepo          *owner.Repo
+	keypairRepo        *owner.KeypairRepo
 	rawRepo            *postgres.RawRepo
 	wikiRepo           *postgres.WikiRepo
 	subjectivityRepo   *postgres.NoteRepo
@@ -58,15 +59,15 @@ type runtimeDeps struct {
 	codeDenialRepo     *postgres.CodeDenialRepo
 	chatRepo           *conversation.ChatRepo
 	seoRepo            *postgres.SEORepo
-	customPageRepo     *postgres.CustomPageRepo
-	customBuildRepo    *postgres.CustomBuildRepo
+	customPageRepo     *owner.CustomPageRepo
+	customBuildRepo    *owner.CustomBuildRepo
 	accessRequestRepo  *access.RequestRepo
 	jobSourceRepo      *postgres.JobSourceRepo
 	resumeDraftRepo    *postgres.ResumeDraftRepo
 	applicationRepo    *postgres.ApplicationRepo
 	skillRepo          *marketplace.SkillRepo
 	mcpServerRepo      *marketplace.MCPServerRepo
-	promptRepo         *postgres.PromptRepo
+	promptRepo         *owner.PromptRepo
 	roleRepo           *postgres.RoleRepo
 	assetRepo          *postgres.AssetRepo
 	writingRepo        *postgres.WritingRepo

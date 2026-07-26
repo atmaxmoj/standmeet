@@ -46,7 +46,7 @@ func HashSetupToken(plaintext string) string {
 }
 
 // InstanceTokenWriter 是 setup token 写到 DB 的最小接口（让 IssueSetupToken
-// 可单测，不依赖 *postgres.InstanceRepo 具体类型）。
+// 可单测，不依赖 *owner.InstanceRepo 具体类型）。
 type InstanceTokenWriter interface {
 	SetSetupTokenHash(ctx context.Context, hash string) error
 }

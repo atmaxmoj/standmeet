@@ -12,13 +12,12 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // AccessRequestsDeps —— SubmitForOwner / ListForOwner / UpdateStatus 共享依赖。
 type AccessRequestsDeps struct {
 	Repo   *access.RequestRepo
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 }
 
 // SubmitAccessRequestInput —— 公共 POST /api/v1/access-requests 入参。

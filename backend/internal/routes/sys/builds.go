@@ -21,14 +21,13 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // BuilderDeps —— /internal/builds/* 需要的 dep。
 // 字段顺序按 govet fieldalignment：把 Log（最常用）放前面对齐 padding。
 type BuilderDeps struct {
 	Log    *slog.Logger
-	Builds *postgres.CustomBuildRepo
+	Builds *owner.CustomBuildRepo
 }
 
 // MountBuilds 挂 /internal/builds/* —— caller 已经加 /internal 前缀。

@@ -4,7 +4,7 @@
 // 三个 update 都返完整 Owner row（前端 sessionStore mutate 用），跟
 // UpdatePublicURL / UpdateHandle 风格一致。
 
-package postgres
+package owner
 
 import (
 	"context"
@@ -12,34 +12,34 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // UpdateFullName —— owner 改自己的 full_name；空字符串 / 全 whitespace 由
 // usecase 层拦下，repo 只信纯字符串。
-func (r *OwnerRepo) UpdateFullName(
+func (r *Repo) UpdateFullName(
 	ctx context.Context, ownerID, newFullName string,
-) (owner.Owner, error) {
-	pgID, perr := parseUUID(ownerID)
+) (Owner, error) {
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return owner.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+		return Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerFullName(ctx, dbq.UpdateOwnerFullNameParams{
 		ID: pgID, FullName: newFullName,
 	})
 	if qerr != nil {
-		return owner.Owner{}, fmt.Errorf("update full_name: %w", qerr)
+		return Owner{}, fmt.Errorf("update full_name: %w", qerr)
 	}
 	return toDomainOwner(&row), nil
 }
 
 // UpdateProfileTimezone —— admin booking-policy PATCH 路径触发；空串 = "UTC"。
-func (r *OwnerRepo) UpdateProfileTimezone(
+func (r *Repo) UpdateProfileTimezone(
 	ctx context.Context, ownerID, tz string,
 ) error {
-	pgID, perr := parseUUID(ownerID)
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
@@ -51,39 +51,39 @@ func (r *OwnerRepo) UpdateProfileTimezone(
 	return nil
 }
 
-// UpdateEmail —— owner 改自己的 email。唯一冲突翻 owner.ErrEmailTaken
+// UpdateEmail —— owner 改自己的 email。唯一冲突翻 ErrEmailTaken
 // 让 routes 翻 409。usecase 必须先验当前密码。
-func (r *OwnerRepo) UpdateEmail(
+func (r *Repo) UpdateEmail(
 	ctx context.Context, ownerID, newEmail string,
-) (owner.Owner, error) {
-	pgID, perr := parseUUID(ownerID)
+) (Owner, error) {
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return owner.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+		return Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerEmail(ctx, dbq.UpdateOwnerEmailParams{
 		ID: pgID, Email: newEmail,
 	})
 	if qerr != nil {
-		return owner.Owner{}, translateEmailUpdateErr(qerr)
+		return Owner{}, translateEmailUpdateErr(qerr)
 	}
 	return toDomainOwner(&row), nil
 }
 
 func translateEmailUpdateErr(err error) error {
-	constraint, isUnique := pgUniqueViolation(err)
+	constraint, isUnique := pgstore.UniqueViolation(err)
 	if isUnique && constraint == "owners_email_key" {
-		return owner.ErrEmailTaken
+		return ErrEmailTaken
 	}
 	return fmt.Errorf("update email: %w", err)
 }
 
 // UpdatePasswordHash —— 写 owner password_hash；usecase 必须先验旧密码 +
 // 在外面 HashPassword(newPlaintext) 拿到 PHC 字符串。
-func (r *OwnerRepo) UpdatePasswordHash(
+func (r *Repo) UpdatePasswordHash(
 	ctx context.Context, ownerID, newHash string,
 ) error {
-	pgID, perr := parseUUID(ownerID)
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
@@ -97,8 +97,8 @@ func (r *OwnerRepo) UpdatePasswordHash(
 }
 
 // SetRecoveryHash —— #100 写 owner recovery_hash(usecase 在外面 HashPassword(phrase))。
-func (r *OwnerRepo) SetRecoveryHash(ctx context.Context, ownerID, hash string) error {
-	pgID, perr := parseUUID(ownerID)
+func (r *Repo) SetRecoveryHash(ctx context.Context, ownerID, hash string) error {
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
@@ -111,8 +111,8 @@ func (r *OwnerRepo) SetRecoveryHash(ctx context.Context, ownerID, hash string) e
 }
 
 // ClearRecoveryHash —— #100 recover 成功后作废(单次用)。
-func (r *OwnerRepo) ClearRecoveryHash(ctx context.Context, ownerID string) error {
-	pgID, perr := parseUUID(ownerID)
+func (r *Repo) ClearRecoveryHash(ctx context.Context, ownerID string) error {
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
@@ -123,9 +123,9 @@ func (r *OwnerRepo) ClearRecoveryHash(ctx context.Context, ownerID string) error
 }
 
 // GetPasswordHash —— 拿 owner 当前 password_hash，给 usecase 验旧密码用。
-// 不存在返 owner.ErrOwnerNotFound。
-func (r *OwnerRepo) GetPasswordHash(ctx context.Context, ownerID string) (string, error) {
-	pgID, perr := parseUUID(ownerID)
+// 不存在返 ErrOwnerNotFound。
+func (r *Repo) GetPasswordHash(ctx context.Context, ownerID string) (string, error) {
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return "", fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
@@ -133,7 +133,7 @@ func (r *OwnerRepo) GetPasswordHash(ctx context.Context, ownerID string) (string
 	hash, err := q.GetOwnerPasswordHash(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
-			return "", owner.ErrOwnerNotFound
+			return "", ErrOwnerNotFound
 		}
 		return "", fmt.Errorf("get owner password_hash: %w", err)
 	}
@@ -149,18 +149,18 @@ type ActiveResetToken struct {
 }
 
 // GetActiveResetToken —— 单 owner self-host：表里第一行 owner 的 reset
-// token 信息。表为空返 owner.ErrOwnerNotFound（caller 通常翻 401）。
-func (r *OwnerRepo) GetActiveResetToken(ctx context.Context) (ActiveResetToken, error) {
+// token 信息。表为空返 ErrOwnerNotFound（caller 通常翻 401）。
+func (r *Repo) GetActiveResetToken(ctx context.Context) (ActiveResetToken, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetFirstOwnerResetToken(ctx)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
-			return ActiveResetToken{}, owner.ErrOwnerNotFound
+			return ActiveResetToken{}, ErrOwnerNotFound
 		}
 		return ActiveResetToken{}, fmt.Errorf("get reset token row: %w", err)
 	}
 	out := ActiveResetToken{
-		OwnerID: formatUUID(row.ID),
+		OwnerID: pgstore.FormatUUID(row.ID),
 		Hash:    row.PasswordResetHash,
 	}
 	if row.PasswordResetAt.Valid {
@@ -170,8 +170,8 @@ func (r *OwnerRepo) GetActiveResetToken(ctx context.Context) (ActiveResetToken, 
 }
 
 // ClearPasswordResetToken —— reset 成功后清掉 hash + at，让 token 一次性。
-func (r *OwnerRepo) ClearPasswordResetToken(ctx context.Context, ownerID string) error {
-	pgID, perr := parseUUID(ownerID)
+func (r *Repo) ClearPasswordResetToken(ctx context.Context, ownerID string) error {
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
@@ -183,7 +183,7 @@ func (r *OwnerRepo) ClearPasswordResetToken(ctx context.Context, ownerID string)
 }
 
 // SoleOwnerHandle —— `standmeet password-reset` CLI 用：sole owner 的
-// id + public_url（拼 reset URL）。表为空返 owner.ErrOwnerNotFound。
+// id + public_url（拼 reset URL）。表为空返 ErrOwnerNotFound。
 type SoleOwnerHandle struct {
 	OwnerID   string
 	PublicURL string
@@ -191,12 +191,12 @@ type SoleOwnerHandle struct {
 
 // GetSoleOwnerHandle —— CLI password-reset 子命令 + 任何只看 "sole owner
 // 是谁" 的 helper。GetFirstOwnerResetToken + GetOwnerByID 拼一下。
-func (r *OwnerRepo) GetSoleOwnerHandle(ctx context.Context) (SoleOwnerHandle, error) {
+func (r *Repo) GetSoleOwnerHandle(ctx context.Context) (SoleOwnerHandle, error) {
 	q := dbq.New(r.pool)
 	tok, err := q.GetFirstOwnerResetToken(ctx)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
-			return SoleOwnerHandle{}, owner.ErrOwnerNotFound
+			return SoleOwnerHandle{}, ErrOwnerNotFound
 		}
 		return SoleOwnerHandle{}, fmt.Errorf("get sole owner row: %w", err)
 	}
@@ -205,17 +205,17 @@ func (r *OwnerRepo) GetSoleOwnerHandle(ctx context.Context) (SoleOwnerHandle, er
 		return SoleOwnerHandle{}, fmt.Errorf("get owner by id: %w", gerr)
 	}
 	return SoleOwnerHandle{
-		OwnerID:   formatUUID(tok.ID),
+		OwnerID:   pgstore.FormatUUID(tok.ID),
 		PublicURL: ownerRow.PublicUrl,
 	}, nil
 }
 
 // SetPasswordResetHash —— CLI 颁发 reset token 时调；写 hash + 当前时间戳。
 // 重复调会覆盖旧 token，跟 SQL 语义一致（重新跑命令是合法 UX）。
-func (r *OwnerRepo) SetPasswordResetHash(
+func (r *Repo) SetPasswordResetHash(
 	ctx context.Context, ownerID string, hash []byte,
 ) error {
-	pgID, perr := parseUUID(ownerID)
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
@@ -229,8 +229,8 @@ func (r *OwnerRepo) SetPasswordResetHash(
 }
 
 // GetCSS —— owner 自定义 CSS(sanitize+scope 后的安全版本)。
-func (r *OwnerRepo) GetCSS(ctx context.Context, ownerID string) (string, error) {
-	pgID, perr := parseUUID(ownerID)
+func (r *Repo) GetCSS(ctx context.Context, ownerID string) (string, error) {
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return "", fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
@@ -242,8 +242,8 @@ func (r *OwnerRepo) GetCSS(ctx context.Context, ownerID string) (string, error) 
 }
 
 // SetCSS —— 存 owner CSS(caller 应已 sanitize+scope)。
-func (r *OwnerRepo) SetCSS(ctx context.Context, ownerID, css string) error {
-	pgID, perr := parseUUID(ownerID)
+func (r *Repo) SetCSS(ctx context.Context, ownerID, css string) error {
+	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}

@@ -20,7 +20,7 @@ import (
 
 // PagePinDeps —— pin 维护点依赖:page_content 存取 + wiki 卡内容/树路径。
 type PagePinDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 	Wiki   *postgres.WikiRepo
 }
 

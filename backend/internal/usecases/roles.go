@@ -19,6 +19,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -26,7 +27,7 @@ import (
 // 在 Create/Update 时校验 join 项的 owner 归属。
 type RolesDeps struct {
 	Roles      *postgres.RoleRepo
-	Prompts    *postgres.PromptRepo
+	Prompts    *owner.PromptRepo
 	Skills     *marketplace.SkillRepo
 	MCPServers *marketplace.MCPServerRepo
 }

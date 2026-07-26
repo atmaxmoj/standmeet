@@ -11,12 +11,11 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // AIProviderDeps —— UpdateOwnerAIProvider 依赖。
 type AIProviderDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 }
 
 // UpdateOwnerAIProviderInput —— 入参。
@@ -55,7 +54,7 @@ func UpdateOwnerAIProvider(
 	if verr := validateAIProviderInput(in); verr != nil {
 		return owner.Settings{}, verr
 	}
-	s, err := deps.Owners.UpdateAIProvider(ctx, &postgres.UpdateAIProviderInput{
+	s, err := deps.Owners.UpdateAIProvider(ctx, &owner.UpdateAIProviderInput{
 		OwnerID:      in.OwnerID,
 		Provider:     in.Provider,
 		Endpoint:     in.Endpoint,

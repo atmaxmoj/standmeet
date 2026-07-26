@@ -9,6 +9,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -23,7 +24,7 @@ type VisitorSessionDeps struct {
 	Owners   OwnerGetter
 	Skills   SkillGetter // role snapshot freeze 读 ListSkillsForRole
 	Roles    *postgres.RoleRepo
-	Prompts  *postgres.PromptRepo
+	Prompts  *owner.PromptRepo
 	Sessions *session.VisitorSessionStore
 	Wiki     WikiLister // 历史恢复 hydrate conversation view
 	Writing  WritingLister

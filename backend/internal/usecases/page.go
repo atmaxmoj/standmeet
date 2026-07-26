@@ -24,7 +24,7 @@ import (
 // usecase 这里不再持有独立 PageRepo。Wiki 给 pin join 用(GetPublicPage);
 // 只调 LoadSoleOwner 的 caller 可不填。
 type PageDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 	Wiki   *postgres.WikiRepo
 }
 

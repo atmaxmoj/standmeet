@@ -1,9 +1,9 @@
 // prompts.go —— prompts 表 CRUD。owner-scoped persona library。
 //
 // 设计 [[iam-role-pivot-plan]]：public（is_builtin=true）由 SeedPublicRole
-// 在 owner claim 时 upsert 种入；删除被 repo 层挡（owner.ErrPromptBuiltinImmutable）。
+// 在 owner claim 时 upsert 种入；删除被 repo 层挡（ErrPromptBuiltinImmutable）。
 
-package postgres
+package owner
 
 import (
 	"context"
@@ -13,17 +13,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // PromptRepo —— prompts 表 CRUD。
 type PromptRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewPromptRepo 构造。
-func NewPromptRepo(pool *Pool) *PromptRepo { return &PromptRepo{pool: pool} }
+func NewPromptRepo(pool *pgstore.Pool) *PromptRepo { return &PromptRepo{pool: pool} }
 
 // CreatePromptInput —— Create 入参。
 type CreatePromptInput struct {
@@ -34,19 +34,19 @@ type CreatePromptInput struct {
 }
 
 // Create 新建 prompt。name 冲突翻 ErrPromptNameTaken。
-func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (owner.Prompt, error) {
-	ownerUUID, oerr := parseUUID(in.OwnerID)
+func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (Prompt, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
-		return owner.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return Prompt{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).CreatePrompt(ctx, dbq.CreatePromptParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
-		if name, hit := pgUniqueViolation(err); hit && name == "prompts_owner_name_uniq" {
-			return owner.Prompt{}, owner.ErrPromptNameTaken
+		if name, hit := pgstore.UniqueViolation(err); hit && name == "prompts_owner_name_uniq" {
+			return Prompt{}, ErrPromptNameTaken
 		}
-		return owner.Prompt{}, fmt.Errorf("create prompt: %w", err)
+		return Prompt{}, fmt.Errorf("create prompt: %w", err)
 	}
 	return toDomainPrompt(&row), nil
 }
@@ -54,31 +54,31 @@ func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (owner.P
 // UpsertBuiltin —— SeedPublicRole 用。同 (owner_id, name) 覆盖 description / body。
 func (r *PromptRepo) UpsertBuiltin(
 	ctx context.Context, ownerID, name, description, body string,
-) (owner.Prompt, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+) (Prompt, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return owner.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return Prompt{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).UpsertBuiltinPrompt(ctx, dbq.UpsertBuiltinPromptParams{
 		OwnerID: ownerUUID, Name: name, Description: description, Body: body,
 	})
 	if err != nil {
-		return owner.Prompt{}, fmt.Errorf("upsert builtin prompt: %w", err)
+		return Prompt{}, fmt.Errorf("upsert builtin prompt: %w", err)
 	}
 	return toDomainPrompt(&row), nil
 }
 
 // ListByOwner —— admin /admin/prompts 列表 + visitor session issue 时 lookup。
-func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]owner.Prompt, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]Prompt, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	rows, err := dbq.New(r.pool).ListPromptsByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list prompts: %w", err)
 	}
-	out := make([]owner.Prompt, 0, len(rows))
+	out := make([]Prompt, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainPrompt(&rows[i]))
 	}
@@ -86,37 +86,37 @@ func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]owner.P
 }
 
 // GetByID —— 单条详情；属于 owner 校验。
-func (r *PromptRepo) GetByID(ctx context.Context, ownerID, promptID string) (owner.Prompt, error) {
+func (r *PromptRepo) GetByID(ctx context.Context, ownerID, promptID string) (Prompt, error) {
 	args, perr := parsePromptIDArgs(ownerID, promptID)
 	if perr != nil {
-		return owner.Prompt{}, perr
+		return Prompt{}, perr
 	}
 	row, err := dbq.New(r.pool).GetPromptByID(ctx, dbq.GetPromptByIDParams{
 		ID: args.promptUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return owner.Prompt{}, owner.ErrPromptNotFound
+			return Prompt{}, ErrPromptNotFound
 		}
-		return owner.Prompt{}, fmt.Errorf("get prompt: %w", err)
+		return Prompt{}, fmt.Errorf("get prompt: %w", err)
 	}
 	return toDomainPrompt(&row), nil
 }
 
 // GetByName —— SeedPublicRole 用：public prompt 先 upsert 再 get id 给 Role 引用。
-func (r *PromptRepo) GetByName(ctx context.Context, ownerID, name string) (owner.Prompt, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+func (r *PromptRepo) GetByName(ctx context.Context, ownerID, name string) (Prompt, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return owner.Prompt{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return Prompt{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).GetPromptByName(ctx, dbq.GetPromptByNameParams{
 		OwnerID: ownerUUID, Name: name,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return owner.Prompt{}, owner.ErrPromptNotFound
+			return Prompt{}, ErrPromptNotFound
 		}
-		return owner.Prompt{}, fmt.Errorf("get prompt by name: %w", err)
+		return Prompt{}, fmt.Errorf("get prompt by name: %w", err)
 	}
 	return toDomainPrompt(&row), nil
 }
@@ -133,17 +133,17 @@ type UpdatePromptInput struct {
 // Update 改 prompt。builtin 可以改 body / description 但不可 rename —— 这层
 // 检查由 usecase 拦（usecase 调 GetByID 看 IsBuiltin + Name diff → 翻 ErrPromptBuiltinImmutable）。
 // repo 这里只翻 unique 冲突。
-func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (owner.Prompt, error) {
+func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (Prompt, error) {
 	args, perr := parsePromptIDArgs(in.OwnerID, in.PromptID)
 	if perr != nil {
-		return owner.Prompt{}, perr
+		return Prompt{}, perr
 	}
 	row, err := dbq.New(r.pool).UpdatePrompt(ctx, dbq.UpdatePromptParams{
 		ID: args.promptUUID, OwnerID: args.ownerUUID,
 		Name: in.Name, Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
-		return owner.Prompt{}, mapPromptUpdateErr(err)
+		return Prompt{}, mapPromptUpdateErr(err)
 	}
 	return toDomainPrompt(&row), nil
 }
@@ -151,10 +151,10 @@ func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (owner.P
 // mapPromptUpdateErr —— 单独抽出来降 Update 的 cyclomatic complexity。
 func mapPromptUpdateErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
-		return owner.ErrPromptNotFound
+		return ErrPromptNotFound
 	}
-	if name, hit := pgUniqueViolation(err); hit && name == "prompts_owner_name_uniq" {
-		return owner.ErrPromptNameTaken
+	if name, hit := pgstore.UniqueViolation(err); hit && name == "prompts_owner_name_uniq" {
+		return ErrPromptNameTaken
 	}
 	return fmt.Errorf("update prompt: %w", err)
 }
@@ -180,20 +180,20 @@ type promptIDArgs struct {
 }
 
 func parsePromptIDArgs(ownerID, promptID string) (promptIDArgs, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return promptIDArgs{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return promptIDArgs{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	promptUUID, perr := parseUUID(promptID)
+	promptUUID, perr := pgstore.ParseUUID(promptID)
 	if perr != nil {
 		return promptIDArgs{}, fmt.Errorf("parse prompt id: %w", perr)
 	}
 	return promptIDArgs{ownerUUID: ownerUUID, promptUUID: promptUUID}, nil
 }
 
-func toDomainPrompt(row *dbq.Prompt) owner.Prompt {
-	return owner.NewPrompt(&owner.PromptInit{
-		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
+func toDomainPrompt(row *dbq.Prompt) Prompt {
+	return NewPrompt(&PromptInit{
+		ID: pgstore.FormatUUID(row.ID), OwnerID: pgstore.FormatUUID(row.OwnerID),
 		Name: row.Name, Body: row.Body, Description: row.Description,
 		IsBuiltin: row.IsBuiltin,
 		CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,

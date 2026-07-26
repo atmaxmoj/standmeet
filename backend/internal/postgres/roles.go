@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -74,7 +75,7 @@ func buildCreateRoleParams(in *CreateRoleInput) (dbq.CreateRoleParams, error) {
 
 // mapRoleCreateErr —— 把 unique violation 翻成 domain sentinel。
 func mapRoleCreateErr(err error) error {
-	if name, hit := pgUniqueViolation(err); hit && name == "roles_owner_name_uniq" {
+	if name, hit := pgstore.UniqueViolation(err); hit && name == "roles_owner_name_uniq" {
 		return access.ErrRoleNameTaken
 	}
 	return fmt.Errorf("create role: %w", err)
@@ -232,7 +233,7 @@ func mapRoleUpdateErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return access.ErrRoleNotFound
 	}
-	if name, hit := pgUniqueViolation(err); hit && name == "roles_owner_name_uniq" {
+	if name, hit := pgstore.UniqueViolation(err); hit && name == "roles_owner_name_uniq" {
 		return access.ErrRoleNameTaken
 	}
 	return fmt.Errorf("update role: %w", err)

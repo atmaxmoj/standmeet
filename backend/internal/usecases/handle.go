@@ -9,12 +9,11 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // HandleDeps —— UpdateOwnerHandle 依赖。
 type HandleDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 }
 
 const (

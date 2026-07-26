@@ -16,7 +16,7 @@ import (
 // SEODeps —— SEO usecases 所需。Wiki/Output 用来 load 全树算公开 landing 地址
 // (纯树派生,不读已退役的 path 列)。
 type SEODeps struct {
-	Owners   *postgres.OwnerRepo
+	Owners   *owner.Repo
 	SEO      *postgres.SEORepo
 	Wiki     *postgres.WikiRepo
 	Output   *postgres.OutputRepo

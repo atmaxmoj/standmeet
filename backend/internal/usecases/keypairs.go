@@ -21,7 +21,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // challengeNS —— Sigv1 challenge 命名空间，跟 e2e/fixtures/sigv1.ts 对齐。
@@ -32,7 +31,7 @@ const sigv1MaxSkew = 5 * time.Minute
 
 // KeypairDeps —— keypair 用例所需。
 type KeypairDeps struct {
-	Repo  *postgres.OwnerKeypairRepo
+	Repo  *owner.KeypairRepo
 	Log   *slog.Logger
 	Nonce NonceStore
 }
@@ -67,7 +66,7 @@ func CreateKeypair(
 	if gerr != nil {
 		return CreatedKeypair{}, gerr
 	}
-	rec, err := deps.Repo.Create(ctx, &postgres.CreateKeypairInput{
+	rec, err := deps.Repo.Create(ctx, &owner.CreateKeypairInput{
 		OwnerID: in.OwnerID, KeyID: uuid.NewString(),
 		PublicKeyPEM: pems.PublicPEM, Label: in.Label,
 	})

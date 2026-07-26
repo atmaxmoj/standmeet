@@ -18,7 +18,7 @@ import (
 
 const capOwnerMe = "owner.me"
 
-// OwnerLookup —— the plugin's own narrow dependency; *postgres.OwnerRepo satisfies it.
+// OwnerLookup —— the plugin's own narrow dependency; *owner.Repo satisfies it.
 type OwnerLookup interface {
 	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
 }

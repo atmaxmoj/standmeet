@@ -67,7 +67,8 @@ func (*WritingRepo) CreateTx(
 	}
 	row, err := dbq.New(tx).CreateWriting(ctx, *params)
 	if err != nil {
-		if name, hit := pgUniqueViolation(err); hit && name == "corpus_notes_writing_slug_uniq" {
+		name, hit := pgstore.UniqueViolation(err)
+		if hit && name == "corpus_notes_writing_slug_uniq" {
 			return corpus.Writing{}, corpus.ErrWritingSlugTaken
 		}
 		return corpus.Writing{}, fmt.Errorf("create writing: %w", err)

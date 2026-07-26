@@ -12,12 +12,11 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // PromptsDeps —— prompts CRUD 需要的 repo。
 type PromptsDeps struct {
-	Prompts *postgres.PromptRepo
+	Prompts *owner.PromptRepo
 }
 
 // CreatePromptInput —— prompt.create 入参。
@@ -35,7 +34,7 @@ func CreatePrompt(
 	if in.OwnerID == "" || in.Name == "" {
 		return owner.Prompt{}, ErrEmptyField
 	}
-	prompt, err := deps.Prompts.Create(ctx, &postgres.CreatePromptInput{
+	prompt, err := deps.Prompts.Create(ctx, &owner.CreatePromptInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Body: in.Body,
 	})
@@ -93,7 +92,7 @@ func UpdatePrompt(
 	if uerr := validateUpdatePromptInput(ctx, deps, in); uerr != nil {
 		return owner.Prompt{}, uerr
 	}
-	prompt, err := deps.Prompts.Update(ctx, &postgres.UpdatePromptInput{
+	prompt, err := deps.Prompts.Update(ctx, &owner.UpdatePromptInput{
 		OwnerID: in.OwnerID, PromptID: in.PromptID,
 		Name: in.Name, Description: in.Description, Body: in.Body,
 	})

@@ -323,6 +323,10 @@ linters:
       # 业务层 ban `any` 让信息流可读；这里反过来豁免。
       - path: internal/postgres/
         linters: [forbidigo]
+      # #135: 领域模块吸收 pgx-boundary repo 后，repo_*.go 仍是 pgx/sqlc 驱动契约层
+      # （Scan(dest ...any)、json.Marshal(v any) 等），同 postgres 边界豁免裸 any。
+      - path: repo_.*\.go$
+        linters: [forbidigo]
       # MCP layer 接 schemaless JSON args（mcp-go 把 tool args 解到
       # map[string]any，array 类型转换成 []any）。这是协议契约不是
       # 业务态，同 postgres 豁免。owner MCP handles 现住 routes/mcphandle

@@ -8,12 +8,11 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // BYOAIDeps —— UpdateBYOAI 需要的 repo（owners 包）。
 type BYOAIDeps struct {
-	Owners *postgres.OwnerRepo
+	Owners *owner.Repo
 }
 
 // UpdateBYOAIInput —— PUT /api/admin/byoai 入参（owner_id 从 session 来）。
@@ -34,7 +33,7 @@ func UpdateBYOAI(
 	if in.OwnerID == "" {
 		return owner.Settings{}, ErrEmptyField
 	}
-	s, err := deps.Owners.UpdateBYOAI(ctx, &postgres.UpdateBYOAIInput{
+	s, err := deps.Owners.UpdateBYOAI(ctx, &owner.UpdateBYOAIInput{
 		OwnerID:   in.OwnerID,
 		Enabled:   in.Enabled,
 		Providers: in.Providers,

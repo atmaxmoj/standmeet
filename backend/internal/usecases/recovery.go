@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -29,7 +28,7 @@ const (
 // RecoveryDeps —— recovery 依赖。Owners=读写 recovery_hash + creds;Sessions=recover 后发 session;
 // Proxy=走 owner SMTP 把 phrase 邮出去。
 type RecoveryDeps struct {
-	Owners   *postgres.OwnerRepo
+	Owners   *owner.Repo
 	Sessions *session.OwnerSessionStore
 	Proxy    OutboundSender
 }
@@ -100,23 +99,23 @@ func Recover(ctx context.Context, deps *RecoveryDeps, in *RecoverInput) (Recover
 // verifyRecovery —— email + phrase 对 recovery_hash。任何失败一律 ErrUnauthorized(防枚举)。
 func verifyRecovery(
 	ctx context.Context, deps *RecoveryDeps, in *RecoverInput,
-) (postgres.Credentials, error) {
+) (owner.Credentials, error) {
 	creds, err := deps.Owners.GetCredentialsByEmail(ctx, in.Email)
 	if err != nil {
-		return postgres.Credentials{}, owner.ErrUnauthorized
+		return owner.Credentials{}, owner.ErrUnauthorized
 	}
 	if creds.RecoveryHash == "" {
-		return postgres.Credentials{}, owner.ErrUnauthorized
+		return owner.Credentials{}, owner.ErrUnauthorized
 	}
 	if vperr := session.VerifyPassword(in.Phrase, creds.RecoveryHash); vperr != nil {
-		return postgres.Credentials{}, owner.ErrUnauthorized
+		return owner.Credentials{}, owner.ErrUnauthorized
 	}
 	return creds, nil
 }
 
 // issueRecovered —— 单次用:先作废 recovery_hash 再发 session(并发也只有一个成)。
 func issueRecovered(
-	ctx context.Context, deps *RecoveryDeps, creds *postgres.Credentials,
+	ctx context.Context, deps *RecoveryDeps, creds *owner.Credentials,
 ) (RecoverOutput, error) {
 	if cerr := deps.Owners.ClearRecoveryHash(ctx, creds.OwnerID); cerr != nil {
 		return RecoverOutput{}, fmt.Errorf("clear recovery: %w", cerr)

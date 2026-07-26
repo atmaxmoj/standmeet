@@ -8,7 +8,7 @@
 //   - token 32-byte random，base64url 编码 + "smr_" 前缀（standmeet reset）。
 //     hash = SHA-256(plaintext)，落 owners.password_reset_hash（bytea）。
 //     password_reset_at = NOW()，验时检 TTL (30min)。
-//   - 通过 postgres.OwnerRepo 走，不直接 import dbq（arch-lint 拒）。
+//   - 通过 owner.Repo 走，不直接 import dbq（arch-lint 拒）。
 
 package main
 
@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -54,7 +55,7 @@ func runPasswordReset(log *slog.Logger, cfg *config.Config) error {
 }
 
 func issueAndPrint(ctx context.Context, log *slog.Logger, db *postgres.Pool) error {
-	repo := postgres.NewOwnerRepo(db)
+	repo := owner.NewRepo(db)
 	handle, err := repo.GetSoleOwnerHandle(ctx)
 	if err != nil {
 		return fmt.Errorf("find sole owner: %w (has anyone claimed yet?)", err)
