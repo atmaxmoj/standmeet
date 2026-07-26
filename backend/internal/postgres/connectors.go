@@ -1,5 +1,5 @@
 // connectors.go —— #155 统一连接器连接状态 repo（owner_connectors）。repo 边界加解密：凭据/
-// token 加密落库，读出时解密成 domain.ConnectorConnection（明文只在 connector 层内存活）。
+// token 加密落库，读出时解密成 connectordomain.ConnectorConnection（明文只在 connector 层内存活）。
 // 替代 calendar.go/mail_connectors.go 的 gcal/smtp-specific repo（swap 落地后删）。
 
 package postgres
@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -154,18 +154,18 @@ func (r *ConnectorRepo) Delete(ctx context.Context, ownerID, connectorID string)
 // Get —— 加载并解密一个连接器的连接状态。无行 → 空 ConnectorConnection（从未连过）。
 func (r *ConnectorRepo) Get(
 	ctx context.Context, ownerID, connectorID string,
-) (domain.ConnectorConnection, error) {
+) (connectordomain.ConnectorConnection, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.ConnectorConnection{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return connectordomain.ConnectorConnection{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).GetConnector(ctx,
 		dbq.GetConnectorParams{OwnerID: ownerUUID, ConnectorID: connectorID})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.ConnectorConnection{ConnectorID: connectorID}, nil
+			return connectordomain.ConnectorConnection{ConnectorID: connectorID}, nil
 		}
-		return domain.ConnectorConnection{}, fmt.Errorf("get connector: %w", qerr)
+		return connectordomain.ConnectorConnection{}, fmt.Errorf("get connector: %w", qerr)
 	}
 	return decodeConnectorConn(&row)
 }
@@ -173,7 +173,7 @@ func (r *ConnectorRepo) Get(
 // ListByOwner —— owner 所有连接器的连接状态（admin 列表）。
 func (r *ConnectorRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]domain.ConnectorConnection, error) {
+) ([]connectordomain.ConnectorConnection, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -188,7 +188,7 @@ func (r *ConnectorRepo) ListByOwner(
 // ListByCategory —— owner 某品类的连接器（槽位解析）。
 func (r *ConnectorRepo) ListByCategory(
 	ctx context.Context, ownerID, category string,
-) ([]domain.ConnectorConnection, error) {
+) ([]connectordomain.ConnectorConnection, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -276,21 +276,21 @@ func decodeScopes(raw []byte) ([]string, error) {
 	return scopes, nil
 }
 
-func decodeConnectorConn(row *dbq.OwnerConnector) (domain.ConnectorConnection, error) {
+func decodeConnectorConn(row *dbq.OwnerConnector) (connectordomain.ConnectorConnection, error) {
 	aad := []byte(formatUUID(row.OwnerID))
 	creds, err := decBytes(row.CredentialsEnc, aad)
 	if err != nil {
-		return domain.ConnectorConnection{}, err
+		return connectordomain.ConnectorConnection{}, err
 	}
 	tok, terr := decodeToken(row.TokenEnc, aad)
 	if terr != nil {
-		return domain.ConnectorConnection{}, terr
+		return connectordomain.ConnectorConnection{}, terr
 	}
 	scopes, serr := decodeScopes(row.Scopes)
 	if serr != nil {
-		return domain.ConnectorConnection{}, serr
+		return connectordomain.ConnectorConnection{}, serr
 	}
-	conn := domain.ConnectorConnection{
+	conn := connectordomain.ConnectorConnection{
 		ConnectorID: row.ConnectorID, Category: row.Category, Kind: row.Kind,
 		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
 		Credentials: creds, Scopes: scopes,
@@ -303,8 +303,10 @@ func decodeConnectorConn(row *dbq.OwnerConnector) (domain.ConnectorConnection, e
 	return conn, nil
 }
 
-func decodeConnectorConns(rows []dbq.OwnerConnector) ([]domain.ConnectorConnection, error) {
-	out := make([]domain.ConnectorConnection, 0, len(rows))
+func decodeConnectorConns(
+	rows []dbq.OwnerConnector) ([]connectordomain.ConnectorConnection, error,
+) {
+	out := make([]connectordomain.ConnectorConnection, 0, len(rows))
 	for i := range rows {
 		conn, err := decodeConnectorConn(&rows[i])
 		if err != nil {

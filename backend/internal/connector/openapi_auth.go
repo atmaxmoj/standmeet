@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 )
 
 // 装配期认证相关的 sentinel（回 admin 友好提示）。
@@ -35,7 +35,9 @@ var (
 // ConnectionStore —— 连接状态的读 + oauth2 静默刷新的回写（domain 类型）。由 composition root
 // 从 ConnectorRepo 接线——connector 层不直依赖 postgres。
 type ConnectionStore interface {
-	Get(ctx context.Context, connectorID, ownerID string) (domain.ConnectorConnection, error)
+	Get(
+		ctx context.Context, connectorID, ownerID string,
+	) (connectordomain.ConnectorConnection, error)
 	SaveTokens(ctx context.Context, connectorID, ownerID string, tok *TokenRefresh) error
 	// MarkDisconnected —— 撤权检测到（invalid_grant）→ 连接落库 disconnected。
 	MarkDisconnected(ctx context.Context, connectorID, ownerID string) error
@@ -51,7 +53,7 @@ type TokenRefresh struct {
 
 // authStrategy —— 把一个连接的凭据/token 注入出站请求。单方法、无状态行为，故用 func 类型
 // （同 http.HandlerFunc 的取舍）：工厂返 func 值，免去接口 + 一堆空 struct + 接口返值抑制。
-type authStrategy func(conn *domain.ConnectorConnection) (openapi.AuthInjector, error)
+type authStrategy func(conn *connectordomain.ConnectorConnection) (openapi.AuthInjector, error)
 
 // buildAuthStrategy —— 按 securityScheme 选注入策略。不支持的类型 → 错（装配期拒）。
 func buildAuthStrategy(scheme *openapi.SecurityScheme) (authStrategy, error) {
@@ -79,7 +81,7 @@ func httpAuthStrategy(scheme string) (authStrategy, error) {
 }
 
 // oauth2Inject —— oauth2 / openIdConnect：用存着的 access token 作 bearer。
-func oauth2Inject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
+func oauth2Inject(conn *connectordomain.ConnectorConnection) (openapi.AuthInjector, error) {
 	return bearerInjector(conn.AccessToken), nil
 }
 
@@ -89,7 +91,7 @@ type apiKeyCred struct {
 
 // apiKeyInject —— apiKey：header 或 query 带 key（in/name 来自 scheme，闭包捕获）。
 func apiKeyInject(in, name string) authStrategy {
-	return func(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
+	return func(conn *connectordomain.ConnectorConnection) (openapi.AuthInjector, error) {
 		var c apiKeyCred
 		if err := decodeCred(conn.Credentials, &c); err != nil {
 			return nil, err
@@ -114,7 +116,7 @@ type basicCred struct {
 }
 
 // basicInject —— http basic：base64(user:pass) 进 Authorization。
-func basicInject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
+func basicInject(conn *connectordomain.ConnectorConnection) (openapi.AuthInjector, error) {
 	var c basicCred
 	if err := decodeCred(conn.Credentials, &c); err != nil {
 		return nil, err
@@ -131,7 +133,7 @@ type bearerCred struct {
 }
 
 // bearerInject —— http bearer：凭据里存的固定 token。
-func bearerInject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
+func bearerInject(conn *connectordomain.ConnectorConnection) (openapi.AuthInjector, error) {
 	var c bearerCred
 	if err := decodeCred(conn.Credentials, &c); err != nil {
 		return nil, err

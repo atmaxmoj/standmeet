@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -37,7 +37,7 @@ type connectionStoreAdapter struct{ repo *postgres.ConnectorRepo }
 
 func (a connectionStoreAdapter) Get(
 	ctx context.Context, connectorID, ownerID string,
-) (domain.ConnectorConnection, error) {
+) (connectordomain.ConnectorConnection, error) {
 	conn, err := a.repo.Get(ctx, ownerID, connectorID)
 	if err != nil {
 		return conn, fmt.Errorf("connection store get: %w", err)
@@ -248,7 +248,7 @@ func (s *agentConnectorSource) AgentConnectors(
 }
 
 // connectedIDs —— 已 connected 的连接器 id（agent-tools 闸：未连不暴露）。
-func connectedIDs(conns []domain.ConnectorConnection) []string {
+func connectedIDs(conns []connectordomain.ConnectorConnection) []string {
 	out := make([]string, 0, len(conns))
 	for i := range conns {
 		if conns[i].Connected {

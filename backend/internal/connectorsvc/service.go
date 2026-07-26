@@ -13,7 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -64,12 +64,12 @@ func (s *Service) Manifest(id string) *connector.Manifest {
 
 // Catalog —— 所有内置连接器（拉起时外置装配进来的 manifest），供 admin UI 渲染可连接的内置卡。
 // 各卡状态/凭据表单各自再取 /{id}/{status,credential-form}。不进 List（List 只列 owner 已建；内置
-// 混进去会被 reuse-by-category 的调用方误抓）。复用 domain.ConnectorConnection，不新增公开类型。
-func (s *Service) Catalog() []domain.ConnectorConnection {
-	out := make([]domain.ConnectorConnection, 0, len(s.d.Manifests))
+// 混进去会被 reuse-by-category 的调用方误抓）。复用 connectordomain.ConnectorConnection，不新增公开类型。
+func (s *Service) Catalog() []connectordomain.ConnectorConnection {
+	out := make([]connectordomain.ConnectorConnection, 0, len(s.d.Manifests))
 	for i := range s.d.Manifests {
 		m := &s.d.Manifests[i]
-		out = append(out, domain.ConnectorConnection{
+		out = append(out, connectordomain.ConnectorConnection{
 			ConnectorID: m.ID, Category: m.Category, Kind: m.Kind,
 		})
 	}
@@ -152,7 +152,8 @@ func (s *Service) Disconnect(ctx context.Context, ownerID, id string) error {
 }
 
 // List —— owner 已配的连接器。
-func (s *Service) List(ctx context.Context, ownerID string) ([]domain.ConnectorConnection, error) {
+func (s *Service) List(ctx context.Context, ownerID string,
+) ([]connectordomain.ConnectorConnection, error) {
 	conns, err := s.d.Repo.ListByOwner(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list connectors: %w", err)
@@ -163,7 +164,7 @@ func (s *Service) List(ctx context.Context, ownerID string) ([]domain.ConnectorC
 // Status —— 单连接器状态。
 func (s *Service) Status(
 	ctx context.Context, ownerID, id string,
-) (domain.ConnectorConnection, error) {
+) (connectordomain.ConnectorConnection, error) {
 	conn, err := s.d.Repo.Get(ctx, ownerID, id)
 	if err != nil {
 		return conn, fmt.Errorf("connector status: %w", err)
@@ -191,7 +192,7 @@ func (s *Service) promoteFallback(ctx context.Context, ownerID, category string)
 	return nil
 }
 
-func hasActiveConn(conns []domain.ConnectorConnection) bool {
+func hasActiveConn(conns []connectordomain.ConnectorConnection) bool {
 	for i := range conns {
 		if conns[i].Active {
 			return true
@@ -200,7 +201,7 @@ func hasActiveConn(conns []domain.ConnectorConnection) bool {
 	return false
 }
 
-func firstConnectedID(conns []domain.ConnectorConnection) string {
+func firstConnectedID(conns []connectordomain.ConnectorConnection) string {
 	for i := range conns {
 		if conns[i].Connected {
 			return conns[i].ConnectorID
@@ -317,7 +318,7 @@ func (s *Service) claimSlotIfFree(ctx context.Context, ownerID, id, category str
 	return nil
 }
 
-func hasActive(conns []domain.ConnectorConnection) bool {
+func hasActive(conns []connectordomain.ConnectorConnection) bool {
 	for i := range conns {
 		if conns[i].Active {
 			return true

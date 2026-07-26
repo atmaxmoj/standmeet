@@ -13,8 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
+	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 )
 
@@ -72,7 +72,7 @@ type connectInitResp struct {
 	Connected bool   `json:"connected"`
 }
 
-func statusRow(c *domain.ConnectorConnection) connectorStatusResp {
+func statusRow(c *connectordomain.ConnectorConnection) connectorStatusResp {
 	return connectorStatusResp{
 		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind,
 		HasCredentials: len(c.Credentials) > 0,

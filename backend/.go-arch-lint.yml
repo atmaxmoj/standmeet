@@ -93,6 +93,8 @@ components:
     in: internal/credentialdomain          # #135: owner 凭据/密钥值对象 (api_key/keypair/ai_credential)；pure leaf
   instancedomain:
     in: internal/instancedomain            # #135: 部署 singleton 配置 (instance_settings)；pure leaf
+  connectordomain:
+    in: internal/connectordomain           # #135: 连接器轴 owner 注册配置 (connector_connection)；pure leaf
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -227,6 +229,7 @@ deps:
   # 复用 usecases 的 DTO 类型 (FreeBusyReq / MailMessage 等) → 依赖 usecases。
   connector:
     mayDependOn:
+      - connectordomain
       - domain
       - connectorcontract
       - connectorconsumer
@@ -312,6 +315,7 @@ deps:
   # routes 层之下（cyclop ≤5，不受 routes ≤3 约束）。读写连接器存储 + 走 OAuth dance。
   connectorsvc:
     mayDependOn:
+      - connectordomain
       - connector
       - postgres
       - domain
@@ -372,6 +376,7 @@ deps:
   # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
+      - connectordomain
       - instancedomain
       - credentialdomain
       - skilldomain
@@ -494,6 +499,7 @@ deps:
   # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
   pluginownercore:
     mayDependOn:
+      - connectordomain
       - credentialdomain
       - skilldomain
       - ownerdomain
@@ -662,6 +668,11 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # connectordomain —— #135 连接器轴 owner 注册配置 leaf：ConnectorConnection，无 internal 依赖。
+  connectordomain:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
   # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
   # routes 不直接 import。
@@ -720,6 +731,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - connectordomain
       - instancedomain
       - credentialdomain
       - skilldomain
@@ -841,6 +853,7 @@ deps:
       - marketplace
       - security
       - stats
+      - connectordomain
       - captcha
       - cryptobox
       - sandbox

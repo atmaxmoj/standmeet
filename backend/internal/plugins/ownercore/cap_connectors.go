@@ -18,7 +18,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
@@ -50,9 +50,9 @@ type SpecVerdict struct {
 // Kept to domain + local DTO types so ownercore stays free of postgres/connectorsvc
 // imports; the composition root supplies an adapter over *connectorsvc.Service.
 type connectorService interface {
-	List(ctx context.Context, ownerID string) ([]domain.ConnectorConnection, error)
-	Catalog() []domain.ConnectorConnection
-	Status(ctx context.Context, ownerID, id string) (domain.ConnectorConnection, error)
+	List(ctx context.Context, ownerID string) ([]connectordomain.ConnectorConnection, error)
+	Catalog() []connectordomain.ConnectorConnection
+	Status(ctx context.Context, ownerID, id string) (connectordomain.ConnectorConnection, error)
 	CreateProtocol(ctx context.Context, ownerID, category, protocol string) (string, error)
 	CreateUploaded(ctx context.Context, ownerID string, in UploadedSpecArg) (string, error)
 	UpdateUploaded(ctx context.Context, ownerID, id string, in UploadedSpecArg) error
@@ -124,7 +124,7 @@ type connectorRow struct {
 	Active         bool   `json:"active"`
 }
 
-func connectorStatusRow(c *domain.ConnectorConnection) connectorRow {
+func connectorStatusRow(c *connectordomain.ConnectorConnection) connectorRow {
 	return connectorRow{
 		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind,
 		HasCredentials: len(c.Credentials) > 0,
@@ -132,7 +132,7 @@ func connectorStatusRow(c *domain.ConnectorConnection) connectorRow {
 	}
 }
 
-func connectorRows(conns []domain.ConnectorConnection) []connectorRow {
+func connectorRows(conns []connectordomain.ConnectorConnection) []connectorRow {
 	rows := make([]connectorRow, 0, len(conns))
 	for i := range conns {
 		rows = append(rows, connectorStatusRow(&conns[i]))

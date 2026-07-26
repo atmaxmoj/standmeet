@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/connectordomain"
 	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -36,7 +36,7 @@ type connSvcAdapter struct{ svc *connectorsvc.Service }
 
 func (a connSvcAdapter) List(
 	ctx context.Context, ownerID string,
-) ([]domain.ConnectorConnection, error) {
+) ([]connectordomain.ConnectorConnection, error) {
 	out, err := a.svc.List(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("adapter connector list: %w", err)
@@ -44,11 +44,11 @@ func (a connSvcAdapter) List(
 	return out, nil
 }
 
-func (a connSvcAdapter) Catalog() []domain.ConnectorConnection { return a.svc.Catalog() }
+func (a connSvcAdapter) Catalog() []connectordomain.ConnectorConnection { return a.svc.Catalog() }
 
 func (a connSvcAdapter) Status(
 	ctx context.Context, ownerID, id string,
-) (domain.ConnectorConnection, error) {
+) (connectordomain.ConnectorConnection, error) {
 	out, err := a.svc.Status(ctx, ownerID, id)
 	if err != nil {
 		return out, fmt.Errorf("adapter connector status: %w", err)
