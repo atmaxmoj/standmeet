@@ -14,6 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
@@ -45,20 +46,20 @@ type runtimeDeps struct {
 	instanceRepo       *owner.InstanceRepo
 	ownerRepo          *owner.Repo
 	keypairRepo        *owner.KeypairRepo
-	rawRepo            *postgres.RawRepo
-	wikiRepo           *postgres.WikiRepo
-	subjectivityRepo   *postgres.NoteRepo
-	vaultSyncRepo      *postgres.VaultSyncRepo
-	noteRefRepo        *postgres.NoteRefRepo
-	outputRepo         *postgres.OutputRepo
+	rawRepo            *corpus.RawRepo
+	wikiRepo           *corpus.WikiRepo
+	subjectivityRepo   *corpus.NoteRepo
+	vaultSyncRepo      *corpus.VaultSyncRepo
+	noteRefRepo        *corpus.NoteRefRepo
+	outputRepo         *corpus.OutputRepo
 	growthRepo         *stats.GrowthRepo
 	activityRepo       *stats.ActivityRepo
 	jobRegistry        *jobregistry.Registry
-	corpus             *postgres.Corpus
+	corpus             *corpus.Corpus
 	codeRepo           *access.CodeRepo
 	codeDenialRepo     *access.CodeDenialRepo
 	chatRepo           *conversation.ChatRepo
-	seoRepo            *postgres.SEORepo
+	seoRepo            *corpus.SEORepo
 	customPageRepo     *owner.CustomPageRepo
 	customBuildRepo    *owner.CustomBuildRepo
 	accessRequestRepo  *access.RequestRepo
@@ -69,9 +70,9 @@ type runtimeDeps struct {
 	mcpServerRepo      *marketplace.MCPServerRepo
 	promptRepo         *owner.PromptRepo
 	roleRepo           *access.RoleRepo
-	assetRepo          *postgres.AssetRepo
-	writingRepo        *postgres.WritingRepo
-	writingRefRepo     *postgres.WritingRefRepo
+	assetRepo          *corpus.AssetRepo
+	writingRepo        *corpus.WritingRepo
+	writingRefRepo     *corpus.WritingRefRepo
 	mailRepo           *postgres.MailRepo
 	capabilityRepo     *access.CapabilityRepo
 	ghostRepo          *conversation.GhostRepo

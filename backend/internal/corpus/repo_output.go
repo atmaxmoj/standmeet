@@ -2,7 +2,7 @@
 // 与 WikiRepo 同构（都绑定各自 genre 调用同一套 dbq.Note* 方法）。output 是 raw → wiki →
 // output 三层最精炼层，语义上「可原样引用」；source_ids 记从哪些 wiki 提炼来。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -13,18 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // OutputRepo —— corpus_notes(genre='output') CRUD + path induce。
 type OutputRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewOutputRepo 构造 OutputRepo。
-func NewOutputRepo(pool *Pool) *OutputRepo { return &OutputRepo{pool: pool} }
+func NewOutputRepo(pool *pgstore.Pool) *OutputRepo { return &OutputRepo{pool: pool} }
 
 // CreateOutputInput —— Create 入参。SourceWikiIDs 记录从哪些 wiki 提炼来。
 type CreateOutputInput struct {
@@ -39,23 +38,23 @@ type CreateOutputInput struct {
 // Create 写一条新 output。
 func (r *OutputRepo) Create(
 	ctx context.Context, in *CreateOutputInput,
-) (corpus.Output, error) {
+) (Output, error) {
 	params, err := buildOutputCreateParams(in)
 	if err != nil {
-		return corpus.Output{}, err
+		return Output{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.CreateNote(ctx, params)
 	if qerr != nil {
-		return corpus.Output{}, fmt.Errorf("create output: %w", qerr)
+		return Output{}, fmt.Errorf("create output: %w", qerr)
 	}
 	return toDomainOutput(&row), nil
 }
 
 func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateNoteParams, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.CreateNoteParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return dbq.CreateNoteParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
@@ -83,10 +82,10 @@ func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateNoteParams, error
 // ListByOwner 返回 owner 的 output（最新 N 条）。
 func (r *OutputRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
-) ([]corpus.Output, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) ([]Output, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	rows, err := q.ListNotesByOwner(ctx, dbq.ListNotesByOwnerParams{
@@ -95,7 +94,7 @@ func (r *OutputRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list output: %w", err)
 	}
-	out := make([]corpus.Output, 0, len(rows))
+	out := make([]Output, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainOutput(&rows[i]))
 	}
@@ -105,14 +104,14 @@ func (r *OutputRepo) ListByOwner(
 // GetByID 拿 owner 的某条 output；不命中返回 ErrOutputNotFound。
 func (r *OutputRepo) GetByID(
 	ctx context.Context, ownerID, id string,
-) (corpus.Output, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) (Output, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return corpus.Output{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Output{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	outputUUID, err := parseUUID(id)
+	outputUUID, err := pgstore.ParseUUID(id)
 	if err != nil {
-		return corpus.Output{}, fmt.Errorf("parse output id: %w", err)
+		return Output{}, fmt.Errorf("parse output id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetNoteByID(ctx, dbq.GetNoteByIDParams{
@@ -120,9 +119,9 @@ func (r *OutputRepo) GetByID(
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return corpus.Output{}, corpus.ErrOutputNotFound
+			return Output{}, ErrOutputNotFound
 		}
-		return corpus.Output{}, fmt.Errorf("get output: %w", err)
+		return Output{}, fmt.Errorf("get output: %w", err)
 	}
 	return toDomainOutput(&row), nil
 }
@@ -152,7 +151,7 @@ func (r *OutputRepo) ListChildren(
 		},
 		func(row dbq.ListNoteChildrenRow) OutputMeta {
 			return OutputMeta{
-				ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+				ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
@@ -169,12 +168,12 @@ func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (Outpu
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return OutputMeta{}, corpus.ErrOutputNotFound
+			return OutputMeta{}, ErrOutputNotFound
 		}
 		return OutputMeta{}, fmt.Errorf("get output meta: %w", err)
 	}
 	return OutputMeta{
-		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+		ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published,
 	}, nil
 }
@@ -183,9 +182,9 @@ func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (Outpu
 func (r *OutputRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
 ) ([]OutputMeta, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	rows, qerr := dbq.New(r.pool).SearchNotes(ctx, dbq.SearchNotesParams{
 		OwnerID: ownerUUID, Genre: genreOutput,
@@ -203,7 +202,7 @@ func (r *OutputRepo) Search(
 
 func outputSearchRowMeta(row *dbq.SearchNotesRow) OutputMeta {
 	return OutputMeta{
-		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+		ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
 	}
 }
@@ -212,7 +211,7 @@ func outputSearchRowMeta(row *dbq.SearchNotesRow) OutputMeta {
 func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputMeta, error) {
 	mk := func(row *dbq.ListAllNoteMetaRow) OutputMeta {
 		return OutputMeta{
-			ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+			ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 			Title: row.Title, Published: row.Published,
 			UpdatedAt: row.UpdatedAt.Time.Unix(),
 		}
@@ -220,10 +219,10 @@ func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputM
 	return listNoteMetaBy(ctx, r.pool, ownerID, genreOutput, mk)
 }
 
-func toDomainOutput(o *dbq.CorpusNote) corpus.Output {
-	in := corpus.OutputInit{
-		ID:            formatUUID(o.ID),
-		OwnerID:       formatUUID(o.OwnerID),
+func toDomainOutput(o *dbq.CorpusNote) Output {
+	in := OutputInit{
+		ID:            pgstore.FormatUUID(o.ID),
+		OwnerID:       pgstore.FormatUUID(o.OwnerID),
 		Title:         o.Title,
 		Body:          o.Body,
 		Tags:          o.Tags,
@@ -236,8 +235,8 @@ func toDomainOutput(o *dbq.CorpusNote) corpus.Output {
 		Integrations:  connector.NewIntegrations(),
 	}
 	if o.ParentID.Valid {
-		s := formatUUID(o.ParentID)
+		s := pgstore.FormatUUID(o.ParentID)
 		in.ParentID = &s
 	}
-	return corpus.NewOutput(&in)
+	return NewOutput(&in)
 }

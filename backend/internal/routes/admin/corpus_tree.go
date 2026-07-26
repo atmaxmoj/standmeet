@@ -11,7 +11,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -73,7 +72,7 @@ func (h *Handlers) treeRaw() http.HandlerFunc {
 // rawTreeItem —— one raw tree child → list item. Shares rawItemBase so the tree view carries the
 // same clean Preview / Status as the flat list (F-R-1: the tree path used to build its own item and
 // leaked raw markup into the card); only the tree-specific fields are added here.
-func rawTreeItem(c *postgres.TreeChild[corpus.Raw]) rawListItem {
+func rawTreeItem(c *corpus.TreeChild[corpus.Raw]) rawListItem {
 	row := &c.Entry
 	it := rawItemBase(row)
 	it.HasChildren = c.HasChildren

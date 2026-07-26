@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 const queryDefaultLimit = 50
@@ -107,7 +107,7 @@ func (l *pgCorpusLister) Query(
 }
 
 func queryRowToMeta(
-	row *postgres.QueryNoteRow, scope access.CorpusScope, childrenOf string,
+	row *corpus.QueryNoteRow, scope access.CorpusScope, childrenOf string,
 ) (CorpusMeta, bool) {
 	if len(row.PathTitles) == 0 {
 		return CorpusMeta{}, false

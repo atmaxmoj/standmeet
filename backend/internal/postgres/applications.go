@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -249,7 +250,7 @@ func (r *ApplicationRepo) GetByID(
 ) (jobsmodel.Application, error) {
 	owner, err := parseUUID(ownerID)
 	if err != nil {
-		return jobsmodel.Application{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return jobsmodel.Application{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	appUUID, err := parseUUID(id)
 	if err != nil {
@@ -274,7 +275,7 @@ func (r *ApplicationRepo) ListByOwner(
 ) ([]jobsmodel.Application, error) {
 	owner, err := parseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	rows, err := q.ListApplicationsByOwner(ctx, owner)

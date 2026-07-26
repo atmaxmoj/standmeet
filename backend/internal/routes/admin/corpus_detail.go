@@ -12,7 +12,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // detail 不含 path:地址树派生(浏览列表那条由 usecases.WikiTreePaths 算并回显);
@@ -147,7 +146,7 @@ func (h *Handlers) noteRefViews(ctx context.Context, ownerID, id string) noteRef
 	}
 }
 
-func noteRefsToViews(refs []postgres.NoteRef) []refView {
+func noteRefsToViews(refs []corpus.NoteRef) []refView {
 	out := make([]refView, 0, len(refs))
 	for i := range refs {
 		out = append(out, refView{ID: refs[i].ID, Title: refs[i].Title})

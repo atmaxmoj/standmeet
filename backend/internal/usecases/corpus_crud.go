@@ -13,7 +13,6 @@ import (
 	"slices"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // ─── raw ────────────────────────────────────────────────────
@@ -34,7 +33,7 @@ func UpdateRaw(
 	if in.OwnerID == "" || in.ID == "" || in.Body == "" {
 		return corpus.Raw{}, ErrEmptyField
 	}
-	raw, err := deps.Raw.UpdateBody(ctx, &postgres.UpdateRawInput{
+	raw, err := deps.Raw.UpdateBody(ctx, &corpus.UpdateRawInput{
 		OwnerID: in.OwnerID, ID: in.ID,
 		Body: in.Body, Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
 	})
@@ -73,7 +72,7 @@ func CreateWiki(
 	if err := preflightCreateWiki(ctx, deps, in); err != nil {
 		return corpus.Wiki{}, err
 	}
-	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
+	wiki, err := deps.Wiki.Create(ctx, &corpus.CreateWikiInput{
 		OwnerID:  in.OwnerID,
 		ParentID: in.ParentID,
 		Title:    in.Title,
@@ -117,7 +116,7 @@ func UpdateWiki(
 	if err := preflightUpdateWiki(ctx, deps, in); err != nil {
 		return corpus.Wiki{}, err
 	}
-	wiki, err := deps.Wiki.Update(ctx, &postgres.UpdateWikiInput{
+	wiki, err := deps.Wiki.Update(ctx, &corpus.UpdateWikiInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		ShowAsSource: in.ShowAsSource, CSSClasses: in.CSSClasses,
@@ -182,7 +181,7 @@ func CreateOutput(
 	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
 		return corpus.Output{}, ErrEmptyField
 	}
-	out, err := deps.Output.Create(ctx, &postgres.CreateOutputInput{
+	out, err := deps.Output.Create(ctx, &corpus.CreateOutputInput{
 		OwnerID:  in.OwnerID,
 		ParentID: in.ParentID,
 		Title:    in.Title,
@@ -213,7 +212,7 @@ func UpdateOutput(
 	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
 		return corpus.Output{}, ErrEmptyField
 	}
-	out, err := deps.Output.Update(ctx, &postgres.UpdateOutputInput{
+	out, err := deps.Output.Update(ctx, &corpus.UpdateOutputInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		ShowAsSource: in.ShowAsSource,

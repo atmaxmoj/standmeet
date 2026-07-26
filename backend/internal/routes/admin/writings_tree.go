@@ -12,17 +12,16 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
-// WritingsTreeProvider —— 懒树一层 + 分页一页(concrete *postgres.WritingRepo 实现)。
+// WritingsTreeProvider —— 懒树一层 + 分页一页(concrete *corpus.WritingRepo 实现)。
 type WritingsTreeProvider interface {
 	ListChildrenTree(
 		ctx context.Context, ownerID string, parentID *string,
-	) ([]postgres.TreeChild[corpus.Writing], error)
+	) ([]corpus.TreeChild[corpus.Writing], error)
 	ListPage(
-		ctx context.Context, ownerID string, cursor *postgres.PageCursor, limit int32,
-	) ([]postgres.TreeChild[corpus.Writing], error)
+		ctx context.Context, ownerID string, cursor *corpus.PageCursor, limit int32,
+	) ([]corpus.TreeChild[corpus.Writing], error)
 }
 
 type writingsPageResponse struct {
@@ -69,7 +68,7 @@ func (h *Handlers) pageWritings() http.HandlerFunc {
 
 func writeWritingsPage(
 	r *http.Request, h *Handlers, w http.ResponseWriter,
-	rows []postgres.TreeChild[corpus.Writing],
+	rows []corpus.TreeChild[corpus.Writing],
 ) {
 	page := rows
 	next := ""

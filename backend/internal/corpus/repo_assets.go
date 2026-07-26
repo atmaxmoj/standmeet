@@ -3,7 +3,7 @@
 // 的同事务里完成。所以所有 method 都接 dbq.DBTX（可以是 pool，也可以是
 // 进行中的 tx）。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -20,11 +19,11 @@ import (
 // AssetRepo —— assets 表 CRUD。pool 是 fallback，单独读不需要 tx 时用；
 // 写 path 都接 DBTX 让 caller 传进 tx。
 type AssetRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewAssetRepo 构造。
-func NewAssetRepo(pool *Pool) *AssetRepo { return &AssetRepo{pool: pool} }
+func NewAssetRepo(pool *pgstore.Pool) *AssetRepo { return &AssetRepo{pool: pool} }
 
 // CreateAssetInput —— Create 入参。caller 已 generate UUID (要先 storage.Put
 // 拿 key) + 上传 bytes 到 MinIO + 算好 sha256；holder_id 是这张图归属的
@@ -43,24 +42,24 @@ type CreateAssetInput struct {
 // 的事务用它，跟 post 行 insert/update 同事务，rollback 也一起。
 func (*AssetRepo) CreateTx(
 	ctx context.Context, tx dbq.DBTX, in *CreateAssetInput,
-) (corpus.Asset, error) {
+) (Asset, error) {
 	params, perr := buildCreateAssetParams(in)
 	if perr != nil {
-		return corpus.Asset{}, perr
+		return Asset{}, perr
 	}
 	row, err := dbq.New(tx).CreateAsset(ctx, *params)
 	if err != nil {
-		return corpus.Asset{}, fmt.Errorf("create asset: %w", err)
+		return Asset{}, fmt.Errorf("create asset: %w", err)
 	}
 	return toDomainAsset(&row), nil
 }
 
 func buildCreateAssetParams(in *CreateAssetInput) (*dbq.CreateAssetParams, error) {
-	assetUUID, aerr := parseUUID(in.ID)
+	assetUUID, aerr := pgstore.ParseUUID(in.ID)
 	if aerr != nil {
 		return nil, fmt.Errorf("parse asset id: %w", aerr)
 	}
-	holderUUID, herr := parseUUID(in.HolderID)
+	holderUUID, herr := pgstore.ParseUUID(in.HolderID)
 	if herr != nil {
 		return nil, fmt.Errorf("parse holder id: %w", herr)
 	}
@@ -73,17 +72,17 @@ func buildCreateAssetParams(in *CreateAssetInput) (*dbq.CreateAssetParams, error
 }
 
 // GetByID —— 单条读。caller 不需要 tx 时直接走 pool；tx 进行中也能用。
-func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (corpus.Asset, error) {
-	assetUUID, perr := parseUUID(assetID)
+func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (Asset, error) {
+	assetUUID, perr := pgstore.ParseUUID(assetID)
 	if perr != nil {
-		return corpus.Asset{}, fmt.Errorf("parse asset id: %w", perr)
+		return Asset{}, fmt.Errorf("parse asset id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).GetAssetByID(ctx, assetUUID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return corpus.Asset{}, corpus.ErrAssetNotFound
+			return Asset{}, ErrAssetNotFound
 		}
-		return corpus.Asset{}, fmt.Errorf("get asset: %w", err)
+		return Asset{}, fmt.Errorf("get asset: %w", err)
 	}
 	return toDomainAsset(&row), nil
 }
@@ -92,7 +91,7 @@ func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (corpus.Asset, 
 // 收 storage_key 给后置 MinIO 清；update body 后 diff old refs 也用。
 func (*AssetRepo) ListByHolderTx(
 	ctx context.Context, tx dbq.DBTX, holderID string,
-) ([]corpus.Asset, error) {
+) ([]Asset, error) {
 	return listByHolderUsing(ctx, tx, holderID)
 }
 
@@ -100,14 +99,14 @@ func (*AssetRepo) ListByHolderTx(
 // MinIO 再开 tx 删 DB，列这步不需要 tx 隔离 —— 用这条。
 func (r *AssetRepo) ListByHolder(
 	ctx context.Context, holderID string,
-) ([]corpus.Asset, error) {
+) ([]Asset, error) {
 	return listByHolderUsing(ctx, r.pool, holderID)
 }
 
 func listByHolderUsing(
 	ctx context.Context, dbtx dbq.DBTX, holderID string,
-) ([]corpus.Asset, error) {
-	holderUUID, perr := parseUUID(holderID)
+) ([]Asset, error) {
+	holderUUID, perr := pgstore.ParseUUID(holderID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse holder id: %w", perr)
 	}
@@ -115,7 +114,7 @@ func listByHolderUsing(
 	if err != nil {
 		return nil, fmt.Errorf("list assets by holder: %w", err)
 	}
-	out := make([]corpus.Asset, 0, len(rows))
+	out := make([]Asset, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainAsset(&rows[i]))
 	}
@@ -127,7 +126,7 @@ func listByHolderUsing(
 func (*AssetRepo) DeleteByHolderTx(
 	ctx context.Context, tx dbq.DBTX, holderID string,
 ) ([]string, error) {
-	holderUUID, perr := parseUUID(holderID)
+	holderUUID, perr := pgstore.ParseUUID(holderID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse holder id: %w", perr)
 	}
@@ -157,10 +156,10 @@ func (*AssetRepo) DeleteByIDsTx(
 	return keys, nil
 }
 
-func toDomainAsset(row *dbq.Asset) corpus.Asset {
-	return corpus.Asset{
-		ID:         formatUUID(row.ID),
-		HolderID:   formatUUID(row.HolderID),
+func toDomainAsset(row *dbq.Asset) Asset {
+	return Asset{
+		ID:         pgstore.FormatUUID(row.ID),
+		HolderID:   pgstore.FormatUUID(row.HolderID),
 		StorageKey: row.StorageKey, ContentType: row.ContentType,
 		SizeBytes: row.SizeBytes, SHA256: row.Sha256,
 		OriginalFilename: row.OriginalFilename,

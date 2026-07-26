@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 const (
@@ -41,12 +41,12 @@ func IsVaultTopFolder(seg string) bool {
 }
 
 // SyncNotesPort —— corp note reconcile(跨 genre)。VaultSyncRepo 实现。
-// GetByTitle 没认领到 → postgres.ErrSyncNoteNotFound。
+// GetByTitle 没认领到 → corpus.ErrSyncNoteNotFound。
 type SyncNotesPort interface {
-	GetByTitle(ctx context.Context, ownerID, title string) (postgres.SyncNote, error)
-	GetBySourcePath(ctx context.Context, ownerID, sourcePath string) (postgres.SyncNote, error)
-	Create(ctx context.Context, in *postgres.CreateSyncNoteInput) (string, error)
-	Update(ctx context.Context, in *postgres.UpdateSyncNoteInput) error
+	GetByTitle(ctx context.Context, ownerID, title string) (corpus.SyncNote, error)
+	GetBySourcePath(ctx context.Context, ownerID, sourcePath string) (corpus.SyncNote, error)
+	Create(ctx context.Context, in *corpus.CreateSyncNoteInput) (string, error)
+	Update(ctx context.Context, in *corpus.UpdateSyncNoteInput) error
 	// PruneAbsentVaultNotes —— drop vault-imported notes not in keepIDs (F-L-6, authoritative).
 	PruneAbsentVaultNotes(ctx context.Context, ownerID string, keepIDs []string) (int, error)
 }
@@ -176,7 +176,7 @@ type nodeOp struct {
 // 永远按 title 认(空路径会互撞)。
 func claimExisting(
 	ctx context.Context, deps *SyncDeps, node *desiredNode, st *syncState,
-) (postgres.SyncNote, error) {
+) (corpus.SyncNote, error) {
 	if st.dupTitles[strings.ToLower(node.title)] && node.file != nil && node.file.sourcePath != "" {
 		note, err := deps.Notes.GetBySourcePath(ctx, st.ownerID, node.file.sourcePath)
 		return note, wrapClaim(err)
@@ -188,7 +188,7 @@ func claimExisting(
 // wrapClaim —— 包认领错误(满足 wrapcheck),但透传 ErrSyncNoteNotFound sentinel 不变
 // (reconcileNode 用 errors.Is 判它当「新建」信号;%w 也能 Is 到,但留原样更省心)。
 func wrapClaim(err error) error {
-	if err == nil || errors.Is(err, postgres.ErrSyncNoteNotFound) {
+	if err == nil || errors.Is(err, corpus.ErrSyncNoteNotFound) {
 		return err
 	}
 	return fmt.Errorf("claim existing note: %w", err)
@@ -203,7 +203,7 @@ func reconcileNode(
 		deps: deps, node: node, st: st, result: result, c: &c, parent: parentIDOf(st, node),
 	}
 	switch {
-	case errors.Is(err, postgres.ErrSyncNoteNotFound):
+	case errors.Is(err, corpus.ErrSyncNoteNotFound):
 		createNode(ctx, op)
 	case err != nil:
 		result.Errors = append(result.Errors, node.title+": "+err.Error())
@@ -213,7 +213,7 @@ func reconcileNode(
 }
 
 func createNode(ctx context.Context, op *nodeOp) {
-	id, err := op.deps.Notes.Create(ctx, &postgres.CreateSyncNoteInput{
+	id, err := op.deps.Notes.Create(ctx, &corpus.CreateSyncNoteInput{
 		OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent, Title: op.node.title,
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
 		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses,
@@ -227,13 +227,13 @@ func createNode(ctx context.Context, op *nodeOp) {
 	op.result.Created++
 }
 
-func updateNode(ctx context.Context, op *nodeOp, existing *postgres.SyncNote) {
+func updateNode(ctx context.Context, op *nodeOp, existing *corpus.SyncNote) {
 	record(op.st, op.node, existing.ID) // always index for link resolution + child parenting
 	if unchangedNode(existing, op.node, op.parent, op.c) {
 		op.result.Skipped++
 		return
 	}
-	if err := op.deps.Notes.Update(ctx, &postgres.UpdateSyncNoteInput{
+	if err := op.deps.Notes.Update(ctx, &corpus.UpdateSyncNoteInput{
 		ID: existing.ID, OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent,
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
 		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses,
@@ -260,13 +260,13 @@ func record(st *syncState, node *desiredNode, id string) {
 	st.titleToID[node.title] = id
 }
 
-func unchangedNode(sn *postgres.SyncNote, n *desiredNode, parent *string, c *nodeContent) bool {
+func unchangedNode(sn *corpus.SyncNote, n *desiredNode, parent *string, c *nodeContent) bool {
 	return unchangedFields(sn, c) && sn.Genre == n.genre &&
 		sameParent(sn.ParentID, parent) && sameStrings(sn.Tags, c.tags)
 }
 
 // unchangedFields —— the scalar-content fields (body / excerpt / publish) are unchanged.
-func unchangedFields(sn *postgres.SyncNote, c *nodeContent) bool {
+func unchangedFields(sn *corpus.SyncNote, c *nodeContent) bool {
 	return sn.Body == c.body && sn.Excerpt == c.excerpt && sn.Published == c.published
 }
 

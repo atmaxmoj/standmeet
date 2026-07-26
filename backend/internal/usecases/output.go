@@ -12,7 +12,6 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // PromoteToOutputInput —— promote_wiki_to_output 入参。Title 必填（不像 raw→
@@ -38,7 +37,7 @@ func PromoteWikiToOutput(
 	if err != nil {
 		return corpus.Output{}, err
 	}
-	out, err := deps.Output.Create(ctx, &postgres.CreateOutputInput{
+	out, err := deps.Output.Create(ctx, &corpus.CreateOutputInput{
 		OwnerID:       in.OwnerID,
 		ParentID:      in.ParentID,
 		Title:         in.Title,

@@ -4,7 +4,7 @@
 // new）；public /writings GET 调 BacklinksFor 查入度。FK cascade 保证 writing
 // 删了对应边自动消。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -12,16 +12,17 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // WritingRefRepo —— writing_refs 表 CRUD。
 type WritingRefRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewWritingRefRepo 构造。
-func NewWritingRefRepo(pool *Pool) *WritingRefRepo { return &WritingRefRepo{pool: pool} }
+func NewWritingRefRepo(pool *pgstore.Pool) *WritingRefRepo { return &WritingRefRepo{pool: pool} }
 
 // WritingRef —— 一条 backlink / outbound ref 返回值（slug + title）。
 type WritingRef struct {
@@ -52,11 +53,11 @@ func (*WritingRefRepo) ReplaceRefsBySrcTx(
 }
 
 func parseSrcAndOwner(srcID, ownerID string) (srcOwnerUUIDs, error) {
-	srcUUID, perr := parseUUID(srcID)
+	srcUUID, perr := pgstore.ParseUUID(srcID)
 	if perr != nil {
 		return srcOwnerUUIDs{}, fmt.Errorf("parse src id: %w", perr)
 	}
-	ownerUUID, oerr := parseUUID(ownerID)
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
 		return srcOwnerUUIDs{}, fmt.Errorf("parse owner id: %w", oerr)
 	}
@@ -79,7 +80,7 @@ func insertOneRef(
 	ctx context.Context, q *dbq.Queries,
 	srcUUID, ownerUUID pgtype.UUID, dstID string,
 ) error {
-	dstUUID, derr := parseUUID(dstID)
+	dstUUID, derr := pgstore.ParseUUID(dstID)
 	if derr != nil {
 		return fmt.Errorf("parse dst id %s: %w", dstID, derr)
 	}
@@ -96,11 +97,11 @@ func insertOneRef(
 func (r *WritingRefRepo) BacklinksFor(
 	ctx context.Context, ownerID, dstID string,
 ) ([]WritingRef, error) {
-	dstUUID, derr := parseUUID(dstID)
+	dstUUID, derr := pgstore.ParseUUID(dstID)
 	if derr != nil {
 		return nil, fmt.Errorf("parse dst id: %w", derr)
 	}
-	ownerUUID, oerr := parseUUID(ownerID)
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf("parse owner id: %w", oerr)
 	}

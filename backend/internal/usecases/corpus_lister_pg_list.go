@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 // corpusRootLimit —— flat output/writing roots cap (mirrors the old retriever window of
@@ -57,7 +57,7 @@ func (l *pgCorpusLister) listWikiChildren(
 
 // wikiChildRows —— children meta → CorpusMeta with computed path, ACL-filtered.
 func wikiChildRows(
-	scope access.CorpusScope, parentPath string, kids []postgres.WikiMeta,
+	scope access.CorpusScope, parentPath string, kids []corpus.WikiMeta,
 ) []CorpusMeta {
 	out := make([]CorpusMeta, 0, len(kids))
 	for i := range kids {

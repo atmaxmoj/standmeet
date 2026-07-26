@@ -2,7 +2,7 @@
 // (created_at DESC, id DESC 复合游标),配 path_titles 让服务端 slug 出地址(半页也对)。
 // 跟懒树共用 TreeChild 载体(grid 不需要 has_children,留 false)。owner-scoped、全状态。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -22,7 +22,7 @@ type PageCursor struct {
 }
 
 type pageReq struct {
-	pool    *Pool
+	pool    *pgstore.Pool
 	cursor  *PageCursor
 	ownerID string
 	genre   string
@@ -32,9 +32,9 @@ type pageReq struct {
 func adminPageFetch[T any](
 	ctx context.Context, req pageReq, toDomain func(*dbq.CorpusNote) T,
 ) ([]TreeChild[T], error) {
-	ownerUUID, err := parseUUID(req.ownerID)
+	ownerUUID, err := pgstore.ParseUUID(req.ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	cp, cerr := pageCursorParams(req.cursor)
 	if cerr != nil {
@@ -66,7 +66,7 @@ func pageCursorParams(c *PageCursor) (cursorPg, error) {
 	if c == nil {
 		return cursorPg{ts: pgtype.Timestamptz{Valid: false}, id: pgtype.UUID{Valid: false}}, nil
 	}
-	id, err := parseUUID(c.ID)
+	id, err := pgstore.ParseUUID(c.ID)
 	if err != nil {
 		return cursorPg{}, fmt.Errorf("parse cursor id: %w", err)
 	}
@@ -76,28 +76,28 @@ func pageCursorParams(c *PageCursor) (cursorPg, error) {
 // ListPage —— one grid page of the wiki genre (owner-scoped, all statuses).
 func (r *WikiRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
-) ([]TreeChild[corpus.Wiki], error) {
+) ([]TreeChild[Wiki], error) {
 	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreWiki, limit}, toDomainWiki)
 }
 
 // ListPage —— one grid page of the output genre.
 func (r *OutputRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
-) ([]TreeChild[corpus.Output], error) {
+) ([]TreeChild[Output], error) {
 	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreOutput, limit}, toDomainOutput)
 }
 
 // ListPage —— one grid page of the raw inbox genre.
 func (r *RawRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
-) ([]TreeChild[corpus.Raw], error) {
+) ([]TreeChild[Raw], error) {
 	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreRaw, limit}, toDomainRaw)
 }
 
 // ListPage —— one grid page of writings (genre='writing').
 func (r *WritingRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
-) ([]TreeChild[corpus.Writing], error) {
+) ([]TreeChild[Writing], error) {
 	req := pageReq{r.pool, cursor, ownerID, genreWriting, limit}
 	return adminPageFetch(ctx, req, toDomainWriting)
 }

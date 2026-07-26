@@ -10,18 +10,17 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // CorpusDeps —— raw + wiki + output + path 操作需要的 repo 集合。
 type CorpusDeps struct {
-	Raw          *postgres.RawRepo
-	Wiki         *postgres.WikiRepo
-	Output       *postgres.OutputRepo
-	NoteRefs     *postgres.NoteRefRepo
-	Subjectivity *postgres.NoteRepo
-	VaultSync    *postgres.VaultSyncRepo // Obsidian vault sync: 跨-genre reconcile(仅 admin 侧装配)
-	Index        CorpusIndexer           // Meili 索引传播;nil = 未配 Meili,写路径不索引(best-effort)
+	Raw          *corpus.RawRepo
+	Wiki         *corpus.WikiRepo
+	Output       *corpus.OutputRepo
+	NoteRefs     *corpus.NoteRefRepo
+	Subjectivity *corpus.NoteRepo
+	VaultSync    *corpus.VaultSyncRepo // Obsidian vault sync: 跨-genre reconcile(仅 admin 侧装配)
+	Index        CorpusIndexer         // Meili 索引传播;nil = 未配 Meili,写路径不索引(best-effort)
 }
 
 // RawDumpInput 是 raw_dump 入参。
@@ -42,7 +41,7 @@ func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (corpus.Raw
 	if src == "" {
 		src = "mcp"
 	}
-	raw, err := deps.Raw.Create(ctx, &postgres.CreateRawInput{
+	raw, err := deps.Raw.Create(ctx, &corpus.CreateRawInput{
 		OwnerID:        in.OwnerID,
 		Body:           in.Body,
 		Source:         src,
@@ -79,7 +78,7 @@ func PromoteToWiki(
 	if err != nil {
 		return corpus.Wiki{}, err
 	}
-	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
+	wiki, err := deps.Wiki.Create(ctx, &corpus.CreateWikiInput{
 		OwnerID:      in.OwnerID,
 		ParentID:     in.ParentID,
 		Title:        in.Title,

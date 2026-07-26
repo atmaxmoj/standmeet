@@ -8,24 +8,24 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 const notePathMaxDepth = 64
 
 // noteIndex —— export 用的节点索引:id→节点 + 每节点子数(判 folder-note)。
 type noteIndex struct {
-	byID       map[string]*postgres.SyncNote
+	byID       map[string]*corpus.SyncNote
 	childCount map[string]int
 }
 
 // writeCorpusNotes —— 把 owner 的 corp note 写进 zip。writing 折进 corpus_notes(#151)后也在
 // ListAllForExport 里,但 writing 有专属 export(writeAllWritings → writings/<slug>.md,带附件 +
 // cover/visibility frontmatter),故这条通用路径先滤掉 genre='writing' 免得重复导出。
-func writeCorpusNotes(notes []postgres.SyncNote, zw *zip.Writer) error {
+func writeCorpusNotes(notes []corpus.SyncNote, zw *zip.Writer) error {
 	notes = nonWritingNotes(notes)
 	idx := &noteIndex{
-		byID: make(map[string]*postgres.SyncNote, len(notes)), childCount: map[string]int{},
+		byID: make(map[string]*corpus.SyncNote, len(notes)), childCount: map[string]int{},
 	}
 	for i := range notes {
 		idx.byID[notes[i].ID] = &notes[i]
@@ -42,8 +42,8 @@ func writeCorpusNotes(notes []postgres.SyncNote, zw *zip.Writer) error {
 }
 
 // nonWritingNotes —— 滤掉 genre='writing'(走专属 export,不在通用 corp-note 路径重复导出)。
-func nonWritingNotes(notes []postgres.SyncNote) []postgres.SyncNote {
-	out := make([]postgres.SyncNote, 0, len(notes))
+func nonWritingNotes(notes []corpus.SyncNote) []corpus.SyncNote {
+	out := make([]corpus.SyncNote, 0, len(notes))
 	for i := range notes {
 		if notes[i].Genre != genreWriting {
 			out = append(out, notes[i])
@@ -52,7 +52,7 @@ func nonWritingNotes(notes []postgres.SyncNote) []postgres.SyncNote {
 	return out
 }
 
-func writeOneNote(n *postgres.SyncNote, idx *noteIndex, zw *zip.Writer) error {
+func writeOneNote(n *corpus.SyncNote, idx *noteIndex, zw *zip.Writer) error {
 	path := notePath(n, idx.byID)
 	base := n.Genre + "/" + strings.Join(path, "/")
 	file := base + ".md"
@@ -70,7 +70,7 @@ func writeOneNote(n *postgres.SyncNote, idx *noteIndex, zw *zip.Writer) error {
 }
 
 // notePath —— 从根到本节点的 title 链(深度上限防环)。
-func notePath(n *postgres.SyncNote, byID map[string]*postgres.SyncNote) []string {
+func notePath(n *corpus.SyncNote, byID map[string]*corpus.SyncNote) []string {
 	rev := []string{}
 	for cur, depth := n, 0; cur != nil && depth < notePathMaxDepth; depth++ {
 		rev = append(rev, cur.Title)
@@ -87,7 +87,7 @@ func notePath(n *postgres.SyncNote, byID map[string]*postgres.SyncNote) []string
 }
 
 // renderNoteMD —— frontmatter(publish + tags)+ body,格式跟 import 侧对称。
-func renderNoteMD(n *postgres.SyncNote) string {
+func renderNoteMD(n *corpus.SyncNote) string {
 	lines := []string{"---", fmt.Sprintf("publish: %t", n.Published)}
 	if len(n.Tags) > 0 {
 		lines = append(lines, "tags:")

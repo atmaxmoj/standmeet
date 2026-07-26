@@ -2,7 +2,7 @@
 // 与 OutputRepo 同构（都绑定各自 genre 调用同一套 dbq.Note* 方法）；path-string lookup
 // 共用 corpus.go 里的 loadByPath helper。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -13,18 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // WikiRepo —— corpus_notes(genre='wiki') CRUD + path induce。
 type WikiRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewWikiRepo 构造 WikiRepo。
-func NewWikiRepo(pool *Pool) *WikiRepo { return &WikiRepo{pool: pool} }
+func NewWikiRepo(pool *pgstore.Pool) *WikiRepo { return &WikiRepo{pool: pool} }
 
 // CreateWikiInput 是 Create 入参。
 type CreateWikiInput struct {
@@ -37,18 +36,18 @@ type CreateWikiInput struct {
 }
 
 // Create 写一条新 wiki。pointer 接收避免 hugeParam。
-func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (corpus.Wiki, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (Wiki, error) {
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return corpus.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Wiki{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
-		return corpus.Wiki{}, fmt.Errorf("parse parent id: %w", err)
+		return Wiki{}, fmt.Errorf("parse parent id: %w", err)
 	}
 	sourceRaws, err := pgstore.ParseUUIDArray(in.SourceRawIDs)
 	if err != nil {
-		return corpus.Wiki{}, fmt.Errorf("parse source raw ids: %w", err)
+		return Wiki{}, fmt.Errorf("parse source raw ids: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateNote(ctx, dbq.CreateNoteParams{
@@ -66,7 +65,7 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (corpus.Wiki
 		ShowAsSource: true,
 	})
 	if err != nil {
-		return corpus.Wiki{}, fmt.Errorf("create wiki: %w", err)
+		return Wiki{}, fmt.Errorf("create wiki: %w", err)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -74,10 +73,10 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (corpus.Wiki
 // ListByOwner 返回 owner 的 wiki（最新 N 条）。
 func (r *WikiRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
-) ([]corpus.Wiki, error) {
-	ownerUUID, err := parseUUID(ownerID)
+) ([]Wiki, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	rows, err := q.ListNotesByOwner(ctx, dbq.ListNotesByOwnerParams{
@@ -86,7 +85,7 @@ func (r *WikiRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list wiki: %w", err)
 	}
-	out := make([]corpus.Wiki, 0, len(rows))
+	out := make([]Wiki, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainWiki(&rows[i]))
 	}
@@ -94,14 +93,14 @@ func (r *WikiRepo) ListByOwner(
 }
 
 // GetByID 拿 owner 的某条 wiki；不命中返回 ErrWikiNotFound。
-func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (corpus.Wiki, error) {
-	ownerUUID, err := parseUUID(ownerID)
+func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (Wiki, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return corpus.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Wiki{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	wikiUUID, err := parseUUID(id)
+	wikiUUID, err := pgstore.ParseUUID(id)
 	if err != nil {
-		return corpus.Wiki{}, fmt.Errorf("parse wiki id: %w", err)
+		return Wiki{}, fmt.Errorf("parse wiki id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetNoteByID(ctx, dbq.GetNoteByIDParams{
@@ -109,9 +108,9 @@ func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (corpus.Wiki
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return corpus.Wiki{}, corpus.ErrWikiNotFound
+			return Wiki{}, ErrWikiNotFound
 		}
-		return corpus.Wiki{}, fmt.Errorf("get wiki: %w", err)
+		return Wiki{}, fmt.Errorf("get wiki: %w", err)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -140,7 +139,7 @@ func (r *WikiRepo) ListChildren(
 		},
 		func(row dbq.ListNoteChildrenRow) WikiMeta {
 			return WikiMeta{
-				ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+				ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
@@ -157,12 +156,12 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return WikiMeta{}, corpus.ErrWikiNotFound
+			return WikiMeta{}, ErrWikiNotFound
 		}
 		return WikiMeta{}, fmt.Errorf("get wiki meta: %w", err)
 	}
 	return WikiMeta{
-		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+		ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published,
 	}, nil
 }
@@ -171,9 +170,9 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 func (r *WikiRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
 ) ([]WikiMeta, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	rows, qerr := dbq.New(r.pool).SearchNotes(ctx, dbq.SearchNotesParams{
 		OwnerID: ownerUUID, Genre: genreWiki, PlaintoTsquery: query, Limit: limit, Offset: offset,
@@ -190,7 +189,7 @@ func (r *WikiRepo) Search(
 
 func wikiSearchRowMeta(row *dbq.SearchNotesRow) WikiMeta {
 	return WikiMeta{
-		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+		ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
 	}
 }
@@ -204,9 +203,9 @@ type WikiStats struct {
 
 // CountStats —— owner 的 wiki 总数 / 根数 / 非公开(gated)数。一句 COUNT,零内存。
 func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return WikiStats{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return WikiStats{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).CountNoteStats(ctx, dbq.CountNoteStatsParams{
 		OwnerID: ownerUUID, Genre: genreWiki,
@@ -222,7 +221,7 @@ func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, e
 func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta, error) {
 	mk := func(row *dbq.ListAllNoteMetaRow) WikiMeta {
 		return WikiMeta{
-			ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+			ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 			Title: row.Title, Published: row.Published,
 			UpdatedAt: row.UpdatedAt.Time.Unix(),
 		}
@@ -230,10 +229,10 @@ func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta,
 	return listNoteMetaBy(ctx, r.pool, ownerID, genreWiki, mk)
 }
 
-func toDomainWiki(w *dbq.CorpusNote) corpus.Wiki {
-	in := corpus.WikiInit{
-		ID:           formatUUID(w.ID),
-		OwnerID:      formatUUID(w.OwnerID),
+func toDomainWiki(w *dbq.CorpusNote) Wiki {
+	in := WikiInit{
+		ID:           pgstore.FormatUUID(w.ID),
+		OwnerID:      pgstore.FormatUUID(w.OwnerID),
 		Title:        w.Title,
 		Body:         w.Body,
 		Tags:         w.Tags,
@@ -247,8 +246,8 @@ func toDomainWiki(w *dbq.CorpusNote) corpus.Wiki {
 		Integrations: connector.NewIntegrations(),
 	}
 	if w.ParentID.Valid {
-		s := formatUUID(w.ParentID)
+		s := pgstore.FormatUUID(w.ParentID)
 		in.ParentID = &s
 	}
-	return corpus.NewWiki(&in)
+	return NewWiki(&in)
 }

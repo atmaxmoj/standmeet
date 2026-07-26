@@ -3,7 +3,7 @@
 // genre-bound NoteRepo。只暴露 reconcile 三面：按 title 认领、create、update(relocate + 重写)。
 // vault 是 single live source:reconcile 一律以 vault 为准,没有 web-wins(F-L-6)。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -19,10 +19,10 @@ import (
 )
 
 // VaultSyncRepo —— vault sync 的 corpus_notes 仓储。
-type VaultSyncRepo struct{ pool *Pool }
+type VaultSyncRepo struct{ pool *pgstore.Pool }
 
 // NewVaultSyncRepo 构造。
-func NewVaultSyncRepo(pool *Pool) *VaultSyncRepo { return &VaultSyncRepo{pool: pool} }
+func NewVaultSyncRepo(pool *pgstore.Pool) *VaultSyncRepo { return &VaultSyncRepo{pool: pool} }
 
 // SyncNote —— reconcile 视图：认领(title) + 变更比对 + 定位(genre/parent)。
 type SyncNote struct {
@@ -45,9 +45,9 @@ var ErrSyncNoteNotFound = errors.New("sync note not found")
 // GetByTitle —— 按 owner+title 认领 reconcile 目标(跨 genre;basename 全 vault 唯一)。
 // 没有 → ErrSyncNoteNotFound。
 func (r *VaultSyncRepo) GetByTitle(ctx context.Context, ownerID, title string) (SyncNote, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return SyncNote{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return SyncNote{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).GetNoteByTitleAnyGenre(ctx, dbq.GetNoteByTitleAnyGenreParams{
 		OwnerID: owner, Title: title,
@@ -67,9 +67,9 @@ func (r *VaultSyncRepo) GetByTitle(ctx context.Context, ownerID, title string) (
 func (r *VaultSyncRepo) GetBySourcePath(
 	ctx context.Context, ownerID, sourcePath string,
 ) (SyncNote, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return SyncNote{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return SyncNote{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	row, qerr := dbq.New(r.pool).GetNoteBySourcePath(ctx, dbq.GetNoteBySourcePathParams{
 		OwnerID: owner, ObsidianSourcePath: sourcePath,
@@ -85,11 +85,11 @@ func (r *VaultSyncRepo) GetBySourcePath(
 
 // GetSyncNote —— 按 id 取一条 corpus note(任一 genre)。search 索引单条 + 走父链算 path 用。
 func (r *VaultSyncRepo) GetSyncNote(ctx context.Context, ownerID, id string) (SyncNote, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return SyncNote{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return SyncNote{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	noteID, perr := parseUUID(id)
+	noteID, perr := pgstore.ParseUUID(id)
 	if perr != nil {
 		return SyncNote{}, fmt.Errorf("parse note id: %w", perr)
 	}
@@ -122,9 +122,9 @@ type CreateSyncNoteInput struct {
 
 // Create —— 建一条 sync note，返 id。
 func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (string, error) {
-	owner, err := parseUUID(in.OwnerID)
+	owner, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return "", fmt.Errorf(errParseOwnerIDPrefix, err)
+		return "", fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
@@ -139,7 +139,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 	if qerr != nil {
 		return "", fmt.Errorf("create sync note: %w", qerr)
 	}
-	return formatUUID(row.ID), nil
+	return pgstore.FormatUUID(row.ID), nil
 }
 
 // UpdateSyncNoteInput —— vault sync update(relocate + 重写)。
@@ -188,13 +188,13 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 func (r *VaultSyncRepo) PruneAbsentVaultNotes(
 	ctx context.Context, ownerID string, keepIDs []string,
 ) (int, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return 0, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return 0, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	keep := make([]pgtype.UUID, 0, len(keepIDs))
 	for _, id := range keepIDs {
-		parsed, perr := parseUUID(id)
+		parsed, perr := pgstore.ParseUUID(id)
 		if perr != nil {
 			return 0, fmt.Errorf("parse keep id: %w", perr)
 		}
@@ -220,9 +220,9 @@ type QueryNoteRow struct {
 func (r *VaultSyncRepo) QueryNotes(
 	ctx context.Context, ownerID, genre, tag string,
 ) ([]QueryNoteRow, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	rows, qerr := dbq.New(r.pool).QueryCorpusNotes(ctx, dbq.QueryCorpusNotesParams{
 		OwnerID: owner, Column2: genre, Column3: tag,
@@ -233,7 +233,9 @@ func (r *VaultSyncRepo) QueryNotes(
 	out := make([]QueryNoteRow, 0, len(rows))
 	for i := range rows {
 		out = append(out, QueryNoteRow{
-			ID: formatUUID(rows[i].ID), Genre: rows[i].Genre, PathTitles: rows[i].PathTitles,
+			ID:         pgstore.FormatUUID(rows[i].ID),
+			Genre:      rows[i].Genre,
+			PathTitles: rows[i].PathTitles,
 		})
 	}
 	return out, nil
@@ -256,9 +258,9 @@ func (r *VaultSyncRepo) GetCSSClasses(ctx context.Context, ownerID, id string) [
 
 // ListAllForExport —— owner 所有 corp note(任一 genre),给 vault export 反向渲染成 .md。
 func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([]SyncNote, error) {
-	owner, err := parseUUID(ownerID)
+	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	rows, qerr := dbq.New(r.pool).ListAllNotesForExport(ctx, owner)
 	if qerr != nil {
@@ -267,11 +269,11 @@ func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([
 	out := make([]SyncNote, 0, len(rows))
 	for i := range rows {
 		sn := SyncNote{
-			ID: formatUUID(rows[i].ID), Genre: rows[i].Genre, Title: rows[i].Title,
+			ID: pgstore.FormatUUID(rows[i].ID), Genre: rows[i].Genre, Title: rows[i].Title,
 			Body: rows[i].Body, Published: rows[i].Published, Tags: rows[i].Tags,
 		}
 		if rows[i].ParentID.Valid {
-			sn.ParentID = formatUUID(rows[i].ParentID)
+			sn.ParentID = pgstore.FormatUUID(rows[i].ParentID)
 		}
 		out = append(out, sn)
 	}
@@ -280,11 +282,11 @@ func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([
 
 func syncNoteFromRow(n *dbq.CorpusNote) SyncNote {
 	out := SyncNote{
-		ID: formatUUID(n.ID), Genre: n.Genre, Title: n.Title, Body: n.Body,
+		ID: pgstore.FormatUUID(n.ID), Genre: n.Genre, Title: n.Title, Body: n.Body,
 		Excerpt: n.Excerpt, Published: n.Published, Tags: n.Tags,
 	}
 	if n.ParentID.Valid {
-		out.ParentID = formatUUID(n.ParentID)
+		out.ParentID = pgstore.FormatUUID(n.ParentID)
 	}
 	if n.UpdatedAt.Valid {
 		out.UpdatedAt = n.UpdatedAt.Time

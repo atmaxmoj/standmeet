@@ -8,14 +8,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 // CrossLinkQueryDeps —— public /writings GET 渲 [[crosslink]] 用的查询依赖。
 // 跟 WritingsTxDeps 分开，因为 public 路径不需要 Assets / tx。
 type CrossLinkQueryDeps struct {
-	Writings    *postgres.WritingRepo
-	WritingRefs *postgres.WritingRefRepo
+	Writings    *corpus.WritingRepo
+	WritingRefs *corpus.WritingRefRepo
 }
 
 // BacklinkRef —— 一条 backlink (src writing 的 slug + title)。

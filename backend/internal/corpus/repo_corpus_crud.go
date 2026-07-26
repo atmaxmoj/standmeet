@@ -4,7 +4,7 @@
 // 命名规则跟 sqlc 生成的 query 对齐：RawRepo.UpdateBody / Archive；
 // WikiRepo.Update / Delete；OutputRepo.Update / Delete。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -32,14 +31,14 @@ type UpdateRawInput struct {
 // UpdateBody 改 raw(corpus_notes genre='raw') body + tags + flagged_private（inbox_source 不改）。
 func (r *RawRepo) UpdateBody(
 	ctx context.Context, in *UpdateRawInput,
-) (corpus.Raw, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+) (Raw, error) {
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return corpus.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Raw{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rawUUID, err := parseUUID(in.ID)
+	rawUUID, err := pgstore.ParseUUID(in.ID)
 	if err != nil {
-		return corpus.Raw{}, fmt.Errorf("parse raw id: %w", err)
+		return Raw{}, fmt.Errorf("parse raw id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateRawBody(ctx, dbq.UpdateRawBodyParams{
@@ -48,9 +47,9 @@ func (r *RawRepo) UpdateBody(
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return corpus.Raw{}, corpus.ErrRawNotFound
+			return Raw{}, ErrRawNotFound
 		}
-		return corpus.Raw{}, fmt.Errorf("update raw: %w", qerr)
+		return Raw{}, fmt.Errorf("update raw: %w", qerr)
 	}
 	return toDomainRaw(&row), nil
 }
@@ -58,11 +57,11 @@ func (r *RawRepo) UpdateBody(
 // Archive 把 raw(corpus_notes genre='raw').archived 置 true（delete 走 archive，soft-delete
 // 让 retention / audit 仍可见）。
 func (r *RawRepo) Archive(ctx context.Context, ownerID, rawID string) error {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rawUUID, err := parseUUID(rawID)
+	rawUUID, err := pgstore.ParseUUID(rawID)
 	if err != nil {
 		return fmt.Errorf("parse raw id: %w", err)
 	}
@@ -91,28 +90,28 @@ type UpdateWikiInput struct {
 // Update 改 wiki note（corpus_notes genre='wiki'）主字段；SEO 走 SetSEO 单独写。
 func (r *WikiRepo) Update(
 	ctx context.Context, in *UpdateWikiInput,
-) (corpus.Wiki, error) {
+) (Wiki, error) {
 	params, err := buildWikiUpdateParams(in)
 	if err != nil {
-		return corpus.Wiki{}, err
+		return Wiki{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateNoteBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return corpus.Wiki{}, corpus.ErrWikiNotFound
+			return Wiki{}, ErrWikiNotFound
 		}
-		return corpus.Wiki{}, fmt.Errorf("update wiki: %w", qerr)
+		return Wiki{}, fmt.Errorf("update wiki: %w", qerr)
 	}
 	return toDomainWiki(&row), nil
 }
 
 func buildWikiUpdateParams(in *UpdateWikiInput) (dbq.UpdateNoteBodyParams, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.UpdateNoteBodyParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return dbq.UpdateNoteBodyParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	wikiUUID, err := parseUUID(in.ID)
+	wikiUUID, err := pgstore.ParseUUID(in.ID)
 	if err != nil {
 		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse wiki id: %w", err)
 	}
@@ -130,11 +129,11 @@ func buildWikiUpdateParams(in *UpdateWikiInput) (dbq.UpdateNoteBodyParams, error
 // Delete 硬删一条 wiki。FK ON DELETE 链：media_assets.wiki_entry_id 置 NULL。
 // output.source_wiki_ids 是 uuid[]，不会被 cascade 影响（残留 wiki id 不致命）。
 func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	wikiUUID, err := parseUUID(wikiID)
+	wikiUUID, err := pgstore.ParseUUID(wikiID)
 	if err != nil {
 		return fmt.Errorf("parse wiki id: %w", err)
 	}
@@ -168,28 +167,28 @@ type UpdateOutputInput struct {
 // Update 改 output note（corpus_notes genre='output'）主字段。
 func (r *OutputRepo) Update(
 	ctx context.Context, in *UpdateOutputInput,
-) (corpus.Output, error) {
+) (Output, error) {
 	params, err := buildOutputUpdateParams(in)
 	if err != nil {
-		return corpus.Output{}, err
+		return Output{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateNoteBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return corpus.Output{}, corpus.ErrOutputNotFound
+			return Output{}, ErrOutputNotFound
 		}
-		return corpus.Output{}, fmt.Errorf("update output: %w", qerr)
+		return Output{}, fmt.Errorf("update output: %w", qerr)
 	}
 	return toDomainOutput(&row), nil
 }
 
 func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateNoteBodyParams, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.UpdateNoteBodyParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return dbq.UpdateNoteBodyParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	outputUUID, err := parseUUID(in.ID)
+	outputUUID, err := pgstore.ParseUUID(in.ID)
 	if err != nil {
 		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse output id: %w", err)
 	}
@@ -206,11 +205,11 @@ func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateNoteBodyParams, e
 
 // Delete 硬删一条 output。
 func (r *OutputRepo) Delete(ctx context.Context, ownerID, outputID string) error {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	outputUUID, err := parseUUID(outputID)
+	outputUUID, err := pgstore.ParseUUID(outputID)
 	if err != nil {
 		return fmt.Errorf("parse output id: %w", err)
 	}

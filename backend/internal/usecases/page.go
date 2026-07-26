@@ -15,8 +15,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // PageDeps —— page usecase 所需。PageContent 是 Owner aggregate 的内容
@@ -25,7 +25,7 @@ import (
 // 只调 LoadSoleOwner 的 caller 可不填。
 type PageDeps struct {
 	Owners *owner.Repo
-	Wiki   *postgres.WikiRepo
+	Wiki   *corpus.WikiRepo
 }
 
 // PublicPageView —— GET /api/v1/page 返回的形状。

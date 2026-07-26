@@ -9,9 +9,9 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // ───── connector service adapter ────────────────────────────────
@@ -121,9 +121,9 @@ func uploadedSpec(in ownercore.UploadedSpecArg) *connector.UploadedSpec {
 
 // ───── seo stats adapter ────────────────────────────────────────
 
-// seoStatsAdapter —— maps *postgres.SEORepo.CountPublished (postgres.PublishedCounts)
+// seoStatsAdapter —— maps *corpus.SEORepo.CountPublished (corpus.PublishedCounts)
 // to the ownercore-neutral SEOStats.
-type seoStatsAdapter struct{ repo *postgres.SEORepo }
+type seoStatsAdapter struct{ repo *corpus.SEORepo }
 
 func (a seoStatsAdapter) CountPublished(
 	ctx context.Context, ownerID string,

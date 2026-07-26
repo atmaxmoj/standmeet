@@ -3,14 +3,14 @@
 // slug 成 "view live" 地址）。这让 admin 树在大 corpus 下 scale-safe：永不一次性拉全树。
 // 公开侧的 ListNoteChildren 是 label-only + ACL；这里是 owner 全量 + 富行（body/tags/excerpt）。
 
-package postgres
+package corpus
 
 import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -26,7 +26,7 @@ type TreeChild[T any] struct {
 // childrenReq —— fetch args for one owner-scoped tree level (kept as a struct to stay
 // under the arg-count limit; genre is the caller's constant).
 type childrenReq struct {
-	pool     *Pool
+	pool     *pgstore.Pool
 	parentID *string
 	ownerID  string
 	genre    string
@@ -55,21 +55,21 @@ func adminChildren[T any](
 // ListChildrenTree —— one lazy layer of the wiki tree (owner-scoped, all statuses).
 func (r *WikiRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
-) ([]TreeChild[corpus.Wiki], error) {
+) ([]TreeChild[Wiki], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreWiki}, toDomainWiki)
 }
 
 // ListChildrenTree —— one lazy layer of the output tree.
 func (r *OutputRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
-) ([]TreeChild[corpus.Output], error) {
+) ([]TreeChild[Output], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreOutput}, toDomainOutput)
 }
 
 // ListChildrenTree —— one lazy layer of the raw inbox tree.
 func (r *RawRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
-) ([]TreeChild[corpus.Raw], error) {
+) ([]TreeChild[Raw], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreRaw}, toDomainRaw)
 }
 
@@ -85,6 +85,6 @@ func (r *NoteRepo) ListChildrenTree(
 // ListChildrenTree —— one lazy layer of the writings tree (genre='writing' corpus_notes).
 func (r *WritingRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
-) ([]TreeChild[corpus.Writing], error) {
+) ([]TreeChild[Writing], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreWriting}, toDomainWriting)
 }

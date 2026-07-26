@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // wikiLinkPrefix —— rewrite 出来的 markdown 链接前缀(reader 路由 /wiki/<path>)。
@@ -85,7 +84,7 @@ func WikiPathTitleIndex(wikis []corpus.Wiki, paths map[string]string) []WikiPath
 // 访客点进去被 RestrictedDoc 接住去要码 —— 两者都比死字面强。目标条目的**内容**准入仍在导航时按 scope
 // 兜(链接只暴露 title/path,而 title 本来就字面写在 body 里,无新泄露)。
 func wikiMetaPathTitleIndex(
-	metas []postgres.WikiMeta, paths map[string]string,
+	metas []corpus.WikiMeta, paths map[string]string,
 ) []WikiPathTitle {
 	out := make([]WikiPathTitle, 0, len(metas))
 	for i := range metas {
@@ -126,7 +125,7 @@ func clearNoteRefs(ctx context.Context, deps CorpusDeps, ownerID, srcID string) 
 
 // resolveNoteDstIDs —— body 的 `[[Title]]` 按 title(case-insensitive)解析到 owner 语料 id（跨
 // genre）,去重 + 排除 self-link。
-func resolveNoteDstIDs(body string, titles []postgres.OwnerNoteTitleRow, selfID string) []string {
+func resolveNoteDstIDs(body string, titles []corpus.OwnerNoteTitleRow, selfID string) []string {
 	cr := crossResolver{
 		byTitle:  noteTitleToCandidates(titles),
 		selfID:   selfID,
@@ -143,7 +142,7 @@ func resolveNoteDstIDs(body string, titles []postgres.OwnerNoteTitleRow, selfID 
 
 // crossResolver —— 一次重建的解析上下文(候选索引 + 源 id/genre),收进 receiver 免 argument-limit。
 type crossResolver struct {
-	byTitle  map[string][]postgres.OwnerNoteTitleRow
+	byTitle  map[string][]corpus.OwnerNoteTitleRow
 	selfID   string
 	srcGenre string
 }
@@ -164,9 +163,9 @@ func (cr *crossResolver) add(out []string, seen map[string]struct{}, target stri
 // genre(wiki/ 与 raw/ 镜像同一主题树),所以一个 title 可能对多条,解析要按 proximity 消歧
 // (F-L-10:旧版是 map[title]id 的 last-write-wins,任意落到 raw 草稿,hub 笔记 backlinks 全空)。
 func noteTitleToCandidates(
-	titles []postgres.OwnerNoteTitleRow,
-) map[string][]postgres.OwnerNoteTitleRow {
-	m := make(map[string][]postgres.OwnerNoteTitleRow, len(titles))
+	titles []corpus.OwnerNoteTitleRow,
+) map[string][]corpus.OwnerNoteTitleRow {
+	m := make(map[string][]corpus.OwnerNoteTitleRow, len(titles))
 	for i := range titles {
 		k := strings.ToLower(titles[i].Title)
 		m[k] = append(m[k], titles[i])
@@ -174,7 +173,7 @@ func noteTitleToCandidates(
 	return m
 }
 
-func genreOfID(titles []postgres.OwnerNoteTitleRow, id string) string {
+func genreOfID(titles []corpus.OwnerNoteTitleRow, id string) string {
 	for i := range titles {
 		if titles[i].ID == id {
 			return titles[i].Genre
@@ -187,7 +186,7 @@ func genreOfID(titles []postgres.OwnerNoteTitleRow, id string) string {
 // 第一个非自身候选。genre 映射到 wiki/ raw/ 等顶层目录,所以同 genre 优先就把 wiki 笔记的 [[X]]
 // 落到 wiki 兄弟而非 raw 草稿。同 genre 内基名 sibling-unique,故至多一条,无需再比路径。
 func pickByProximity(
-	cands []postgres.OwnerNoteTitleRow, srcGenre, selfID string,
+	cands []corpus.OwnerNoteTitleRow, srcGenre, selfID string,
 ) (string, bool) {
 	fallback := ""
 	for i := range cands {

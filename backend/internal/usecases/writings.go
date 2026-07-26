@@ -16,21 +16,20 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // WritingsDeps —— 只读 / 简单写 (publish / unpublish) 用。retriever / public
 // list / mcp 用这个。
 type WritingsDeps struct {
-	Writings *postgres.WritingRepo
+	Writings *corpus.WritingRepo
 }
 
 // WritingsTxDeps —— transactional writing CRUD (create + update + delete) 用。
 // 需要 Assets 让 asset 行 + storage blob 跟 writing 同事务维护；需要
 // WritingRefs 同事务重建 [[crosslink]] 边表。
 type WritingsTxDeps struct {
-	Writings    *postgres.WritingRepo
-	WritingRefs *postgres.WritingRefRepo
+	Writings    *corpus.WritingRepo
+	WritingRefs *corpus.WritingRefRepo
 	Assets      AssetsDeps
 }
 
@@ -117,7 +116,7 @@ func ListPublishedWritingsPage(
 		return ListPublishedWritingsPageResult{}, ErrEmptyField
 	}
 	limit := clampWritingsLimit(in.Limit)
-	rows, err := deps.Writings.ListPublishedPageByOwner(ctx, &postgres.ListPublishedPageInput{
+	rows, err := deps.Writings.ListPublishedPageByOwner(ctx, &corpus.ListPublishedPageInput{
 		OwnerID: in.OwnerID, Cursor: in.Cursor, Limit: limit + 1,
 	})
 	if err != nil {

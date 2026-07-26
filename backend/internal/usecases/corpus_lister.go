@@ -1,5 +1,5 @@
 // corpus_lister.go —— #157: the slim corpus data port. Collapses the 3 fat genre
-// listers (WikiLister/OutputLister/WritingLister, 12 methods, leaking postgres.WikiMeta
+// listers (WikiLister/OutputLister/WritingLister, 12 methods, leaking corpus.WikiMeta
 // + requiring callers to walk parents for path and filter by ACL after the fact) into
 // ONE interface with 3 methods over unified value types.
 //

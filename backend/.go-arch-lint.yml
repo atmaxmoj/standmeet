@@ -608,7 +608,10 @@ deps:
 
   # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
   corpus:
-    mayDependOn: [connector]
+    mayDependOn:
+      - connector
+      - pgstore
+      - dbq
     anyVendorDeps: true
 
   # access —— #135 access 域(building full vertical)：entity + access_requests/api_keys repos。
@@ -757,6 +760,7 @@ deps:
       - plugins
       - owner
       - access
+      - corpus
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
@@ -810,4 +814,5 @@ deps:
       - pluginbooker
       - conversation
       - owner
+      - corpus
     anyVendorDeps: true

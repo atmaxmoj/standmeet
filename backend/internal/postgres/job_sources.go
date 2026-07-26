@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -32,7 +33,7 @@ func (r *JobSourceRepo) Create(
 ) (jobsmodel.JobSource, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return jobsmodel.JobSource{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return jobsmodel.JobSource{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	cfg := in.Config
 	if len(cfg) == 0 {
@@ -57,7 +58,7 @@ func (r *JobSourceRepo) GetByID(
 ) (jobsmodel.JobSource, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return jobsmodel.JobSource{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return jobsmodel.JobSource{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	sourceUUID, err := parseUUID(id)
 	if err != nil {
@@ -82,7 +83,7 @@ func (r *JobSourceRepo) ListByOwner(
 ) ([]jobsmodel.JobSource, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	rows, err := q.ListJobSourcesByOwner(ctx, ownerUUID)
@@ -100,7 +101,7 @@ func (r *JobSourceRepo) ListByOwner(
 func (r *JobSourceRepo) Delete(ctx context.Context, ownerID, id string) error {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
+		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	sourceUUID, err := parseUUID(id)
 	if err != nil {

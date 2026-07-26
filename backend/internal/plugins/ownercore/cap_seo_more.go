@@ -13,7 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
-// seoStatsReader —— seo.stats 需要的最小接口。返回中性计数（避开 postgres.PublishedCounts）。
+// seoStatsReader —— seo.stats 需要的最小接口。返回中性计数（避开 corpus.PublishedCounts）。
 type seoStatsReader interface {
 	CountPublished(ctx context.Context, ownerID string) (SEOStats, error)
 }

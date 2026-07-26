@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // WriteSubjectivityInput —— subjectivity_write 入参。ID 空 = 建;非空 = 改/改父。
@@ -74,8 +73,8 @@ func finishSubjectivityWrite(
 }
 
 func writeNote(
-	ctx context.Context, repo *postgres.NoteRepo, in *WriteSubjectivityInput,
-) (postgres.Note, error) {
+	ctx context.Context, repo *corpus.NoteRepo, in *WriteSubjectivityInput,
+) (corpus.Note, error) {
 	if in.ID == "" {
 		return createNote(ctx, repo, in)
 	}
@@ -83,48 +82,48 @@ func writeNote(
 }
 
 func createNote(
-	ctx context.Context, repo *postgres.NoteRepo, in *WriteSubjectivityInput,
-) (postgres.Note, error) {
+	ctx context.Context, repo *corpus.NoteRepo, in *WriteSubjectivityInput,
+) (corpus.Note, error) {
 	if err := validateNoteParent(ctx, repo, in.OwnerID, in.ParentID); err != nil {
-		return postgres.Note{}, err
+		return corpus.Note{}, err
 	}
-	note, err := repo.Create(ctx, &postgres.CreateNoteInput{
+	note, err := repo.Create(ctx, &corpus.CreateNoteInput{
 		OwnerID: in.OwnerID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		CSSClasses: in.CSSClasses, ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
-		return postgres.Note{}, fmt.Errorf("create subjectivity: %w", err)
+		return corpus.Note{}, fmt.Errorf("create subjectivity: %w", err)
 	}
 	return note, nil
 }
 
 func updateNote(
-	ctx context.Context, repo *postgres.NoteRepo, in *WriteSubjectivityInput,
-) (postgres.Note, error) {
+	ctx context.Context, repo *corpus.NoteRepo, in *WriteSubjectivityInput,
+) (corpus.Note, error) {
 	if err := validateNoteReparent(ctx, repo, in.OwnerID, in.ID, in.ParentID); err != nil {
-		return postgres.Note{}, err
+		return corpus.Note{}, err
 	}
-	note, err := repo.UpdateBody(ctx, &postgres.UpdateNoteInput{
+	note, err := repo.UpdateBody(ctx, &corpus.UpdateNoteInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		CSSClasses: in.CSSClasses, ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
-		return postgres.Note{}, fmt.Errorf("update subjectivity: %w", err)
+		return corpus.Note{}, fmt.Errorf("update subjectivity: %w", err)
 	}
 	return note, nil
 }
 
 // validateNoteParent —— parent 给了就必须是本 owner 同 genre 的一条笔记，否则 ErrParentNotFound。
 func validateNoteParent(
-	ctx context.Context, repo *postgres.NoteRepo, ownerID string, parentID *string,
+	ctx context.Context, repo *corpus.NoteRepo, ownerID string, parentID *string,
 ) error {
 	if parentID == nil || *parentID == "" {
 		return nil
 	}
 	if _, err := repo.GetByID(ctx, ownerID, *parentID); err != nil {
-		if errors.Is(err, postgres.ErrNoteNotFound) {
+		if errors.Is(err, corpus.ErrNoteNotFound) {
 			return corpus.ErrParentNotFound
 		}
 		return fmt.Errorf("validate note parent: %w", err)
@@ -134,7 +133,7 @@ func validateNoteParent(
 
 // validateNoteReparent —— 改父：存在性 + 同 owner + 防环（不能挂到自己/自己的子孙下）。
 func validateNoteReparent(
-	ctx context.Context, repo *postgres.NoteRepo, ownerID, nodeID string, parentID *string,
+	ctx context.Context, repo *corpus.NoteRepo, ownerID, nodeID string, parentID *string,
 ) error {
 	if err := validateNoteParent(ctx, repo, ownerID, parentID); err != nil {
 		return err
@@ -146,7 +145,7 @@ func validateNoteReparent(
 }
 
 func checkNoteCycle(
-	ctx context.Context, repo *postgres.NoteRepo, ownerID, nodeID, parentID string,
+	ctx context.Context, repo *corpus.NoteRepo, ownerID, nodeID, parentID string,
 ) error {
 	cur := parentID
 	for range treeMaxDepth {
@@ -167,7 +166,7 @@ func checkNoteCycle(
 
 // deriveNotePath —— 从笔记沿 parent 链上溯，各段 slug 化 title，拼成树派生 path。
 func deriveNotePath(
-	ctx context.Context, repo *postgres.NoteRepo, ownerID, id string,
+	ctx context.Context, repo *corpus.NoteRepo, ownerID, id string,
 ) (string, error) {
 	segs := make([]string, 0, treeMaxDepth)
 	cur := id

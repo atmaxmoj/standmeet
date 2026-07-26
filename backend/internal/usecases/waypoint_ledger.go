@@ -15,13 +15,12 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // WaypointLedgerDeps —— cited id → URI 解析(VaultSync)+ session 存盘。
 type WaypointLedgerDeps struct {
-	Notes    *postgres.VaultSyncRepo
+	Notes    *corpus.VaultSyncRepo
 	Sessions *session.VisitorSessionStore
 	Log      *slog.Logger
 }
@@ -35,7 +34,7 @@ type WaypointLedger struct {
 
 // NewWaypointLedger —— composition root 用。
 func NewWaypointLedger(
-	notes *postgres.VaultSyncRepo, sessions *session.VisitorSessionStore, log *slog.Logger,
+	notes *corpus.VaultSyncRepo, sessions *session.VisitorSessionStore, log *slog.Logger,
 ) *WaypointLedger {
 	return &WaypointLedger{deps: &WaypointLedgerDeps{Notes: notes, Sessions: sessions, Log: log}}
 }

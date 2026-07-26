@@ -10,7 +10,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
-// SEOWriter —— seo.* + corpus SEO MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
+// SEOWriter —— seo.* + corpus SEO MCP tools 需要的最小接口（避开直接 import corpus.SEORepo）。
 // 地址树派生，不再设 path —— 只写 SEO 描述 + indexed 开关。
 type SEOWriter interface {
 	UpdateWikiSEO(

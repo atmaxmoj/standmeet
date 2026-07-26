@@ -14,14 +14,14 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // PagePinDeps —— pin 维护点依赖:page_content 存取 + wiki 卡内容/树路径。
 type PagePinDeps struct {
 	Owners *owner.Repo
-	Wiki   *postgres.WikiRepo
+	Wiki   *corpus.WikiRepo
 }
 
 // PinSectionInsights / PinSectionProjects —— 可 pin 的两个栏目。
@@ -90,7 +90,7 @@ func ValidatePagePins(
 // ResolvePinCards —— pin 列表 → 渲染卡(title + excerpt + 树派生 path),按 pin
 // 序;已删/未发布(兜底)跳过。paths 由 caller 传入(一次 ListAllMeta 服务两个栏目)。
 func ResolvePinCards(
-	cards map[string]postgres.WikiCard, paths map[string]string, pins []string,
+	cards map[string]corpus.WikiCard, paths map[string]string, pins []string,
 ) []owner.PagePinCard {
 	out := make([]owner.PagePinCard, 0, len(pins))
 	for _, id := range pins {
@@ -107,7 +107,7 @@ func ResolvePinCards(
 
 // PinJoin —— 两个栏目 pin 的一次性 join 结果:卡内容 + 全量树路径。
 type PinJoin struct {
-	Cards map[string]postgres.WikiCard
+	Cards map[string]corpus.WikiCard
 	Paths map[string]string
 }
 
@@ -117,7 +117,7 @@ func LoadPinJoin(
 ) (PinJoin, error) {
 	ids := append(append([]string{}, content.Insights...), content.Projects...)
 	if len(ids) == 0 {
-		return PinJoin{Cards: map[string]postgres.WikiCard{}, Paths: map[string]string{}}, nil
+		return PinJoin{Cards: map[string]corpus.WikiCard{}, Paths: map[string]string{}}, nil
 	}
 	cards, err := deps.Wiki.ListCardsByIDs(ctx, ownerID, ids)
 	if err != nil {

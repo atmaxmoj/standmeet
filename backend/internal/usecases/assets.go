@@ -32,7 +32,7 @@ import (
 // AssetsDeps —— 用例打包。Storage 在 composition root fail-fast 检查过，
 // 永远 non-nil。
 type AssetsDeps struct {
-	Repo    *postgres.AssetRepo
+	Repo    *corpus.AssetRepo
 	Storage *storage.Client
 }
 
@@ -93,7 +93,7 @@ type insertAssetArgs struct {
 }
 
 func insertAssetRow(ctx context.Context, a *insertAssetArgs) (corpus.Asset, error) {
-	asset, cerr := a.Deps.Repo.CreateTx(ctx, a.Tx, &postgres.CreateAssetInput{
+	asset, cerr := a.Deps.Repo.CreateTx(ctx, a.Tx, &corpus.CreateAssetInput{
 		ID: a.ID, HolderID: a.HolderID, StorageKey: a.Key,
 		ContentType: a.In.ContentType, SizeBytes: int64(len(a.In.Body)),
 		SHA256: sha256Hex(a.In.Body), OriginalFilename: a.In.OriginalFilename,

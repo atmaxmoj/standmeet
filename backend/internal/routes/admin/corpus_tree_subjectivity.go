@@ -12,8 +12,8 @@ package admin
 import (
 	"net/http"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // subjectivityListItem —— 一条 subjectivity 笔记的 owner 视图。字段是 wiki 那份的子集:
@@ -47,7 +47,7 @@ func (h *Handlers) treeSubjectivity() http.HandlerFunc {
 }
 
 // subjectivityTreeItem —— one child → list item（path 走 slugJoin，与其它 genre 同一个 slug 源）。
-func subjectivityTreeItem(c *postgres.TreeChild[postgres.Note]) subjectivityListItem {
+func subjectivityTreeItem(c *corpus.TreeChild[corpus.Note]) subjectivityListItem {
 	n := &c.Entry
 	it := subjectivityListItem{
 		ID:           n.ID,

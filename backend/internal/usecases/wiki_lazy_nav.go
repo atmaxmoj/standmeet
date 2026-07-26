@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // resolveChildPageLimit —— 顺 path 下降时每层翻页拉子节点的页大小(只为定位某个
@@ -110,7 +109,7 @@ func findChildBySegment(
 }
 
 // segInPage —— 一页 children 里找 pathSegment(title)==seg 的那个,返其 id。
-func segInPage(kids []postgres.WikiMeta, seg string) (string, bool) {
+func segInPage(kids []corpus.WikiMeta, seg string) (string, bool) {
 	for i := range kids {
 		if pathSegment(kids[i].Title) == seg {
 			return kids[i].ID, true
@@ -154,7 +153,7 @@ func findOutputChildBySegment(
 	}
 }
 
-func segInOutputPage(kids []postgres.OutputMeta, seg string) (string, bool) {
+func segInOutputPage(kids []corpus.OutputMeta, seg string) (string, bool) {
 	for i := range kids {
 		if pathSegment(kids[i].Title) == seg {
 			return kids[i].ID, true

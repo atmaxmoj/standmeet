@@ -11,7 +11,7 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 // Links —— see file header.
@@ -31,31 +31,31 @@ func (l *pgCorpusLister) Links(
 	}, nil
 }
 
-func (l *pgCorpusLister) outboundRefs(ctx context.Context, ownerID, id string) []postgres.NoteRef {
+func (l *pgCorpusLister) outboundRefs(ctx context.Context, ownerID, id string) []corpus.NoteRef {
 	if l.noteRefs == nil {
-		return []postgres.NoteRef{}
+		return []corpus.NoteRef{}
 	}
 	refs, err := l.noteRefs.AdminOutboundFor(ctx, ownerID, id)
 	if err != nil {
-		return []postgres.NoteRef{}
+		return []corpus.NoteRef{}
 	}
 	return refs
 }
 
-func (l *pgCorpusLister) backlinkRefs(ctx context.Context, ownerID, id string) []postgres.NoteRef {
+func (l *pgCorpusLister) backlinkRefs(ctx context.Context, ownerID, id string) []corpus.NoteRef {
 	if l.noteRefs == nil {
-		return []postgres.NoteRef{}
+		return []corpus.NoteRef{}
 	}
 	refs, err := l.noteRefs.AdminBacklinksFor(ctx, ownerID, id)
 	if err != nil {
-		return []postgres.NoteRef{}
+		return []corpus.NoteRef{}
 	}
 	return refs
 }
 
 // neighborMetas —— 邻居 ref(id+title)→ 补 genre/path → 逐条过 ACL → CorpusMeta。越权邻居剔除。
 func (l *pgCorpusLister) neighborMetas(
-	ctx context.Context, ownerID string, scope access.CorpusScope, refs []postgres.NoteRef,
+	ctx context.Context, ownerID string, scope access.CorpusScope, refs []corpus.NoteRef,
 ) []CorpusMeta {
 	out := make([]CorpusMeta, 0, len(refs))
 	for i := range refs {
@@ -67,7 +67,7 @@ func (l *pgCorpusLister) neighborMetas(
 }
 
 func (l *pgCorpusLister) neighborMeta(
-	ctx context.Context, ownerID string, scope access.CorpusScope, ref *postgres.NoteRef,
+	ctx context.Context, ownerID string, scope access.CorpusScope, ref *corpus.NoteRef,
 ) (CorpusMeta, bool) {
 	if l.queryRepo == nil {
 		return CorpusMeta{}, false

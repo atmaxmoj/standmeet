@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/search"
 )
 
@@ -32,10 +31,10 @@ type pgCorpusLister struct {
 	wiki         WikiLister
 	output       OutputLister
 	writing      WritingLister
-	subjectivity *postgres.NoteRepo
-	queryRepo    *postgres.VaultSyncRepo // standmeet-query 跨-genre 过滤 + corpus_links 取邻居 genre/path
-	noteRefs     *postgres.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks 邻居
-	searcher     *search.Client          // Meili 词法后端;nil(未配)→ Search 退 Postgres 全文
+	subjectivity *corpus.NoteRepo
+	queryRepo    *corpus.VaultSyncRepo // standmeet-query 跨-genre 过滤 + corpus_links 取邻居 genre/path
+	noteRefs     *corpus.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks 邻居
+	searcher     *search.Client        // Meili 词法后端;nil(未配)→ Search 退 Postgres 全文
 }
 
 // allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?
@@ -115,7 +114,7 @@ func (l *pgCorpusLister) searchSubjectivity(
 }
 
 func (l *pgCorpusLister) subjectivityHit(
-	ctx context.Context, ownerID string, scope access.CorpusScope, hit *postgres.NoteMeta,
+	ctx context.Context, ownerID string, scope access.CorpusScope, hit *corpus.NoteMeta,
 ) (CorpusMeta, bool) {
 	path, perr := deriveNotePath(ctx, l.subjectivity, ownerID, hit.ID)
 	if perr != nil || !allowsCorpusURI(scope, "subjectivity", path) {

@@ -74,7 +74,7 @@ type processArgs struct {
 }
 
 // MetaSetter —— SaveWriting 之后标记这行是从 vault 来的。
-// 实现：postgres.WritingRepo.{GetByObsidianSourcePath, GetBySlug, SetObsidianMeta}。
+// 实现：corpus.WritingRepo.{GetByObsidianSourcePath, GetBySlug, SetObsidianMeta}。
 type MetaSetter interface {
 	GetByObsidianSourcePath(
 		ctx context.Context, ownerID, sourcePath string,

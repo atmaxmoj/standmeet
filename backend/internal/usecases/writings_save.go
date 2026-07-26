@@ -32,7 +32,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // FileInput —— 一张上传的图。PendingID 是前端 editor 分配的 client-side
@@ -246,9 +245,9 @@ func upsertWritingShell(
 	return loadExistingWriting(ctx, deps, in)
 }
 
-func buildShellCreateInput(in *SaveWritingInput) *postgres.CreateWritingInput {
+func buildShellCreateInput(in *SaveWritingInput) *corpus.CreateWritingInput {
 	// path 不再存列:writing 折进 corpus_notes 后由 slug 派生 "writings/"+slug。
-	return &postgres.CreateWritingInput{
+	return &corpus.CreateWritingInput{
 		OwnerID: in.OwnerID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
 		BodyMD: "", CoverHeadline: in.CoverHeadline,
 		CoverHue: in.CoverHue, CoverImageAssetID: nil,
@@ -304,7 +303,7 @@ type writeBodyArgs struct {
 func writeWritingBody(ctx context.Context, a *writeBodyArgs) (corpus.Writing, error) {
 	body := rewriteRefs(a.In.BodyMD, a.Rewrite)
 	cover := rewriteCoverRef(a.In.CoverImageRef, a.Rewrite)
-	p, err := a.Deps.Writings.UpdateTx(ctx, a.Tx, &postgres.UpdateWritingInput{
+	p, err := a.Deps.Writings.UpdateTx(ctx, a.Tx, &corpus.UpdateWritingInput{
 		OwnerID: a.In.OwnerID, WritingID: a.Writing.ID(), Title: a.In.Title,
 		Excerpt: a.In.Excerpt, BodyMD: body,
 		CoverHeadline: a.In.CoverHeadline,

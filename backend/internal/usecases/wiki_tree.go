@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -90,14 +90,14 @@ type wikiTreeQuery struct {
 
 // WikiTreeStats —— 侧栏脚定位计数(owner 级聚合:总数/根数/非公开数),不按访客 scope,
 // 纯 COUNT 不 load 树。
-func WikiTreeStats(ctx context.Context, deps SEODeps) (postgres.WikiStats, error) {
+func WikiTreeStats(ctx context.Context, deps SEODeps) (corpus.WikiStats, error) {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return postgres.WikiStats{}, nil
+		return corpus.WikiStats{}, nil
 	}
 	stats, err := deps.Wiki.CountStats(ctx, owner.ID)
 	if err != nil {
-		return postgres.WikiStats{}, fmt.Errorf("wiki tree stats: %w", err)
+		return corpus.WikiStats{}, fmt.Errorf("wiki tree stats: %w", err)
 	}
 	return stats, nil
 }
@@ -151,8 +151,8 @@ func (q *wikiTreeQuery) visibleChain(
 // walkToRoot —— 顺 parent_id 上溯收 meta(bottom-up,不读 body),到 root 或 maxDepth。
 func (q *wikiTreeQuery) walkToRoot(
 	ctx context.Context, nodeID string,
-) ([]postgres.WikiMeta, error) {
-	out := make([]postgres.WikiMeta, 0, treeMaxDepth)
+) ([]corpus.WikiMeta, error) {
+	out := make([]corpus.WikiMeta, 0, treeMaxDepth)
 	cur := nodeID
 	for range treeMaxDepth {
 		meta, err := q.repo.GetMetaByID(ctx, q.ownerID, cur)

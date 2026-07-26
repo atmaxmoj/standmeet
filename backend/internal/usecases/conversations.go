@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 // ConversationsDeps —— ListConversations / GetTranscript 需要的 repo。
@@ -17,9 +17,9 @@ import (
 // cited_subjectivity_ids（仅 opt-in 的会落进 message，此处只做 id→ref 展示）。
 type ConversationsDeps struct {
 	Chats        *conversation.ChatRepo
-	Wiki         *postgres.WikiRepo
-	Writing      *postgres.WritingRepo
-	Output       *postgres.OutputRepo
+	Wiki         *corpus.WikiRepo
+	Writing      *corpus.WritingRepo
+	Output       *corpus.OutputRepo
 	Subjectivity SubjectivityCiteLookup
 }
 
@@ -122,7 +122,7 @@ func subjectivityCitedRefs(
 // (load 全树 → WikiTreePaths),不读已退役的 path 列。load 失败 / id 已删 → 略过,
 // transcript 主数据已在手,前端 fallback 显 id,不该让整个 transcript 502。
 func wikiCitedRefs(
-	ctx context.Context, repo *postgres.WikiRepo, ownerID string, ids []string,
+	ctx context.Context, repo *corpus.WikiRepo, ownerID string, ids []string,
 ) []TitledRef {
 	// 只对真 cited 的 id 逐个上溯算 path + meta(无 50-cap;超出内存窗口的也算得出)。
 	titles := make(map[string]string, len(ids))
@@ -146,7 +146,7 @@ func wikiCitedRefs(
 // path 列("writings/"+slug),不用上溯树;逐个 GetByID 拿 title+slug。写不进 message 前
 // 无 gate（writing 是 public/已发布 blog）。repo 未注入 / id 已删 → 略过。
 func writingCitedRefs(
-	ctx context.Context, repo *postgres.WritingRepo, ownerID string, ids []string,
+	ctx context.Context, repo *corpus.WritingRepo, ownerID string, ids []string,
 ) []TitledRef {
 	out := make([]TitledRef, 0, len(ids))
 	if repo == nil {
@@ -165,7 +165,7 @@ func writingCitedRefs(
 // outputCitedRefs —— wiki 的 output 孪生:逐个 cited id 上溯算 path + meta(无 50-cap;
 // 超出内存窗口的 cited output 也解得出)。
 func outputCitedRefs(
-	ctx context.Context, repo *postgres.OutputRepo, ownerID string, ids []string,
+	ctx context.Context, repo *corpus.OutputRepo, ownerID string, ids []string,
 ) []TitledRef {
 	titles := make(map[string]string, len(ids))
 	paths := make(map[string]string, len(ids))

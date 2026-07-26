@@ -21,16 +21,15 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
 // ExportDeps —— 流式 zip writer 要的 backend hooks。
 type ExportDeps struct {
-	Writings *postgres.WritingRepo
-	Assets   *postgres.AssetRepo
+	Writings *corpus.WritingRepo
+	Assets   *corpus.AssetRepo
 	Storage  *storage.Client
-	Corpus   *postgres.VaultSyncRepo // corp note(wiki/subjectivity/output)反向渲染
+	Corpus   *corpus.VaultSyncRepo // corp note(wiki/subjectivity/output)反向渲染
 }
 
 // initialWrittenCap —— 单 owner 多 writing 共享 attachment dedup map 的初始容量。
@@ -155,8 +154,8 @@ func extFromContentType(ct string) string {
 // struct 的 padding overhead。
 type writeAttachmentsArgs struct {
 	Zw        *zip.Writer
-	Writings  *postgres.WritingRepo
-	Assets    *postgres.AssetRepo
+	Writings  *corpus.WritingRepo
+	Assets    *corpus.AssetRepo
 	Storage   *storage.Client
 	Filenames map[string]string
 	Written   map[string]struct{}

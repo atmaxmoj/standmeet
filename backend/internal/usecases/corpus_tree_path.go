@@ -14,7 +14,6 @@ import (
 	"unicode"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // treeMaxDepth —— 防环路 / 异常深树。
@@ -67,12 +66,12 @@ func RawTreePaths(rs []corpus.Raw) map[string]string {
 
 // WikiMetaTreePaths / OutputMetaTreePaths —— 同一套树派生口径,但吃 meta(无 body)。
 // landing/sitemap 用全量 meta(ListAllMeta,无 50-cap)算 path,不必 load 全量 body。
-func WikiMetaTreePaths(metas []postgres.WikiMeta) map[string]string {
+func WikiMetaTreePaths(metas []corpus.WikiMeta) map[string]string {
 	return treePathsFor(wikiMetaNodes(metas))
 }
 
 // OutputMetaTreePaths —— WikiMetaTreePaths 的 output 孪生。
-func OutputMetaTreePaths(metas []postgres.OutputMeta) map[string]string {
+func OutputMetaTreePaths(metas []corpus.OutputMeta) map[string]string {
 	nodes := make([]pathNode, len(metas))
 	for i := range metas {
 		nodes[i] = metaNode(metas[i].ID, metas[i].Title, metas[i].ParentID)
@@ -80,7 +79,7 @@ func OutputMetaTreePaths(metas []postgres.OutputMeta) map[string]string {
 	return treePathsFor(nodes)
 }
 
-func wikiMetaNodes(metas []postgres.WikiMeta) []pathNode {
+func wikiMetaNodes(metas []corpus.WikiMeta) []pathNode {
 	nodes := make([]pathNode, len(metas))
 	for i := range metas {
 		nodes[i] = metaNode(metas[i].ID, metas[i].Title, metas[i].ParentID)

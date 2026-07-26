@@ -1,12 +1,13 @@
 // writings_crosslink.go —— public /writings 路径渲 `[[crosslink]]` 用的 slim
 // resolution index 查询，从 writings.go 拆出来守 350-line cap。
 
-package postgres
+package corpus
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -22,9 +23,9 @@ type SlugTitle struct {
 func (r *WritingRepo) ListPublishedSlugAndTitle(
 	ctx context.Context, ownerID string,
 ) ([]SlugTitle, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	rows, err := dbq.New(r.pool).ListPublishedWritingSlugAndTitle(ctx, ownerUUID)
 	if err != nil {

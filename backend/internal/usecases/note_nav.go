@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
 func resolveNoteNodeID(
-	ctx context.Context, repo *postgres.NoteRepo, ownerID, path string,
+	ctx context.Context, repo *corpus.NoteRepo, ownerID, path string,
 ) (string, error) {
 	var parentID *string
 	id := ""
@@ -29,7 +29,7 @@ func resolveNoteNodeID(
 }
 
 func findNoteChildBySegment(
-	ctx context.Context, repo *postgres.NoteRepo, ownerID string, parentID *string, seg string,
+	ctx context.Context, repo *corpus.NoteRepo, ownerID string, parentID *string, seg string,
 ) (string, error) {
 	for offset := int32(0); ; offset += resolveChildPageLimit {
 		kids, err := repo.ListChildren(ctx, ownerID, parentID, resolveChildPageLimit, offset)
@@ -40,12 +40,12 @@ func findNoteChildBySegment(
 			return id, nil
 		}
 		if len(kids) < resolveChildPageLimit {
-			return "", postgres.ErrNoteNotFound
+			return "", corpus.ErrNoteNotFound
 		}
 	}
 }
 
-func segInPageNote(kids []postgres.NoteMeta, seg string) (string, bool) {
+func segInPageNote(kids []corpus.NoteMeta, seg string) (string, bool) {
 	for i := range kids {
 		if pathSegment(kids[i].Title) == seg {
 			return kids[i].ID, true

@@ -3,7 +3,7 @@
 // children query, and map rows to meta the same way; the only genre-specific parts are
 // the query call and the row→meta mapper, passed as closures.
 
-package postgres
+package corpus
 
 import (
 	"fmt"
@@ -18,9 +18,9 @@ func listChildrenMeta[Row any, Meta any](
 	fetch func(ownerUUID, parentUUID pgtype.UUID) ([]Row, error),
 	mapRow func(Row) Meta,
 ) ([]Meta, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	parentUUID, perr := pgstore.ParseOptionalUUID(parentID)
 	if perr != nil {

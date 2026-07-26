@@ -14,37 +14,36 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // WikiLister —— owner-scoped wiki corpus for retrieval (buildRetriever)。除了内存
 // 窗口的 ListByOwner,加上 DB 懒加载三件套:全量搜(Search)、按 id 读 meta
-// (GetMetaByID,上溯算 path)、按 id 读正文(GetByID)。prod *postgres.WikiRepo
+// (GetMetaByID,上溯算 path)、按 id 读正文(GetByID)。prod *corpus.WikiRepo
 // 原样满足;eval-harness 内存 fixture 需补这三个。
 type WikiLister interface {
 	ListByOwner(ctx context.Context, ownerID string, limit int32) ([]corpus.Wiki, error)
 	Search(
 		ctx context.Context, ownerID, query string, limit, offset int32,
-	) ([]postgres.WikiMeta, error)
+	) ([]corpus.WikiMeta, error)
 	ListChildren(
 		ctx context.Context, ownerID string, parentID *string, limit, offset int32,
-	) ([]postgres.WikiMeta, error)
-	GetMetaByID(ctx context.Context, ownerID, id string) (postgres.WikiMeta, error)
+	) ([]corpus.WikiMeta, error)
+	GetMetaByID(ctx context.Context, ownerID, id string) (corpus.WikiMeta, error)
 	GetByID(ctx context.Context, ownerID, id string) (corpus.Wiki, error)
 }
 
 // OutputLister —— owner-scoped output corpus for retrieval。wiki 的孪生:内存窗口的
 // ListByOwner 之外,加 DB 懒加载:全量搜(Search)、按 id 读 meta(GetMetaByID,上溯算
-// path)、按 id 读正文(GetByID)。prod *postgres.OutputRepo 原样满足。
+// path)、按 id 读正文(GetByID)。prod *corpus.OutputRepo 原样满足。
 type OutputLister interface {
 	ListByOwner(ctx context.Context, ownerID string, limit int32) ([]corpus.Output, error)
 	Search(
 		ctx context.Context, ownerID, query string, limit, offset int32,
-	) ([]postgres.OutputMeta, error)
+	) ([]corpus.OutputMeta, error)
 	ListChildren(
 		ctx context.Context, ownerID string, parentID *string, limit, offset int32,
-	) ([]postgres.OutputMeta, error)
-	GetMetaByID(ctx context.Context, ownerID, id string) (postgres.OutputMeta, error)
+	) ([]corpus.OutputMeta, error)
+	GetMetaByID(ctx context.Context, ownerID, id string) (corpus.OutputMeta, error)
 	GetByID(ctx context.Context, ownerID, id string) (corpus.Output, error)
 }
 

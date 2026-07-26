@@ -1,7 +1,7 @@
 // writings_obsidian.go —— WritingRepo 上跟 Obsidian sync 相关的两条 method，
 // 拆出来让 writings.go 不超 350-line cap，且让 obsidian 字段语义聚焦一处。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -18,10 +18,10 @@ import (
 // import 过的行；命中 = re-import / 没命中 = 新行。
 func (r *WritingRepo) GetByObsidianSourcePath(
 	ctx context.Context, ownerID, sourcePath string,
-) (corpus.Writing, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+) (Writing, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return corpus.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return Writing{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	row, err := dbq.New(r.pool).GetWritingByObsidianSourcePath(ctx,
 		dbq.GetWritingByObsidianSourcePathParams{
@@ -29,9 +29,9 @@ func (r *WritingRepo) GetByObsidianSourcePath(
 		})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return corpus.Writing{}, corpus.ErrWritingNotFound
+			return Writing{}, ErrWritingNotFound
 		}
-		return corpus.Writing{}, fmt.Errorf("get writing by obsidian path: %w", err)
+		return Writing{}, fmt.Errorf("get writing by obsidian path: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }

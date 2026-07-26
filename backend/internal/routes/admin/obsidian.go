@@ -25,8 +25,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 	"github.com/atmaxmoj/standmeet/internal/usecases/obsidian"
@@ -34,8 +34,8 @@ import (
 
 // ObsidianDeps —— admin obsidian handlers 依赖。
 type ObsidianDeps struct {
-	Writings   *postgres.WritingRepo
-	Assets     *postgres.AssetRepo
+	Writings   *corpus.WritingRepo
+	Assets     *corpus.AssetRepo
 	Storage    *storage.Client
 	Corpus     usecases.CorpusDeps    // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
 	CSS        usecases.OwnerCSSStore // .obsidian/snippets harvest → owner CSS
@@ -69,7 +69,7 @@ func (a refsSyncAdapter) RebuildForNote(ctx context.Context, ownerID, noteID, bo
 // writingsSyncAdapter —— obsidian.SyncWritingsPort over ImportVault：writing/ 子树 → writings 表。
 type writingsSyncAdapter struct {
 	tx     usecases.WritingsTxDeps
-	setter *postgres.WritingRepo
+	setter *corpus.WritingRepo
 }
 
 func (a writingsSyncAdapter) ImportWritings(

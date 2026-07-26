@@ -14,14 +14,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // SEOAdminDeps —— admin SEO handlers 依赖。Pins 给 unpublish→auto-unpin 钩子
 // (pinned ⊆ published 的 unpublish 端;必须走 UpdateWikiSEOWithPins)。
 type SEOAdminDeps struct {
-	SEO  *postgres.SEORepo
+	SEO  *corpus.SEORepo
 	Pins usecases.PagePinDeps
 }
 

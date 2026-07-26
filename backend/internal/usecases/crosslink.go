@@ -173,7 +173,7 @@ func HasCrossLinks(body string) bool {
 }
 
 // SlugTitle —— public /writings 路径用的 light index，避免在 candidates list
-// 里搬 body_md。跟 postgres.SlugTitle 同 shape，独立 type 保 usecase 不
+// 里搬 body_md。跟 corpus.SlugTitle 同 shape，独立 type 保 usecase 不
 // import postgres 类型。
 type SlugTitle struct {
 	Slug  string

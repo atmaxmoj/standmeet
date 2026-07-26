@@ -13,9 +13,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -150,7 +150,7 @@ func loadPinnable(
 }
 
 // publishedPinnable —— only published wiki entries are pinnable (pinned ⊆ published).
-func publishedPinnable(metas []postgres.WikiMeta, paths map[string]string) []pinnableEntry {
+func publishedPinnable(metas []corpus.WikiMeta, paths map[string]string) []pinnableEntry {
 	items := []pinnableEntry{}
 	for i := range metas {
 		if !metas[i].Published {

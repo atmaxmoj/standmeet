@@ -15,7 +15,6 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // SubjectivityCiteRef —— 一条已解析、已通过 show_as_source gate 的 subjectivity 引用。
@@ -36,14 +35,14 @@ type SubjectivityCiteLookup interface {
 // subjectivityCiteResolver —— SubjectivityCiteLookup 的 postgres 实现：NoteRepo（genre='subjectivity'）
 // 反查 note（含 show_as_source）+ parent 链上溯算树派生 path。
 type subjectivityCiteResolver struct {
-	repo *postgres.NoteRepo
+	repo *corpus.NoteRepo
 }
 
 // NewSubjectivityCiteResolver —— composition root 用：把 subjectivity NoteRepo 包成 lookup。
 // repo 为 nil 时返 nil（无 subjectivity 装配的调用方走 no-op resolve）。
 //
 //nolint:ireturn // nil-safe factory: repo nil 返 nil 接口, 调用方 nil-guard 跳过解析
-func NewSubjectivityCiteResolver(repo *postgres.NoteRepo) SubjectivityCiteLookup {
+func NewSubjectivityCiteResolver(repo *corpus.NoteRepo) SubjectivityCiteLookup {
 	if repo == nil {
 		return nil
 	}
@@ -56,7 +55,7 @@ func (r *subjectivityCiteResolver) ResolveCite(
 ) (SubjectivityCiteRef, error) {
 	note, err := r.repo.GetByID(ctx, ownerID, id)
 	if err != nil {
-		if errors.Is(err, postgres.ErrNoteNotFound) {
+		if errors.Is(err, corpus.ErrNoteNotFound) {
 			return SubjectivityCiteRef{}, corpus.ErrSubjectivityNotFound
 		}
 		return SubjectivityCiteRef{}, fmt.Errorf("get subjectivity: %w", err)

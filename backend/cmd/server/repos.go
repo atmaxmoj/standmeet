@@ -14,6 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
@@ -44,18 +45,18 @@ type repoSet struct {
 	instance       *owner.InstanceRepo
 	owner          *owner.Repo
 	keypair        *owner.KeypairRepo
-	raw            *postgres.RawRepo
-	wiki           *postgres.WikiRepo
-	subjectivity   *postgres.NoteRepo
-	vaultSync      *postgres.VaultSyncRepo
-	noteRef        *postgres.NoteRefRepo
-	output         *postgres.OutputRepo
+	raw            *corpus.RawRepo
+	wiki           *corpus.WikiRepo
+	subjectivity   *corpus.NoteRepo
+	vaultSync      *corpus.VaultSyncRepo
+	noteRef        *corpus.NoteRefRepo
+	output         *corpus.OutputRepo
 	growth         *stats.GrowthRepo
 	activity       *stats.ActivityRepo
 	code           *access.CodeRepo
 	codeDenial     *access.CodeDenialRepo
 	chat           *conversation.ChatRepo
-	seo            *postgres.SEORepo
+	seo            *corpus.SEORepo
 	customPage     *owner.CustomPageRepo
 	customBuild    *owner.CustomBuildRepo
 	accessRequest  *access.RequestRepo
@@ -66,9 +67,9 @@ type repoSet struct {
 	mcpServer      *marketplace.MCPServerRepo
 	prompt         *owner.PromptRepo
 	role           *access.RoleRepo
-	asset          *postgres.AssetRepo
-	writing        *postgres.WritingRepo
-	writingRef     *postgres.WritingRefRepo
+	asset          *corpus.AssetRepo
+	writing        *corpus.WritingRepo
+	writingRef     *corpus.WritingRefRepo
 	mailConnector  *postgres.MailRepo
 	capability     *access.CapabilityRepo
 	ghost          *conversation.GhostRepo
@@ -85,18 +86,18 @@ func newRepos(db *postgres.Pool) *repoSet {
 		instance:       owner.NewInstanceRepo(db),
 		owner:          owner.NewRepo(db),
 		keypair:        owner.NewKeypairRepo(db),
-		raw:            postgres.NewRawRepo(db),
-		wiki:           postgres.NewWikiRepo(db),
-		subjectivity:   postgres.NewNoteRepo(db, "subjectivity"),
-		vaultSync:      postgres.NewVaultSyncRepo(db),
-		noteRef:        postgres.NewNoteRefRepo(db),
-		output:         postgres.NewOutputRepo(db),
+		raw:            corpus.NewRawRepo(db),
+		wiki:           corpus.NewWikiRepo(db),
+		subjectivity:   corpus.NewNoteRepo(db, "subjectivity"),
+		vaultSync:      corpus.NewVaultSyncRepo(db),
+		noteRef:        corpus.NewNoteRefRepo(db),
+		output:         corpus.NewOutputRepo(db),
 		growth:         stats.NewGrowthRepo(db),
 		activity:       stats.NewActivityRepo(db),
 		code:           access.NewCodeRepo(db),
 		codeDenial:     access.NewCodeDenialRepo(db),
 		chat:           conversation.NewChatRepo(db),
-		seo:            postgres.NewSEORepo(db),
+		seo:            corpus.NewSEORepo(db),
 		customPage:     owner.NewCustomPageRepo(db),
 		customBuild:    owner.NewCustomBuildRepo(db),
 		accessRequest:  access.NewAccessRequestRepo(db),
@@ -107,9 +108,9 @@ func newRepos(db *postgres.Pool) *repoSet {
 		mcpServer:      marketplace.NewMCPServerRepo(db),
 		prompt:         owner.NewPromptRepo(db),
 		role:           access.NewRoleRepo(db),
-		asset:          postgres.NewAssetRepo(db),
-		writing:        postgres.NewWritingRepo(db),
-		writingRef:     postgres.NewWritingRefRepo(db),
+		asset:          corpus.NewAssetRepo(db),
+		writing:        corpus.NewWritingRepo(db),
+		writingRef:     corpus.NewWritingRefRepo(db),
 		mailConnector:  postgres.NewMailRepo(db),
 		capability:     access.NewCapabilityRepo(db),
 		ghost:          conversation.NewGhostRepo(db),
@@ -152,7 +153,7 @@ func assembleRuntimeDeps(
 		growthRepo:       repos.growth,
 		activityRepo:     repos.activity,
 		jobRegistry:      jobregistry.New(),
-		corpus:           postgres.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
+		corpus:           corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
 		codeRepo:         repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
 		seoRepo:            repos.seo,
 		customPageRepo:     repos.customPage,

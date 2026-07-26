@@ -1,8 +1,8 @@
 // writings_mapping.go —— writings.go 拆出来的纯映射 helpers (corpus_notes(genre='writing')
-// row → corpus.Writing，UUID/timestamp 互转，hue/visibility 白名单兜底)。
+// row → Writing，UUID/timestamp 互转，hue/visibility 白名单兜底)。
 // writing 折进 corpus_notes(#151):body_md→body，path 不存(派生 "writings/"+slug)。
 
-package postgres
+package corpus
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -22,8 +22,8 @@ const writingPathPrefix = "writings/"
 // writingPathForSlug —— slug → 派生 path。
 func writingPathForSlug(slug string) string { return writingPathPrefix + slug }
 
-func rowsToDomainWritings(rows []dbq.CorpusNote) []corpus.Writing {
-	out := make([]corpus.Writing, 0, len(rows))
+func rowsToDomainWritings(rows []dbq.CorpusNote) []Writing {
+	out := make([]Writing, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainWriting(&rows[i]))
 	}
@@ -36,20 +36,20 @@ type writingIDArgs struct {
 }
 
 func parseOwnerAndWritingID(ownerID, writingID string) (writingIDArgs, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return writingIDArgs{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return writingIDArgs{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	writingUUID, perr := parseUUID(writingID)
+	writingUUID, perr := pgstore.ParseUUID(writingID)
 	if perr != nil {
 		return writingIDArgs{}, fmt.Errorf("parse writing id: %w", perr)
 	}
 	return writingIDArgs{ownerUUID: ownerUUID, writingUUID: writingUUID}, nil
 }
 
-func toDomainWriting(row *dbq.CorpusNote) corpus.Writing {
-	in := corpus.WritingInit{
-		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
+func toDomainWriting(row *dbq.CorpusNote) Writing {
+	in := WritingInit{
+		ID: pgstore.FormatUUID(row.ID), OwnerID: pgstore.FormatUUID(row.OwnerID),
 		Slug: row.Slug, Title: row.Title, Excerpt: row.Excerpt,
 		Body:        row.Body,
 		Tags:        row.Tags,
@@ -57,20 +57,20 @@ func toDomainWriting(row *dbq.CorpusNote) corpus.Writing {
 		Path:        writingPathForSlug(row.Slug),
 		ParentID:    optUUIDString(row.ParentID),
 		ReadMinutes: row.ReadMinutes,
-		Cover: corpus.CoverInit{
+		Cover: CoverInit{
 			Headline: row.CoverHeadline,
 			Hue:      row.CoverHue, ImageAssetID: optUUIDString(row.CoverImageAssetID),
 		},
-		Visibility: corpus.VisibilityInit{
+		Visibility: VisibilityInit{
 			Mode: row.Visibility, LockedBody: row.LockedBody,
 		},
-		Timestamps: corpus.TimestampsInit{
+		Timestamps: TimestampsInit{
 			CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
-			PublishedAt: optTime(row.PublishedAt),
+			PublishedAt: pgstore.OptTime(row.PublishedAt),
 		},
 		Integrations: buildWritingIntegrations(row),
 	}
-	return corpus.NewWriting(&in)
+	return NewWriting(&in)
 }
 
 // buildWritingIntegrations —— corpus_notes 行里的 obsidian_source_path /
@@ -97,29 +97,21 @@ func optUUIDString(u pgtype.UUID) string {
 	if !u.Valid {
 		return ""
 	}
-	return formatUUID(u)
-}
-
-func optTime(t pgtype.Timestamptz) *time.Time {
-	if !t.Valid {
-		return nil
-	}
-	tt := t.Time
-	return &tt
+	return pgstore.FormatUUID(u)
 }
 
 func writingCoverHueOr(hue string) string {
 	switch hue {
-	case corpus.WritingCoverHueAmber, corpus.WritingCoverHueViolet,
-		corpus.WritingCoverHueAcid:
+	case WritingCoverHueAmber, WritingCoverHueViolet,
+		WritingCoverHueAcid:
 		return hue
 	}
-	return corpus.WritingCoverHueAmber
+	return WritingCoverHueAmber
 }
 
 func writingVisibilityOr(v string) string {
-	if v == corpus.WritingVisibilityPrivate {
-		return corpus.WritingVisibilityPrivate
+	if v == WritingVisibilityPrivate {
+		return WritingVisibilityPrivate
 	}
-	return corpus.WritingVisibilityPublic
+	return WritingVisibilityPublic
 }

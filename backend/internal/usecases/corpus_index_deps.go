@@ -11,7 +11,7 @@ package usecases
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/search"
 )
 
@@ -21,10 +21,10 @@ type CorpusIndexDeps struct {
 	Wiki         WikiLister
 	Output       OutputLister
 	Writings     WritingLister
-	Subjectivity *postgres.NoteRepo
-	VaultSync    *postgres.VaultSyncRepo // standmeet-query 解析 + corpus_links 取邻居 genre/path
-	NoteRefs     *postgres.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks
-	Searcher     *search.Client          // Meili 词法后端;nil → corpus_search 退 Postgres 全文
+	Subjectivity *corpus.NoteRepo
+	VaultSync    *corpus.VaultSyncRepo // standmeet-query 解析 + corpus_links 取邻居 genre/path
+	NoteRefs     *corpus.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks
+	Searcher     *search.Client        // Meili 词法后端;nil → corpus_search 退 Postgres 全文
 }
 
 // CorpusScopeVisible —— corpus 检索能力的 fragment/enabled 闸：role snapshot 有任何 corpus

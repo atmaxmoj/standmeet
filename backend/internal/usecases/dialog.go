@@ -22,11 +22,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 )
 
-// DialogCorpusLookup —— Dialog cited 反查 entry 的窄接口。*postgres.Corpus
+// DialogCorpusLookup —— Dialog cited 反查 entry 的窄接口。*corpus.Corpus
 // facade 满足:Get(ctx, ownerID, "<genre>://<id>") 内部 isUUID → GetByID
 // (见 corpus_facade)。
 //
-// 不直接用 postgres.Corpus 类型 (publicroutes 不能 import postgres)，靠
+// 不直接用 corpus.Corpus 类型 (publicroutes 不能 import postgres)，靠
 // 接口模式让 mcp / publicroutes 这两个组件都能传它。
 type DialogCorpusLookup interface {
 	Get(ctx context.Context, ownerID, uri string) (corpus.Document, error)

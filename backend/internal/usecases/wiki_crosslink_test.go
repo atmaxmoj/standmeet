@@ -3,9 +3,8 @@ package usecases
 import (
 	"testing"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/stretchr/testify/require"
-
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // TestResolveNoteDstIDs_ProximitySameGenre —— F-L-10: the real vault mirrors its topic tree across
@@ -15,7 +14,7 @@ import (
 // point at the raw draft and the curated note's backlinks panel goes empty.
 func TestResolveNoteDstIDs_ProximitySameGenre(t *testing.T) {
 	t.Parallel()
-	titles := []postgres.OwnerNoteTitleRow{
+	titles := []corpus.OwnerNoteTitleRow{
 		{ID: "wiki-logic", Title: "logic", Genre: "wiki"},
 		{ID: "src", Title: "chomsky-hierarchy", Genre: "wiki"},
 		{ID: "raw-logic", Title: "logic", Genre: "raw"}, // LAST → old map resolved here (the bug)
@@ -29,7 +28,7 @@ func TestResolveNoteDstIDs_ProximitySameGenre(t *testing.T) {
 // first non-self candidate, so a genuine cross-genre link (wiki → output) is not dropped.
 func TestResolveNoteDstIDs_FallsBackAcrossGenre(t *testing.T) {
 	t.Parallel()
-	titles := []postgres.OwnerNoteTitleRow{
+	titles := []corpus.OwnerNoteTitleRow{
 		{ID: "src", Title: "wiki-note", Genre: "wiki"},
 		{ID: "out-thing", Title: "thing", Genre: "output"},
 	}
@@ -41,7 +40,7 @@ func TestResolveNoteDstIDs_FallsBackAcrossGenre(t *testing.T) {
 // genre sibling (not itself); a pure self-link drops.
 func TestResolveNoteDstIDs_SkipsSelfLink(t *testing.T) {
 	t.Parallel()
-	titles := []postgres.OwnerNoteTitleRow{
+	titles := []corpus.OwnerNoteTitleRow{
 		{ID: "raw-math", Title: "math", Genre: "raw"},
 		{ID: "wiki-math", Title: "math", Genre: "wiki"},
 	}
@@ -58,7 +57,7 @@ func TestResolveNoteDstIDs_SkipsSelfLink(t *testing.T) {
 func TestWikiMetaPathTitleIndex_IncludesGated(t *testing.T) {
 	t.Parallel()
 	parent := "p"
-	metas := []postgres.WikiMeta{
+	metas := []corpus.WikiMeta{
 		{ID: "p", Title: "Cybernetics", Published: false},
 		{ID: "c", Title: "Theory", Published: false, ParentID: &parent},
 	}

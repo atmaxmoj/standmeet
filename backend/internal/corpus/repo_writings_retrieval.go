@@ -3,7 +3,7 @@
 // 由 slug 派生 "writings/<slug>";GetPublishedByPath 剥前缀取 slug 再按 slug 查(retriever
 // 传的仍是 path,签名不变)。从 writings.go 拆出来守 350-line cap。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -21,23 +21,23 @@ import (
 // ("writings/<slug>"),故剥前缀取 slug 再查;不带前缀的 path 认不到 → ErrWritingNotFound。
 func (r *WritingRepo) GetPublishedByPath(
 	ctx context.Context, ownerID, path string,
-) (corpus.Writing, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+) (Writing, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return corpus.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return Writing{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	slug, ok := strings.CutPrefix(path, writingPathPrefix)
 	if !ok {
-		return corpus.Writing{}, corpus.ErrWritingNotFound
+		return Writing{}, ErrWritingNotFound
 	}
 	row, err := dbq.New(r.pool).GetPublishedWritingBySlug(ctx, dbq.GetPublishedWritingBySlugParams{
 		OwnerID: ownerUUID, Slug: slug,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return corpus.Writing{}, corpus.ErrWritingNotFound
+			return Writing{}, ErrWritingNotFound
 		}
-		return corpus.Writing{}, fmt.Errorf("get published writing by slug: %w", err)
+		return Writing{}, fmt.Errorf("get published writing by slug: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }
@@ -45,10 +45,10 @@ func (r *WritingRepo) GetPublishedByPath(
 // Search —— retriever corpus_search 全量搜 published writing(DB full-text)。
 func (r *WritingRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
-) ([]corpus.Writing, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
+) ([]Writing, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	rows, err := dbq.New(r.pool).SearchPublishedWritings(ctx, dbq.SearchPublishedWritingsParams{
 		OwnerID: ownerUUID, PlaintoTsquery: query, Limit: limit, Offset: offset,

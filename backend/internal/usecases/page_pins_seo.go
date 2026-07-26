@@ -16,10 +16,9 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
-// WikiSEOUpdater —— repo 面的窄口(postgres.SEORepo 满足)。
+// WikiSEOUpdater —— repo 面的窄口(corpus.SEORepo 满足)。
 type WikiSEOUpdater interface {
 	UpdateWikiSEO(
 		ctx context.Context, ownerID, wikiID, description string, indexed bool,
@@ -80,7 +79,7 @@ func SweepPagePins(ctx context.Context, pins PagePinDeps, ownerID string) error 
 
 // collectStalePins —— 不再 published(或条目已删,join 未命中)的 pin id 集。
 func collectStalePins(
-	content *owner.PageContent, cards map[string]postgres.WikiCard,
+	content *owner.PageContent, cards map[string]corpus.WikiCard,
 ) []string {
 	stale := []string{}
 	for _, id := range append(append([]string{}, content.Insights...), content.Projects...) {

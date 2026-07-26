@@ -1,7 +1,7 @@
 // wiki_cards.go —— page-pin join 的 repo 面:按 id 集取被 pin 条目的卡内容
 // (title / excerpt / published)。顺序由 usecase 按 pin 列表重排。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
@@ -29,9 +30,9 @@ func (r *WikiRepo) ListCardsByIDs(
 	if len(ids) == 0 {
 		return map[string]WikiCard{}, nil
 	}
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	uuids, err := parsePinIDs(ids)
 	if err != nil {
@@ -49,7 +50,7 @@ func (r *WikiRepo) ListCardsByIDs(
 func cardsFromRows(rows []dbq.ListNoteCardsByIDsRow) map[string]WikiCard {
 	out := make(map[string]WikiCard, len(rows))
 	for i := range rows {
-		id := formatUUID(rows[i].ID)
+		id := pgstore.FormatUUID(rows[i].ID)
 		out[id] = WikiCard{
 			ID: id, Title: rows[i].Title,
 			Excerpt: rows[i].Excerpt, Published: rows[i].Published,
@@ -61,7 +62,7 @@ func cardsFromRows(rows []dbq.ListNoteCardsByIDsRow) map[string]WikiCard {
 func parsePinIDs(ids []string) ([]pgtype.UUID, error) {
 	uuids := make([]pgtype.UUID, 0, len(ids))
 	for _, id := range ids {
-		u, err := parseUUID(id)
+		u, err := pgstore.ParseUUID(id)
 		if err != nil {
 			return nil, fmt.Errorf("parse pin id %q: %w", id, err)
 		}

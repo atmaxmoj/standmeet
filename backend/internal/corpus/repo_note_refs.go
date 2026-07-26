@@ -4,7 +4,7 @@
 // PromoteToWiki / UpdateWiki 同事务调 ReplaceRefsBySrcTx 重建 src 出度；public
 // landing 调 BacklinksFor（入度=cited by）+ OutboundFor（出度=read next/sources）。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -12,16 +12,17 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // NoteRefRepo —— note_refs 表 CRUD。
 type NoteRefRepo struct {
-	pool *Pool
+	pool *pgstore.Pool
 }
 
 // NewNoteRefRepo 构造。
-func NewNoteRefRepo(pool *Pool) *NoteRefRepo { return &NoteRefRepo{pool: pool} }
+func NewNoteRefRepo(pool *pgstore.Pool) *NoteRefRepo { return &NoteRefRepo{pool: pool} }
 
 // NoteRef —— 一条 backlink / outbound ref（目标 note 的 id + title）。path 由
 // caller 用全树派生算（wiki 地址是树路径，不存）。
@@ -48,7 +49,7 @@ func (*NoteRefRepo) ReplaceRefsBySrcTx(
 }
 
 // ReplaceRefsBySrc —— 非事务版(wiki 写路径不在 tx 里)。边表是派生索引,delete +
-// insert 直接走 pool(*Pool 满足 dbq.DBTX)即可,不要求原子。caller 已去重 + 排 self。
+// insert 直接走 pool(*pgstore.Pool 满足 dbq.DBTX)即可,不要求原子。caller 已去重 + 排 self。
 func (r *NoteRefRepo) ReplaceRefsBySrc(
 	ctx context.Context, srcID, ownerID string, dstIDs []string,
 ) error {
@@ -71,7 +72,7 @@ func insertOneNoteRef(
 	ctx context.Context, q *dbq.Queries,
 	srcUUID, ownerUUID pgtype.UUID, dstID string,
 ) error {
-	dstUUID, derr := parseUUID(dstID)
+	dstUUID, derr := pgstore.ParseUUID(dstID)
 	if derr != nil {
 		return fmt.Errorf("parse dst id %s: %w", dstID, derr)
 	}
@@ -99,7 +100,7 @@ func (r *NoteRefRepo) BacklinksFor(
 	}
 	out := make([]NoteRef, 0, len(rows))
 	for i := range rows {
-		out = append(out, NoteRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+		out = append(out, NoteRef{ID: pgstore.FormatUUID(rows[i].ID), Title: rows[i].Title})
 	}
 	return out, nil
 }
@@ -120,7 +121,7 @@ func (r *NoteRefRepo) AdminBacklinksFor(
 	}
 	out := make([]NoteRef, 0, len(rows))
 	for i := range rows {
-		out = append(out, NoteRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+		out = append(out, NoteRef{ID: pgstore.FormatUUID(rows[i].ID), Title: rows[i].Title})
 	}
 	return out, nil
 }
@@ -141,7 +142,7 @@ func (r *NoteRefRepo) AdminOutboundFor(
 	}
 	out := make([]NoteRef, 0, len(rows))
 	for i := range rows {
-		out = append(out, NoteRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+		out = append(out, NoteRef{ID: pgstore.FormatUUID(rows[i].ID), Title: rows[i].Title})
 	}
 	return out, nil
 }
@@ -157,9 +158,9 @@ type OwnerNoteTitleRow struct {
 func (r *NoteRefRepo) OwnerNoteTitles(
 	ctx context.Context, ownerID string,
 ) ([]OwnerNoteTitleRow, error) {
-	ownerUUID, perr := parseUUID(ownerID)
+	ownerUUID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, perr)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, perr)
 	}
 	rows, err := dbq.New(r.pool).ListAllOwnerNoteTitles(ctx, ownerUUID)
 	if err != nil {
@@ -168,7 +169,7 @@ func (r *NoteRefRepo) OwnerNoteTitles(
 	out := make([]OwnerNoteTitleRow, 0, len(rows))
 	for i := range rows {
 		out = append(out, OwnerNoteTitleRow{
-			ID: formatUUID(rows[i].ID), Title: rows[i].Title, Genre: rows[i].Genre,
+			ID: pgstore.FormatUUID(rows[i].ID), Title: rows[i].Title, Genre: rows[i].Genre,
 		})
 	}
 	return out, nil
@@ -179,7 +180,7 @@ func (r *NoteRefRepo) OwnerNoteTitles(
 func (r *NoteRefRepo) OutboundFor(
 	ctx context.Context, srcID string,
 ) ([]NoteRef, error) {
-	srcUUID, perr := parseUUID(srcID)
+	srcUUID, perr := pgstore.ParseUUID(srcID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse src id: %w", perr)
 	}
@@ -189,7 +190,7 @@ func (r *NoteRefRepo) OutboundFor(
 	}
 	out := make([]NoteRef, 0, len(rows))
 	for i := range rows {
-		out = append(out, NoteRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+		out = append(out, NoteRef{ID: pgstore.FormatUUID(rows[i].ID), Title: rows[i].Title})
 	}
 	return out, nil
 }

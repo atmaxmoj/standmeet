@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
@@ -62,7 +62,7 @@ func WritingAssetIDs(bodyMD string, coverImageAssetID *string) []string {
 // ResolveAssetURLs —— 给一组真 asset ID 批量颁发 presigned URL。pending-*
 // 占位不会出现在这里（caller 已经 rewrite 完）。缺 ID 用 best-effort 跳过。
 func ResolveAssetURLs(
-	ctx context.Context, repo *postgres.AssetRepo, store *storage.Client,
+	ctx context.Context, repo *corpus.AssetRepo, store *storage.Client,
 	ids []string,
 ) (map[string]string, error) {
 	if len(ids) == 0 {
@@ -80,7 +80,7 @@ func ResolveAssetURLs(
 }
 
 func resolveOne(
-	ctx context.Context, repo *postgres.AssetRepo, store *storage.Client, id string,
+	ctx context.Context, repo *corpus.AssetRepo, store *storage.Client, id string,
 ) (string, error) {
 	asset, err := repo.GetByID(ctx, id)
 	if err != nil {

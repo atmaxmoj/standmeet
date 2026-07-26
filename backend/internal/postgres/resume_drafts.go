@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -47,7 +48,7 @@ func (r *ResumeDraftRepo) Create(
 ) (jobsmodel.ResumeDraft, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return jobsmodel.ResumeDraft{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return jobsmodel.ResumeDraft{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	snapshotJSON, err := json.Marshal(in.JobSnapshot)
 	if err != nil {
@@ -140,7 +141,7 @@ func (r *ResumeDraftRepo) ListByOwner(
 ) ([]jobsmodel.ResumeDraft, error) {
 	owner, err := parseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	rows, err := q.ListResumeDraftsByOwner(ctx, owner)
@@ -171,7 +172,7 @@ func (r *ResumeDraftRepo) SweepExpired(ctx context.Context) error {
 func parseDraftKey(ownerIDStr, idStr string) (draftKey, error) {
 	owner, err := parseUUID(ownerIDStr)
 	if err != nil {
-		return draftKey{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return draftKey{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	draft, err := parseUUID(idStr)
 	if err != nil {

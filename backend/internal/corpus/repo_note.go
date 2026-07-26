@@ -4,7 +4,7 @@
 // 只暴露 tree-note 通用面(建/读/meta/子/搜/改父/删),不含 genre 专属字段（source_ids、covers…）——
 // 那些留给各自 genre 的薄封装。地址仍纯树派生（parent 链）。
 
-package postgres
+package corpus
 
 import (
 	"context"
@@ -23,12 +23,14 @@ var ErrNoteNotFound = errors.New("note not found")
 
 // NoteRepo —— 绑定单个 genre 的通用笔记仓储。
 type NoteRepo struct {
-	pool  *Pool
+	pool  *pgstore.Pool
 	genre string
 }
 
 // NewNoteRepo 构造绑定给定 genre 的 NoteRepo。
-func NewNoteRepo(pool *Pool, genre string) *NoteRepo { return &NoteRepo{pool: pool, genre: genre} }
+func NewNoteRepo(pool *pgstore.Pool, genre string) *NoteRepo {
+	return &NoteRepo{pool: pool, genre: genre}
+}
 
 // Genre 返回本 repo 绑定的 genre。
 func (r *NoteRepo) Genre() string { return r.genre }
@@ -69,9 +71,9 @@ type CreateNoteInput struct {
 
 // Create 写一条新笔记（本 repo 的 genre）。
 func (r *NoteRepo) Create(ctx context.Context, in *CreateNoteInput) (Note, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return Note{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return Note{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
@@ -160,16 +162,16 @@ func (r *NoteRepo) GetMetaByID(ctx context.Context, ownerID, id string) (NoteMet
 		return NoteMeta{}, fmt.Errorf("get note meta: %w", err)
 	}
 	return NoteMeta{
-		ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+		ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published,
 	}, nil
 }
 
 // ListByOwner 返回 owner 本 genre 的笔记（最新 N 条）—— 满足 lister 接口。
 func (r *NoteRepo) ListByOwner(ctx context.Context, ownerID string, limit int32) ([]Note, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	rows, qerr := dbq.New(r.pool).ListNotesByOwner(ctx, dbq.ListNotesByOwnerParams{
 		OwnerID: ownerUUID, Genre: r.genre, Limit: limit,
@@ -196,7 +198,7 @@ func (r *NoteRepo) ListChildren(
 		},
 		func(row dbq.ListNoteChildrenRow) NoteMeta {
 			return NoteMeta{
-				ID: formatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
+				ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
@@ -206,9 +208,9 @@ func (r *NoteRepo) ListChildren(
 func (r *NoteRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
 ) ([]NoteMeta, error) {
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	rows, qerr := dbq.New(r.pool).SearchNotes(ctx, dbq.SearchNotesParams{
 		OwnerID: ownerUUID, Genre: r.genre, PlaintoTsquery: query, Limit: limit, Offset: offset,
@@ -219,7 +221,7 @@ func (r *NoteRepo) Search(
 	out := make([]NoteMeta, 0, len(rows))
 	for i := range rows {
 		out = append(out, NoteMeta{
-			ID: formatUUID(rows[i].ID), ParentID: pgstore.OptUUIDStr(rows[i].ParentID),
+			ID: pgstore.FormatUUID(rows[i].ID), ParentID: pgstore.OptUUIDStr(rows[i].ParentID),
 			Title: rows[i].Title, Published: rows[i].Published, Snippet: rows[i].Snippet,
 		})
 	}
@@ -242,11 +244,11 @@ func (r *NoteRepo) Delete(ctx context.Context, ownerID, id string) error {
 
 func noteFromRow(n *dbq.CorpusNote) Note {
 	out := Note{
-		ID: formatUUID(n.ID), OwnerID: formatUUID(n.OwnerID),
+		ID: pgstore.FormatUUID(n.ID), OwnerID: pgstore.FormatUUID(n.OwnerID),
 		Title: n.Title, Body: n.Body, Tags: n.Tags, ShowAsSource: n.ShowAsSource,
 	}
 	if n.ParentID.Valid {
-		s := formatUUID(n.ParentID)
+		s := pgstore.FormatUUID(n.ParentID)
 		out.ParentID = &s
 	}
 	return out

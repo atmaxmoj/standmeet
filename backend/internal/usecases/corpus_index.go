@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/search"
 )
 
@@ -30,7 +30,7 @@ type CorpusIndexer interface {
 // vault);writings 留在 Postgres 全文,不进 Meili。dirty:有过 Meili 写失败(down 期间)→ 恢复后 reconcile。
 type meiliCorpusIndexer struct {
 	client *search.Client
-	notes  *postgres.VaultSyncRepo
+	notes  *corpus.VaultSyncRepo
 	log    *slog.Logger
 	dirty  atomic.Bool
 }
@@ -39,7 +39,7 @@ type meiliCorpusIndexer struct {
 //
 //nolint:ireturn // nil-safe factory:client nil 返 nil 接口,写 hooks 全跳过
 func NewCorpusIndexer(
-	client *search.Client, notes *postgres.VaultSyncRepo, log *slog.Logger,
+	client *search.Client, notes *corpus.VaultSyncRepo, log *slog.Logger,
 ) CorpusIndexer {
 	if client == nil {
 		return nil
@@ -120,7 +120,7 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 		x.warn("reindex list notes", err)
 		notes = nil
 	}
-	byID := make(map[string]*postgres.SyncNote, len(notes))
+	byID := make(map[string]*corpus.SyncNote, len(notes))
 	for i := range notes {
 		byID[notes[i].ID] = &notes[i]
 	}
@@ -158,7 +158,7 @@ func syncNotePath(title, parentID string, parentOf func(id string) (string, stri
 
 // dbParentOf —— syncNotePath 的走库 backing:逐父 GetSyncNote。
 func dbParentOf(
-	ctx context.Context, notes *postgres.VaultSyncRepo, ownerID string,
+	ctx context.Context, notes *corpus.VaultSyncRepo, ownerID string,
 ) func(string) (string, string, bool) {
 	return func(id string) (string, string, bool) {
 		n, err := notes.GetSyncNote(ctx, ownerID, id)
@@ -167,7 +167,7 @@ func dbParentOf(
 }
 
 // mapParentOf —— syncNotePath 的内存 backing:ReindexOwner 批量,免 N 次查库。
-func mapParentOf(byID map[string]*postgres.SyncNote) func(string) (string, string, bool) {
+func mapParentOf(byID map[string]*corpus.SyncNote) func(string) (string, string, bool) {
 	return func(id string) (string, string, bool) {
 		n, ok := byID[id]
 		if !ok {

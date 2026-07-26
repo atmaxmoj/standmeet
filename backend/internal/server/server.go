@@ -13,6 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/corpus"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
@@ -86,8 +87,8 @@ type AdminDeps struct {
 	MCPServers      usecases.MCPServersDeps
 	Assets          usecases.AssetsDeps
 	Writings        usecases.WritingsDeps
-	WritingRefs     *postgres.WritingRefRepo
-	SEO             *postgres.SEORepo
+	WritingRefs     *corpus.WritingRefRepo
+	SEO             *corpus.SEORepo
 	Codes           *access.CodeRepo
 	Booking         adminroutes.BookingQuotaStore // #135: booker 自管的 per-code 预约配额读写口
 	CodeDenials     *access.CodeDenialRepo

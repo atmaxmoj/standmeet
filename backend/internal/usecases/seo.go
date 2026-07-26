@@ -10,17 +10,16 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // SEODeps —— SEO usecases 所需。Wiki/Output 用来 load 全树算公开 landing 地址
 // (纯树派生,不读已退役的 path 列)。
 type SEODeps struct {
 	Owners   *owner.Repo
-	SEO      *postgres.SEORepo
-	Wiki     *postgres.WikiRepo
-	Output   *postgres.OutputRepo
-	NoteRefs *postgres.NoteRefRepo
+	SEO      *corpus.SEORepo
+	Wiki     *corpus.WikiRepo
+	Output   *corpus.OutputRepo
+	NoteRefs *corpus.NoteRefRepo
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
@@ -108,7 +107,7 @@ func GetWikiLanding(
 type landingLocate struct {
 	scope WikiTreeScope
 	path  string
-	metas []postgres.WikiMeta
+	metas []corpus.WikiMeta
 }
 
 func assembleWikiLanding(
@@ -134,7 +133,7 @@ func assembleWikiLanding(
 // indexedWikiIDAtPath —— 全量 meta + 派生 path 里挑 path 命中且**这个查看者能看到**的那条 id。
 // 可见性交给 scope(匿名 = 只 published;code = role glob 内),不再写死 published（F-L-11）。
 func indexedWikiIDAtPath(
-	metas []postgres.WikiMeta, paths map[string]string, path string, scope WikiTreeScope,
+	metas []corpus.WikiMeta, paths map[string]string, path string, scope WikiTreeScope,
 ) (string, bool) {
 	for i := range metas {
 		if paths[metas[i].ID] == path && scope(metas[i].Published, path) {
@@ -163,7 +162,7 @@ func loadWikiRefSides(
 	}, nil
 }
 
-func wikiRefsToPathTitle(refs []postgres.NoteRef, paths map[string]string) []WikiPathTitle {
+func wikiRefsToPathTitle(refs []corpus.NoteRef, paths map[string]string) []WikiPathTitle {
 	out := make([]WikiPathTitle, 0, len(refs))
 	for i := range refs {
 		out = append(out, WikiPathTitle{Title: refs[i].Title, Path: paths[refs[i].ID]})
@@ -232,7 +231,7 @@ func resolveOutputLanding(
 
 // indexedOutputIDAtPath —— wiki 的 output 孪生:全量 meta 里挑 indexed + path 命中的 id。
 func indexedOutputIDAtPath(
-	metas []postgres.OutputMeta, paths map[string]string, path string,
+	metas []corpus.OutputMeta, paths map[string]string, path string,
 ) (string, bool) {
 	for i := range metas {
 		if metas[i].Published && paths[metas[i].ID] == path {

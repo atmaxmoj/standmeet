@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 const gridPageSize = 30
@@ -92,23 +91,23 @@ func (h *Handlers) pageRaw() http.HandlerFunc {
 
 // nextWikiCursor —— empty unless the LIMIT+1 fetch overflowed the page; then the last
 // in-page row's keyset. Per-genre (domain accessors have pointer receivers).
-func nextWikiCursor(rows []postgres.TreeChild[corpus.Wiki]) string {
+func nextWikiCursor(rows []corpus.TreeChild[corpus.Wiki]) string {
 	last := &rows[gridPageSize-1].Entry
 	return encodeCursor(last.CreatedAt(), last.ID())
 }
 
-func nextOutputCursor(rows []postgres.TreeChild[corpus.Output]) string {
+func nextOutputCursor(rows []corpus.TreeChild[corpus.Output]) string {
 	last := &rows[gridPageSize-1].Entry
 	return encodeCursor(last.CreatedAt(), last.ID())
 }
 
-func nextRawCursor(rows []postgres.TreeChild[corpus.Raw]) string {
+func nextRawCursor(rows []corpus.TreeChild[corpus.Raw]) string {
 	last := &rows[gridPageSize-1].Entry
 	return encodeCursor(last.CreatedAt(), last.ID())
 }
 
 func writeWikiPage(
-	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpus.Wiki],
+	log *slog.Logger, w http.ResponseWriter, rows []corpus.TreeChild[corpus.Wiki],
 ) {
 	over := len(rows) > gridPageSize
 	page := rows
@@ -127,7 +126,7 @@ func writeWikiPage(
 }
 
 func writeOutputPage(
-	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpus.Output],
+	log *slog.Logger, w http.ResponseWriter, rows []corpus.TreeChild[corpus.Output],
 ) {
 	over := len(rows) > gridPageSize
 	page := rows
@@ -146,7 +145,7 @@ func writeOutputPage(
 }
 
 func writeRawPage(
-	log *slog.Logger, w http.ResponseWriter, rows []postgres.TreeChild[corpus.Raw],
+	log *slog.Logger, w http.ResponseWriter, rows []corpus.TreeChild[corpus.Raw],
 ) {
 	over := len(rows) > gridPageSize
 	page := rows
@@ -175,7 +174,7 @@ func encodeCursor(t time.Time, id string) string {
 	)
 }
 
-func decodeCursor(s string) (*postgres.PageCursor, error) {
+func decodeCursor(s string) (*corpus.PageCursor, error) {
 	if s == "" {
 		return nil, nil //nolint:nilnil // empty cursor = first page, not an error
 	}
@@ -186,7 +185,7 @@ func decodeCursor(s string) (*postgres.PageCursor, error) {
 	return parseCursor(string(raw))
 }
 
-func parseCursor(raw string) (*postgres.PageCursor, error) {
+func parseCursor(raw string) (*corpus.PageCursor, error) {
 	ts, id, ok := strings.Cut(raw, "|")
 	if !ok {
 		return nil, errors.New("cursor missing separator")
@@ -195,5 +194,5 @@ func parseCursor(raw string) (*postgres.PageCursor, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cursor time: %w", err)
 	}
-	return &postgres.PageCursor{CreatedAt: t, ID: id}, nil
+	return &corpus.PageCursor{CreatedAt: t, ID: id}, nil
 }
