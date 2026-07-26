@@ -2,7 +2,7 @@
 // revoke 只在 code 级别（status='revoked'）做；单 member 不可单独 revoke ——
 // 那种复杂度不值。
 
-package accessdomain
+package access
 
 import (
 	"errors"
@@ -19,7 +19,7 @@ import (
 //     出 [[role_snapshot]]。owner 不显式选 → usecase 默认绑 public。
 //
 // #135:per-code 预约配额不在内核 —— booker 能力自管(它的 capstore),内核不认。
-type AccessCode struct {
+type AccessCode struct { //nolint:revive // AccessCode = invitation, domain term
 	CreatedAt          time.Time
 	ExpiresAt          *time.Time
 	MaxMembers         *int32

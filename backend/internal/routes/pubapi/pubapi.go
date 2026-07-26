@@ -21,7 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/paritymanifest"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -36,11 +36,11 @@ const rateWindow = time.Minute
 // maxAPIBodyBytes —— per-request body cap (DoS bound); a tool arg payload is small JSON.
 const maxAPIBodyBytes = 1 << 20
 
-// KeyStore —— everything the facade needs off the api-key persistence (postgres.APIKeyRepo
+// KeyStore —— everything the facade needs off the api-key persistence (access.APIKeyRepo
 // implements it): auth lookup, per-key denials, the owner's opened capabilities, last-used bump.
 type KeyStore interface {
 	usecases.APIToolsetStore
-	GetBySecretHash(ctx context.Context, hash []byte) (accessdomain.APIKey, error)
+	GetBySecretHash(ctx context.Context, hash []byte) (access.APIKey, error)
 	TouchLastUsed(ctx context.Context, id string) error
 }
 
@@ -118,8 +118,8 @@ func (h *Handlers) toolsetDeps() usecases.APIToolsetDeps {
 	return usecases.APIToolsetDeps{Visitor: h.d.Visitor, Store: h.d.Keys, Skills: h.d.AgentSkills}
 }
 
-func keyFromCtx(ctx context.Context) *accessdomain.APIKey {
-	k, ok := ctx.Value(keyCtxKey).(*accessdomain.APIKey)
+func keyFromCtx(ctx context.Context) *access.APIKey {
+	k, ok := ctx.Value(keyCtxKey).(*access.APIKey)
 	if !ok {
 		return nil
 	}
@@ -136,7 +136,7 @@ func toolsetFromCtx(ctx context.Context) *usecases.APIToolset {
 
 // allowRate —— per-key fixed-window limiter. Fail-open on Redis error (authenticated keys →
 // availability over throttling, unlike login_guard which fails closed).
-func (h *Handlers) allowRate(ctx context.Context, key *accessdomain.APIKey) bool {
+func (h *Handlers) allowRate(ctx context.Context, key *access.APIKey) bool {
 	rkey := "ratelimit:apikey:" + key.ID
 	n, err := h.d.Redis.Incr(ctx, rkey).Result()
 	if err != nil {
@@ -155,7 +155,7 @@ func (h *Handlers) setRateExpiry(ctx context.Context, rkey string) {
 	}
 }
 
-func keyLimit(key *accessdomain.APIKey, def int) int {
+func keyLimit(key *access.APIKey, def int) int {
 	if key.RateLimitRPM != nil && *key.RateLimitRPM > 0 {
 		return int(*key.RateLimitRPM)
 	}

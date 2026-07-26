@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -61,7 +61,7 @@ func (h *AccessRequestsHandlers) submit() http.HandlerFunc {
 	}
 }
 
-func writeSubmitResp(log *slog.Logger, w http.ResponseWriter, a *accessdomain.AccessRequest) {
+func writeSubmitResp(log *slog.Logger, w http.ResponseWriter, a *access.AccessRequest) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	resp := submitRequestResponse{ID: a.ID, Status: a.Status}

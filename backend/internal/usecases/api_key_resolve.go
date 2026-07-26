@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
-// APIKeyResolver —— the auth side: hash → key lookup (postgres.APIKeyRepo implements it).
+// APIKeyResolver —— the auth side: hash → key lookup (access.APIKeyRepo implements it).
 type APIKeyResolver interface {
-	GetBySecretHash(ctx context.Context, hash []byte) (accessdomain.APIKey, error)
+	GetBySecretHash(ctx context.Context, hash []byte) (access.APIKey, error)
 }
 
 // ResolveAPIKey —— auth: hash the presented secret and look up the active key. A malformed or
@@ -22,14 +22,14 @@ type APIKeyResolver interface {
 // here: the lookup is by sha256 of the secret, so timing reveals nothing about a valid secret.
 func ResolveAPIKey(
 	ctx context.Context, store APIKeyResolver, rawSecret string,
-) (accessdomain.APIKey, error) {
+) (access.APIKey, error) {
 	if !strings.HasPrefix(rawSecret, apiKeyPrefix) {
-		return accessdomain.APIKey{}, accessdomain.ErrAPIKeyNotFound
+		return access.APIKey{}, access.ErrAPIKeyNotFound
 	}
 	sum := sha256.Sum256([]byte(rawSecret))
 	key, err := store.GetBySecretHash(ctx, sum[:])
 	if err != nil {
-		return accessdomain.APIKey{}, fmt.Errorf("resolve api key: %w", err)
+		return access.APIKey{}, fmt.Errorf("resolve api key: %w", err)
 	}
 	return key, nil
 }

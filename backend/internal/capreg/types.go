@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -43,7 +43,7 @@ type AssembleInput struct {
 	OwnerID        string
 	Mode           string
 	CodeID         string
-	Visitor        accessdomain.VisitorProfile
+	Visitor        access.VisitorProfile
 	ConversationID string
 }
 

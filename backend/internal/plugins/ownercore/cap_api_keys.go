@@ -13,7 +13,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -21,18 +21,18 @@ import (
 
 const apiKeysBundle = "api_keys.bundle"
 
-// apiKeyCRUD —— the key-row half of the repo surface (postgres.APIKeyRepo implements it). A
+// apiKeyCRUD —— the key-row half of the repo surface (access.APIKeyRepo implements it). A
 // superset of usecases.APIKeyStore ({Create}), so d.Keys also satisfies the mint usecase's dep.
 type apiKeyCRUD interface {
 	Create(
-		ctx context.Context, in *accessdomain.CreateAPIKeyInput,
-	) (accessdomain.APIKey, error)
-	ListByOwner(ctx context.Context, ownerID string) ([]accessdomain.APIKey, error)
-	GetByID(ctx context.Context, id, ownerID string) (accessdomain.APIKey, error)
+		ctx context.Context, in *access.CreateAPIKeyInput,
+	) (access.APIKey, error)
+	ListByOwner(ctx context.Context, ownerID string) ([]access.APIKey, error)
+	GetByID(ctx context.Context, id, ownerID string) (access.APIKey, error)
 	Revoke(ctx context.Context, id, ownerID string) error
 	Update(
-		ctx context.Context, in *accessdomain.UpdateAPIKeyInput,
-	) (accessdomain.APIKey, error)
+		ctx context.Context, in *access.UpdateAPIKeyInput,
+	) (access.APIKey, error)
 }
 
 // apiKeyACLStore —— the per-key denial + owner-wide candidacy half (backs cap_api_keys_acl.go).
@@ -248,7 +248,7 @@ func (c *apiKeysCapability) handleList(
 	return mcputil.MarshalResult(c.log, "api_keys.list", out)
 }
 
-func apiKeyRowToView(k *accessdomain.APIKey) apiKeyRowView {
+func apiKeyRowToView(k *access.APIKey) apiKeyRowView {
 	v := apiKeyRowView{
 		ID: k.ID, Label: k.Label, Prefix: k.Prefix, Status: k.Status,
 		AssumedRoleID: k.AssumedRoleID, RateLimitRPM: k.RateLimitRPM,

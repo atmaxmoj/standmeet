@@ -19,7 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/jobsdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -55,7 +55,7 @@ type CommitInput struct {
 // 让方法签名 ≤2 returns（lint）。
 type CommitOutput struct {
 	Application jobsdomain.Application
-	AccessCode  accessdomain.AccessCode
+	AccessCode  access.AccessCode
 }
 
 // Commit —— 全套事务。返回新 application + 新 access_code 的 domain 形状
@@ -161,14 +161,14 @@ func loadDraftForCommit(
 
 func insertAccessCode(
 	ctx context.Context, q *dbq.Queries, in *CommitInput, ownerUUID pgtype.UUID, briefing string,
-) (accessdomain.AccessCode, error) {
+) (access.AccessCode, error) {
 	emptyJSON, jerr := json.Marshal([]any{})
 	if jerr != nil {
-		return accessdomain.AccessCode{}, fmt.Errorf("marshal empty jsonb: %w", jerr)
+		return access.AccessCode{}, fmt.Errorf("marshal empty jsonb: %w", jerr)
 	}
 	roleUUID, rerr := parseUUID(in.AssumedRoleID)
 	if rerr != nil {
-		return accessdomain.AccessCode{}, fmt.Errorf("parse assumed_role_id: %w", rerr)
+		return access.AccessCode{}, fmt.Errorf("parse assumed_role_id: %w", rerr)
 	}
 	expires := pgtype.Timestamptz{}
 	if in.CodeExpiresAt != nil {
@@ -187,7 +187,7 @@ func insertAccessCode(
 		InlinePrompt:       briefing,
 	})
 	if err != nil {
-		return accessdomain.AccessCode{}, fmt.Errorf("create access code: %w", err)
+		return access.AccessCode{}, fmt.Errorf("create access code: %w", err)
 	}
 	return toDomainCode(&row), nil
 }
@@ -215,7 +215,7 @@ func recruiterBriefing(jobSnapshotJSON []byte) string {
 type appInsert struct {
 	key   *draftKey
 	draft *dbq.ResumeDraft
-	code  *accessdomain.AccessCode
+	code  *access.AccessCode
 	appID string
 }
 

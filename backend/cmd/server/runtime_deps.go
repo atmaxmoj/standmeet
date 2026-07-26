@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/inference"
@@ -58,7 +59,7 @@ type runtimeDeps struct {
 	seoRepo            *postgres.SEORepo
 	customPageRepo     *postgres.CustomPageRepo
 	customBuildRepo    *postgres.CustomBuildRepo
-	accessRequestRepo  *postgres.AccessRequestRepo
+	accessRequestRepo  *access.AccessRequestRepo
 	jobSourceRepo      *postgres.JobSourceRepo
 	resumeDraftRepo    *postgres.ResumeDraftRepo
 	applicationRepo    *postgres.ApplicationRepo
@@ -75,7 +76,7 @@ type runtimeDeps struct {
 	chatReportRepo     *postgres.ChatReportRepo
 	inferenceUsageRepo *stats.InferenceUsageRepo
 	bannedIPRepo       *security.BannedIPRepo
-	apiKeyRepo         *postgres.APIKeyRepo
+	apiKeyRepo         *access.APIKeyRepo
 	appStateRepo       *postgres.AppStateRepo
 	connectorRepo      *postgres.ConnectorRepo
 	connectorHub       *connector.Hub

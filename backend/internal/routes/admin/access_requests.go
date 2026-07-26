@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
@@ -98,7 +98,7 @@ func (h *Handlers) updateAccessRequest() http.HandlerFunc {
 }
 
 func writeAccessRequestList(
-	log *slog.Logger, w http.ResponseWriter, rows []accessdomain.AccessRequest,
+	log *slog.Logger, w http.ResponseWriter, rows []access.AccessRequest,
 ) {
 	items := make([]accessRequestView, 0, len(rows))
 	for i := range rows {
@@ -112,7 +112,7 @@ func writeAccessRequestList(
 }
 
 func writeAccessRequestSingle(
-	log *slog.Logger, w http.ResponseWriter, a *accessdomain.AccessRequest,
+	log *slog.Logger, w http.ResponseWriter, a *access.AccessRequest,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -121,7 +121,7 @@ func writeAccessRequestSingle(
 	}
 }
 
-func toAccessRequestView(a *accessdomain.AccessRequest) accessRequestView {
+func toAccessRequestView(a *access.AccessRequest) accessRequestView {
 	return accessRequestView{
 		ID:        a.ID,
 		Name:      a.Name,
@@ -136,10 +136,10 @@ func toAccessRequestView(a *accessdomain.AccessRequest) accessRequestView {
 var adminAccessRequestErrCases = []apierr.Case{
 	{Match: usecases.ErrEmptyField, Envelope: envBadReq("missing required field")},
 	{
-		Match:    accessdomain.ErrAccessRequestStatusInvalid,
+		Match:    access.ErrAccessRequestStatusInvalid,
 		Envelope: envBadReq("invalid status value"),
 	},
-	{Match: accessdomain.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
+	{Match: access.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "not_found", Message: "request not found",
 	}},
 }
@@ -155,7 +155,7 @@ func handleAdminAccessRequestErr(log *slog.Logger, w http.ResponseWriter, err er
 var approveErrCases = []apierr.Case{
 	{Match: consumer.ErrMailNotConfigured, Envelope: envBadReq(
 		"configure and test your mail connector first")},
-	{Match: accessdomain.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
+	{Match: access.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "not_found", Message: "request not found",
 	}},
 }

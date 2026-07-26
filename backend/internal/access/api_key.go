@@ -1,4 +1,4 @@
-package accessdomain
+package access
 
 import (
 	"errors"

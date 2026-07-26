@@ -129,3 +129,12 @@ func NilSafeStrings(s []string) []string {
 	}
 	return s
 }
+
+// UUIDStrings —— []pgtype.UUID → []string(逐个 FormatUUID)。
+func UUIDStrings(us []pgtype.UUID) []string {
+	out := make([]string, 0, len(us))
+	for _, u := range us {
+		out = append(out, FormatUUID(u))
+	}
+	return out
+}

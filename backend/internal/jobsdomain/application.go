@@ -14,7 +14,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 // Application —— DB-backed application row。
@@ -42,7 +42,7 @@ type CreateApplicationInput struct {
 // 的 AccessCode（plaintext code 给 QR URL）+ 最终 PDF bytes。
 type CommittedApplication struct {
 	Application Application
-	AccessCode  accessdomain.AccessCode
+	AccessCode  access.AccessCode
 	QRURL       string
 	PDF         []byte
 }

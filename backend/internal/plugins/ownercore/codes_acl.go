@@ -11,7 +11,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
@@ -112,7 +112,7 @@ func (c *codesCapability) handleListCodes(
 }
 
 func (c *codesCapability) codeRowToView(
-	ctx context.Context, code *accessdomain.AccessCode,
+	ctx context.Context, code *access.AccessCode,
 ) codeRowView {
 	v := codeRowView{
 		ID: code.ID, Code: code.Code, Label: code.Label, Status: code.Status,
@@ -166,7 +166,7 @@ func (c *codesCapability) handleListMembers(
 	return mcputil.MarshalResult(c.log, "codes.list_members", out)
 }
 
-func memberRowToView(m *accessdomain.CodeMember) memberRowView {
+func memberRowToView(m *access.CodeMember) memberRowView {
 	v := memberRowView{
 		ID: m.ID, DisplayName: m.DisplayName, Email: m.Email,
 		IsAnonymous: m.IsAnonymous,

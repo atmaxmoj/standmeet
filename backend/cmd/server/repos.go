@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/url"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/config"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
@@ -54,7 +55,7 @@ type repoSet struct {
 	seo            *postgres.SEORepo
 	customPage     *postgres.CustomPageRepo
 	customBuild    *postgres.CustomBuildRepo
-	accessRequest  *postgres.AccessRequestRepo
+	accessRequest  *access.AccessRequestRepo
 	jobSource      *postgres.JobSourceRepo
 	resumeDraft    *postgres.ResumeDraftRepo
 	application    *postgres.ApplicationRepo
@@ -71,7 +72,7 @@ type repoSet struct {
 	chatReport     *postgres.ChatReportRepo
 	inferenceUsage *stats.InferenceUsageRepo
 	bannedIP       *security.BannedIPRepo
-	apiKey         *postgres.APIKeyRepo
+	apiKey         *access.APIKeyRepo
 	appState       *postgres.AppStateRepo
 	connector      *postgres.ConnectorRepo
 }
@@ -95,7 +96,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		seo:            postgres.NewSEORepo(db),
 		customPage:     postgres.NewCustomPageRepo(db),
 		customBuild:    postgres.NewCustomBuildRepo(db),
-		accessRequest:  postgres.NewAccessRequestRepo(db),
+		accessRequest:  access.NewAccessRequestRepo(db),
 		jobSource:      postgres.NewJobSourceRepo(db),
 		resumeDraft:    postgres.NewResumeDraftRepo(db),
 		application:    postgres.NewApplicationRepo(db),
@@ -112,7 +113,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		chatReport:     postgres.NewChatReportRepo(db),
 		inferenceUsage: stats.NewInferenceUsageRepo(db),
 		bannedIP:       security.NewBannedIPRepo(db),
-		apiKey:         postgres.NewAPIKeyRepo(db),
+		apiKey:         access.NewAPIKeyRepo(db),
 		appState:       postgres.NewAppStateRepo(db),
 		connector:      postgres.NewConnectorRepo(db),
 	}

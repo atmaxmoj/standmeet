@@ -2,7 +2,7 @@
 // owner 在 /admin/requests 看；open → replied (回邮件后) / closed (无视)。
 // 不自动通知 owner、不自动回邮件——owner-curated，是 product 设计的明确选择。
 
-package accessdomain
+package access
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 
 // AccessRequest —— 一条访客留言。字段顺序按 govet fieldalignment：
 // time.Time 在前（内部 ptr at offset 16），strings 紧跟。
-type AccessRequest struct {
+type AccessRequest struct { //nolint:revive // AccessRequest domain term
 	CreatedAt time.Time
 	ID        string
 	OwnerID   string

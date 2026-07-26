@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
@@ -138,7 +138,7 @@ func runCreateCode(
 
 var createCodeErrCases = []apierr.Case{
 	{
-		Match: accessdomain.ErrCodeTaken,
+		Match: access.ErrCodeTaken,
 		Envelope: apierr.Envelope{
 			Status: http.StatusConflict, Code: "code_taken",
 			Message: "That access code already exists.",
@@ -203,7 +203,7 @@ func lookupPublicRoleID(r *http.Request, h *Handlers, ownerID string) (string, e
 }
 
 func writeCreatedCode(
-	r *http.Request, h *Handlers, w http.ResponseWriter, c *accessdomain.AccessCode,
+	r *http.Request, h *Handlers, w http.ResponseWriter, c *access.AccessCode,
 ) {
 	v := toCodeView(r.Context(), h, c)
 	w.Header().Set("Content-Type", "application/json")
@@ -252,7 +252,7 @@ func (h *Handlers) updateCodeQuotas() http.HandlerFunc {
 }
 
 func handleUpdateQuotasErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, accessdomain.ErrCodeInvalid) {
+	if errors.Is(err, access.ErrCodeInvalid) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "code_not_found", Message: "code not found",
 		})
@@ -263,7 +263,7 @@ func handleUpdateQuotasErr(log *slog.Logger, w http.ResponseWriter, err error) {
 }
 
 func writeQuotaResp(
-	r *http.Request, h *Handlers, w http.ResponseWriter, c *accessdomain.AccessCode,
+	r *http.Request, h *Handlers, w http.ResponseWriter, c *access.AccessCode,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -293,7 +293,7 @@ func (h *Handlers) listCodeMembers() http.HandlerFunc {
 	}
 }
 
-func writeMembersList(log *slog.Logger, w http.ResponseWriter, ms []accessdomain.CodeMember) {
+func writeMembersList(log *slog.Logger, w http.ResponseWriter, ms []access.CodeMember) {
 	items := make([]memberView, 0, len(ms))
 	for i := range ms {
 		items = append(items, toMemberView(&ms[i]))
@@ -305,7 +305,7 @@ func writeMembersList(log *slog.Logger, w http.ResponseWriter, ms []accessdomain
 	}
 }
 
-func toMemberView(m *accessdomain.CodeMember) memberView {
+func toMemberView(m *access.CodeMember) memberView {
 	return memberView{
 		ID:          m.ID,
 		DisplayName: m.DisplayName,

@@ -16,7 +16,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -56,7 +56,7 @@ type VisitorSessionData struct {
 	MemberID     string               `json:"member_id"`
 	// Visitor —— 访客自述身份(name + 可选 email)。挂 session(visitor 身份),
 	// 不挂 chat。booker 拿 Email 当 visitor_email 兜底。
-	Visitor accessdomain.VisitorProfile `json:"visitor"`
+	Visitor access.VisitorProfile `json:"visitor"`
 	// VisitedWaypoints —— ghost-steering 的 waypoint ledger:已到访的 waypoint_id 集
 	// (引用命中 evidence_refs / booking 命中 terminal → 加入)。ghost policy 只推未访问的;
 	// 全到 = destination reached。机械标记,无 LLM 判官(α≈0)。

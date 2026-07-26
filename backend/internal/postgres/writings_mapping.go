@@ -123,10 +123,3 @@ func writingVisibilityOr(v string) string {
 	}
 	return corpusdomain.WritingVisibilityPublic
 }
-
-func toTimestamptz(t *time.Time) pgtype.Timestamptz {
-	if t == nil {
-		return pgtype.Timestamptz{Valid: false}
-	}
-	return pgtype.Timestamptz{Time: *t, Valid: true}
-}

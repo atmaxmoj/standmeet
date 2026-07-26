@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )
@@ -22,7 +22,7 @@ import (
 // buildRoleSnapshotForCode —— code.AssumedRoleID 必填（schema NOT NULL）→ 构造
 // RoleSnapshot。失败永远是真 error。
 func buildRoleSnapshotForCode(
-	ctx context.Context, deps *VisitorSessionDeps, code *accessdomain.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode,
 ) (domain.RoleSnapshot, error) {
 	denials, err := loadCodeDenials(ctx, deps, code.ID)
 	if err != nil {
@@ -65,7 +65,7 @@ func loadCodeWaypoints(
 // resolveCodePrompt —— #104 扩展的取值：内联 per-code prompt 优先（发码方随码带，不查库），
 // 空则走 prompt_id 库引用（owner 集中管理那份）。
 func resolveCodePrompt(
-	ctx context.Context, deps *VisitorSessionDeps, code *accessdomain.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *access.AccessCode,
 ) (string, error) {
 	if code.InlinePrompt != "" {
 		return code.InlinePrompt, nil
@@ -106,8 +106,8 @@ func loadCodeDenials(
 	return roleDenials{Caps: caps, Skills: skills, Corpus: uris}, nil
 }
 
-// APIKeyDenialReader —— read an API key's deny set (postgres.APIKeyRepo implements it). Same shape
-// as the code denial reader; the api facade subtracts these from the assumed role's grant.
+// APIKeyDenialReader —— read an API key's deny set (access.APIKeyRepo implements it).
+// Same shape as the code denial reader; the api facade subtracts these from the role's grant.
 type APIKeyDenialReader interface {
 	ListCapabilityDenials(ctx context.Context, keyID string) ([]string, error)
 	ListSkillDenials(ctx context.Context, keyID string) ([]string, error)
@@ -118,7 +118,7 @@ type APIKeyDenialReader interface {
 // used purely to gate which capabilities/tools the key's HTTP calls may reach.
 func BuildAPIKeyRoleSnapshot(
 	ctx context.Context, deps *VisitorSessionDeps, denials APIKeyDenialReader,
-	key *accessdomain.APIKey,
+	key *access.APIKey,
 ) (domain.RoleSnapshot, error) {
 	caps, err := denials.ListCapabilityDenials(ctx, key.ID)
 	if err != nil {

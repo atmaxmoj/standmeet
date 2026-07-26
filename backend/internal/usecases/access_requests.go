@@ -10,14 +10,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // AccessRequestsDeps —— SubmitForOwner / ListForOwner / UpdateStatus 共享依赖。
 type AccessRequestsDeps struct {
-	Repo   *postgres.AccessRequestRepo
+	Repo   *access.AccessRequestRepo
 	Owners *postgres.OwnerRepo
 }
 
@@ -34,20 +34,20 @@ type SubmitAccessRequestInput struct {
 // 必填 email + message；instance 必须已 claim（否则 ErrOwnerNotFound）。
 func SubmitForOwner(
 	ctx context.Context, deps AccessRequestsDeps, in *SubmitAccessRequestInput,
-) (accessdomain.AccessRequest, error) {
+) (access.AccessRequest, error) {
 	if !validSubmitInput(in) {
-		return accessdomain.AccessRequest{}, ErrEmptyField
+		return access.AccessRequest{}, ErrEmptyField
 	}
 	owner, err := loadSoleOwnerForRequest(ctx, deps)
 	if err != nil {
-		return accessdomain.AccessRequest{}, err
+		return access.AccessRequest{}, err
 	}
-	out, err := deps.Repo.Create(ctx, &accessdomain.CreateAccessRequestInput{
+	out, err := deps.Repo.Create(ctx, &access.CreateAccessRequestInput{
 		OwnerID: owner.ID, Name: in.Name, Org: in.Org,
 		Email: in.Email, Message: in.Message,
 	})
 	if err != nil {
-		return accessdomain.AccessRequest{}, fmt.Errorf("create access request: %w", err)
+		return access.AccessRequest{}, fmt.Errorf("create access request: %w", err)
 	}
 	return out, nil
 }
@@ -79,12 +79,12 @@ func loadSoleOwnerForRequest(
 // ListForOwner —— admin list。status 可空，空 = 全部。
 func ListForOwner(
 	ctx context.Context, deps AccessRequestsDeps, ownerID, status string,
-) ([]accessdomain.AccessRequest, error) {
+) ([]access.AccessRequest, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}
 	if !validStatusFilter(status) {
-		return nil, accessdomain.ErrAccessRequestStatusInvalid
+		return nil, access.ErrAccessRequestStatusInvalid
 	}
 	rows, err := deps.Repo.ListByOwner(ctx, ownerID, status)
 	if err != nil {
@@ -96,16 +96,16 @@ func ListForOwner(
 // UpdateAccessRequestStatus —— admin 改 status。status 必须是 open/replied/closed。
 func UpdateAccessRequestStatus(
 	ctx context.Context, deps AccessRequestsDeps, ownerID, id, status string,
-) (accessdomain.AccessRequest, error) {
+) (access.AccessRequest, error) {
 	if ownerID == "" || id == "" {
-		return accessdomain.AccessRequest{}, ErrEmptyField
+		return access.AccessRequest{}, ErrEmptyField
 	}
 	if !validStatus(status) {
-		return accessdomain.AccessRequest{}, accessdomain.ErrAccessRequestStatusInvalid
+		return access.AccessRequest{}, access.ErrAccessRequestStatusInvalid
 	}
 	out, err := deps.Repo.UpdateStatus(ctx, ownerID, id, status)
 	if err != nil {
-		return accessdomain.AccessRequest{}, fmt.Errorf("update access request: %w", err)
+		return access.AccessRequest{}, fmt.Errorf("update access request: %w", err)
 	}
 	return out, nil
 }

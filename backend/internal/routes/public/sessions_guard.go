@@ -9,7 +9,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -66,7 +66,7 @@ func (h *Handlers) codeLocked(
 
 // noteCodeFail —— 只在**无效码**时累计失败(暴力枚举信号);过期/其他错误不计。
 func (h *Handlers) noteCodeFail(ctx context.Context, ip string, err error) {
-	if errors.Is(err, accessdomain.ErrCodeInvalid) {
+	if errors.Is(err, access.ErrCodeInvalid) {
 		h.CodeGuard.RecordFail(ctx, ip)
 	}
 }

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/ownerdomain"
@@ -54,7 +54,7 @@ func OwnerCanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string
 // ApproveRequestDeps —— approve 闭环依赖(跨 mail / requests / codes / roles / owners)。
 // Proxy = 出站发信(连接器代调，凭据不出 vault)；Mail = 连接器状态读(Connected 预检)。
 type ApproveRequestDeps struct {
-	Reqs   *postgres.AccessRequestRepo
+	Reqs   *access.AccessRequestRepo
 	Codes  *postgres.CodeRepo
 	Roles  *postgres.RoleRepo
 	Owners *postgres.OwnerRepo
@@ -111,7 +111,7 @@ func prepareApproval(
 }
 
 type approvalContext struct {
-	req   accessdomain.AccessRequest
+	req   access.AccessRequest
 	owner ownerdomain.Owner
 }
 
@@ -147,7 +147,7 @@ func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID strin
 	}
 	expires := time.Now().AddDate(0, 0, inviteCodeDays)
 	maxMembers := int32(inviteMaxMembers)
-	if _, cerr := deps.Codes.CreateAccessCode(ctx, &accessdomain.CreateAccessCodeInput{
+	if _, cerr := deps.Codes.CreateAccessCode(ctx, &access.CreateAccessCodeInput{
 		OwnerID: ownerID, Code: code, Label: "invite",
 		Purpose: "access request approval", AssumedRoleID: public.ID(),
 		ExpiresAt: &expires, MaxMembers: &maxMembers,
@@ -172,7 +172,7 @@ func buildCodeLink(publicURL, code string) string {
 	return strings.TrimRight(publicURL, "/") + "?code=" + code
 }
 
-func buildApprovalEmail(req *accessdomain.AccessRequest, code, link string) OutboundMessage {
+func buildApprovalEmail(req *access.AccessRequest, code, link string) OutboundMessage {
 	greeting := "Hi there,"
 	if req.Name != "" {
 		greeting = "Hi " + req.Name + ","

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/accessdomain"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -30,11 +30,11 @@ var (
 	ErrAPIKeyRoleRequired  = errors.New("assumed_role_id is required")
 )
 
-// APIKeyStore —— the mint side (postgres.APIKeyRepo implements it).
+// APIKeyStore —— the mint side (access.APIKeyRepo implements it).
 type APIKeyStore interface {
 	Create(
-		ctx context.Context, in *accessdomain.CreateAPIKeyInput,
-	) (accessdomain.APIKey, error)
+		ctx context.Context, in *access.CreateAPIKeyInput,
+	) (access.APIKey, error)
 }
 
 // APIKeyRoleGetter —— validate the assumed role exists + belongs to the owner at mint time.
@@ -68,7 +68,7 @@ type apiKeySecret struct {
 // IssuedAPIKey —— the mint result: the raw secret to show once + the persisted key.
 type IssuedAPIKey struct {
 	Secret string
-	Key    accessdomain.APIKey
+	Key    access.APIKey
 }
 
 // IssueAPIKey —— validate the role, generate + hash a secret, persist the key, and return the raw
@@ -83,7 +83,7 @@ func IssueAPIKey(
 	if serr != nil {
 		return IssuedAPIKey{}, serr
 	}
-	key, cerr := deps.Keys.Create(ctx, &accessdomain.CreateAPIKeyInput{
+	key, cerr := deps.Keys.Create(ctx, &access.CreateAPIKeyInput{
 		OwnerID: in.OwnerID, AssumedRoleID: in.AssumedRoleID, Label: in.Label,
 		Prefix: secret.Prefix, SecretHash: secret.Hash,
 		RateLimitRPM: in.RateLimitRPM, ExpiresAt: in.ExpiresAt,
