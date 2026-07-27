@@ -1,7 +1,7 @@
 // inference_usage.go —— #106 计费:inference_usage 表访问。每次 owner-key LLM 调用 Record 一行,
 // admin Summary 拿近 7 天按天×model 聚合,boot 时 Cleanup 清 >7 天老行。
 
-package stats
+package repo
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/stats/db"
+	"github.com/atmaxmoj/standmeet/internal/stats/entity"
 )
 
 // InferenceUsageRepo —— inference_usage 表入口。
@@ -44,7 +45,7 @@ func (r *InferenceUsageRepo) Record(
 // Summarize7Day —— 某 owner 近 7 天按天×model 聚合。
 func (r *InferenceUsageRepo) Summarize7Day(
 	ctx context.Context, ownerID string,
-) ([]InferenceUsageDay, error) {
+) ([]entity.InferenceUsageDay, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
@@ -53,9 +54,9 @@ func (r *InferenceUsageRepo) Summarize7Day(
 	if qerr != nil {
 		return nil, fmt.Errorf("summarize inference usage: %w", qerr)
 	}
-	out := make([]InferenceUsageDay, 0, len(rows))
+	out := make([]entity.InferenceUsageDay, 0, len(rows))
 	for i := range rows {
-		out = append(out, InferenceUsageDay{
+		out = append(out, entity.InferenceUsageDay{
 			Day:          rows[i].Day.Time,
 			Model:        rows[i].Model,
 			Calls:        rows[i].Calls,

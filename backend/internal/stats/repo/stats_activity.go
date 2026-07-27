@@ -7,13 +7,14 @@
 // (它对空的 code_bookings 本就 0 行,行为不变)。要在 feed 里恢复 booking 事件,走注入式
 // booking-activity 源(组装根接 capstore),是独立的 feature pass。
 
-package stats
+package repo
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/stats/entity"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -42,7 +43,7 @@ const activityQuery = `
 // RecentActivity —— owner-scoped 最近 limit 条事件，最新在前。
 func (r *ActivityRepo) RecentActivity(
 	ctx context.Context, ownerID string, limit int,
-) ([]ActivityEvent, error) {
+) ([]entity.ActivityEvent, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
@@ -69,7 +70,7 @@ const graphQuery = `
 // CorpusGraph —— owner 的语料链接图前 limit 个 hub 节点（degree 降序）。
 func (r *ActivityRepo) CorpusGraph(
 	ctx context.Context, ownerID string, limit int,
-) ([]GraphNode, error) {
+) ([]entity.GraphNode, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
@@ -82,8 +83,8 @@ func (r *ActivityRepo) CorpusGraph(
 	return scanGraphNodes(rows)
 }
 
-func scanGraphNodes(rows pgx.Rows) ([]GraphNode, error) {
-	nodes := make([]GraphNode, 0)
+func scanGraphNodes(rows pgx.Rows) ([]entity.GraphNode, error) {
+	nodes := make([]entity.GraphNode, 0)
 	for rows.Next() {
 		var id pgtype.UUID
 		var title, genre string
@@ -91,7 +92,7 @@ func scanGraphNodes(rows pgx.Rows) ([]GraphNode, error) {
 		if serr := rows.Scan(&id, &title, &genre, &degree); serr != nil {
 			return nil, fmt.Errorf("scan graph node: %w", serr)
 		}
-		nodes = append(nodes, GraphNode{
+		nodes = append(nodes, entity.GraphNode{
 			ID: pgstore.FormatUUID(id), Title: title, Genre: genre, Degree: int(degree),
 		})
 	}
@@ -101,15 +102,15 @@ func scanGraphNodes(rows pgx.Rows) ([]GraphNode, error) {
 	return nodes, nil
 }
 
-func scanActivityEvents(rows pgx.Rows) ([]ActivityEvent, error) {
-	events := make([]ActivityEvent, 0)
+func scanActivityEvents(rows pgx.Rows) ([]entity.ActivityEvent, error) {
+	events := make([]entity.ActivityEvent, 0)
 	for rows.Next() {
 		var kind, label string
 		var at pgtype.Timestamptz
 		if serr := rows.Scan(&kind, &at, &label); serr != nil {
 			return nil, fmt.Errorf("scan activity event: %w", serr)
 		}
-		events = append(events, ActivityEvent{At: at.Time, Kind: kind, Label: label})
+		events = append(events, entity.ActivityEvent{At: at.Time, Kind: kind, Label: label})
 	}
 	if rerr := rows.Err(); rerr != nil {
 		return nil, fmt.Errorf("iterate activity events: %w", rerr)

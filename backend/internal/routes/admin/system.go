@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // SystemInfoProvider —— #101 admin system 面板数据源。

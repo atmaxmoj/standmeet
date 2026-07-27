@@ -1,7 +1,8 @@
 // Package stats —— Monitor 观测面的领域值对象:活动流、语料增长、链接图节点、后台任务。
 // 都是从现有行派生的只读快照(不建独立事件表),归一给 admin 的 Monitor / TopBar 用。
 // 自成一个领域模块(#135 package-by-domain),不再挤在 domain god-package 里。
-package stats
+
+package entity
 
 import "time"
 

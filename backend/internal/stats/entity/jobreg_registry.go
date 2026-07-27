@@ -1,7 +1,7 @@
 // jobreg_registry.go —— 进程内后台计划任务登记表(Monitor/stats background-jobs)。
 // cron 启动时 Register,每次跑完 Report(status);admin /stats/jobs 读快照。
 
-package stats
+package entity
 
 import (
 	"slices"

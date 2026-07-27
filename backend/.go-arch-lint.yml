@@ -72,7 +72,11 @@ components:
   marketplaceusecase:
     in: internal/marketplace/usecase      # marketplace guts: 用例 + 市场拉取客户端
   stats:
-    in: internal/stats                    # #135: Monitor 观测面领域值对象 (activity/growth/graph/jobs)
+    in: internal/stats/facade             # #135: stats 域 facade（对外协议）；域外只 import 这里
+  statsentity:
+    in: internal/stats/entity             # stats guts: 读模型值对象
+  statsrepo:
+    in: internal/stats/repo               # stats guts: 查询仓储（over db + pgstore）
   security:
     in: internal/security/facade          # #135: 请求级防护域 facade (banned_ip / captcha)；域外只 import 这里
   securityban:
@@ -595,6 +599,15 @@ deps:
 
   stats:
     mayDependOn:
+      - statsentity
+      - statsrepo
+    anyVendorDeps: true
+  statsentity:
+    mayDependOn: []
+    anyVendorDeps: true
+  statsrepo:
+    mayDependOn:
+      - statsentity
       - statsdb
       - pgstore
     anyVendorDeps: true

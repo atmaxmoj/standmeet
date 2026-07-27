@@ -16,7 +16,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // appVersion —— 应用版本(发布时经 ldflags 覆写;dev 走默认)。

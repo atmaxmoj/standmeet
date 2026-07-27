@@ -1,4 +1,4 @@
-package stats
+package entity
 
 // CorpusDayCount —— 某一天的 corpus 新增条数（raw+wiki+output 合计）。
 type CorpusDayCount struct {

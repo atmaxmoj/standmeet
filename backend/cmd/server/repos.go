@@ -34,7 +34,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // repoSet —— 所有 postgres Repository 的 bundle，让 wireAndServe 不必逐行

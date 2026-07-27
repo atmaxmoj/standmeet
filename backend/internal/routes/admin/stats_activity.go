@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // ActivityProvider —— 近期活动流 + 语料链接图数据源（postgres ActivityRepo 实现）。

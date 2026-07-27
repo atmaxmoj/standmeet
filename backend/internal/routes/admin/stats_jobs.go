@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // JobsProvider —— 计划任务登记表（jobregistry.Registry 实现）。进程内、非 owner-scoped。

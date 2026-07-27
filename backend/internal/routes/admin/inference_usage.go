@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // InferenceUsageSummarizer —— #106 admin 计费面板数据源。

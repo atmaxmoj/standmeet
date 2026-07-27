@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/stats"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // GrowthProvider —— corpus 增长数据源（postgres GrowthRepo 实现）。
