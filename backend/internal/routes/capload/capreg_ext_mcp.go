@@ -18,7 +18,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )

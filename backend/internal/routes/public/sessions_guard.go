@@ -10,7 +10,7 @@ import (
 	"net/http"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
 // guardedIssueSession —— code-tier 锁定 → 兑换 → 记账。返 (res, true)=可写成功响应;

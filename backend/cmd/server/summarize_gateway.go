@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	conversationroutes "github.com/atmaxmoj/standmeet/internal/routes/conversation"
 	inferenceroutes "github.com/atmaxmoj/standmeet/internal/routes/inference"
 	reportroutes "github.com/atmaxmoj/standmeet/internal/routes/report"

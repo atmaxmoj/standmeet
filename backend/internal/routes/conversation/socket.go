@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
 // SockMessage —— socket op 交换的一条消息(role/content;避开 inference/domain 包耦合)。

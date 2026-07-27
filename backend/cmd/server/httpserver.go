@@ -15,7 +15,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"

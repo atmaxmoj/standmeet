@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 

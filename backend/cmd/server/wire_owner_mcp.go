@@ -6,7 +6,7 @@ package main
 
 import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"

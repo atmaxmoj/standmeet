@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
 type openConvRequest struct {

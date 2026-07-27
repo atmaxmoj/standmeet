@@ -22,7 +22,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
 // AppStateStore —— mcp_app_state 持久层（route 注入；wireup 接 postgres repo）。

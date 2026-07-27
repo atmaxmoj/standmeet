@@ -82,7 +82,13 @@ components:
   jobsmodel:
     in: internal/owner/jobs/jobsmodel                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
   conversation:
-    in: internal/conversation        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpus 拿 DocumentGenre
+    in: internal/conversation/facade # #135: conversation 域 facade（对外协议）；域外只 import 这里
+  conversationentity:
+    in: internal/conversation/entity # conversation guts: 值对象/实体 + 域错误
+  conversationrepo:
+    in: internal/conversation/repo   # conversation guts: 仓储（over db + pgstore）
+  conversationusecase:
+    in: internal/conversation/usecase # conversation guts: 用例/编排
   corpus:
     in: internal/corpus/facade       # #135: corpus 域 facade（对外协议）；域外只 import 这里
   corpusentity:
@@ -619,19 +625,34 @@ deps:
   # conversation —— #135 conversation 领域值对象：Citation.Genre = corpus.DocumentGenre。
   conversation:
     mayDependOn:
+      - conversationentity
+      - conversationrepo
+      - conversationusecase
+    anyVendorDeps: true
+  conversationentity:
+    mayDependOn:
+      - corpus
+    anyVendorDeps: true
+  conversationrepo:
+    mayDependOn:
+      - conversationentity
       - conversationdb
       - corpus
       - pgstore
+    anyVendorDeps: true
+  conversationusecase:
+    mayDependOn:
+      - conversationentity
+      - conversationrepo
+      - corpus
       - access
-      - apierr
-      - session
       - owner
       - marketplace
       - inference
       - capreg
       - sandbox
-      - connector
       - connectorconsumer
+      - apierr
     anyVendorDeps: true
 
   # corpus —— #135 corpus 域(facade + DDD guts)。facade 只依赖自己的 guts;guts 分层无环。

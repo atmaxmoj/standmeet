@@ -10,12 +10,12 @@ import (
 	"log/slog"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 

@@ -23,7 +23,7 @@ internal = sys.argv[1]
 # Every subpackage of a faceted domain is guts (reachable only via .../facade) EXCEPT these
 # nested sub-modules, which keep their own boundary and their own external entry points
 # (e.g. owner/jobs is the job-loop plugin with its own MCP/admin surface, not owner's DDD guts).
-SUBMODULES = {"jobs"}
+SUBMODULES = {"jobs", "inference"}
 # Opted-in domains = those that have an internal/<domain>/facade/ subdirectory.
 domains = sorted(
     d for d in os.listdir(internal)

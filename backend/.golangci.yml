@@ -344,14 +344,14 @@ linters:
       # path_acl 的 compileGlobCached 缓存是 unexported 白盒 UT（随 role cluster 迁入 access）。
       - path: internal/access/entity/path_acl_cache_test.go
         linters: [testpackage, paralleltest]
-      - path: internal/conversation/uc_ghost_policy_test.go
+      - path: internal/conversation/usecase/uc_ghost_policy_test.go
         linters: [testpackage]
       # waypoint ledger 白盒 UT：unexported markAll/stringSet 的 visited-set 逻辑 repro。
-      - path: internal/conversation/uc_waypoint_ledger_test.go
+      - path: internal/conversation/usecase/uc_waypoint_ledger_test.go
         linters: [testpackage]
-      - path: internal/conversation/uc_resolve_code_prompt_test.go
+      - path: internal/conversation/usecase/uc_resolve_code_prompt_test.go
         linters: [testpackage]
-      - path: internal/conversation/uc_visitor_chat_prompt_test.go
+      - path: internal/conversation/usecase/uc_visitor_chat_prompt_test.go
         linters: [testpackage]
       # corpus map/stub/crosslink 白盒 UT：unexported tree/heading/crosslink 内部
       # (findNode/extractHeadings/resolveNoteDstIDs) 的纯逻辑 repro → 必须 in-package。

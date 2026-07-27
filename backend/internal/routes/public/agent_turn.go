@@ -13,7 +13,7 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )

@@ -13,7 +13,7 @@ package capload
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
 // RegisterVisitorSkills —— 注册口。跟 prod 同一组 capability 构造
