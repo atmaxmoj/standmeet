@@ -22,6 +22,7 @@ access conversation connector corpus owner security marketplace stats capabiliti
 
 routes usecases
 apierr cryptobox gotenberg httpx pgstore postgres retry sandbox sandboxws search storage middleware session
+inference server facadeparity paritymanifest
 "
 
 is_allowed() {
