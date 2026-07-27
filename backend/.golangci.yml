@@ -352,7 +352,7 @@ linters:
         linters: [forbidigo]
       # meili SDK 边界:UpdateFilterableAttributes 参数是 []interface{} → []any;search
       # wrapper 是 driver 契约层(同 postgres),`any` 在此豁免。
-      - path: internal/infra/search/
+      - path: internal/corpus/search/
         linters: [forbidigo]
       # mcpclient 是 MCP vendor 边界层。tool `_meta` 按 MCP 规范是任意
       # schemaless JSON（mcp-go AdditionalFields 即 map[string]any），同

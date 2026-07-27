@@ -2,7 +2,7 @@
 
 package corpus
 
-import "github.com/atmaxmoj/standmeet/internal/infra/search"
+import "github.com/atmaxmoj/standmeet/internal/corpus/search"
 
 // IndexDeps —— 窄依赖(#131):corpus 四类 lister(wiki/output/writing/subjectivity)。
 // composition root 建一份喂 RegisterCorpusIndexSocket。

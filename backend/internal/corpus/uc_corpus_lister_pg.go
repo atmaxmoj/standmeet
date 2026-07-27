@@ -15,7 +15,7 @@ import (
 	"errors"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/infra/search"
+	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 )
 
 // ErrCorpusNotFound / ErrCorpusDenied —— Get's two failure modes, separated so the wire

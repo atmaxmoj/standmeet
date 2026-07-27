@@ -118,7 +118,7 @@ components:
   httpx:
     in: internal/infra/httpx                    # #132 唯一出站 HTTP client（retry+timeout+可组合 base）；leaf，所有出站者依赖它
   search:
-    in: internal/infra/search                   # 1b corpus 词法检索 Meili 封装；leaf，只依赖 meili SDK
+    in: internal/corpus/search                   # corpus 子包:词法检索 Meili 封装(1b)；leaf，只依赖 meili SDK
   facadeparity:
     in: internal/infra/facadeparity             # facade-parity 强制 gate 机制；纯 std leaf，无 internal/vendor 依赖
   paritymanifest:

@@ -18,7 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/infra/search"
+	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"

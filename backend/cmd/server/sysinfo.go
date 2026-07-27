@@ -14,7 +14,7 @@ import (
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/search"
+	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	"github.com/atmaxmoj/standmeet/internal/stats"
 )
