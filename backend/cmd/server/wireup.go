@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
@@ -104,9 +105,11 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		CustomPages:    owner.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Skills:         marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		Prompts:        owner.PromptsDeps{Prompts: d.promptRepo},
-		Roles: usecases.RolesDeps{
-			Roles: d.roleRepo, Prompts: d.promptRepo,
-			Skills: d.skillRepo, MCPServers: d.mcpServerRepo,
+		Roles: access.RolesDeps{
+			Roles: d.roleRepo,
+			Refs: roleRefValidator{
+				prompts: d.promptRepo, skills: d.skillRepo, servers: d.mcpServerRepo,
+			},
 		},
 		MCPServers:   marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Assets:       corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},

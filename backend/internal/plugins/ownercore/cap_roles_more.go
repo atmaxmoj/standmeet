@@ -12,7 +12,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ───── role_update ─────────────────────────────────────────────────
@@ -72,15 +71,15 @@ func (c *rolesCapability) handleUpdate(
 		return capreg.MCPError("name is required")
 	}
 	in := buildRoleUpdateCapInput(&args, ownerID)
-	role, uerr := usecases.UpdateRole(ctx, *c.roles, in)
+	role, uerr := access.UpdateRole(ctx, *c.roles, in)
 	if uerr != nil {
 		return roleUpdateErrToResult(c.log, uerr)
 	}
 	return mcputil.MarshalResult(c.log, "role_update", roleRowToCapView(&role))
 }
 
-func buildRoleUpdateCapInput(args *roleUpdateArgsWire, ownerID string) *usecases.RoleWriteInput {
-	in := &usecases.RoleWriteInput{
+func buildRoleUpdateCapInput(args *roleUpdateArgsWire, ownerID string) *access.RoleWriteInput {
+	in := &access.RoleWriteInput{
 		OwnerID: ownerID, RoleID: args.RoleID, Name: args.Name,
 		Description:  args.Description,
 		Greeting:     args.Greeting,
@@ -142,7 +141,7 @@ func (c *rolesCapability) handleGet(
 	if args.RoleID == "" {
 		return capreg.MCPError("role_id is required")
 	}
-	role, err := usecases.GetRole(ctx, *c.roles, ownerID, args.RoleID)
+	role, err := access.GetRole(ctx, *c.roles, ownerID, args.RoleID)
 	if err != nil {
 		if errors.Is(err, access.ErrRoleNotFound) {
 			return capreg.MCPError("role not found")

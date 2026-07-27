@@ -10,26 +10,21 @@
 // 表。校验：prompt + skill + mcp 都属于同 owner；空 corpus_uris 允许 (owner
 // 显式选了"啥都不开"，等同 deny-all)。
 
-package usecases
+package access
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // RolesDeps —— roles CRUD 需要的 repos。Skills / MCPServers / Prompts 用来
 // 在 Create/Update 时校验 join 项的 owner 归属。
 type RolesDeps struct {
-	Roles      *access.RoleRepo
-	Prompts    *owner.PromptRepo
-	Skills     *marketplace.SkillRepo
-	MCPServers *marketplace.MCPServerRepo
+	Roles *RoleRepo
+	Refs  RefValidator
 }
 
 // RoleWriteInput —— Create / Update 共用的入参形态。Update 时 RoleID 必填，
@@ -45,9 +40,9 @@ type RoleWriteInput struct {
 	SkillIDs     []string
 	MCPServerIDs []string
 	// Waypoints —— ghost-steering 引导目的地（owner per-role 写）。
-	Waypoints []access.Waypoint
+	Waypoints []Waypoint
 	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮。
-	DockButtons []access.DockButtonConfig
+	DockButtons []DockButtonConfig
 	// ValidCapabilityIDs —— route 从能力注册表给出的、dock 按钮可挂的能力 id 集（校验 cap 有效性用）。
 	ValidCapabilityIDs []string
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
@@ -59,16 +54,16 @@ type RoleWriteInput struct {
 // CreateRole 新建 role + 同步三组 join 表。
 func CreateRole(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
-) (access.Role, error) {
+) (Role, error) {
 	if verr := validateCreateRoleInput(ctx, deps, in); verr != nil {
-		return access.Role{}, verr
+		return Role{}, verr
 	}
 	role, err := createRoleRow(ctx, deps, in)
 	if err != nil {
-		return access.Role{}, err
+		return Role{}, err
 	}
 	if serr := syncRoleJoins(ctx, deps, role.ID(), in); serr != nil {
-		return access.Role{}, serr
+		return Role{}, serr
 	}
 	return reloadRole(ctx, deps, in.OwnerID, role.ID())
 }
@@ -79,10 +74,10 @@ func validateCreateRoleInput(
 	if in.OwnerID == "" || in.Name == "" {
 		return apierr.ErrEmptyField
 	}
-	if derr := validateDockButtons(in); derr != nil {
+	if derr := checkDockButtonsSubset(in); derr != nil {
 		return derr
 	}
-	if werr := validateWaypoints(in); werr != nil {
+	if werr := checkWaypointsSubset(in); werr != nil {
 		return werr
 	}
 	return validateRoleJoinOwnership(ctx, deps, in)
@@ -90,17 +85,17 @@ func validateCreateRoleInput(
 
 func createRoleRow(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
-) (access.Role, error) {
-	role, err := deps.Roles.Create(ctx, &access.CreateRoleInput{
+) (Role, error) {
+	role, err := deps.Roles.Create(ctx, &CreateRoleInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,
 	})
 	if err != nil {
-		if errors.Is(err, access.ErrRoleNameTaken) {
-			return access.Role{}, access.ErrRoleNameTaken
+		if errors.Is(err, ErrRoleNameTaken) {
+			return Role{}, ErrRoleNameTaken
 		}
-		return access.Role{}, fmt.Errorf("create role: %w", err)
+		return Role{}, fmt.Errorf("create role: %w", err)
 	}
 	return role, nil
 }
@@ -108,7 +103,7 @@ func createRoleRow(
 // ListRoles —— admin / MCP role.list。
 func ListRoles(
 	ctx context.Context, deps RolesDeps, ownerID string,
-) ([]access.Role, error) {
+) ([]Role, error) {
 	if ownerID == "" {
 		return nil, apierr.ErrEmptyField
 	}
@@ -122,13 +117,13 @@ func ListRoles(
 // GetRole —— admin / MCP role.get。
 func GetRole(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
-) (access.Role, error) {
+) (Role, error) {
 	if ownerID == "" || roleID == "" {
-		return access.Role{}, apierr.ErrEmptyField
+		return Role{}, apierr.ErrEmptyField
 	}
 	role, err := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if err != nil {
-		return access.Role{}, fmt.Errorf("get role: %w", err)
+		return Role{}, fmt.Errorf("get role: %w", err)
 	}
 	return role, nil
 }
@@ -137,16 +132,16 @@ func GetRole(
 // corpus_uris / skills / mcp / description，但不可改 name（usecase 拦）。
 func UpdateRole(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
-) (access.Role, error) {
+) (Role, error) {
 	if verr := validateUpdateRoleInput(ctx, deps, in); verr != nil {
-		return access.Role{}, verr
+		return Role{}, verr
 	}
 	role, err := updateRoleRow(ctx, deps, in)
 	if err != nil {
-		return access.Role{}, err
+		return Role{}, err
 	}
 	if serr := syncRoleJoins(ctx, deps, role.ID(), in); serr != nil {
-		return access.Role{}, serr
+		return Role{}, serr
 	}
 	return reloadRole(ctx, deps, in.OwnerID, role.ID())
 }
@@ -160,10 +155,10 @@ func validateUpdateRoleInput(
 	if cerr := checkRoleRenameAllowed(ctx, deps, in); cerr != nil {
 		return cerr
 	}
-	if derr := validateDockButtons(in); derr != nil {
+	if derr := checkDockButtonsSubset(in); derr != nil {
 		return derr
 	}
-	if werr := validateWaypoints(in); werr != nil {
+	if werr := checkWaypointsSubset(in); werr != nil {
 		return werr
 	}
 	return validateRoleJoinOwnership(ctx, deps, in)
@@ -176,15 +171,15 @@ func updateRoleMissingRequired(in *RoleWriteInput) bool {
 
 func updateRoleRow(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
-) (access.Role, error) {
-	role, err := deps.Roles.Update(ctx, &access.UpdateRoleInput{
+) (Role, error) {
+	role, err := deps.Roles.Update(ctx, &UpdateRoleInput{
 		OwnerID: in.OwnerID, RoleID: in.RoleID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,
 		RequireGhostEvidence: in.RequireGhostEvidence,
 	})
 	if err != nil {
-		return access.Role{}, fmt.Errorf("update role: %w", err)
+		return Role{}, fmt.Errorf("update role: %w", err)
 	}
 	return role, nil
 }
@@ -215,7 +210,7 @@ func validateRoleDeletable(
 		return fmt.Errorf("get role: %w", gerr)
 	}
 	if role.IsBuiltin() {
-		return access.ErrRoleBuiltinImmutable
+		return ErrRoleBuiltinImmutable
 	}
 	return nil
 }
@@ -237,10 +232,10 @@ func CountActiveCodesForRole(
 // reloadRole —— 主表 + join 表合一的查询，Create/Update 末尾用。
 func reloadRole(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
-) (access.Role, error) {
+) (Role, error) {
 	role, err := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if err != nil {
-		return access.Role{}, fmt.Errorf("reload role: %w", err)
+		return Role{}, fmt.Errorf("reload role: %w", err)
 	}
 	return role, nil
 }
@@ -273,7 +268,7 @@ func checkRoleRenameAllowed(
 		return fmt.Errorf("get role for rename check: %w", err)
 	}
 	if existing.IsBuiltin() && existing.Name() != in.Name {
-		return access.ErrRoleBuiltinImmutable
+		return ErrRoleBuiltinImmutable
 	}
 	return nil
 }
@@ -298,7 +293,7 @@ func validateRolePrompt(
 	if promptID == nil || *promptID == "" {
 		return nil
 	}
-	if _, err := deps.Prompts.GetByID(ctx, ownerID, *promptID); err != nil {
+	if err := deps.Refs.RefExists(ctx, ownerID, RefPrompt, *promptID); err != nil {
 		return fmt.Errorf("validate prompt %s: %w", *promptID, err)
 	}
 	return nil
@@ -308,7 +303,7 @@ func validateRoleSkills(
 	ctx context.Context, deps RolesDeps, ownerID string, skillIDs []string,
 ) error {
 	for _, sid := range skillIDs {
-		if _, err := deps.Skills.GetByID(ctx, ownerID, sid); err != nil {
+		if err := deps.Refs.RefExists(ctx, ownerID, RefSkill, sid); err != nil {
 			return fmt.Errorf("validate skill %s: %w", sid, err)
 		}
 	}
@@ -319,7 +314,7 @@ func validateRoleMCPServers(
 	ctx context.Context, deps RolesDeps, ownerID string, mcpIDs []string,
 ) error {
 	for _, mid := range mcpIDs {
-		if _, err := deps.MCPServers.GetByID(ctx, ownerID, mid); err != nil {
+		if err := deps.Refs.RefExists(ctx, ownerID, RefMCPServer, mid); err != nil {
 			return fmt.Errorf("validate mcp server %s: %w", mid, err)
 		}
 	}

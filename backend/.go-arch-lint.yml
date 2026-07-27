@@ -617,6 +617,7 @@ deps:
     mayDependOn:
       - pgstore
       - dbq
+      - apierr
     anyVendorDeps: true
 
   # owner —— #135 owner 模块：实体 + repo（连接器 OwnerLookup 消费 owner.Owner）。

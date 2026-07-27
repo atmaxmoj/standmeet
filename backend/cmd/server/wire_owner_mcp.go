@@ -5,6 +5,7 @@
 package main
 
 import (
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
@@ -22,9 +23,11 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
 		Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
 	}
-	rolesDeps := usecases.RolesDeps{
-		Roles: d.roleRepo, Prompts: d.promptRepo,
-		Skills: d.skillRepo, MCPServers: d.mcpServerRepo,
+	rolesDeps := access.RolesDeps{
+		Roles: d.roleRepo,
+		Refs: roleRefValidator{
+			prompts: d.promptRepo, skills: d.skillRepo, servers: d.mcpServerRepo,
+		},
 	}
 	writingsTxDeps := corpus.WritingsTxDeps{
 		Writings:    d.writingRepo,

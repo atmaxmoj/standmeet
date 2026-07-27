@@ -15,13 +15,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capRolesBundle = "roles.bundle"
 
 type rolesCapability struct {
-	roles *usecases.RolesDeps
+	roles *access.RolesDeps
 	// capIDs —— dock 按钮可挂的能力 id 集（访客侧、非 owner-only）。lazy 闭包读注册表，
 	// 调用时（handler 期）注册表已装满。#109/#110 set_dock_buttons 校验 cap 有效性用。
 	capIDs func() []string
@@ -29,7 +28,7 @@ type rolesCapability struct {
 }
 
 func newRolesCapability(
-	roles *usecases.RolesDeps, capIDs func() []string, log *slog.Logger,
+	roles *access.RolesDeps, capIDs func() []string, log *slog.Logger,
 ) *rolesCapability {
 	return &rolesCapability{roles: roles, capIDs: capIDs, log: log}
 }
@@ -104,7 +103,7 @@ func (c *rolesCapability) handleSetDockButtons(
 	if args.RoleID == "" {
 		return capreg.MCPError("role_id is required")
 	}
-	role, err := usecases.SetRoleDockButtons(ctx, *c.roles, &usecases.SetDockButtonsInput{
+	role, err := access.SetRoleDockButtons(ctx, *c.roles, &access.SetDockButtonsInput{
 		OwnerID: ownerID, RoleID: args.RoleID, Buttons: args.Buttons,
 		ValidCapabilityIDs: c.capIDs(),
 	})
@@ -189,7 +188,7 @@ func (c *rolesCapability) handleCreate(
 		return capreg.MCPError("name is required")
 	}
 	in := buildRoleCreateCapInput(&args, ownerID)
-	role, cerr := usecases.CreateRole(ctx, *c.roles, in)
+	role, cerr := access.CreateRole(ctx, *c.roles, in)
 	if cerr != nil {
 		return roleCreateErrToResult(c.log, cerr)
 	}
@@ -198,8 +197,8 @@ func (c *rolesCapability) handleCreate(
 	})
 }
 
-func buildRoleCreateCapInput(args *roleCreateArgsWire, ownerID string) *usecases.RoleWriteInput {
-	in := &usecases.RoleWriteInput{
+func buildRoleCreateCapInput(args *roleCreateArgsWire, ownerID string) *access.RoleWriteInput {
+	in := &access.RoleWriteInput{
 		OwnerID: ownerID, Name: args.Name,
 		Description:  args.Description,
 		Greeting:     args.Greeting,
@@ -261,7 +260,7 @@ type roleListRow struct {
 func (c *rolesCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) capreg.MCPResult {
-	rows, err := usecases.ListRoles(ctx, *c.roles, ownerID)
+	rows, err := access.ListRoles(ctx, *c.roles, ownerID)
 	if err != nil {
 		c.log.Error("cap role_list", "err", err)
 		return capreg.MCPError("list roles failed")
@@ -320,7 +319,7 @@ func (c *rolesCapability) handleDelete(
 	if args.RoleID == "" {
 		return capreg.MCPError("role_id is required")
 	}
-	if err := usecases.DeleteRole(ctx, *c.roles, ownerID, args.RoleID); err != nil {
+	if err := access.DeleteRole(ctx, *c.roles, ownerID, args.RoleID); err != nil {
 		return roleDeleteErrToResult(c.log, err)
 	}
 	return mcputil.MarshalResult(c.log, "role_delete", map[string]bool{"ok": true})

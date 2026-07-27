@@ -8,6 +8,7 @@ package ownercore
 import (
 	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
@@ -15,7 +16,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // Name —— plugin registry identity.
@@ -46,7 +46,7 @@ type Deps struct {
 	Instance         *InstanceDeps
 	APIKeys          *APIKeysOwnerDeps
 	WritingsTx       *corpus.WritingsTxDeps
-	Roles            *usecases.RolesDeps
+	Roles            *access.RolesDeps
 	Booking          *BookingOwnerDeps
 	Prompts          *owner.PromptsDeps
 	Conversations    *conversation.ConversationsDeps

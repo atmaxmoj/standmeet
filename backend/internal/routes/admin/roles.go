@@ -17,12 +17,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // RolesAdminDeps —— admin roles handlers 依赖。
 type RolesAdminDeps struct {
-	Roles usecases.RolesDeps
+	Roles access.RolesDeps
 }
 
 type roleView struct {
@@ -80,7 +79,7 @@ func (h *Handlers) MountRoles(r chi.Router) {
 func (h *Handlers) listRoles() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		rows, err := usecases.ListRoles(r.Context(), h.RolesAdmin.Roles, ownerID)
+		rows, err := access.ListRoles(r.Context(), h.RolesAdmin.Roles, ownerID)
 		if err != nil {
 			logEncodeErr(h.Log, "list roles", err)
 			writeError(h.Log, w, serverErr())
@@ -112,7 +111,7 @@ func assembleRoleViews(r *http.Request, h *Handlers, rows []access.Role) []roleV
 // hydrateRoleView —— 一条 role 的活跃 code 计数 + roleView 装配。提出来降
 // writeRolesList 的 cyclo。
 func hydrateRoleView(r *http.Request, h *Handlers, rl *access.Role) roleView {
-	count, cerr := usecases.CountActiveCodesForRole(
+	count, cerr := access.CountActiveCodesForRole(
 		r.Context(), h.RolesAdmin.Roles, rl.OwnerID(), rl.ID(),
 	)
 	if cerr != nil {
@@ -151,7 +150,7 @@ func (h *Handlers) createRole() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		role, err := usecases.CreateRole(r.Context(), h.RolesAdmin.Roles, &usecases.RoleWriteInput{
+		role, err := access.CreateRole(r.Context(), h.RolesAdmin.Roles, &access.RoleWriteInput{
 			OwnerID: ownerID, Name: req.Name, Description: req.Description,
 			Greeting: req.Greeting, PromptID: req.PromptID,
 			CorpusURIs: req.CorpusURIs, SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
@@ -172,7 +171,7 @@ func (h *Handlers) getRole() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		roleID := chi.URLParam(r, "id")
-		role, err := usecases.GetRole(r.Context(), h.RolesAdmin.Roles, ownerID, roleID)
+		role, err := access.GetRole(r.Context(), h.RolesAdmin.Roles, ownerID, roleID)
 		if err != nil {
 			handleGetRoleErr(h.Log, w, err)
 			return
@@ -207,7 +206,7 @@ func (h *Handlers) updateRole() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		roleID := chi.URLParam(r, "id")
-		role, err := usecases.UpdateRole(r.Context(), h.RolesAdmin.Roles, &usecases.RoleWriteInput{
+		role, err := access.UpdateRole(r.Context(), h.RolesAdmin.Roles, &access.RoleWriteInput{
 			OwnerID: ownerID, RoleID: roleID, Name: req.Name,
 			Description: req.Description, Greeting: req.Greeting,
 			PromptID: req.PromptID, CorpusURIs: req.CorpusURIs,
@@ -229,7 +228,7 @@ func (h *Handlers) deleteRole() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		roleID := chi.URLParam(r, "id")
-		err := usecases.DeleteRole(r.Context(), h.RolesAdmin.Roles, ownerID, roleID)
+		err := access.DeleteRole(r.Context(), h.RolesAdmin.Roles, ownerID, roleID)
 		if err != nil {
 			handleDeleteRoleErr(h.Log, w, err)
 			return
@@ -313,7 +312,7 @@ func handleDeleteRoleErr(log *slog.Logger, w http.ResponseWriter, err error) {
 func writeOneRole(
 	r *http.Request, h *Handlers, w http.ResponseWriter, rl *access.Role, status int,
 ) {
-	count, cerr := usecases.CountActiveCodesForRole(
+	count, cerr := access.CountActiveCodesForRole(
 		r.Context(), h.RolesAdmin.Roles, rl.OwnerID(), rl.ID(),
 	)
 	if cerr != nil {

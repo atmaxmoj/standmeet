@@ -85,7 +85,7 @@ type AdminDeps struct {
 	CustomPages     owner.CustomPageDeps
 	Skills          marketplace.SkillsDeps
 	Prompts         owner.PromptsDeps
-	Roles           usecases.RolesDeps
+	Roles           access.RolesDeps
 	MCPServers      marketplace.MCPServersDeps
 	Assets          corpus.AssetsDeps
 	Writings        corpus.WritingsDeps
