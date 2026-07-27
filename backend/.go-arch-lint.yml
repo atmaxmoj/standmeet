@@ -64,7 +64,13 @@ components:
   printsess:
     in: internal/owner/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
   marketplace:
-    in: internal/marketplace              # skill marketplace aggregation client (GitHub + SkillsMP)
+    in: internal/marketplace/facade       # #135: marketplace 域 facade（对外协议）；域外只 import 这里
+  marketplaceentity:
+    in: internal/marketplace/entity       # marketplace guts: 值对象/实体 + 域错误
+  marketplacerepo:
+    in: internal/marketplace/repo         # marketplace guts: 仓储（over db + pgstore）
+  marketplaceusecase:
+    in: internal/marketplace/usecase      # marketplace guts: 用例 + 市场拉取客户端
   stats:
     in: internal/stats                    # #135: Monitor 观测面领域值对象 (activity/growth/graph/jobs)
   security:
@@ -695,12 +701,27 @@ deps:
 
   marketplace:
     mayDependOn:
+      - marketplaceentity
+      - marketplacerepo
+      - marketplaceusecase
+    anyVendorDeps: true
+  marketplaceentity:
+    mayDependOn: []
+    anyVendorDeps: true
+  marketplacerepo:
+    mayDependOn:
+      - marketplaceentity
       - marketplacedb
-      - httpx
       - pgstore
+    anyVendorDeps: true
+  marketplaceusecase:
+    mayDependOn:
+      - marketplaceentity
+      - marketplacerepo
       - access
       - apierr
       - cryptobox
+      - httpx
     anyVendorDeps: true
 
 

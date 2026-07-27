@@ -8,7 +8,7 @@ package conversation
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 

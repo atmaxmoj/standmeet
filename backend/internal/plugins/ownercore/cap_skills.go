@@ -12,7 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
 const capSkillsBundle = "skills.bundle"

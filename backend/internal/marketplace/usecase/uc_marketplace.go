@@ -5,7 +5,7 @@
 // Install + SKILL.md fetch shipped (#48-3): InstallSkill / InstallManualSkill live in this same
 // file. This is no longer search-only.
 
-package marketplace
+package usecase
 
 import (
 	"context"
@@ -14,17 +14,19 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/repo"
 )
 
 // SearchClient —— matches Client. Interfaces lets us
 // stub the network out in usecase-level tests.
 type SearchClient interface {
-	Search(ctx context.Context, query, source string) []MarketSkill
+	Search(ctx context.Context, query, source string) []entity.MarketSkill
 	FetchSkillContent(
-		ctx context.Context, source MarketSource, id, sourceURL string,
-	) (MarketSkillContent, error)
+		ctx context.Context, source entity.MarketSource, id, sourceURL string,
+	) (entity.MarketSkillContent, error)
 	// ParseSkillMD parses raw SKILL.md (no network) for manual install.
-	ParseSkillMD(raw string) MarketSkillContent
+	ParseSkillMD(raw string) entity.MarketSkillContent
 }
 
 // SearchDeps —— bundle for the marketplace search REST route.
@@ -47,16 +49,16 @@ type SearchParams struct {
 // falls back to "all" on unknown values.
 func SearchMarketplace(
 	ctx context.Context, deps SearchDeps, p SearchParams,
-) []MarketSkill {
+) []entity.MarketSkill {
 	return pageSlice(deps.Client.Search(ctx, p.Query, p.Source), p.Limit, p.Offset)
 }
 
-func pageSlice(items []MarketSkill, limit, offset int) []MarketSkill {
+func pageSlice(items []entity.MarketSkill, limit, offset int) []entity.MarketSkill {
 	if offset < 0 {
 		offset = 0
 	}
 	if offset >= len(items) {
-		return []MarketSkill{}
+		return []entity.MarketSkill{}
 	}
 	end := offset + limit
 	if limit <= 0 || end > len(items) {
@@ -69,7 +71,7 @@ func pageSlice(items []MarketSkill, limit, offset int) []MarketSkill {
 // persists it as a real skill.
 type InstallSkillDeps struct {
 	Marketplace SearchClient
-	Skills      *SkillRepo
+	Skills      *repo.SkillRepo
 }
 
 // InstallSkillInput —— what the admin install endpoint passes through.
@@ -87,18 +89,18 @@ type InstallSkillInput struct {
 // the search metadata (name/version) is fallback. Empty body → apierr.ErrEmptyField.
 func InstallSkill(
 	ctx context.Context, deps InstallSkillDeps, in *InstallSkillInput,
-) (Skill, error) {
+) (entity.Skill, error) {
 	if !validInstallInput(in) {
-		return Skill{}, apierr.ErrEmptyField
+		return entity.Skill{}, apierr.ErrEmptyField
 	}
 	content, err := deps.Marketplace.FetchSkillContent(
-		ctx, MarketSource(in.Source), in.ID, in.SourceURL,
+		ctx, entity.MarketSource(in.Source), in.ID, in.SourceURL,
 	)
 	if err != nil {
-		return Skill{}, fmt.Errorf("fetch skill content: %w", err)
+		return entity.Skill{}, fmt.Errorf("fetch skill content: %w", err)
 	}
 	if strings.TrimSpace(content.Prompt) == "" {
-		return Skill{}, apierr.ErrEmptyField
+		return entity.Skill{}, apierr.ErrEmptyField
 	}
 	return createInstalledSkill(ctx, deps, in, &content)
 }
@@ -112,22 +114,22 @@ func validInstallInput(in *InstallSkillInput) bool {
 // skill. Empty owner / empty body → apierr.ErrEmptyField.
 func InstallManualSkill(
 	ctx context.Context, deps InstallSkillDeps, ownerID, skillMD, nameFallback string,
-) (Skill, error) {
+) (entity.Skill, error) {
 	if ownerID == "" || strings.TrimSpace(skillMD) == "" {
-		return Skill{}, apierr.ErrEmptyField
+		return entity.Skill{}, apierr.ErrEmptyField
 	}
 	content := deps.Marketplace.ParseSkillMD(skillMD)
 	if strings.TrimSpace(content.Prompt) == "" {
-		return Skill{}, apierr.ErrEmptyField
+		return entity.Skill{}, apierr.ErrEmptyField
 	}
 	return persistManualSkill(ctx, deps, ownerID, nameFallback, &content)
 }
 
 func persistManualSkill(
 	ctx context.Context, deps InstallSkillDeps,
-	ownerID, nameFallback string, content *MarketSkillContent,
-) (Skill, error) {
-	skill, cerr := deps.Skills.Create(ctx, &CreateSkillInput{
+	ownerID, nameFallback string, content *entity.MarketSkillContent,
+) (entity.Skill, error) {
+	skill, cerr := deps.Skills.Create(ctx, &repo.CreateSkillInput{
 		OwnerID:      ownerID,
 		Name:         firstNonEmptyStr(content.Name, nameFallback),
 		Description:  content.Description,
@@ -137,19 +139,19 @@ func persistManualSkill(
 		Version:      content.Version,
 	})
 	if cerr != nil {
-		if errors.Is(cerr, ErrSkillNameTaken) {
-			return Skill{}, ErrSkillNameTaken
+		if errors.Is(cerr, entity.ErrSkillNameTaken) {
+			return entity.Skill{}, entity.ErrSkillNameTaken
 		}
-		return Skill{}, fmt.Errorf("create manual skill: %w", cerr)
+		return entity.Skill{}, fmt.Errorf("create manual skill: %w", cerr)
 	}
 	return skill, nil
 }
 
 func createInstalledSkill(
 	ctx context.Context, deps InstallSkillDeps,
-	in *InstallSkillInput, content *MarketSkillContent,
-) (Skill, error) {
-	skill, cerr := deps.Skills.Create(ctx, &CreateSkillInput{
+	in *InstallSkillInput, content *entity.MarketSkillContent,
+) (entity.Skill, error) {
+	skill, cerr := deps.Skills.Create(ctx, &repo.CreateSkillInput{
 		OwnerID:      in.OwnerID,
 		Name:         firstNonEmptyStr(content.Name, in.Name, in.ID),
 		Description:  content.Description,
@@ -159,10 +161,10 @@ func createInstalledSkill(
 		Version:      in.Version,
 	})
 	if cerr != nil {
-		if errors.Is(cerr, ErrSkillNameTaken) {
-			return Skill{}, ErrSkillNameTaken
+		if errors.Is(cerr, entity.ErrSkillNameTaken) {
+			return entity.Skill{}, entity.ErrSkillNameTaken
 		}
-		return Skill{}, fmt.Errorf("create installed skill: %w", cerr)
+		return entity.Skill{}, fmt.Errorf("create installed skill: %w", cerr)
 	}
 	return skill, nil
 }

@@ -1,6 +1,6 @@
 // skills.go —— skills + code_skills CRUD。
 
-package marketplace
+package repo
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/marketplace/db"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 )
 
 // SkillRepo —— skills 表 + code_skills join 表 CRUD。
@@ -35,21 +36,21 @@ type CreateSkillInput struct {
 	License      string
 	Source       string // 'manual' / 'import' / 'marketplace'
 	AllowedTools []string
-	Scripts      []SkillScript
+	Scripts      []entity.SkillScript
 }
 
 // Create 写一条 owner-curated skill。name 冲突翻 ErrSkillNameTaken。
-func (r *SkillRepo) Create(ctx context.Context, in *CreateSkillInput) (Skill, error) {
+func (r *SkillRepo) Create(ctx context.Context, in *CreateSkillInput) (entity.Skill, error) {
 	params, perr := buildCreateSkillParams(in)
 	if perr != nil {
-		return Skill{}, perr
+		return entity.Skill{}, perr
 	}
 	row, err := db.New(r.pool).CreateSkill(ctx, *params)
 	if err != nil {
 		if name, hit := pgstore.UniqueViolation(err); hit && name == "skills_owner_name_uniq" {
-			return Skill{}, ErrSkillNameTaken
+			return entity.Skill{}, entity.ErrSkillNameTaken
 		}
-		return Skill{}, fmt.Errorf("create skill: %w", err)
+		return entity.Skill{}, fmt.Errorf("create skill: %w", err)
 	}
 	return toDomainSkill(&row), nil
 }
@@ -82,22 +83,22 @@ func buildCreateSkillParams(in *CreateSkillInput) (*db.CreateSkillParams, error)
 // description/prompt 字段会被新 seed 覆写让后续调整生效。
 func (r *SkillRepo) UpsertBuiltin(
 	ctx context.Context, ownerID, name, description, prompt string,
-) (Skill, error) {
+) (entity.Skill, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
-		return Skill{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
+		return entity.Skill{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	row, err := db.New(r.pool).UpsertBuiltinSkill(ctx, db.UpsertBuiltinSkillParams{
 		OwnerID: ownerUUID, Name: name, Description: description, Prompt: prompt,
 	})
 	if err != nil {
-		return Skill{}, fmt.Errorf("upsert builtin skill: %w", err)
+		return entity.Skill{}, fmt.Errorf("upsert builtin skill: %w", err)
 	}
 	return toDomainSkill(&row), nil
 }
 
 // ListByOwner —— admin 列 owner 所有 skill (builtin 先，自定义后)。
-func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]Skill, error) {
+func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Skill, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
@@ -106,7 +107,7 @@ func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]Skill, e
 	if err != nil {
 		return nil, fmt.Errorf("list skills: %w", err)
 	}
-	out := make([]Skill, 0, len(rows))
+	out := make([]entity.Skill, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainSkill(&rows[i]))
 	}
@@ -152,7 +153,7 @@ func parseOwnerAndSkillID(ownerID, skillID string) (skillIDArgs, error) {
 // ListSkillsForRole —— RoleSnapshot 构造时拼 prompt / allowed_tools 用。
 // 跟 ListSkillsForCode 同形态，db.ListRoleSkills 在 roles.sql 已声明。
 func (r *SkillRepo) ListSkillsForRole(
-	ctx context.Context, roleID string) ([]Skill, error,
+	ctx context.Context, roleID string) ([]entity.Skill, error,
 ) {
 	roleUUID, perr := pgstore.ParseUUID(roleID)
 	if perr != nil {
@@ -162,7 +163,7 @@ func (r *SkillRepo) ListSkillsForRole(
 	if err != nil {
 		return nil, fmt.Errorf("list skills for role: %w", err)
 	}
-	out := make([]Skill, 0, len(rows))
+	out := make([]entity.Skill, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainSkill(&rows[i]))
 	}
@@ -171,20 +172,20 @@ func (r *SkillRepo) ListSkillsForRole(
 
 // GetByID —— admin / MCP get 单条。
 func (r *SkillRepo) GetByID(
-	ctx context.Context, ownerID, skillID string) (Skill, error,
+	ctx context.Context, ownerID, skillID string) (entity.Skill, error,
 ) {
 	args, perr := parseOwnerAndSkillID(ownerID, skillID)
 	if perr != nil {
-		return Skill{}, perr
+		return entity.Skill{}, perr
 	}
 	row, err := db.New(r.pool).GetSkillByID(ctx, db.GetSkillByIDParams{
 		ID: args.skillUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Skill{}, ErrSkillNotFound
+			return entity.Skill{}, entity.ErrSkillNotFound
 		}
-		return Skill{}, fmt.Errorf("get skill: %w", err)
+		return entity.Skill{}, fmt.Errorf("get skill: %w", err)
 	}
 	return toDomainSkill(&row), nil
 }
@@ -192,25 +193,25 @@ func (r *SkillRepo) GetByID(
 // SetEnabled —— #48-2: owner 全局开/关一个 skill。
 func (r *SkillRepo) SetEnabled(
 	ctx context.Context, ownerID, skillID string, enabled bool,
-) (Skill, error) {
+) (entity.Skill, error) {
 	args, perr := parseOwnerAndSkillID(ownerID, skillID)
 	if perr != nil {
-		return Skill{}, perr
+		return entity.Skill{}, perr
 	}
 	row, err := db.New(r.pool).SetSkillEnabled(ctx, db.SetSkillEnabledParams{
 		ID: args.skillUUID, OwnerID: args.ownerUUID, Enabled: enabled,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Skill{}, ErrSkillNotFound
+			return entity.Skill{}, entity.ErrSkillNotFound
 		}
-		return Skill{}, fmt.Errorf("set skill enabled: %w", err)
+		return entity.Skill{}, fmt.Errorf("set skill enabled: %w", err)
 	}
 	return toDomainSkill(&row), nil
 }
 
-func toDomainSkill(s *db.Skill) Skill {
-	out := Skill{
+func toDomainSkill(s *db.Skill) entity.Skill {
+	out := entity.Skill{
 		ID: pgstore.FormatUUID(s.ID), OwnerID: pgstore.FormatUUID(s.OwnerID),
 		Name: s.Name, Description: s.Description, Prompt: s.Prompt,
 		AllowedTools: s.AllowedTools, IsBuiltin: s.IsBuiltin, Enabled: s.Enabled,
@@ -222,13 +223,13 @@ func toDomainSkill(s *db.Skill) Skill {
 	return out
 }
 
-func decodeSkillScripts(raw []byte) []SkillScript {
+func decodeSkillScripts(raw []byte) []entity.SkillScript {
 	if len(raw) == 0 {
-		return []SkillScript{}
+		return []entity.SkillScript{}
 	}
-	var out []SkillScript
+	var out []entity.SkillScript
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return []SkillScript{}
+		return []entity.SkillScript{}
 	}
 	return out
 }

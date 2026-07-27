@@ -23,7 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 )
 

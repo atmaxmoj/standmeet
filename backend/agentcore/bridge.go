@@ -12,7 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
 // driverSandbox —— sandbox.Runner backed by Driver.RunSkill. Owns no stdout; forwards

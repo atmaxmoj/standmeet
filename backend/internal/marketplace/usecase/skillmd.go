@@ -9,7 +9,7 @@
 // SKILL.md format is `--- key: value … ---` then a markdown body; the body is
 // the skill prompt, name/description/allowed-tools come from the frontmatter.
 
-package marketplace
+package usecase
 
 import (
 	"context"
@@ -20,17 +20,19 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 )
 
 // FetchSkillContent fetches + parses a market skill's SKILL.md. `sourceURL` is the skill's
 // githubUrl (used by the SkillsMP path, which has no content endpoint); the GitHub source
 // ignores it and derives the path from `id`.
 func (c *Client) FetchSkillContent(
-	ctx context.Context, source MarketSource, id, sourceURL string,
-) (MarketSkillContent, error) {
+	ctx context.Context, source entity.MarketSource, id, sourceURL string,
+) (entity.MarketSkillContent, error) {
 	raw, err := c.fetchSkillMD(ctx, source, id, sourceURL)
 	if err != nil {
-		return MarketSkillContent{}, err
+		return entity.MarketSkillContent{}, err
 	}
 	return parseSkillMD(raw), nil
 }
@@ -38,17 +40,17 @@ func (c *Client) FetchSkillContent(
 // ParseSkillMD —— for manual install (owner pastes a SKILL.md they found/downloaded
 // anywhere): same parser the marketplace fetch path uses, no network. A Client method so
 // the usecase layer reaches it through the MarketplaceClient interface (no direct import).
-func (*Client) ParseSkillMD(raw string) MarketSkillContent {
+func (*Client) ParseSkillMD(raw string) entity.MarketSkillContent {
 	return parseSkillMD(raw)
 }
 
 func (c *Client) fetchSkillMD(
-	ctx context.Context, source MarketSource, id, sourceURL string,
+	ctx context.Context, source entity.MarketSource, id, sourceURL string,
 ) (string, error) {
 	switch source {
-	case MarketSourceGitHub:
+	case entity.MarketSourceGitHub:
 		return c.fetchGitHubSkillMD(ctx, id)
-	case MarketSourceSkillsMP:
+	case entity.MarketSourceSkillsMP:
 		return c.fetchSkillMDFromTreeURL(ctx, sourceURL)
 	default:
 		return "", fmt.Errorf("unknown market source %q", source)
@@ -137,9 +139,9 @@ func decodeGHFileContent(r io.Reader) (string, error) {
 
 // ─── SKILL.md frontmatter parser ──────────────────────────────
 
-func parseSkillMD(raw string) MarketSkillContent {
+func parseSkillMD(raw string) entity.MarketSkillContent {
 	r := splitFrontmatter(raw)
-	return MarketSkillContent{
+	return entity.MarketSkillContent{
 		Name:         r.fm.scalars["name"],
 		Description:  r.fm.scalars["description"],
 		Version:      r.fm.scalars["version"],

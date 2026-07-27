@@ -5,7 +5,7 @@
 // These live in the marketplace module itself (not the shared domain god-package): the
 // aggregation client + install usecase own their own entity types.
 
-package marketplace
+package entity
 
 // MarketSource —— marketplace origin a skill came from. Stable string
 // values both sides serialize.

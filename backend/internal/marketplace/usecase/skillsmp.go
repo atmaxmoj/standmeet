@@ -2,7 +2,7 @@
 // SKILL.md files crawled from GitHub; each result carries a githubUrl + star count, which
 // is what install fetches the SKILL.md from (SkillsMP has no per-skill content endpoint).
 
-package marketplace
+package usecase
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 )
 
 // smpSearchResponse —— skillsmp.com/api/v1/skills/search shape: {success, data:{skills:[…]}}.
@@ -32,13 +34,13 @@ type smpSkill struct {
 	Stars       int    `json:"stars"`
 }
 
-func (c *Client) searchSkillsMP(ctx context.Context, query string) []MarketSkill {
+func (c *Client) searchSkillsMP(ctx context.Context, query string) []entity.MarketSkill {
 	resp, err := getSkillsMP(ctx, c.http, c.skillsmpBase, query)
 	if err != nil {
 		// Partial-result pattern — let GitHub's results carry the page.
-		return []MarketSkill{}
+		return []entity.MarketSkill{}
 	}
-	out := make([]MarketSkill, 0, len(resp.Data.Skills))
+	out := make([]entity.MarketSkill, 0, len(resp.Data.Skills))
 	for i := range resp.Data.Skills {
 		out = append(out, smpToMarketSkill(&resp.Data.Skills[i]))
 	}
@@ -92,15 +94,15 @@ func decodeSkillsMP(resp *http.Response) (smpSearchResponse, error) {
 	return decoded, nil
 }
 
-func smpToMarketSkill(s *smpSkill) MarketSkill {
-	return MarketSkill{
+func smpToMarketSkill(s *smpSkill) entity.MarketSkill {
+	return entity.MarketSkill{
 		ID:          s.ID,
 		Name:        s.Name,
 		Author:      s.Author,
 		Category:    "",
 		Description: s.Description,
 		SourceURL:   s.GithubURL, // where install fetches the SKILL.md from
-		Source:      MarketSourceSkillsMP,
+		Source:      entity.MarketSourceSkillsMP,
 		Stars:       s.Stars,
 	}
 }

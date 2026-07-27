@@ -6,7 +6,7 @@
 // 引用一组 skill_ids；visitor session 拼 base persona + 选中 skill.prompt[]。
 // builtin skills (Code Review / Conversation Report …) seed 时插，不可删。
 
-package marketplace
+package entity
 
 import (
 	"errors"

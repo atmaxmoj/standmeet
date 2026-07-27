@@ -20,7 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
 const (

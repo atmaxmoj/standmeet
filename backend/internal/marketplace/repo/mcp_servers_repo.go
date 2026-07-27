@@ -2,7 +2,7 @@
 // 是 cryptobox AES-256-GCM 密文，repo 只搬 bytes 进出，加/解密由 caller
 // (usecase) 完成。
 
-package marketplace
+package repo
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/marketplace/db"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 )
 
 // MCPServerRepo —— mcp_servers 表 + code_mcp_servers join 表 CRUD。
@@ -37,10 +38,10 @@ type CreateMCPServerInput struct {
 // Create 新建 mcp_server 行。name 冲突翻 ErrMCPServerNameTaken。
 func (r *MCPServerRepo) Create(
 	ctx context.Context, in *CreateMCPServerInput,
-) (MCPServerConfig, error) {
+) (entity.MCPServerConfig, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
-		return MCPServerConfig{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
+		return entity.MCPServerConfig{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	row, err := db.New(r.pool).CreateMCPServer(ctx, db.CreateMCPServerParams{
 		OwnerID: ownerUUID, Name: in.Name, Url: in.URL,
@@ -48,9 +49,9 @@ func (r *MCPServerRepo) Create(
 	})
 	if err != nil {
 		if name, hit := pgstore.UniqueViolation(err); hit && name == "mcp_servers_owner_name_uniq" {
-			return MCPServerConfig{}, ErrMCPServerNameTaken
+			return entity.MCPServerConfig{}, entity.ErrMCPServerNameTaken
 		}
-		return MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
+		return entity.MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
 	}
 	return toDomainMCPServer(&row), nil
 }
@@ -58,7 +59,7 @@ func (r *MCPServerRepo) Create(
 // ListByOwner —— admin / MCP list。
 func (r *MCPServerRepo) ListByOwner(
 	ctx context.Context, ownerID string,
-) ([]MCPServerConfig, error) {
+) ([]entity.MCPServerConfig, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
@@ -67,7 +68,7 @@ func (r *MCPServerRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list mcp servers: %w", err)
 	}
-	out := make([]MCPServerConfig, 0, len(rows))
+	out := make([]entity.MCPServerConfig, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainMCPServer(&rows[i]))
 	}
@@ -77,19 +78,19 @@ func (r *MCPServerRepo) ListByOwner(
 // GetByID —— 单条；属于 owner 校验。
 func (r *MCPServerRepo) GetByID(
 	ctx context.Context, ownerID, serverID string,
-) (MCPServerConfig, error) {
+) (entity.MCPServerConfig, error) {
 	args, perr := parseOwnerAndServerID(ownerID, serverID)
 	if perr != nil {
-		return MCPServerConfig{}, perr
+		return entity.MCPServerConfig{}, perr
 	}
 	row, err := db.New(r.pool).GetMCPServerByID(ctx, db.GetMCPServerByIDParams{
 		ID: args.serverUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return MCPServerConfig{}, ErrMCPServerNotFound
+			return entity.MCPServerConfig{}, entity.ErrMCPServerNotFound
 		}
-		return MCPServerConfig{}, fmt.Errorf("get mcp server: %w", err)
+		return entity.MCPServerConfig{}, fmt.Errorf("get mcp server: %w", err)
 	}
 	return toDomainMCPServer(&row), nil
 }
@@ -142,8 +143,8 @@ func (r *MCPServerRepo) GrantDep(ctx context.Context, ownerID, serverID, dep str
 	return nil
 }
 
-func toDomainMCPServer(row *db.McpServer) MCPServerConfig {
-	return MCPServerConfig{
+func toDomainMCPServer(row *db.McpServer) entity.MCPServerConfig {
+	return entity.MCPServerConfig{
 		ID: pgstore.FormatUUID(row.ID), OwnerID: pgstore.FormatUUID(row.OwnerID),
 		Name: row.Name, URL: row.Url,
 		AuthHeaderName:     row.AuthHeaderName,

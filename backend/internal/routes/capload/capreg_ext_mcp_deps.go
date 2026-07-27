@@ -16,7 +16,7 @@ import (
 	"slices"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
 // DepConnected —— 命名 connector 依赖是否已连（capreg.DepRegistry 满足）。grant 在

@@ -8,7 +8,7 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 )

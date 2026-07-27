@@ -6,7 +6,8 @@
 // of the browser, lets us swap SkillsMP for a real service later
 // without touching the frontend, and gives e2e a single
 // `MARKETPLACE_*_BASE_URL` env knob to point at the in-cluster mock.
-package marketplace
+
+package usecase
 
 import (
 	"context"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 )
 
 // defaults — overridable per-Client.
@@ -72,7 +74,7 @@ const (
 // "skillsmp"; any other value reduces to "all" (defensive).
 func (c *Client) Search(
 	ctx context.Context, query, source string,
-) []MarketSkill {
+) []entity.MarketSkill {
 	filter := SourceFilter(source)
 	out := newResultCollector()
 	var wg sync.WaitGroup
@@ -97,9 +99,9 @@ const asciiMax = 127
 // EN + translated variants of one skill as separate rows, and a skill can appear in both
 // the official repo and SkillsMP). Keys on name+author; among duplicates keeps the
 // more-English description (fewer non-ASCII runes), tie-broken by higher stars. Order kept.
-func dedupePreferEnglish(skills []MarketSkill) []MarketSkill {
+func dedupePreferEnglish(skills []entity.MarketSkill) []entity.MarketSkill {
 	at := make(map[string]int, len(skills))
-	out := make([]MarketSkill, 0, len(skills))
+	out := make([]entity.MarketSkill, 0, len(skills))
 	for i := range skills {
 		key := dedupeKey(skills[i].Name, skills[i].Author)
 		if idx, seen := at[key]; seen {
@@ -120,7 +122,7 @@ func dedupeKey(name, author string) string {
 }
 
 // preferable —— should `cand` replace the kept `cur`? More English wins; tie → more stars.
-func preferable(cand, cur *MarketSkill) bool {
+func preferable(cand, cur *entity.MarketSkill) bool {
 	ca, cb := nonASCIICount(cand.Description), nonASCIICount(cur.Description)
 	if ca != cb {
 		return ca < cb
@@ -140,24 +142,24 @@ func nonASCIICount(s string) int {
 
 // resultCollector —— thread-safe append-only slice.
 type resultCollector struct {
-	items []MarketSkill
+	items []entity.MarketSkill
 	mu    sync.Mutex
 }
 
 func newResultCollector() *resultCollector {
-	return &resultCollector{items: []MarketSkill{}}
+	return &resultCollector{items: []entity.MarketSkill{}}
 }
 
-func (r *resultCollector) append(batch []MarketSkill) {
+func (r *resultCollector) append(batch []entity.MarketSkill) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.items = append(r.items, batch...)
 }
 
-func (r *resultCollector) snapshot() []MarketSkill {
+func (r *resultCollector) snapshot() []entity.MarketSkill {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	out := make([]MarketSkill, len(r.items))
+	out := make([]entity.MarketSkill, len(r.items))
 	copy(out, r.items)
 	return out
 }

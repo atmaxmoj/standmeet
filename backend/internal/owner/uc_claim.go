@@ -12,7 +12,7 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
 // ClaimDeps 把 ClaimInstance 需要的依赖打包，避免参数列表超长。

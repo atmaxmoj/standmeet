@@ -22,7 +22,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
-	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"

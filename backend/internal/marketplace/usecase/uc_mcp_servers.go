@@ -2,7 +2,7 @@
 // 落 cryptobox 加密 (跟 BYOAI key 同套模式)。InviteCode 选中后 visitor chat
 // 拉这一组 server 的 tools 加进 ToolSpec 列表。
 
-package marketplace
+package usecase
 
 import (
 	"context"
@@ -12,11 +12,13 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/repo"
 )
 
 // MCPServersDeps —— mcp servers CRUD + per-code 关联用的 repo 集合。
 type MCPServersDeps struct {
-	Servers *MCPServerRepo
+	Servers *repo.MCPServerRepo
 	Codes   *access.CodeRepo
 }
 
@@ -33,13 +35,13 @@ type CreateMCPServerReq struct {
 // CreateMCPServer —— 新建 mcp_server。name 冲突翻 ErrMCPServerNameTaken。
 func CreateMCPServer(
 	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerReq,
-) (MCPServerConfig, error) {
+) (entity.MCPServerConfig, error) {
 	if verr := validateMCPCreateInput(in); verr != nil {
-		return MCPServerConfig{}, verr
+		return entity.MCPServerConfig{}, verr
 	}
 	enc, eerr := encryptAuthValue(in.AuthHeaderValue, []byte(in.OwnerID))
 	if eerr != nil {
-		return MCPServerConfig{}, eerr
+		return entity.MCPServerConfig{}, eerr
 	}
 	return persistMCPServer(ctx, deps, in, enc)
 }
@@ -53,16 +55,16 @@ func validateMCPCreateInput(in *CreateMCPServerReq) error {
 
 func persistMCPServer(
 	ctx context.Context, deps MCPServersDeps, in *CreateMCPServerReq, enc []byte,
-) (MCPServerConfig, error) {
-	cfg, err := deps.Servers.Create(ctx, &CreateMCPServerInput{
+) (entity.MCPServerConfig, error) {
+	cfg, err := deps.Servers.Create(ctx, &repo.CreateMCPServerInput{
 		OwnerID: in.OwnerID, Name: in.Name, URL: in.URL,
 		AuthHeaderName: in.AuthHeaderName, AuthHeaderValueEnc: enc,
 	})
 	if err != nil {
-		if errors.Is(err, ErrMCPServerNameTaken) {
-			return MCPServerConfig{}, ErrMCPServerNameTaken
+		if errors.Is(err, entity.ErrMCPServerNameTaken) {
+			return entity.MCPServerConfig{}, entity.ErrMCPServerNameTaken
 		}
-		return MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
+		return entity.MCPServerConfig{}, fmt.Errorf("create mcp server: %w", err)
 	}
 	return cfg, nil
 }
@@ -84,7 +86,7 @@ func encryptAuthValue(plaintext string, aad []byte) ([]byte, error) {
 // ListMCPServers —— admin / MCP list。
 func ListMCPServers(
 	ctx context.Context, deps MCPServersDeps, ownerID string,
-) ([]MCPServerConfig, error) {
+) ([]entity.MCPServerConfig, error) {
 	if ownerID == "" {
 		return nil, apierr.ErrEmptyField
 	}
