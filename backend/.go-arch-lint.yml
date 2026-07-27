@@ -84,7 +84,7 @@ components:
   capabilities:
     in: internal/capabilities              # capability 轴 domain doc (root)
   capload:
-    in: internal/capabilities/capload            # capability-axis 装载/派发 glue (ext-mcp / mcp-app / skill-runner / openapi-tools / register)
+    in: internal/routes/capload            # capability-axis 装载/派发 glue (ext-mcp / mcp-app / skill-runner / openapi-tools / register)
   capreg:
     in: internal/capabilities/capreg              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
   mcpclient:

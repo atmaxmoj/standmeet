@@ -9,9 +9,9 @@
 package agentcore
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
+	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 )
 
 // PluginSpec —— a plugin the launch should assemble: a host-built MCP-server binary run

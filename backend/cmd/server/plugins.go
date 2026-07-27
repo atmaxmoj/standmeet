@@ -7,9 +7,9 @@ import (
 	"context"
 	"os"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
+	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 )
 
 // registerDiscoveredPlugins —— 注册所有 MCP-app 能力进同一个 capreg.Registry，归一：

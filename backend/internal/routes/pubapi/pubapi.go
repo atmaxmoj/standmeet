@@ -22,10 +22,10 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
+	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 )
 
 // methodQuery —— HTTP QUERY (RFC 10008), registered on the chi method table at server boot.

@@ -13,8 +13,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandboxws"
+	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 )
 
 const (

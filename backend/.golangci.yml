@@ -284,7 +284,7 @@ linters:
         linters: [testpackage]
       # capabilities/capload 的能力装载 glue(toolCallBudget / newMCPAppCapability 等)是
       # unexported,值得白盒单测;同 usecases 豁免 testpackage。
-      - path: internal/capabilities/capload/
+      - path: internal/routes/capload/
         linters: [testpackage]
       # connector/openapi 是 #155 通用执行核:schemaless-JSON 边界(任意 SaaS 的请求/响应
       # 都是任意 JSON),`any` 在此合法——同 MCP/postgres 边界豁免 forbidigo;其纯逻辑
