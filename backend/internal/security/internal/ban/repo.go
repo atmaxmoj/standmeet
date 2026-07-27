@@ -2,7 +2,7 @@
 // enforcement middleware 走 IsBanned 查；admin CRUD 走 Ban / List / Unban。
 // ip 存 text，精确匹配 chi.RealIP 解出的 host（跟 conversations.client_ip 同口径）。
 
-package security
+package ban
 
 import (
 	"context"
@@ -21,8 +21,8 @@ type BannedIPRepo struct {
 // NewBannedIPRepo 构造 BannedIPRepo。
 func NewBannedIPRepo(pool *pgstore.Pool) *BannedIPRepo { return &BannedIPRepo{pool: pool} }
 
-// BanIPInput —— owner 封一个 IP 的入参。ExpiresAt nil = 永久。
-type BanIPInput struct {
+// IPInput —— owner 封一个 IP 的入参。ExpiresAt nil = 永久。
+type IPInput struct {
 	ExpiresAt *time.Time
 	OwnerID   string
 	IP        string
@@ -30,7 +30,7 @@ type BanIPInput struct {
 }
 
 // Ban —— upsert（重复封同一 IP 覆盖 reason/expires_at）。返回落库后的行。
-func (r *BannedIPRepo) Ban(ctx context.Context, in *BanIPInput) (BannedIP, error) {
+func (r *BannedIPRepo) Ban(ctx context.Context, in *IPInput) (BannedIP, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
 		return BannedIP{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)

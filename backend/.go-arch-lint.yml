@@ -68,7 +68,11 @@ components:
   stats:
     in: internal/stats                    # #135: Monitor 观测面领域值对象 (activity/growth/graph/jobs)
   security:
-    in: internal/security                 # #135: 请求级防护域 (banned_ip; captcha/replay 后续并入)
+    in: internal/security                 # #135: 请求级防护域 facade (banned_ip / captcha)
+  securityban:
+    in: internal/security/internal/ban    # security 内部:IP 封禁 entity+repo(facade 后)
+  securitycaptcha:
+    in: internal/security/internal/captcha # security 内部:captcha Verifier+turnstile(facade 后)
   jobsmodel:
     in: internal/owner/jobs/jobsmodel                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
   conversation:
@@ -566,10 +570,19 @@ deps:
     anyVendorDeps: true
 
   # security —— #135 请求级防护域模块(full vertical)：BannedIP entity + repo + captcha verifier。
+  securityban:
+    mayDependOn:
+      - pgstore
+      - securitydb
+    anyVendorDeps: true
+  securitycaptcha:
+    mayDependOn:
+      - httpx
+    anyVendorDeps: true
   security:
     mayDependOn:
-      - securitydb
-      - httpx
+      - securityban
+      - securitycaptcha
       - pgstore
     anyVendorDeps: true
 

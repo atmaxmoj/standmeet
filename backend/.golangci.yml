@@ -146,6 +146,9 @@ linters:
         # connector.Hub.Resolve 返 by-design interface，消费者类型断言到能力接口)。
         - github.com/atmaxmoj/standmeet/internal/capabilities/capreg.DepProvider
         - github.com/atmaxmoj/standmeet/internal/connector.Connector
+        # security facade 的 captcha 工厂:按 cfg 返 turnstile / noop 具体实现,对外
+        # 只暴露 Verifier 接口 —— 跟 inference.Provider 同 driver-selection 工厂模式。
+        - github.com/atmaxmoj/standmeet/internal/security.Verifier
     revive:
       enable-all-rules: true
       rules:
