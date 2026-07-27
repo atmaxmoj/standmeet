@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary build-check golangci escape-lint secrets
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -81,6 +81,10 @@ infra-not-domain:
 # routes-not-imported: internal/routes/** 是顶层,只有入口(cmd/agentcore)能挂它。baseline 只缩。
 routes-not-imported:
 	@bash ../infra/scripts/check-routes-not-imported.sh
+
+# domain-facade-boundary: 已封 guts 的域(internal/<domain>/internal/),域外只能经 facade 访问。
+domain-facade-boundary:
+	@bash ../infra/scripts/check-domain-facade-boundary.sh
 
 # Catch compile errors at lint time.
 build-check:
