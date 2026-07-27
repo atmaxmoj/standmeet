@@ -67,8 +67,6 @@ components:
     in: internal/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
   printsess:
     in: internal/plugins/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
-  jobregistry:
-    in: internal/jobregistry              # Monitor: in-process scheduled-job registry (last-run/status)
   marketplace:
     in: internal/marketplace              # skill marketplace aggregation client (GitHub + SkillsMP)
   stats:
@@ -89,8 +87,6 @@ components:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
   capreg:
     in: internal/capreg              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
-  prompts:
-    in: internal/prompts                  # Phase D-1: system prompt fragments 单一源 (md files + go:embed)
   mcpclient:
     in: internal/mcpclient                # 调外部 MCP server (owner-registered)
   mcpplugin:
@@ -101,8 +97,6 @@ components:
     in: internal/sandboxws                # per-session 沙箱工作区生命周期：懒建/TTL/cron sweep (leaf)
   storage:
     in: internal/storage                  # MinIO/S3 对象存储 (图片 / 附件)
-  mailer:
-    in: internal/mailer                   # 出站 SMTP 发信 (net/smtp，owner 自带 mail server)
   connector:
     in: internal/connector                # Phase B: Nango-style 连接器层 —— 解密凭据 + 代调外部 (gcal/mailer)；凭据永不出 vault 进 usecases
   connectoropenapi:
@@ -168,7 +162,6 @@ deps:
       - mcpclient
       - storage
       - capreg
-      - prompts
       - mcpplugin
       - capsocket
       - search
@@ -179,11 +172,6 @@ deps:
     anyVendorDeps: true
 
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
-  mailer:
-    mayDependOn: []
-    anyVendorDeps: true
-
-  # search —— 1b corpus 词法检索 Meili 封装 leaf：只依赖 meili SDK（vendor），无 internal 依赖。
   search:
     mayDependOn: []
     anyVendorDeps: true
@@ -210,7 +198,6 @@ deps:
       - connector
       - connectorcontract
       - connectorconsumer
-      - mailer
       - retry
       - httpx
       - connectoropenapi
@@ -316,11 +303,6 @@ deps:
   # prompts —— Phase D-1: leaf 包，只 stdlib (embed)；所有引 system prompt
   # fragment 的地方 (usecases capability impl / sysroutes endpoint /
   # publicroutes endpoint) 都从这里 load，不再硬编码字符串。
-  prompts:
-    mayDependOn: []
-    anyVendorDeps: true
-
-  # mcpclient 调 owner-registered 外部 MCP HTTP server。
   mcpclient:
     mayDependOn: []
     anyVendorDeps: true
@@ -553,12 +535,6 @@ deps:
       - jobsmodel
     anyVendorDeps: true
 
-  jobregistry:
-    mayDependOn:
-      - stats
-    anyVendorDeps: true
-
-  # stats —— #135 Monitor 观测域(full vertical)：观测值对象 + activity/growth/inference_usage repo。
   stats:
     mayDependOn:
       - pgstore
@@ -593,7 +569,6 @@ deps:
       - inference
       - capreg
       - sandbox
-      - prompts
       - connector
       - connectorconsumer
     anyVendorDeps: true
@@ -735,7 +710,6 @@ deps:
       - capreg # D-2: /api/v1/sessions 返 capability_state + part_ids，读 Registry
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
       - httpx   # #132 /api/v1 inference-models 列表探测走统一 client
-      - prompts     # GET /api/v1/prompts/{id} 直接 dump fragment 文本
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
       - pluginbooker # #135 Slice 4: visitor cancel-own-booking usecase
     anyVendorDeps: true
@@ -799,11 +773,10 @@ deps:
       - connector
       - connectorbuiltins
       - printsess
-      - jobregistry
+      - stats
       - marketplace
       - security
       - access
-      - stats
       - cryptobox
       - sandbox
       - mcpclient

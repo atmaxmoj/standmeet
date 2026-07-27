@@ -15,7 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/prompts"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // PromptsHandlers —— prompts route 依赖。embed .md 走包级 prompts.FS；Fallback 由
@@ -47,11 +47,11 @@ func (h *PromptsHandlers) get() http.HandlerFunc {
 func (h *PromptsHandlers) loadPromptOrWriteErr(
 	ctx context.Context, w http.ResponseWriter, id string,
 ) (string, bool) {
-	body, err := prompts.Load(id)
+	body, err := owner.LoadPromptFragment(id)
 	if err == nil {
 		return body, true
 	}
-	if !errors.Is(err, prompts.ErrPromptNotFound) {
+	if !errors.Is(err, owner.ErrPromptFragmentNotFound) {
 		h.Log.Error("prompts load", "id", id, "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return "", false

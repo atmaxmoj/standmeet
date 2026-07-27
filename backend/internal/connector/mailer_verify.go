@@ -2,7 +2,7 @@
 // dial + EHLO + (STARTTLS / 隐式 TLS) + AUTH（填了用户名则做），握手成功 = 连上。失败按类别给
 // 友好理由（host/port → connect；TLS 握手 → tls；坏 user/pass → auth），UI 直接展示这些 sentinel。
 
-package mailer
+package connector
 
 import (
 	"context"

@@ -14,19 +14,18 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/mailer"
 )
 
 // FriendlyVerifyError —— 把连接测试错误映成 owner 友好理由（connect/tls/auth 分类，连接器层认得
 // mailer 的分类 sentinel）；非已知分类 → ""。消费者（connectorsvc）经此把 connect 失败友好化。
 func FriendlyVerifyError(err error) string {
 	switch {
-	case errors.Is(err, mailer.ErrVerifyAuth):
-		return mailer.ErrVerifyAuth.Error()
-	case errors.Is(err, mailer.ErrVerifyTLS):
-		return mailer.ErrVerifyTLS.Error()
-	case errors.Is(err, mailer.ErrVerifyConnect):
-		return mailer.ErrVerifyConnect.Error()
+	case errors.Is(err, ErrVerifyAuth):
+		return ErrVerifyAuth.Error()
+	case errors.Is(err, ErrVerifyTLS):
+		return ErrVerifyTLS.Error()
+	case errors.Is(err, ErrVerifyConnect):
+		return ErrVerifyConnect.Error()
 	default:
 		return ""
 	}
@@ -46,9 +45,9 @@ type SMTPConfig struct {
 // Configured —— 是否填了能物理发信的最低配置（有 host）。
 func (c *SMTPConfig) Configured() bool { return c.Host != "" }
 
-// toMailerConfig —— 解密后配置 → mailer.Config（Verify/Send 共用，免去逐处抄字段）。
-func (c *SMTPConfig) toMailerConfig() *mailer.Config {
-	return &mailer.Config{
+// toMailerConfig —— 解密后配置 → Config（Verify/Send 共用，免去逐处抄字段）。
+func (c *SMTPConfig) toMailerConfig() *Config {
+	return &Config{
 		Host: c.Host, Port: c.Port, Username: c.Username, Password: c.Password,
 		FromAddress: c.FromAddress, FromName: c.FromName, TLS: c.TLS,
 	}
@@ -87,7 +86,7 @@ func (c *smtpConnector) Verify(ctx context.Context, ownerID string) error {
 	if !cfg.Configured() {
 		return consumer.ErrMailNotConfigured
 	}
-	if verr := mailer.Verify(ctx, cfg.toMailerConfig()); verr != nil {
+	if verr := Verify(ctx, cfg.toMailerConfig()); verr != nil {
 		return fmt.Errorf("connector %q smtp verify: %w", c.id, verr)
 	}
 	return nil
@@ -112,7 +111,7 @@ func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg contract.M
 	if !cfg.Configured() {
 		return consumer.ErrMailNotConfigured
 	}
-	b := mailer.Compose(cfg.toMailerConfig()).To(msg.To).Subject(msg.Subject).Body(msg.Body)
+	b := Compose(cfg.toMailerConfig()).To(msg.To).Subject(msg.Subject).Body(msg.Body)
 	if msg.HTML != "" {
 		b = b.HTML(msg.HTML)
 	}

@@ -18,7 +18,7 @@ ALLOWED='internal/connector|cmd/server'
 # -r 的输出会带 ./ 前缀、--include 也不同，导致 ^ALLOWED 排除失配）。sed 去 ./
 # 前缀让锚点在 GNU/BusyBox 两边一致命中。
 violations=$(find internal cmd -name '*.go' ! -name '*_test.go' \
-  -exec grep -lE '"github\.com/atmaxmoj/standmeet/internal/(gcal|mailer)"' {} + 2>/dev/null \
+  -exec grep -lE '"github\.com/atmaxmoj/standmeet/internal/(gcal|mailer)"' {} + 2>/dev/null || true \
   | sed 's|^\./||' \
   | { grep -vE "^($ALLOWED)/" || true; })
 

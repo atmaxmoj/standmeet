@@ -18,7 +18,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/prompts"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // ComposeBasePersona —— system prompt 的 "non-capability" 部分：visitor
@@ -71,7 +71,7 @@ func appendTrimmed(out []string, s string) []string {
 
 func visitorHeader() string {
 	// Phase D-1: 单一源 prompts/visitor-header.md
-	return prompts.MustLoad("visitor-header")
+	return owner.MustLoadPromptFragment("visitor-header")
 }
 
 // CitedRef —— done event 推给前端的引用信息：id + title。/dialogs commit

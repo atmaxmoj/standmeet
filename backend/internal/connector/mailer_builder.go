@@ -3,7 +3,7 @@
 //
 //	mailer.Compose(cfg).To(addr).Subject(s).Body(b).Send()
 
-package mailer
+package connector
 
 import "time"
 

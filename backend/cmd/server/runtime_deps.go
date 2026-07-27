@@ -16,7 +16,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
@@ -52,7 +51,7 @@ type runtimeDeps struct {
 	outputRepo         *corpus.OutputRepo
 	growthRepo         *stats.GrowthRepo
 	activityRepo       *stats.ActivityRepo
-	jobRegistry        *jobregistry.Registry
+	jobRegistry        *stats.JobRegistry
 	corpus             *corpus.Corpus
 	codeRepo           *access.CodeRepo
 	codeDenialRepo     *access.CodeDenialRepo

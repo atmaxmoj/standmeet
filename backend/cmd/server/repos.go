@@ -17,7 +17,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/pgstore"
@@ -151,7 +150,7 @@ func assembleRuntimeDeps(
 		outputRepo:       repos.output,
 		growthRepo:       repos.growth,
 		activityRepo:     repos.activity,
-		jobRegistry:      jobregistry.New(),
+		jobRegistry:      stats.NewJobRegistry(),
 		corpus:           corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
 		codeRepo:         repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
 		seoRepo:            repos.seo,

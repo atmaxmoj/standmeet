@@ -1,14 +1,7 @@
-// Package mailer sends outbound email over the owner's own SMTP server using
-// only the standard library (net/smtp). No third-party dependency, no SaaS
-// binding — the owner brings their SMTP creds (Gmail app password, Postmark,
-// Fastmail, …) and we relay through them.
-//
-// net/smtp.SendMail negotiates STARTTLS automatically when the server
-// advertises it (real providers on 587), and skips auth + TLS when none is
-// configured (a local Mailpit catcher on 1025, used by the e2e). PlainAuth
-// refuses to leak credentials over an unencrypted non-localhost link, which is
-// the behaviour we want.
-package mailer
+// mailer_smtp.go —— connector 的 SMTP 出站传输原语(net/smtp)。owner 自带 SMTP 凭据,
+// 经连接器 smtp 协议运行时中转发信;无第三方依赖、无 SaaS 绑定。
+
+package connector
 
 import (
 	"errors"
