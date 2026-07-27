@@ -47,11 +47,23 @@ type CreateCodeInput struct {
 func (r *CodeRepo) Create(
 	ctx context.Context, in *CreateCodeInput) (Code, error,
 ) {
+	return createCodeOn(ctx, dbq.New(r.pool), in)
+}
+
+// CreateAccessCodeTx —— 在调用方**事务内**发码,给跨域调用方(job-loop application-commit:
+// 写 application 行 + 发码必须同一 tx 原子)。access 不让别的域直接碰 access_codes DAO;经此
+// 在共享 pgx.Tx 上发码,既保原子性又守域边界。参数是 pgx 原语(不外泄本域生成的 DBTX 类型)。
+func CreateAccessCodeTx(ctx context.Context, tx pgx.Tx, in *CreateAccessCodeInput) (Code, error) {
+	return createCodeOn(ctx, dbq.New(tx), accessInputToCreate(in))
+}
+
+// createCodeOn —— 在任意 DBTX(池连接或事务)上写一条 access_code。Create 与 CreateAccessCodeTx 共用。
+func createCodeOn(ctx context.Context, q *dbq.Queries, in *CreateCodeInput) (Code, error) {
 	params, perr := buildCreateCodeParams(in)
 	if perr != nil {
 		return Code{}, perr
 	}
-	row, err := dbq.New(r.pool).CreateAccessCode(ctx, *params)
+	row, err := q.CreateAccessCode(ctx, *params)
 	if err != nil {
 		if name, hit := pgstore.UniqueViolation(err); hit && name == "access_codes_code_key" {
 			return Code{}, ErrCodeTaken
@@ -67,7 +79,12 @@ func (r *CodeRepo) Create(
 func (r *CodeRepo) CreateAccessCode(
 	ctx context.Context, in *CreateAccessCodeInput,
 ) (Code, error) {
-	return r.Create(ctx, &CreateCodeInput{
+	return r.Create(ctx, accessInputToCreate(in))
+}
+
+// accessInputToCreate —— CreateAccessCodeInput → CreateCodeInput 平移(字段一一对应)。
+func accessInputToCreate(in *CreateAccessCodeInput) *CreateCodeInput {
+	return &CreateCodeInput{
 		OwnerID:            in.OwnerID,
 		Code:               in.Code,
 		Label:              in.Label,
@@ -79,7 +96,7 @@ func (r *CodeRepo) CreateAccessCode(
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
 		PromptID:           in.PromptID,
 		InlinePrompt:       in.InlinePrompt,
-	})
+	}
 }
 
 func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, error) {

@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
@@ -158,7 +157,7 @@ func prepareRender(
 func runCommitTx(
 	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string, rp *renderPrep,
 ) (CommitOutput, error) {
-	expires := timestamptzFromTime(time.Now().AddDate(0, 0, applicationCodeDays))
+	expires := time.Now().AddDate(0, 0, applicationCodeDays)
 	maxMembers := applicationMaxMembers
 	maxTurns := applicationMaxTurns
 	// A.3-IAM-5: application 自动 issue code 默认挂 owner 的 public role。
@@ -203,8 +202,4 @@ func generateApplicationCode() (string, error) {
 func buildQRURL(publicURL, code string) string {
 	base := strings.TrimRight(publicURL, "/")
 	return fmt.Sprintf("%s/?code=%s", base, url.QueryEscape(code))
-}
-
-func timestamptzFromTime(t time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{Time: t, Valid: true}
 }

@@ -15,9 +15,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
@@ -39,7 +39,7 @@ func NewApplicationRepo(pool *pgstore.Pool) *ApplicationRepo {
 // caller 已经决定了 code plaintext + label + 有效期 + 配额（usecase 层默认值），
 // 以及发码挂的 role id（usecase 默认走 owner 的 public）。
 type CommitInput struct {
-	CodeExpiresAt      *pgtype.Timestamptz
+	CodeExpiresAt      *time.Time
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
 	OwnerID            string
@@ -86,18 +86,18 @@ func commitTx(ctx context.Context, tx pgx.Tx, in *CommitInput) (CommitOutput, er
 	if err != nil {
 		return CommitOutput{}, err
 	}
-	q := dbq.New(tx)
-	draft, err := loadDraftForCommit(ctx, q, &key)
+	draft, err := loadDraftForCommit(ctx, dbq.New(tx), &key)
 	if err != nil {
 		return CommitOutput{}, err
 	}
-	return writeCommitRows(ctx, q, in, &key, &draft)
+	return writeCommitRows(ctx, tx, in, &key, &draft)
 }
 
 func writeCommitRows(
-	ctx context.Context, q *dbq.Queries, in *CommitInput, key *draftKey, draft *dbq.ResumeDraft,
+	ctx context.Context, tx pgx.Tx, in *CommitInput, key *draftKey, draft *dbq.ResumeDraft,
 ) (CommitOutput, error) {
-	code, err := insertAccessCode(ctx, q, in, key.owner, recruiterBriefing(draft.JobSnapshot))
+	q := dbq.New(tx)
+	code, err := insertAccessCode(ctx, tx, in, recruiterBriefing(draft.JobSnapshot))
 	if err != nil {
 		return CommitOutput{}, err
 	}
@@ -160,37 +160,27 @@ func loadDraftForCommit(
 	return row, nil
 }
 
+// insertAccessCode —— 在 commit 事务内发码。job-loop 不直接碰 access_codes DAO;经 access 的
+// tx-aware 发码口在同一 pgx.Tx 上写(写 application 行 + 发码原子)。域类型平移,不再持 pgtype。
 func insertAccessCode(
-	ctx context.Context, q *dbq.Queries, in *CommitInput, ownerUUID pgtype.UUID, briefing string,
+	ctx context.Context, tx pgx.Tx, in *CommitInput, briefing string,
 ) (access.Code, error) {
-	emptyJSON, jerr := json.Marshal([]any{})
-	if jerr != nil {
-		return access.Code{}, fmt.Errorf("marshal empty jsonb: %w", jerr)
-	}
-	roleUUID, rerr := pgstore.ParseUUID(in.AssumedRoleID)
-	if rerr != nil {
-		return access.Code{}, fmt.Errorf("parse assumed_role_id: %w", rerr)
-	}
-	expires := pgtype.Timestamptz{}
-	if in.CodeExpiresAt != nil {
-		expires = *in.CodeExpiresAt
-	}
-	row, err := q.CreateAccessCode(ctx, dbq.CreateAccessCodeParams{
-		OwnerID:            ownerUUID,
+	code, err := access.CreateAccessCodeTx(ctx, tx, &access.CreateAccessCodeInput{
+		OwnerID:            in.OwnerID,
 		Code:               in.CodePlaintext,
 		Label:              in.CodeLabel,
 		Purpose:            in.CodePurpose,
-		Ghosts:             emptyJSON,
-		ExpiresAt:          expires,
+		AssumedRoleID:      in.AssumedRoleID,
+		InlinePrompt:       briefing,
+		ExpiresAt:          in.CodeExpiresAt,
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
-		AssumedRoleID:      roleUUID,
-		InlinePrompt:       briefing,
+		Ghosts:             []string{},
 	})
 	if err != nil {
-		return access.Code{}, fmt.Errorf("create access code: %w", err)
+		return access.Code{}, fmt.Errorf("issue application access code: %w", err)
 	}
-	return access.CodeFromRow(&row), nil
+	return code, nil
 }
 
 // recruiterBriefing —— 从 draft 的 job_snapshot 拼一段 persona 上下文，冻进 app-码的 inline_prompt
