@@ -8,7 +8,7 @@ import (
 	"context"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"

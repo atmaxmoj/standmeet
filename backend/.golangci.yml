@@ -106,6 +106,9 @@ linters:
       ignore-comments: true
     gocritic:
       enabled-tags: [diagnostic, performance, style, opinionated]
+      # unnamedResult 想给多返回值起名,直接跟本仓库启用的 nonamedreturns(禁命名返回值)
+      # 政策冲突 —— 二者不可同时满足。以 nonamedreturns 为准,关掉这条 gocritic 检查。
+      disabled-checks: [unnamedResult]
     errcheck:
       check-type-assertions: true
       check-blank: true
@@ -135,7 +138,7 @@ linters:
         - github.com/atmaxmoj/standmeet/internal/capabilities/sandbox.Runner
         - github.com/atmaxmoj/standmeet/internal/connector/contract.CalendarProxy
         - github.com/atmaxmoj/standmeet/internal/connector/contract.MailProxy
-        - github.com/atmaxmoj/standmeet/internal/corpus.Document
+        - github.com/atmaxmoj/standmeet/internal/corpus/entity.Document
         - github.com/atmaxmoj/standmeet/internal/connector.Integration
         # J.3: jobs plugin 的 Capability 工厂跟主 mcp 包同形态 (NewXxx →
         # capreg.Capability)；外部用 Capability interface 注册不耦合
@@ -263,6 +266,19 @@ linters:
         linters: [godoclint]
       - path: internal/[a-z0-9]+/facade/
         text: "max-public-structs"
+      # facade 里 re-export 泛型类型别名 `type T[X any] = pkg.T[X]` 用到 `any` 作类型约束,
+      # 不是 business `any` payload —— forbidigo 的 any-ban 不适用于 facade 的泛型转发。
+      - path: internal/[a-z0-9]+/facade/
+        linters: [forbidigo]
+      # 域 guts(entity/repo/usecase)的包名恰好也是拆分前的常用局部变量名(repo/entity),
+      # 域内代码把「这个 repo」命名为 repo 是清晰的,shadow 在此是切分的既有产物,豁免
+      # revive(import-shadowing)与 gocritic(importShadow)两条同类规则。
+      - path: internal/[a-z0-9]+/(entity|repo|usecase)/
+        text: "[iI]mport.?[sS]hadow"
+      # repo_seo 的 UpdateWikiSEO/UpdateOutputSEO/… 是「按 genre 平行」的一组 SEO 更新方法,
+      # 形状同构只差 genre 常量 + 返回类型 —— 拆分前既有,dedup 是独立重构,此处豁免 dupl。
+      - path: internal/corpus/repo/repo_seo.go
+        linters: [dupl]
       # HTTP route handlers (echo `func(c) error`) only — mcphandle lives
       # under internal/routes/ too but returns capreg.MCPResult, not error,
       # so it is NOT exempt from wrapcheck (keeps its pre-move budget).
@@ -339,11 +355,11 @@ linters:
         linters: [testpackage]
       # corpus map/stub/crosslink 白盒 UT：unexported tree/heading/crosslink 内部
       # (findNode/extractHeadings/resolveNoteDstIDs) 的纯逻辑 repro → 必须 in-package。
-      - path: internal/corpus/uc_corpus_map_test.go
+      - path: internal/corpus/usecase/uc_corpus_map_test.go
         linters: [testpackage]
-      - path: internal/corpus/uc_corpus_stub_test.go
+      - path: internal/corpus/usecase/uc_corpus_stub_test.go
         linters: [testpackage]
-      - path: internal/corpus/uc_wiki_crosslink_test.go
+      - path: internal/corpus/usecase/uc_wiki_crosslink_test.go
         linters: [testpackage]
       - path: cmd/server/
         linters: [testpackage, paralleltest]

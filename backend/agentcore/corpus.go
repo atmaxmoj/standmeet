@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // ErrCorpusNotFound —— a Driver's GetCorpus signals "no such path" with this.

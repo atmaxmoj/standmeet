@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 	"github.com/atmaxmoj/standmeet/internal/infra/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"

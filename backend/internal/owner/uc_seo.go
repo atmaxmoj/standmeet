@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // SEODeps —— SEO usecases 所需。Wiki/Output 用来 load 全树算公开 landing 地址

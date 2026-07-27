@@ -22,7 +22,7 @@ import (
 	"time"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // HistoryDeps —— 会话读模型的窄依赖(#131):code 配额 + chat 事务 + 三类 corpus

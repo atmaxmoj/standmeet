@@ -78,7 +78,13 @@ components:
   conversation:
     in: internal/conversation        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpus 拿 DocumentGenre
   corpus:
-    in: internal/corpus              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
+    in: internal/corpus/facade       # #135: corpus 域 facade（对外协议）；域外只 import 这里
+  corpusentity:
+    in: internal/corpus/entity       # corpus guts: 各 genre 值对象/实体 + 域错误
+  corpusrepo:
+    in: internal/corpus/repo         # corpus guts: 仓储（over db + pgstore）
+  corpususecase:
+    in: internal/corpus/usecase      # corpus guts: 用例/编排 + 读取端口
   access:
     in: internal/access/facade       # #135: access 域 facade（对外协议）；域外只 import 这里
   accessentity:
@@ -616,18 +622,34 @@ deps:
       - connectorconsumer
     anyVendorDeps: true
 
-  # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
+  # corpus —— #135 corpus 域(facade + DDD guts)。facade 只依赖自己的 guts;guts 分层无环。
   corpus:
     mayDependOn:
+      - corpusentity
+      - corpusrepo
+      - corpususecase
+    anyVendorDeps: true
+  corpusentity:
+    mayDependOn:
+      - connector
+    anyVendorDeps: true
+  corpusrepo:
+    mayDependOn:
+      - corpusentity
       - corpusdb
       - connector
       - pgstore
-      - apierr
-      - storage
+    anyVendorDeps: true
+  corpususecase:
+    mayDependOn:
+      - corpusentity
+      - corpusrepo
       - search
-      - capsocket
       - access
-      - capreg
+      - capsocket
+      - apierr
+      - pgstore
+      - storage
     anyVendorDeps: true
 
   # access —— #135 access 域(facade + DDD guts)。facade 只依赖自己的 guts;guts 分层无环。

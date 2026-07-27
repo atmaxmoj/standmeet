@@ -14,7 +14,7 @@
 
 package conversation
 
-import "github.com/atmaxmoj/standmeet/internal/corpus"
+import corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 
 // Citation —— 一个 corpus entry 引用 VO。
 type Citation struct {

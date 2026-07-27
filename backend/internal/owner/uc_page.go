@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // PageDeps —— page usecase 所需。PageContent 是 Owner aggregate 的内容

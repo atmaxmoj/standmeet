@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // PagePinDeps —— pin 维护点依赖:page_content 存取 + wiki 卡内容/树路径。

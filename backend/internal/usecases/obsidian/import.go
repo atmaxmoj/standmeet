@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // VaultFile —— multipart 上传的一个文件。RelPath 是 vault 内相对路径

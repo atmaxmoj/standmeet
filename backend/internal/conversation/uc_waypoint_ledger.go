@@ -14,7 +14,7 @@ import (
 	"slices"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // WaypointLedgerDeps —— cited id → URI 解析(VaultSync)+ session 存盘。

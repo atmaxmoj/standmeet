@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // SEOWriter —— seo.* + corpus SEO MCP tools 需要的最小接口（避开直接 import corpus.SEORepo）。

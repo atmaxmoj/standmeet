@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 const maxWritingMultipartSize = 50 << 20 // 50MB

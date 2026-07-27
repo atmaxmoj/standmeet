@@ -4,7 +4,7 @@
 package admin
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 func rawItemFromDomain(r *corpus.Raw) rawListItem {

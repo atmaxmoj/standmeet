@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // logErrKey —— slog 错误字段键(避免各 cap 文件重复 "err" 字面量)。

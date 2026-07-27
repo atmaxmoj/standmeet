@@ -14,7 +14,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // WikiSEOUpdater —— repo 面的窄口(corpus.SEORepo 满足)。

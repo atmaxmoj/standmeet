@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // WikiContext —— 节点上下文。Ancestors 是 root→parent 顺序(不含自己)。

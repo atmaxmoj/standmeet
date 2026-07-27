@@ -18,7 +18,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/corpus"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
 // DialogCorpusLookup —— Dialog cited 反查 entry 的窄接口。*corpus.Corpus
