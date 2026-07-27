@@ -1,18 +1,12 @@
-// Package plugins —— J phase: outbound plugin pattern。
+// plugin.go —— capability 轴的 in-process 装载机制(原 internal/plugins 的 Plugin/Registry,
+// 按 backend-domain-modules.md 折进 capabilities)。
 //
-// StandMeet 核心 = corpus + visitor chat + AccessCode + PDF render + AI provider。
-// 各 outbound use case (jobs / pitch / talent / 等) 走 "plugin" 模式：每个
-// 自己持 schema / MCP tools / admin routes / capability，core 不知道它存在。
-// 加新 outbound 只往 plugins/ 添子目录，不动 core。
-//
-// J.1 锁 Name 接口。J.5 起加 lifecycle hook (CapabilityRegistrar / AdminRouter)
-// 让 plugin 自己接管 MCP capability + admin REST 挂载；core wireup 只调
-// `reg.RegisterAllCapabilities(skills)` + `reg.MountAllAdminRoutes(r)`，不
-// 再 case-by-case if-jobs-then-... 散在 composition root。
-//
-// 接口 deliberately split：每个 hook 是 optional (Plugin 不强制实现)，让
-// plugin 按自己实际能力挂哪些面 (只挂 MCP 不挂 admin 等)。
-package plugins
+// 每个 in-process 能力(owner-side caps / outbound use case)实现 Plugin,可选挂 lifecycle
+// hook (CapabilityRegistrar / AdminRouter);boot 期 Register 进 Registry,wireup 只调一次
+// RegisterAllCapabilities / MountAllAdminRoutes,不再 case-by-case 散在 composition root。
+// hook 全 optional (type-assert):plugin 按自己能力挂哪些面。
+
+package capabilities
 
 import (
 	"github.com/go-chi/chi/v5"

@@ -18,8 +18,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmcp"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
@@ -41,7 +41,7 @@ type Deps struct {
 }
 
 // Plugin —— jobs outbound plugin 入口。J.5 起持 Deps 闭包；
-// 实现 plugins.Plugin + plugins.CapabilityRegistrar + plugins.AdminRouter。
+// 实现 capabilities.Plugin + capabilities.CapabilityRegistrar + capabilities.AdminRouter。
 type Plugin struct {
 	deps Deps
 }
@@ -51,15 +51,15 @@ func New(deps Deps) *Plugin { return &Plugin{deps: deps} }
 
 // 静态保证三个 interface 全部实现。
 var (
-	_ plugins.Plugin              = (*Plugin)(nil)
-	_ plugins.CapabilityRegistrar = (*Plugin)(nil)
-	_ plugins.AdminRouter         = (*Plugin)(nil)
+	_ capabilities.Plugin              = (*Plugin)(nil)
+	_ capabilities.CapabilityRegistrar = (*Plugin)(nil)
+	_ capabilities.AdminRouter         = (*Plugin)(nil)
 )
 
 // Name —— 跟 plugin registry 一致。
 func (*Plugin) Name() string { return Name }
 
-// RegisterCapabilities —— plugins.CapabilityRegistrar 实现：注册 6+3+1 个
+// RegisterCapabilities —— capabilities.CapabilityRegistrar 实现：注册 6+3+1 个
 // owner-MCP tool 进核心 capreg.Registry。重 ID 由 capreg MustRegister
 // 兜底 panic (boot 期失败比运行时漏注册好)。
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
@@ -68,7 +68,7 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(jobsmcp.NewApplicationsCapability(p.deps.Applications, p.deps.Log))
 }
 
-// MountAdminRoutes —— plugins.AdminRouter 实现：挂 /api/admin/drafts +
+// MountAdminRoutes —— capabilities.AdminRouter 实现：挂 /api/admin/drafts +
 // /api/admin/applications 到入参 router。caller 负责事先用 WithOwner +
 // RequireCSRF middleware 包好 (admin 共享认证栈)。
 func (p *Plugin) MountAdminRoutes(r chi.Router) {

@@ -11,6 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandboxws"
@@ -23,7 +24,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/plugins"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
@@ -85,7 +85,7 @@ type runtimeDeps struct {
 	storageClient      *storage.Client
 	jobCachePool       *jobcache.Pool
 	jobFetchRegistry   *jobfetch.Registry
-	pluginRegistry     *plugins.Registry
+	pluginRegistry     *capabilities.Registry
 	sessionStore       *session.OwnerSessionStore
 	visitorStore       *session.VisitorSessionStore
 	queryQueue         *session.QueryQueue

@@ -13,13 +13,13 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
@@ -55,7 +55,7 @@ type Deps struct {
 	DiagSandbox          sysroutes.DiagSandboxDeps
 	// PluginRegistry —— J.5: outbound plugins 一次性注册全套 admin REST hook。
 	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
-	PluginRegistry *plugins.Registry
+	PluginRegistry *capabilities.Registry
 	// BannedIPs —— 封禁 IP repo；公开面 BanGuard + admin ip-bans CRUD 共用。
 	BannedIPs *security.BannedIPRepo
 	// PubAPI —— the API-key facade (/api/pub/v1); api-key auth in its own middleware.

@@ -11,6 +11,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/connector"
@@ -24,7 +25,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/plugins"
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/plugins/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
@@ -212,8 +212,8 @@ func assembleRuntimeDeps(
 // 入参 *runtimeDeps：jobs.Plugin 需要 *jobsuc.JobsDeps / ResumeDeps /
 // ApplicationsDeps 等闭包持引用；这些 Deps 字段在 assembleRuntimeDeps
 // 跑完之后才齐，所以本函数在 assemble 之后再调一次。
-func buildPluginRegistry(d *runtimeDeps) *plugins.Registry {
-	reg := plugins.NewRegistry()
+func buildPluginRegistry(d *runtimeDeps) *capabilities.Registry {
+	reg := capabilities.NewRegistry()
 	jobsDeps := jobsuc.JobsDeps{
 		Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
 	}

@@ -1,6 +1,7 @@
 // Package ownercore —— #135 externalization. ALL owner-side MCP capabilities that used to be
 // core-registered in mcphandle's RegisterAgentSkills now live here as one in-process plugin, using
-// the jobs-plugin pattern (plugins.CapabilityRegistrar) — no separate process/socket, since owner
+// the jobs-plugin pattern (capabilities.CapabilityRegistrar) — no separate process/socket,
+// since owner
 // tools are trusted (owner-authenticated MCP facade) and need no sandbox isolation like the visitor
 // leaf caps. This is what makes core zero-owner-capabilities without per-cap process overhead.
 package ownercore
@@ -11,11 +12,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 
+	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/plugins"
 )
 
 // Name —— plugin registry identity.
@@ -60,23 +61,24 @@ type Deps struct {
 	AIPresets        []AIProviderPreset
 }
 
-// Plugin —— implements plugins.Plugin + plugins.CapabilityRegistrar.
+// Plugin —— implements capabilities.Plugin + capabilities.CapabilityRegistrar.
 type Plugin struct {
 	deps *Deps
 }
 
 var (
-	_ plugins.Plugin              = (*Plugin)(nil)
-	_ plugins.CapabilityRegistrar = (*Plugin)(nil)
+	_ capabilities.Plugin              = (*Plugin)(nil)
+	_ capabilities.CapabilityRegistrar = (*Plugin)(nil)
 )
 
 // New 构造 owner-core 插件。deps 是 boot 期一次性的 fat 依赖包，用指针避免 160B 值拷贝。
 func New(deps *Deps) *Plugin { return &Plugin{deps: deps} }
 
-// Name —— plugins.Plugin.
+// Name —— capabilities.Plugin.
 func (*Plugin) Name() string { return Name }
 
-// RegisterCapabilities —— plugins.CapabilityRegistrar: register every owner-MCP capability into
+// RegisterCapabilities —— capabilities.CapabilityRegistrar: register every owner-MCP
+// capability into
 // core capreg (was mcphandle.RegisterAgentSkills). dup/empty ID panics via capreg.MustRegister.
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	d := p.deps

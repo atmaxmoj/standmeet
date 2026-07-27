@@ -39,8 +39,6 @@ components:
     in: internal/conversation/inference                # LLM provider abstraction
   agentcore:
     in: agentcore                         # public facade over the agentic loop (eval-harness 等 out-of-module driver 入口)
-  plugins:
-    in: internal/plugins                  # J phase: Plugin interface + Registry
   pluginjobs:
     in: internal/plugins/jobs             # J phase: jobs plugin entry (Plugin impl)
   pluginownercore:
@@ -314,7 +312,8 @@ deps:
   # 只依赖 inference (ToolSpec / ToolExecutor) + domain (RoleSnapshot 类型)。
   # 具体 Capability 实现放在 usecases / mcp 等更高层，反向 import 本包注册。
   capabilities:
-    mayDependOn: []
+    mayDependOn:
+      - capreg
     anyVendorDeps: true
 
   capreg:
@@ -422,17 +421,13 @@ deps:
   # plugins —— J phase: Plugin interface + Registry + optional hooks
   # (CapabilityRegistrar / AdminRouter)。J.5 起 hooks 需要 capreg +
   # chi (vendor)；boundary 仍 leaf 不耦合任何业务包。
-  plugins:
-    mayDependOn:
-      - capreg
-    anyVendorDeps: true
 
   # pluginjobs —— J phase: jobs plugin entry。J.5 起持 Deps 闭包 + 实现
   # CapabilityRegistrar (调 jobsmcp) + AdminRouter (调 jobsadmin)；
   # 它是 jobs plugin 整套面 (uc / mcp / admin / fetch / cache) 的拼装层。
   pluginjobs:
     mayDependOn:
-      - plugins
+      - capabilities
       - capreg
       - jobcache
       - jobfetch
@@ -452,7 +447,7 @@ deps:
       - owner
       - marketplace
       - corpus
-      - plugins
+      - capabilities
       - capreg
       - mcputil
       - usecases
@@ -754,7 +749,7 @@ deps:
       - middleware
       - mcphandle
       - security
-      - plugins
+      - capabilities
       - owner
       - access
       - corpus
@@ -800,7 +795,7 @@ deps:
       - storage
       - server
       - capreg
-      - plugins
+      - capabilities
       - pluginjobs
       - pluginownercore
       - capsocket
