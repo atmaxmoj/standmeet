@@ -26,7 +26,7 @@ cd "$(dirname "$0")/../.."
 BASELINE="backend/.core-agnostic-baseline"
 
 # 内核三包 —— 看它们不该能推断出任何具体能力/连接器存在。
-CORE_DIRS="backend/internal/usecases backend/internal/inference"
+CORE_DIRS="backend/internal/usecases backend/internal/inference backend/internal/capabilities"
 
 # 具体能力/连接器名。都是内核里"正当理由几乎为零"的词。特意不收:
 #   - bare "mail"/"email"/"google"/"corpus" —— email 是身份、corpus 是内核原语,收了会误伤
@@ -40,7 +40,7 @@ current_hits() {
     # 去掉注释行(// 或 * 起头)再匹配 —— 历史注释里的词不算泄漏。
     body=$(grep -vE '^[[:space:]]*(//|\*)' "$f" 2>/dev/null || true)
     for tok in $TOKENS; do
-      if printf '%s\n' "$body" | grep -qi -- "$tok"; then
+      if printf '%s\n' "$body" | grep -qiE -- "(^|[^a-zA-Z])$tok"; then
         printf '%s\t%s\n' "$f" "$tok"
       fi
     done

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/capstore"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 )

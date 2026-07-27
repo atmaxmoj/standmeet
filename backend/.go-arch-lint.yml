@@ -85,6 +85,8 @@ components:
     in: internal/owner               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
   sandbox:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
+  capabilities:
+    in: internal/capabilities              # capability 轴 domain doc (root)
   capreg:
     in: internal/capabilities/capreg              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
   mcpclient:
@@ -110,7 +112,7 @@ components:
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   capstore:
-    in: internal/capstore                 # #135 constrained-reachback: per-plugin 隔离 JSONB 存储（每 connector/mcp 一 schema）；leaf，只依赖 pgx
+    in: internal/capabilities/capstore                 # #135 constrained-reachback: per-plugin 隔离 JSONB 存储（每 connector/mcp 一 schema）；leaf，只依赖 pgx
   retry:
     in: internal/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
   httpx:
@@ -294,6 +296,10 @@ deps:
   # capreg —— Phase B Capability interface + Registry。leaf-ish 包，
   # 只依赖 inference (ToolSpec / ToolExecutor) + domain (RoleSnapshot 类型)。
   # 具体 Capability 实现放在 usecases / mcp 等更高层，反向 import 本包注册。
+  capabilities:
+    mayDependOn: []
+    anyVendorDeps: true
+
   capreg:
     mayDependOn:
       - access

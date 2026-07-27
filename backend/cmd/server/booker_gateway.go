@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/capstore"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"

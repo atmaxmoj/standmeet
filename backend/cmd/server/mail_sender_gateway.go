@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/capstore"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
 	ownerroutes "github.com/atmaxmoj/standmeet/internal/routes/owner"
