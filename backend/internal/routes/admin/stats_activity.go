@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 

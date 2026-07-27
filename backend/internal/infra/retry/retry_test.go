@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/retry"
+	"github.com/atmaxmoj/standmeet/internal/infra/retry"
 	"github.com/stretchr/testify/require"
 )
 

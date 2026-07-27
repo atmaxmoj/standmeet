@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	fp "github.com/atmaxmoj/standmeet/internal/facadeparity"
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
 // mcp / admin —— two owner-facing facades. Both serve actions + reads; only admin can carry

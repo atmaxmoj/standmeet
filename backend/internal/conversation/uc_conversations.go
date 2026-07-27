@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // ConversationsDeps —— ListConversations / GetTranscript 需要的 repo。

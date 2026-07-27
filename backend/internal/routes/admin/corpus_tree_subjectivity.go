@@ -13,7 +13,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 )
 
 // subjectivityListItem —— 一条 subjectivity 笔记的 owner 视图。字段是 wiki 那份的子集:

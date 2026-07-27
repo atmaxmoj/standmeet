@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	fp "github.com/atmaxmoj/standmeet/internal/facadeparity"
-	pm "github.com/atmaxmoj/standmeet/internal/paritymanifest"
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	pm "github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
 )
 
 // TestOutward_AllOpsArePlaneOutward —— self-consistency: every op in the outward manifest is

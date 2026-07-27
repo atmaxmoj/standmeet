@@ -23,7 +23,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // HistoryDeps —— 会话读模型的窄依赖(#131):code 配额 + chat 事务 + 三类 corpus

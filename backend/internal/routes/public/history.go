@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 
-	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 type ghostResp struct {

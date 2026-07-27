@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // BYOAIDeps —— UpdateBYOAI 需要的 repo（owners 包）。

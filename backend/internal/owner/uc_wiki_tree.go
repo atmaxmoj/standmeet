@@ -23,7 +23,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // wikiTreeLayerCap —— 一层最多返多少节点。逐层懒加载下这是**单层**上限(不是全

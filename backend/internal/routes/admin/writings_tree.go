@@ -11,7 +11,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 )
 
 // WritingsTreeProvider —— 懒树一层 + 分页一页(concrete *corpus.WritingRepo 实现)。

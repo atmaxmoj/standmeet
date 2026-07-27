@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // PromoteToOutputInput —— promote_wiki_to_output 入参。Title 必填（不像 raw→

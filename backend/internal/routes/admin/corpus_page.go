@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 )
 
 const gridPageSize = 30

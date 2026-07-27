@@ -14,7 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/paritymanifest"
+	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
 )
 
 func (c *apiKeysCapability) aclBindings() []*capreg.MCPBinding {

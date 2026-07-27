@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // BannedIPRepo —— banned_ips 表 repo。

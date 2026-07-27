@@ -24,8 +24,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/storage"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 )
 
 // AssetsDeps —— 用例打包。Storage 在 composition root fail-fast 检查过，

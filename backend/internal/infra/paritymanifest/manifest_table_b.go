@@ -1,6 +1,6 @@
 package paritymanifest
 
-import fp "github.com/atmaxmoj/standmeet/internal/facadeparity"
+import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
 // connectors + external MCP servers.
 func connectorsMCPServers() []Entry {

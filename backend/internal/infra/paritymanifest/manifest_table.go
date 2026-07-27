@@ -1,6 +1,6 @@
 package paritymanifest
 
-import fp "github.com/atmaxmoj/standmeet/internal/facadeparity"
+import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
 // Manifest —— the canonical owner-capability set. One Entry per operation; MCP/Admin list the live
 // primitives that realize it. Reach declares INTENT: OwnerAction/OwnerRead must be on both owner

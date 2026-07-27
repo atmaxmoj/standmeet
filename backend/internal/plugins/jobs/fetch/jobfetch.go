@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 )
 

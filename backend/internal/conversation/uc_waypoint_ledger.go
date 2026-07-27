@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // WaypointLedgerDeps —— cited id → URI 解析(VaultSync)+ session 存盘。

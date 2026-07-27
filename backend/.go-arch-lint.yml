@@ -24,17 +24,17 @@ components:
   obsidian:
     in: internal/usecases/obsidian        # Obsidian vault import/export
   dbq:
-    in: internal/postgres/dbq
+    in: internal/infra/postgres/dbq
   pgstore:
-    in: internal/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
+    in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
   session:
-    in: internal/session
+    in: internal/infra/session
   config:
     in: cmd/server/config
   apierr:
-    in: internal/apierr                   # HTTP error envelope 翻译 helper
+    in: internal/infra/apierr                   # HTTP error envelope 翻译 helper
   middleware:
-    in: internal/middleware               # chi middleware: WithOwner, RequireCSRF
+    in: internal/infra/middleware               # chi middleware: WithOwner, RequireCSRF
   mcphandle:
     in: internal/routes/mcphandle         # owner MCP handles (controller layer): mcp-go server + tool handlers
   inference:
@@ -64,7 +64,7 @@ components:
   jobdedup:
     in: internal/plugins/jobs/dedup       # J.6c: cross-source dedup (canonical URL + composite key)
   gotenberg:
-    in: internal/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
+    in: internal/infra/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
   printsess:
     in: internal/plugins/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
   marketplace:
@@ -84,7 +84,7 @@ components:
   owner:
     in: internal/owner               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
   sandbox:
-    in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
+    in: internal/infra/sandbox                  # owner-curated skill script 在 docker container 里跑
   capabilities:
     in: internal/capabilities              # capability 轴 domain doc (root)
   capreg:
@@ -96,9 +96,9 @@ components:
   capsocket:
     in: internal/capabilities/capsocket                # 窄 unix-socket host 服务：断网沙箱插件经 bind 进的 socket 调后端 op (leaf)
   sandboxws:
-    in: internal/sandboxws                # per-session 沙箱工作区生命周期：懒建/TTL/cron sweep (leaf)
+    in: internal/infra/sandboxws                # per-session 沙箱工作区生命周期：懒建/TTL/cron sweep (leaf)
   storage:
-    in: internal/storage                  # MinIO/S3 对象存储 (图片 / 附件)
+    in: internal/infra/storage                  # MinIO/S3 对象存储 (图片 / 附件)
   connector:
     in: internal/connector                # Phase B: Nango-style 连接器层 —— 解密凭据 + 代调外部 (gcal/mailer)；凭据永不出 vault 进 usecases
   connectoropenapi:
@@ -110,19 +110,19 @@ components:
   connectorbuiltins:
     in: connectors                        # built-in connector data (embedded manifest/spec/binding) + Load — own top-level dir, out of internal/
   cryptobox:
-    in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
+    in: internal/infra/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   capstore:
     in: internal/capabilities/capstore                 # #135 constrained-reachback: per-plugin 隔离 JSONB 存储（每 connector/mcp 一 schema）；leaf，只依赖 pgx
   retry:
-    in: internal/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
+    in: internal/infra/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
   httpx:
-    in: internal/httpx                    # #132 唯一出站 HTTP client（retry+timeout+可组合 base）；leaf，所有出站者依赖它
+    in: internal/infra/httpx                    # #132 唯一出站 HTTP client（retry+timeout+可组合 base）；leaf，所有出站者依赖它
   search:
-    in: internal/search                   # 1b corpus 词法检索 Meili 封装；leaf，只依赖 meili SDK
+    in: internal/infra/search                   # 1b corpus 词法检索 Meili 封装；leaf，只依赖 meili SDK
   facadeparity:
-    in: internal/facadeparity             # facade-parity 强制 gate 机制；纯 std leaf，无 internal/vendor 依赖
+    in: internal/infra/facadeparity             # facade-parity 强制 gate 机制；纯 std leaf，无 internal/vendor 依赖
   paritymanifest:
-    in: internal/paritymanifest           # facade-parity 的具体 owner manifest + 真 facade 对照；依赖 facadeparity
+    in: internal/infra/paritymanifest           # facade-parity 的具体 owner manifest + 真 facade 对照；依赖 facadeparity
   sysroutes:
     in: internal/routes/sys
   adminroutes:
@@ -144,7 +144,7 @@ components:
   inferenceroutes:
     in: internal/routes/inference         # socket 入站 API controller: inference.generate
   server:
-    in: internal/server
+    in: internal/infra/server
   cmd:
     in: cmd/server
 

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
-	"github.com/atmaxmoj/standmeet/internal/retry"
+	"github.com/atmaxmoj/standmeet/internal/infra/retry"
 )
 
 const (

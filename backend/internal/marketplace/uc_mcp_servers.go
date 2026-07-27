@@ -10,8 +10,8 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 )
 
 // MCPServersDeps —— mcp servers CRUD + per-code 关联用的 repo 集合。

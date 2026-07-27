@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/atmaxmoj/standmeet/internal/search"
+	"github.com/atmaxmoj/standmeet/internal/infra/search"
 )
 
 // Indexer —— 写路径调用的索引传播口(best-effort,不返错)。nil = 未配 Meili,hooks 直接跳过。

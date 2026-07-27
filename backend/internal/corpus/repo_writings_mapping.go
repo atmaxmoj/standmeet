@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // writingPathPrefix —— writing 的 retriever/ACL path 前缀。path 不存列,由 slug 派生

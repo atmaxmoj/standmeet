@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
 // stubRT —— 可编程 base RoundTripper:按 responses 序列返回,记录尝试次数与最后请求体。

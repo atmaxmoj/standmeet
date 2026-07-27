@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // SlugTitle —— ListPublishedSlugAndTitle 返的轻量元组；不带 body_md，

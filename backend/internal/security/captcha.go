@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
 // Provider 标识装配的 verifier 类型。

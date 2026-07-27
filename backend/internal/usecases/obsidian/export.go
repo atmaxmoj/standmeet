@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/storage"
+	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 )
 
 // ExportDeps —— 流式 zip writer 要的 backend hooks。

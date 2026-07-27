@@ -20,7 +20,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // challengeNS —— Sigv1 challenge 命名空间，跟 e2e/fixtures/sigv1.ts 对齐。

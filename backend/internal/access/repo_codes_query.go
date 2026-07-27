@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // GetByID 拿 code（按 UUID，含 revoked）；不命中返 ErrCodeInvalid。turn quota

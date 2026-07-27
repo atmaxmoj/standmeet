@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // ChatSummary —— admin list 用的 chat 摘要（含 code label 关联）。

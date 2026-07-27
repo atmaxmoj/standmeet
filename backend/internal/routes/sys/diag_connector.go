@@ -16,7 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 )
 
 // AgentCallFn —— 按 id 跑一个 agent-tool op（注入 auth 调 SaaS），回原始响应或错（diag 直验通路）。

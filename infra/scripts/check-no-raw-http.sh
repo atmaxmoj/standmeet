@@ -26,7 +26,7 @@ violations=0
 while IFS= read -r -d '' f; do
   rel="${f#"$ROOT"/}"
   case "$rel" in
-    internal/httpx/*) continue ;;  # the infra itself may build the real client
+    internal/infra/httpx/*) continue ;;  # the infra itself may build the real client
   esac
   hits=$(grep -nE "$PATTERN" "$f" || true)
   if [ -n "$hits" ]; then

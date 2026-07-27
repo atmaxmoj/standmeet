@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // ─── raw ────────────────────────────────────────────────────

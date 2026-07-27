@@ -17,7 +17,7 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // CustomPageDeps —— custom page usecase 依赖。

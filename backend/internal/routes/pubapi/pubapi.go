@@ -24,7 +24,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/paritymanifest"
+	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 

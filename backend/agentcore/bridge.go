@@ -11,8 +11,8 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/sandbox"
 )
 
 // driverSandbox —— sandbox.Runner backed by Driver.RunSkill. Owns no stdout; forwards

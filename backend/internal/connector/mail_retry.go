@@ -14,7 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/retry"
+	"github.com/atmaxmoj/standmeet/internal/infra/retry"
 )
 
 // RetryingMailProxy —— 包一个 contract.MailProxy，Send 按 notifyPolicy 重试瞬时传输错。

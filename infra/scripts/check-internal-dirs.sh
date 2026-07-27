@@ -2,7 +2,7 @@
 # check-internal-dirs.sh —— backend/internal/ 下只允许三类目录:
 #   1) 类图的 8 个 core 领域模块 (backend-domain-modules.md 类图)
 #   2) 通用 app 层 usecases + 真正的入站 controller routes
-#   3) domain-less 的公共 DDD 基础设施 (pgstore/cryptobox/httpx/... — 见白名单)
+#   3) domain-less 的公共 DDD 基础设施 (///... — 见白名单)
 # 类图里没有、又不属于上述任何一类的目录 = "多出来的东西",必须拆掉归位
 # (功能移进某个 core 模块 / usecases / 或外置出 internal/,如 plugins→mcp-servers/)。
 #
@@ -19,10 +19,7 @@ BASELINE="$ROOT/backend/.internal-dirs-baseline"
 # ── 白名单:类图 core 模块 + routes + usecases + domain-less infra ──
 ALLOWED="
 access conversation connector corpus owner security marketplace stats capabilities
-
-routes usecases
-apierr cryptobox gotenberg httpx pgstore postgres retry sandbox sandboxws search storage middleware session
-inference server facadeparity paritymanifest
+routes usecases infra
 "
 
 is_allowed() {

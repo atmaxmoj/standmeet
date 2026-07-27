@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // WritingsDeps —— 只读 / 简单写 (publish / unpublish) 用。retriever / public

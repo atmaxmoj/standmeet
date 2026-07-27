@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"

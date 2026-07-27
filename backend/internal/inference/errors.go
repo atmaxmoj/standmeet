@@ -10,7 +10,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
 // Sentinel errors.

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // PasswordResetDeps —— ConsumePasswordResetToken 的依赖。

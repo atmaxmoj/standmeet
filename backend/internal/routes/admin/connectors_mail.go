@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 )
 
 type mailTestSendReq struct {

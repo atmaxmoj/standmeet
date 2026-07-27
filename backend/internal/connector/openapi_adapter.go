@@ -23,7 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
-	"github.com/atmaxmoj/standmeet/internal/retry"
+	"github.com/atmaxmoj/standmeet/internal/infra/retry"
 )
 
 // openapiCore —— 一个装配好的 openapi 连接器的公共件：id + 共享 runtime + 连接状态源 +

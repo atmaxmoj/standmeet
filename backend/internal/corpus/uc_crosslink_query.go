@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // CrossLinkQueryDeps —— public /writings GET 渲 [[crosslink]] 用的查询依赖。

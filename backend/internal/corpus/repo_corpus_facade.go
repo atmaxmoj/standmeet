@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
 // Corpus —— 统一 corpus 访问入口。

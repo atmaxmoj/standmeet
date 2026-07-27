@@ -12,7 +12,7 @@
 // OwnerAction/OwnerRead op with no MCP tool → "missing" until the MCP tool is added.
 package paritymanifest
 
-import fp "github.com/atmaxmoj/standmeet/internal/facadeparity"
+import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
 // facade names — the two owner-facing facades wired today.
 const (

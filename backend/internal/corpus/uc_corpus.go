@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // Deps —— raw + wiki + output + path 操作需要的 repo 集合。

@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/atmaxmoj/standmeet/internal/storage"
+	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 )
 
 // AssetURIScheme —— markdown body 里的 stable 引用前缀。

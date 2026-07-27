@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
 // ErrBlockedEgress —— 出站目标落在内网（被 SSRF 守卫拦下）。

@@ -10,7 +10,7 @@ package paritymanifest
 // chat facade's realizing tool names (corpus_search / calendar_book / …) are wired to these ops in
 // Wave D when the live registry ratchet lands; this file is the semantic source of truth.
 
-import fp "github.com/atmaxmoj/standmeet/internal/facadeparity"
+import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
 // Outward facade names.
 const (

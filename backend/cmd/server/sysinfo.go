@@ -14,9 +14,9 @@ import (
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 
-	"github.com/atmaxmoj/standmeet/internal/search"
+	"github.com/atmaxmoj/standmeet/internal/infra/search"
+	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	"github.com/atmaxmoj/standmeet/internal/stats"
-	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
 // appVersion —— 应用版本(发布时经 ldflags 覆写;dev 走默认)。

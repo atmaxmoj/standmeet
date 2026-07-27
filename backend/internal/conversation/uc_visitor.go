@@ -9,8 +9,8 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // VisitorSessionDeps / VisitorSkillsDeps 拆到 visitor_deps.go 守 max-lines。

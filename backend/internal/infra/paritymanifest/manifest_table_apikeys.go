@@ -1,6 +1,6 @@
 package paritymanifest
 
-import fp "github.com/atmaxmoj/standmeet/internal/facadeparity"
+import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
 // apiKeyEntries —— owner-plane management of the API-key facade: mint/list/revoke/update keys, their
 // per-key denials, and the candidacy ("open") toggles. MCP-first by product decision (the owner

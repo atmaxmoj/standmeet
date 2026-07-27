@@ -11,6 +11,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/infra/server"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
@@ -19,7 +20,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
-	"github.com/atmaxmoj/standmeet/internal/server"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 

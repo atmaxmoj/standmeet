@@ -13,7 +13,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )

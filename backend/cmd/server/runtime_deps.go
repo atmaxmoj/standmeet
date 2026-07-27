@@ -16,6 +16,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandboxws"
+	"github.com/atmaxmoj/standmeet/internal/infra/search"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
@@ -25,13 +30,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/printsess"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
-	"github.com/atmaxmoj/standmeet/internal/sandbox"
-	"github.com/atmaxmoj/standmeet/internal/sandboxws"
-	"github.com/atmaxmoj/standmeet/internal/search"
 	"github.com/atmaxmoj/standmeet/internal/security"
-	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/stats"
-	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
 // runtimeDeps 把 serve 的依赖打包，避免函数参数列表超过 revive argument-limit。

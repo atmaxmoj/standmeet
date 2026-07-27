@@ -25,13 +25,13 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
-	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/server"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/server"
-	"github.com/atmaxmoj/standmeet/internal/session"
-	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
 const (

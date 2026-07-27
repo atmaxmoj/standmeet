@@ -31,7 +31,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // FileInput —— 一张上传的图。PendingID 是前端 editor 分配的 client-side

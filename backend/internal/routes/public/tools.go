@@ -27,7 +27,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // methodQuery —— HTTP QUERY (RFC 10008)：安全/幂等的带 body 查询。只读工具可经此调用。

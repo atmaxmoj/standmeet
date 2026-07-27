@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 func TestClassifyRendersDisplayError(t *testing.T) {

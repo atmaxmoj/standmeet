@@ -23,8 +23,8 @@ import (
 	"os"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/pgstore"
 )
 
 const (

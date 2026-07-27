@@ -10,9 +10,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
+	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/sandbox"
-	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // VisitorSessionDeps —— #131: visitor **会话生命周期**那一有界上下文所需(发码会话 /

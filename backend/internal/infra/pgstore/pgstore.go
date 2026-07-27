@@ -15,8 +15,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/atmaxmoj/standmeet/internal/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // Pool —— pgx pool 别名(便于 mock 替换)。

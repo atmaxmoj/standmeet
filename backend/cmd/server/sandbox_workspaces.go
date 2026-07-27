@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/sandboxws"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandboxws"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 

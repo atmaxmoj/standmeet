@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // SkillsDeps —— skills CRUD 需要的 repo 集合。Code 用来 SetCodeSkills 时

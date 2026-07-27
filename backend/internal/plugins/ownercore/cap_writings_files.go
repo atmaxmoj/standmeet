@@ -21,7 +21,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 
-	"github.com/atmaxmoj/standmeet/internal/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
 const (

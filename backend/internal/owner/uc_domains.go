@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // AllowedDomainsDeps —— List / Add / Remove 需要 InstanceRepo。

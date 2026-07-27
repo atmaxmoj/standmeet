@@ -1,6 +1,6 @@
 package paritymanifest
 
-import fp "github.com/atmaxmoj/standmeet/internal/facadeparity"
+import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
 // governance (access-requests / ip-bans / domains / capabilities / bookings).
 func governanceEntries() []Entry {

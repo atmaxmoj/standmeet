@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
 // defaults — overridable per-Client.

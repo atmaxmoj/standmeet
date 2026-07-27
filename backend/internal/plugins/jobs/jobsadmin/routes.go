@@ -22,8 +22,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
-	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )

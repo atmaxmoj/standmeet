@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // WriteSubjectivityInput —— subjectivity_write 入参。ID 空 = 建;非空 = 改/改父。

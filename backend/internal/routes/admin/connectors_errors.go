@@ -7,8 +7,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // connErrCases —— sentinel → envelope（table-driven，apierr.Classify 派发；无匹配 → 500）。
