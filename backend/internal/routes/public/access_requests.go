@@ -13,7 +13,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // AccessRequestsHandlers —— public access-request route 依赖。

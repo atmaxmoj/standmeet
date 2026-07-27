@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 const (

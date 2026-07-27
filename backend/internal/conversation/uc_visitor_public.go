@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // IssuePublicSessionInput —— public-tier 访客（无 code）发起 session 的入参。

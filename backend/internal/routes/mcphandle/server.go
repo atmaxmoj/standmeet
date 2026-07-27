@@ -17,7 +17,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 type ctxKey struct{ name string }

@@ -11,7 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 func (h *SEOHandlers) getWikiTree() http.HandlerFunc {

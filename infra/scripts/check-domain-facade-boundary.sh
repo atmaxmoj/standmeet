@@ -20,6 +20,10 @@ scan() {
   python3 - "$internal" <<'PY'
 import os, re, sys
 internal = sys.argv[1]
+# Every subpackage of a faceted domain is guts (reachable only via .../facade) EXCEPT these
+# nested sub-modules, which keep their own boundary and their own external entry points
+# (e.g. owner/jobs is the job-loop plugin with its own MCP/admin surface, not owner's DDD guts).
+SUBMODULES = {"jobs"}
 # Opted-in domains = those that have an internal/<domain>/facade/ subdirectory.
 domains = sorted(
     d for d in os.listdir(internal)
@@ -39,7 +43,7 @@ for d in domains:
             path = os.path.join(dirpath, fn)
             for line in open(path):
                 for dom, sub in imp_re.findall(line):
-                    if dom == d and sub != "facade":
+                    if dom == d and sub != "facade" and sub not in SUBMODULES:
                         rel = os.path.relpath(path, internal)
                         violations.append(f"{rel}\t{d}/{sub}")
 for v in sorted(set(violations)):

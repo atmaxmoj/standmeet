@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 const capSEOBundle = "seo.bundle"

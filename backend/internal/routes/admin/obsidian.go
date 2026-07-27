@@ -28,7 +28,7 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/usecases/obsidian"
 )
 

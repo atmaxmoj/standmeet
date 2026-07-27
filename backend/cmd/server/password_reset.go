@@ -24,7 +24,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 const (

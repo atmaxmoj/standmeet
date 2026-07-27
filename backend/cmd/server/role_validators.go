@@ -10,7 +10,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 type roleRefValidator struct {

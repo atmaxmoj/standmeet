@@ -14,7 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // AccessRequestsDeps —— admin access-requests handlers 依赖。

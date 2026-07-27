@@ -13,7 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"

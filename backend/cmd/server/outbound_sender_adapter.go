@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 type outboundSenderAdapter struct{ proxy contract.MailProxy }

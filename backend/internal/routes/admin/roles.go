@@ -16,7 +16,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // RolesAdminDeps —— admin roles handlers 依赖。

@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // MetaLookup —— 取 owner 记录(owner.meta 只读它的白名单字段)。

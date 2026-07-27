@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // soleOwnerLookup —— access.SoleOwnerLookup 的实现：复用 owner.LoadSoleOwner 取 sole owner 的 id。

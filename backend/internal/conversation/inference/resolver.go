@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // Cred —— resolved upstream credential. all four fields non-empty after

@@ -9,7 +9,7 @@ import (
 	"context"
 
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // OwnerGetter —— the owner reads the visitor path needs: GetByID (calendar.book

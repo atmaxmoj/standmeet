@@ -17,7 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // SEOHandlers —— SEO 路由依赖。

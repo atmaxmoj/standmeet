@@ -15,7 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // MountCustomPages 挂 GET /custom-pages（admin 列表，只读视图）。

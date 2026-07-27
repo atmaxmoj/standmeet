@@ -9,7 +9,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 )
 

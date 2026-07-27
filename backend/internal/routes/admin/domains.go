@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // DomainsDeps —— admin domains handlers 依赖。

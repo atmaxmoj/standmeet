@@ -11,7 +11,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // VisitorSessionDeps —— #131: visitor **会话生命周期**那一有界上下文所需(发码会话 /

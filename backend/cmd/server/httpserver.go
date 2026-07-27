@@ -20,7 +20,7 @@ import (
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"

@@ -19,7 +19,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/go-chi/chi/v5"
 )
 

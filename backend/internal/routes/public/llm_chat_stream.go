@@ -20,7 +20,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 func (h *Handlers) llmChatStream() http.HandlerFunc {

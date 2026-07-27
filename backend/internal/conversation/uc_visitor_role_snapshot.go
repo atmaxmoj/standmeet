@@ -16,7 +16,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // buildRoleSnapshotForCode —— code.AssumedRoleID 必填（schema NOT NULL）→ 构造

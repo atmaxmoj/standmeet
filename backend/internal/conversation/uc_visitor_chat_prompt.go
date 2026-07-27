@@ -18,7 +18,7 @@ import (
 	"strings"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // ComposeBasePersona —— system prompt 的 "non-capability" 部分：visitor

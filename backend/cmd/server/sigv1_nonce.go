@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/redis/go-redis/v9"
 )
 

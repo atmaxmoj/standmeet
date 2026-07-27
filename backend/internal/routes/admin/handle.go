@@ -13,7 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // HandleDeps —— admin handle endpoint 的依赖。

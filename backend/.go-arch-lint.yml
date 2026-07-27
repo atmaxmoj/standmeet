@@ -100,7 +100,13 @@ components:
   accessusecase:
     in: internal/access/usecase      # access guts: 用例/编排 + 窄端口
   owner:
-    in: internal/owner               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
+    in: internal/owner/facade        # #135: owner 域 facade（对外协议）；域外只 import 这里
+  ownerentity:
+    in: internal/owner/entity        # owner guts: 值对象/实体 + 域错误
+  ownerrepo:
+    in: internal/owner/repo          # owner guts: 仓储（over db + pgstore + cryptobox）
+  ownerusecase:
+    in: internal/owner/usecase       # owner guts: 用例/编排
   sandbox:
     in: internal/capabilities/sandbox                  # owner-curated skill script 在 docker container 里跑
   capabilities:
@@ -684,16 +690,31 @@ deps:
   # owner —— #135 owner 模块：实体 + repo（连接器 OwnerLookup 消费 owner.Owner）。
   owner:
     mayDependOn:
-      - marketplace
+      - ownerentity
+      - ownerrepo
+      - ownerusecase
+    anyVendorDeps: true
+  ownerentity:
+    mayDependOn: []
+    anyVendorDeps: true
+  ownerrepo:
+    mayDependOn:
+      - ownerentity
       - ownerdb
       - pgstore
       - cryptobox
-      - apierr
-      - session
+    anyVendorDeps: true
+  ownerusecase:
+    mayDependOn:
+      - ownerentity
+      - ownerrepo
+      - marketplace
       - corpus
       - access
       - connector
       - connectorconsumer
+      - apierr
+      - session
     anyVendorDeps: true
 
 

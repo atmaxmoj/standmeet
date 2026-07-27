@@ -15,7 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 const capAccessRequestsBundle = "access_requests.bundle"

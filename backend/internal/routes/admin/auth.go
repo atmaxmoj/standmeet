@@ -12,7 +12,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
-	"github.com/atmaxmoj/standmeet/internal/owner"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 const ownerSessionMaxAge = 24 * 60 * 60 // 秒；和 OwnerSessionStore 的 TTL 对齐。
