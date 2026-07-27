@@ -15,7 +15,7 @@ import (
 
 // RegisterReportStoreOp —— 把 "report.store" 挂到 srv:{owner_id,conversation_id,html} →
 // SanitizeReportHTML → ReportStyledDocument → Upsert → {report_id, html:styled}。
-func RegisterReportStoreOp(srv *capsocket.Server, reports usecases.ReportStore) {
+func RegisterReportStoreOp(srv *capsocket.Server, reports conversation.ReportStore) {
 	srv.Handle("report.store", func(
 		ctx context.Context, raw json.RawMessage,
 	) (json.RawMessage, error) {

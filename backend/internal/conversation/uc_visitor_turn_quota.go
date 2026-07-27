@@ -3,7 +3,7 @@
 // 老 SendMessage 在 server-side agent loop 前查这个；G-Y.6 pi-pivot 后
 // /messages 路由没了，改成 /dialogs commit 前 check 一次。
 
-package usecases
+package conversation
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 // TurnQuotaInput —— EnforceTurnQuota 入参 (拆出来让外部 caller pi-pivot
@@ -40,7 +39,7 @@ func EnforceTurnQuota(
 }
 
 func enforceTurnQuotaForCode(
-	ctx context.Context, deps *VisitorSessionDeps, conv *conversation.Chat, codeID string,
+	ctx context.Context, deps *VisitorSessionDeps, conv *Chat, codeID string,
 ) error {
 	code, cerr := deps.Codes.GetByID(ctx, codeID)
 	if cerr != nil {
@@ -61,7 +60,7 @@ func turnQuotaCodeErr(err error) error {
 
 func turnQuotaCheck(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
-	conv *conversation.Chat,
+	conv *Chat,
 ) error {
 	if code.MaxTurnsPerSession == nil || *code.MaxTurnsPerSession <= 0 {
 		return nil
@@ -79,7 +78,7 @@ func turnQuotaCheck(
 // countTurnsForQuota —— member 级配额:有 member 就汇总该人全部对话的访客发言
 // (多段对话共享预算);无 member(anon / public)退回按单段对话数。
 func countTurnsForQuota(
-	ctx context.Context, deps *VisitorSessionDeps, conv *conversation.Chat,
+	ctx context.Context, deps *VisitorSessionDeps, conv *Chat,
 ) (int32, error) {
 	if conv.MemberID != nil && *conv.MemberID != "" {
 		n, err := deps.Chats.CountVisitorTurnsForMember(ctx, *conv.MemberID)

@@ -11,11 +11,14 @@
 
 package usecases
 
-import "github.com/atmaxmoj/standmeet/internal/capreg"
+import (
+	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
+)
 
 // RegisterVisitorSkills —— 注册口。跟 prod 同一组 capability 构造
 // (newRetrievalCapability / booker / skill-runner / ext-mcp)，按各 capability 的
-// 窄 deps 从 VisitorSkillsDeps 取料。
+// 窄 deps 从 conversation.VisitorSkillsDeps 取料。
 //
 // 四个 leaf 能力（ask_visitor / summarize / calendar.book / corpus.retrieval）已**全部**
 // 外置成沙箱插件（mcp-servers/*），由 composition root 走统一 sandbox_stdio 路径以
@@ -27,7 +30,7 @@ import "github.com/atmaxmoj/standmeet/internal/capreg"
 // 这里只剩 skill.runner + ext.mcp —— 它们是 loader/机制（装载第三方 skill / MCP server），
 // 不是 leaf 能力，故不外置。sumChats 第三参已不消费（透传保签名）。
 func RegisterVisitorSkills(
-	reg *capreg.Registry, deps *VisitorSkillsDeps, _ ConversationGetter,
+	reg *capreg.Registry, deps *conversation.VisitorSkillsDeps, _ conversation.Getter,
 ) {
 	reg.MustRegister(newSkillRunnerCapability(skillRunnerDeps{
 		Skills: deps.Skills, Sandbox: deps.Sandbox,

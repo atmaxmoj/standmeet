@@ -10,23 +10,23 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 // guardedIssueSession —— code-tier 锁定 → 兑换 → 记账。返 (res, true)=可写成功响应;
 // (_, false)=已写(429 锁定 / error 响应)。
 func (h *Handlers) guardedIssueSession(
 	w http.ResponseWriter, r *http.Request, req *createSessionRequest,
-) (usecases.IssueCodeSessionResult, bool) {
+) (conversation.IssueCodeSessionResult, bool) {
 	ip := clientIP(r)
 	if h.codeLocked(w, r, req.Mode, req.CaptchaToken, ip) {
-		return usecases.IssueCodeSessionResult{}, false
+		return conversation.IssueCodeSessionResult{}, false
 	}
 	res, err := dispatchIssueSession(r.Context(), &h.Visitor, req, ip)
 	if err != nil {
 		h.noteCodeFail(r.Context(), ip, err)
 		handleVisitorErr(h.Log, w, err)
-		return usecases.IssueCodeSessionResult{}, false
+		return conversation.IssueCodeSessionResult{}, false
 	}
 	h.CodeGuard.Reset(r.Context(), ip)
 	return res, true
@@ -35,16 +35,16 @@ func (h *Handlers) guardedIssueSession(
 // guardedIntro —— 同上,针对名字选择器 pre-issue peek(同样是 code 枚举 oracle,同守卫)。
 func (h *Handlers) guardedIntro(
 	w http.ResponseWriter, r *http.Request, req *codeIntroRequest,
-) (usecases.CodeIntroResult, bool) {
+) (conversation.CodeIntroResult, bool) {
 	ip := clientIP(r)
 	if h.codeLocked(w, r, "code", req.CaptchaToken, ip) {
-		return usecases.CodeIntroResult{}, false
+		return conversation.CodeIntroResult{}, false
 	}
-	res, err := usecases.CodeIntro(r.Context(), &h.Visitor, req.Code)
+	res, err := conversation.CodeIntro(r.Context(), &h.Visitor, req.Code)
 	if err != nil {
 		h.noteCodeFail(r.Context(), ip, err)
 		handleVisitorErr(h.Log, w, err)
-		return usecases.CodeIntroResult{}, false
+		return conversation.CodeIntroResult{}, false
 	}
 	h.CodeGuard.Reset(r.Context(), ip)
 	return res, true

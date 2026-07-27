@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/mcpclient"
@@ -30,11 +31,13 @@ const (
 // extMCPCapability —— 窄依赖(#131):owner 注册的外部 MCP server 目录 + connector-dep
 // 连通查询（ext-mcp 工具声明 _meta.requires 时按 grant+connected 闸，见 _deps.go）。
 type extMCPCapability struct {
-	servers   MCPServerGetter
+	servers   conversation.MCPServerGetter
 	connected DepConnected
 }
 
-func newExtMCPCapability(servers MCPServerGetter, connected DepConnected) *extMCPCapability {
+func newExtMCPCapability(
+	servers conversation.MCPServerGetter, connected DepConnected,
+) *extMCPCapability {
 	return &extMCPCapability{servers: servers, connected: connected}
 }
 
@@ -82,7 +85,7 @@ func (c *extMCPCapability) VisitorBinding(
 }
 
 func loadMCPServersForRole(
-	ctx context.Context, servers MCPServerGetter, in *capreg.AssembleInput,
+	ctx context.Context, servers conversation.MCPServerGetter, in *capreg.AssembleInput,
 ) []marketplace.MCPServerConfig {
 	if servers == nil || in.RoleSnapshot == nil {
 		return []marketplace.MCPServerConfig{}

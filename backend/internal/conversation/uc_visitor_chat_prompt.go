@@ -12,7 +12,7 @@
 // 走同一 ComposeBasePersona + registry.ComposeSystemPrompt，hash 真实反映
 // 下行 prompt。
 
-package usecases
+package conversation
 
 import (
 	"strings"

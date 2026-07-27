@@ -7,12 +7,10 @@
 // postgres repos (which satisfy these as-is), the eval-harness injects in-memory
 // fixtures. The agentic core stops being welded to the database.
 
-package usecases
+package conversation
 
 import (
 	"context"
-
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 // corpus.WikiLister —— owner-scoped wiki corpus for retrieval (buildRetriever)。除了内存
@@ -22,7 +20,7 @@ import (
 // no-op store 忽略入参。
 type ReportStore interface {
 	Upsert(
-		ctx context.Context, in *conversation.UpsertReportInput,
-	) (conversation.ChatReport, error)
-	GetByID(ctx context.Context, reportID string) (conversation.ChatReport, error)
+		ctx context.Context, in *UpsertReportInput,
+	) (ChatReport, error)
+	GetByID(ctx context.Context, reportID string) (ChatReport, error)
 }

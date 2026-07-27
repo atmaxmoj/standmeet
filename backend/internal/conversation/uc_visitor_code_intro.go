@@ -4,7 +4,7 @@
 // (per-role greeting)和「这张码给几个人用、已用几个」。这条 usecase 不开 session、
 // 不建 member,只读 code + role + member 数返回。
 
-package usecases
+package conversation
 
 import (
 	"context"

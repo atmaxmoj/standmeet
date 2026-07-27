@@ -1,7 +1,7 @@
 // visitor.go —— visitor session 颁发（code tier）。chat / RAG / 流式那一半在
 // visitor_chat.go；公开 (no-code) tier 颁发在 visitor_public.go。
 
-package usecases
+package conversation
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -50,7 +49,7 @@ type IssueCodeSessionResult struct {
 	CodeLabel   string
 	VisitorName string
 	MemberID    string
-	Chat        conversation.Chat
+	Chat        Chat
 	Members     []access.CodeMember
 	Ghosts      []string
 	Quota       SessionQuota
@@ -59,7 +58,7 @@ type IssueCodeSessionResult struct {
 // codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
 type codeSessionArtifacts struct {
 	Issued session.IssuedVisitor
-	Conv   conversation.Chat
+	Conv   Chat
 	Member access.CodeMember
 }
 
@@ -119,7 +118,7 @@ func finalizeCodeSession(
 // 各算。数不出来(DB 抖)→ 退回 0。
 func codeSessionQuotaWithUsed(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
-	conv *conversation.Chat,
+	conv *Chat,
 ) SessionQuota {
 	q := codeSessionQuota(code)
 	if used, err := countTurnsForQuota(ctx, deps, conv); err == nil {
@@ -277,16 +276,16 @@ func memberExists(members []access.CodeMember, name string) bool {
 func createCodeConversation(
 	ctx context.Context, deps *VisitorSessionDeps,
 	code *access.Code, member *access.CodeMember, in *IssueCodeSessionInput,
-) (conversation.Chat, error) {
+) (Chat, error) {
 	existing, gerr := deps.Chats.GetOpenChatByMember(ctx, member.ID)
 	if gerr == nil {
 		return existing, nil
 	}
-	if !errors.Is(gerr, conversation.ErrChatNotFound) {
-		return conversation.Chat{}, fmt.Errorf("look up member's open chat: %w", gerr)
+	if !errors.Is(gerr, ErrChatNotFound) {
+		return Chat{}, fmt.Errorf("look up member's open chat: %w", gerr)
 	}
 	memberID := member.ID
-	chat, err := deps.Chats.CreateChat(ctx, &conversation.CreateChatInput{
+	chat, err := deps.Chats.CreateChat(ctx, &CreateChatInput{
 		OwnerID:     code.OwnerID,
 		Mode:        "code",
 		CodeID:      &code.ID,
@@ -295,7 +294,7 @@ func createCodeConversation(
 		ClientIP:    in.ClientIP,
 	})
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf("create chat: %w", err)
+		return Chat{}, fmt.Errorf("create chat: %w", err)
 	}
 	return chat, nil
 }

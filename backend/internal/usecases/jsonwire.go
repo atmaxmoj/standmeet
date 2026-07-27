@@ -1,6 +1,5 @@
-// visitor_chat_tools.go —— 通用 tool-result JSON 兜底 helper。corpus wire 形与检索 op
-// 已随 #157/domain-modules 归 corpus(uc_corpus_wire.go / uc_corpus_index_*.go);此处只
-// 剩 capreg glue(ext_mcp / mcp_app / skill_runner)共用的 errJSON。
+// jsonwire.go —— capreg capability glue 的 tool-result JSON 兜底 helper。原在
+// visitor_chat_tools.go(随 visitor cluster 归 conversation);capreg glue 仍需,留一份。
 
 package usecases
 

@@ -23,6 +23,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/paritymanifest"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -48,7 +49,7 @@ type KeyStore interface {
 // rate_limit_rpm.
 type Deps struct {
 	Keys        KeyStore
-	Visitor     *usecases.VisitorSessionDeps
+	Visitor     *conversation.VisitorSessionDeps
 	AgentSkills *capreg.Registry
 	Redis       *redis.Client
 	Log         *slog.Logger

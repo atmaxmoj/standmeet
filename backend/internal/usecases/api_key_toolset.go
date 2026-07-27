@@ -12,6 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 // apiFacadeMode —— AssembleInput.Mode marker for api-key requests (no conversation, no LLM).
@@ -19,13 +20,13 @@ const apiFacadeMode = "api"
 
 // APIToolsetStore —— per-key denials + the owner's opened capabilities (APIKeyRepo implements it).
 type APIToolsetStore interface {
-	APIKeyDenialReader
+	conversation.APIKeyDenialReader
 	ListOpenCapabilities(ctx context.Context, ownerID string) ([]string, error)
 }
 
 // APIToolsetDeps —— what assembling a key's toolset needs.
 type APIToolsetDeps struct {
-	Visitor *VisitorSessionDeps
+	Visitor *conversation.VisitorSessionDeps
 	Store   APIToolsetStore
 	Skills  *capreg.Registry
 }
@@ -52,9 +53,9 @@ func (t *APIToolset) Close() {
 func AssembleAPIKeyToolset(
 	ctx context.Context, deps APIToolsetDeps, key *access.APIKey, whitelist []string,
 ) (APIToolset, error) {
-	snap, err := BuildAPIKeyRoleSnapshot(ctx, deps.Visitor, deps.Store, key)
+	snap, err := conversation.BuildAPIKeyRoleSnapshot(ctx, deps.Visitor, deps.Store, key)
 	if err != nil {
-		return APIToolset{}, err
+		return APIToolset{}, fmt.Errorf("build api-key role snapshot: %w", err)
 	}
 	opened, oerr := deps.Store.ListOpenCapabilities(ctx, key.OwnerID)
 	if oerr != nil {

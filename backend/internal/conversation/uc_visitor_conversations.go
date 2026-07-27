@@ -2,7 +2,7 @@
 // 自己那段对话(跟主聊天 / 别篇 doc 各自独立,transcript 不串),共享 member 级 turn
 // 配额。docKey='' 是主聊天,session issue 时已建,不走这里。
 
-package usecases
+package conversation
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 
 const (
@@ -35,16 +34,16 @@ type OpenConvForDocInput struct {
 // apierr.ErrEmptyField。
 func OpenConversationForDoc(
 	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
-) (conversation.Chat, error) {
+) (Chat, error) {
 	if !validOpenConvInput(in) {
-		return conversation.Chat{}, apierr.ErrEmptyField
+		return Chat{}, apierr.ErrEmptyField
 	}
 	existing, gerr := deps.Chats.GetOpenChatByMemberAndDoc(ctx, in.MemberID, in.DocKey)
 	if gerr == nil {
 		return existing, nil
 	}
-	if !errors.Is(gerr, conversation.ErrChatNotFound) {
-		return conversation.Chat{}, fmt.Errorf("lookup member doc chat: %w", gerr)
+	if !errors.Is(gerr, ErrChatNotFound) {
+		return Chat{}, fmt.Errorf("lookup member doc chat: %w", gerr)
 	}
 	return createDocConversation(ctx, deps, in)
 }
@@ -55,9 +54,9 @@ func validOpenConvInput(in *OpenConvForDocInput) bool {
 
 func createDocConversation(
 	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
-) (conversation.Chat, error) {
+) (Chat, error) {
 	memberID := in.MemberID
-	chat, err := deps.Chats.CreateChat(ctx, &conversation.CreateChatInput{
+	chat, err := deps.Chats.CreateChat(ctx, &CreateChatInput{
 		OwnerID:     in.OwnerID,
 		Mode:        in.Mode,
 		CodeID:      nullableProvider(in.CodeID),
@@ -66,7 +65,7 @@ func createDocConversation(
 		DocKey:      in.DocKey,
 	})
 	if err != nil {
-		return conversation.Chat{}, fmt.Errorf("create doc chat: %w", err)
+		return Chat{}, fmt.Errorf("create doc chat: %w", err)
 	}
 	return chat, nil
 }
@@ -87,7 +86,7 @@ func BuildCrossConvDigest(
 	return formatCrossConvDigest(msgs), nil
 }
 
-func formatCrossConvDigest(msgs []conversation.MemberOtherMessage) string {
+func formatCrossConvDigest(msgs []MemberOtherMessage) string {
 	if len(msgs) > crossConvMaxMessages {
 		msgs = msgs[len(msgs)-crossConvMaxMessages:]
 	}
@@ -104,7 +103,7 @@ func formatCrossConvDigest(msgs []conversation.MemberOtherMessage) string {
 	return strings.Join(lines, "")
 }
 
-func crossConvLine(m *conversation.MemberOtherMessage) string {
+func crossConvLine(m *MemberOtherMessage) string {
 	where := "main chat"
 	if m.DocKey != "" {
 		where = m.DocKey
@@ -127,7 +126,7 @@ func ChatBelongsToMember(
 ) (bool, error) {
 	conv, err := deps.Chats.GetChat(ctx, ownerID, convID)
 	if err != nil {
-		if errors.Is(err, conversation.ErrChatNotFound) {
+		if errors.Is(err, ErrChatNotFound) {
 			return false, nil
 		}
 		return false, fmt.Errorf("load conv for ownership: %w", err)

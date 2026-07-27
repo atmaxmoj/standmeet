@@ -205,8 +205,8 @@ func wireCapabilityEnableGate(d *runtimeDeps) {
 
 // buildVisitorSkillsDeps —— #131: capability 注册所需的原料(各 capability 的窄 deps
 // 由 RegisterVisitorSkills 从这里取)。registerAgentSkills 用,不进 Handlers。
-func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
-	return usecases.VisitorSkillsDeps{
+func buildVisitorSkillsDeps(d *runtimeDeps) conversation.VisitorSkillsDeps {
+	return conversation.VisitorSkillsDeps{
 		Wiki: d.wikiRepo, Output: d.outputRepo, Writings: d.writingRepo,
 		Skills:          d.skillRepo,
 		Sandbox:         d.sandboxRunner,
@@ -222,8 +222,8 @@ const apiKeyDefaultRPM = 120
 
 // newVisitorSessionDeps —— the role-snapshot / assembly dependency bundle shared by the visitor
 // public routes and the API-key facade (both freeze a RoleSnapshot the same way).
-func newVisitorSessionDeps(d *runtimeDeps) usecases.VisitorSessionDeps {
-	return usecases.VisitorSessionDeps{
+func newVisitorSessionDeps(d *runtimeDeps) conversation.VisitorSessionDeps {
+	return conversation.VisitorSessionDeps{
 		Codes: d.codeRepo, Chats: d.chatRepo,
 		Owners: d.ownerRepo, Skills: d.skillRepo,
 		Roles: d.roleRepo, Prompts: d.promptRepo,

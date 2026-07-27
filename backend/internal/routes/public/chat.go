@@ -30,16 +30,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	"github.com/atmaxmoj/standmeet/internal/session"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // Handlers —— public routes deps.
 type Handlers struct {
-	Visitor      usecases.VisitorSessionDeps
+	Visitor      conversation.VisitorSessionDeps
 	MailStatus   owner.OutboundSender // can-email gate in /sessions response (widget enable)
 	Cancel       booker.VisitorCancelDeps
 	Usage        UsageRecorder
-	Reports      usecases.ReportStore
+	Reports      conversation.ReportStore
 	Corpus       conversation.DialogCorpusLookup
 	Subjectivity corpus.SubjectivityCiteLookup
 	PDFRenderer  ReportPDFRenderer

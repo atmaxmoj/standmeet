@@ -311,6 +311,10 @@ linters:
       # waypoint ledger 白盒 UT：unexported markAll/stringSet 的 visited-set 逻辑 repro。
       - path: internal/conversation/uc_waypoint_ledger_test.go
         linters: [testpackage]
+      - path: internal/conversation/uc_resolve_code_prompt_test.go
+        linters: [testpackage]
+      - path: internal/conversation/uc_visitor_chat_prompt_test.go
+        linters: [testpackage]
       # corpus map/stub/crosslink 白盒 UT：unexported tree/heading/crosslink 内部
       # (findNode/extractHeadings/resolveNoteDstIDs) 的纯逻辑 repro → 必须 in-package。
       - path: internal/corpus/uc_corpus_map_test.go

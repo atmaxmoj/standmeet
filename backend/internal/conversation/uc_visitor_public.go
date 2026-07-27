@@ -2,7 +2,7 @@
 // 跟 visitor.go 拆开为了 max-lines（visitor.go 主体放 code-tier + chat
 // streaming pipeline）。
 
-package usecases
+package conversation
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
@@ -69,7 +68,7 @@ func finalizePublicSession(
 	// Mode 记 byoai/public(功能性,resolver/quota 在用);BYOAI 的具体 provider 是
 	// visitor/session 的属性(前端 session-store + per-request cred),不落 conv 行。
 	mode := publicModeForBYOAI(in.BYOAIProvider)
-	chat, err := deps.Chats.CreateChat(ctx, &conversation.CreateChatInput{
+	chat, err := deps.Chats.CreateChat(ctx, &CreateChatInput{
 		OwnerID:     o.ID,
 		Mode:        mode,
 		VisitorName: in.VisitorName,

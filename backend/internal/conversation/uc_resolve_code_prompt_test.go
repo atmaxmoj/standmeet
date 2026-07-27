@@ -1,7 +1,7 @@
 // resolve_code_prompt_test.go —— #104 扩展的取值语义：内联 per-code prompt 优先于 prompt_id 库引用。
 // 内联非空时**直接返回、不碰 deps**（发码方随码带的 persona，不查库）——core 无脑注入这段，不知语义。
 
-package usecases
+package conversation
 
 import (
 	"context"

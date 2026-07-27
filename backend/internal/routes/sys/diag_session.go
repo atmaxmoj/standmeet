@@ -19,8 +19,8 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/session"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // DiagSessionDeps —— deps for /diag/session.
@@ -105,7 +105,7 @@ func buildDiagSessionResp(
 		// ConversationID 留空：diag endpoint 不绑定具体 conversation；
 		// capability 实现按需 fallback (booker 没 conv ID 就跳 DB lookup)。
 	}
-	basePersona := usecases.ComposeBasePersona(data.RoleSnapshot)
+	basePersona := conversation.ComposeBasePersona(data.RoleSnapshot)
 	return diagSessionResp{
 		Capabilities:     reg.VisitorStates(ctx, in),
 		ToolSpecs:        toolSpecsFor(ctx, reg, in),

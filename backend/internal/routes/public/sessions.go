@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -145,7 +146,7 @@ func (h *Handlers) codeIntro() http.HandlerFunc {
 }
 
 func writeCodeIntro(
-	log *slog.Logger, w http.ResponseWriter, res *usecases.CodeIntroResult,
+	log *slog.Logger, w http.ResponseWriter, res *conversation.CodeIntroResult,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -162,11 +163,11 @@ func writeCodeIntro(
 // tier=='code' → IssueCodeSession（带 access code）。
 // mode=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。
 func dispatchIssueSession(
-	ctx context.Context, deps *usecases.VisitorSessionDeps,
+	ctx context.Context, deps *conversation.VisitorSessionDeps,
 	req *createSessionRequest, clientIP string,
-) (usecases.IssueCodeSessionResult, error) {
+) (conversation.IssueCodeSessionResult, error) {
 	if pickMode(req) == "code" {
-		return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
+		return conversation.IssueCodeSession(ctx, deps, &conversation.IssueCodeSessionInput{
 			Code:         req.Code,
 			VisitorName:  req.VisitorName,
 			VisitorEmail: req.VisitorEmail,
@@ -174,7 +175,7 @@ func dispatchIssueSession(
 			ClientIP:     clientIP,
 		})
 	}
-	return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
+	return conversation.IssuePublicSession(ctx, deps, &conversation.IssuePublicSessionInput{
 		VisitorName:   req.VisitorName,
 		VisitorEmail:  req.VisitorEmail,
 		BYOAIProvider: req.BYOAIProvider,
@@ -219,7 +220,7 @@ func pickMode(req *createSessionRequest) string {
 
 func writeCreateSession(
 	ctx context.Context, h *Handlers,
-	w http.ResponseWriter, res *usecases.IssueCodeSessionResult,
+	w http.ResponseWriter, res *conversation.IssueCodeSessionResult,
 ) {
 	log, deps := h.Log, &h.Visitor
 	canEmail := usecases.OwnerCanEmailCodes(ctx,
@@ -235,7 +236,7 @@ func writeCreateSession(
 		MemberID:            res.MemberID,
 		CodeLabel:           res.CodeLabel,
 		VisitorName:         res.VisitorName,
-		SystemPromptPersona: usecases.ComposeDynamicPersona(res.Session.Data.RoleSnapshot),
+		SystemPromptPersona: conversation.ComposeDynamicPersona(res.Session.Data.RoleSnapshot),
 		Capabilities:        bundle.States,
 		ToolSpecs:           bundle.ToolSpecs,
 		SystemPromptPartIDs: bundle.PromptPartIDs,

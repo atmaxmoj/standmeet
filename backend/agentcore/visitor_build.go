@@ -21,6 +21,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -122,7 +123,7 @@ func composePrompt(
 	if override != "" {
 		return override
 	}
-	base := usecases.ComposeBasePersona(snapshot)
+	base := conversation.ComposeBasePersona(snapshot)
 	return reg.ComposeSystemPrompt(ctx, base, in)
 }
 
@@ -157,8 +158,8 @@ func buildSnapshot(
 // who wired nothing.
 func buildDriverDeps(
 	d Driver, ownerID string, skill *VisitorSkillSpec, mcpURL string,
-) *usecases.VisitorSkillsDeps {
-	deps := &usecases.VisitorSkillsDeps{Resolver: driverResolver{driver: d}}
+) *conversation.VisitorSkillsDeps {
+	deps := &conversation.VisitorSkillsDeps{Resolver: driverResolver{driver: d}}
 	if skill != nil {
 		sk := buildSkillFromSpec(ownerID, skill)
 		deps.Skills = driverSkillGetter{skill: &sk}

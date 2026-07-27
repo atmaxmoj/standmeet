@@ -12,7 +12,6 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type openConvRequest struct {
@@ -40,8 +39,8 @@ func runOpenDocConversation(h *Handlers, w http.ResponseWriter, r *http.Request,
 		writeError(h.Log, w, envBadReq("invalid JSON body"))
 		return
 	}
-	chat, err := usecases.OpenConversationForDoc(r.Context(), &h.Visitor,
-		&usecases.OpenConvForDocInput{
+	chat, err := conversation.OpenConversationForDoc(r.Context(), &h.Visitor,
+		&conversation.OpenConvForDocInput{
 			OwnerID: av.Data.OwnerID, CodeID: av.Data.CodeID, MemberID: av.Data.MemberID,
 			VisitorName: av.Data.Visitor.Name, Mode: av.Data.Mode, DocKey: req.DocKey,
 		})

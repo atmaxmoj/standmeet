@@ -2,14 +2,13 @@
 // persona。ComposeDynamicPersona 在 role persona 之后追加 code prompt；没挂 code prompt 时输出
 // 与从前逐字一致（守 system-prompt-hash-regression）。
 
-package usecases_test
+package conversation
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func snapWithPrompts(rolePrompt, codePrompt string) *access.RoleSnapshot {
@@ -22,7 +21,7 @@ func snapWithPrompts(rolePrompt, codePrompt string) *access.RoleSnapshot {
 
 func TestComposeDynamicPersona_AppendsCodePrompt(t *testing.T) {
 	t.Parallel()
-	out := usecases.ComposeDynamicPersona(
+	out := ComposeDynamicPersona(
 		snapWithPrompts("You are Alice's assistant.", "For THIS code: focus on hiring."),
 	)
 	if !strings.Contains(out, "You are Alice's assistant.") {
@@ -41,7 +40,7 @@ func TestComposeDynamicPersona_NoCodePrompt_ByteForByteUnchanged(t *testing.T) {
 	t.Parallel()
 	// A code with no prompt (or any non-code session) must produce EXACTLY the role-only
 	// persona — no separator, no empty part — so existing sessions' system-prompt hash is stable.
-	out := usecases.ComposeDynamicPersona(snapWithPrompts("You are Alice's assistant.", ""))
+	out := ComposeDynamicPersona(snapWithPrompts("You are Alice's assistant.", ""))
 	if out != "You are Alice's assistant." {
 		t.Fatalf("empty code prompt must leave the persona byte-for-byte unchanged, got %q", out)
 	}
@@ -50,7 +49,7 @@ func TestComposeDynamicPersona_NoCodePrompt_ByteForByteUnchanged(t *testing.T) {
 func TestComposeDynamicPersona_CodePromptOnly(t *testing.T) {
 	t.Parallel()
 	// public role (empty persona) + a code prompt → just the code prompt, no leading separator.
-	out := usecases.ComposeDynamicPersona(snapWithPrompts("", "Only the code speaks."))
+	out := ComposeDynamicPersona(snapWithPrompts("", "Only the code speaks."))
 	if out != "Only the code speaks." {
 		t.Fatalf("code-prompt-only persona wrong: %q", out)
 	}

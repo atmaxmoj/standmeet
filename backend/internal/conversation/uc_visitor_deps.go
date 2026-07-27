@@ -1,14 +1,13 @@
 // visitor_deps.go —— #131: visitor 有界上下文的两个 deps 聚合（会话生命周期 +
 // capability 接线原料）。从 visitor.go 拆出守 max-lines；类型定义无逻辑。
 
-package usecases
+package conversation
 
 import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
@@ -21,7 +20,7 @@ import (
 // (那些走各 capability 的窄 deps + VisitorSkillsDeps)。god-struct 拆出来的一半。
 type VisitorSessionDeps struct {
 	Codes    *access.CodeRepo
-	Chats    *conversation.ChatRepo
+	Chats    *ChatRepo
 	Owners   OwnerGetter
 	Skills   SkillGetter // role snapshot freeze 读 ListSkillsForRole
 	Roles    *access.RoleRepo
@@ -39,10 +38,10 @@ type VisitorSessionDeps struct {
 	CodeDenials CodeDenialReader
 }
 
-// History —— 收窄成会话读模型的窄依赖(conversation.HistoryDeps),喂
-// conversation.LoadVisitorView / ConversationForChat。
-func (d *VisitorSessionDeps) History() *conversation.HistoryDeps {
-	return &conversation.HistoryDeps{
+// History —— 收窄成会话读模型的窄依赖(HistoryDeps),喂
+// LoadVisitorView / ConversationForChat。
+func (d *VisitorSessionDeps) History() *HistoryDeps {
+	return &HistoryDeps{
 		Codes: d.Codes, Chats: d.Chats,
 		Wiki: d.Wiki, Writing: d.Writing, Output: d.Output,
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func (h *Handlers) agentTurn() http.HandlerFunc {
@@ -186,7 +185,7 @@ func buildCrossConvForTurn(
 }
 
 func crossConvDigestOrEmpty(r *http.Request, h *Handlers, memberID, convID string) string {
-	digest, err := usecases.BuildCrossConvDigest(r.Context(), &h.Visitor, memberID, convID)
+	digest, err := conversation.BuildCrossConvDigest(r.Context(), &h.Visitor, memberID, convID)
 	if err != nil {
 		h.Log.Warn("build cross-conv digest", "err", err)
 		return ""
@@ -213,8 +212,8 @@ func preflightAgentTurnQuota(
 func enforceTurnQuotaOrWrite(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
 ) bool {
-	qerr := usecases.EnforceTurnQuota(r.Context(), &h.Visitor,
-		&usecases.TurnQuotaInput{OwnerID: auth.Data.OwnerID, ConversationID: convID})
+	qerr := conversation.EnforceTurnQuota(r.Context(), &h.Visitor,
+		&conversation.TurnQuotaInput{OwnerID: auth.Data.OwnerID, ConversationID: convID})
 	if qerr != nil {
 		handleVisitorErr(h.Log, w, qerr)
 		return false
@@ -237,7 +236,7 @@ func checkConvOwnership(
 func verifyConvMember(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
 ) bool {
-	ok, err := usecases.ChatBelongsToMember(
+	ok, err := conversation.ChatBelongsToMember(
 		r.Context(), &h.Visitor, auth.Data.OwnerID, convID, auth.Data.MemberID,
 	)
 	if err != nil {

@@ -3,12 +3,11 @@
 // under the per-file public-struct cap; same F.2 purpose — narrow seams the eval
 // facade injects fixtures into while prod's postgres repos satisfy them as-is.
 
-package usecases
+package conversation
 
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
@@ -23,14 +22,14 @@ type OwnerGetter interface {
 	GetByHandle(ctx context.Context, handle string) (owner.Owner, error)
 }
 
-// ConversationGetter —— the one chat method summarize_conversation needs.
+// Getter —— the one chat method summarize_conversation needs.
 // SummarizeDeps.Chats is this narrow port so the eval can inject a fixture that
 // returns the eval conversation; VisitorDeps.Chats stays the concrete repo
 // (broadly used by session/dialog persistence the eval doesn't exercise).
-type ConversationGetter interface {
+type Getter interface {
 	GetWithMessages(
 		ctx context.Context, ownerID, chatID string,
-	) (conversation.ChatWithMessages, error)
+	) (ChatWithMessages, error)
 }
 
 // SkillGetter —— the owner-skill reads the visitor path needs: GetByID (the

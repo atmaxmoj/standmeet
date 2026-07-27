@@ -4,7 +4,7 @@
 // 必挂 assumed_role_id（NOT NULL）；public / byoai 则用 owner 的 public。
 // Snapshot 从 role + prompt + skills 拼起来；session 整个生命周期不再回头读。
 
-package usecases
+package conversation
 
 import (
 	"context"

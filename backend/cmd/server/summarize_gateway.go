@@ -11,16 +11,18 @@ import (
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	conversationroutes "github.com/atmaxmoj/standmeet/internal/routes/conversation"
 	inferenceroutes "github.com/atmaxmoj/standmeet/internal/routes/inference"
 	reportroutes "github.com/atmaxmoj/standmeet/internal/routes/report"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const socketDirMode = 0o700
 
 // wireSummarizeGateway —— summarize.sock 上挂 conversation.read + inference.generate + report.store。
-func wireSummarizeGateway(ctx context.Context, d *runtimeDeps, skills *usecases.VisitorSkillsDeps) {
+func wireSummarizeGateway(
+	ctx context.Context, d *runtimeDeps, skills *conversation.VisitorSkillsDeps,
+) {
 	if mkErr := os.MkdirAll("/run/standmeet", socketDirMode); mkErr != nil {
 		d.log.Error("summarize socket dir", "err", mkErr)
 		return

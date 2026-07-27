@@ -588,6 +588,14 @@ deps:
       - access
       - apierr
       - session
+      - owner
+      - marketplace
+      - inference
+      - capreg
+      - sandbox
+      - prompts
+      - connector
+      - connectorconsumer
     anyVendorDeps: true
 
   # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
@@ -656,6 +664,7 @@ deps:
   sysroutes:
     mayDependOn:
       - owner
+      - conversation
       - printsess
       - session
       - usecases
@@ -733,6 +742,7 @@ deps:
   pubapi:
     mayDependOn:
       - access
+      - conversation
       - owner
       - usecases
       - capreg

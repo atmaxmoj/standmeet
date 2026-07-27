@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 )
@@ -46,7 +47,7 @@ const skillRunScriptSchema = `{"type":"object","properties":{` +
 
 // skillRunnerDeps —— 窄依赖(#131):owner skill 目录 + 跑脚本的 sandbox。
 type skillRunnerDeps struct {
-	Skills  SkillGetter
+	Skills  conversation.SkillGetter
 	Sandbox sandbox.Runner
 }
 
@@ -118,7 +119,7 @@ func (c *skillRunnerCapability) VisitorBinding(
 // loadSkillsForBinding —— 按 snapshot.SkillIDs（已是 enabled-granted）加载 skill
 // 全量（含 body + scripts），供两个 tool 内查 name。已删 skill id（race）→ skip。
 func loadSkillsForBinding(
-	ctx context.Context, skills SkillGetter, in *capreg.AssembleInput,
+	ctx context.Context, skills conversation.SkillGetter, in *capreg.AssembleInput,
 ) []marketplace.Skill {
 	if skills == nil || in.RoleSnapshot == nil {
 		return []marketplace.Skill{}
