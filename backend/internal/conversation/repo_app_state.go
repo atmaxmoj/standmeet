@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // AppStateRepo —— mcp_app_state 表 repo。
@@ -33,7 +33,7 @@ func (r *AppStateRepo) Set(
 	if err != nil {
 		return fmt.Errorf("parse member id: %w", err)
 	}
-	if uerr := dbq.New(r.pool).UpsertAppState(ctx, dbq.UpsertAppStateParams{
+	if uerr := db.New(r.pool).UpsertAppState(ctx, db.UpsertAppStateParams{
 		OwnerID: ownerUUID, MemberID: memberUUID, McpID: ref.McpID, StateKey: ref.Key, Value: value,
 	}); uerr != nil {
 		return fmt.Errorf("upsert app state: %w", uerr)
@@ -49,7 +49,7 @@ func (r *AppStateRepo) Get(
 	if err != nil {
 		return nil, fmt.Errorf("parse member id: %w", err)
 	}
-	rows, qerr := dbq.New(r.pool).GetAppStateByMCP(ctx, dbq.GetAppStateByMCPParams{
+	rows, qerr := db.New(r.pool).GetAppStateByMCP(ctx, db.GetAppStateByMCPParams{
 		MemberID: memberUUID, McpID: mcpID,
 	})
 	if qerr != nil {
@@ -70,7 +70,7 @@ func (r *AppStateRepo) Delete(
 	if err != nil {
 		return fmt.Errorf("parse member id: %w", err)
 	}
-	if derr := dbq.New(r.pool).DeleteAppState(ctx, dbq.DeleteAppStateParams{
+	if derr := db.New(r.pool).DeleteAppState(ctx, db.DeleteAppStateParams{
 		MemberID: memberUUID, McpID: mcpID, StateKey: key,
 	}); derr != nil {
 		return fmt.Errorf("delete app state: %w", derr)

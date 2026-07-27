@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // RoleRepo —— roles + 3 个 join 表 CRUD。
@@ -44,7 +44,7 @@ func (r *RoleRepo) Create(ctx context.Context, in *CreateRoleInput) (Role, error
 	if perr != nil {
 		return Role{}, perr
 	}
-	row, err := dbq.New(r.pool).CreateRole(ctx, params)
+	row, err := db.New(r.pool).CreateRole(ctx, params)
 	if err != nil {
 		return Role{}, mapRoleCreateErr(err)
 	}
@@ -52,20 +52,20 @@ func (r *RoleRepo) Create(ctx context.Context, in *CreateRoleInput) (Role, error
 }
 
 // buildCreateRoleParams —— 提出 owner/prompt UUID parse，降 Create 的 cyclo。
-func buildCreateRoleParams(in *CreateRoleInput) (dbq.CreateRoleParams, error) {
+func buildCreateRoleParams(in *CreateRoleInput) (db.CreateRoleParams, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
-		return dbq.CreateRoleParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
+		return db.CreateRoleParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
 	promptUUID, perr := pgstore.ParseOptionalUUID(in.PromptID)
 	if perr != nil {
-		return dbq.CreateRoleParams{}, fmt.Errorf("parse prompt id: %w", perr)
+		return db.CreateRoleParams{}, fmt.Errorf("parse prompt id: %w", perr)
 	}
 	dock, derr := marshalDockButtons(in.DockButtons)
 	if derr != nil {
-		return dbq.CreateRoleParams{}, derr
+		return db.CreateRoleParams{}, derr
 	}
-	return dbq.CreateRoleParams{
+	return db.CreateRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description,
 		Greeting: in.Greeting, PromptID: promptUUID,
 		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: dock,
@@ -102,7 +102,7 @@ func (r *RoleRepo) UpsertBuiltin(
 	if perr != nil {
 		return Role{}, fmt.Errorf("parse prompt id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).UpsertBuiltinRole(ctx, dbq.UpsertBuiltinRoleParams{
+	row, err := db.New(r.pool).UpsertBuiltinRole(ctx, db.UpsertBuiltinRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description, PromptID: promptUUID,
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]Role, err
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	rows, err := q.ListRolesByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list roles: %w", err)
@@ -141,8 +141,8 @@ func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (Role, e
 	if perr != nil {
 		return Role{}, perr
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetRoleByID(ctx, dbq.GetRoleByIDParams{
+	q := db.New(r.pool)
+	row, err := q.GetRoleByID(ctx, db.GetRoleByIDParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
@@ -160,8 +160,8 @@ func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (Role, e
 	if oerr != nil {
 		return Role{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetRoleByName(ctx, dbq.GetRoleByNameParams{
+	q := db.New(r.pool)
+	row, err := q.GetRoleByName(ctx, db.GetRoleByNameParams{
 		OwnerID: ownerUUID, Name: name,
 	})
 	if err != nil {
@@ -201,7 +201,7 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (Role, error
 	if derr != nil {
 		return Role{}, derr
 	}
-	row, err := dbq.New(r.pool).UpdateRole(ctx, dbq.UpdateRoleParams{
+	row, err := db.New(r.pool).UpdateRole(ctx, db.UpdateRoleParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
 		Name: in.Name, Description: in.Description, Greeting: in.Greeting, PromptID: promptUUID,
 		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: dock,
@@ -220,7 +220,7 @@ func (r *RoleRepo) NotifiesOwnerOnBooking(ctx context.Context, roleID string) (b
 	if err != nil {
 		return false, fmt.Errorf("parse role id: %w", err)
 	}
-	on, qerr := dbq.New(r.pool).RoleNotifiesOwnerOnBooking(ctx, roleUUID)
+	on, qerr := db.New(r.pool).RoleNotifiesOwnerOnBooking(ctx, roleUUID)
 	if qerr != nil {
 		return false, fmt.Errorf("role notifies owner: %w", qerr)
 	}
@@ -245,7 +245,7 @@ func (r *RoleRepo) Delete(ctx context.Context, ownerID, roleID string) error {
 	if perr != nil {
 		return perr
 	}
-	if err := dbq.New(r.pool).DeleteRole(ctx, dbq.DeleteRoleParams{
+	if err := db.New(r.pool).DeleteRole(ctx, db.DeleteRoleParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
 	}); err != nil {
 		return fmt.Errorf("delete role: %w", err)
@@ -259,7 +259,7 @@ func (r *RoleRepo) CountActiveCodes(ctx context.Context, roleID string) (int64, 
 	if perr != nil {
 		return 0, fmt.Errorf("parse role id: %w", perr)
 	}
-	count, err := dbq.New(r.pool).CountActiveCodesForRole(ctx, roleUUID)
+	count, err := db.New(r.pool).CountActiveCodesForRole(ctx, roleUUID)
 	if err != nil {
 		return 0, fmt.Errorf("count active codes for role: %w", err)
 	}
@@ -287,14 +287,14 @@ func parseRoleIDArgs(ownerID, roleID string) (roleIDArgs, error) {
 // caller 会随后调 SetCorpusURIs/SetSkills/SetMCPServers + GetByID 拿完整 Role。
 // roleJoins —— hydrateRole 组装好的主行 + join 组，喂 toDomainRole（避开 argument-limit）。
 type roleJoins struct {
-	row          *dbq.Role
+	row          *db.Role
 	corpusURIs   []string
 	skillIDs     []string
 	mcpServerIDs []string
 	waypoints    []Waypoint
 }
 
-func toDomainRoleBare(row *dbq.Role) Role {
+func toDomainRoleBare(row *db.Role) Role {
 	return toDomainRole(&roleJoins{row: row})
 }
 

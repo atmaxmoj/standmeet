@@ -13,8 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // ─── raw ────────────────────────────────────────────────────
@@ -40,8 +40,8 @@ func (r *RawRepo) UpdateBody(
 	if err != nil {
 		return Raw{}, fmt.Errorf("parse raw id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, qerr := q.UpdateRawBody(ctx, dbq.UpdateRawBodyParams{
+	q := db.New(r.pool)
+	row, qerr := q.UpdateRawBody(ctx, db.UpdateRawBodyParams{
 		ID: rawUUID, OwnerID: ownerUUID,
 		Body: in.Body, Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
 	})
@@ -65,8 +65,8 @@ func (r *RawRepo) Archive(ctx context.Context, ownerID, rawID string) error {
 	if err != nil {
 		return fmt.Errorf("parse raw id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	aerr := q.ArchiveRaw(ctx, dbq.ArchiveRawParams{ID: rawUUID, OwnerID: ownerUUID})
+	q := db.New(r.pool)
+	aerr := q.ArchiveRaw(ctx, db.ArchiveRawParams{ID: rawUUID, OwnerID: ownerUUID})
 	if aerr != nil {
 		return fmt.Errorf("archive raw: %w", aerr)
 	}
@@ -95,7 +95,7 @@ func (r *WikiRepo) Update(
 	if err != nil {
 		return Wiki{}, err
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, qerr := q.UpdateNoteBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
@@ -106,20 +106,20 @@ func (r *WikiRepo) Update(
 	return toDomainWiki(&row), nil
 }
 
-func buildWikiUpdateParams(in *UpdateWikiInput) (dbq.UpdateNoteBodyParams, error) {
+func buildWikiUpdateParams(in *UpdateWikiInput) (db.UpdateNoteBodyParams, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.UpdateNoteBodyParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return db.UpdateNoteBodyParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	wikiUUID, err := pgstore.ParseUUID(in.ID)
 	if err != nil {
-		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse wiki id: %w", err)
+		return db.UpdateNoteBodyParams{}, fmt.Errorf("parse wiki id: %w", err)
 	}
 	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
-		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse parent id: %w", err)
+		return db.UpdateNoteBodyParams{}, fmt.Errorf("parse parent id: %w", err)
 	}
-	return dbq.UpdateNoteBodyParams{
+	return db.UpdateNoteBodyParams{
 		ID: wikiUUID, OwnerID: ownerUUID, Genre: genreWiki,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		ParentID: parent, ShowAsSource: in.ShowAsSource, CssClasses: nilSafeTags(in.CSSClasses),
@@ -137,8 +137,8 @@ func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 	if err != nil {
 		return fmt.Errorf("parse wiki id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	derr := q.DeleteNote(ctx, dbq.DeleteNoteParams{
+	q := db.New(r.pool)
+	derr := q.DeleteNote(ctx, db.DeleteNoteParams{
 		ID: wikiUUID, OwnerID: ownerUUID, Genre: genreWiki,
 	})
 	if derr != nil {
@@ -172,7 +172,7 @@ func (r *OutputRepo) Update(
 	if err != nil {
 		return Output{}, err
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, qerr := q.UpdateNoteBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
@@ -183,20 +183,20 @@ func (r *OutputRepo) Update(
 	return toDomainOutput(&row), nil
 }
 
-func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateNoteBodyParams, error) {
+func buildOutputUpdateParams(in *UpdateOutputInput) (db.UpdateNoteBodyParams, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.UpdateNoteBodyParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return db.UpdateNoteBodyParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	outputUUID, err := pgstore.ParseUUID(in.ID)
 	if err != nil {
-		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse output id: %w", err)
+		return db.UpdateNoteBodyParams{}, fmt.Errorf("parse output id: %w", err)
 	}
 	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
-		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse parent id: %w", err)
+		return db.UpdateNoteBodyParams{}, fmt.Errorf("parse parent id: %w", err)
 	}
-	return dbq.UpdateNoteBodyParams{
+	return db.UpdateNoteBodyParams{
 		ID: outputUUID, OwnerID: ownerUUID, Genre: genreOutput,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		ParentID: parent, ShowAsSource: in.ShowAsSource, CssClasses: []string{},
@@ -213,8 +213,8 @@ func (r *OutputRepo) Delete(ctx context.Context, ownerID, outputID string) error
 	if err != nil {
 		return fmt.Errorf("parse output id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	derr := q.DeleteNote(ctx, dbq.DeleteNoteParams{
+	q := db.New(r.pool)
+	derr := q.DeleteNote(ctx, db.DeleteNoteParams{
 		ID: outputUUID, OwnerID: ownerUUID, Genre: genreOutput,
 	})
 	if derr != nil {

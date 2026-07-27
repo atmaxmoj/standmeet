@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // KeypairRepo 提供 owner Ed25519 keypair CRUD。
@@ -43,8 +43,8 @@ func (r *KeypairRepo) Create(
 	if err != nil {
 		return Keypair{}, fmt.Errorf("parse owner id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateOwnerKeypair(ctx, dbq.CreateOwnerKeypairParams{
+	q := db.New(r.pool)
+	row, err := q.CreateOwnerKeypair(ctx, db.CreateOwnerKeypairParams{
 		OwnerID:      ownerUUID,
 		KeyID:        in.KeyID,
 		PublicKeyPem: in.PublicKeyPEM,
@@ -64,7 +64,7 @@ func (r *KeypairRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("parse owner id: %w", err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	rows, err := q.ListOwnerKeypairs(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list owner keypairs: %w", err)
@@ -81,7 +81,7 @@ func (r *KeypairRepo) ListByOwner(
 func (r *KeypairRepo) GetByKeyID(
 	ctx context.Context, keyID string,
 ) (Keypair, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetOwnerKeypairByKeyID(ctx, keyID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -101,7 +101,7 @@ func (r *KeypairRepo) Touch(
 		log.Warn("touch keypair: parse id", "err", err)
 		return
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if terr := q.TouchOwnerKeypair(ctx, kpUUID); terr != nil {
 		log.Warn("touch keypair (non-fatal)", "err", terr)
 	}
@@ -114,8 +114,8 @@ func (r *KeypairRepo) Delete(ctx context.Context, ownerID, keyID string) error {
 	if err != nil {
 		return fmt.Errorf("parse owner id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	if derr := q.DeleteOwnerKeypair(ctx, dbq.DeleteOwnerKeypairParams{
+	q := db.New(r.pool)
+	if derr := q.DeleteOwnerKeypair(ctx, db.DeleteOwnerKeypairParams{
 		KeyID: keyID, OwnerID: ownerUUID,
 	}); derr != nil {
 		return fmt.Errorf("delete owner keypair: %w", derr)
@@ -123,7 +123,7 @@ func (r *KeypairRepo) Delete(ctx context.Context, ownerID, keyID string) error {
 	return nil
 }
 
-func toDomainKeypair(r *dbq.OwnerKeypair) Keypair {
+func toDomainKeypair(r *db.OwnerKeypair) Keypair {
 	return Keypair{
 		ID:           pgstore.FormatUUID(r.ID),
 		OwnerID:      pgstore.FormatUUID(r.OwnerID),
@@ -135,7 +135,7 @@ func toDomainKeypair(r *dbq.OwnerKeypair) Keypair {
 	}
 }
 
-func toDomainKeypairMetadata(r *dbq.ListOwnerKeypairsRow) KeypairMetadata {
+func toDomainKeypairMetadata(r *db.ListOwnerKeypairsRow) KeypairMetadata {
 	return KeypairMetadata{
 		ID:         pgstore.FormatUUID(r.ID),
 		KeyID:      r.KeyID,

@@ -2,16 +2,167 @@ version: "2"
 sql:
   - engine: postgresql
     schema: db/schema.sql
-    queries: db/queries
+    queries: db/queries/corpus
     gen:
       go:
-        package: dbq
-        out: internal/postgres/dbq
+        package: db
+        out: internal/corpus/db
         sql_package: pgx/v5
         emit_json_tags: false
         emit_db_tags: false
         emit_pointers_for_null_types: true
-        # citext 在 Go 里走 string；pgx 自己处理 wire-level encoding。
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries/conversation
+    gen:
+      go:
+        package: db
+        out: internal/conversation/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries/access
+    gen:
+      go:
+        package: db
+        out: internal/access/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries/owner
+    gen:
+      go:
+        package: db
+        out: internal/owner/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries/connector
+    gen:
+      go:
+        package: db
+        out: internal/connector/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries/marketplace
+    gen:
+      go:
+        package: db
+        out: internal/marketplace/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries/stats
+    gen:
+      go:
+        package: db
+        out: internal/stats/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries/security
+    gen:
+      go:
+        package: db
+        out: internal/security/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries/jobs
+    gen:
+      go:
+        package: db
+        out: internal/plugins/jobs/jobsuc/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
         overrides:
           - db_type: "citext"
             go_type: "string"

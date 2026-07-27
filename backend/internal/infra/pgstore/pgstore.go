@@ -1,6 +1,6 @@
-// Package pgstore —— 共享 DB store 原语:pgx pool 别名、sqlc DBTX 别名、uuid 转换、
-// owner-id 解析错误前缀、边界加解密。各领域模块的 repo 用它 + dbq 自持久层,不依赖 postgres 包。
-// (对应结构设计里 domain-less 的 "pgxpool" 共享 infra;postgres god-package 溶解后这是唯一的 DB 原语家。)
+// Package pgstore —— 共享 DB store 原语:pgx pool 别名、最小 DBTX 接口、uuid 转换、
+// owner-id 解析错误前缀、边界加解密。各领域模块的 repo 用它 + 自己的 <domain>/db(sqlc)持久层。
+// (对应结构设计里 domain-less 的 "pgxpool" 共享 infra:只留链接一类真基建,不含任何领域 DAO。)
 package pgstore
 
 import (
@@ -11,19 +11,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // Pool —— pgx pool 别名(便于 mock 替换)。
 type Pool = pgxpool.Pool
 
-// DBTX —— sqlc 生成的最小 query 接口(pgxpool.Pool / pgx.Tx 都满足)。
-type DBTX = dbq.DBTX
+// DBTX —— 最小 query 接口(pgxpool.Pool / pgx.Tx 都满足);与各领域 sqlc 生成包的 DBTX
+// 结构一致,故可互相传递。基建只持这条 DB 原语,不再依赖任一领域的生成 DAO。
+type DBTX interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
 
 // ErrParseOwnerIDPrefix —— owner_id 字符串解析失败的统一 wrap 前缀。
 const ErrParseOwnerIDPrefix = "parse owner id: %w"

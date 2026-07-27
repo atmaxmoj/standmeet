@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // UpdateFullName —— owner 改自己的 full_name；空字符串 / 全 whitespace 由
@@ -25,8 +25,8 @@ func (r *Repo) UpdateFullName(
 	if perr != nil {
 		return Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
-	row, qerr := q.UpdateOwnerFullName(ctx, dbq.UpdateOwnerFullNameParams{
+	q := db.New(r.pool)
+	row, qerr := q.UpdateOwnerFullName(ctx, db.UpdateOwnerFullNameParams{
 		ID: pgID, FullName: newFullName,
 	})
 	if qerr != nil {
@@ -43,8 +43,8 @@ func (r *Repo) UpdateProfileTimezone(
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
-	params := dbq.UpdateOwnerProfileTimezoneParams{ID: pgID, ProfileTimezone: tz}
+	q := db.New(r.pool)
+	params := db.UpdateOwnerProfileTimezoneParams{ID: pgID, ProfileTimezone: tz}
 	if _, qerr := q.UpdateOwnerProfileTimezone(ctx, params); qerr != nil {
 		return fmt.Errorf("update profile_timezone: %w", qerr)
 	}
@@ -60,8 +60,8 @@ func (r *Repo) UpdateEmail(
 	if perr != nil {
 		return Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
-	row, qerr := q.UpdateOwnerEmail(ctx, dbq.UpdateOwnerEmailParams{
+	q := db.New(r.pool)
+	row, qerr := q.UpdateOwnerEmail(ctx, db.UpdateOwnerEmailParams{
 		ID: pgID, Email: newEmail,
 	})
 	if qerr != nil {
@@ -87,8 +87,8 @@ func (r *Repo) UpdatePasswordHash(
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
-	if _, qerr := q.UpdateOwnerPasswordHash(ctx, dbq.UpdateOwnerPasswordHashParams{
+	q := db.New(r.pool)
+	if _, qerr := q.UpdateOwnerPasswordHash(ctx, db.UpdateOwnerPasswordHashParams{
 		ID: pgID, PasswordHash: newHash,
 	}); qerr != nil {
 		return fmt.Errorf("update password_hash: %w", qerr)
@@ -102,7 +102,7 @@ func (r *Repo) SetRecoveryHash(ctx context.Context, ownerID, hash string) error 
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	if qerr := dbq.New(r.pool).SetOwnerRecoveryHash(ctx, dbq.SetOwnerRecoveryHashParams{
+	if qerr := db.New(r.pool).SetOwnerRecoveryHash(ctx, db.SetOwnerRecoveryHashParams{
 		ID: pgID, RecoveryHash: hash,
 	}); qerr != nil {
 		return fmt.Errorf("set recovery_hash: %w", qerr)
@@ -116,7 +116,7 @@ func (r *Repo) ClearRecoveryHash(ctx context.Context, ownerID string) error {
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	if qerr := dbq.New(r.pool).ClearOwnerRecoveryHash(ctx, pgID); qerr != nil {
+	if qerr := db.New(r.pool).ClearOwnerRecoveryHash(ctx, pgID); qerr != nil {
 		return fmt.Errorf("clear recovery_hash: %w", qerr)
 	}
 	return nil
@@ -129,7 +129,7 @@ func (r *Repo) GetPasswordHash(ctx context.Context, ownerID string) (string, err
 	if perr != nil {
 		return "", fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	hash, err := q.GetOwnerPasswordHash(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
@@ -151,7 +151,7 @@ type ActiveResetToken struct {
 // GetActiveResetToken —— 单 owner self-host：表里第一行 owner 的 reset
 // token 信息。表为空返 ErrOwnerNotFound（caller 通常翻 401）。
 func (r *Repo) GetActiveResetToken(ctx context.Context) (ActiveResetToken, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetFirstOwnerResetToken(ctx)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
@@ -175,7 +175,7 @@ func (r *Repo) ClearPasswordResetToken(ctx context.Context, ownerID string) erro
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if cerr := q.ClearPasswordResetToken(ctx, pgID); cerr != nil {
 		return fmt.Errorf("clear reset token: %w", cerr)
 	}
@@ -192,7 +192,7 @@ type SoleOwnerHandle struct {
 // GetSoleOwnerHandle —— CLI password-reset 子命令 + 任何只看 "sole owner
 // 是谁" 的 helper。GetFirstOwnerResetToken + GetOwnerByID 拼一下。
 func (r *Repo) GetSoleOwnerHandle(ctx context.Context) (SoleOwnerHandle, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	tok, err := q.GetFirstOwnerResetToken(ctx)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
@@ -219,8 +219,8 @@ func (r *Repo) SetPasswordResetHash(
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
-	if serr := q.SetPasswordResetToken(ctx, dbq.SetPasswordResetTokenParams{
+	q := db.New(r.pool)
+	if serr := q.SetPasswordResetToken(ctx, db.SetPasswordResetTokenParams{
 		ID: pgID, PasswordResetHash: hash,
 	}); serr != nil {
 		return fmt.Errorf("set reset token: %w", serr)
@@ -234,7 +234,7 @@ func (r *Repo) GetCSS(ctx context.Context, ownerID string) (string, error) {
 	if perr != nil {
 		return "", fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	css, err := dbq.New(r.pool).GetOwnerCSS(ctx, pgID)
+	css, err := db.New(r.pool).GetOwnerCSS(ctx, pgID)
 	if err != nil {
 		return "", fmt.Errorf("get owner css: %w", err)
 	}
@@ -247,7 +247,7 @@ func (r *Repo) SetCSS(ctx context.Context, ownerID, css string) error {
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	err := dbq.New(r.pool).SetOwnerCSS(ctx, dbq.SetOwnerCSSParams{ID: pgID, CustomCss: css})
+	err := db.New(r.pool).SetOwnerCSS(ctx, db.SetOwnerCSSParams{ID: pgID, CustomCss: css})
 	if err != nil {
 		return fmt.Errorf("set owner css: %w", err)
 	}

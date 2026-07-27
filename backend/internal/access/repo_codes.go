@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // errParseCodeIDPrefix —— "parse code id: %w" 字面在本文件 6+ 处出现，提常量。
@@ -47,18 +47,18 @@ type CreateCodeInput struct {
 func (r *CodeRepo) Create(
 	ctx context.Context, in *CreateCodeInput) (Code, error,
 ) {
-	return createCodeOn(ctx, dbq.New(r.pool), in)
+	return createCodeOn(ctx, db.New(r.pool), in)
 }
 
 // CreateAccessCodeTx —— 在调用方**事务内**发码,给跨域调用方(job-loop application-commit:
 // 写 application 行 + 发码必须同一 tx 原子)。access 不让别的域直接碰 access_codes DAO;经此
 // 在共享 pgx.Tx 上发码,既保原子性又守域边界。参数是 pgx 原语(不外泄本域生成的 DBTX 类型)。
 func CreateAccessCodeTx(ctx context.Context, tx pgx.Tx, in *CreateAccessCodeInput) (Code, error) {
-	return createCodeOn(ctx, dbq.New(tx), accessInputToCreate(in))
+	return createCodeOn(ctx, db.New(tx), accessInputToCreate(in))
 }
 
 // createCodeOn —— 在任意 DBTX(池连接或事务)上写一条 access_code。Create 与 CreateAccessCodeTx 共用。
-func createCodeOn(ctx context.Context, q *dbq.Queries, in *CreateCodeInput) (Code, error) {
+func createCodeOn(ctx context.Context, q *db.Queries, in *CreateCodeInput) (Code, error) {
 	params, perr := buildCreateCodeParams(in)
 	if perr != nil {
 		return Code{}, perr
@@ -99,7 +99,7 @@ func accessInputToCreate(in *CreateAccessCodeInput) *CreateCodeInput {
 	}
 }
 
-func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, error) {
+func buildCreateCodeParams(in *CreateCodeInput) (*db.CreateAccessCodeParams, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
@@ -116,7 +116,7 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 	if jerr != nil {
 		return nil, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
-	return &dbq.CreateAccessCodeParams{
+	return &db.CreateAccessCodeParams{
 		OwnerID:            ownerUUID,
 		Code:               in.Code,
 		Label:              in.Label,
@@ -140,7 +140,7 @@ func (r *CodeRepo) UpdateRole(
 	if perr != nil {
 		return Code{}, perr
 	}
-	row, qerr := dbq.New(r.pool).UpdateAccessCodeRole(ctx, *params)
+	row, qerr := db.New(r.pool).UpdateAccessCodeRole(ctx, *params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return Code{}, ErrCodeInvalid
@@ -152,7 +152,7 @@ func (r *CodeRepo) UpdateRole(
 
 func buildUpdateCodeRoleParams(
 	ownerID, codeID, roleID string,
-) (*dbq.UpdateAccessCodeRoleParams, error) {
+) (*db.UpdateAccessCodeRoleParams, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
@@ -165,7 +165,7 @@ func buildUpdateCodeRoleParams(
 	if rerr != nil {
 		return nil, fmt.Errorf("parse role id: %w", rerr)
 	}
-	return &dbq.UpdateAccessCodeRoleParams{
+	return &db.UpdateAccessCodeRoleParams{
 		ID: codeUUID, OwnerID: ownerUUID, AssumedRoleID: roleUUID,
 	}, nil
 }
@@ -217,8 +217,8 @@ func (r *CodeRepo) UpdateQuotas(
 	if err != nil {
 		return Code{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	row, qerr := q.UpdateAccessCodeQuotas(ctx, dbq.UpdateAccessCodeQuotasParams{
+	q := db.New(r.pool)
+	row, qerr := q.UpdateAccessCodeQuotas(ctx, db.UpdateAccessCodeQuotasParams{
 		ID: codeUUID, OwnerID: ownerUUID,
 		MaxTurnsPerSession: maxTurns, MaxMembers: maxMembers,
 	})
@@ -243,8 +243,8 @@ func (r *CodeRepo) SetGhostEvidence(
 	if err != nil {
 		return Code{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	row, qerr := dbq.New(r.pool).SetAccessCodeGhostEvidence(ctx,
-		dbq.SetAccessCodeGhostEvidenceParams{
+	row, qerr := db.New(r.pool).SetAccessCodeGhostEvidence(ctx,
+		db.SetAccessCodeGhostEvidenceParams{
 			ID: codeUUID, OwnerID: ownerUUID, RequireGhostEvidence: val,
 		})
 	if qerr != nil {

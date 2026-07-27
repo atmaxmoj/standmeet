@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // ChatReportRepo —— chat_reports 表的访问入口。
@@ -45,7 +45,7 @@ func (r *ChatReportRepo) Upsert(
 	if err != nil {
 		return ChatReport{}, fmt.Errorf("parse conv id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).UpsertChatReport(ctx, dbq.UpsertChatReportParams{
+	row, qerr := db.New(r.pool).UpsertChatReport(ctx, db.UpsertChatReportParams{
 		OwnerID: ownerUUID, ConversationID: convUUID, Html: in.HTML,
 	})
 	if qerr != nil {
@@ -64,7 +64,7 @@ func (r *ChatReportRepo) GetByID(
 	if err != nil {
 		return ChatReport{}, fmt.Errorf("parse report id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).GetChatReport(ctx, reportUUID)
+	row, qerr := db.New(r.pool).GetChatReport(ctx, reportUUID)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return ChatReport{}, ErrReportNotFound
@@ -74,7 +74,7 @@ func (r *ChatReportRepo) GetByID(
 	return toDomainChatReport(&row), nil
 }
 
-func toDomainChatReport(row *dbq.ChatReport) ChatReport {
+func toDomainChatReport(row *db.ChatReport) ChatReport {
 	return ChatReport{
 		ID:             pgstore.FormatUUID(row.ID),
 		OwnerID:        pgstore.FormatUUID(row.OwnerID),

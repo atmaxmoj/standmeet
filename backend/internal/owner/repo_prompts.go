@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // PromptRepo —— prompts 表 CRUD。
@@ -39,7 +39,7 @@ func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (Prompt,
 	if oerr != nil {
 		return Prompt{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).CreatePrompt(ctx, dbq.CreatePromptParams{
+	row, err := db.New(r.pool).CreatePrompt(ctx, db.CreatePromptParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description, Body: in.Body,
 	})
 	if err != nil {
@@ -59,7 +59,7 @@ func (r *PromptRepo) UpsertBuiltin(
 	if oerr != nil {
 		return Prompt{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).UpsertBuiltinPrompt(ctx, dbq.UpsertBuiltinPromptParams{
+	row, err := db.New(r.pool).UpsertBuiltinPrompt(ctx, db.UpsertBuiltinPromptParams{
 		OwnerID: ownerUUID, Name: name, Description: description, Body: body,
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]Prompt,
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	rows, err := dbq.New(r.pool).ListPromptsByOwner(ctx, ownerUUID)
+	rows, err := db.New(r.pool).ListPromptsByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list prompts: %w", err)
 	}
@@ -91,7 +91,7 @@ func (r *PromptRepo) GetByID(ctx context.Context, ownerID, promptID string) (Pro
 	if perr != nil {
 		return Prompt{}, perr
 	}
-	row, err := dbq.New(r.pool).GetPromptByID(ctx, dbq.GetPromptByIDParams{
+	row, err := db.New(r.pool).GetPromptByID(ctx, db.GetPromptByIDParams{
 		ID: args.promptUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
@@ -109,7 +109,7 @@ func (r *PromptRepo) GetByName(ctx context.Context, ownerID, name string) (Promp
 	if oerr != nil {
 		return Prompt{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).GetPromptByName(ctx, dbq.GetPromptByNameParams{
+	row, err := db.New(r.pool).GetPromptByName(ctx, db.GetPromptByNameParams{
 		OwnerID: ownerUUID, Name: name,
 	})
 	if err != nil {
@@ -138,7 +138,7 @@ func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (Prompt,
 	if perr != nil {
 		return Prompt{}, perr
 	}
-	row, err := dbq.New(r.pool).UpdatePrompt(ctx, dbq.UpdatePromptParams{
+	row, err := db.New(r.pool).UpdatePrompt(ctx, db.UpdatePromptParams{
 		ID: args.promptUUID, OwnerID: args.ownerUUID,
 		Name: in.Name, Description: in.Description, Body: in.Body,
 	})
@@ -166,7 +166,7 @@ func (r *PromptRepo) Delete(ctx context.Context, ownerID, promptID string) error
 	if perr != nil {
 		return perr
 	}
-	if err := dbq.New(r.pool).DeletePrompt(ctx, dbq.DeletePromptParams{
+	if err := db.New(r.pool).DeletePrompt(ctx, db.DeletePromptParams{
 		ID: args.promptUUID, OwnerID: args.ownerUUID,
 	}); err != nil {
 		return fmt.Errorf("delete prompt: %w", err)
@@ -191,7 +191,7 @@ func parsePromptIDArgs(ownerID, promptID string) (promptIDArgs, error) {
 	return promptIDArgs{ownerUUID: ownerUUID, promptUUID: promptUUID}, nil
 }
 
-func toDomainPrompt(row *dbq.Prompt) Prompt {
+func toDomainPrompt(row *db.Prompt) Prompt {
 	return NewPrompt(&PromptInit{
 		ID: pgstore.FormatUUID(row.ID), OwnerID: pgstore.FormatUUID(row.OwnerID),
 		Name: row.Name, Body: row.Body, Description: row.Description,

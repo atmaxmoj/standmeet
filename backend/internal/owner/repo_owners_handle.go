@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // UpdateHandle —— owner 改 handle 一组 atomic：先读旧 handle、UPDATE owners
@@ -57,7 +57,7 @@ func commitOrRollback(
 func updateHandleTx(
 	ctx context.Context, tx pgx.Tx, ownerID pgtype.UUID, newHandle string,
 ) (Owner, error) {
-	q := dbq.New(tx)
+	q := db.New(tx)
 	old, gerr := q.GetOwnerByID(ctx, ownerID)
 	if gerr != nil {
 		return Owner{}, fmt.Errorf("get owner: %w", gerr)
@@ -68,7 +68,7 @@ func updateHandleTx(
 	if uerr := doUpdateHandle(ctx, q, ownerID, newHandle); uerr != nil {
 		return Owner{}, uerr
 	}
-	aliasParams := dbq.AddHandleAliasParams{Handle: old.Handle, OwnerID: ownerID}
+	aliasParams := db.AddHandleAliasParams{Handle: old.Handle, OwnerID: ownerID}
 	if aerr := q.AddHandleAlias(ctx, aliasParams); aerr != nil {
 		return Owner{}, fmt.Errorf("add alias: %w", aerr)
 	}
@@ -77,9 +77,9 @@ func updateHandleTx(
 }
 
 func doUpdateHandle(
-	ctx context.Context, q *dbq.Queries, ownerID pgtype.UUID, newHandle string,
+	ctx context.Context, q *db.Queries, ownerID pgtype.UUID, newHandle string,
 ) error {
-	_, err := q.UpdateOwnerHandle(ctx, dbq.UpdateOwnerHandleParams{ID: ownerID, Handle: newHandle})
+	_, err := q.UpdateOwnerHandle(ctx, db.UpdateOwnerHandleParams{ID: ownerID, Handle: newHandle})
 	if err == nil {
 		return nil
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // InstanceRepo 提供 instance_settings 单行的读 + setup token 写。
@@ -32,7 +32,7 @@ func NewInstanceRepo(pool *pgstore.Pool) *InstanceRepo {
 
 // Get 读 instance_settings 单行。
 func (r *InstanceRepo) Get(ctx context.Context) (InstanceSettings, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetInstanceSettings(ctx)
 	if err != nil {
 		return InstanceSettings{}, fmt.Errorf("get instance settings: %w", err)
@@ -101,7 +101,7 @@ func (r *InstanceRepo) ListAllowedDomains(ctx context.Context) ([]string, error)
 // instance_settings.setup_token_hash。已 claimed 的 instance 不应再调
 // 这个（调了也只是 update，没语义意义）。
 func (r *InstanceRepo) SetSetupTokenHash(ctx context.Context, hash string) error {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if err := q.SetSetupTokenHash(ctx, &hash); err != nil {
 		return fmt.Errorf("set setup token hash: %w", err)
 	}
@@ -143,7 +143,7 @@ func claimTx(
 	tokenHash string,
 	input *CreateOwnerInput,
 ) (Owner, error) {
-	q := dbq.New(tx)
+	q := db.New(tx)
 
 	if _, err := q.TryClaimInstance(ctx, &tokenHash); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -152,7 +152,7 @@ func claimTx(
 		return Owner{}, fmt.Errorf("try claim: %w", err)
 	}
 
-	row, err := q.CreateOwner(ctx, dbq.CreateOwnerParams{
+	row, err := q.CreateOwner(ctx, db.CreateOwnerParams{
 		Email:        input.Email,
 		PasswordHash: input.PasswordHash,
 		Handle:       input.Handle,
@@ -184,7 +184,7 @@ func translateCreateOwnerErr(err error) error {
 // 编解码 helper。放文件尾部满足 funcorder（unexported 在 exported 之后）。
 
 func (r *InstanceRepo) loadAllowedDomains(ctx context.Context) ([]string, error) {
-	row, err := dbq.New(r.pool).GetInstanceSettings(ctx)
+	row, err := db.New(r.pool).GetInstanceSettings(ctx)
 	if err != nil {
 		return []string{}, fmt.Errorf("get instance settings: %w", err)
 	}
@@ -203,7 +203,7 @@ func (r *InstanceRepo) writeAllowedDomains(ctx context.Context, list []string) e
 	if merr != nil {
 		return fmt.Errorf("marshal allowed domains: %w", merr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if eerr := q.SetAllowedDomains(ctx, encoded); eerr != nil {
 		return fmt.Errorf("update allowed domains: %w", eerr)
 	}

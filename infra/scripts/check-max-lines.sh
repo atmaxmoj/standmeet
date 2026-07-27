@@ -10,9 +10,9 @@
 #
 # Generated files are exempt — wire_gen.go grows with the dep graph
 # and isn't human-edited. Same goes for sqlc output (*.sql.go) and
-# the sqlc models.go aggregate (all DB row structs in one file by
-# design — sqlc doesn't support per-table file splitting); both are
-# regenerated from queries/*.sql + schema.sql.
+# each domain's sqlc models.go aggregate (internal/<domain>/db/models.go:
+# all DB row structs in one file by design — sqlc doesn't support
+# per-table file splitting); both are regenerated from queries + schema.
 
 set -euo pipefail
 
@@ -31,7 +31,7 @@ while IFS= read -r -d '' f; do
     echo "check-max-lines: ${f#$ROOT/} has $lines lines (max $MAX_LINES) — split it."
     violations=$((violations + 1))
   fi
-done < <(find "$ROOT/cmd" "$ROOT/internal" -name '*.go' -not -name 'wire_gen.go' -not -name '*.sql.go' -not -path '*/dbq/models.go' -print0 2>/dev/null)
+done < <(find "$ROOT/cmd" "$ROOT/internal" -name '*.go' -not -name 'wire_gen.go' -not -name '*.sql.go' -not -path '*/db/models.go' -print0 2>/dev/null)
 
 if [ "$violations" -gt 0 ]; then
   echo ""

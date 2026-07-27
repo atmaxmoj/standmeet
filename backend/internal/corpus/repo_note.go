@@ -1,5 +1,5 @@
 // note.go —— NoteRepo：genre-参数化的通用 corpus_notes 仓储。一个实例绑定一个 genre（构造时传入），
-// 复用统一的 dbq.Note* query。subjectivity 直接用它（零重复);wiki/output 现有独立 repo 之后可收敛到这里。
+// 复用统一的 db.Note* query。subjectivity 直接用它（零重复);wiki/output 现有独立 repo 之后可收敛到这里。
 //
 // 只暴露 tree-note 通用面(建/读/meta/子/搜/改父/删),不含 genre 专属字段（source_ids、covers…）——
 // 那些留给各自 genre 的薄封装。地址仍纯树派生（parent 链）。
@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // ErrNoteNotFound —— genre-通用的未命中。
@@ -79,7 +79,7 @@ func (r *NoteRepo) Create(ctx context.Context, in *CreateNoteInput) (Note, error
 	if err != nil {
 		return Note{}, fmt.Errorf("parse parent id: %w", err)
 	}
-	row, err := dbq.New(r.pool).CreateNote(ctx, dbq.CreateNoteParams{
+	row, err := db.New(r.pool).CreateNote(ctx, db.CreateNoteParams{
 		OwnerID: ownerUUID, Genre: r.genre, ParentID: parent,
 		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
 		CssClasses: nilSafeTags(in.CSSClasses), ShowAsSource: in.ShowAsSource,
@@ -102,7 +102,7 @@ func (r *NoteRepo) UpdateBody(ctx context.Context, in *UpdateNoteInput) (Note, e
 	if err != nil {
 		return Note{}, fmt.Errorf("parse parent id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).UpdateNoteBody(ctx, dbq.UpdateNoteBodyParams{
+	row, qerr := db.New(r.pool).UpdateNoteBody(ctx, db.UpdateNoteBodyParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: r.genre,
 		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
 		ParentID: parent, ShowAsSource: in.ShowAsSource, CssClasses: nilSafeTags(in.CSSClasses),
@@ -134,7 +134,7 @@ func (r *NoteRepo) GetByID(ctx context.Context, ownerID, id string) (Note, error
 	if perr != nil {
 		return Note{}, perr
 	}
-	row, err := dbq.New(r.pool).GetNoteByID(ctx, dbq.GetNoteByIDParams{
+	row, err := db.New(r.pool).GetNoteByID(ctx, db.GetNoteByIDParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: r.genre,
 	})
 	if err != nil {
@@ -152,7 +152,7 @@ func (r *NoteRepo) GetMetaByID(ctx context.Context, ownerID, id string) (NoteMet
 	if perr != nil {
 		return NoteMeta{}, perr
 	}
-	row, err := dbq.New(r.pool).GetNoteMetaByID(ctx, dbq.GetNoteMetaByIDParams{
+	row, err := db.New(r.pool).GetNoteMetaByID(ctx, db.GetNoteMetaByIDParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: r.genre,
 	})
 	if err != nil {
@@ -173,7 +173,7 @@ func (r *NoteRepo) ListByOwner(ctx context.Context, ownerID string, limit int32)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListNotesByOwner(ctx, dbq.ListNotesByOwnerParams{
+	rows, qerr := db.New(r.pool).ListNotesByOwner(ctx, db.ListNotesByOwnerParams{
 		OwnerID: ownerUUID, Genre: r.genre, Limit: limit,
 	})
 	if qerr != nil {
@@ -191,12 +191,12 @@ func (r *NoteRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]NoteMeta, error) {
 	return listChildrenMeta(ownerID, parentID,
-		func(o, p pgtype.UUID) ([]dbq.ListNoteChildrenRow, error) {
-			return dbq.New(r.pool).ListNoteChildren(ctx, dbq.ListNoteChildrenParams{
+		func(o, p pgtype.UUID) ([]db.ListNoteChildrenRow, error) {
+			return db.New(r.pool).ListNoteChildren(ctx, db.ListNoteChildrenParams{
 				OwnerID: o, Genre: r.genre, Column3: p, Limit: limit, Offset: offset,
 			})
 		},
-		func(row dbq.ListNoteChildrenRow) NoteMeta {
+		func(row db.ListNoteChildrenRow) NoteMeta {
 			return NoteMeta{
 				ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
@@ -212,7 +212,7 @@ func (r *NoteRepo) Search(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).SearchNotes(ctx, dbq.SearchNotesParams{
+	rows, qerr := db.New(r.pool).SearchNotes(ctx, db.SearchNotesParams{
 		OwnerID: ownerUUID, Genre: r.genre, PlaintoTsquery: query, Limit: limit, Offset: offset,
 	})
 	if qerr != nil {
@@ -234,7 +234,7 @@ func (r *NoteRepo) Delete(ctx context.Context, ownerID, id string) error {
 	if perr != nil {
 		return perr
 	}
-	if derr := dbq.New(r.pool).DeleteNote(ctx, dbq.DeleteNoteParams{
+	if derr := db.New(r.pool).DeleteNote(ctx, db.DeleteNoteParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: r.genre,
 	}); derr != nil {
 		return fmt.Errorf("delete note: %w", derr)
@@ -242,7 +242,7 @@ func (r *NoteRepo) Delete(ctx context.Context, ownerID, id string) error {
 	return nil
 }
 
-func noteFromRow(n *dbq.CorpusNote) Note {
+func noteFromRow(n *db.CorpusNote) Note {
 	out := Note{
 		ID: pgstore.FormatUUID(n.ID), OwnerID: pgstore.FormatUUID(n.OwnerID),
 		Title: n.Title, Body: n.Body, Tags: n.Tags, ShowAsSource: n.ShowAsSource,

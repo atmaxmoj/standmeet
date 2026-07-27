@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // PageCursor —— keyset position (the previous page's last row). nil = first page.
@@ -30,7 +30,7 @@ type pageReq struct {
 }
 
 func adminPageFetch[T any](
-	ctx context.Context, req pageReq, toDomain func(*dbq.CorpusNote) T,
+	ctx context.Context, req pageReq, toDomain func(*db.CorpusNote) T,
 ) ([]TreeChild[T], error) {
 	ownerUUID, err := pgstore.ParseUUID(req.ownerID)
 	if err != nil {
@@ -40,7 +40,7 @@ func adminPageFetch[T any](
 	if cerr != nil {
 		return nil, cerr
 	}
-	rows, qerr := dbq.New(req.pool).ListNotesByOwnerPage(ctx, dbq.ListNotesByOwnerPageParams{
+	rows, qerr := db.New(req.pool).ListNotesByOwnerPage(ctx, db.ListNotesByOwnerPageParams{
 		OwnerID: ownerUUID, Genre: req.genre, Column3: cp.ts, Column4: cp.id, Limit: req.limit,
 	})
 	if qerr != nil {

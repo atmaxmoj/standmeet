@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/db"
 )
 
 // SkillRepo —— skills 表 + code_skills join 表 CRUD。
@@ -44,7 +44,7 @@ func (r *SkillRepo) Create(ctx context.Context, in *CreateSkillInput) (Skill, er
 	if perr != nil {
 		return Skill{}, perr
 	}
-	row, err := dbq.New(r.pool).CreateSkill(ctx, *params)
+	row, err := db.New(r.pool).CreateSkill(ctx, *params)
 	if err != nil {
 		if name, hit := pgstore.UniqueViolation(err); hit && name == "skills_owner_name_uniq" {
 			return Skill{}, ErrSkillNameTaken
@@ -54,7 +54,7 @@ func (r *SkillRepo) Create(ctx context.Context, in *CreateSkillInput) (Skill, er
 	return toDomainSkill(&row), nil
 }
 
-func buildCreateSkillParams(in *CreateSkillInput) (*dbq.CreateSkillParams, error) {
+func buildCreateSkillParams(in *CreateSkillInput) (*db.CreateSkillParams, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
@@ -71,7 +71,7 @@ func buildCreateSkillParams(in *CreateSkillInput) (*dbq.CreateSkillParams, error
 	if source == "" {
 		source = "manual"
 	}
-	return &dbq.CreateSkillParams{
+	return &db.CreateSkillParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description, Prompt: in.Prompt,
 		Scripts: scripts, Metadata: meta, AllowedTools: pgstore.NilSafeStrings(in.AllowedTools),
 		IsBuiltin: false, Version: in.Version, License: in.License, Source: source,
@@ -87,7 +87,7 @@ func (r *SkillRepo) UpsertBuiltin(
 	if oerr != nil {
 		return Skill{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).UpsertBuiltinSkill(ctx, dbq.UpsertBuiltinSkillParams{
+	row, err := db.New(r.pool).UpsertBuiltinSkill(ctx, db.UpsertBuiltinSkillParams{
 		OwnerID: ownerUUID, Name: name, Description: description, Prompt: prompt,
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]Skill, e
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	rows, err := dbq.New(r.pool).ListSkillsByOwner(ctx, ownerUUID)
+	rows, err := db.New(r.pool).ListSkillsByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list skills: %w", err)
 	}
@@ -120,7 +120,7 @@ func (r *SkillRepo) Delete(ctx context.Context, ownerID, skillID string) error {
 	if perr != nil {
 		return perr
 	}
-	if err := dbq.New(r.pool).DeleteSkill(ctx, dbq.DeleteSkillParams{
+	if err := db.New(r.pool).DeleteSkill(ctx, db.DeleteSkillParams{
 		ID: args.skillUUID, OwnerID: args.ownerUUID,
 	}); err != nil {
 		return fmt.Errorf("delete skill: %w", err)
@@ -150,7 +150,7 @@ func parseOwnerAndSkillID(ownerID, skillID string) (skillIDArgs, error) {
 // ListSkillsForRole 是 RoleSnapshot 构造时唯一的 skill 列表来源。
 
 // ListSkillsForRole —— RoleSnapshot 构造时拼 prompt / allowed_tools 用。
-// 跟 ListSkillsForCode 同形态，dbq.ListRoleSkills 在 roles.sql 已声明。
+// 跟 ListSkillsForCode 同形态，db.ListRoleSkills 在 roles.sql 已声明。
 func (r *SkillRepo) ListSkillsForRole(
 	ctx context.Context, roleID string) ([]Skill, error,
 ) {
@@ -158,7 +158,7 @@ func (r *SkillRepo) ListSkillsForRole(
 	if perr != nil {
 		return nil, fmt.Errorf("parse role id: %w", perr)
 	}
-	rows, err := dbq.New(r.pool).ListRoleSkills(ctx, roleUUID)
+	rows, err := db.New(r.pool).ListRoleSkills(ctx, roleUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list skills for role: %w", err)
 	}
@@ -177,7 +177,7 @@ func (r *SkillRepo) GetByID(
 	if perr != nil {
 		return Skill{}, perr
 	}
-	row, err := dbq.New(r.pool).GetSkillByID(ctx, dbq.GetSkillByIDParams{
+	row, err := db.New(r.pool).GetSkillByID(ctx, db.GetSkillByIDParams{
 		ID: args.skillUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
@@ -197,7 +197,7 @@ func (r *SkillRepo) SetEnabled(
 	if perr != nil {
 		return Skill{}, perr
 	}
-	row, err := dbq.New(r.pool).SetSkillEnabled(ctx, dbq.SetSkillEnabledParams{
+	row, err := db.New(r.pool).SetSkillEnabled(ctx, db.SetSkillEnabledParams{
 		ID: args.skillUUID, OwnerID: args.ownerUUID, Enabled: enabled,
 	})
 	if err != nil {
@@ -209,7 +209,7 @@ func (r *SkillRepo) SetEnabled(
 	return toDomainSkill(&row), nil
 }
 
-func toDomainSkill(s *dbq.Skill) Skill {
+func toDomainSkill(s *db.Skill) Skill {
 	out := Skill{
 		ID: pgstore.FormatUUID(s.ID), OwnerID: pgstore.FormatUUID(s.OwnerID),
 		Name: s.Name, Description: s.Description, Prompt: s.Prompt,

@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 const (
@@ -46,8 +46,8 @@ func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (Raw, error) {
 	if err != nil {
 		return Raw{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateRawEntry(ctx, dbq.CreateRawEntryParams{
+	q := db.New(r.pool)
+	row, err := q.CreateRawEntry(ctx, db.CreateRawEntryParams{
 		OwnerID:        ownerUUID,
 		Title:          rawTitleFromBody(in.Body),
 		Body:           in.Body,
@@ -94,8 +94,8 @@ func (r *RawRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	rows, err := q.ListRawByOwner(ctx, dbq.ListRawByOwnerParams{OwnerID: ownerUUID, Limit: limit})
+	q := db.New(r.pool)
+	rows, err := q.ListRawByOwner(ctx, db.ListRawByOwnerParams{OwnerID: ownerUUID, Limit: limit})
 	if err != nil {
 		return nil, fmt.Errorf("list raw: %w", err)
 	}
@@ -116,8 +116,8 @@ func (r *RawRepo) GetByID(ctx context.Context, ownerID, id string) (Raw, error) 
 	if err != nil {
 		return Raw{}, fmt.Errorf("parse raw id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetRawByID(ctx, dbq.GetRawByIDParams{ID: rawUUID, OwnerID: ownerUUID})
+	q := db.New(r.pool)
+	row, err := q.GetRawByID(ctx, db.GetRawByIDParams{ID: rawUUID, OwnerID: ownerUUID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Raw{}, ErrRawNotFound
@@ -141,8 +141,8 @@ func (r *RawRepo) MarkPromoted(ctx context.Context, ownerID, rawID, wikiID strin
 	if err != nil {
 		return fmt.Errorf("parse wiki id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	if perr := q.MarkRawPromoted(ctx, dbq.MarkRawPromotedParams{
+	q := db.New(r.pool)
+	if perr := q.MarkRawPromoted(ctx, db.MarkRawPromotedParams{
 		ID: rawUUID, OwnerID: ownerUUID, PromotedTo: wikiUUID,
 	}); perr != nil {
 		return fmt.Errorf("mark raw promoted: %w", perr)
@@ -154,7 +154,7 @@ func (r *RawRepo) MarkPromoted(ctx context.Context, ownerID, rawID, wikiID strin
 // 列反查 entry;cite/寻址走 id(GetByID),公开 landing 走 usecases load 全树算地址。
 
 // toDomainRaw —— corpus_notes(genre='raw')行 → Raw。inbox_source→Source。
-func toDomainRaw(r *dbq.CorpusNote) Raw {
+func toDomainRaw(r *db.CorpusNote) Raw {
 	in := RawInit{
 		ID:             pgstore.FormatUUID(r.ID),
 		OwnerID:        pgstore.FormatUUID(r.OwnerID),

@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // ChatSummary —— admin list 用的 chat 摘要（含 code label 关联）。
@@ -42,8 +42,8 @@ func (r *ChatRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	rows, qerr := q.ListConversationsByOwner(ctx, dbq.ListConversationsByOwnerParams{
+	q := db.New(r.pool)
+	rows, qerr := q.ListConversationsByOwner(ctx, db.ListConversationsByOwnerParams{
 		OwnerID: ownerUUID, Limit: limit,
 	})
 	if qerr != nil {
@@ -80,7 +80,7 @@ func (r *ChatRepo) loadMessages(
 	if perr != nil {
 		return nil, fmt.Errorf("parse chat id: %w", perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	rows, lerr := q.ListMessages(ctx, chatUUID)
 	if lerr != nil {
 		return nil, fmt.Errorf("list messages: %w", lerr)
@@ -92,7 +92,7 @@ func (r *ChatRepo) loadMessages(
 	return out, nil
 }
 
-func toChatSummary(row *dbq.ListConversationsByOwnerRow) ChatSummary {
+func toChatSummary(row *db.ListConversationsByOwnerRow) ChatSummary {
 	out := ChatSummary{
 		ID:          pgstore.FormatUUID(row.ID),
 		Mode:        row.Mode,

@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // GetByObsidianSourcePath —— Obsidian import 时按 vault 内相对路径找已经
@@ -23,8 +23,8 @@ func (r *WritingRepo) GetByObsidianSourcePath(
 	if oerr != nil {
 		return Writing{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).GetWritingByObsidianSourcePath(ctx,
-		dbq.GetWritingByObsidianSourcePathParams{
+	row, err := db.New(r.pool).GetWritingByObsidianSourcePath(ctx,
+		db.GetWritingByObsidianSourcePathParams{
 			OwnerID: ownerUUID, ObsidianSourcePath: sourcePath,
 		})
 	if err != nil {
@@ -46,7 +46,7 @@ func (r *WritingRepo) SetObsidianMeta(
 	if perr != nil {
 		return perr
 	}
-	if err := dbq.New(r.pool).SetWritingObsidianMeta(ctx, dbq.SetWritingObsidianMetaParams{
+	if err := db.New(r.pool).SetWritingObsidianMeta(ctx, db.SetWritingObsidianMetaParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID, ObsidianSourcePath: sourcePath,
 	}); err != nil {
 		return fmt.Errorf("set obsidian meta: %w", err)

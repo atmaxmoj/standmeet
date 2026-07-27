@@ -12,8 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // ConversationMemberID —— the member that owns a conversation (within owner scope). Used by the
@@ -31,8 +31,8 @@ func (r *ChatRepo) ConversationMemberID(
 	if err != nil {
 		return "", fmt.Errorf("parse conversation id: %w", err)
 	}
-	conv, qerr := dbq.New(r.pool).GetConversation(ctx,
-		dbq.GetConversationParams{ID: convUUID, OwnerID: ownerUUID})
+	conv, qerr := db.New(r.pool).GetConversation(ctx,
+		db.GetConversationParams{ID: convUUID, OwnerID: ownerUUID})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			// unknown conversation = not-found (empty member), not a failure to surface.
@@ -51,7 +51,7 @@ func (r *ChatRepo) CountVisitorTurnsForMember(
 	if err != nil {
 		return 0, fmt.Errorf("parse member id: %w", err)
 	}
-	n, qerr := dbq.New(r.pool).CountVisitorTurnsForMember(ctx, memberUUID)
+	n, qerr := db.New(r.pool).CountVisitorTurnsForMember(ctx, memberUUID)
 	if qerr != nil {
 		return 0, fmt.Errorf("count member turns: %w", qerr)
 	}
@@ -67,8 +67,8 @@ func (r *ChatRepo) GetOpenChatByMemberAndDoc(
 	if err != nil {
 		return Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).GetOpenConversationByMemberAndDoc(ctx,
-		dbq.GetOpenConversationByMemberAndDocParams{MemberID: memberUUID, DocKey: docKey})
+	row, qerr := db.New(r.pool).GetOpenConversationByMemberAndDoc(ctx,
+		db.GetOpenConversationByMemberAndDocParams{MemberID: memberUUID, DocKey: docKey})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return Chat{}, ErrChatNotFound
@@ -99,8 +99,8 @@ func (r *ChatRepo) ListMemberOtherMessages(
 	if eerr != nil {
 		return nil, fmt.Errorf("parse exclude conv id: %w", eerr)
 	}
-	rows, qerr := dbq.New(r.pool).ListMemberOtherConversationMessages(ctx,
-		dbq.ListMemberOtherConversationMessagesParams{MemberID: memberUUID, ID: exclUUID})
+	rows, qerr := db.New(r.pool).ListMemberOtherConversationMessages(ctx,
+		db.ListMemberOtherConversationMessagesParams{MemberID: memberUUID, ID: exclUUID})
 	if qerr != nil {
 		return nil, fmt.Errorf("list member other messages: %w", qerr)
 	}

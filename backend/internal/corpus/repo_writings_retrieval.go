@@ -13,8 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // GetPublishedByPath —— retriever corpus_read 按 path 读 published writing。path 派生自 slug
@@ -30,7 +30,7 @@ func (r *WritingRepo) GetPublishedByPath(
 	if !ok {
 		return Writing{}, ErrWritingNotFound
 	}
-	row, err := dbq.New(r.pool).GetPublishedWritingBySlug(ctx, dbq.GetPublishedWritingBySlugParams{
+	row, err := db.New(r.pool).GetPublishedWritingBySlug(ctx, db.GetPublishedWritingBySlugParams{
 		OwnerID: ownerUUID, Slug: slug,
 	})
 	if err != nil {
@@ -50,7 +50,7 @@ func (r *WritingRepo) Search(
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	rows, err := dbq.New(r.pool).SearchPublishedWritings(ctx, dbq.SearchPublishedWritingsParams{
+	rows, err := db.New(r.pool).SearchPublishedWritings(ctx, db.SearchPublishedWritingsParams{
 		OwnerID: ownerUUID, PlaintoTsquery: query, Limit: limit, Offset: offset,
 	})
 	if err != nil {

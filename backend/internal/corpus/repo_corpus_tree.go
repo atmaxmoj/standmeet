@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // TreeChild —— one lazy-tree layer node: the full domain entry + its root→leaf title
@@ -35,15 +35,15 @@ type childrenReq struct {
 // adminChildren —— shared body: fetch one owner-scoped level for a genre and map each
 // row's embedded note to its domain type. Reuses the generic listChildrenMeta plumbing.
 func adminChildren[T any](
-	ctx context.Context, req childrenReq, toDomain func(*dbq.CorpusNote) T,
+	ctx context.Context, req childrenReq, toDomain func(*db.CorpusNote) T,
 ) ([]TreeChild[T], error) {
 	return listChildrenMeta(req.ownerID, req.parentID,
-		func(o, p pgtype.UUID) ([]dbq.ListNoteChildrenAdminRow, error) {
-			return dbq.New(req.pool).ListNoteChildrenAdmin(ctx, dbq.ListNoteChildrenAdminParams{
+		func(o, p pgtype.UUID) ([]db.ListNoteChildrenAdminRow, error) {
+			return db.New(req.pool).ListNoteChildrenAdmin(ctx, db.ListNoteChildrenAdminParams{
 				OwnerID: o, Genre: req.genre, Column3: p,
 			})
 		},
-		func(row dbq.ListNoteChildrenAdminRow) TreeChild[T] {
+		func(row db.ListNoteChildrenAdminRow) TreeChild[T] {
 			return TreeChild[T]{
 				Entry:       toDomain(&row.CorpusNote),
 				HasChildren: row.HasChildren,

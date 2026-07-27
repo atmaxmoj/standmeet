@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // MailRepo —— owner 出站 SMTP connector。
@@ -53,7 +53,7 @@ func (r *MailRepo) SaveConnector(ctx context.Context, in *SaveMailConnectorInput
 	if perr != nil {
 		return fmt.Errorf("encrypt smtp password: %w", perr)
 	}
-	if _, qerr := dbq.New(r.pool).UpsertMailConnector(ctx, dbq.UpsertMailConnectorParams{
+	if _, qerr := db.New(r.pool).UpsertMailConnector(ctx, db.UpsertMailConnectorParams{
 		OwnerID:     ownerUUID,
 		Provider:    in.Provider,
 		Host:        in.Host,
@@ -76,8 +76,8 @@ func (r *MailRepo) GetConnector(
 	if err != nil {
 		return MailConnector{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	row, qerr := dbq.New(r.pool).GetMailConnector(ctx,
-		dbq.GetMailConnectorParams{OwnerID: ownerUUID, Provider: provider})
+	row, qerr := db.New(r.pool).GetMailConnector(ctx,
+		db.GetMailConnectorParams{OwnerID: ownerUUID, Provider: provider})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return MailConnector{OwnerID: ownerID, Provider: provider}, nil
@@ -93,8 +93,8 @@ func (r *MailRepo) MarkConnected(ctx context.Context, ownerID, provider string) 
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if merr := dbq.New(r.pool).MarkMailConnected(ctx,
-		dbq.MarkMailConnectedParams{OwnerID: ownerUUID, Provider: provider}); merr != nil {
+	if merr := db.New(r.pool).MarkMailConnected(ctx,
+		db.MarkMailConnectedParams{OwnerID: ownerUUID, Provider: provider}); merr != nil {
 		return fmt.Errorf("mark mail connected: %w", merr)
 	}
 	return nil
@@ -108,7 +108,7 @@ func (r *MailRepo) SetOTP(
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if serr := dbq.New(r.pool).SetMailOTP(ctx, dbq.SetMailOTPParams{
+	if serr := db.New(r.pool).SetMailOTP(ctx, db.SetMailOTPParams{
 		OwnerID: ownerUUID, Provider: provider,
 		OtpHash: hash, OtpExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
 	}); serr != nil {
@@ -123,8 +123,8 @@ func (r *MailRepo) IncOTPAttempts(ctx context.Context, ownerID, provider string)
 	if err != nil {
 		return 0, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	n, ierr := dbq.New(r.pool).IncMailOTPAttempts(ctx,
-		dbq.IncMailOTPAttemptsParams{OwnerID: ownerUUID, Provider: provider})
+	n, ierr := db.New(r.pool).IncMailOTPAttempts(ctx,
+		db.IncMailOTPAttemptsParams{OwnerID: ownerUUID, Provider: provider})
 	if ierr != nil {
 		return 0, fmt.Errorf("inc mail otp attempts: %w", ierr)
 	}
@@ -137,8 +137,8 @@ func (r *MailRepo) ClearOTP(ctx context.Context, ownerID, provider string) error
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if cerr := dbq.New(r.pool).ClearMailOTP(ctx,
-		dbq.ClearMailOTPParams{OwnerID: ownerUUID, Provider: provider}); cerr != nil {
+	if cerr := db.New(r.pool).ClearMailOTP(ctx,
+		db.ClearMailOTPParams{OwnerID: ownerUUID, Provider: provider}); cerr != nil {
 		return fmt.Errorf("clear mail otp: %w", cerr)
 	}
 	return nil
@@ -150,15 +150,15 @@ func (r *MailRepo) DeleteConnector(ctx context.Context, ownerID, provider string
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if derr := dbq.New(r.pool).DeleteMailConnector(ctx,
-		dbq.DeleteMailConnectorParams{OwnerID: ownerUUID, Provider: provider}); derr != nil {
+	if derr := db.New(r.pool).DeleteMailConnector(ctx,
+		db.DeleteMailConnectorParams{OwnerID: ownerUUID, Provider: provider}); derr != nil {
 		return fmt.Errorf("delete mail connector: %w", derr)
 	}
 	return nil
 }
 
 func decodeMailConnector(
-	row *dbq.OwnerMailConnector, ownerID string,
+	row *db.OwnerMailConnector, ownerID string,
 ) (MailConnector, error) {
 	aad := []byte(ownerID) // 与 SaveConnector 的 in.OwnerID 同串。
 	user, uerr := pgstore.DecryptOrEmpty(row.UsernameEnc, aad)

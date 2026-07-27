@@ -12,8 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // WritingRefRepo —— writing_refs 表 CRUD。
@@ -38,14 +38,14 @@ type srcOwnerUUIDs struct {
 // ReplaceRefsBySrcTx —— delete + insert 重建 src writing 的出度。同 SaveWriting
 // tx 内调，跟 writing 行更新一起 commit。dstIDs 必须已去重（caller 负责）。
 func (*WritingRefRepo) ReplaceRefsBySrcTx(
-	ctx context.Context, tx dbq.DBTX,
+	ctx context.Context, tx db.DBTX,
 	srcID, ownerID string, dstIDs []string,
 ) error {
 	ids, perr := parseSrcAndOwner(srcID, ownerID)
 	if perr != nil {
 		return perr
 	}
-	q := dbq.New(tx)
+	q := db.New(tx)
 	if derr := q.DeleteRefsBySrc(ctx, ids.Src); derr != nil {
 		return fmt.Errorf("delete old refs: %w", derr)
 	}
@@ -65,7 +65,7 @@ func parseSrcAndOwner(srcID, ownerID string) (srcOwnerUUIDs, error) {
 }
 
 func insertNewRefs(
-	ctx context.Context, q *dbq.Queries,
+	ctx context.Context, q *db.Queries,
 	srcUUID, ownerUUID pgtype.UUID, dstIDs []string,
 ) error {
 	for _, dstID := range dstIDs {
@@ -77,14 +77,14 @@ func insertNewRefs(
 }
 
 func insertOneRef(
-	ctx context.Context, q *dbq.Queries,
+	ctx context.Context, q *db.Queries,
 	srcUUID, ownerUUID pgtype.UUID, dstID string,
 ) error {
 	dstUUID, derr := pgstore.ParseUUID(dstID)
 	if derr != nil {
 		return fmt.Errorf("parse dst id %s: %w", dstID, derr)
 	}
-	if err := q.InsertWritingRef(ctx, dbq.InsertWritingRefParams{
+	if err := q.InsertWritingRef(ctx, db.InsertWritingRefParams{
 		SrcWritingID: srcUUID, DstWritingID: dstUUID, OwnerID: ownerUUID,
 	}); err != nil {
 		return fmt.Errorf("insert ref: %w", err)
@@ -105,7 +105,7 @@ func (r *WritingRefRepo) BacklinksFor(
 	if oerr != nil {
 		return nil, fmt.Errorf("parse owner id: %w", oerr)
 	}
-	rows, err := dbq.New(r.pool).ListBacklinksForWriting(ctx, dbq.ListBacklinksForWritingParams{
+	rows, err := db.New(r.pool).ListBacklinksForWriting(ctx, db.ListBacklinksForWritingParams{
 		DstWritingID: dstUUID, OwnerID: ownerUUID,
 	})
 	if err != nil {
@@ -114,7 +114,7 @@ func (r *WritingRefRepo) BacklinksFor(
 	return mapRefs(rows), nil
 }
 
-func mapRefs(rows []dbq.ListBacklinksForWritingRow) []WritingRef {
+func mapRefs(rows []db.ListBacklinksForWritingRow) []WritingRef {
 	out := make([]WritingRef, 0, len(rows))
 	for i := range rows {
 		out = append(out, WritingRef{Slug: rows[i].Slug, Title: rows[i].Title})

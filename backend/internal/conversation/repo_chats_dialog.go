@@ -15,9 +15,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // AppendDialog —— 一轮 Q-A 落 1 个 dialog + 2 条 message（挂 dialog_id）+ bump conversation，
@@ -89,21 +89,21 @@ type appendDialogTxArgs struct {
 func (r *ChatRepo) runAppendDialogTx(
 	ctx context.Context, args *appendDialogTxArgs,
 ) (string, error) {
-	return r.runInTx(ctx, func(q *dbq.Queries) (string, error) {
+	return r.runInTx(ctx, func(q *db.Queries) (string, error) {
 		return runAppendDialogQueries(ctx, q, args)
 	})
 }
 
 // runInTx —— 开 tx、跑 fn、commit；fn 返回的 dialog id 冒出来。DRY 掉两个 dialog 写路径的样板。
 func (r *ChatRepo) runInTx(
-	ctx context.Context, fn func(q *dbq.Queries) (string, error),
+	ctx context.Context, fn func(q *db.Queries) (string, error),
 ) (string, error) {
 	tx, txErr := r.pool.Begin(ctx)
 	if txErr != nil {
 		return "", fmt.Errorf("begin tx: %w", txErr)
 	}
 	defer rollbackQuiet(ctx, tx)
-	out, err := fn(dbq.New(tx))
+	out, err := fn(db.New(tx))
 	if err != nil {
 		return "", err
 	}
@@ -123,19 +123,19 @@ func (r *ChatRepo) AppendVisitorOnly(
 	if perr != nil {
 		return "", fmt.Errorf("parse chat id: %w", perr)
 	}
-	return r.runInTx(ctx, func(q *dbq.Queries) (string, error) {
+	return r.runInTx(ctx, func(q *db.Queries) (string, error) {
 		return runAppendVisitorOnlyQueries(ctx, q, chatUUID, question)
 	})
 }
 
 func runAppendVisitorOnlyQueries(
-	ctx context.Context, q *dbq.Queries, chatUUID pgtype.UUID, question string,
+	ctx context.Context, q *db.Queries, chatUUID pgtype.UUID, question string,
 ) (string, error) {
 	dialogID, derr := q.CreateDialog(ctx, chatUUID)
 	if derr != nil {
 		return "", fmt.Errorf("create dialog: %w", derr)
 	}
-	if _, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
+	if _, err := q.AppendMessage(ctx, db.AppendMessageParams{
 		ConversationID: chatUUID, DialogID: dialogID, Role: "visitor", Body: question,
 		CitedWikiIds: []pgtype.UUID{}, CitedWritingIds: []pgtype.UUID{},
 		CitedOutputIds: []pgtype.UUID{}, CitedSubjectivityIds: []pgtype.UUID{},
@@ -151,20 +151,20 @@ func runAppendVisitorOnlyQueries(
 // runAppendDialogQueries —— 在 tx 上跑 1 条 CreateDialog + 2 条 AppendMessage (挂 dialog_id) +
 // 1 条 Bump，返真 dialog id。拆出来让 runAppendDialogTx cyclo ≤5 (open/commit + delegate)。
 func runAppendDialogQueries(
-	ctx context.Context, q *dbq.Queries, args *appendDialogTxArgs,
+	ctx context.Context, q *db.Queries, args *appendDialogTxArgs,
 ) (string, error) {
 	dialogID, derr := q.CreateDialog(ctx, args.ChatUUID)
 	if derr != nil {
 		return "", fmt.Errorf("create dialog: %w", derr)
 	}
-	if _, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
+	if _, err := q.AppendMessage(ctx, db.AppendMessageParams{
 		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "visitor", Body: args.Q,
 		CitedWikiIds: []pgtype.UUID{}, CitedWritingIds: []pgtype.UUID{},
 		CitedOutputIds: []pgtype.UUID{}, CitedSubjectivityIds: []pgtype.UUID{},
 	}); err != nil {
 		return "", fmt.Errorf("append visitor message: %w", err)
 	}
-	if _, aerr := q.AppendMessage(ctx, dbq.AppendMessageParams{
+	if _, aerr := q.AppendMessage(ctx, db.AppendMessageParams{
 		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "assistant", Body: args.A,
 		CitedWikiIds: args.WikiUUIDs, CitedWritingIds: args.WritingUUIDs,
 		CitedOutputIds:       args.OutputUUIDs,

@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // WikiCard —— 一条被 pin 条目的卡内容。Published 是渲染侧兜底过滤输入
@@ -38,7 +38,7 @@ func (r *WikiRepo) ListCardsByIDs(
 	if err != nil {
 		return nil, err
 	}
-	rows, err := dbq.New(r.pool).ListNoteCardsByIDs(ctx, dbq.ListNoteCardsByIDsParams{
+	rows, err := db.New(r.pool).ListNoteCardsByIDs(ctx, db.ListNoteCardsByIDsParams{
 		OwnerID: ownerUUID, Column2: uuids,
 	})
 	if err != nil {
@@ -47,7 +47,7 @@ func (r *WikiRepo) ListCardsByIDs(
 	return cardsFromRows(rows), nil
 }
 
-func cardsFromRows(rows []dbq.ListNoteCardsByIDsRow) map[string]WikiCard {
+func cardsFromRows(rows []db.ListNoteCardsByIDsRow) map[string]WikiCard {
 	out := make(map[string]WikiCard, len(rows))
 	for i := range rows {
 		id := pgstore.FormatUUID(rows[i].ID)

@@ -21,8 +21,8 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc/db"
 )
 
 // ApplicationRepo —— applications CRUD + Commit 事务。
@@ -86,7 +86,7 @@ func commitTx(ctx context.Context, tx pgx.Tx, in *CommitInput) (CommitOutput, er
 	if err != nil {
 		return CommitOutput{}, err
 	}
-	draft, err := loadDraftForCommit(ctx, dbq.New(tx), &key)
+	draft, err := loadDraftForCommit(ctx, db.New(tx), &key)
 	if err != nil {
 		return CommitOutput{}, err
 	}
@@ -94,9 +94,9 @@ func commitTx(ctx context.Context, tx pgx.Tx, in *CommitInput) (CommitOutput, er
 }
 
 func writeCommitRows(
-	ctx context.Context, tx pgx.Tx, in *CommitInput, key *draftKey, draft *dbq.ResumeDraft,
+	ctx context.Context, tx pgx.Tx, in *CommitInput, key *draftKey, draft *db.ResumeDraft,
 ) (CommitOutput, error) {
-	q := dbq.New(tx)
+	q := db.New(tx)
 	code, err := insertAccessCode(ctx, tx, in, recruiterBriefing(draft.JobSnapshot))
 	if err != nil {
 		return CommitOutput{}, err
@@ -107,7 +107,7 @@ func writeCommitRows(
 	if err != nil {
 		return CommitOutput{}, err
 	}
-	if derr := q.DeleteResumeDraft(ctx, dbq.DeleteResumeDraftParams{
+	if derr := q.DeleteResumeDraft(ctx, db.DeleteResumeDraftParams{
 		ID: key.draft, OwnerID: key.owner,
 	}); derr != nil {
 		return CommitOutput{}, fmt.Errorf("delete draft: %w", derr)
@@ -131,7 +131,7 @@ func (r *ApplicationRepo) GetDraftRenderData(
 	if err != nil {
 		return DraftRenderData{}, err
 	}
-	row, err := loadDraftForCommit(ctx, dbq.New(r.pool), &key)
+	row, err := loadDraftForCommit(ctx, db.New(r.pool), &key)
 	if err != nil {
 		return DraftRenderData{}, err
 	}
@@ -146,16 +146,16 @@ func (r *ApplicationRepo) GetDraftRenderData(
 }
 
 func loadDraftForCommit(
-	ctx context.Context, q *dbq.Queries, key *draftKey,
-) (dbq.ResumeDraft, error) {
-	row, err := q.GetResumeDraft(ctx, dbq.GetResumeDraftParams{
+	ctx context.Context, q *db.Queries, key *draftKey,
+) (db.ResumeDraft, error) {
+	row, err := q.GetResumeDraft(ctx, db.GetResumeDraftParams{
 		ID: key.draft, OwnerID: key.owner,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return dbq.ResumeDraft{}, jobsmodel.ErrResumeDraftNotFound
+			return db.ResumeDraft{}, jobsmodel.ErrResumeDraftNotFound
 		}
-		return dbq.ResumeDraft{}, fmt.Errorf("load draft: %w", err)
+		return db.ResumeDraft{}, fmt.Errorf("load draft: %w", err)
 	}
 	return row, nil
 }
@@ -205,13 +205,13 @@ func recruiterBriefing(jobSnapshotJSON []byte) string {
 // appInsert —— insertApplication args packed (keeps it within the argument limit).
 type appInsert struct {
 	key   *draftKey
-	draft *dbq.ResumeDraft
+	draft *db.ResumeDraft
 	code  *access.Code
 	appID string
 }
 
 func insertApplication(
-	ctx context.Context, q *dbq.Queries, a *appInsert,
+	ctx context.Context, q *db.Queries, a *appInsert,
 ) (jobsmodel.Application, error) {
 	codeUUID, err := pgstore.ParseUUID(a.code.ID)
 	if err != nil {
@@ -221,7 +221,7 @@ func insertApplication(
 	if err != nil {
 		return jobsmodel.Application{}, fmt.Errorf("parse application id: %w", err)
 	}
-	row, err := q.CreateApplication(ctx, dbq.CreateApplicationParams{
+	row, err := q.CreateApplication(ctx, db.CreateApplicationParams{
 		ID:            appUUID,
 		OwnerID:       a.key.owner,
 		AccessCodeID:  codeUUID,
@@ -246,8 +246,8 @@ func (r *ApplicationRepo) GetByID(
 	if err != nil {
 		return jobsmodel.Application{}, fmt.Errorf("parse application id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetApplication(ctx, dbq.GetApplicationParams{
+	q := db.New(r.pool)
+	row, err := q.GetApplication(ctx, db.GetApplicationParams{
 		ID: appUUID, OwnerID: owner,
 	})
 	if err != nil {
@@ -267,7 +267,7 @@ func (r *ApplicationRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	rows, err := q.ListApplicationsByOwner(ctx, owner)
 	if err != nil {
 		return nil, fmt.Errorf("list applications: %w", err)
@@ -283,7 +283,7 @@ func (r *ApplicationRepo) ListByOwner(
 	return out, nil
 }
 
-func toDomainApplication(row *dbq.Application) (jobsmodel.Application, error) {
+func toDomainApplication(row *db.Application) (jobsmodel.Application, error) {
 	var snapshot jobsmodel.FetchedJob
 	if err := json.Unmarshal(row.JobSnapshot, &snapshot); err != nil {
 		return jobsmodel.Application{}, fmt.Errorf("unmarshal job snapshot: %w", err)

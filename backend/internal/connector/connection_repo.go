@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // Repo —— owner_connectors 的读写。
@@ -60,7 +60,7 @@ func (r *Repo) SaveCredentials(ctx context.Context, in *SaveConnectorCredsInput)
 	if eerr != nil {
 		return eerr
 	}
-	_, qerr := dbq.New(r.pool).UpsertConnectorCredentials(ctx, dbq.UpsertConnectorCredentialsParams{
+	_, qerr := db.New(r.pool).UpsertConnectorCredentials(ctx, db.UpsertConnectorCredentialsParams{
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID,
 		Category: in.Category, Kind: in.Kind, CredentialsEnc: enc,
 	})
@@ -84,7 +84,7 @@ func (r *Repo) SaveTokens(ctx context.Context, in *SaveConnectorTokensInput) err
 	if serr != nil {
 		return fmt.Errorf("marshal scopes: %w", serr)
 	}
-	_, qerr := dbq.New(r.pool).UpdateConnectorTokens(ctx, dbq.UpdateConnectorTokensParams{
+	_, qerr := db.New(r.pool).UpdateConnectorTokens(ctx, db.UpdateConnectorTokensParams{
 		TokenEnc:       tokEnc,
 		TokenExpiresAt: pgtype.Timestamptz{Time: in.ExpiresAt, Valid: !in.ExpiresAt.IsZero()},
 		Scopes:         scopesJSON, OwnerID: ownerUUID, ConnectorID: in.ConnectorID,
@@ -101,7 +101,7 @@ func (r *Repo) MarkConnected(ctx context.Context, ownerID, connectorID string) e
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if derr := dbq.New(r.pool).MarkConnectorConnected(ctx, dbq.MarkConnectorConnectedParams{
+	if derr := db.New(r.pool).MarkConnectorConnected(ctx, db.MarkConnectorConnectedParams{
 		OwnerID: ownerUUID, ConnectorID: connectorID,
 	}); derr != nil {
 		return fmt.Errorf("mark connector connected: %w", derr)
@@ -115,8 +115,8 @@ func (r *Repo) ClearTokens(ctx context.Context, ownerID, connectorID string) err
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if derr := dbq.New(r.pool).ClearConnectorTokens(ctx,
-		dbq.ClearConnectorTokensParams{OwnerID: ownerUUID, ConnectorID: connectorID}); derr != nil {
+	if derr := db.New(r.pool).ClearConnectorTokens(ctx,
+		db.ClearConnectorTokensParams{OwnerID: ownerUUID, ConnectorID: connectorID}); derr != nil {
 		return fmt.Errorf("clear connector tokens: %w", derr)
 	}
 	return nil
@@ -130,7 +130,7 @@ func (r *Repo) SetActive(
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if derr := dbq.New(r.pool).SetActiveConnector(ctx, dbq.SetActiveConnectorParams{
+	if derr := db.New(r.pool).SetActiveConnector(ctx, db.SetActiveConnectorParams{
 		ConnectorID: connectorID, OwnerID: ownerUUID, Category: category,
 	}); derr != nil {
 		return fmt.Errorf("set active connector: %w", derr)
@@ -144,8 +144,8 @@ func (r *Repo) Delete(ctx context.Context, ownerID, connectorID string) error {
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if derr := dbq.New(r.pool).DeleteConnector(ctx,
-		dbq.DeleteConnectorParams{OwnerID: ownerUUID, ConnectorID: connectorID}); derr != nil {
+	if derr := db.New(r.pool).DeleteConnector(ctx,
+		db.DeleteConnectorParams{OwnerID: ownerUUID, ConnectorID: connectorID}); derr != nil {
 		return fmt.Errorf("delete connector: %w", derr)
 	}
 	return nil
@@ -159,8 +159,8 @@ func (r *Repo) Get(
 	if err != nil {
 		return Connection{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	row, qerr := dbq.New(r.pool).GetConnector(ctx,
-		dbq.GetConnectorParams{OwnerID: ownerUUID, ConnectorID: connectorID})
+	row, qerr := db.New(r.pool).GetConnector(ctx,
+		db.GetConnectorParams{OwnerID: ownerUUID, ConnectorID: connectorID})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return Connection{ConnectorID: connectorID}, nil
@@ -178,7 +178,7 @@ func (r *Repo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListConnectorsByOwner(ctx, ownerUUID)
+	rows, qerr := db.New(r.pool).ListConnectorsByOwner(ctx, ownerUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list connectors: %w", qerr)
 	}
@@ -193,8 +193,8 @@ func (r *Repo) ListByCategory(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListConnectorsByCategory(ctx,
-		dbq.ListConnectorsByCategoryParams{OwnerID: ownerUUID, Category: category})
+	rows, qerr := db.New(r.pool).ListConnectorsByCategory(ctx,
+		db.ListConnectorsByCategoryParams{OwnerID: ownerUUID, Category: category})
 	if qerr != nil {
 		return nil, fmt.Errorf("list connectors by category: %w", qerr)
 	}
@@ -276,7 +276,7 @@ func decodeScopes(raw []byte) ([]string, error) {
 	return scopes, nil
 }
 
-func decodeConnectorConn(row *dbq.OwnerConnector) (Connection, error) {
+func decodeConnectorConn(row *db.OwnerConnector) (Connection, error) {
 	aad := []byte(pgstore.FormatUUID(row.OwnerID))
 	creds, err := decBytes(row.CredentialsEnc, aad)
 	if err != nil {
@@ -304,7 +304,7 @@ func decodeConnectorConn(row *dbq.OwnerConnector) (Connection, error) {
 }
 
 func decodeConnectorConns(
-	rows []dbq.OwnerConnector) ([]Connection, error,
+	rows []db.OwnerConnector) ([]Connection, error,
 ) {
 	out := make([]Connection, 0, len(rows))
 	for i := range rows {

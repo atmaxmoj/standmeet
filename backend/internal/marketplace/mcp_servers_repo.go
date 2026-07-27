@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/marketplace/db"
 )
 
 // MCPServerRepo —— mcp_servers 表 + code_mcp_servers join 表 CRUD。
@@ -42,7 +42,7 @@ func (r *MCPServerRepo) Create(
 	if oerr != nil {
 		return MCPServerConfig{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).CreateMCPServer(ctx, dbq.CreateMCPServerParams{
+	row, err := db.New(r.pool).CreateMCPServer(ctx, db.CreateMCPServerParams{
 		OwnerID: ownerUUID, Name: in.Name, Url: in.URL,
 		AuthHeaderName: in.AuthHeaderName, AuthHeaderValueEnc: in.AuthHeaderValueEnc,
 	})
@@ -63,7 +63,7 @@ func (r *MCPServerRepo) ListByOwner(
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	rows, err := dbq.New(r.pool).ListMCPServersByOwner(ctx, ownerUUID)
+	rows, err := db.New(r.pool).ListMCPServersByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list mcp servers: %w", err)
 	}
@@ -82,7 +82,7 @@ func (r *MCPServerRepo) GetByID(
 	if perr != nil {
 		return MCPServerConfig{}, perr
 	}
-	row, err := dbq.New(r.pool).GetMCPServerByID(ctx, dbq.GetMCPServerByIDParams{
+	row, err := db.New(r.pool).GetMCPServerByID(ctx, db.GetMCPServerByIDParams{
 		ID: args.serverUUID, OwnerID: args.ownerUUID,
 	})
 	if err != nil {
@@ -100,7 +100,7 @@ func (r *MCPServerRepo) Delete(ctx context.Context, ownerID, serverID string) er
 	if perr != nil {
 		return perr
 	}
-	if err := dbq.New(r.pool).DeleteMCPServer(ctx, dbq.DeleteMCPServerParams{
+	if err := db.New(r.pool).DeleteMCPServer(ctx, db.DeleteMCPServerParams{
 		ID: args.serverUUID, OwnerID: args.ownerUUID,
 	}); err != nil {
 		return fmt.Errorf("delete mcp server: %w", err)
@@ -134,7 +134,7 @@ func (r *MCPServerRepo) GrantDep(ctx context.Context, ownerID, serverID, dep str
 	if perr != nil {
 		return perr
 	}
-	if err := dbq.New(r.pool).GrantMCPServerDep(ctx, dbq.GrantMCPServerDepParams{
+	if err := db.New(r.pool).GrantMCPServerDep(ctx, db.GrantMCPServerDepParams{
 		ID: args.serverUUID, OwnerID: args.ownerUUID, ArrayAppend: dep,
 	}); err != nil {
 		return fmt.Errorf("grant mcp server dep: %w", err)
@@ -142,7 +142,7 @@ func (r *MCPServerRepo) GrantDep(ctx context.Context, ownerID, serverID, dep str
 	return nil
 }
 
-func toDomainMCPServer(row *dbq.McpServer) MCPServerConfig {
+func toDomainMCPServer(row *db.McpServer) MCPServerConfig {
 	return MCPServerConfig{
 		ID: pgstore.FormatUUID(row.ID), OwnerID: pgstore.FormatUUID(row.OwnerID),
 		Name: row.Name, URL: row.Url,

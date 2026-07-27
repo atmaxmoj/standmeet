@@ -1,5 +1,5 @@
 // wiki.go —— WikiRepo：统一 corpus_notes 表上 genre='wiki' 的 CRUD + path induce。
-// 与 OutputRepo 同构（都绑定各自 genre 调用同一套 dbq.Note* 方法）；path-string lookup
+// 与 OutputRepo 同构（都绑定各自 genre 调用同一套 db.Note* 方法）；path-string lookup
 // 共用 corpus.go 里的 loadByPath helper。
 
 package corpus
@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // WikiRepo —— corpus_notes(genre='wiki') CRUD + path induce。
@@ -49,8 +49,8 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (Wiki, error
 	if err != nil {
 		return Wiki{}, fmt.Errorf("parse source raw ids: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateNote(ctx, dbq.CreateNoteParams{
+	q := db.New(r.pool)
+	row, err := q.CreateNote(ctx, db.CreateNoteParams{
 		OwnerID:    ownerUUID,
 		Genre:      genreWiki,
 		ParentID:   parent,
@@ -78,8 +78,8 @@ func (r *WikiRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	rows, err := q.ListNotesByOwner(ctx, dbq.ListNotesByOwnerParams{
+	q := db.New(r.pool)
+	rows, err := q.ListNotesByOwner(ctx, db.ListNotesByOwnerParams{
 		OwnerID: ownerUUID, Genre: genreWiki, Limit: limit,
 	})
 	if err != nil {
@@ -102,8 +102,8 @@ func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (Wiki, error
 	if err != nil {
 		return Wiki{}, fmt.Errorf("parse wiki id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetNoteByID(ctx, dbq.GetNoteByIDParams{
+	q := db.New(r.pool)
+	row, err := q.GetNoteByID(ctx, db.GetNoteByIDParams{
 		ID: wikiUUID, OwnerID: ownerUUID, Genre: genreWiki,
 	})
 	if err != nil {
@@ -132,12 +132,12 @@ func (r *WikiRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]WikiMeta, error) {
 	return listChildrenMeta(ownerID, parentID,
-		func(o, p pgtype.UUID) ([]dbq.ListNoteChildrenRow, error) {
-			return dbq.New(r.pool).ListNoteChildren(ctx, dbq.ListNoteChildrenParams{
+		func(o, p pgtype.UUID) ([]db.ListNoteChildrenRow, error) {
+			return db.New(r.pool).ListNoteChildren(ctx, db.ListNoteChildrenParams{
 				OwnerID: o, Genre: genreWiki, Column3: p, Limit: limit, Offset: offset,
 			})
 		},
-		func(row dbq.ListNoteChildrenRow) WikiMeta {
+		func(row db.ListNoteChildrenRow) WikiMeta {
 			return WikiMeta{
 				ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
@@ -151,7 +151,7 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 	if perr != nil {
 		return WikiMeta{}, perr
 	}
-	row, err := dbq.New(r.pool).GetNoteMetaByID(ctx, dbq.GetNoteMetaByIDParams{
+	row, err := db.New(r.pool).GetNoteMetaByID(ctx, db.GetNoteMetaByIDParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: genreWiki,
 	})
 	if err != nil {
@@ -174,7 +174,7 @@ func (r *WikiRepo) Search(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).SearchNotes(ctx, dbq.SearchNotesParams{
+	rows, qerr := db.New(r.pool).SearchNotes(ctx, db.SearchNotesParams{
 		OwnerID: ownerUUID, Genre: genreWiki, PlaintoTsquery: query, Limit: limit, Offset: offset,
 	})
 	if qerr != nil {
@@ -187,7 +187,7 @@ func (r *WikiRepo) Search(
 	return out, nil
 }
 
-func wikiSearchRowMeta(row *dbq.SearchNotesRow) WikiMeta {
+func wikiSearchRowMeta(row *db.SearchNotesRow) WikiMeta {
 	return WikiMeta{
 		ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
@@ -207,7 +207,7 @@ func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, e
 	if err != nil {
 		return WikiStats{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	row, qerr := dbq.New(r.pool).CountNoteStats(ctx, dbq.CountNoteStatsParams{
+	row, qerr := db.New(r.pool).CountNoteStats(ctx, db.CountNoteStatsParams{
 		OwnerID: ownerUUID, Genre: genreWiki,
 	})
 	if qerr != nil {
@@ -219,7 +219,7 @@ func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, e
 // ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed + landing
 // 的 [[X]] title→path 索引用。不带 newest-N cap。
 func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta, error) {
-	mk := func(row *dbq.ListAllNoteMetaRow) WikiMeta {
+	mk := func(row *db.ListAllNoteMetaRow) WikiMeta {
 		return WikiMeta{
 			ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 			Title: row.Title, Published: row.Published,
@@ -229,7 +229,7 @@ func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta,
 	return listNoteMetaBy(ctx, r.pool, ownerID, genreWiki, mk)
 }
 
-func toDomainWiki(w *dbq.CorpusNote) Wiki {
+func toDomainWiki(w *db.CorpusNote) Wiki {
 	in := WikiInit{
 		ID:           pgstore.FormatUUID(w.ID),
 		OwnerID:      pgstore.FormatUUID(w.OwnerID),

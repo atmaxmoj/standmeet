@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // GetPageContent 拿 owner 的 page_content；不存在返 ErrPageNotFound
@@ -23,7 +23,7 @@ import (
 func (r *Repo) GetPageContent(
 	ctx context.Context, ownerID string,
 ) (PageContent, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return PageContent{}, fmt.Errorf("parse owner id: %w", perr)
@@ -42,7 +42,7 @@ func (r *Repo) GetPageContent(
 func (r *Repo) UpsertPageContent(
 	ctx context.Context, ownerID string, in *PageContent,
 ) (PageContent, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return PageContent{}, fmt.Errorf("parse owner id: %w", perr)
@@ -91,12 +91,12 @@ func marshalSections(in *PageContent) (marshaledSections, error) {
 
 func pageContentToParams(
 	pgID pgtype.UUID, in *PageContent,
-) (dbq.UpsertPageContentParams, error) {
+) (db.UpsertPageContentParams, error) {
 	sections, err := marshalSections(in)
 	if err != nil {
-		return dbq.UpsertPageContentParams{}, err
+		return db.UpsertPageContentParams{}, err
 	}
-	return dbq.UpsertPageContentParams{
+	return db.UpsertPageContentParams{
 		OwnerID:      pgID,
 		HeroProse:    in.HeroProse,
 		HeroExamples: sections.examples,
@@ -107,7 +107,7 @@ func pageContentToParams(
 	}, nil
 }
 
-func rowToPageContent(row *dbq.PageContent) (PageContent, error) {
+func rowToPageContent(row *db.PageContent) (PageContent, error) {
 	pc := PageContent{
 		OwnerID:   pgstore.FormatUUID(row.OwnerID),
 		HeroProse: row.HeroProse,
@@ -119,7 +119,7 @@ func rowToPageContent(row *dbq.PageContent) (PageContent, error) {
 	return pc, nil
 }
 
-func unmarshalSections(row *dbq.PageContent, pc *PageContent) error {
+func unmarshalSections(row *db.PageContent, pc *PageContent) error {
 	// 字段顺序按 govet fieldalignment：dst (interface, 2 ptrs) 在前，
 	// name (string, 1 ptr) 在中，raw (slice, len/cap 无 ptr 尾段) 在尾。
 	parts := []struct {

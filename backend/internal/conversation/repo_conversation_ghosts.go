@@ -13,8 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // GhostRepo —— conversation_ghosts 表的访问入口。
@@ -59,7 +59,7 @@ func (r *GhostRepo) RecordPolicy(
 	if err != nil {
 		return Ghost{}, fmt.Errorf("parse conv id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).RecordPolicyGhost(ctx, dbq.RecordPolicyGhostParams{
+	row, qerr := db.New(r.pool).RecordPolicyGhost(ctx, db.RecordPolicyGhostParams{
 		OwnerID: ownerUUID, ConversationID: convUUID, TurnIndex: in.TurnIndex,
 		GhostText: in.GhostText, TargetWaypoint: &in.TargetWaypoint, FollowsFrom: &in.FollowsFrom,
 	})
@@ -82,7 +82,7 @@ func (r *GhostRepo) RecordShown(
 	if err != nil {
 		return Ghost{}, fmt.Errorf("parse conv id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).RecordShownGhost(ctx, dbq.RecordShownGhostParams{
+	row, qerr := db.New(r.pool).RecordShownGhost(ctx, db.RecordShownGhostParams{
 		OwnerID:        ownerUUID,
 		ConversationID: convUUID,
 		TurnIndex:      in.TurnIndex,
@@ -104,7 +104,7 @@ func (r *GhostRepo) MarkAccepted(
 	if perr != nil {
 		return Ghost{}, perr
 	}
-	row, qerr := dbq.New(r.pool).MarkGhostAccepted(ctx, *params)
+	row, qerr := db.New(r.pool).MarkGhostAccepted(ctx, *params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return Ghost{}, ErrGhostNotFound
@@ -116,7 +116,7 @@ func (r *GhostRepo) MarkAccepted(
 
 func buildAcceptParams(
 	ownerID, conversationID, ghostID string,
-) (*dbq.MarkGhostAcceptedParams, error) {
+) (*db.MarkGhostAcceptedParams, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
@@ -129,7 +129,7 @@ func buildAcceptParams(
 	if err != nil {
 		return nil, fmt.Errorf("parse ghost id: %w", err)
 	}
-	return &dbq.MarkGhostAcceptedParams{
+	return &db.MarkGhostAcceptedParams{
 		ID: suggUUID, ConversationID: convUUID, OwnerID: ownerUUID,
 	}, nil
 }
@@ -147,8 +147,8 @@ func (r *GhostRepo) ListByConversation(
 	if err != nil {
 		return nil, fmt.Errorf("parse conv id: %w", err)
 	}
-	rows, qerr := dbq.New(r.pool).ListGhostsByConversation(ctx,
-		dbq.ListGhostsByConversationParams{
+	rows, qerr := db.New(r.pool).ListGhostsByConversation(ctx,
+		db.ListGhostsByConversationParams{
 			ConversationID: convUUID, OwnerID: ownerUUID,
 		})
 	if qerr != nil {
@@ -170,7 +170,7 @@ func (r *GhostRepo) WaypointTelemetry(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).GhostWaypointTelemetry(ctx, ownerUUID)
+	rows, qerr := db.New(r.pool).GhostWaypointTelemetry(ctx, ownerUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("ghost telemetry: %w", qerr)
 	}
@@ -189,7 +189,7 @@ func (r *GhostRepo) WaypointTelemetry(
 	return out, nil
 }
 
-func toDomainGhost(row *dbq.ConversationGhost) Ghost {
+func toDomainGhost(row *db.ConversationGhost) Ghost {
 	out := Ghost{
 		ID:             pgstore.FormatUUID(row.ID),
 		OwnerID:        pgstore.FormatUUID(row.OwnerID),

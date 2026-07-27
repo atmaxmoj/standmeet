@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // Credentials 是 login 所需的最小信息：用 ID 颁发 session，用 hash 比对密码。
@@ -28,7 +28,7 @@ type Credentials struct {
 // GetCredentialsByEmail 拿 owner_id + password_hash；email 不存在返回
 // ErrOwnerNotFound（usecase 层翻译成 401，避免暴露"用户存在与否"）。
 func (r *Repo) GetCredentialsByEmail(ctx context.Context, email string) (Credentials, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetOwnerByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -48,7 +48,7 @@ func (r *Repo) GetCredentialsByEmail(ctx context.Context, email string) (Credent
 // 未命中再走 handle_aliases —— owner 改 handle 后旧 handle 也能 resolve。
 // 不存在返 ErrOwnerNotFound。
 func (r *Repo) GetByHandle(ctx context.Context, handle string) (Owner, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetOwnerByHandle(ctx, handle)
 	if err == nil {
 		return toDomainOwner(&row), nil
@@ -60,7 +60,7 @@ func (r *Repo) GetByHandle(ctx context.Context, handle string) (Owner, error) {
 }
 
 func (r *Repo) getByAlias(ctx context.Context, handle string) (Owner, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetOwnerByHandleAlias(ctx, handle)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -74,7 +74,7 @@ func (r *Repo) getByAlias(ctx context.Context, handle string) (Owner, error) {
 // aliasRowToDomainOwner —— alias JOIN 用的 owner 子集（无 password_hash /
 // custom_domain），映射到 Owner identity。settings 不在这条路径上
 // 提取——/<handle> 公开页用不到 BYOAI / AI settings。
-func aliasRowToDomainOwner(o *dbq.GetOwnerByHandleAliasRow) Owner {
+func aliasRowToDomainOwner(o *db.GetOwnerByHandleAliasRow) Owner {
 	return Owner{
 		ID:        pgstore.FormatUUID(o.ID),
 		Email:     o.Email,
@@ -111,7 +111,7 @@ func (r *Repo) PublicURL(ctx context.Context, ownerID string) (string, error) {
 
 // GetByID 拿 owner 公开 profile，给 /api/admin/me 用。
 func (r *Repo) GetByID(ctx context.Context, id string) (Owner, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	pgID, perr := pgstore.ParseUUID(id)
 	if perr != nil {
 		return Owner{}, fmt.Errorf("parse owner id: %w", perr)

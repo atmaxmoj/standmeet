@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // SlugTitle —— ListPublishedSlugAndTitle 返的轻量元组；不带 body_md，
@@ -27,7 +27,7 @@ func (r *WritingRepo) ListPublishedSlugAndTitle(
 	if oerr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	rows, err := dbq.New(r.pool).ListPublishedWritingSlugAndTitle(ctx, ownerUUID)
+	rows, err := db.New(r.pool).ListPublishedWritingSlugAndTitle(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list published slug+title: %w", err)
 	}

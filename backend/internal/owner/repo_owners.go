@@ -1,4 +1,4 @@
-// Repo wrap sqlc 生成的 dbq.Queries。
+// Repo wrap sqlc 生成的 db.Queries。
 // 把 pgtype.* 映射到 Owner 纯 Go 类型，让 usecase / routes 层
 // 不用知道 pgtype。
 
@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // pgxErrNoRows —— helper：避免直接在多处 import pgx.ErrNoRows，让 grep 起点一致。
@@ -36,7 +36,7 @@ func NewRepo(pool *pgstore.Pool) *Repo {
 
 // Count 返回 owners 表行数（用于"是否有 owner"的判定）。
 func (r *Repo) Count(ctx context.Context) (int64, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	n, err := q.CountOwners(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("count owners: %w", err)
@@ -47,7 +47,7 @@ func (r *Repo) Count(ctx context.Context) (int64, error) {
 // FirstHandle 返最早 owner 的 handle；表为空返 ""（不报错，app 根路径
 // 据此判断是否引导用户去 /setup）。
 func (r *Repo) FirstHandle(ctx context.Context) (string, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	handle, err := q.GetFirstOwnerHandle(ctx)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
@@ -60,10 +60,10 @@ func (r *Repo) FirstHandle(ctx context.Context) (string, error) {
 
 // pgUniqueViolation 检测 pgx unique constraint 冲突，返回 constraint 名 +
 // 是否命中。让 caller 把 DB-level 错误翻译成 domain sentinel error。
-// toDomainOwner 把 sqlc 生成的 dbq.Owner（带 pgtype.UUID / Timestamptz）
+// toDomainOwner 把 sqlc 生成的 db.Owner（带 pgtype.UUID / Timestamptz）
 // 映射到 Owner（纯 Go 类型，identity only）。
 // settings 字段通过 toOwnerSettings 单独解（同一行 owners 表 row 拆两面）。
-func toDomainOwner(o *dbq.Owner) Owner {
+func toDomainOwner(o *db.Owner) Owner {
 	return Owner{
 		ID:              pgstore.FormatUUID(o.ID),
 		Email:           o.Email,
@@ -78,7 +78,7 @@ func toDomainOwner(o *dbq.Owner) Owner {
 
 // toOwnerSettings —— 把 owners 行的 setting 字段（byoai_* + ai_*）拼成
 // Settings 值对象。明文 key 不出 repo，外层只看 KeyConfigured。
-func toOwnerSettings(o *dbq.Owner) Settings {
+func toOwnerSettings(o *db.Owner) Settings {
 	return Settings{
 		AI: AISettings{
 			Provider:      o.AiProvider,
@@ -125,7 +125,7 @@ func (r *Repo) UpdateBYOAI(
 	if perr != nil {
 		return Settings{}, perr
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, uerr := q.UpdateOwnerBYOAI(ctx, params)
 	if uerr != nil {
 		if errors.Is(uerr, pgxErrNoRows()) {
@@ -145,7 +145,7 @@ func (r *Repo) GetSettings(
 	if perr != nil {
 		return Settings{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetOwnerByID(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
@@ -158,10 +158,10 @@ func (r *Repo) GetSettings(
 
 // buildBYOAIParams 把入参 normalize + marshal 一气呵成，让 UpdateBYOAI
 // 自己 cyclo ≤ 5。
-func buildBYOAIParams(in *UpdateBYOAIInput) (dbq.UpdateOwnerBYOAIParams, error) {
+func buildBYOAIParams(in *UpdateBYOAIInput) (db.UpdateOwnerBYOAIParams, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.UpdateOwnerBYOAIParams{}, fmt.Errorf(parseOwnerIDErrFmt, err)
+		return db.UpdateOwnerBYOAIParams{}, fmt.Errorf(parseOwnerIDErrFmt, err)
 	}
 	providers := in.Providers
 	if providers == nil {
@@ -169,9 +169,9 @@ func buildBYOAIParams(in *UpdateBYOAIInput) (dbq.UpdateOwnerBYOAIParams, error) 
 	}
 	encoded, merr := json.Marshal(providers)
 	if merr != nil {
-		return dbq.UpdateOwnerBYOAIParams{}, fmt.Errorf("marshal providers: %w", merr)
+		return db.UpdateOwnerBYOAIParams{}, fmt.Errorf("marshal providers: %w", merr)
 	}
-	return dbq.UpdateOwnerBYOAIParams{
+	return db.UpdateOwnerBYOAIParams{
 		ID:               ownerUUID,
 		ByoaiEnabled:     in.Enabled,
 		ByoaiProviders:   encoded,
@@ -211,7 +211,7 @@ func (r *Repo) GetAIProviderView(
 	if perr != nil {
 		return AIProviderView{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetOwnerByID(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -239,8 +239,8 @@ func (r *Repo) UpdateAIProvider(
 	if eerr != nil {
 		return Settings{}, eerr
 	}
-	q := dbq.New(r.pool)
-	row, qerr := q.UpdateOwnerAIProvider(ctx, dbq.UpdateOwnerAIProviderParams{
+	q := db.New(r.pool)
+	row, qerr := q.UpdateOwnerAIProvider(ctx, db.UpdateOwnerAIProviderParams{
 		ID: pgID, AiProvider: in.Provider, AiProviderKeyEnc: encBytes,
 		AiEndpoint: in.Endpoint, AiModel: in.Model,
 	})
@@ -260,8 +260,8 @@ func (r *Repo) UpdatePublicURL(
 	if perr != nil {
 		return Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := dbq.New(r.pool)
-	row, qerr := q.UpdateOwnerPublicURL(ctx, dbq.UpdateOwnerPublicURLParams{
+	q := db.New(r.pool)
+	row, qerr := q.UpdateOwnerPublicURL(ctx, db.UpdateOwnerPublicURLParams{
 		ID: pgID, PublicUrl: normalized,
 	})
 	if qerr != nil {
@@ -276,7 +276,7 @@ func (r *Repo) resolveKeyBytes(
 	ctx context.Context, pgID pgtype.UUID, key *string,
 ) ([]byte, error) {
 	if key == nil {
-		row, err := dbq.New(r.pool).GetOwnerByID(ctx, pgID)
+		row, err := db.New(r.pool).GetOwnerByID(ctx, pgID)
 		if err != nil {
 			return nil, fmt.Errorf("get owner for key carryover: %w", err)
 		}

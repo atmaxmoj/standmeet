@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // ───── per-key denials (mirror CodeDenialRepo) ─────
@@ -19,7 +19,7 @@ func (r *APIKeyRepo) ListCapabilityDenials(ctx context.Context, keyID string) ([
 	if err != nil {
 		return nil, fmt.Errorf(errParseKeyIDPrefix, err)
 	}
-	ids, qerr := dbq.New(r.pool).ListAPIKeyCapabilityDenials(ctx, keyUUID)
+	ids, qerr := db.New(r.pool).ListAPIKeyCapabilityDenials(ctx, keyUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list api key capability denials: %w", qerr)
 	}
@@ -32,7 +32,7 @@ func (r *APIKeyRepo) ListSkillDenials(ctx context.Context, keyID string) ([]stri
 	if err != nil {
 		return nil, fmt.Errorf(errParseKeyIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListAPIKeySkillDenials(ctx, keyUUID)
+	rows, qerr := db.New(r.pool).ListAPIKeySkillDenials(ctx, keyUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list api key skill denials: %w", qerr)
 	}
@@ -45,7 +45,7 @@ func (r *APIKeyRepo) AddCapabilityDenial(ctx context.Context, keyID, capabilityI
 	if err != nil {
 		return fmt.Errorf(errParseKeyIDPrefix, err)
 	}
-	if qerr := dbq.New(r.pool).AddAPIKeyCapabilityDenial(ctx, dbq.AddAPIKeyCapabilityDenialParams{
+	if qerr := db.New(r.pool).AddAPIKeyCapabilityDenial(ctx, db.AddAPIKeyCapabilityDenialParams{
 		KeyID: keyUUID, CapabilityID: capabilityID,
 	}); qerr != nil {
 		return fmt.Errorf("add api key capability denial: %w", qerr)
@@ -59,8 +59,8 @@ func (r *APIKeyRepo) DeleteCapabilityDenial(ctx context.Context, keyID, capabili
 	if err != nil {
 		return fmt.Errorf(errParseKeyIDPrefix, err)
 	}
-	if qerr := dbq.New(r.pool).DeleteAPIKeyCapabilityDenial(
-		ctx, dbq.DeleteAPIKeyCapabilityDenialParams{KeyID: keyUUID, CapabilityID: capabilityID},
+	if qerr := db.New(r.pool).DeleteAPIKeyCapabilityDenial(
+		ctx, db.DeleteAPIKeyCapabilityDenialParams{KeyID: keyUUID, CapabilityID: capabilityID},
 	); qerr != nil {
 		return fmt.Errorf("delete api key capability denial: %w", qerr)
 	}
@@ -77,7 +77,7 @@ func (r *APIKeyRepo) AddSkillDenial(ctx context.Context, keyID, skillID string) 
 	if serr != nil {
 		return fmt.Errorf("parse skill id: %w", serr)
 	}
-	if qerr := dbq.New(r.pool).AddAPIKeySkillDenial(ctx, dbq.AddAPIKeySkillDenialParams{
+	if qerr := db.New(r.pool).AddAPIKeySkillDenial(ctx, db.AddAPIKeySkillDenialParams{
 		KeyID: keyUUID, SkillID: skillUUID,
 	}); qerr != nil {
 		return fmt.Errorf("add api key skill denial: %w", qerr)
@@ -95,7 +95,7 @@ func (r *APIKeyRepo) DeleteSkillDenial(ctx context.Context, keyID, skillID strin
 	if serr != nil {
 		return fmt.Errorf("parse skill id: %w", serr)
 	}
-	if qerr := dbq.New(r.pool).DeleteAPIKeySkillDenial(ctx, dbq.DeleteAPIKeySkillDenialParams{
+	if qerr := db.New(r.pool).DeleteAPIKeySkillDenial(ctx, db.DeleteAPIKeySkillDenialParams{
 		KeyID: keyUUID, SkillID: skillUUID,
 	}); qerr != nil {
 		return fmt.Errorf("delete api key skill denial: %w", qerr)
@@ -111,7 +111,7 @@ func (r *APIKeyRepo) OpenCapability(ctx context.Context, ownerID, capabilityID s
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if qerr := dbq.New(r.pool).OpenAPICapability(ctx, dbq.OpenAPICapabilityParams{
+	if qerr := db.New(r.pool).OpenAPICapability(ctx, db.OpenAPICapabilityParams{
 		OwnerID: ownerUUID, CapabilityID: capabilityID,
 	}); qerr != nil {
 		return fmt.Errorf("open api capability: %w", qerr)
@@ -126,7 +126,7 @@ func (r *APIKeyRepo) CloseCapability(ctx context.Context, ownerID, capabilityID 
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if qerr := dbq.New(r.pool).CloseAPICapability(ctx, dbq.CloseAPICapabilityParams{
+	if qerr := db.New(r.pool).CloseAPICapability(ctx, db.CloseAPICapabilityParams{
 		OwnerID: ownerUUID, CapabilityID: capabilityID,
 	}); qerr != nil {
 		return fmt.Errorf("close api capability: %w", qerr)
@@ -140,7 +140,7 @@ func (r *APIKeyRepo) ListOpenCapabilities(ctx context.Context, ownerID string) (
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	ids, qerr := dbq.New(r.pool).ListAPIOpenCapabilities(ctx, ownerUUID)
+	ids, qerr := db.New(r.pool).ListAPIOpenCapabilities(ctx, ownerUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list api open capabilities: %w", qerr)
 	}

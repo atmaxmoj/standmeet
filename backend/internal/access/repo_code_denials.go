@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // CodeDenialRepo —— code_capability_denials / code_skill_denials CRUD。
@@ -25,7 +25,7 @@ func (r *CodeDenialRepo) ListCapabilities(ctx context.Context, codeID string) ([
 	if err != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	ids, qerr := dbq.New(r.pool).ListCodeCapabilityDenials(ctx, id)
+	ids, qerr := db.New(r.pool).ListCodeCapabilityDenials(ctx, id)
 	if qerr != nil {
 		return nil, fmt.Errorf("list code capability denials: %w", qerr)
 	}
@@ -38,7 +38,7 @@ func (r *CodeDenialRepo) ListSkills(ctx context.Context, codeID string) ([]strin
 	if err != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListCodeSkillDenials(ctx, id)
+	rows, qerr := db.New(r.pool).ListCodeSkillDenials(ctx, id)
 	if qerr != nil {
 		return nil, fmt.Errorf("list code skill denials: %w", qerr)
 	}
@@ -51,7 +51,7 @@ func (r *CodeDenialRepo) AddCapability(ctx context.Context, codeID, capabilityID
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	if aerr := dbq.New(r.pool).AddCodeCapabilityDenial(ctx, dbq.AddCodeCapabilityDenialParams{
+	if aerr := db.New(r.pool).AddCodeCapabilityDenial(ctx, db.AddCodeCapabilityDenialParams{
 		CodeID: id, CapabilityID: capabilityID,
 	}); aerr != nil {
 		return fmt.Errorf("add code capability denial: %w", aerr)
@@ -65,7 +65,7 @@ func (r *CodeDenialRepo) DeleteCapability(ctx context.Context, codeID, capabilit
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	if derr := dbq.New(r.pool).DeleteCodeCapabilityDenial(ctx, dbq.DeleteCodeCapabilityDenialParams{
+	if derr := db.New(r.pool).DeleteCodeCapabilityDenial(ctx, db.DeleteCodeCapabilityDenialParams{
 		CodeID: id, CapabilityID: capabilityID,
 	}); derr != nil {
 		return fmt.Errorf("delete code capability denial: %w", derr)
@@ -83,7 +83,7 @@ func (r *CodeDenialRepo) AddSkill(ctx context.Context, codeID, skillID string) e
 	if serr != nil {
 		return fmt.Errorf("parse skill id: %w", serr)
 	}
-	if aerr := dbq.New(r.pool).AddCodeSkillDenial(ctx, dbq.AddCodeSkillDenialParams{
+	if aerr := db.New(r.pool).AddCodeSkillDenial(ctx, db.AddCodeSkillDenialParams{
 		CodeID: cid, SkillID: sid,
 	}); aerr != nil {
 		return fmt.Errorf("add code skill denial: %w", aerr)
@@ -101,7 +101,7 @@ func (r *CodeDenialRepo) DeleteSkill(ctx context.Context, codeID, skillID string
 	if serr != nil {
 		return fmt.Errorf("parse skill id: %w", serr)
 	}
-	if derr := dbq.New(r.pool).DeleteCodeSkillDenial(ctx, dbq.DeleteCodeSkillDenialParams{
+	if derr := db.New(r.pool).DeleteCodeSkillDenial(ctx, db.DeleteCodeSkillDenialParams{
 		CodeID: cid, SkillID: sid,
 	}); derr != nil {
 		return fmt.Errorf("delete code skill denial: %w", derr)
@@ -116,7 +116,7 @@ func (r *CodeDenialRepo) ListCorpusURIs(ctx context.Context, codeID string) ([]s
 	if err != nil {
 		return []string{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	pats, qerr := dbq.New(r.pool).ListCodeCorpusDenials(ctx, id)
+	pats, qerr := db.New(r.pool).ListCodeCorpusDenials(ctx, id)
 	if qerr != nil {
 		return []string{}, fmt.Errorf("list code corpus denials: %w", qerr)
 	}
@@ -131,12 +131,12 @@ func (r *CodeDenialRepo) SetCorpusURIs(
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if cerr := q.ClearCodeCorpusDenials(ctx, id); cerr != nil {
 		return fmt.Errorf("clear code corpus denials: %w", cerr)
 	}
 	for _, p := range patterns {
-		if aerr := q.AttachCodeCorpusDenial(ctx, dbq.AttachCodeCorpusDenialParams{
+		if aerr := q.AttachCodeCorpusDenial(ctx, db.AttachCodeCorpusDenialParams{
 			CodeID: id, UriPattern: p,
 		}); aerr != nil {
 			return fmt.Errorf("attach code corpus denial: %w", aerr)

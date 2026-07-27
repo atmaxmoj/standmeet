@@ -11,8 +11,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 const (
@@ -27,13 +27,13 @@ const (
 // 行，用 mk 把每行映射成各自的 Meta 类型（去重两处近乎一致的实现，dupl-clean）。
 func listNoteMetaBy[T any](
 	ctx context.Context, pool *pgstore.Pool, ownerID, genre string,
-	mk func(*dbq.ListAllNoteMetaRow) T,
+	mk func(*db.ListAllNoteMetaRow) T,
 ) ([]T, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(pool).ListAllNoteMeta(ctx, dbq.ListAllNoteMetaParams{
+	rows, qerr := db.New(pool).ListAllNoteMeta(ctx, db.ListAllNoteMetaParams{
 		OwnerID: ownerUUID, Genre: genre,
 	})
 	if qerr != nil {

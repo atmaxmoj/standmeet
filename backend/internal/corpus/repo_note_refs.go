@@ -12,8 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // NoteRefRepo —— note_refs 表 CRUD。
@@ -34,14 +34,14 @@ type NoteRef struct {
 // ReplaceRefsBySrcTx —— delete + insert 重建 src wiki 的出度。同写 wiki 行的 tx
 // 内调。dstIDs 必须已去重 + 排除 self-link（caller 负责）。
 func (*NoteRefRepo) ReplaceRefsBySrcTx(
-	ctx context.Context, tx dbq.DBTX,
+	ctx context.Context, tx db.DBTX,
 	srcID, ownerID string, dstIDs []string,
 ) error {
 	ids, perr := parseSrcAndOwner(srcID, ownerID)
 	if perr != nil {
 		return perr
 	}
-	q := dbq.New(tx)
+	q := db.New(tx)
 	if derr := q.DeleteNoteRefsBySrc(ctx, ids.Src); derr != nil {
 		return fmt.Errorf("delete old wiki refs: %w", derr)
 	}
@@ -49,7 +49,7 @@ func (*NoteRefRepo) ReplaceRefsBySrcTx(
 }
 
 // ReplaceRefsBySrc —— 非事务版(wiki 写路径不在 tx 里)。边表是派生索引,delete +
-// insert 直接走 pool(*pgstore.Pool 满足 dbq.DBTX)即可,不要求原子。caller 已去重 + 排 self。
+// insert 直接走 pool(*pgstore.Pool 满足 db.DBTX)即可,不要求原子。caller 已去重 + 排 self。
 func (r *NoteRefRepo) ReplaceRefsBySrc(
 	ctx context.Context, srcID, ownerID string, dstIDs []string,
 ) error {
@@ -57,7 +57,7 @@ func (r *NoteRefRepo) ReplaceRefsBySrc(
 }
 
 func insertNewNoteRefs(
-	ctx context.Context, q *dbq.Queries,
+	ctx context.Context, q *db.Queries,
 	srcUUID, ownerUUID pgtype.UUID, dstIDs []string,
 ) error {
 	for _, dstID := range dstIDs {
@@ -69,14 +69,14 @@ func insertNewNoteRefs(
 }
 
 func insertOneNoteRef(
-	ctx context.Context, q *dbq.Queries,
+	ctx context.Context, q *db.Queries,
 	srcUUID, ownerUUID pgtype.UUID, dstID string,
 ) error {
 	dstUUID, derr := pgstore.ParseUUID(dstID)
 	if derr != nil {
 		return fmt.Errorf("parse dst id %s: %w", dstID, derr)
 	}
-	if err := q.InsertNoteRef(ctx, dbq.InsertNoteRefParams{
+	if err := q.InsertNoteRef(ctx, db.InsertNoteRefParams{
 		SrcID: srcUUID, DstID: dstUUID, OwnerID: ownerUUID,
 	}); err != nil {
 		return fmt.Errorf("insert wiki ref: %w", err)
@@ -92,7 +92,7 @@ func (r *NoteRefRepo) BacklinksFor(
 	if perr != nil {
 		return nil, perr
 	}
-	rows, err := dbq.New(r.pool).ListWikiBacklinks(ctx, dbq.ListWikiBacklinksParams{
+	rows, err := db.New(r.pool).ListWikiBacklinks(ctx, db.ListWikiBacklinksParams{
 		DstID: ids.Src, OwnerID: ids.Owner,
 	})
 	if err != nil {
@@ -113,7 +113,7 @@ func (r *NoteRefRepo) AdminBacklinksFor(
 	if perr != nil {
 		return nil, perr
 	}
-	rows, err := dbq.New(r.pool).ListNoteBacklinksAll(ctx, dbq.ListNoteBacklinksAllParams{
+	rows, err := db.New(r.pool).ListNoteBacklinksAll(ctx, db.ListNoteBacklinksAllParams{
 		DstID: ids.Src, OwnerID: ids.Owner,
 	})
 	if err != nil {
@@ -134,7 +134,7 @@ func (r *NoteRefRepo) AdminOutboundFor(
 	if perr != nil {
 		return nil, perr
 	}
-	rows, err := dbq.New(r.pool).ListNoteOutboundAll(ctx, dbq.ListNoteOutboundAllParams{
+	rows, err := db.New(r.pool).ListNoteOutboundAll(ctx, db.ListNoteOutboundAllParams{
 		SrcID: ids.Src, OwnerID: ids.Owner,
 	})
 	if err != nil {
@@ -162,7 +162,7 @@ func (r *NoteRefRepo) OwnerNoteTitles(
 	if perr != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, perr)
 	}
-	rows, err := dbq.New(r.pool).ListAllOwnerNoteTitles(ctx, ownerUUID)
+	rows, err := db.New(r.pool).ListAllOwnerNoteTitles(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list owner note titles: %w", err)
 	}
@@ -184,7 +184,7 @@ func (r *NoteRefRepo) OutboundFor(
 	if perr != nil {
 		return nil, fmt.Errorf("parse src id: %w", perr)
 	}
-	rows, err := dbq.New(r.pool).ListWikiOutbound(ctx, srcUUID)
+	rows, err := db.New(r.pool).ListWikiOutbound(ctx, srcUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list wiki outbound: %w", err)
 	}

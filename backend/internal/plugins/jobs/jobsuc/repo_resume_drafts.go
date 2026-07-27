@@ -20,8 +20,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc/db"
 )
 
 // draftKey —— (owner_uuid, draft_uuid) 成对解出。让多个 query 方法共享一次
@@ -58,8 +58,8 @@ func (r *ResumeDraftRepo) Create(
 	if err != nil {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("marshal resume content: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateResumeDraft(ctx, dbq.CreateResumeDraftParams{
+	q := db.New(r.pool)
+	row, err := q.CreateResumeDraft(ctx, db.CreateResumeDraftParams{
 		OwnerID:       ownerUUID,
 		JobCacheID:    in.JobCacheID,
 		JobSnapshot:   snapshotJSON,
@@ -80,8 +80,8 @@ func (r *ResumeDraftRepo) GetByID(
 	if err != nil {
 		return jobsmodel.ResumeDraft{}, err
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetResumeDraft(ctx, dbq.GetResumeDraftParams{
+	q := db.New(r.pool)
+	row, err := q.GetResumeDraft(ctx, db.GetResumeDraftParams{
 		ID: key.draft, OwnerID: key.owner,
 	})
 	if err != nil {
@@ -106,8 +106,8 @@ func (r *ResumeDraftRepo) UpdateContent(
 	if err != nil {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("marshal resume content: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.UpdateResumeDraftContent(ctx, dbq.UpdateResumeDraftContentParams{
+	q := db.New(r.pool)
+	row, err := q.UpdateResumeDraftContent(ctx, db.UpdateResumeDraftContentParams{
 		ID: key.draft, OwnerID: key.owner, ResumeContent: contentJSON,
 	})
 	if err != nil {
@@ -125,8 +125,8 @@ func (r *ResumeDraftRepo) Delete(ctx context.Context, ownerID, id string) error 
 	if err != nil {
 		return err
 	}
-	q := dbq.New(r.pool)
-	if derr := q.DeleteResumeDraft(ctx, dbq.DeleteResumeDraftParams{
+	q := db.New(r.pool)
+	if derr := q.DeleteResumeDraft(ctx, db.DeleteResumeDraftParams{
 		ID: key.draft, OwnerID: key.owner,
 	}); derr != nil {
 		return fmt.Errorf("delete resume draft: %w", derr)
@@ -143,7 +143,7 @@ func (r *ResumeDraftRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	rows, err := q.ListResumeDraftsByOwner(ctx, owner)
 	if err != nil {
 		return nil, fmt.Errorf("list resume drafts: %w", err)
@@ -162,7 +162,7 @@ func (r *ResumeDraftRepo) ListByOwner(
 // SweepExpired —— 后台 sweeper / cron 调；删 expires_at <= now() 的行。
 // 没有文件需要 unlink（PDF 从来不落盘）。
 func (r *ResumeDraftRepo) SweepExpired(ctx context.Context) error {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if serr := q.SweepExpiredResumeDrafts(ctx); serr != nil {
 		return fmt.Errorf("sweep expired resume drafts: %w", serr)
 	}
@@ -182,7 +182,7 @@ func parseDraftKey(ownerIDStr, idStr string) (draftKey, error) {
 }
 
 // toDomainResumeDraft —— sqlc Row → jobsmodel.ResumeDraft（含 jsonb unmarshal）。
-func toDomainResumeDraft(row *dbq.ResumeDraft) (jobsmodel.ResumeDraft, error) {
+func toDomainResumeDraft(row *db.ResumeDraft) (jobsmodel.ResumeDraft, error) {
 	var snapshot jobsmodel.FetchedJob
 	if err := json.Unmarshal(row.JobSnapshot, &snapshot); err != nil {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("unmarshal job snapshot: %w", err)

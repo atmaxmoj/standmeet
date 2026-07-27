@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // writingPathPrefix —— writing 的 retriever/ACL path 前缀。path 不存列,由 slug 派生
@@ -22,7 +22,7 @@ const writingPathPrefix = "writings/"
 // writingPathForSlug —— slug → 派生 path。
 func writingPathForSlug(slug string) string { return writingPathPrefix + slug }
 
-func rowsToDomainWritings(rows []dbq.CorpusNote) []Writing {
+func rowsToDomainWritings(rows []db.CorpusNote) []Writing {
 	out := make([]Writing, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainWriting(&rows[i]))
@@ -47,7 +47,7 @@ func parseOwnerAndWritingID(ownerID, writingID string) (writingIDArgs, error) {
 	return writingIDArgs{ownerUUID: ownerUUID, writingUUID: writingUUID}, nil
 }
 
-func toDomainWriting(row *dbq.CorpusNote) Writing {
+func toDomainWriting(row *db.CorpusNote) Writing {
 	in := WritingInit{
 		ID: pgstore.FormatUUID(row.ID), OwnerID: pgstore.FormatUUID(row.OwnerID),
 		Slug: row.Slug, Title: row.Title, Excerpt: row.Excerpt,
@@ -76,7 +76,7 @@ func toDomainWriting(row *dbq.CorpusNote) Writing {
 // buildWritingIntegrations —— corpus_notes 行里的 obsidian_source_path /
 // _imported_at 列在 mapper 这一层翻译成 Integration 集合。未来加 Notion /
 // GitHub 等列时在这一块扩 if branch，不动 domain。
-func buildWritingIntegrations(row *dbq.CorpusNote) connector.Integrations {
+func buildWritingIntegrations(row *db.CorpusNote) connector.Integrations {
 	integrations := connector.NewIntegrations()
 	if row.ObsidianSourcePath != "" {
 		var importedAt time.Time

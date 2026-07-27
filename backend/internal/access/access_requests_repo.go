@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // RequestRepo —— access_requests 表的 Repository。
@@ -33,8 +33,8 @@ func (r *RequestRepo) Create(
 	if err != nil {
 		return Request{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateAccessRequest(ctx, dbq.CreateAccessRequestParams{
+	q := db.New(r.pool)
+	row, err := q.CreateAccessRequest(ctx, db.CreateAccessRequestParams{
 		OwnerID: ownerUUID,
 		Name:    in.Name,
 		Org:     in.Org,
@@ -55,8 +55,8 @@ func (r *RequestRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	rows, err := q.ListAccessRequestsByOwner(ctx, dbq.ListAccessRequestsByOwnerParams{
+	q := db.New(r.pool)
+	rows, err := q.ListAccessRequestsByOwner(ctx, db.ListAccessRequestsByOwnerParams{
 		OwnerID:      ownerUUID,
 		StatusFilter: statusFilter(status),
 	})
@@ -83,8 +83,8 @@ func (r *RequestRepo) GetByID(
 	if ierr != nil {
 		return Request{}, fmt.Errorf("parse request id: %w", ierr)
 	}
-	row, qerr := dbq.New(r.pool).GetAccessRequestByID(ctx,
-		dbq.GetAccessRequestByIDParams{ID: reqUUID, OwnerID: ownerUUID})
+	row, qerr := db.New(r.pool).GetAccessRequestByID(ctx,
+		db.GetAccessRequestByIDParams{ID: reqUUID, OwnerID: ownerUUID})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return Request{}, ErrAccessRequestNotFound
@@ -106,8 +106,8 @@ func (r *RequestRepo) UpdateStatus(
 	if err != nil {
 		return Request{}, fmt.Errorf("parse request id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.UpdateAccessRequestStatus(ctx, dbq.UpdateAccessRequestStatusParams{
+	q := db.New(r.pool)
+	row, err := q.UpdateAccessRequestStatus(ctx, db.UpdateAccessRequestStatusParams{
 		ID:      reqUUID,
 		OwnerID: ownerUUID,
 		Status:  status,
@@ -121,7 +121,7 @@ func (r *RequestRepo) UpdateStatus(
 	return toDomainAccessRequest(&row), nil
 }
 
-// statusFilter —— "" 表示不过滤；其它原样下发到 dbq.Status (*string)。
+// statusFilter —— "" 表示不过滤；其它原样下发到 db.Status (*string)。
 func statusFilter(status string) *string {
 	if status == "" {
 		return nil
@@ -129,7 +129,7 @@ func statusFilter(status string) *string {
 	return &status
 }
 
-func toDomainAccessRequest(a *dbq.AccessRequest) Request {
+func toDomainAccessRequest(a *db.AccessRequest) Request {
 	return Request{
 		ID:        pgstore.FormatUUID(a.ID),
 		OwnerID:   pgstore.FormatUUID(a.OwnerID),

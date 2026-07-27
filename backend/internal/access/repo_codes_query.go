@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // GetByID 拿 code（按 UUID，含 revoked）；不命中返 ErrCodeInvalid。turn quota
@@ -22,7 +22,7 @@ func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (Code, error) {
 	if perr != nil {
 		return Code{}, fmt.Errorf(errParseCodeIDPrefix, perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetAccessCodeByID(ctx, codeUUID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -35,7 +35,7 @@ func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (Code, error) {
 
 // GetByCode 拿 code（active only）；不命中返回 ErrCodeInvalid。
 func (r *CodeRepo) GetByCode(ctx context.Context, code string) (Code, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, err := q.GetAccessCode(ctx, code)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -54,7 +54,7 @@ func (r *CodeRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	rows, err := q.ListAccessCodesByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list access codes: %w", err)
@@ -66,9 +66,9 @@ func (r *CodeRepo) ListByOwner(
 	return out, nil
 }
 
-// CodeFromRow —— dbq.AccessCode 行 → access.Code 领域对象。jobs 的 application-commit
+// CodeFromRow —— db.AccessCode 行 → access.Code 领域对象。jobs 的 application-commit
 // (同步 issue 邀请码) 也复用这个映射,故导出。
-func CodeFromRow(c *dbq.AccessCode) Code {
+func CodeFromRow(c *db.AccessCode) Code {
 	out := Code{
 		ID:                   pgstore.FormatUUID(c.ID),
 		OwnerID:              pgstore.FormatUUID(c.OwnerID),

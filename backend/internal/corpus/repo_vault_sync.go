@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // VaultSyncRepo —— vault sync 的 corpus_notes 仓储。
@@ -49,7 +49,7 @@ func (r *VaultSyncRepo) GetByTitle(ctx context.Context, ownerID, title string) (
 	if err != nil {
 		return SyncNote{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	row, qerr := dbq.New(r.pool).GetNoteByTitleAnyGenre(ctx, dbq.GetNoteByTitleAnyGenreParams{
+	row, qerr := db.New(r.pool).GetNoteByTitleAnyGenre(ctx, db.GetNoteByTitleAnyGenreParams{
 		OwnerID: owner, Title: title,
 	})
 	if qerr != nil {
@@ -71,7 +71,7 @@ func (r *VaultSyncRepo) GetBySourcePath(
 	if err != nil {
 		return SyncNote{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	row, qerr := dbq.New(r.pool).GetNoteBySourcePath(ctx, dbq.GetNoteBySourcePathParams{
+	row, qerr := db.New(r.pool).GetNoteBySourcePath(ctx, db.GetNoteBySourcePathParams{
 		OwnerID: owner, ObsidianSourcePath: sourcePath,
 	})
 	if qerr != nil {
@@ -93,7 +93,7 @@ func (r *VaultSyncRepo) GetSyncNote(ctx context.Context, ownerID, id string) (Sy
 	if perr != nil {
 		return SyncNote{}, fmt.Errorf("parse note id: %w", perr)
 	}
-	row, qerr := dbq.New(r.pool).GetNoteByIDAnyGenre(ctx, dbq.GetNoteByIDAnyGenreParams{
+	row, qerr := db.New(r.pool).GetNoteByIDAnyGenre(ctx, db.GetNoteByIDAnyGenreParams{
 		OwnerID: owner, ID: noteID,
 	})
 	if qerr != nil {
@@ -130,7 +130,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 	if err != nil {
 		return "", fmt.Errorf("parse parent id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).CreateNoteSync(ctx, dbq.CreateNoteSyncParams{
+	row, qerr := db.New(r.pool).CreateNoteSync(ctx, db.CreateNoteSyncParams{
 		OwnerID: owner, Genre: in.Genre, ParentID: parent, Title: in.Title,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
@@ -167,7 +167,7 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 	if err != nil {
 		return fmt.Errorf("parse parent id: %w", err)
 	}
-	if _, qerr := dbq.New(r.pool).UpdateNoteSync(ctx, dbq.UpdateNoteSyncParams{
+	if _, qerr := db.New(r.pool).UpdateNoteSync(ctx, db.UpdateNoteSyncParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: in.Genre, ParentID: parent,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
@@ -200,7 +200,7 @@ func (r *VaultSyncRepo) PruneAbsentVaultNotes(
 		}
 		keep = append(keep, parsed)
 	}
-	n, qerr := dbq.New(r.pool).PruneAbsentVaultNotes(ctx, dbq.PruneAbsentVaultNotesParams{
+	n, qerr := db.New(r.pool).PruneAbsentVaultNotes(ctx, db.PruneAbsentVaultNotesParams{
 		OwnerID: owner, Column2: keep,
 	})
 	if qerr != nil {
@@ -224,7 +224,7 @@ func (r *VaultSyncRepo) QueryNotes(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).QueryCorpusNotes(ctx, dbq.QueryCorpusNotesParams{
+	rows, qerr := db.New(r.pool).QueryCorpusNotes(ctx, db.QueryCorpusNotesParams{
 		OwnerID: owner, Column2: genre, Column3: tag,
 	})
 	if qerr != nil {
@@ -247,7 +247,7 @@ func (r *VaultSyncRepo) GetCSSClasses(ctx context.Context, ownerID, id string) [
 	if err != nil {
 		return []string{}
 	}
-	classes, qerr := dbq.New(r.pool).GetNoteCssClasses(ctx, dbq.GetNoteCssClassesParams{
+	classes, qerr := db.New(r.pool).GetNoteCssClasses(ctx, db.GetNoteCssClassesParams{
 		ID: ids.Src, OwnerID: ids.Owner,
 	})
 	if qerr != nil {
@@ -262,7 +262,7 @@ func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListAllNotesForExport(ctx, owner)
+	rows, qerr := db.New(r.pool).ListAllNotesForExport(ctx, owner)
 	if qerr != nil {
 		return nil, fmt.Errorf("list notes for export: %w", qerr)
 	}
@@ -280,7 +280,7 @@ func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([
 	return out, nil
 }
 
-func syncNoteFromRow(n *dbq.CorpusNote) SyncNote {
+func syncNoteFromRow(n *db.CorpusNote) SyncNote {
 	out := SyncNote{
 		ID: pgstore.FormatUUID(n.ID), Genre: n.Genre, Title: n.Title, Body: n.Body,
 		Excerpt: n.Excerpt, Published: n.Published, Tags: n.Tags,

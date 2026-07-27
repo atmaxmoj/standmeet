@@ -16,8 +16,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/conversation/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // ChatRepo —— conversations + messages 表的访问入口。
@@ -55,8 +55,8 @@ func (r *ChatRepo) CreateChat(
 	if err != nil {
 		return Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateConversation(ctx, dbq.CreateConversationParams{
+	q := db.New(r.pool)
+	row, err := q.CreateConversation(ctx, db.CreateConversationParams{
 		OwnerID:     ownerUUID,
 		Mode:        in.Mode,
 		CodeID:      codeUUID,
@@ -83,8 +83,8 @@ func (r *ChatRepo) GetChat(
 	if err != nil {
 		return Chat{}, fmt.Errorf("parse chat id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetConversation(ctx, dbq.GetConversationParams{
+	q := db.New(r.pool)
+	row, err := q.GetConversation(ctx, db.GetConversationParams{
 		ID: chatUUID, OwnerID: ownerUUID,
 	})
 	if err != nil {
@@ -105,7 +105,7 @@ func (r *ChatRepo) GetOpenChatByMember(
 	if err != nil {
 		return Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).GetOpenConversationByMember(ctx, memberUUID)
+	row, qerr := db.New(r.pool).GetOpenConversationByMember(ctx, memberUUID)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return Chat{}, ErrChatNotFound
@@ -128,7 +128,7 @@ func (r *ChatRepo) CountSessionsForMember(
 	if err != nil {
 		return 0, fmt.Errorf("parse member id: %w", err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	n, qerr := q.CountSessionsForMember(ctx, memberUUID)
 	if qerr != nil {
 		return 0, fmt.Errorf("count sessions for member: %w", qerr)
@@ -144,7 +144,7 @@ func (r *ChatRepo) CountVisitorTurns(
 	if err != nil {
 		return 0, fmt.Errorf("parse chat id: %w", err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	n, qerr := q.CountVisitorTurnsInConversation(ctx, chatUUID)
 	if qerr != nil {
 		return 0, fmt.Errorf("count visitor turns: %w", qerr)
@@ -152,7 +152,7 @@ func (r *ChatRepo) CountVisitorTurns(
 	return n, nil
 }
 
-func toDomainChat(c *dbq.Conversation) Chat {
+func toDomainChat(c *db.Conversation) Chat {
 	out := Chat{
 		ID:          pgstore.FormatUUID(c.ID),
 		OwnerID:     pgstore.FormatUUID(c.OwnerID),
@@ -172,7 +172,7 @@ func toDomainChat(c *dbq.Conversation) Chat {
 	return out
 }
 
-func toDomainMessage(m *dbq.Message) Message {
+func toDomainMessage(m *db.Message) Message {
 	return Message{
 		ID:                   pgstore.FormatUUID(m.ID),
 		ConversationID:       pgstore.FormatUUID(m.ConversationID),

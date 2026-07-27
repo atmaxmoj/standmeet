@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/stats/db"
 )
 
 // InferenceUsageRepo —— inference_usage 表入口。
@@ -29,7 +29,7 @@ func (r *InferenceUsageRepo) Record(
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	qerr := dbq.New(r.pool).RecordInferenceUsage(ctx, dbq.RecordInferenceUsageParams{
+	qerr := db.New(r.pool).RecordInferenceUsage(ctx, db.RecordInferenceUsageParams{
 		OwnerID:      ownerUUID,
 		Model:        model,
 		InputTokens:  int32(inputTokens),
@@ -49,7 +49,7 @@ func (r *InferenceUsageRepo) Summarize7Day(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).SummarizeInferenceUsage7Day(ctx, ownerUUID)
+	rows, qerr := db.New(r.pool).SummarizeInferenceUsage7Day(ctx, ownerUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("summarize inference usage: %w", qerr)
 	}
@@ -68,7 +68,7 @@ func (r *InferenceUsageRepo) Summarize7Day(
 
 // Cleanup —— 删 >7 天的老行(boot 时调;查询本就只看 7 天,清理只为不让表无限涨)。
 func (r *InferenceUsageRepo) Cleanup(ctx context.Context) error {
-	if err := dbq.New(r.pool).DeleteInferenceUsageOlderThan7Days(ctx); err != nil {
+	if err := db.New(r.pool).DeleteInferenceUsageOlderThan7Days(ctx); err != nil {
 		return fmt.Errorf("cleanup inference usage: %w", err)
 	}
 	return nil

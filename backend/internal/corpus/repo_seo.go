@@ -18,8 +18,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // SEORepo —— seo_settings + wiki/output landing 查询。
@@ -38,7 +38,7 @@ func NewSEORepo(pool *pgstore.Pool) *SEORepo { return &SEORepo{pool: pool} }
 func (r *SEORepo) GetSettings(
 	ctx context.Context, ownerID string,
 ) (SEOSettings, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
 		return SEOSettings{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, perr)
@@ -57,7 +57,7 @@ func (r *SEORepo) GetSettings(
 func (r *SEORepo) UpsertSettings(
 	ctx context.Context, in *SEOSettings,
 ) (SEOSettings, error) {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	pgID, perr := pgstore.ParseUUID(in.OwnerID)
 	if perr != nil {
 		return SEOSettings{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, perr)
@@ -66,7 +66,7 @@ func (r *SEORepo) UpsertSettings(
 	if merr != nil {
 		return SEOSettings{}, fmt.Errorf("marshal sitemap_extras: %w", merr)
 	}
-	row, err := q.UpsertSEOSettings(ctx, dbq.UpsertSEOSettingsParams{
+	row, err := q.UpsertSEOSettings(ctx, db.UpsertSEOSettingsParams{
 		OwnerID:       pgID,
 		SiteTitle:     in.SiteTitle,
 		IndexRobots:   in.IndexRobots,
@@ -92,7 +92,7 @@ func (r *SEORepo) UpdateWikiSEO(
 	if oerr != nil {
 		return Wiki{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).UpdateNoteSEO(ctx, dbq.UpdateNoteSEOParams{
+	row, err := db.New(r.pool).UpdateNoteSEO(ctx, db.UpdateNoteSEOParams{
 		ID: pgID, Excerpt: description, Published: indexed, Genre: genreWiki, OwnerID: pgOwner,
 	})
 	if err != nil {
@@ -116,7 +116,7 @@ func (r *SEORepo) UpdateOutputSEO(
 	if oerr != nil {
 		return Output{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).UpdateNoteSEO(ctx, dbq.UpdateNoteSEOParams{
+	row, err := db.New(r.pool).UpdateNoteSEO(ctx, db.UpdateNoteSEOParams{
 		ID: pgID, Excerpt: description, Published: indexed, Genre: genreOutput, OwnerID: pgOwner,
 	})
 	if err != nil {
@@ -137,7 +137,7 @@ func defaultSEOSettings(ownerID string) SEOSettings {
 	}
 }
 
-func toDomainSEOSettings(row *dbq.SeoSetting) (SEOSettings, error) {
+func toDomainSEOSettings(row *db.SeoSetting) (SEOSettings, error) {
 	extras := []string{}
 	if len(row.SitemapExtras) > 0 {
 		if err := json.Unmarshal(row.SitemapExtras, &extras); err != nil {
@@ -169,7 +169,7 @@ func (r *SEORepo) CountPublished(ctx context.Context, ownerID string) (Published
 	if perr != nil {
 		return PublishedCounts{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, perr)
 	}
-	row, err := dbq.New(r.pool).CountPublishedCorpus(ctx, pgID)
+	row, err := db.New(r.pool).CountPublishedCorpus(ctx, pgID)
 	if err != nil {
 		return PublishedCounts{}, fmt.Errorf("count published corpus: %w", err)
 	}

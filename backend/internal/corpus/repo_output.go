@@ -1,5 +1,5 @@
 // output.go —— OutputRepo：统一 corpus_notes 表上 genre='output' 的 CRUD + path induce。
-// 与 WikiRepo 同构（都绑定各自 genre 调用同一套 dbq.Note* 方法）。output 是 raw → wiki →
+// 与 WikiRepo 同构（都绑定各自 genre 调用同一套 db.Note* 方法）。output 是 raw → wiki →
 // output 三层最精炼层，语义上「可原样引用」；source_ids 记从哪些 wiki 提炼来。
 
 package corpus
@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // OutputRepo —— corpus_notes(genre='output') CRUD + path induce。
@@ -43,7 +43,7 @@ func (r *OutputRepo) Create(
 	if err != nil {
 		return Output{}, err
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	row, qerr := q.CreateNote(ctx, params)
 	if qerr != nil {
 		return Output{}, fmt.Errorf("create output: %w", qerr)
@@ -51,20 +51,20 @@ func (r *OutputRepo) Create(
 	return toDomainOutput(&row), nil
 }
 
-func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateNoteParams, error) {
+func buildOutputCreateParams(in *CreateOutputInput) (db.CreateNoteParams, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.CreateNoteParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return db.CreateNoteParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	parent, err := pgstore.ParseOptionalUUID(in.ParentID)
 	if err != nil {
-		return dbq.CreateNoteParams{}, fmt.Errorf("parse parent id: %w", err)
+		return db.CreateNoteParams{}, fmt.Errorf("parse parent id: %w", err)
 	}
 	sourceWikis, err := pgstore.ParseUUIDArray(in.SourceWikiIDs)
 	if err != nil {
-		return dbq.CreateNoteParams{}, fmt.Errorf("parse source wiki ids: %w", err)
+		return db.CreateNoteParams{}, fmt.Errorf("parse source wiki ids: %w", err)
 	}
-	return dbq.CreateNoteParams{
+	return db.CreateNoteParams{
 		OwnerID:    ownerUUID,
 		Genre:      genreOutput,
 		ParentID:   parent,
@@ -87,8 +87,8 @@ func (r *OutputRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	rows, err := q.ListNotesByOwner(ctx, dbq.ListNotesByOwnerParams{
+	q := db.New(r.pool)
+	rows, err := q.ListNotesByOwner(ctx, db.ListNotesByOwnerParams{
 		OwnerID: ownerUUID, Genre: genreOutput, Limit: limit,
 	})
 	if err != nil {
@@ -113,8 +113,8 @@ func (r *OutputRepo) GetByID(
 	if err != nil {
 		return Output{}, fmt.Errorf("parse output id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetNoteByID(ctx, dbq.GetNoteByIDParams{
+	q := db.New(r.pool)
+	row, err := q.GetNoteByID(ctx, db.GetNoteByIDParams{
 		ID: outputUUID, OwnerID: ownerUUID, Genre: genreOutput,
 	})
 	if err != nil {
@@ -144,12 +144,12 @@ func (r *OutputRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]OutputMeta, error) {
 	return listChildrenMeta(ownerID, parentID,
-		func(o, p pgtype.UUID) ([]dbq.ListNoteChildrenRow, error) {
-			return dbq.New(r.pool).ListNoteChildren(ctx, dbq.ListNoteChildrenParams{
+		func(o, p pgtype.UUID) ([]db.ListNoteChildrenRow, error) {
+			return db.New(r.pool).ListNoteChildren(ctx, db.ListNoteChildrenParams{
 				OwnerID: o, Genre: genreOutput, Column3: p, Limit: limit, Offset: offset,
 			})
 		},
-		func(row dbq.ListNoteChildrenRow) OutputMeta {
+		func(row db.ListNoteChildrenRow) OutputMeta {
 			return OutputMeta{
 				ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
@@ -163,7 +163,7 @@ func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (Outpu
 	if perr != nil {
 		return OutputMeta{}, perr
 	}
-	row, err := dbq.New(r.pool).GetNoteMetaByID(ctx, dbq.GetNoteMetaByIDParams{
+	row, err := db.New(r.pool).GetNoteMetaByID(ctx, db.GetNoteMetaByIDParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: genreOutput,
 	})
 	if err != nil {
@@ -186,7 +186,7 @@ func (r *OutputRepo) Search(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).SearchNotes(ctx, dbq.SearchNotesParams{
+	rows, qerr := db.New(r.pool).SearchNotes(ctx, db.SearchNotesParams{
 		OwnerID: ownerUUID, Genre: genreOutput,
 		PlaintoTsquery: query, Limit: limit, Offset: offset,
 	})
@@ -200,7 +200,7 @@ func (r *OutputRepo) Search(
 	return out, nil
 }
 
-func outputSearchRowMeta(row *dbq.SearchNotesRow) OutputMeta {
+func outputSearchRowMeta(row *db.SearchNotesRow) OutputMeta {
 	return OutputMeta{
 		ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
@@ -209,7 +209,7 @@ func outputSearchRowMeta(row *dbq.SearchNotesRow) OutputMeta {
 
 // ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed output 用。
 func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputMeta, error) {
-	mk := func(row *dbq.ListAllNoteMetaRow) OutputMeta {
+	mk := func(row *db.ListAllNoteMetaRow) OutputMeta {
 		return OutputMeta{
 			ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
 			Title: row.Title, Published: row.Published,
@@ -219,7 +219,7 @@ func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputM
 	return listNoteMetaBy(ctx, r.pool, ownerID, genreOutput, mk)
 }
 
-func toDomainOutput(o *dbq.CorpusNote) Output {
+func toDomainOutput(o *db.CorpusNote) Output {
 	in := OutputInit{
 		ID:            pgstore.FormatUUID(o.ID),
 		OwnerID:       pgstore.FormatUUID(o.OwnerID),

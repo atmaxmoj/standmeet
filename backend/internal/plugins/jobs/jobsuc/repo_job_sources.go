@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmodel"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc/db"
 )
 
 // JobSourceRepo —— job_sources + job_fingerprints 两张表的 Repository。
@@ -39,8 +39,8 @@ func (r *JobSourceRepo) Create(
 	if len(cfg) == 0 {
 		cfg = []byte(`{}`)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateJobSource(ctx, dbq.CreateJobSourceParams{
+	q := db.New(r.pool)
+	row, err := q.CreateJobSource(ctx, db.CreateJobSourceParams{
 		OwnerID: ownerUUID,
 		Kind:    in.Kind,
 		Config:  cfg,
@@ -64,8 +64,8 @@ func (r *JobSourceRepo) GetByID(
 	if err != nil {
 		return jobsmodel.JobSource{}, fmt.Errorf("parse source id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.GetJobSource(ctx, dbq.GetJobSourceParams{
+	q := db.New(r.pool)
+	row, err := q.GetJobSource(ctx, db.GetJobSourceParams{
 		ID: sourceUUID, OwnerID: ownerUUID,
 	})
 	if err != nil {
@@ -85,7 +85,7 @@ func (r *JobSourceRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	rows, err := q.ListJobSourcesByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list job sources: %w", err)
@@ -107,8 +107,8 @@ func (r *JobSourceRepo) Delete(ctx context.Context, ownerID, id string) error {
 	if err != nil {
 		return fmt.Errorf("parse source id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	if derr := q.DeleteJobSource(ctx, dbq.DeleteJobSourceParams{
+	q := db.New(r.pool)
+	if derr := q.DeleteJobSource(ctx, db.DeleteJobSourceParams{
 		ID: sourceUUID, OwnerID: ownerUUID,
 	}); derr != nil {
 		return fmt.Errorf("delete job source: %w", derr)
@@ -122,7 +122,7 @@ func (r *JobSourceRepo) TouchFetched(ctx context.Context, sourceID string) error
 	if err != nil {
 		return fmt.Errorf("parse source id: %w", err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if terr := q.TouchJobSourceFetched(ctx, sourceUUID); terr != nil {
 		return fmt.Errorf("touch fetched: %w", terr)
 	}
@@ -156,9 +156,9 @@ func (r *JobSourceRepo) RecordSeenExternalIDs(
 	if err != nil {
 		return fmt.Errorf("parse source id: %w", err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	for _, eid := range externalIDs {
-		if ierr := q.InsertJobFingerprint(ctx, dbq.InsertJobFingerprintParams{
+		if ierr := q.InsertJobFingerprint(ctx, db.InsertJobFingerprintParams{
 			SourceID: sourceUUID, ExternalID: eid,
 		}); ierr != nil {
 			return fmt.Errorf("insert fingerprint: %w", ierr)
@@ -174,8 +174,8 @@ func (r *JobSourceRepo) lookupSeen(
 	if err != nil {
 		return nil, fmt.Errorf("parse source id: %w", err)
 	}
-	q := dbq.New(r.pool)
-	seen, err := q.GetExistingFingerprints(ctx, dbq.GetExistingFingerprintsParams{
+	q := db.New(r.pool)
+	seen, err := q.GetExistingFingerprints(ctx, db.GetExistingFingerprintsParams{
 		SourceID: sourceUUID, Column2: candidates,
 	})
 	if err != nil {
@@ -200,7 +200,7 @@ func diffUnseen(candidates, seen []string) []string {
 
 // toDomainJobSource —— sqlc Row → jobsmodel.JobSource。Config jsonb 直接 pass
 // through 成 []byte，由 fetcher adapter 各自 unmarshal 到 typed struct。
-func toDomainJobSource(o *dbq.JobSource) jobsmodel.JobSource {
+func toDomainJobSource(o *db.JobSource) jobsmodel.JobSource {
 	out := jobsmodel.JobSource{
 		ID:        pgstore.FormatUUID(o.ID),
 		OwnerID:   pgstore.FormatUUID(o.OwnerID),

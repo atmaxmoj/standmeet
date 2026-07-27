@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // CapabilityRepo —— capability_settings 表读写。
@@ -28,7 +28,7 @@ func (r *CapabilityRepo) SetEnabled(
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if uerr := dbq.New(r.pool).UpsertCapabilitySetting(ctx, dbq.UpsertCapabilitySettingParams{
+	if uerr := db.New(r.pool).UpsertCapabilitySetting(ctx, db.UpsertCapabilitySettingParams{
 		OwnerID: ownerUUID, CapabilityID: capabilityID, Enabled: enabled,
 	}); uerr != nil {
 		return fmt.Errorf("upsert capability setting: %w", uerr)
@@ -45,7 +45,7 @@ func (r *CapabilityRepo) DisabledSet(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListCapabilitySettings(ctx, ownerUUID)
+	rows, qerr := db.New(r.pool).ListCapabilitySettings(ctx, ownerUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list capability settings: %w", qerr)
 	}

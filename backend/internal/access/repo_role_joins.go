@@ -13,8 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // SetCorpusURIs —— clear + bulk insert role_corpus_uris。caller 已校验
@@ -24,14 +24,14 @@ func (r *RoleRepo) SetCorpusURIs(ctx context.Context, roleID string, patterns []
 	if perr != nil {
 		return fmt.Errorf("parse role id: %w", perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if cerr := q.ClearRoleCorpusURIs(ctx, roleUUID); cerr != nil {
 		return fmt.Errorf("clear role corpus uris: %w", cerr)
 	}
 	if len(patterns) == 0 {
 		return nil
 	}
-	if aerr := q.AttachRoleCorpusURIs(ctx, dbq.AttachRoleCorpusURIsParams{
+	if aerr := q.AttachRoleCorpusURIs(ctx, db.AttachRoleCorpusURIsParams{
 		RoleID: roleUUID, Column2: patterns,
 	}); aerr != nil {
 		return fmt.Errorf("attach role corpus uris: %w", aerr)
@@ -48,7 +48,7 @@ func (r *RoleRepo) SetWaypoints(
 	if perr != nil {
 		return fmt.Errorf("parse role id: %w", perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if cerr := q.ClearRoleWaypoints(ctx, roleUUID); cerr != nil {
 		return fmt.Errorf("clear role waypoints: %w", cerr)
 	}
@@ -61,13 +61,13 @@ func (r *RoleRepo) SetWaypoints(
 }
 
 func attachWaypoint(
-	ctx context.Context, q *dbq.Queries, roleUUID pgtype.UUID, w *Waypoint,
+	ctx context.Context, q *db.Queries, roleUUID pgtype.UUID, w *Waypoint,
 ) error {
 	refs, merr := json.Marshal(w.EvidenceRefs)
 	if merr != nil {
 		return fmt.Errorf("marshal evidence_refs: %w", merr)
 	}
-	if aerr := q.AttachRoleWaypoint(ctx, dbq.AttachRoleWaypointParams{
+	if aerr := q.AttachRoleWaypoint(ctx, db.AttachRoleWaypointParams{
 		RoleID: roleUUID, WaypointID: w.WaypointID, Description: w.Description,
 		Weight: int32(w.Weight), EvidenceRefs: refs, IsTerminal: w.IsTerminal,
 	}); aerr != nil {
@@ -78,7 +78,7 @@ func attachWaypoint(
 
 // hydrateRoleWaypoints —— 读 role_waypoints → domain（行映射共用 waypointsFromRows）。
 func hydrateRoleWaypoints(
-	ctx context.Context, q *dbq.Queries, roleID pgtype.UUID,
+	ctx context.Context, q *db.Queries, roleID pgtype.UUID,
 ) ([]Waypoint, error) {
 	rows, err := q.ListRoleWaypoints(ctx, roleID)
 	if err != nil {
@@ -98,12 +98,12 @@ func hydrateRoleWaypoints(
 // SetSkills —— clear + bulk insert role_skills。caller 已校验 skill_ids 属于
 // 同 owner。
 func (r *RoleRepo) SetSkills(ctx context.Context, roleID string, skillIDs []string) error {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	return setRoleUUIDJoin(ctx, &roleJoinOp{
 		roleID: roleID, ids: skillIDs, tag: "skills",
 		drop: q.ClearRoleSkills,
 		bind: func(roleUUID pgtype.UUID, ids []pgtype.UUID) error {
-			return q.AttachRoleSkills(ctx, dbq.AttachRoleSkillsParams{
+			return q.AttachRoleSkills(ctx, db.AttachRoleSkillsParams{
 				RoleID: roleUUID, Column2: ids,
 			})
 		},
@@ -113,12 +113,12 @@ func (r *RoleRepo) SetSkills(ctx context.Context, roleID string, skillIDs []stri
 // SetMCPServers —— clear + bulk insert role_mcp_servers。caller 已校验
 // server_ids 属于同 owner。
 func (r *RoleRepo) SetMCPServers(ctx context.Context, roleID string, serverIDs []string) error {
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	return setRoleUUIDJoin(ctx, &roleJoinOp{
 		roleID: roleID, ids: serverIDs, tag: "mcp_servers",
 		drop: q.ClearRoleMCPServers,
 		bind: func(roleUUID pgtype.UUID, ids []pgtype.UUID) error {
-			return q.AttachRoleMCPServers(ctx, dbq.AttachRoleMCPServersParams{
+			return q.AttachRoleMCPServers(ctx, db.AttachRoleMCPServersParams{
 				RoleID: roleUUID, Column2: ids,
 			})
 		},
@@ -169,7 +169,7 @@ func prepareRoleJoinClear(ctx context.Context, op *roleJoinOp) (pgtype.UUID, err
 }
 
 // hydrateRole 从主表行起步，N+1 取 3 个 join 表组装完整 Role。
-func hydrateRole(ctx context.Context, q *dbq.Queries, row *dbq.Role) (Role, error) {
+func hydrateRole(ctx context.Context, q *db.Queries, row *db.Role) (Role, error) {
 	corpusURIs, cerr := q.ListRoleCorpusURIs(ctx, row.ID)
 	if cerr != nil {
 		return Role{}, fmt.Errorf("list role corpus uris: %w", cerr)

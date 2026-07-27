@@ -13,8 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // GetOrCreateMember —— 具名访客:按 (code_id, display_name) upsert。同名 = 同一
@@ -26,8 +26,8 @@ func (r *CodeRepo) GetOrCreateMember(
 	if err != nil {
 		return CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	row, qerr := q.GetOrCreateCodeMember(ctx, dbq.GetOrCreateCodeMemberParams{
+	q := db.New(r.pool)
+	row, qerr := q.GetOrCreateCodeMember(ctx, db.GetOrCreateCodeMemberParams{
 		CodeID: codeUUID, DisplayName: displayName, IsAnonymous: false,
 	})
 	if qerr != nil {
@@ -50,7 +50,7 @@ func (r *CodeRepo) CreateAnonymousMember(
 	if gerr != nil {
 		return CodeMember{}, gerr
 	}
-	row, qerr := dbq.New(r.pool).GetOrCreateCodeMember(ctx, dbq.GetOrCreateCodeMemberParams{
+	row, qerr := db.New(r.pool).GetOrCreateCodeMember(ctx, db.GetOrCreateCodeMemberParams{
 		CodeID: codeUUID, DisplayName: name, IsAnonymous: true,
 	})
 	if qerr != nil {
@@ -65,7 +65,7 @@ func (r *CodeRepo) CountMembers(ctx context.Context, codeID string) (int32, erro
 	if err != nil {
 		return 0, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	n, qerr := dbq.New(r.pool).CountCodeMembers(ctx, codeUUID)
+	n, qerr := db.New(r.pool).CountCodeMembers(ctx, codeUUID)
 	if qerr != nil {
 		return 0, fmt.Errorf("count code members: %w", qerr)
 	}
@@ -85,7 +85,7 @@ func (r *CodeRepo) GetMemberByID(
 	if cerr != nil {
 		return CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, cerr)
 	}
-	row, qerr := dbq.New(r.pool).GetCodeMemberByID(ctx, dbq.GetCodeMemberByIDParams{
+	row, qerr := db.New(r.pool).GetCodeMemberByID(ctx, db.GetCodeMemberByIDParams{
 		ID: mUUID, CodeID: cUUID,
 	})
 	if qerr != nil {
@@ -120,7 +120,7 @@ func (r *CodeRepo) ListMembers(
 	if err != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	rows, qerr := q.ListCodeMembers(ctx, codeUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list code members: %w", qerr)
@@ -132,7 +132,7 @@ func (r *CodeRepo) ListMembers(
 	return out, nil
 }
 
-func toDomainMember(m *dbq.CodeMember) CodeMember {
+func toDomainMember(m *db.CodeMember) CodeMember {
 	out := CodeMember{
 		ID:          pgstore.FormatUUID(m.ID),
 		CodeID:      pgstore.FormatUUID(m.CodeID),

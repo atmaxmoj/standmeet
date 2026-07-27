@@ -332,13 +332,15 @@ linters:
       - path: internal/capabilities/sandboxws/
         linters: [testpackage]
       # dbq repro asserts the generated UpdateNoteSEO query string (unexported const) carries the
-      # owner_id tenant filter → must be in-package white-box.
-      - path: internal/infra/postgres/dbq/
+      # owner_id tenant filter → must be in-package white-box (now in corpus's db subpackage).
+      - path: internal/corpus/db/
         linters: [testpackage]
-      # postgres-boundary 层与 pgx/sqlc 接口打交道，`any` 在驱动
-      # 契约里是不可避免的（pgx Scan(dest ...any)、json.Marshal(v any) 等）。
-      # 业务层 ban `any` 让信息流可读；这里反过来豁免。
-      - path: internal/infra/postgres/
+      # 每领域自持的 <domain>/db(sqlc 生成) 与 pgstore 的 DBTX 原语与 pgx 接口打交道，
+      # `any` 在驱动契约里不可避免（DBTX.Exec(... ...any)、Scan(dest ...any) 等）。
+      # 业务层 ban `any` 让信息流可读；DAO 层 + DB 原语反过来豁免。
+      - path: internal/.*/db/
+        linters: [forbidigo]
+      - path: internal/infra/pgstore/
         linters: [forbidigo]
       # #135: 领域模块吸收 pgx-boundary repo 后，repo_*.go 仍是 pgx/sqlc 驱动契约层
       # （Scan(dest ...any)、json.Marshal(v any) 等），同 postgres 边界豁免裸 any。

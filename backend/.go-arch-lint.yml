@@ -23,8 +23,6 @@ components:
     in: internal/usecases
   obsidian:
     in: internal/usecases/obsidian        # Obsidian vault import/export
-  dbq:
-    in: internal/infra/postgres/dbq
   pgstore:
     in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
   session:
@@ -148,6 +146,25 @@ components:
   cmd:
     in: cmd/server
 
+  corpusdb:
+    in: internal/corpus/db                # #135: corpus 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+  conversationdb:
+    in: internal/conversation/db                # #135: conversation 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+  accessdb:
+    in: internal/access/db                # #135: access 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+  ownerdb:
+    in: internal/owner/db                # #135: owner 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+  connectordb:
+    in: internal/connector/db                # #135: connector 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+  marketplacedb:
+    in: internal/marketplace/db                # #135: marketplace 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+  statsdb:
+    in: internal/stats/db                # #135: stats 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+  securitydb:
+    in: internal/security/db                # #135: security 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+  jobsdb:
+    in: internal/plugins/jobs/jobsuc/db                # #135: jobsuc 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+
 deps:
   # Domain 纯内核，无 internal 依赖。
   usecases:
@@ -197,6 +214,7 @@ deps:
   # 复用 usecases 的 DTO 类型 (FreeBusyReq / MailMessage 等) → 依赖 usecases。
   connector:
     mayDependOn:
+      - connectordb
       - connector
       - connectorcontract
       - connectorconsumer
@@ -205,7 +223,6 @@ deps:
       - connectoropenapi
       - cryptobox
       - pgstore
-      - dbq
     anyVendorDeps: true
 
   # connectorconsumer —— 连接器轴消费者契约 leaf(AgentToolConnector/AgentOp/ErrMailNotConfigured)。
@@ -323,16 +340,9 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
-  # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
-  dbq:
-    mayDependOn: []
-    anyVendorDeps: true
-
-  # pgstore —— #135 共享 DB store 原语 leaf：模块 repo 用它 + dbq 自持久层。
+  # pgstore —— #135 共享 DB store 原语 leaf：模块 repo 用它 + 自己的 <domain>/db(sqlc) 持久层。
   pgstore:
     mayDependOn:
-      - dbq
       - cryptobox
     anyVendorDeps: true
 
@@ -462,6 +472,7 @@ deps:
   # 期把 sentinel 抽到 domain 后可断这条。
   jobsuc:
     mayDependOn:
+      - jobsdb
       - owner
       - jobsmodel
       - usecases
@@ -470,7 +481,6 @@ deps:
       - jobdedup
       - access
       - pgstore
-      - dbq
       - apierr
     anyVendorDeps: true
 
@@ -543,16 +553,16 @@ deps:
 
   stats:
     mayDependOn:
+      - statsdb
       - pgstore
-      - dbq
     anyVendorDeps: true
 
   # security —— #135 请求级防护域模块(full vertical)：BannedIP entity + repo + captcha verifier。
   security:
     mayDependOn:
+      - securitydb
       - httpx
       - pgstore
-      - dbq
     anyVendorDeps: true
 
   # jobsmodel —— #135 jobs 领域值对象 leaf：依赖 access（CommittedApplication 内嵌 AccessCode）。
@@ -564,9 +574,9 @@ deps:
   # conversation —— #135 conversation 领域值对象：Citation.Genre = corpus.DocumentGenre。
   conversation:
     mayDependOn:
+      - conversationdb
       - corpus
       - pgstore
-      - dbq
       - access
       - apierr
       - session
@@ -582,9 +592,9 @@ deps:
   # corpus —— #135 corpus 领域值对象：实体依赖 domain 的共享 VO（Timestamps/Integration）。
   corpus:
     mayDependOn:
+      - corpusdb
       - connector
       - pgstore
-      - dbq
       - apierr
       - storage
       - search
@@ -596,16 +606,16 @@ deps:
   # access —— #135 access 域(building full vertical)：entity + access_requests/api_keys repos。
   access:
     mayDependOn:
+      - accessdb
       - pgstore
-      - dbq
       - apierr
     anyVendorDeps: true
 
   # owner —— #135 owner 模块：实体 + repo（连接器 OwnerLookup 消费 owner.Owner）。
   owner:
     mayDependOn:
+      - ownerdb
       - pgstore
-      - dbq
       - cryptobox
       - apierr
       - session
@@ -620,9 +630,9 @@ deps:
 
   marketplace:
     mayDependOn:
+      - marketplacedb
       - httpx
       - pgstore
-      - dbq
       - access
       - apierr
       - cryptobox
@@ -804,4 +814,32 @@ deps:
       - owner
       - corpus
       - pgstore
+    anyVendorDeps: true
+
+  corpusdb:
+    mayDependOn: []
+    anyVendorDeps: true
+  conversationdb:
+    mayDependOn: []
+    anyVendorDeps: true
+  accessdb:
+    mayDependOn: []
+    anyVendorDeps: true
+  ownerdb:
+    mayDependOn: []
+    anyVendorDeps: true
+  connectordb:
+    mayDependOn: []
+    anyVendorDeps: true
+  marketplacedb:
+    mayDependOn: []
+    anyVendorDeps: true
+  statsdb:
+    mayDependOn: []
+    anyVendorDeps: true
+  securitydb:
+    mayDependOn: []
+    anyVendorDeps: true
+  jobsdb:
+    mayDependOn: []
     anyVendorDeps: true

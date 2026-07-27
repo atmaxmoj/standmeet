@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/security/db"
 )
 
 // BannedIPRepo —— banned_ips 表 repo。
@@ -35,7 +35,7 @@ func (r *BannedIPRepo) Ban(ctx context.Context, in *BanIPInput) (BannedIP, error
 	if err != nil {
 		return BannedIP{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	row, qerr := dbq.New(r.pool).BanIP(ctx, dbq.BanIPParams{
+	row, qerr := db.New(r.pool).BanIP(ctx, db.BanIPParams{
 		OwnerID:   ownerUUID,
 		Ip:        in.IP,
 		Reason:    in.Reason,
@@ -53,7 +53,7 @@ func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]BannedIP, er
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListBannedIPs(ctx, ownerUUID)
+	rows, qerr := db.New(r.pool).ListBannedIPs(ctx, ownerUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list banned ips: %w", qerr)
 	}
@@ -74,8 +74,8 @@ func (r *BannedIPRepo) Unban(ctx context.Context, ownerID, id string) error {
 	if ierr != nil {
 		return fmt.Errorf("parse ban id: %w", ierr)
 	}
-	if derr := dbq.New(r.pool).UnbanIPByID(ctx,
-		dbq.UnbanIPByIDParams{ID: idUUID, OwnerID: ownerUUID}); derr != nil {
+	if derr := db.New(r.pool).UnbanIPByID(ctx,
+		db.UnbanIPByIDParams{ID: idUUID, OwnerID: ownerUUID}); derr != nil {
 		return fmt.Errorf("unban ip: %w", derr)
 	}
 	return nil
@@ -87,8 +87,8 @@ func (r *BannedIPRepo) IsBanned(ctx context.Context, ownerID, ip string) (bool, 
 	if err != nil {
 		return false, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	banned, qerr := dbq.New(r.pool).IsIPBanned(ctx,
-		dbq.IsIPBannedParams{OwnerID: ownerUUID, Ip: ip})
+	banned, qerr := db.New(r.pool).IsIPBanned(ctx,
+		db.IsIPBannedParams{OwnerID: ownerUUID, Ip: ip})
 	if qerr != nil {
 		return false, fmt.Errorf("is ip banned: %w", qerr)
 	}
@@ -98,14 +98,14 @@ func (r *BannedIPRepo) IsBanned(ctx context.Context, ownerID, ip string) (bool, 
 // IsBannedAnywhere —— 公开面 enforcement：这个 IP 在本实例上是否被封且未过期
 // （不分 owner；v1 单 owner）。middleware 每个公开请求调一次。
 func (r *BannedIPRepo) IsBannedAnywhere(ctx context.Context, ip string) (bool, error) {
-	banned, qerr := dbq.New(r.pool).IsIPBannedAnywhere(ctx, ip)
+	banned, qerr := db.New(r.pool).IsIPBannedAnywhere(ctx, ip)
 	if qerr != nil {
 		return false, fmt.Errorf("is ip banned anywhere: %w", qerr)
 	}
 	return banned, nil
 }
 
-func decodeBannedIP(row *dbq.BannedIp) BannedIP {
+func decodeBannedIP(row *db.BannedIp) BannedIP {
 	return BannedIP{
 		ID:        pgstore.FormatUUID(row.ID),
 		OwnerID:   pgstore.FormatUUID(row.OwnerID),

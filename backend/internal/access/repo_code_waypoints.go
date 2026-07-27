@@ -17,8 +17,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 // SetWaypoints —— clear + 逐条 insert code_waypoints（空 slice = 清空覆盖层 → 完全继承 role）。
@@ -29,7 +29,7 @@ func (r *CodeRepo) SetWaypoints(
 	if perr != nil {
 		return fmt.Errorf("parse code id: %w", perr)
 	}
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	if cerr := q.ClearCodeWaypoints(ctx, codeUUID); cerr != nil {
 		return fmt.Errorf("clear code waypoints: %w", cerr)
 	}
@@ -42,13 +42,13 @@ func (r *CodeRepo) SetWaypoints(
 }
 
 func attachCodeWaypoint(
-	ctx context.Context, q *dbq.Queries, codeUUID pgtype.UUID, w *Waypoint,
+	ctx context.Context, q *db.Queries, codeUUID pgtype.UUID, w *Waypoint,
 ) error {
 	refs, merr := json.Marshal(w.EvidenceRefs)
 	if merr != nil {
 		return fmt.Errorf("marshal evidence_refs: %w", merr)
 	}
-	if aerr := q.AttachCodeWaypoint(ctx, dbq.AttachCodeWaypointParams{
+	if aerr := q.AttachCodeWaypoint(ctx, db.AttachCodeWaypointParams{
 		CodeID: codeUUID, WaypointID: w.WaypointID, Description: w.Description,
 		Weight: int32(w.Weight), EvidenceRefs: refs, IsTerminal: w.IsTerminal,
 	}); aerr != nil {
@@ -63,12 +63,12 @@ func (r *CodeRepo) Waypoints(ctx context.Context, codeID string) ([]Waypoint, er
 	if perr != nil {
 		return []Waypoint{}, fmt.Errorf("parse code id: %w", perr)
 	}
-	return hydrateCodeWaypoints(ctx, dbq.New(r.pool), codeUUID)
+	return hydrateCodeWaypoints(ctx, db.New(r.pool), codeUUID)
 }
 
 // hydrateCodeWaypoints —— 读 code_waypoints → domain（行映射共用 waypointsFromRows）。
 func hydrateCodeWaypoints(
-	ctx context.Context, q *dbq.Queries, codeID pgtype.UUID,
+	ctx context.Context, q *db.Queries, codeID pgtype.UUID,
 ) ([]Waypoint, error) {
 	rows, err := q.ListCodeWaypoints(ctx, codeID)
 	if err != nil {

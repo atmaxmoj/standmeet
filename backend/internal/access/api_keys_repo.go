@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
 )
 
 const errParseKeyIDPrefix = "parse api key id: %w"
@@ -36,7 +36,7 @@ func (r *APIKeyRepo) Create(
 	if rerr != nil {
 		return APIKey{}, fmt.Errorf("parse role id: %w", rerr)
 	}
-	row, qerr := dbq.New(r.pool).CreateAPIKey(ctx, dbq.CreateAPIKeyParams{
+	row, qerr := db.New(r.pool).CreateAPIKey(ctx, db.CreateAPIKeyParams{
 		OwnerID: ownerUUID, AssumedRoleID: roleUUID, Label: in.Label,
 		Prefix: in.Prefix, SecretHash: in.SecretHash, RateLimitRpm: in.RateLimitRPM,
 		ExpiresAt: pgstore.ToTimestamptz(in.ExpiresAt),
@@ -52,7 +52,7 @@ func (r *APIKeyRepo) Create(
 func (r *APIKeyRepo) GetBySecretHash(
 	ctx context.Context, hash []byte) (APIKey, error,
 ) {
-	row, err := dbq.New(r.pool).GetAPIKeyBySecretHash(ctx, hash)
+	row, err := db.New(r.pool).GetAPIKeyBySecretHash(ctx, hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return APIKey{}, ErrAPIKeyNotFound
 	}
@@ -70,7 +70,7 @@ func (r *APIKeyRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListAPIKeysByOwner(ctx, ownerUUID)
+	rows, qerr := db.New(r.pool).ListAPIKeysByOwner(ctx, ownerUUID)
 	if qerr != nil {
 		return nil, fmt.Errorf("list api keys: %w", qerr)
 	}
@@ -93,7 +93,7 @@ func (r *APIKeyRepo) GetByID(
 	if oerr != nil {
 		return APIKey{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, qerr := dbq.New(r.pool).GetAPIKeyByID(ctx, dbq.GetAPIKeyByIDParams{
+	row, qerr := db.New(r.pool).GetAPIKeyByID(ctx, db.GetAPIKeyByIDParams{
 		ID: idUUID, OwnerID: ownerUUID,
 	})
 	if errors.Is(qerr, pgx.ErrNoRows) {
@@ -115,7 +115,7 @@ func (r *APIKeyRepo) Revoke(ctx context.Context, id, ownerID string) error {
 	if oerr != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	if qerr := dbq.New(r.pool).RevokeAPIKey(ctx, dbq.RevokeAPIKeyParams{
+	if qerr := db.New(r.pool).RevokeAPIKey(ctx, db.RevokeAPIKeyParams{
 		ID: idUUID, OwnerID: ownerUUID,
 	}); qerr != nil {
 		return fmt.Errorf("revoke api key: %w", qerr)
@@ -135,7 +135,7 @@ func (r *APIKeyRepo) Update(
 	if oerr != nil {
 		return APIKey{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	row, qerr := dbq.New(r.pool).UpdateAPIKey(ctx, dbq.UpdateAPIKeyParams{
+	row, qerr := db.New(r.pool).UpdateAPIKey(ctx, db.UpdateAPIKeyParams{
 		Label: in.Label, SetRate: in.SetRate, RateLimitRpm: in.RateLimitRPM,
 		ID: idUUID, OwnerID: ownerUUID,
 	})
@@ -155,13 +155,13 @@ func (r *APIKeyRepo) TouchLastUsed(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf(errParseKeyIDPrefix, err)
 	}
-	if qerr := dbq.New(r.pool).TouchAPIKeyLastUsed(ctx, idUUID); qerr != nil {
+	if qerr := db.New(r.pool).TouchAPIKeyLastUsed(ctx, idUUID); qerr != nil {
 		return fmt.Errorf("touch api key: %w", qerr)
 	}
 	return nil
 }
 
-func decodeAPIKey(row *dbq.ApiKey) APIKey {
+func decodeAPIKey(row *db.ApiKey) APIKey {
 	return APIKey{
 		ID:            pgstore.FormatUUID(row.ID),
 		OwnerID:       pgstore.FormatUUID(row.OwnerID),

@@ -1,7 +1,7 @@
 // custom_builds.go —— custom_page_builds CRUD。从 custom_pages.go 拆出来
 // 避免单文件超 350 行。
 //
-// 所有 query 返 sqlc 的 dbq.CustomPageBuild，repo 把它映射成 domain 类型。
+// 所有 query 返 sqlc 的 db.CustomPageBuild，repo 把它映射成 domain 类型。
 
 package owner
 
@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/owner/db"
 )
 
 // CustomBuildRepo —— custom_page_builds 表。
@@ -37,7 +37,7 @@ func (r *CustomBuildRepo) Create(
 	if merr != nil {
 		return CustomPageBuild{}, fmt.Errorf("marshal source files: %w", merr)
 	}
-	row, err := dbq.New(r.pool).CreateCustomPageBuild(ctx, dbq.CreateCustomPageBuildParams{
+	row, err := db.New(r.pool).CreateCustomPageBuild(ctx, db.CreateCustomPageBuildParams{
 		PageID: pgID, SourceFiles: files,
 	})
 	if err != nil {
@@ -54,7 +54,7 @@ func (r *CustomBuildRepo) GetLatestForPage(
 	if perr != nil {
 		return CustomPageBuild{}, fmt.Errorf(errParsePageID, perr)
 	}
-	row, err := dbq.New(r.pool).GetLatestCustomPageBuild(ctx, pgID)
+	row, err := db.New(r.pool).GetLatestCustomPageBuild(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CustomPageBuild{}, ErrCustomPageBuildNotFound
@@ -72,7 +72,7 @@ func (r *CustomBuildRepo) GetByID(
 	if perr != nil {
 		return CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).GetCustomPageBuild(ctx, pgID)
+	row, err := db.New(r.pool).GetCustomPageBuild(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CustomPageBuild{}, ErrCustomPageBuildNotFound
@@ -88,7 +88,7 @@ func (r *CustomBuildRepo) ClaimPending(ctx context.Context) (CustomPageBuild, er
 	// 用 SELECT ... FOR UPDATE SKIP LOCKED + UPDATE 简化版：先 SELECT 一条
 	// pending，再 SetBuilding。两次往返但 SKIP LOCKED 让并发安全；builder
 	// 只一实例，先这样。
-	q := dbq.New(r.pool)
+	q := db.New(r.pool)
 	pending, err := q.ClaimPendingBuild(ctx)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -111,7 +111,7 @@ func (r *CustomBuildRepo) MarkBuilt(
 	if perr != nil {
 		return CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).SetCustomPageBuildBuilt(ctx, dbq.SetCustomPageBuildBuiltParams{
+	row, err := db.New(r.pool).SetCustomPageBuildBuilt(ctx, db.SetCustomPageBuildBuiltParams{
 		ID: pgID, OutputPath: outputPath,
 	})
 	if err != nil {
@@ -128,7 +128,7 @@ func (r *CustomBuildRepo) MarkFailed(
 	if perr != nil {
 		return CustomPageBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).SetCustomPageBuildFailed(ctx, dbq.SetCustomPageBuildFailedParams{
+	row, err := db.New(r.pool).SetCustomPageBuildFailed(ctx, db.SetCustomPageBuildFailedParams{
 		ID: pgID, ErrorMessage: errMsg,
 	})
 	if err != nil {
@@ -137,7 +137,7 @@ func (r *CustomBuildRepo) MarkFailed(
 	return toDomainBuild(&row)
 }
 
-func toDomainBuild(row *dbq.CustomPageBuild) (CustomPageBuild, error) {
+func toDomainBuild(row *db.CustomPageBuild) (CustomPageBuild, error) {
 	build := CustomPageBuild{
 		ID:           pgstore.FormatUUID(row.ID),
 		PageID:       pgstore.FormatUUID(row.PageID),
