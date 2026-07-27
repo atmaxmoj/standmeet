@@ -3,22 +3,19 @@
 // 业务逻辑薄：sole owner lookup + 必填字段校验。状态机由 domain 层和
 // DB CHECK 共同把守，usecase 只做"白名单"判断。
 
-package usecases
+package access
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
-// AccessRequestsDeps —— SubmitForOwner / ListForOwner / UpdateStatus 共享依赖。
-type AccessRequestsDeps struct {
-	Repo   *access.RequestRepo
-	Owners *owner.Repo
+// RequestsDeps —— SubmitForOwner / ListForOwner / UpdateStatus 共享依赖。
+type RequestsDeps struct {
+	Repo   *RequestRepo
+	Owners SoleOwnerLookup
 }
 
 // SubmitAccessRequestInput —— 公共 POST /api/v1/access-requests 入参。
@@ -33,21 +30,21 @@ type SubmitAccessRequestInput struct {
 // SubmitForOwner —— 公共接口：visitor 留言。
 // 必填 email + message；instance 必须已 claim（否则 ErrOwnerNotFound）。
 func SubmitForOwner(
-	ctx context.Context, deps AccessRequestsDeps, in *SubmitAccessRequestInput,
-) (access.Request, error) {
+	ctx context.Context, deps RequestsDeps, in *SubmitAccessRequestInput,
+) (Request, error) {
 	if !validSubmitInput(in) {
-		return access.Request{}, apierr.ErrEmptyField
+		return Request{}, apierr.ErrEmptyField
 	}
-	soleOwner, err := loadSoleOwnerForRequest(ctx, deps)
+	ownerID, err := deps.Owners.SoleOwnerID(ctx)
 	if err != nil {
-		return access.Request{}, err
+		return Request{}, fmt.Errorf("resolve sole owner: %w", err)
 	}
-	out, err := deps.Repo.Create(ctx, &access.CreateAccessRequestInput{
-		OwnerID: soleOwner.ID, Name: in.Name, Org: in.Org,
+	out, err := deps.Repo.Create(ctx, &CreateAccessRequestInput{
+		OwnerID: ownerID, Name: in.Name, Org: in.Org,
 		Email: in.Email, Message: in.Message,
 	})
 	if err != nil {
-		return access.Request{}, fmt.Errorf("create access request: %w", err)
+		return Request{}, fmt.Errorf("create access request: %w", err)
 	}
 	return out, nil
 }
@@ -56,35 +53,15 @@ func validSubmitInput(in *SubmitAccessRequestInput) bool {
 	return in.Email != "" && in.Message != ""
 }
 
-func loadSoleOwnerForRequest(
-	ctx context.Context, deps AccessRequestsDeps,
-) (owner.Owner, error) {
-	handle, err := deps.Owners.FirstHandle(ctx)
-	if err != nil {
-		return owner.Owner{}, fmt.Errorf("first owner handle: %w", err)
-	}
-	if handle == "" {
-		return owner.Owner{}, owner.ErrOwnerNotFound
-	}
-	soleOwner, oerr := deps.Owners.GetByHandle(ctx, handle)
-	if oerr != nil {
-		if errors.Is(oerr, owner.ErrOwnerNotFound) {
-			return owner.Owner{}, owner.ErrOwnerNotFound
-		}
-		return owner.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
-	}
-	return soleOwner, nil
-}
-
 // ListForOwner —— admin list。status 可空，空 = 全部。
 func ListForOwner(
-	ctx context.Context, deps AccessRequestsDeps, ownerID, status string,
-) ([]access.Request, error) {
+	ctx context.Context, deps RequestsDeps, ownerID, status string,
+) ([]Request, error) {
 	if ownerID == "" {
 		return nil, apierr.ErrEmptyField
 	}
 	if !validStatusFilter(status) {
-		return nil, access.ErrAccessRequestStatusInvalid
+		return nil, ErrAccessRequestStatusInvalid
 	}
 	rows, err := deps.Repo.ListByOwner(ctx, ownerID, status)
 	if err != nil {
@@ -95,17 +72,17 @@ func ListForOwner(
 
 // UpdateAccessRequestStatus —— admin 改 status。status 必须是 open/replied/closed。
 func UpdateAccessRequestStatus(
-	ctx context.Context, deps AccessRequestsDeps, ownerID, id, status string,
-) (access.Request, error) {
+	ctx context.Context, deps RequestsDeps, ownerID, id, status string,
+) (Request, error) {
 	if ownerID == "" || id == "" {
-		return access.Request{}, apierr.ErrEmptyField
+		return Request{}, apierr.ErrEmptyField
 	}
 	if !validStatus(status) {
-		return access.Request{}, access.ErrAccessRequestStatusInvalid
+		return Request{}, ErrAccessRequestStatusInvalid
 	}
 	out, err := deps.Repo.UpdateStatus(ctx, ownerID, id, status)
 	if err != nil {
-		return access.Request{}, fmt.Errorf("update access request: %w", err)
+		return Request{}, fmt.Errorf("update access request: %w", err)
 	}
 	return out, nil
 }

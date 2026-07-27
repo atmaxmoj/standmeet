@@ -11,7 +11,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
@@ -90,7 +89,10 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 // ownerAccessRequestsDeps —— access-request list/update + approve (issues a code, mails it).
 func ownerAccessRequestsDeps(d *runtimeDeps) *ownercore.AccessRequestsOwnerDeps {
 	return &ownercore.AccessRequestsOwnerDeps{
-		Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
+		Reqs: access.RequestsDeps{
+			Repo:   d.accessRequestRepo,
+			Owners: soleOwnerLookup{owners: d.ownerRepo},
+		},
 		Approve: owner.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Proxy: outboundSender(d),

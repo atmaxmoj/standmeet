@@ -15,12 +15,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // AccessRequestsDeps —— admin access-requests handlers 依赖。
 type AccessRequestsDeps struct {
-	Reqs    usecases.AccessRequestsDeps
+	Reqs    access.RequestsDeps
 	Approve owner.ApproveRequestDeps
 }
 
@@ -70,7 +69,7 @@ func (h *Handlers) listAccessRequests() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		status := r.URL.Query().Get("status")
-		rows, err := usecases.ListForOwner(r.Context(), h.AccessRequests.Reqs, ownerID, status)
+		rows, err := access.ListForOwner(r.Context(), h.AccessRequests.Reqs, ownerID, status)
 		if err != nil {
 			handleAdminAccessRequestErr(h.Log, w, err)
 			return
@@ -88,7 +87,7 @@ func (h *Handlers) updateAccessRequest() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		out, err := usecases.UpdateAccessRequestStatus(
+		out, err := access.UpdateAccessRequestStatus(
 			r.Context(), h.AccessRequests.Reqs, ownerID, id, body.Status,
 		)
 		if err != nil {

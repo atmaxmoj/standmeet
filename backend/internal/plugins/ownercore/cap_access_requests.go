@@ -16,16 +16,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const capAccessRequestsBundle = "access_requests.bundle"
 
 // AccessRequestsOwnerDeps —— newAccessRequestsCapability 入参打包。list/update 走
-// Reqs (usecases.AccessRequestsDeps)；approve 闭环 (issue code + mail) 走 Approve
+// Reqs (access.RequestsDeps)；approve 闭环 (issue code + mail) 走 Approve
 // (owner.ApproveRequestDeps)。
 type AccessRequestsOwnerDeps struct {
-	Reqs    usecases.AccessRequestsDeps
+	Reqs    access.RequestsDeps
 	Approve owner.ApproveRequestDeps
 }
 
@@ -116,7 +115,7 @@ func (c *accessRequestsCapability) handleList(
 			return capreg.MCPError("invalid arguments: " + err.Error())
 		}
 	}
-	rows, err := usecases.ListForOwner(ctx, c.deps.Reqs, ownerID, args.Status)
+	rows, err := access.ListForOwner(ctx, c.deps.Reqs, ownerID, args.Status)
 	if err != nil {
 		return c.errToResult("access_requests.list", err)
 	}
@@ -173,7 +172,7 @@ func (c *accessRequestsCapability) handleUpdate(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	out, err := usecases.UpdateAccessRequestStatus(
+	out, err := access.UpdateAccessRequestStatus(
 		ctx, c.deps.Reqs, ownerID, args.ID, args.Status,
 	)
 	if err != nil {

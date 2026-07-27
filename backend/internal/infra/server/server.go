@@ -76,7 +76,7 @@ type AdminDeps struct {
 	Ghosts          conversation.GhostDeps
 	BYOAI           owner.BYOAIDeps
 	Domains         owner.AllowedDomainsDeps
-	AccessRequests  usecases.AccessRequestsDeps
+	AccessRequests  access.RequestsDeps
 	HandleAdmin     owner.HandleDeps
 	PublicURLAdmin  owner.PublicURLDeps
 	AccountAdmin    owner.AccountDeps

@@ -14,12 +14,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // AccessRequestsHandlers —— public access-request route 依赖。
 type AccessRequestsHandlers struct {
-	Reqs usecases.AccessRequestsDeps
+	Reqs access.RequestsDeps
 	Log  *slog.Logger
 }
 
@@ -47,8 +46,8 @@ func (h *AccessRequestsHandlers) submit() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		out, err := usecases.SubmitForOwner(
-			r.Context(), h.Reqs, &usecases.SubmitAccessRequestInput{
+		out, err := access.SubmitForOwner(
+			r.Context(), h.Reqs, &access.SubmitAccessRequestInput{
 				Name: req.Name, Org: req.Org,
 				Email: req.Email, Message: req.Message,
 			},

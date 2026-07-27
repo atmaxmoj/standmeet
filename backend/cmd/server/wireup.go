@@ -93,10 +93,13 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
 			Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		},
-		Ghosts:         conversation.GhostDeps{Repo: d.ghostRepo},
-		BYOAI:          owner.BYOAIDeps{Owners: d.ownerRepo},
-		Domains:        owner.AllowedDomainsDeps{Instance: d.instanceRepo},
-		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
+		Ghosts:  conversation.GhostDeps{Repo: d.ghostRepo},
+		BYOAI:   owner.BYOAIDeps{Owners: d.ownerRepo},
+		Domains: owner.AllowedDomainsDeps{Instance: d.instanceRepo},
+		AccessRequests: access.RequestsDeps{
+			Repo:   d.accessRequestRepo,
+			Owners: soleOwnerLookup{owners: d.ownerRepo},
+		},
 		HandleAdmin:    owner.HandleDeps{Owners: d.ownerRepo},
 		PublicURLAdmin: owner.PublicURLDeps{Owners: d.ownerRepo},
 		AccountAdmin:   owner.AccountDeps{Owners: d.ownerRepo},
@@ -313,8 +316,11 @@ func buildPublicCustomPageDeps(d *runtimeDeps) publicroutes.CustomPageHandlers {
 
 func buildPublicAccessRequestsDeps(d *runtimeDeps) publicroutes.AccessRequestsHandlers {
 	return publicroutes.AccessRequestsHandlers{
-		Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
-		Log:  d.log,
+		Reqs: access.RequestsDeps{
+			Repo:   d.accessRequestRepo,
+			Owners: soleOwnerLookup{owners: d.ownerRepo},
+		},
+		Log: d.log,
 	}
 }
 
