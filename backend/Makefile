@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic internal-dirs
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container no-raw-http arch connector-boundary core-agnostic build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs build-check golangci escape-lint secrets
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -63,6 +63,11 @@ connector-boundary:
 # inside a kernel package. Baseline .core-agnostic-baseline only ever shrinks.
 core-agnostic:
 	@bash ../infra/scripts/check-core-agnostic.sh
+
+# #135 类图对齐:internal/ 只允许类图 8 core 模块 + routes + usecases + domain-less infra。
+# 类图里没有的目录(plugins 等)是"多出来的",baseline 只能缩 —— 逼着一个个拆掉归位。
+internal-dirs:
+	@bash ../infra/scripts/check-internal-dirs.sh
 
 # Catch compile errors at lint time.
 build-check:
