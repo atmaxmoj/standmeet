@@ -84,7 +84,7 @@ components:
   owner:
     in: internal/owner               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
   sandbox:
-    in: internal/infra/sandbox                  # owner-curated skill script 在 docker container 里跑
+    in: internal/capabilities/sandbox                  # owner-curated skill script 在 docker container 里跑
   capabilities:
     in: internal/capabilities              # capability 轴 domain doc (root)
   capreg:
@@ -96,7 +96,7 @@ components:
   capsocket:
     in: internal/capabilities/capsocket                # 窄 unix-socket host 服务：断网沙箱插件经 bind 进的 socket 调后端 op (leaf)
   sandboxws:
-    in: internal/infra/sandboxws                # per-session 沙箱工作区生命周期：懒建/TTL/cron sweep (leaf)
+    in: internal/capabilities/sandboxws                # per-session 沙箱工作区生命周期：懒建/TTL/cron sweep (leaf)
   storage:
     in: internal/infra/storage                  # MinIO/S3 对象存储 (图片 / 附件)
   connector:

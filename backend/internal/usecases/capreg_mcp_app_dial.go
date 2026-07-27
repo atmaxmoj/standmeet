@@ -12,7 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
-	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 )
 
 // transportDialers —— 每种 transport 一个拨号器，dialMCPApp 查表分发。in_process

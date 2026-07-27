@@ -16,7 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/sandboxws"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/sandboxws"
 )
 
 // DiagSandboxDeps —— deps for the sandbox workspace lifecycle diag endpoints.

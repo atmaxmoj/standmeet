@@ -132,7 +132,7 @@ linters:
         - anon
         - stdlib
         - github.com/atmaxmoj/standmeet/internal/conversation/inference.Provider
-        - github.com/atmaxmoj/standmeet/internal/infra/sandbox.Runner
+        - github.com/atmaxmoj/standmeet/internal/capabilities/sandbox.Runner
         - github.com/atmaxmoj/standmeet/internal/connector/contract.CalendarProxy
         - github.com/atmaxmoj/standmeet/internal/connector/contract.MailProxy
         - github.com/atmaxmoj/standmeet/internal/corpus.Document
@@ -329,7 +329,7 @@ linters:
       - path: internal/plugins/jobs/fetch/
         linters: [testpackage]
       # sweep TOCTOU test uses unexported Manager fields + stillStale → in-package white-box.
-      - path: internal/infra/sandboxws/
+      - path: internal/capabilities/sandboxws/
         linters: [testpackage]
       # dbq repro asserts the generated UpdateNoteSEO query string (unexported const) carries the
       # owner_id tenant filter → must be in-package white-box.
