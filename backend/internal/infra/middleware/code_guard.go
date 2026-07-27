@@ -19,7 +19,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/security"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -33,12 +32,12 @@ const (
 // CodeGuard —— 访问码兑换失败锁定。rdb nil → 退化为 no-op(可选/可测)。
 type CodeGuard struct {
 	rdb       *redis.Client
-	verifier  security.Verifier
+	verifier  CaptchaVerifier
 	captchaOn bool
 }
 
 // NewCodeGuard —— composition root 装配;captchaOn 表示是否真启用了 captcha(非 noop)。
-func NewCodeGuard(rdb *redis.Client, verifier security.Verifier, captchaOn bool) *CodeGuard {
+func NewCodeGuard(rdb *redis.Client, verifier CaptchaVerifier, captchaOn bool) *CodeGuard {
 	return &CodeGuard{rdb: rdb, verifier: verifier, captchaOn: captchaOn}
 }
 

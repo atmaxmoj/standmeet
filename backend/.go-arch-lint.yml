@@ -141,8 +141,6 @@ components:
     in: internal/routes/conversation      # socket 入站 API controller: conversation.read
   inferenceroutes:
     in: internal/routes/inference         # socket 入站 API controller: inference.generate
-  server:
-    in: internal/infra/server
   cmd:
     in: cmd/server
 
@@ -754,30 +752,10 @@ deps:
       - paritymanifest
     anyVendorDeps: true
 
-  # server 装配 chi 路由 + middleware；挂 admin / sysroutes / mcphandle / public sub-router。
-  server:
-    mayDependOn:
-      - sysroutes
-      - adminroutes
-      - publicroutes
-      - pubapi
-      - usecases
-      - session
-      - middleware
-      - mcphandle
-      - security
-      - capabilities
-      - owner
-      - access
-      - corpus
-      - jobsuc
-      - marketplace
-      - conversation
-    anyVendorDeps: true
-
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
+      - middleware
       - capload
       - jobsmodel
       - config
@@ -811,7 +789,6 @@ deps:
       - mcpclient
       - mcpplugin
       - storage
-      - server
       - capreg
       - capabilities
       - pluginjobs

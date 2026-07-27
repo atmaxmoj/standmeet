@@ -45,7 +45,7 @@ type Handlers struct {
 	AppState     AppStateStore
 	Resolver     inference.Resolver
 	CodeGuard    CodeGuard
-	Sessions     *session.VisitorSessionStore
+	Sessions     *access.VisitorSessionStore
 	QueryQueue   *session.QueryQueue
 	Ledger       *conversation.WaypointLedger
 	Ghosts       conversation.GhostDeps
@@ -161,7 +161,7 @@ var visitorErrCases = []apierr.Case{
 // authedVisitor —— bundled return of authVisitorWithToken; rich-return
 // avoids funcresult-limit lint cap.
 type authedVisitor struct {
-	Data  *session.VisitorSessionData
+	Data  *access.VisitorSessionData
 	Token string
 }
 

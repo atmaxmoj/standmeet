@@ -28,7 +28,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/server"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	"github.com/atmaxmoj/standmeet/internal/owner"
@@ -250,7 +249,7 @@ func closeRedis(log *slog.Logger, rdb *redis.Client) {
 func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.CancelFunc) error {
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           server.New(buildServerDeps(deps)),
+		Handler:           New(buildServerDeps(deps)),
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 		ReadTimeout:       httpReadTimeout,
 		WriteTimeout:      httpWriteTimeout,

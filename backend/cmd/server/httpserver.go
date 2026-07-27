@@ -1,7 +1,8 @@
-// Package server 装配 chi 路由（不做业务）。把各 interfaces 子包的 Mount
-// 拉到一起，加上跨 sub-router 共享的中间件（request id、slog request log、
-// recovery）。
-package server
+// httpserver.go —— composition root 的 HTTP 装配(原 internal/infra/server,按
+// routes-not-imported/infra-not-domain 层次移进 cmd)。把各 routes 子包的 Mount 拉到一起,
+// 加跨 sub-router 共享中间件(request id、slog request log、recovery)。不做业务。
+
+package main
 
 import (
 	"log/slog"

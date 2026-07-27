@@ -23,7 +23,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // wikiTreeLayerCap —— 一层最多返多少节点。逐层懒加载下这是**单层**上限(不是全
@@ -57,7 +56,7 @@ func RoleWikiScope(snap *access.RoleSnapshot) WikiTreeScope {
 // WikiTreeScopeFor —— bearer token → scope。token 空 / 无效 / 无 store 都退到
 // 匿名(只 published);有效 session → role corpus_uris scope。
 func WikiTreeScopeFor(
-	ctx context.Context, sessions *session.VisitorSessionStore, token string,
+	ctx context.Context, sessions *access.VisitorSessionStore, token string,
 ) WikiTreeScope {
 	snap := sessionRoleSnapshot(ctx, sessions, token)
 	if snap == nil {
@@ -68,7 +67,7 @@ func WikiTreeScopeFor(
 
 // sessionRoleSnapshot —— token 换 RoleSnapshot;任何缺失/错误 → nil(退匿名)。
 func sessionRoleSnapshot(
-	ctx context.Context, sessions *session.VisitorSessionStore, token string,
+	ctx context.Context, sessions *access.VisitorSessionStore, token string,
 ) *access.RoleSnapshot {
 	if token == "" || sessions == nil {
 		return nil

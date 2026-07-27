@@ -10,7 +10,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // VisitorSessionDeps / VisitorSkillsDeps 拆到 visitor_deps.go 守 max-lines。
@@ -44,7 +43,7 @@ type SessionQuota struct {
 // 字段顺序：重 sub-struct (Conversation / Session) 在前，slice 中，strings
 // 后，int 末 —— 让 fieldalignment 满意。
 type IssueCodeSessionResult struct {
-	Session     session.IssuedVisitor
+	Session     access.IssuedVisitor
 	Code        string
 	CodeLabel   string
 	VisitorName string
@@ -57,7 +56,7 @@ type IssueCodeSessionResult struct {
 
 // codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
 type codeSessionArtifacts struct {
-	Issued session.IssuedVisitor
+	Issued access.IssuedVisitor
 	Conv   Chat
 	Member access.CodeMember
 }
@@ -302,8 +301,8 @@ func createCodeConversation(
 func buildCodeSessionData(
 	code *access.Code, visitor access.VisitorProfile,
 	memberID string, snapshot *access.RoleSnapshot,
-) *session.VisitorSessionData {
-	return &session.VisitorSessionData{
+) *access.VisitorSessionData {
+	return &access.VisitorSessionData{
 		OwnerID:      code.OwnerID,
 		Mode:         "code",
 		CodeID:       code.ID,

@@ -20,12 +20,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // DiagSessionDeps —— deps for /diag/session.
 type DiagSessionDeps struct {
-	Sessions *session.VisitorSessionStore
+	Sessions *access.VisitorSessionStore
 	Registry *capreg.Registry
 	Log      *slog.Logger
 }
@@ -78,7 +77,7 @@ func diagSessionHandler(deps DiagSessionDeps) http.HandlerFunc {
 
 func writeDiagSession(
 	ctx context.Context, deps *DiagSessionDeps,
-	w http.ResponseWriter, data *session.VisitorSessionData,
+	w http.ResponseWriter, data *access.VisitorSessionData,
 ) {
 	resp := buildDiagSessionResp(ctx, deps.Registry, data)
 	w.Header().Set("Content-Type", "application/json")
@@ -94,7 +93,7 @@ func writeDiagSession(
 // hash 反映实际下行 prompt。
 func buildDiagSessionResp(
 	ctx context.Context, reg *capreg.Registry,
-	data *session.VisitorSessionData,
+	data *access.VisitorSessionData,
 ) diagSessionResp {
 	in := &capreg.AssembleInput{
 		RoleSnapshot: data.RoleSnapshot,
@@ -168,7 +167,7 @@ func toolDesc(ctx context.Context, t *capreg.BindingTool) string {
 }
 
 func writeSessionLookupErr(w http.ResponseWriter, err error) {
-	if errors.Is(err, session.ErrVisitorSessionNotFound) {
+	if errors.Is(err, access.ErrVisitorSessionNotFound) {
 		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}

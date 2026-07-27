@@ -4,7 +4,7 @@
 // the index and DeleteByCode silently missed it. Uses miniredis + FastForward for a deterministic
 // TTL clock (no real Redis, no wall-clock waiting).
 
-package session_test
+package access_test
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
+	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 func TestRevokeFindsLongLivedActiveSession(t *testing.T) {
@@ -23,10 +23,10 @@ func TestRevokeFindsLongLivedActiveSession(t *testing.T) {
 	mr, err := miniredis.Run()
 	require.NoError(t, err)
 	t.Cleanup(mr.Close)
-	store := session.NewVisitorSessionStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
+	store := access.NewVisitorSessionStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
 	ctx := context.Background()
 
-	issued, err := store.Issue(ctx, &session.VisitorSessionData{
+	issued, err := store.Issue(ctx, &access.VisitorSessionData{
 		CodeID: "code-1", OwnerID: "owner-1", Mode: "code",
 	})
 	require.NoError(t, err)
@@ -42,5 +42,5 @@ func TestRevokeFindsLongLivedActiveSession(t *testing.T) {
 	// Revoke the code — must still find + kill the active session.
 	require.NoError(t, store.DeleteByCode(ctx, "code-1"))
 	_, gerr := store.Get(ctx, issued.Token)
-	require.ErrorIs(t, gerr, session.ErrVisitorSessionNotFound, "revoked session must be gone")
+	require.ErrorIs(t, gerr, access.ErrVisitorSessionNotFound, "revoked session must be gone")
 }

@@ -13,9 +13,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 type ghostResp struct {
@@ -71,7 +70,7 @@ func (h *Handlers) getConversation() http.HandlerFunc {
 }
 
 func writeConversation(
-	h *Handlers, w http.ResponseWriter, r *http.Request, data *session.VisitorSessionData,
+	h *Handlers, w http.ResponseWriter, r *http.Request, data *access.VisitorSessionData,
 ) {
 	view, err := conversation.LoadVisitorView(r.Context(), h.Visitor.History(), data)
 	if err != nil {

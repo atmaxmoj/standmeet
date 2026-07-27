@@ -180,7 +180,7 @@ func assembleRuntimeDeps(
 		jobCachePool:       jobcache.New(c.rdb, 0),
 		jobFetchRegistry:   newJobFetchRegistry(cfg),
 		sessionStore:       session.NewOwnerSessionStore(c.rdb),
-		visitorStore:       session.NewVisitorSessionStore(c.rdb),
+		visitorStore:       access.NewVisitorSessionStore(c.rdb),
 		queryQueue:         session.NewQueryQueue(cfg.QueryQueueMaxConcurrent),
 		providerResolver:   dw.providerResolver,
 		setupTokenHolder:   dw.setupTokenHolder,

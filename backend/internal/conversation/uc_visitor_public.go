@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -84,7 +83,7 @@ func finalizePublicSession(
 	if sserr != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("freeze public snapshot: %w", sserr)
 	}
-	issued, err := deps.Sessions.Issue(ctx, &session.VisitorSessionData{
+	issued, err := deps.Sessions.Issue(ctx, &access.VisitorSessionData{
 		OwnerID:      o.ID,
 		Mode:         mode,
 		Visitor:      access.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},

@@ -87,7 +87,7 @@ type runtimeDeps struct {
 	jobFetchRegistry   *jobfetch.Registry
 	pluginRegistry     *capabilities.Registry
 	sessionStore       *session.OwnerSessionStore
-	visitorStore       *session.VisitorSessionStore
+	visitorStore       *access.VisitorSessionStore
 	queryQueue         *session.QueryQueue
 	providerResolver   inference.Resolver
 	setupTokenHolder   *session.SetupTokenHolder

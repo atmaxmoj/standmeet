@@ -12,7 +12,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/infra/server"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
@@ -25,8 +24,8 @@ import (
 
 // buildServerDeps —— 把每个 sub-router 的 Deps 块组装出来。serve() 不再
 // 直接铺开 50+ 行 struct literal，function-length lint 友好。
-func buildServerDeps(d *runtimeDeps) *server.Deps {
-	return &server.Deps{
+func buildServerDeps(d *runtimeDeps) *Deps {
+	return &Deps{
 		DB:                   d.db,
 		Redis:                d.rdb,
 		Log:                  d.log,
@@ -77,8 +76,8 @@ func runBootMaintenance(ctx context.Context, d *runtimeDeps) {
 	}
 }
 
-func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
-	return server.AdminDeps{
+func buildAdminDeps(d *runtimeDeps) AdminDeps {
+	return AdminDeps{
 		Claim: owner.ClaimDeps{
 			Instance: d.instanceRepo, Skills: d.skillRepo,
 			Prompts: d.promptRepo, Roles: d.roleRepo,

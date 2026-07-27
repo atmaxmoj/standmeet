@@ -15,7 +15,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -277,7 +276,7 @@ func nonNilStringSlice(s []string) []string {
 // 里。跟 dev /internal/test/visitor-capabilities 一致，让两处 capability
 // shape 完全同源。
 func assembleInputFromSession(
-	data *session.VisitorSessionData, conversationID string,
+	data *access.VisitorSessionData, conversationID string,
 ) *capreg.AssembleInput {
 	return &capreg.AssembleInput{
 		RoleSnapshot:   data.RoleSnapshot,

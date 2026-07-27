@@ -16,7 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -29,7 +29,7 @@ type SEOHandlers struct {
 	Deps owner.SEODeps
 	// Sessions —— 可选;wiki-tree 端点用它把 bearer token 换 RoleSnapshot 做
 	// code-scope。nil(如 MountRoot 那条只挂 robots/sitemap)→ 退到匿名 scope。
-	Sessions *session.VisitorSessionStore
+	Sessions *access.VisitorSessionStore
 	Log      *slog.Logger
 }
 

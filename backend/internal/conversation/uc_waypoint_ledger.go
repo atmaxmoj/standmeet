@@ -15,13 +15,12 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // WaypointLedgerDeps —— cited id → URI 解析(VaultSync)+ session 存盘。
 type WaypointLedgerDeps struct {
 	Notes    *corpus.VaultSyncRepo
-	Sessions *session.VisitorSessionStore
+	Sessions *access.VisitorSessionStore
 	Log      *slog.Logger
 }
 
@@ -34,7 +33,7 @@ type WaypointLedger struct {
 
 // NewWaypointLedger —— composition root 用。
 func NewWaypointLedger(
-	notes *corpus.VaultSyncRepo, sessions *session.VisitorSessionStore, log *slog.Logger,
+	notes *corpus.VaultSyncRepo, sessions *access.VisitorSessionStore, log *slog.Logger,
 ) *WaypointLedger {
 	return &WaypointLedger{deps: &WaypointLedgerDeps{Notes: notes, Sessions: sessions, Log: log}}
 }
@@ -47,7 +46,7 @@ func (l *WaypointLedger) Mark(ctx context.Context, in *MarkWaypointsInput) {
 // MarkWaypointsInput —— 一轮的 ledger 输入。Data 传值(本地改 VisitedWaypoints 再存回)。
 type MarkWaypointsInput struct {
 	Token        string
-	Data         session.VisitorSessionData
+	Data         access.VisitorSessionData
 	CitedNoteIDs []string
 	TerminalOK   bool
 }

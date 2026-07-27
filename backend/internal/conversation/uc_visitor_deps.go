@@ -11,7 +11,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
@@ -25,7 +24,7 @@ type VisitorSessionDeps struct {
 	Skills   SkillGetter // role snapshot freeze 读 ListSkillsForRole
 	Roles    *access.RoleRepo
 	Prompts  *owner.PromptRepo
-	Sessions *session.VisitorSessionStore
+	Sessions *access.VisitorSessionStore
 	Wiki     corpus.WikiLister // 历史恢复 hydrate conversation view
 	Writing  corpus.WritingLister
 	Output   corpus.OutputLister

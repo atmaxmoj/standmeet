@@ -23,7 +23,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // HistoryDeps —— 会话读模型的窄依赖(#131):code 配额 + chat 事务 + 三类 corpus
@@ -66,7 +65,7 @@ type ConvDialog struct {
 // LoadVisitorView —— 凭 session data 拼出 {session, conversation}。无 code
 // (public/byoai)→ Code 留零值;还没开会 → Conversation.Dialogs 空。
 func LoadVisitorView(
-	ctx context.Context, deps *HistoryDeps, data *session.VisitorSessionData,
+	ctx context.Context, deps *HistoryDeps, data *access.VisitorSessionData,
 ) (VisitorView, error) {
 	conv, err := loadConversation(ctx, deps, data.MemberID, data.OwnerID)
 	if err != nil {

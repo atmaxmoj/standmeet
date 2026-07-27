@@ -5,18 +5,18 @@
 // TTL：60min 滑动，max 8h（简化版只滑 60min，max 后续再加）。
 // 撤销：DEL key。
 
-package session
+package access
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-
-	"github.com/atmaxmoj/standmeet/internal/access"
 )
 
 const (
@@ -46,16 +46,16 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 // 用 HKDF(session_token) 派生的 AES-GCM 解封即用即丢。
 // 集中存储：browser 一处，session 不分摊。
 type VisitorSessionData struct {
-	ExpiresAt    time.Time            `json:"expires_at"`
-	MaxBookings  *int32               `json:"max_bookings,omitempty"`
-	RoleSnapshot *access.RoleSnapshot `json:"role_snapshot"`
-	OwnerID      string               `json:"owner_id"`
-	Mode         string               `json:"mode"`
-	CodeID       string               `json:"code_id"`
-	MemberID     string               `json:"member_id"`
+	ExpiresAt    time.Time     `json:"expires_at"`
+	MaxBookings  *int32        `json:"max_bookings,omitempty"`
+	RoleSnapshot *RoleSnapshot `json:"role_snapshot"`
+	OwnerID      string        `json:"owner_id"`
+	Mode         string        `json:"mode"`
+	CodeID       string        `json:"code_id"`
+	MemberID     string        `json:"member_id"`
 	// Visitor —— 访客自述身份(name + 可选 email)。挂 session(visitor 身份),
 	// 不挂 chat。booker 拿 Email 当 visitor_email 兜底。
-	Visitor access.VisitorProfile `json:"visitor"`
+	Visitor VisitorProfile `json:"visitor"`
 	// VisitedWaypoints —— ghost-steering 的 waypoint ledger:已到访的 waypoint_id 集
 	// (引用命中 evidence_refs / booking 命中 terminal → 加入)。ghost policy 只推未访问的;
 	// 全到 = destination reached。机械标记,无 LLM 判官(α≈0)。
@@ -183,4 +183,13 @@ func (s *VisitorSessionStore) delTokens(ctx context.Context, tokens []string) er
 		}
 	}
 	return nil
+}
+
+// randomToken —— crypto-random token(prefix + base64url)。访客 session 自持,不借 session 包的。
+func randomToken(byteLen int, prefix string) (string, error) {
+	buf := make([]byte, byteLen)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("read random: %w", err)
+	}
+	return prefix + base64.RawURLEncoding.EncodeToString(buf), nil
 }

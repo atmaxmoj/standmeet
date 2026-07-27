@@ -15,7 +15,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // CodesDeps —— admin codes handlers 依赖。Roles 用来 owner 不显式给
@@ -24,7 +23,7 @@ import (
 type CodesDeps struct {
 	Codes    *access.CodeRepo
 	Roles    *access.RoleRepo
-	Sessions *session.VisitorSessionStore
+	Sessions *access.VisitorSessionStore
 	Denials  *access.CodeDenialRepo // ACL code 层 deny 读写
 	// Booking —— #135: 预约配额不进内核 access_code,由 booker 能力自己管。见 codes_booking.go。
 	Booking BookingQuotaStore

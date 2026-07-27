@@ -1,4 +1,0 @@
-internal/infra/middleware/code_guard.go
-internal/infra/middleware/login_guard.go
-internal/infra/server/server.go
-internal/infra/session/visitor_session.go

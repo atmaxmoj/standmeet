@@ -20,9 +20,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
-	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
 // AppStateStore —— mcp_app_state 持久层（route 注入；wireup 接 postgres repo）。
@@ -124,7 +124,7 @@ func (h *Handlers) resolveAppScope(w http.ResponseWriter, r *http.Request) (appS
 
 // scopeForTool —— 装配访客 bindings → 从 {tool} 派生 mcp_id + ACL（tool 须已授权）。
 func (h *Handlers) scopeForTool(
-	w http.ResponseWriter, r *http.Request, data *session.VisitorSessionData,
+	w http.ResponseWriter, r *http.Request, data *access.VisitorSessionData,
 ) (appScope, bool) {
 	in := assembleInputFromSession(data, chi.URLParam(r, "id"))
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(r.Context(), in)
