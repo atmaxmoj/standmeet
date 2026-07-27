@@ -3,20 +3,25 @@
 // 校验 provider 合法 + 跟 repo 通信；明文 key 不写入 log，只透传给 repo
 // 走 AES-GCM 加密。
 
-package usecases
+package owner
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // AIProviderDeps —— UpdateOwnerAIProvider 依赖。
 type AIProviderDeps struct {
-	Owners *owner.Repo
+	Owners    *Repo
+	Providers ProviderValidator
+}
+
+// ProviderValidator —— 校验 provider 名是否是已知 preset 的窄口。owner 不反依赖
+// inference(inference→owner 会成环);composition root 用 inference.Lookup 适配进来。
+type ProviderValidator interface {
+	Known(provider string) bool
 }
 
 // UpdateOwnerAIProviderInput —— 入参。
@@ -51,11 +56,11 @@ const (
 // （preset 给 UI 默认填值，server 端不做 fallback，避免 DB 落部分 row）。
 func UpdateOwnerAIProvider(
 	ctx context.Context, deps AIProviderDeps, in *UpdateOwnerAIProviderInput,
-) (owner.Settings, error) {
-	if verr := validateAIProviderInput(in); verr != nil {
-		return owner.Settings{}, verr
+) (Settings, error) {
+	if verr := validateAIProviderInput(deps.Providers, in); verr != nil {
+		return Settings{}, verr
 	}
-	s, err := deps.Owners.UpdateAIProvider(ctx, &owner.UpdateAIProviderInput{
+	s, err := deps.Owners.UpdateAIProvider(ctx, &UpdateAIProviderInput{
 		OwnerID:      in.OwnerID,
 		Provider:     in.Provider,
 		Endpoint:     in.Endpoint,
@@ -63,13 +68,13 @@ func UpdateOwnerAIProvider(
 		KeyPlaintext: resolveKeyArg(in.KeyChange, in.Key),
 	})
 	if err != nil {
-		return owner.Settings{}, fmt.Errorf("update ai provider: %w", err)
+		return Settings{}, fmt.Errorf("update ai provider: %w", err)
 	}
 	return s, nil
 }
 
-func validateAIProviderInput(in *UpdateOwnerAIProviderInput) error {
-	if _, ok := inference.Lookup(in.Provider); !ok {
+func validateAIProviderInput(providers ProviderValidator, in *UpdateOwnerAIProviderInput) error {
+	if !providers.Known(in.Provider) {
 		return fmt.Errorf("%w: unknown provider %q", apierr.ErrEmptyField, in.Provider)
 	}
 	if in.Endpoint == "" || in.Model == "" {

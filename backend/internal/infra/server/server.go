@@ -27,7 +27,6 @@ import (
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
 	"github.com/atmaxmoj/standmeet/internal/security"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。
@@ -68,7 +67,7 @@ type Deps struct {
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
-	Claim           usecases.ClaimDeps
+	Claim           owner.ClaimDeps
 	Login           owner.LoginDeps
 	Keypairs        owner.KeypairDeps
 	Corpus          corpus.Deps
@@ -81,7 +80,7 @@ type AdminDeps struct {
 	PublicURLAdmin  owner.PublicURLDeps
 	AccountAdmin    owner.AccountDeps
 	Recovery        owner.RecoveryDeps
-	AIProvider      usecases.AIProviderDeps
+	AIProvider      owner.AIProviderDeps
 	CustomPages     owner.CustomPageDeps
 	Skills          marketplace.SkillsDeps
 	Prompts         owner.PromptsDeps

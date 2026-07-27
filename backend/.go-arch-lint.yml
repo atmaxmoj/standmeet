@@ -624,6 +624,7 @@ deps:
   # owner —— #135 owner 模块：实体 + repo（连接器 OwnerLookup 消费 owner.Owner）。
   owner:
     mayDependOn:
+      - marketplace
       - ownerdb
       - pgstore
       - cryptobox

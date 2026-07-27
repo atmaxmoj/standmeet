@@ -7,21 +7,20 @@
 //
 // 文案匹配设计稿 docs/design/project/admin-data.js PROMPTS[0] + ROLES[0]。
 
-package usecases
+package owner
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // SeedPublicRole —— 对一个 owner 幂等 upsert public prompt + public role
 // + role_corpus_uris 三条公开 glob。
 func SeedPublicRole(
 	ctx context.Context,
-	prompts *owner.PromptRepo, roles *access.RoleRepo,
+	prompts *PromptRepo, roles *access.RoleRepo,
 	ownerID string,
 ) error {
 	promptID, err := upsertPublicPrompt(ctx, prompts, ownerID)
@@ -36,11 +35,11 @@ func SeedPublicRole(
 }
 
 func upsertPublicPrompt(
-	ctx context.Context, prompts *owner.PromptRepo, ownerID string,
+	ctx context.Context, prompts *PromptRepo, ownerID string,
 ) (string, error) {
 	prompt, err := prompts.UpsertBuiltin(
 		ctx, ownerID,
-		owner.PublicPromptName, owner.PublicPromptDescription, owner.PublicPromptBody,
+		PublicPromptName, PublicPromptDescription, PublicPromptBody,
 	)
 	if err != nil {
 		return "", fmt.Errorf("upsert public prompt: %w", err)

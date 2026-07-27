@@ -15,7 +15,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // Handlers 是 admin handlers 需要的依赖。
@@ -26,7 +25,7 @@ type Handlers struct {
 	Conversations     ConversationsDeps
 	CodesAdmin        CodesDeps
 	CapabilitiesAdmin CapabilityAdminDeps
-	Claim             usecases.ClaimDeps
+	Claim             owner.ClaimDeps
 	RolesAdmin        RolesAdminDeps
 	Corpus            CorpusDeps
 	Auth              AuthDeps
@@ -192,7 +191,7 @@ func (h *Handlers) claim() http.HandlerFunc {
 func (h *Handlers) runClaimAndAutoLogin(
 	w http.ResponseWriter, r *http.Request, req *claimRequest,
 ) {
-	claimed, err := usecases.ClaimInstance(r.Context(), h.Claim, &usecases.ClaimInput{
+	claimed, err := owner.ClaimInstance(r.Context(), h.Claim, &owner.ClaimInput{
 		Token: req.Token, Email: req.Email, Password: req.Password,
 		Handle: req.Handle, FullName: req.FullName, PublicURL: req.PublicURL,
 	})

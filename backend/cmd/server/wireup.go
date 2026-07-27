@@ -21,7 +21,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // buildServerDeps —— 把每个 sub-router 的 Deps 块组装出来。serve() 不再
@@ -80,7 +79,7 @@ func runBootMaintenance(ctx context.Context, d *runtimeDeps) {
 
 func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	return server.AdminDeps{
-		Claim: usecases.ClaimDeps{
+		Claim: owner.ClaimDeps{
 			Instance: d.instanceRepo, Skills: d.skillRepo,
 			Prompts: d.promptRepo, Roles: d.roleRepo,
 		},
@@ -105,7 +104,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		PublicURLAdmin: owner.PublicURLDeps{Owners: d.ownerRepo},
 		AccountAdmin:   owner.AccountDeps{Owners: d.ownerRepo},
 		Recovery:       recoveryDeps(d),
-		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
+		AIProvider:     owner.AIProviderDeps{Owners: d.ownerRepo, Providers: inferenceProviders{}},
 		CustomPages:    owner.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Skills:         marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		Prompts:        owner.PromptsDeps{Prompts: d.promptRepo},

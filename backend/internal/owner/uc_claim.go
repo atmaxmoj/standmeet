@@ -1,7 +1,7 @@
-// Package usecases 是 application layer：编排 domain + infra 完成一个个
-// 业务流程。usecase 函数本身要 cyclo ≤ 5（cyclop 全局限制），routes 只
-// 做最薄派发，业务分支都集中在这里。
-package usecases
+// uc_claim.go —— first-run「claim this instance」编排:建 owner + 密码 + setup-token
+// 校验 + 种 public role/prompt。跨 owner/access/marketplace/session,是 owner 域的入驻用例。
+
+package owner
 
 import (
 	"context"
@@ -13,14 +13,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // ClaimDeps 把 ClaimInstance 需要的依赖打包，避免参数列表超长。
 type ClaimDeps struct {
-	Instance *owner.InstanceRepo
+	Instance *InstanceRepo
 	Skills   *marketplace.SkillRepo
-	Prompts  *owner.PromptRepo
+	Prompts  *PromptRepo
 	Roles    *access.RoleRepo
 }
 
@@ -41,27 +40,27 @@ type ClaimInput struct {
 //
 // 返回的 Owner 不含 password；password 已经在 input 里被 hash 后写进 DB。
 // pointer 接收 *ClaimInput 避免 gocritic hugeParam。
-func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (owner.Owner, error) {
+func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (Owner, error) {
 	if err := validateClaimInput(in); err != nil {
-		return owner.Owner{}, err
+		return Owner{}, err
 	}
 
 	passwordHash, err := session.HashPassword(in.Password)
 	if err != nil {
-		return owner.Owner{}, fmt.Errorf("hash password: %w", err)
+		return Owner{}, fmt.Errorf("hash password: %w", err)
 	}
 
 	tokenHash := session.HashSetupToken(in.Token)
 
-	created, err := deps.Instance.ClaimAndCreateOwner(ctx, tokenHash, &owner.CreateOwnerInput{
+	created, err := deps.Instance.ClaimAndCreateOwner(ctx, tokenHash, &CreateOwnerInput{
 		Email:        in.Email,
 		PasswordHash: passwordHash,
 		Handle:       in.Handle,
 		FullName:     in.FullName,
-		PublicURL:    owner.NormalizePublicURL(in.PublicURL),
+		PublicURL:    NormalizePublicURL(in.PublicURL),
 	})
 	if err != nil {
-		return owner.Owner{}, fmt.Errorf("claim and create owner: %w", err)
+		return Owner{}, fmt.Errorf("claim and create owner: %w", err)
 	}
 	// FK-violation debugging: log the owner ID created + the email/handle
 	// it's bound to. Cross-reference with create-token-fk-diag logs to see
@@ -101,11 +100,11 @@ func validateClaimInput(in *ClaimInput) error {
 	if slices.Contains(fields, "") {
 		return apierr.ErrEmptyField
 	}
-	if !owner.ValidPublicURL(in.PublicURL) {
-		return owner.ErrPublicURLInvalid
+	if !ValidPublicURL(in.PublicURL) {
+		return ErrPublicURLInvalid
 	}
 	return nil
 }
 
-// owner.ValidPublicURL —— 必须 http:// 或 https:// 开头、host 非空。详细 URL 解析
-// 在 owner.NormalizePublicURL；这里只挡明显错的（空 scheme / 写了纯 host）。
+// ValidPublicURL —— 必须 http:// 或 https:// 开头、host 非空。详细 URL 解析
+// 在 NormalizePublicURL；这里只挡明显错的（空 scheme / 写了纯 host）。

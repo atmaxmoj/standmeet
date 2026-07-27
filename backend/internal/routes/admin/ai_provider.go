@@ -15,12 +15,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 // AIProviderDeps —— admin ai-provider 路由依赖。
 type AIProviderDeps struct {
-	AI usecases.AIProviderDeps
+	AI owner.AIProviderDeps
 }
 
 type aiProviderRequest struct {
@@ -75,8 +75,8 @@ func (h *Handlers) updateAIProvider() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		settings, err := usecases.UpdateOwnerAIProvider(r.Context(), h.AIProviderAdmin.AI,
-			&usecases.UpdateOwnerAIProviderInput{
+		settings, err := owner.UpdateOwnerAIProvider(r.Context(), h.AIProviderAdmin.AI,
+			&owner.UpdateOwnerAIProviderInput{
 				OwnerID: ownerID, Provider: body.Provider,
 				Endpoint: body.Endpoint, Model: body.Model,
 				KeyChange: parseKeyChange(body.KeyChange), Key: body.Key,
@@ -89,14 +89,14 @@ func (h *Handlers) updateAIProvider() http.HandlerFunc {
 	}
 }
 
-func parseKeyChange(s string) usecases.KeyChange {
+func parseKeyChange(s string) owner.KeyChange {
 	switch s {
 	case "set":
-		return usecases.KeySet
+		return owner.KeySet
 	case "clear":
-		return usecases.KeyClear
+		return owner.KeyClear
 	default:
-		return usecases.KeyKeep
+		return owner.KeyKeep
 	}
 }
 
