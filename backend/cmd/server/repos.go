@@ -10,7 +10,7 @@ import (
 	"net/url"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"

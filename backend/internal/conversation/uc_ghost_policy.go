@@ -17,7 +17,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 // GhostPolicyPrompt —— platform-owned、稳定、versioned 的机制 prompt(part_ids + hash 纪律)。

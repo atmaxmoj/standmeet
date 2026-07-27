@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"

@@ -13,7 +13,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 // SeedPublicRole —— 对一个 owner 幂等 upsert public prompt + public role

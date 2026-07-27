@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 func TestResolveCodePromptInlineWins(t *testing.T) {

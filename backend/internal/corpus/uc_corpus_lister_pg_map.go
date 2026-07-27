@@ -14,7 +14,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 // mapEnumerateLimit —— upper bound on wiki nodes loaded for the map/resolve. High enough to be

@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 const queryDefaultLimit = 50

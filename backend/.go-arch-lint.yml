@@ -80,7 +80,13 @@ components:
   corpus:
     in: internal/corpus              # #135: corpus 领域值对象 (content/document/raw/wiki/writing/output/cover/tree_node/asset/uri/visibility)；依赖 domain 拿 Timestamps/Integration
   access:
-    in: internal/access              # #135: access 领域值对象 (access_code/access_request/visitor_profile)；pure leaf
+    in: internal/access/facade       # #135: access 域 facade（对外协议）；域外只 import 这里
+  accessentity:
+    in: internal/access/entity       # access guts: 值对象/实体 + 域错误（leaf）
+  accessrepo:
+    in: internal/access/repo         # access guts: 仓储（over db + pgstore）
+  accessusecase:
+    in: internal/access/usecase      # access guts: 用例/编排 + 窄端口
   owner:
     in: internal/owner               # #135: owner 领域值对象 (owner/page_content/custom_page)；pure leaf
   sandbox:
@@ -624,11 +630,26 @@ deps:
       - capreg
     anyVendorDeps: true
 
-  # access —— #135 access 域(building full vertical)：entity + access_requests/api_keys repos。
+  # access —— #135 access 域(facade + DDD guts)。facade 只依赖自己的 guts;guts 分层无环。
   access:
     mayDependOn:
+      - accessentity
+      - accessrepo
+      - accessusecase
+    anyVendorDeps: true
+  accessentity:
+    mayDependOn: []
+    anyVendorDeps: true
+  accessrepo:
+    mayDependOn:
+      - accessentity
       - accessdb
       - pgstore
+    anyVendorDeps: true
+  accessusecase:
+    mayDependOn:
+      - accessentity
+      - accessrepo
       - apierr
     anyVendorDeps: true
 

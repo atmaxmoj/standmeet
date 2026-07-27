@@ -10,7 +10,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 // corpusRootLimit —— flat output/writing roots cap (mirrors the old retriever window of

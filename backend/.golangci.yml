@@ -253,6 +253,16 @@ linters:
       # 而不是 `facade.Verifier`(跨域会撞名/被迫起别名)。只豁免这一条 revive 规则。
       - path: internal/[a-z0-9]+/facade/
         text: "package-directory-mismatch"
+      # facade 是纯 re-export 薄壳:真正的 codedoc 在实现子包的符号上,协议总览在 package doc 里。
+      # 给每条 `type X = pkg.X` 别名再抄一遍 doc 是噪音,豁免 facade 目录的 doc/结构计数规则:
+      #   - exported / godoclint:别名不需要逐条 doc(section 注释 + package doc 已给协议)。
+      #   - max-public-structs:facade 抬整域 API,天然 >5,≤5 的"一 aggregate 一文件"启发不适用。
+      - path: internal/[a-z0-9]+/facade/
+        text: "exported"
+      - path: internal/[a-z0-9]+/facade/
+        linters: [godoclint]
+      - path: internal/[a-z0-9]+/facade/
+        text: "max-public-structs"
       # HTTP route handlers (echo `func(c) error`) only — mcphandle lives
       # under internal/routes/ too but returns capreg.MCPResult, not error,
       # so it is NOT exempt from wrapcheck (keeps its pre-move budget).
@@ -316,7 +326,7 @@ linters:
       - path: internal/domain/
         linters: [testpackage, paralleltest]
       # path_acl 的 compileGlobCached 缓存是 unexported 白盒 UT（随 role cluster 迁入 access）。
-      - path: internal/access/path_acl_cache_test.go
+      - path: internal/access/entity/path_acl_cache_test.go
         linters: [testpackage, paralleltest]
       - path: internal/conversation/uc_ghost_policy_test.go
         linters: [testpackage]

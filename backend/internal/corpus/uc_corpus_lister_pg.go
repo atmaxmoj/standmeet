@@ -14,7 +14,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 )
 

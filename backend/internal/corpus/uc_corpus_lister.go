@@ -18,7 +18,7 @@ package corpus
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 // Meta —— one corpus entry's listing/search row. Path is tree-derived, filled by

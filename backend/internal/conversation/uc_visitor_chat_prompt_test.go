@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 func snapWithPrompts(rolePrompt, codePrompt string) *access.RoleSnapshot {

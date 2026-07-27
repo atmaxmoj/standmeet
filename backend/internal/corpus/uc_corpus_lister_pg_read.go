@@ -10,7 +10,7 @@ package corpus
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 // Get —— see file header.

@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/access"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
 // TurnQuotaInput —— EnforceTurnQuota 入参 (拆出来让外部 caller pi-pivot
