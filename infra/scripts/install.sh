@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# install.sh —— self-host StandMeet 一行起脚本。
+# install.sh —— one-line bring-up script for self-hosting StandMeet.
 #
-# 用法（owner 自己服务器上）：
+# Usage (on the owner's own server):
 #   curl -fsSL https://standmeet.example.com/install.sh | PUBLIC_URL=https://me.example.com bash
-# 或本地：
+# Or locally:
 #   PUBLIC_URL=https://me.example.com ./install.sh
 #
-# 它做：
-#   1. 检查 docker / compose
-#   2. 生成 .env（POSTGRES_PASSWORD + SESSION_KEY 随机串）
+# It does:
+#   1. check docker / compose
+#   2. generate .env (POSTGRES_PASSWORD + SESSION_KEY random strings)
 #   3. docker compose up -d
-#   4. tail backend 日志取出 setup URL，打印给 owner
+#   4. tail the backend log for the setup URL, print it to the owner
 
 set -euo pipefail
 

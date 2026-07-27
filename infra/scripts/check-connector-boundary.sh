@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
-# check-connector-boundary.sh —— Phase B 结构门：凭据永不出 vault（go-arch 级）。
+# check-connector-boundary.sh —— Phase B structure gate: credentials never leave the vault (go-arch level).
 #
-# 出站连接器客户端（internal/gcal · internal/mailer，持 owner token/密码代调）
-# **只能**被 connector 层（internal/connector）+ composition root（cmd/server）
-# 依赖。capability / usecases 层**不得直接 import** —— 必须经 connector proxy 拿
-# 句柄代调。违规 = capability 代码手里就有明文 token，破坏「凭据永不出 vault」。
+# Outbound connector clients (internal/gcal · internal/mailer, which hold the owner token/password
+# and call on their behalf) **may only** be depended on by the connector layer (internal/connector)
+# + the composition root (cmd/server). The capability / usecases layers **must not import them
+# directly** —— they must get a handle through the connector proxy and call through it. A violation =
+# capability code holding a plaintext token, breaking "credentials never leave the vault".
 #
-# 配合 connector-secret-no-leak.spec.ts 从两侧夹：结构上碰不到 + 行为上不泄漏。
-# Phase B 落地（把 gcal/mailer 调用搬进 internal/connector）后本检查转绿。
+# Works with connector-secret-no-leak.spec.ts to clamp from both sides: unreachable by structure +
+# non-leaking by behavior. This check turns green once Phase B lands (moving gcal/mailer calls into internal/connector).
 set -euo pipefail
-cd "${1:-.}"   # → 目标 Go 源根（backend/）
+cd "${1:-.}"   # → target Go source root (backend/)
 
-# 允许直连出站客户端的目录：connector 层 + 接线（composition root）。
+# Directories allowed to reach the outbound clients directly: connector layer + wiring (composition root).
 ALLOWED='internal/connector|cmd/server'
 
-# find + grep（不靠 grep -r/--include 的 GNU 行为：Alpine 的 BusyBox grep 对
-# -r 的输出会带 ./ 前缀、--include 也不同，导致 ^ALLOWED 排除失配）。sed 去 ./
-# 前缀让锚点在 GNU/BusyBox 两边一致命中。
+# find + grep (do not rely on the GNU behavior of grep -r/--include: Alpine's BusyBox grep prefixes
+# -r output with ./ and treats --include differently, so the ^ALLOWED exclusion mismatches). sed strips
+# the ./ prefix so the anchor matches consistently on both GNU and BusyBox.
 violations=$(find internal cmd -name '*.go' ! -name '*_test.go' \
   -exec grep -lE '"github\.com/atmaxmoj/standmeet/internal/(gcal|mailer)"' {} + 2>/dev/null || true \
   | sed 's|^\./||' \
   | { grep -vE "^($ALLOWED)/" || true; })
 
 if [ -n "$violations" ]; then
-  echo "check-connector-boundary: 出站连接器客户端 (gcal/mailer) 只能经 connector 层。" >&2
-  echo "下列文件越界直连（凭据应走 connector proxy，capability 不得碰 token）：" >&2
+  echo "check-connector-boundary: outbound connector clients (gcal/mailer) may only be reached through the connector layer." >&2
+  echo "The following files reach them directly, out of bounds (credentials must go through the connector proxy; capability must not touch the token):" >&2
   echo "$violations" | sed 's/^/  /' >&2
   exit 1
 fi

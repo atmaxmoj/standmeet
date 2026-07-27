@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-ROOT="$(cd "${1:-.}" && pwd)"  # 目标 Go 源根（make -C backend 跑时 CWD=backend → 默认 .）
+ROOT="$(cd "${1:-.}" && pwd)"  # target Go source root (when make -C backend runs, CWD=backend → default .)
 
 # BRE-safe pattern; matched per-line below. httpx is the one allowed home.
 PATTERN='http\.Client\{|&http\.Client\{|http\.DefaultClient|http\.Get\(|http\.Post\(|http\.PostForm\(|http\.Head\('

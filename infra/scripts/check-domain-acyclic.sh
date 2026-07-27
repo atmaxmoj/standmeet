@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# check-domain-acyclic.sh —— backend/internal/ 的**域级依赖图必须无环**。
+# check-domain-acyclic.sh —— backend/internal/ **domain-level dependency graph must be acyclic**.
 #
-# go-arch-lint 只管**包级**无环(Go 本来就编译不过环)。但把每个 internal/<top-dir>/**
-# 当**一个节点**看,子包可以把一个域级环拆成包级 DAG —— 逃过 go-arch-lint。这个 lint
-# 把每个 internal 顶层目录当节点,构域间 import 图,有环即红。
+# go-arch-lint only enforces **package-level** acyclicity (Go won't compile a cycle anyway). But
+# treating each internal/<top-dir>/** as **one node**, sub-packages can split a domain-level cycle
+# into a package-level DAG —— slipping past go-arch-lint. This lint treats each internal top-level
+# directory as a node, builds the inter-domain import graph, and is red if there is a cycle.
 #
-# 每个域应是干净节点(能给它一个薄 facade);域级环 = 层次没理清,先解环。
+# Each domain should be a clean node (able to get a thin facade); a domain-level cycle = layering not sorted out, break the cycle first.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -14,8 +15,8 @@ INTERNAL="$ROOT/backend/internal"
 python3 - "$INTERNAL" <<'PY'
 import os, re, sys
 internal = sys.argv[1]
-# 域节点 = 类图 8 个 core module + capability 轴。infra(叶子)/routes(顶层)/usecases 由
-# check-infra-not-domain + check-routes-not-imported 分别守;这里只管**域间**无环。
+# domain nodes = the 8 core modules from the class diagram + the capability axis. infra (leaf)/routes (top)/usecases are
+# guarded by check-infra-not-domain + check-routes-not-imported respectively; here we only enforce **inter-domain** acyclicity.
 nodes = ["corpus", "conversation", "connector", "access", "owner",
          "security", "marketplace", "stats", "capabilities"]
 edges = {d: set() for d in nodes}
@@ -46,9 +47,9 @@ for d in sorted(nodes):
         dfs(d, [])
 
 if cycles:
-    print("check-domain-acyclic: internal/ 域级依赖出现环 —— 层次没理清,先解环:")
+    print("check-domain-acyclic: internal/ domain-level dependencies have a cycle —— layering not sorted out, break the cycle first:")
     for c in cycles:
         print("  CYCLE: " + " -> ".join(c))
     sys.exit(1)
-print(f"check-domain-acyclic: {len(nodes)} 个域节点,依赖图无环 (DAG 成立)。")
+print(f"check-domain-acyclic: {len(nodes)} domain nodes, dependency graph is acyclic (DAG holds).")
 PY

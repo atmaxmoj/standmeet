@@ -14,7 +14,7 @@
 set -euo pipefail
 
 MAX_CYCLO=3
-ROOT="$(cd "${1:-.}" && pwd)"  # 目标 Go 源根（make -C backend 跑时 CWD=backend → 默认 .）
+ROOT="$(cd "${1:-.}" && pwd)"  # target Go source root (when make -C backend runs, CWD=backend → default .)
 
 # mcphandle is the MCP owner-handle controller — it lives under
 # internal/routes/ but parses schemaless JSON args inline (no echo binding

@@ -69,20 +69,20 @@ core-agnostic:
 internal-dirs:
 	@bash ../infra/scripts/check-internal-dirs.sh
 
-# domain-acyclic: 域间(8 core + capabilities)依赖图必须无环。go-arch-lint 只管包级;
-# 子包能把域级环拆成包级 DAG 逃过它,这里按域节点查环。
+# domain-acyclic: the domain graph (8 core + capabilities) must be acyclic. go-arch-lint only
+# checks package level; subpackages can split a domain cycle into a package DAG and slip past it.
 domain-acyclic:
 	@bash ../infra/scripts/check-domain-acyclic.sh
 
-# infra-not-domain: internal/infra/** 禁反向 import 域(叶子基建不认识域)。baseline 只缩。
+# infra-not-domain: internal/infra/** must not import a domain (leaf base knows no domain). Baseline only shrinks.
 infra-not-domain:
 	@bash ../infra/scripts/check-infra-not-domain.sh
 
-# routes-not-imported: internal/routes/** 是顶层,只有入口(cmd/agentcore)能挂它。baseline 只缩。
+# routes-not-imported: internal/routes/** is top layer; only entrypoints (cmd/agentcore) may mount it. Baseline only shrinks.
 routes-not-imported:
 	@bash ../infra/scripts/check-routes-not-imported.sh
 
-# domain-facade-boundary: 已封 guts 的域(internal/<domain>/internal/),域外只能经 facade 访问。
+# domain-facade-boundary: a domain with a facade/ dir is reachable from outside only via .../facade.
 domain-facade-boundary:
 	@bash ../infra/scripts/check-domain-facade-boundary.sh
 

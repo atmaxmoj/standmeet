@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# check-routes-not-imported.sh —— internal/routes/** 是**最顶层**(controller/reach-out),
-# 不该被任何别的包 import。只有组装入口能挂它:cmd/server(composition root)、agentcore
-# (eval driver 入口)。
+# check-routes-not-imported.sh —— internal/routes/** is the **topmost layer** (controller/reach-out),
+# and must not be imported by any other package. Only the assembly entry points may mount it:
+# cmd/server (composition root), agentcore (eval driver entry).
 #
-# 别的包(域 / infra / capabilities / usecases)import routes = 层次倒置(下层依赖上层)。
-# 已知存量违规放 backend/.routes-import-baseline(每行一个 importer 目录,相对 backend/;
-# 只能缩)。允许的入口不进 baseline、也不算违规。
+# Another package (domain / infra / capabilities / usecases) importing routes = inverted layering (lower depends on higher).
+# Known existing violations go in backend/.routes-import-baseline (one importer directory per line, relative to backend/;
+# can only shrink). The allowed entry points are not in the baseline and are not violations.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BK="$ROOT/backend"
 BASELINE="$BK/.routes-import-baseline"
-# 组装入口:允许 import routes
+# assembly entry points: allowed to import routes
 ALLOWED_ENTRY='^cmd/|^agentcore(/|$)|^internal/routes/'
 
 violations=""
@@ -35,7 +35,7 @@ for v in $violations; do
 	found=0
 	for b in $baseline; do [ "$v" = "$b" ] && found=1; done
 	if [ "$found" -eq 0 ]; then
-		echo "check-routes-not-imported: $v import 了 internal/routes/** —— routes 是顶层,只有 cmd/agentcore 能挂它。"
+		echo "check-routes-not-imported: $v imports internal/routes/** —— routes is the top layer, only cmd/agentcore may mount it."
 		fail=1
 	fi
 done
@@ -43,11 +43,11 @@ for b in $baseline; do
 	found=0
 	for v in $violations; do [ "$v" = "$b" ] && found=1; done
 	if [ "$found" -eq 0 ]; then
-		echo "check-routes-not-imported: baseline 里的 $b 已不再 import routes,请从 .routes-import-baseline 删这行(只能缩)。"
+		echo "check-routes-not-imported: baseline entry $b no longer imports routes; delete this line from .routes-import-baseline (can only shrink)."
 		fail=1
 	fi
 done
 [ "$fail" -eq 0 ] || exit 1
 
 n="$(printf '%s\n' $baseline | grep -c . || true)"
-echo "check-routes-not-imported: routes 只被入口(cmd/agentcore)挂 (${n} 个待清存量在 baseline,棘轮成立)。"
+echo "check-routes-not-imported: routes mounted only by entry points (cmd/agentcore) (${n} existing entries left to clean in the baseline, ratchet holds)."

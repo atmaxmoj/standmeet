@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# check-domain-facade-boundary.sh —— 一个域的**实现只能经它自己的 facade 包访问**。
+# check-domain-facade-boundary.sh -- a domain's implementation is reachable ONLY through its facade.
 #
-# 规矩(owner):"domain 被引用需要通过自己的 facade（或 facade dir 里面的）"。落法:每个域把
-# 对外协议收进 internal/<domain>/facade/(薄薄一层,一眼看全协议),实现拆成同域兄弟子包
-# (entity / usecase / service / repo / db …)。域外任何包**只能 import internal/<domain>/facade**,
-# 不许直接 import 任何其它子包 —— 那些是 guts。
+# Rule (owner): "a domain must be referenced through its own facade (or the facade dir)". How it lands:
+# every domain collects its outward protocol into internal/<domain>/facade/ (a thin layer, the whole
+# protocol at a glance) and splits its implementation into sibling guts subpackages (entity / usecase /
+# service / repo / db ...). Any package OUTSIDE internal/<domain>/ may import ONLY
+# internal/<domain>/facade -- never any other subpackage; those are guts.
 #
-# 判定:凡是**已采用 facade 约定的域**(存在 internal/<domain>/facade/ 目录),域外每一处
-# import internal/<domain>/<sub> 里 <sub> != facade 即违纪。域自己建了 facade/ 就自动进入执法集,
-# 不用维护名单 —— 重构推进到哪个域,执法就长到哪个域。
+# Enforcement: a domain OPTS IN the moment it grows an internal/<domain>/facade/ dir. From then on,
+# every outside import of internal/<domain>/<sub> where <sub> != facade is a violation. The enforced
+# set grows automatically as each domain is converted -- no name-list to maintain.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -19,7 +20,7 @@ scan() {
   python3 - "$internal" <<'PY'
 import os, re, sys
 internal = sys.argv[1]
-# 已采用 facade 约定的域 = 存在 internal/<domain>/facade/ 子目录的域。
+# Opted-in domains = those that have an internal/<domain>/facade/ subdirectory.
 domains = sorted(
     d for d in os.listdir(internal)
     if os.path.isdir(os.path.join(internal, d, "facade"))
@@ -29,7 +30,7 @@ violations = []
 for d in domains:
     domain_root = os.path.join(internal, d) + os.sep
     for dirpath, _, files in os.walk(internal):
-        # 域内部引用自己的子包合法(facade 就住这儿,facade 也要 import guts)。
+        # A domain referencing its own subpackages is fine (facade lives here and imports guts).
         if (dirpath + os.sep).startswith(domain_root):
             continue
         for fn in files:
@@ -48,14 +49,14 @@ PY
 
 hits="$(scan "$INTERNAL")"
 if [ -n "$hits" ]; then
-  echo "check-domain-facade-boundary: 域外代码绕过 facade 直接 import 了某域的 guts 子包:"
+  echo "check-domain-facade-boundary: outside code bypasses the facade and imports a domain's guts:"
   echo "$hits" | while IFS=$'\t' read -r f gut; do
-    echo "  $f  -> internal/$gut  (必须改走 .../facade)"
+    echo "  $f  -> internal/$gut  (must go through .../facade)"
   done
   exit 1
 fi
 
-# self-test: 植入一个域外文件直接 import security 的 guts(ban),断言被抓,再清理。
+# self-test: plant an outside file that imports security's guts (ban), assert it is caught, clean up.
 TMPDIR="$INTERNAL/__facade_boundary_selftest__"
 mkdir -p "$TMPDIR"
 cat > "$TMPDIR/leak.go" <<'GO'
@@ -66,9 +67,9 @@ GO
 planted="$(scan "$INTERNAL")"
 rm -rf "$TMPDIR"
 if [ -z "$planted" ]; then
-  echo "check-domain-facade-boundary: self-test FAILED —— 植入的越界 import 没被抓到。"
+  echo "check-domain-facade-boundary: self-test FAILED -- the planted boundary-crossing import was not caught."
   exit 1
 fi
 
 enforced="$(python3 -c "import os;print(len([d for d in os.listdir('$INTERNAL') if os.path.isdir(os.path.join('$INTERNAL',d,'facade'))]))")"
-echo "check-domain-facade-boundary: $enforced 个域已建 facade,域外只经 .../facade 访问 (self-test 通过)。"
+echo "check-domain-facade-boundary: $enforced domain(s) have a facade; outside code reaches them only via .../facade (self-test passed)."

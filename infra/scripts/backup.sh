@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# backup.sh —— dump Postgres + tar named volumes 到一个 .tar.gz。
+# backup.sh —— dump Postgres + tar named volumes into one .tar.gz.
 #
-# 用法：
+# Usage:
 #   ./backup.sh /var/backups/standmeet
-# 产物：
+# Output:
 #   /var/backups/standmeet/standmeet-YYYYMMDD-HHMMSS.tar.gz
 #
-# 内容：
+# Contents:
 #   pg.dump           ← pg_dumpall sql
-#   custom_pages.tar  ← /srv/custom-pages 共享 volume 内容（owner R 自定义页 dist）
-#   caddy_data.tar    ← Caddy 已签发证书 + ACME 账户（恢复后免重签）
+#   custom_pages.tar  ← contents of the /srv/custom-pages shared volume (owner custom-page dist)
+#   caddy_data.tar    ← Caddy issued certificates + ACME account (no re-signing after restore)
 #
-# Redis 不备份：session / 缓存可丢弃；丢失只是用户被踢一次。
+# Redis is not backed up: session / cache are discardable; losing them only kicks users out once.
 
 set -euo pipefail
 

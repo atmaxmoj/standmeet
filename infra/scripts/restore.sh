@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# restore.sh —— 从 backup.sh 的 .tar.gz 恢复一个干净 instance。
+# restore.sh —— restore a clean instance from a backup.sh .tar.gz.
 #
-# 用法：
+# Usage:
 #   ./restore.sh /var/backups/standmeet/standmeet-YYYYMMDD-HHMMSS.tar.gz
 #
-# 流程：
-#   1. docker compose down -v   ← 清掉旧数据
-#   2. 解 tar.gz 拿三件套：pg.dump、custom_pages.tar.gz、caddy_data.tar.gz
-#   3. docker compose up -d db redis   ← 起依赖
-#   4. psql 导入 pg.dump
-#   5. 把 custom_pages / caddy_data 内容回灌到 named volume
-#   6. docker compose up -d 全起
+# Flow:
+#   1. docker compose down -v   ← wipe old data
+#   2. unpack the tar.gz for the three pieces: pg.dump, custom_pages.tar.gz, caddy_data.tar.gz
+#   3. docker compose up -d db redis   ← bring up dependencies
+#   4. psql import pg.dump
+#   5. reload custom_pages / caddy_data contents into the named volume
+#   6. docker compose up -d full stack
 #
-# 不恢复 Redis（设计：session 重新登）。
+# Redis is not restored (by design: session re-login).
 
 set -euo pipefail
 
