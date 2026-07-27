@@ -101,7 +101,7 @@ type AdminDeps struct {
 	Calendar        adminroutes.CalendarAdminDeps
 	Connectors      adminroutes.ConnectorsAdminDeps
 	Capabilities    adminroutes.CapabilityAdminDeps
-	ApproveRequests usecases.ApproveRequestDeps
+	ApproveRequests owner.ApproveRequestDeps
 	Sessions        *session.OwnerSessionStore
 	Usage           adminroutes.InferenceUsageSummarizer // #106 计费面板
 	SystemInfo      adminroutes.SystemInfoProvider       // #101 system 面板

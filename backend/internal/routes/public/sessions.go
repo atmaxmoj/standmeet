@@ -15,8 +15,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/session"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // createSessionRequest —— POST /api/v1/sessions 入参。BYOAIKey 字段已删 ——
@@ -223,8 +223,8 @@ func writeCreateSession(
 	w http.ResponseWriter, res *conversation.IssueCodeSessionResult,
 ) {
 	log, deps := h.Log, &h.Visitor
-	canEmail := usecases.OwnerCanEmailCodes(ctx,
-		usecases.MailStatusDeps{Proxy: h.MailStatus}, res.Session.Data.OwnerID)
+	canEmail := owner.CanEmailCodes(ctx,
+		owner.MailStatusDeps{Proxy: h.MailStatus}, res.Session.Data.OwnerID)
 	in := assembleInputFromSession(&res.Session.Data, res.Chat.ID)
 	// 一次 walk 出三样(States/ToolSpecs/PromptPartIDs):分别调会把每个外置插件
 	// 冷拨两遍,两个网络沙箱插件能把 /sessions 顶到 ~16s(超 e2e 15s 等待)。

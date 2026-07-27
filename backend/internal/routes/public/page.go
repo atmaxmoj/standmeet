@@ -17,7 +17,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PageHandlers —— page route 依赖。
@@ -27,7 +26,7 @@ type PageHandlers struct {
 	TokenIssuer owner.SetupTokenIssuer // 仅 unclaimed 时调；handler 通过它取 / self-heal plaintext
 	// MailStatus —— 读 owner mail connector 是否 connected，决定 gate 是否
 	// 展示「request access」整块(发不出码就别展示)。
-	MailStatus usecases.MailStatusDeps
+	MailStatus owner.MailStatusDeps
 	// CaptchaSiteKey —— /api/v1/instance 把这个 echo 给前端；前端非空就渲染
 	// Turnstile widget。composition root 已经从 env 决定了"开/关"，这里
 	// 只读结果。空字符串表示 captcha 关闭。
@@ -83,7 +82,7 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 			owner:          &soleOwner,
 			setupToken:     h.unclaimedSetupToken(r.Context(), &soleOwner),
 			captchaSiteKey: h.CaptchaSiteKey,
-			canEmailCodes:  usecases.OwnerCanEmailCodes(r.Context(), h.MailStatus, soleOwner.ID),
+			canEmailCodes:  owner.CanEmailCodes(r.Context(), h.MailStatus, soleOwner.ID),
 		})
 	}
 }

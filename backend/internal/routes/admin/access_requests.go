@@ -14,13 +14,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // AccessRequestsDeps —— admin access-requests handlers 依赖。
 type AccessRequestsDeps struct {
 	Reqs    usecases.AccessRequestsDeps
-	Approve usecases.ApproveRequestDeps
+	Approve owner.ApproveRequestDeps
 }
 
 type approveResponse struct {
@@ -54,7 +55,7 @@ func (h *Handlers) approveAccessRequest() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		id := chi.URLParam(r, "id")
-		out, err := usecases.ApproveAccessRequest(
+		out, err := owner.ApproveAccessRequest(
 			r.Context(), h.AccessRequests.Approve, ownerID, id,
 		)
 		if err != nil {

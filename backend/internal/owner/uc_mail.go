@@ -1,10 +1,10 @@
 // mail.go —— 出站 mail connector 的业务逻辑:approve 闭环(批准 gate 请求 →
 // issue AccessCode → 邮件发 requester)。
 //
-// 发信走 owner.OutboundSender(连接器代调，SMTP 凭据不出 vault)。approve 复用 codes /
+// 发信走 OutboundSender(连接器代调，SMTP 凭据不出 vault)。approve 复用 codes /
 // roles / owners repo,跟 job-loop 的 applications.commit 自动发码同范式。
 
-package usecases
+package owner
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
-	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 
 const (
@@ -30,15 +29,15 @@ const (
 // ErrMailNotConfigured —— owner 还没配 / 没 test 通 mail connector,发不出信。
 
 // MailStatusDeps —— 只读 mail connector 状态(给公共 gate 配置用)。#155：经品类槽
-// (owner.OutboundSender.Connected = active mail 连接器连没连)，不再读旧 mail 连接器存储。
+// (OutboundSender.Connected = active mail 连接器连没连)，不再读旧 mail 连接器存储。
 type MailStatusDeps struct {
-	Proxy owner.OutboundSender
+	Proxy OutboundSender
 }
 
-// OwnerCanEmailCodes —— owner 是否有 connected(test 通过)的 active mail connector。
+// CanEmailCodes —— owner 是否有 connected(test 通过)的 active mail connector。
 // gate 用它决定要不要展示「request access」整块:发不出码就别让访客白填。
 // 读失败按"不能发"处理(保守 + 不暴露错误到公共端点)。
-func OwnerCanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string) bool {
+func CanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string) bool {
 	if ownerID == "" {
 		return false
 	}
@@ -55,8 +54,8 @@ type ApproveRequestDeps struct {
 	Reqs   *access.RequestRepo
 	Codes  *access.CodeRepo
 	Roles  *access.RoleRepo
-	Owners *owner.Repo
-	Proxy  owner.OutboundSender
+	Owners *Repo
+	Proxy  OutboundSender
 }
 
 // ApproveResult —— 发码闭环结果(回 admin UI 展示)。
@@ -85,7 +84,7 @@ func ApproveAccessRequest(
 }
 
 type approvalPrep struct {
-	msg  owner.OutboundMessage
+	msg  OutboundMessage
 	code string
 	link string
 }
@@ -110,7 +109,7 @@ func prepareApproval(
 
 type approvalContext struct {
 	req   access.Request
-	owner owner.Owner
+	owner Owner
 }
 
 func loadApprovalContext(
@@ -170,7 +169,7 @@ func buildCodeLink(publicURL, code string) string {
 	return strings.TrimRight(publicURL, "/") + "?code=" + code
 }
 
-func buildApprovalEmail(req *access.Request, code, link string) owner.OutboundMessage {
+func buildApprovalEmail(req *access.Request, code, link string) OutboundMessage {
 	greeting := "Hi there,"
 	if req.Name != "" {
 		greeting = "Hi " + req.Name + ","
@@ -181,7 +180,7 @@ func buildApprovalEmail(req *access.Request, code, link string) owner.OutboundMe
 		"Open this link to start the conversation (the code is already filled in):\n\n" +
 		"    " + link + "\n\n" +
 		"Sent via StandMeet."
-	return owner.OutboundMessage{
+	return OutboundMessage{
 		To:      req.Email,
 		Subject: "Your access request has been approved",
 		Body:    body,

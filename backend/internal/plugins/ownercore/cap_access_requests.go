@@ -15,6 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/owner"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -22,10 +23,10 @@ const capAccessRequestsBundle = "access_requests.bundle"
 
 // AccessRequestsOwnerDeps —— newAccessRequestsCapability 入参打包。list/update 走
 // Reqs (usecases.AccessRequestsDeps)；approve 闭环 (issue code + mail) 走 Approve
-// (usecases.ApproveRequestDeps)。
+// (owner.ApproveRequestDeps)。
 type AccessRequestsOwnerDeps struct {
 	Reqs    usecases.AccessRequestsDeps
-	Approve usecases.ApproveRequestDeps
+	Approve owner.ApproveRequestDeps
 }
 
 type accessRequestsCapability struct {
@@ -214,7 +215,7 @@ func (c *accessRequestsCapability) handleApprove(
 	if args.ID == "" {
 		return capreg.MCPError("id is required")
 	}
-	out, err := usecases.ApproveAccessRequest(ctx, c.deps.Approve, ownerID, args.ID)
+	out, err := owner.ApproveAccessRequest(ctx, c.deps.Approve, ownerID, args.ID)
 	if err != nil {
 		return c.approveErrToResult(err)
 	}

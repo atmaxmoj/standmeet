@@ -128,7 +128,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
 			Skills: d.skillRepo, Connectors: d.connectorRepo,
 		},
-		ApproveRequests: usecases.ApproveRequestDeps{
+		ApproveRequests: owner.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Proxy: outboundSender(d),
 		},
@@ -283,7 +283,7 @@ func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 			log: d.log, repo: d.instanceRepo, holder: d.setupTokenHolder,
 		},
 		CaptchaSiteKey: d.captchaSiteKey,
-		MailStatus:     usecases.MailStatusDeps{Proxy: outboundSender(d)},
+		MailStatus:     owner.MailStatusDeps{Proxy: outboundSender(d)},
 	}
 }
 

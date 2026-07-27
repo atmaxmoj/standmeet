@@ -629,6 +629,8 @@ deps:
       - session
       - corpus
       - access
+      - connector
+      - connectorconsumer
     anyVendorDeps: true
 
 

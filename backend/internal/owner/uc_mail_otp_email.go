@@ -3,7 +3,7 @@
 // table layout with inline styles + web-safe fonts (Georgia serif, Courier mono)
 // in the brand palette (cream paper / ink / vermillion).
 
-package usecases
+package owner
 
 import (
 	"strconv"

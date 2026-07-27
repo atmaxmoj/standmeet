@@ -88,7 +88,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 func ownerAccessRequestsDeps(d *runtimeDeps) *ownercore.AccessRequestsOwnerDeps {
 	return &ownercore.AccessRequestsOwnerDeps{
 		Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
-		Approve: usecases.ApproveRequestDeps{
+		Approve: owner.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Proxy: outboundSender(d),
 		},
