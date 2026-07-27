@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
 // toolView / toolsResp —— discovery response.

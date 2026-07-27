@@ -18,7 +18,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmcp"

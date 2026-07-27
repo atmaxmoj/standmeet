@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 )
 
 // Invoker —— 按名调用连接器(category+verb+args→json)。业务域 connector.Slots 满足它。

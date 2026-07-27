@@ -10,8 +10,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/mcpclient"
-	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 )
 

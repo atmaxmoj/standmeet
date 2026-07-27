@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 	infcore "github.com/atmaxmoj/standmeet/internal/inference"
 )
 

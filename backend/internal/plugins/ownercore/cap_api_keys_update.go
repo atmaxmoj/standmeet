@@ -10,8 +10,8 @@ import (
 	"errors"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
 )
 
 func (c *apiKeysCapability) updateBinding() *capreg.MCPBinding {

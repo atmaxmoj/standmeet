@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
 // ownerRW —— 测试临时配置文件权限（owner 读写）。

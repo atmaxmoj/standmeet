@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"

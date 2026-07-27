@@ -1,9 +1,6 @@
 capstore
 facadeparity
 inference
-mcpclient
-mcpplugin
-mcputil
 paritymanifest
 plugins
 server

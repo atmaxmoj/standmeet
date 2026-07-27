@@ -14,7 +14,7 @@ import (
 	mcpgoserver "github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 )
 
 // buildSlowServer —— an in-process server whose "slow" tool sleeps `delay` before replying, to

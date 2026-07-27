@@ -17,7 +17,7 @@ package plugins
 import (
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
 // Plugin —— 一个 outbound use case 的最小标识。具体能力 (MCP tools / admin

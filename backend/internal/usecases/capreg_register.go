@@ -12,7 +12,7 @@
 package usecases
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 )
 

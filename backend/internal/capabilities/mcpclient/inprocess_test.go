@@ -12,7 +12,7 @@ import (
 	mcpgoserver "github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 )
 
 func buildInProcServer() *mcpgoserver.MCPServer {

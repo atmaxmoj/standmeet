@@ -18,10 +18,10 @@ BASELINE="$ROOT/backend/.internal-dirs-baseline"
 
 # ── 白名单:类图 core 模块 + routes + usecases + domain-less infra ──
 ALLOWED="
-access conversation connector corpus owner security marketplace stats
-capreg
+access conversation connector corpus owner security marketplace stats capabilities
+
 routes usecases
-apierr capsocket cryptobox gotenberg httpx pgstore postgres retry sandbox sandboxws search storage middleware session
+apierr cryptobox gotenberg httpx pgstore postgres retry sandbox sandboxws search storage middleware session
 "
 
 is_allowed() {

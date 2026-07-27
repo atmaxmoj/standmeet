@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
-	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
 const capCorpusOutputBundle = "corpus.output.bundle"

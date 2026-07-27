@@ -12,7 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 
-	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 )
 
 // StartRetrievalSocket —— listen at sockPath and serve the corpus ops backed by the

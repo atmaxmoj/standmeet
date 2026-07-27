@@ -19,7 +19,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/middleware"

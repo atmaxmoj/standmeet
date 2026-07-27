@@ -54,7 +54,7 @@ components:
   jobsmcp:
     in: internal/plugins/jobs/jobsmcp     # J.3: jobs plugin MCP capabilities + views + helpers
   mcputil:
-    in: internal/mcputil                  # shared owner-MCP result marshaller (mcphandle + owner-cap plugins)
+    in: internal/capabilities/mcputil                  # shared owner-MCP result marshaller (mcphandle + owner-cap plugins)
   jobsadmin:
     in: internal/plugins/jobs/jobsadmin   # J.4: jobs plugin admin REST routes (drafts / applications list)
   jobcache:
@@ -86,13 +86,13 @@ components:
   sandbox:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
   capreg:
-    in: internal/capreg              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
+    in: internal/capabilities/capreg              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
   mcpclient:
-    in: internal/mcpclient                # 调外部 MCP server (owner-registered)
+    in: internal/capabilities/mcpclient                # 调外部 MCP server (owner-registered)
   mcpplugin:
-    in: internal/mcpplugin                # C1: 装机插件 manifest 解析 + 发现来源 (leaf)
+    in: internal/capabilities/mcpplugin                # C1: 装机插件 manifest 解析 + 发现来源 (leaf)
   capsocket:
-    in: internal/capsocket                # 窄 unix-socket host 服务：断网沙箱插件经 bind 进的 socket 调后端 op (leaf)
+    in: internal/capabilities/capsocket                # 窄 unix-socket host 服务：断网沙箱插件经 bind 进的 socket 调后端 op (leaf)
   sandboxws:
     in: internal/sandboxws                # per-session 沙箱工作区生命周期：懒建/TTL/cron sweep (leaf)
   storage:

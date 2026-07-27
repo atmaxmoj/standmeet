@@ -12,7 +12,7 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/owner"

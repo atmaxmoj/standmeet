@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/connectors"
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 )

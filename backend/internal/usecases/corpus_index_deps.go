@@ -10,7 +10,7 @@
 package usecases
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
 // CorpusScopeVisible —— corpus 检索能力的 fragment/enabled 闸：role snapshot 有任何 corpus

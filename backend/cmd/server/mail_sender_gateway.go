@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capstore"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"

@@ -15,7 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 )
 
 const marker = "[EXT-MCP-MARKER]"

@@ -9,9 +9,9 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
 const capMCPServersBundle = "mcp_servers.bundle"

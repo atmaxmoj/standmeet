@@ -16,7 +16,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 )
 

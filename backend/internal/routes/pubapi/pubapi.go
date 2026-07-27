@@ -22,7 +22,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/paritymanifest"
 	"github.com/atmaxmoj/standmeet/internal/usecases"

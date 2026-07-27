@@ -16,11 +16,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
-	"github.com/atmaxmoj/standmeet/internal/mcpclient"
 )
 
 const (

@@ -11,8 +11,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/security"
 )
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
 // fakeCap —— 最小 Capability，用 tag 区分「先注册的 builtin」vs「撞名的插件」。

@@ -9,8 +9,8 @@
 package agentcore
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 

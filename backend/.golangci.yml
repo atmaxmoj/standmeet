@@ -140,11 +140,11 @@ linters:
         # J.3: jobs plugin 的 Capability 工厂跟主 mcp 包同形态 (NewXxx →
         # capreg.Capability)；外部用 Capability interface 注册不耦合
         # 实现类型。
-        - github.com/atmaxmoj/standmeet/internal/capreg.Capability
+        - github.com/atmaxmoj/standmeet/internal/capabilities/capreg.Capability
         # connector 重构：命名依赖/连接器注册表按名解析回的「元素 interface」—— 跟
         # Document/Integration 的 registry-lookup 同形态 (DepRegistry.Lookup /
         # connector.Hub.Resolve 返 by-design interface，消费者类型断言到能力接口)。
-        - github.com/atmaxmoj/standmeet/internal/capreg.DepProvider
+        - github.com/atmaxmoj/standmeet/internal/capabilities/capreg.DepProvider
         - github.com/atmaxmoj/standmeet/internal/connector.Connector
     revive:
       enable-all-rules: true
@@ -357,11 +357,11 @@ linters:
       # mcpclient 是 MCP vendor 边界层。tool `_meta` 按 MCP 规范是任意
       # schemaless JSON（mcp-go AdditionalFields 即 map[string]any），同
       # 协议契约豁免；mcpclient 只透传不解释。
-      - path: internal/mcpclient/
+      - path: internal/capabilities/mcpclient/
         linters: [forbidigo]
       # capsocket 是 host↔沙箱内建的 unix-socket transport 边界层。wire 是
       # schemaless line-JSON（按 op 动态），跟 mcpclient 同性质，同样豁免裸 any。
-      - path: internal/capsocket/
+      - path: internal/capabilities/capsocket/
         linters: [forbidigo]
       # J.3: jobs plugin 的 MCP capabilities 跟 internal/mcp 同形态，同
       # schemaless 协议契约 (map[string]any payload)。
@@ -379,7 +379,7 @@ linters:
       # mcputil: 共享的 owner-MCP result marshaller。generic JSON 封装天然收 `any`
       # payload (json.Marshal 就是 any)，跟 mcphandle/mcpclient/capsocket 同 schemaless
       # 协议边界，同样豁免——让 capreg 自身的 any-ban 保持严格。
-      - path: internal/mcputil/
+      - path: internal/capabilities/mcputil/
         linters: [forbidigo]
 
 formatters:

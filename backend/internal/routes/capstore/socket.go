@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 )
 
 // BoundStore —— 已绑定到某个 cap 的隔离文档存储(无 kind/id)。cmd 用 capstore.Store 绑一个 (kind,id) 后传入。

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/atmaxmoj/standmeet/internal/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 )
 
 func TestToolCallBudget_LongRunning(t *testing.T) {

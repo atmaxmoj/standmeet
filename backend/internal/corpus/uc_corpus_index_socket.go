@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
-	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 )
 
 // corpusIndexReq —— 插件经 socket 发来的请求。session scope 字段 + 原样转发的 args。

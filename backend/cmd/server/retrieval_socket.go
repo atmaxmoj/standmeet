@@ -14,7 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 	"github.com/atmaxmoj/standmeet/internal/owner"
 
-	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 )
 
 func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *corpus.IndexDeps) {

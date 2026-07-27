@@ -5,9 +5,9 @@
 package usecases
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/mcpclient"
-	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
 // sessionMetaFor —— 数据型内建(manifest 声明了 HostSockets)才拿到可信 session 上下文。

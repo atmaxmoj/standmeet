@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
 // MarshalResult —— JSON-marshal payload into a success result; a marshal error is logged (with the
