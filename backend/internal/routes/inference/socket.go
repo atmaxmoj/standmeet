@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
-	infcore "github.com/atmaxmoj/standmeet/internal/inference"
+	infcore "github.com/atmaxmoj/standmeet/internal/conversation/inference"
 )
 
 // genMsg —— socket op 交换的一条消息(role/content),本 controller 局部定义,不跨包耦合。

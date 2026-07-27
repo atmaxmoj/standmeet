@@ -18,7 +18,7 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 
-	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 )
 
 // Re-exported types. These are aliases (=), not new definitions, so a

@@ -10,7 +10,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 )

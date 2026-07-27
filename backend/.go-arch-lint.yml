@@ -38,7 +38,7 @@ components:
   mcphandle:
     in: internal/routes/mcphandle         # owner MCP handles (controller layer): mcp-go server + tool handlers
   inference:
-    in: internal/inference                # LLM provider abstraction
+    in: internal/conversation/inference                # LLM provider abstraction
   agentcore:
     in: agentcore                         # public facade over the agentic loop (eval-harness 等 out-of-module driver 入口)
   plugins:

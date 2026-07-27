@@ -131,7 +131,7 @@ linters:
         - empty
         - anon
         - stdlib
-        - github.com/atmaxmoj/standmeet/internal/inference.Provider
+        - github.com/atmaxmoj/standmeet/internal/conversation/inference.Provider
         - github.com/atmaxmoj/standmeet/internal/infra/sandbox.Runner
         - github.com/atmaxmoj/standmeet/internal/connector/contract.CalendarProxy
         - github.com/atmaxmoj/standmeet/internal/connector/contract.MailProxy
@@ -268,7 +268,7 @@ linters:
       # 白盒单测(retryTransport / drainResp / agentTurnTimeout 等)。testpackage
       # 一律要求 external test pkg,但 external 包够不到 unexported,而 internal
       # test pkg 又会被 go-arch-lint 当 self-import 拦。这里豁免 testpackage。
-      - path: internal/inference/
+      - path: internal/conversation/inference/
         linters: [testpackage]
       # mailer 的 buildMessage(RFC822 渲染 + header 注入剥离)是 unexported,
       # 值得白盒单测;同 inference 豁免 testpackage。
