@@ -13,7 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
-	"github.com/atmaxmoj/standmeet/internal/security"
+	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 )
 
 const capIPBansBundle = "ip_bans.bundle"

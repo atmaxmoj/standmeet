@@ -33,7 +33,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
-	"github.com/atmaxmoj/standmeet/internal/security"
+	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 

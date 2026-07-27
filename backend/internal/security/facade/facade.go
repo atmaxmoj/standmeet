@@ -1,9 +1,10 @@
 // Package security —— 请求级**防护**域(跟 access 的"认证"分开:认证判"你是谁、能进吗";
 // 防护判"这个来源该不该被挡")。
 //
-// 本文件是 security 的**对外 facade**:薄壳,只把内部子包的类型/构造抬到域根 + codedoc。
-// 一眼看全协议,别的层只 import "internal/security"、只用这里的符号。内部实现藏在
-// internal/security/internal/{ban,captcha},Go 的 internal/ 可见性**编译期**挡住外部直接引用。
+// 本包(internal/security/facade)是 security 的**对外 facade**:薄壳,只把内部子包的
+// 类型/构造抬上来 + codedoc。一眼看全协议,别的层只 import 这个 facade 包、只用这里的符号。
+// 内部实现是同域兄弟子包 internal/security/{ban,captcha},由 check-domain-facade-boundary
+// 挡住外部直接引用(域外只能 import .../security/facade)。
 //
 // # 对外协议
 //
@@ -18,15 +19,15 @@
 //   - Config / Provider(ProviderNone|ProviderTurnstile) · FromEnvLike(siteKey, secret) Config
 //   - ErrCaptchaFailed —— 校验失败 sentinel
 //
-// 新增防护能力(如防重放):实现落 internal/ 子包,协议在此加一行转发 + codedoc。
+// 新增防护能力(如防重放):实现落同域子包,协议在此加一行转发 + codedoc。
 package security
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/security/internal/ban"
+	"github.com/atmaxmoj/standmeet/internal/security/ban"
 )
 
-// ── IP 封禁(实现:internal/ban)────────────────────────────────
+// ── IP 封禁(实现:ban 子包)────────────────────────────────
 
 // BannedIP —— owner 封掉的一个来源 IP;Active() 判此刻是否生效。
 type BannedIP = ban.BannedIP

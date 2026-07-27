@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/security"
+	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 )
 
 // ipBanStoreAdapter —— postgres-free view of BannedIPRepo for the ownercore ip_bans capability

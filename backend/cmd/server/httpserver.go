@@ -27,7 +27,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
-	"github.com/atmaxmoj/standmeet/internal/security"
+	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 )
 
 // Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。

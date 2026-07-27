@@ -3,10 +3,10 @@ package security
 import (
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/security/internal/captcha"
+	"github.com/atmaxmoj/standmeet/internal/security/captcha"
 )
 
-// ── captcha 校验(实现:internal/captcha)──────────────────────
+// ── captcha 校验(实现:captcha 子包)──────────────────────
 
 // Verifier —— captcha 校验器:Verify 成功返 nil(放行),error 表拒绝。
 type Verifier = captcha.Verifier

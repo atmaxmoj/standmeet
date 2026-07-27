@@ -30,7 +30,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
-	"github.com/atmaxmoj/standmeet/internal/security"
+	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	"github.com/atmaxmoj/standmeet/internal/stats"
 )
 

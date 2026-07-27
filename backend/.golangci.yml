@@ -148,7 +148,7 @@ linters:
         - github.com/atmaxmoj/standmeet/internal/connector.Connector
         # security facade 的 captcha 工厂:按 cfg 返 turnstile / noop 具体实现,对外
         # 只暴露 Verifier 接口 —— 跟 inference.Provider 同 driver-selection 工厂模式。
-        - github.com/atmaxmoj/standmeet/internal/security.Verifier
+        - github.com/atmaxmoj/standmeet/internal/security/facade.Verifier
     revive:
       enable-all-rules: true
       rules:
@@ -248,6 +248,11 @@ linters:
     # owns that error (response write + its error handler), so
     # wrapping would break the framework's contract.
     rules:
+      # 域 facade 包(internal/<domain>/facade/)按领域命名而非按目录 —— 目录统一叫
+      # facade(约定:一眼看出这是对外壳),包名沿用域名让调用点写 `security.Verifier`
+      # 而不是 `facade.Verifier`(跨域会撞名/被迫起别名)。只豁免这一条 revive 规则。
+      - path: internal/[a-z0-9]+/facade/
+        text: "package-directory-mismatch"
       # HTTP route handlers (echo `func(c) error`) only — mcphandle lives
       # under internal/routes/ too but returns capreg.MCPResult, not error,
       # so it is NOT exempt from wrapcheck (keeps its pre-move budget).
