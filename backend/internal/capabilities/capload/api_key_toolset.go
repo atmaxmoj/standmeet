@@ -4,7 +4,7 @@
 // gates — candidacy (opened) ∩ whitelist (non-Agentic outward tools). So the api surface is exactly
 // grant ∩ opened ∩ whitelist − denials, by construction.
 
-package usecases
+package capload
 
 import (
 	"context"

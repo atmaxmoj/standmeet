@@ -7,7 +7,7 @@
 // in-process BindingTool 换成 socket op handler。citation 不经能力:inference 的 accumSink 从
 // corpus_read 结果 {id,genre} 自行累计(早已解耦)。
 
-package usecases
+package capload
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"

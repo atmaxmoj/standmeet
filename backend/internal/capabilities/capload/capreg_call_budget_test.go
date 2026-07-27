@@ -2,7 +2,7 @@
 // LLM-backed report generation) is dispatched with LongCallTimeout, not the generic 15s cap that
 // times such a call out mid-generation and blanks the inline card.
 
-package usecases
+package capload
 
 import (
 	"testing"

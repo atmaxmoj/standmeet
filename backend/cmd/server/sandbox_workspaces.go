@@ -13,8 +13,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandboxws"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const (
@@ -38,7 +38,7 @@ func wireSandboxWorkspaces(ctx context.Context, d *runtimeDeps) {
 		return
 	}
 	d.sandboxWorkspaces = mgr
-	usecases.SetWorkspaceProvisioner(mgr.Provision)
+	capload.SetWorkspaceProvisioner(mgr.Provision)
 	// Monitor: 登记这个真 cron，并 boot 时跑一次(清上轮残留 + 让 last_run 立刻有值)。
 	d.jobRegistry.Register(sweepJobName, sweepSchedule)
 	sweepOnce(d, mgr)

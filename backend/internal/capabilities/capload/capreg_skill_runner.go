@@ -15,7 +15,7 @@
 // per-skill ACL 在 tool 内做：name 不在本 session 授权集 → 回错误，绝不披露。
 // Shape=visitor_only；owner 没必要通过 MCP 调自己的 skill。
 
-package usecases
+package capload
 
 import (
 	"context"

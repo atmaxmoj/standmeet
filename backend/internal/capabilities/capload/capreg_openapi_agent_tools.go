@@ -7,7 +7,7 @@
 // session 的 allowed_tools 里（per-op grant）。纯品类绑定（无 expose）的连接器不进 source →
 // 不泄 raw ops（[A5]）。
 
-package usecases
+package capload
 
 import (
 	"context"

@@ -9,7 +9,7 @@
 //   B-5: job-loop owner-only
 //   B-6: MCP parity
 
-package usecases
+package capload
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"

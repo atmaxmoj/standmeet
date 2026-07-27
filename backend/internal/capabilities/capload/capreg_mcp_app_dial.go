@@ -3,7 +3,7 @@
 // 会话。从 capreg_mcp_app.go 拆出来守 max-lines 350 cap。归一：四类走同一入口
 // dialMCPApp，只是底层不同。
 
-package usecases
+package capload
 
 import (
 	"context"

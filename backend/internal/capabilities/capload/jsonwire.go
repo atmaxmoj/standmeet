@@ -1,7 +1,7 @@
 // jsonwire.go —— capreg capability glue 的 tool-result JSON 兜底 helper。原在
 // visitor_chat_tools.go(随 visitor cluster 归 conversation);capreg glue 仍需,留一份。
 
-package usecases
+package capload
 
 import "encoding/json"
 

@@ -7,9 +7,9 @@ import (
 	"context"
 	"os"
 
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // registerDiscoveredPlugins —— 注册所有 MCP-app 能力进同一个 capreg.Registry，归一：
@@ -25,7 +25,7 @@ import (
 // 单点闸隐藏（D-2）；(b) 注册 config 插件时校验其 Requires —— 声明了 core 给不了的依赖名
 // → 拒（fail-fast，requires-boot-reject）。
 func registerDiscoveredPlugins(
-	d *runtimeDeps, depReg *capreg.DepRegistry, hooks map[string]usecases.CapHooks,
+	d *runtimeDeps, depReg *capreg.DepRegistry, hooks map[string]capload.CapHooks,
 ) {
 	registerBuiltins(d, hooks) // 内建依赖名由构造保证已知，不必再校验
 	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged, depReg)
@@ -47,12 +47,12 @@ func connectorDepRegistry(ctx context.Context, d *runtimeDeps) *capreg.DepRegist
 // 归一到底：builtin 只剩 origin=builtin 这个标签，加载机制没有任何特殊路。hooks 给需要
 // 运行时钩子的内建挂 per-session CapHooks（booker: connector+quota tool 闸；retrieval:
 // corpus-scope fragment/enabled 闸）。
-func registerBuiltins(d *runtimeDeps, hooks map[string]usecases.CapHooks) {
+func registerBuiltins(d *runtimeDeps, hooks map[string]capload.CapHooks) {
 	manifests := []mcpplugin.Manifest{
 		askVisitorManifest(), summarizeManifest(), bookerManifest(), retrievalManifest(),
 		mailSenderManifest(),
 	}
-	dupes := usecases.RegisterDiscoveredPluginsHooked(
+	dupes := capload.RegisterDiscoveredPluginsHooked(
 		d.agentSkills, manifests, capreg.OriginBuiltin, hooks, d.capDialErrLog(),
 	)
 	for _, id := range dupes {
@@ -216,7 +216,7 @@ func registerPluginSource(
 			"id", res.Skipped[i].ID, "reason", res.Skipped[i].Reason)
 	}
 	kept := keepResolvableDeps(d, res.Manifests, depReg)
-	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, kept, origin, d.capDialErrLog())
+	dupes := capload.RegisterDiscoveredPlugins(d.agentSkills, kept, origin, d.capDialErrLog())
 	for _, id := range dupes {
 		d.log.Warn("plugin register skipped (duplicate id)", "id", id)
 	}

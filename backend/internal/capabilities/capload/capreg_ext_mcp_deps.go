@@ -8,7 +8,7 @@
 // 任一不满足 → 隐藏该工具。无 requires 的工具不受此闸。逻辑收在这一处，跟 ext-mcp 工具
 // 暴露同模块（capreg_ext_mcp.go 的 absorb 调本文件）。
 
-package usecases
+package capload
 
 import (
 	"context"

@@ -2,7 +2,7 @@
 // capability 共用（ext-mcp 的 ext_<server>_<tool>、mcp-app 的 <plugin>_<tool>）。
 // skill 现在用静态名（skill_use / skill_run_script），不走这条。
 
-package usecases
+package capload
 
 import "regexp"
 

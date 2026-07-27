@@ -7,7 +7,7 @@
 // Shape=visitor_only；owner 通过自己的 MCP 客户端跟外部 server 直连，不
 // 走 standmeet 转发。
 
-package usecases
+package capload
 
 import (
 	"context"

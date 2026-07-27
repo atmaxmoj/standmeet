@@ -2,7 +2,7 @@
 // 把 dial 出来的 MCP tool 包成 capreg.BindingTool，组装 CapabilityState（id/enabled/ui +
 // stateHook overlay）。从 capreg_mcp_app.go 拆出来守 max-lines 350 cap。
 
-package usecases
+package capload
 
 import (
 	"context"

@@ -7,7 +7,7 @@
 // (only non-Agentic outward tools render). Bounded by rate limiting, not gas.
 //
 // Handlers stay presentation-only (cyclo ≤3): auth + rate + assembly run as middleware and stash
-// their results in context; the branchy toolset assembly lives in usecases.AssembleAPIKeyToolset.
+// their results in context; the branchy toolset assembly lives in capload.AssembleAPIKeyToolset.
 package pubapi
 
 import (
@@ -22,10 +22,10 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/conversation"
 	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // methodQuery —— HTTP QUERY (RFC 10008), registered on the chi method table at server boot.
@@ -40,7 +40,7 @@ const maxAPIBodyBytes = 1 << 20
 // KeyStore —— everything the facade needs off the api-key persistence (access.APIKeyRepo
 // implements it): auth lookup, per-key denials, the owner's opened capabilities, last-used bump.
 type KeyStore interface {
-	usecases.APIToolsetStore
+	capload.APIToolsetStore
 	GetBySecretHash(ctx context.Context, hash []byte) (access.APIKey, error)
 	TouchLastUsed(ctx context.Context, id string) error
 }
@@ -103,7 +103,7 @@ func (h *Handlers) authRate(next http.Handler) http.Handler {
 func (h *Handlers) assemble(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := keyFromCtx(r.Context())
-		ts, err := usecases.AssembleAPIKeyToolset(
+		ts, err := capload.AssembleAPIKeyToolset(
 			r.Context(), h.toolsetDeps(), key, paritymanifest.APIRenderableTools(),
 		)
 		if err != nil {
@@ -116,8 +116,8 @@ func (h *Handlers) assemble(next http.Handler) http.Handler {
 	})
 }
 
-func (h *Handlers) toolsetDeps() usecases.APIToolsetDeps {
-	return usecases.APIToolsetDeps{Visitor: h.d.Visitor, Store: h.d.Keys, Skills: h.d.AgentSkills}
+func (h *Handlers) toolsetDeps() capload.APIToolsetDeps {
+	return capload.APIToolsetDeps{Visitor: h.d.Visitor, Store: h.d.Keys, Skills: h.d.AgentSkills}
 }
 
 func keyFromCtx(ctx context.Context) *access.APIKey {
@@ -128,8 +128,8 @@ func keyFromCtx(ctx context.Context) *access.APIKey {
 	return k
 }
 
-func toolsetFromCtx(ctx context.Context) *usecases.APIToolset {
-	t, ok := ctx.Value(toolsetCtxKey).(*usecases.APIToolset)
+func toolsetFromCtx(ctx context.Context) *capload.APIToolset {
+	t, ok := ctx.Value(toolsetCtxKey).(*capload.APIToolset)
 	if !ok {
 		return nil
 	}

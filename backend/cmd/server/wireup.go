@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/access"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/corpus"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation"
@@ -170,7 +171,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	d.agentSkills.SetDepRegistry(depReg)
 	skills := buildVisitorSkillsDeps(d)
 	skills.DepConnected = depReg
-	usecases.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
+	capload.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
 	wireSummarizeGateway(ctx, d, &skills)
 	// #135: owner-MCP caps are no longer core-registered here — the ownercore plugin (+ jobs)
 	// register them via RegisterAllCapabilities below, into the same capreg.Registry, no dup IDs.
@@ -187,10 +188,10 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	})
 	wireSearchIndex(ctx, d)
 	wireSearchReconcile(ctx, d)
-	registerDiscoveredPlugins(d, depReg, map[string]usecases.CapHooks{
+	registerDiscoveredPlugins(d, depReg, map[string]capload.CapHooks{
 		// booker quota 闸(host 侧,经 capstore.count 数 booker 隔离预约;concretes 只在此组装根)。
 		"calendar.book":    {Gate: bookerQuotaGate(d)},
-		"corpus.retrieval": {Fragment: usecases.CorpusScopeVisible},
+		"corpus.retrieval": {Fragment: capload.CorpusScopeVisible},
 	})
 	wireCapabilityEnableGate(d)
 }

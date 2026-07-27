@@ -8,7 +8,7 @@
 // CapabilityState.Extra。dial / list 失败 / 空 tool → ErrHidden(隐藏,不阻塞
 // chat)。tool 调用失败折成 errJSON(复用 ext-mcp 的 makeExtMCPRun)。
 
-package usecases
+package capload
 
 import (
 	"context"

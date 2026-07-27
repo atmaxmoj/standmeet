@@ -2,7 +2,7 @@
 // 拆出,守 max-lines ≤350)。sessionMetaFor 只给声明了 HostSockets 的内建拿(经 tool-call
 // `_meta` 递进它自己的沙箱,再转宿主窄 socket API);第三方 / 无 socket 插件 → nil,防泄漏。
 
-package usecases
+package capload
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"

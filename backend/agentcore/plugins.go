@@ -9,9 +9,9 @@
 package agentcore
 
 import (
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capload"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PluginSpec —— a plugin the launch should assemble: a host-built MCP-server binary run
@@ -42,7 +42,7 @@ func registerDriverPlugins(reg *capreg.Registry, specs []PluginSpec) {
 	for i := range specs {
 		manifests = append(manifests, pluginManifest(&specs[i]))
 	}
-	usecases.RegisterDiscoveredPlugins(reg, manifests, capreg.OriginBuiltin, nil)
+	capload.RegisterDiscoveredPlugins(reg, manifests, capreg.OriginBuiltin, nil)
 }
 
 func pluginManifest(p *PluginSpec) mcpplugin.Manifest {

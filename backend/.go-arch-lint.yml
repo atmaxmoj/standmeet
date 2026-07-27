@@ -83,6 +83,8 @@ components:
     in: internal/capabilities/sandbox                  # owner-curated skill script 在 docker container 里跑
   capabilities:
     in: internal/capabilities              # capability 轴 domain doc (root)
+  capload:
+    in: internal/capabilities/capload            # capability-axis 装载/派发 glue (ext-mcp / mcp-app / skill-runner / openapi-tools / register)
   capreg:
     in: internal/capabilities/capreg              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
   mcpclient:
@@ -316,6 +318,18 @@ deps:
       - capreg
     anyVendorDeps: true
 
+  capload:
+    mayDependOn:
+      - capreg
+      - mcpclient
+      - mcpplugin
+      - sandbox
+      - conversation
+      - access
+      - marketplace
+      - connectorconsumer
+      - cryptobox
+    anyVendorDeps: true
   capreg:
     mayDependOn:
       - access
@@ -405,6 +419,7 @@ deps:
   # prod 同一套 agentic 功能，只换注入的 repo。backend 内部无人 import 它。
   agentcore:
     mayDependOn:
+      - capload
       - conversation
       - marketplace
       - corpus
@@ -729,6 +744,7 @@ deps:
   # outward tools via paritymanifest. Own auth (api-key), no CSRF/owner-session.
   pubapi:
     mayDependOn:
+      - capload
       - access
       - conversation
       - owner
@@ -761,6 +777,7 @@ deps:
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
+      - capload
       - jobsmodel
       - config
       - session
