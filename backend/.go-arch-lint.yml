@@ -40,29 +40,29 @@ components:
   agentcore:
     in: agentcore                         # public facade over the agentic loop (eval-harness 等 out-of-module driver 入口)
   pluginjobs:
-    in: internal/plugins/jobs             # J phase: jobs plugin entry (Plugin impl)
+    in: internal/owner/jobs             # J phase: jobs plugin entry (Plugin impl)
   pluginownercore:
     in: internal/plugins/ownercore        # #135: owner-core caps externalized off core mcphandle (me; codes/chat/calendar next)
   pluginbooker:
     in: internal/plugins/booker           # #135 Slice 4: booking cluster (list_slots / cancel / policy / store) drained off the kernel
   jobsuc:
-    in: internal/plugins/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
+    in: internal/owner/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobsmcp:
-    in: internal/plugins/jobs/jobsmcp     # J.3: jobs plugin MCP capabilities + views + helpers
+    in: internal/owner/jobs/jobsmcp     # J.3: jobs plugin MCP capabilities + views + helpers
   mcputil:
     in: internal/capabilities/mcputil                  # shared owner-MCP result marshaller (mcphandle + owner-cap plugins)
   jobsadmin:
-    in: internal/plugins/jobs/jobsadmin   # J.4: jobs plugin admin REST routes (drafts / applications list)
+    in: internal/owner/jobs/jobsadmin   # J.4: jobs plugin admin REST routes (drafts / applications list)
   jobcache:
-    in: internal/plugins/jobs/cache       # J phase: jobs plugin cache sub-pkg (Redis 1d TTL)
+    in: internal/owner/jobs/cache       # J phase: jobs plugin cache sub-pkg (Redis 1d TTL)
   jobfetch:
-    in: internal/plugins/jobs/fetch       # J phase: jobs plugin fetch sub-pkg (Greenhouse / Lever / Ashby / ...)
+    in: internal/owner/jobs/fetch       # J phase: jobs plugin fetch sub-pkg (Greenhouse / Lever / Ashby / ...)
   jobdedup:
-    in: internal/plugins/jobs/dedup       # J.6c: cross-source dedup (canonical URL + composite key)
+    in: internal/owner/jobs/dedup       # J.6c: cross-source dedup (canonical URL + composite key)
   gotenberg:
     in: internal/infra/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
   printsess:
-    in: internal/plugins/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
+    in: internal/owner/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
   marketplace:
     in: internal/marketplace              # skill marketplace aggregation client (GitHub + SkillsMP)
   stats:
@@ -70,7 +70,7 @@ components:
   security:
     in: internal/security                 # #135: 请求级防护域 (banned_ip; captcha/replay 后续并入)
   jobsmodel:
-    in: internal/plugins/jobs/jobsmodel                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
+    in: internal/owner/jobs/jobsmodel                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
   conversation:
     in: internal/conversation        # #135: conversation 领域值对象 (chat/dialog/message/chat_report/citation)；依赖 corpus 拿 DocumentGenre
   corpus:
@@ -161,7 +161,7 @@ components:
   securitydb:
     in: internal/security/db                # #135: security 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
   jobsdb:
-    in: internal/plugins/jobs/jobsuc/db                # #135: jobsuc 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/owner/jobs/jobsuc/db                # #135: jobsuc 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
 
 deps:
   # Domain 纯内核，无 internal 依赖。

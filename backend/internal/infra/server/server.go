@@ -20,7 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/owner"
-	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"

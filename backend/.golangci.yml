@@ -326,7 +326,7 @@ linters:
       - path: cmd/server/
         linters: [testpackage, paralleltest]
       # hnFirstLine / readOK are unexported job-fetch helpers with pure-logic white-box repros.
-      - path: internal/plugins/jobs/fetch/
+      - path: internal/owner/jobs/fetch/
         linters: [testpackage]
       # sweep TOCTOU test uses unexported Manager fields + stillStale → in-package white-box.
       - path: internal/capabilities/sandboxws/
@@ -367,7 +367,7 @@ linters:
         linters: [forbidigo]
       # J.3: jobs plugin 的 MCP capabilities 跟 internal/mcp 同形态，同
       # schemaless 协议契约 (map[string]any payload)。
-      - path: internal/plugins/jobs/jobsmcp/
+      - path: internal/owner/jobs/jobsmcp/
         linters: [forbidigo]
       # #135: ownercore 是从 mcphandle 外置出来的 owner-MCP capabilities，跟 mcphandle/jobsmcp
       # 同 schemaless 协议契约 (map[string]any result payload)，同样豁免裸 any。
