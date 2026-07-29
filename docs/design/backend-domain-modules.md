@@ -1,19 +1,31 @@
 # Backend domain modules — package by domain, dissolve the layer god-packages
 
-**Status:** design (2026-07-25). Supersedes the ad-hoc socket-op placement and the typed
+**Status:** the three god-packages are **dissolved** (2026-07-27); the remaining open items are
+the connector-specific steps 2-4 below. Supersedes the ad-hoc socket-op placement and the typed
 `contract.CalendarProxy` category surface. Companion vault node:
 `[[backend-domain-modules]]` under `[[structure]]`.
 
-## The disease — three god-packages sliced by *layer*
+`internal/` now holds exactly the class-diagram set and nothing else: the 8 core domain modules
+(corpus · conversation · connector · access · owner · security · marketplace · stats) plus
+`capabilities` (the capability axis), `routes` (the real inbound controllers) and `infra` (the
+domain-less shared base). `check-internal-dirs.sh` enforces this with an EMPTY baseline, i.e. in
+pure-red mode: any other directory under `internal/` fails the build, with nothing grandfathered.
 
-The backend is packaged **by layer**, so every domain's pieces are scattered across three
-buckets that only grow:
+## The disease — three god-packages sliced by *layer* (cured)
+
+The backend was packaged **by layer**, so every domain's pieces were scattered across three
+buckets that only grew:
 
 ```
-internal/usecases  (106 files)  ← every domain's usecase dumped together
-internal/domain    ( 55 files)  ← every domain's entity dumped together
-internal/postgres  ( 66 files)  ← every domain's repo dumped together
+internal/usecases  (106 files)  ← every domain's usecase dumped together   [dissolved]
+internal/domain    ( 55 files)  ← every domain's entity dumped together    [dissolved]
+internal/postgres  ( 66 files)  ← every domain's repo dumped together      [dissolved]
 ```
+
+All three are gone. `internal/plugins` — which had become a fourth such bucket for the
+owner-side capability code — is gone with them: `plugins/booker` split into `owner/entity` +
+`owner/usecase` (bookings are the owner's calendar) and `plugins/ownercore` became
+`owner/ownercore`, an owner sub-module next to `owner/jobs`.
 
 Consequences:
 
@@ -208,9 +220,13 @@ unnecessary — it exists *because* the product is BYO-integration.)
    into the connector domain; kill the reverse dep.
 4. Split the connector registries: **declaration store** (specs) vs **instance registry**
    (`Hub` → connections).
-5. Then replicate the module shape for the other domains, dissolving the three god-packages one
-   domain at a time; each slice green (build + go-arch-lint + core-agnostic ratchet) before the
-   next.
+5. **Done (2026-07-27):** the module shape is replicated across every other domain and the three
+   god-packages are dissolved, one slice at a time, each green (build + go-arch-lint +
+   core-agnostic ratchet + domain-layering/facade/acyclic) before the next. The last residues
+   went home together: `usecases/obsidian` → `corpus/obsidian`, `usecases/report_*` →
+   `conversation/usecase` (a report is a conversation artifact), and all of `internal/plugins`
+   into `owner`. Connector remains the one core module still flat — its steps 2-4 above are the
+   open work, not a missing split.
 
 Each move is one commit, verified before the next — never a big-bang.
 
