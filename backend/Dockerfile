@@ -17,7 +17,13 @@ WORKDIR /app
 
 RUN apk add --no-cache git bash make
 
-RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest \
+# golangci-lint is PINNED, not @latest. With @latest the image's linter was whatever was newest
+# when this layer got built, so it disagreed with the host's: the image's revive had rules enabled
+# (unhandled-error, line-length, cognitive-complexity) that the host build did not, and code that
+# was "0 issues" locally failed the image build. A pinned version makes `golangci-lint run` on the
+# host mean the same thing as in the image. Bumping it is its own change, with its own findings to
+# fix -- the same discipline the Makefile already applies to sqlc.
+RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 \
  && go install github.com/fe3dback/go-arch-lint@latest \
  && go install github.com/fzipp/gocyclo/cmd/gocyclo@latest \
  && go install github.com/maxpoletaev/go-escape-lint@latest

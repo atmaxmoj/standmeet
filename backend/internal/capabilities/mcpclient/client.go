@@ -223,6 +223,25 @@ func (s *Session) CallToolWithin(
 	ctx context.Context, name string, args json.RawMessage, sctx *SessionContext,
 	budget time.Duration,
 ) (string, error) {
+	out, err := s.CallToolChecked(ctx, name, args, sctx, budget)
+	return out.Text, err
+}
+
+// ToolOutcome —— a tool call's result WITH its error status. CallToolWithin flattens this to a
+// string (an error result arrives text-prefixed "[error] "), which is fine for the visitor loop
+// where the model reads prose. A caller that must decide programmatically -- e.g. the owner-MCP
+// facade, which has to answer isError to the owner's client rather than dress a failure up as a
+// successful payload -- needs the flag itself, not a prefix to sniff for.
+type ToolOutcome struct {
+	Text    string
+	IsError bool
+}
+
+// CallToolChecked —— CallToolWithin, but returning the tool's error status alongside its text.
+func (s *Session) CallToolChecked(
+	ctx context.Context, name string, args json.RawMessage, sctx *SessionContext,
+	budget time.Duration,
+) (ToolOutcome, error) {
 	if budget <= 0 {
 		budget = callTimeout
 	}
@@ -230,13 +249,13 @@ func (s *Session) CallToolWithin(
 	defer cancel()
 	req, perr := buildCallToolRequest(name, args, sctx.meta())
 	if perr != nil {
-		return "", perr
+		return ToolOutcome{}, perr
 	}
 	res, err := s.c.CallTool(cctx, req)
 	if err != nil {
-		return "", fmt.Errorf("call tool %s: %w", name, err)
+		return ToolOutcome{}, fmt.Errorf("call tool %s: %w", name, err)
 	}
-	return extractText(res), nil
+	return ToolOutcome{Text: extractText(res), IsError: res.IsError}, nil
 }
 
 // buildCallToolRequest —— args JSON object 摊到 mcp-go 期望的

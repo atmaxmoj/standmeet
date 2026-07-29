@@ -57,11 +57,18 @@ func (c *mcpAppCapability) ownerToolHandler(t *mcpplugin.OwnerTool) capreg.MCPHa
 			return c.ownerToolErr(err, name+" is unavailable right now")
 		}
 		defer sess.Close()
-		out, cerr := sess.CallTool(ctx, tool, raw, &mcpclient.SessionContext{OwnerID: ownerID})
+		out, cerr := sess.CallToolChecked(
+			ctx, tool, raw, &mcpclient.SessionContext{OwnerID: ownerID}, 0)
 		if cerr != nil {
 			return c.ownerToolErr(cerr, name+" failed")
 		}
-		return capreg.MCPSuccess(out)
+		// The plugin's own error result must arrive at the owner's client AS an error. Wrapping it
+		// in a success would hand the AI a payload that merely reads like a failure — the caller
+		// could not branch on it, and a bad-args rejection would look like data.
+		if out.IsError {
+			return capreg.MCPError(out.Text)
+		}
+		return capreg.MCPSuccess(out.Text)
 	}
 }
 

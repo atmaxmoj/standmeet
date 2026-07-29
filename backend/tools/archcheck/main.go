@@ -17,6 +17,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -58,35 +59,42 @@ type result struct {
 }
 
 func main() {
-	if len(os.Args) != 3 {
-		fail("usage: archcheck <acyclic|layering|facade> <internal-dir>")
-	}
-	mode, internal := os.Args[1], os.Args[2]
-	gate, ok := map[string]func(string) (result, error){
-		"acyclic": checkAcyclic, "layering": checkLayering, "facade": checkFacade,
-	}[mode]
-	if !ok {
-		fail(fmt.Sprintf("archcheck: unknown mode %q", mode))
-	}
-	res, err := gate(internal)
+	res, err := dispatch(os.Args)
 	if err != nil {
-		fail(fmt.Sprintf("archcheck %s: %v", mode, err))
+		// Exit 2 = the gate could not run, distinct from 1 = violations found. A broken gate must
+		// never be mistaken for a clean one.
+		_, _ = fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(2)
 	}
-	fmt.Println(res.headline) //nolint:forbidigo // a CLI gate's report medium is stdout
+	_, _ = fmt.Println(res.headline) //nolint:forbidigo // a CLI gate's report medium is stdout
 	for _, f := range res.findings {
-		fmt.Println(f) //nolint:forbidigo // a CLI gate's report medium is stdout
+		_, _ = fmt.Println(f) //nolint:forbidigo // a CLI gate's report medium is stdout
 	}
 	if len(res.findings) > 0 {
 		os.Exit(1)
 	}
 }
 
-// fail —— the gate could not run (bad usage / unreadable tree). Exit 2, distinct from "violations
-// found", so a broken gate can never be mistaken for a clean one.
-func fail(msg string) {
-	fmt.Fprintln(os.Stderr, msg)
-	os.Exit(2)
+// dispatch —— parse argv and run the requested gate.
+func dispatch(argv []string) (result, error) {
+	if len(argv) != 3 {
+		return result{}, errUsage
+	}
+	mode, internal := argv[1], argv[2]
+	gate, ok := map[string]func(string) (result, error){
+		"acyclic": checkAcyclic, "layering": checkLayering, "facade": checkFacade,
+	}[mode]
+	if !ok {
+		return result{}, fmt.Errorf("archcheck: unknown mode %q", mode)
+	}
+	res, err := gate(internal)
+	if err != nil {
+		return result{}, fmt.Errorf("archcheck %s: %w", mode, err)
+	}
+	return res, nil
 }
+
+var errUsage = errors.New("usage: archcheck <acyclic|layering|facade> <internal-dir>")
 
 // goFile —— one scanned file: where it sits and what it imports (internal/ paths only).
 type goFile struct {
@@ -190,21 +198,12 @@ func checkAcyclic(internal string) (result, error) {
 	}
 	edges := acyclicNodes(internal)
 	for _, f := range files {
-		domain := topDir(f.dir)
-		if edges[domain] == nil {
-			continue
-		}
-		src := nodeFor(domain, f.dir)
-		for _, imp := range f.imports {
-			if dst, ok := acyclicDst(edges, imp); ok && dst != src {
-				edges[src][dst] = true
-			}
-		}
+		addAcyclicEdges(edges, &f)
 	}
 	cycles := findCycles(edges)
 	if len(cycles) > 0 {
-		res := result{headline: "check-domain-acyclic: internal/ domain-level dependencies have a " +
-			"cycle —— layering not sorted out, break the cycle first:"}
+		res := result{headline: "check-domain-acyclic: internal/ domain-level dependencies " +
+			"have a cycle —— layering not sorted out, break the cycle first:"}
 		for _, c := range cycles {
 			res.findings = append(res.findings, "  CYCLE: "+strings.Join(c, " -> "))
 		}
@@ -212,6 +211,20 @@ func checkAcyclic(internal string) (result, error) {
 	}
 	return result{headline: fmt.Sprintf("check-domain-acyclic: %d domain/sub-module nodes, "+
 		"dependency graph is acyclic (DAG holds).", len(edges))}, nil
+}
+
+// addAcyclicEdges —— record one file's inter-node imports.
+func addAcyclicEdges(edges map[string]map[string]bool, f *goFile) {
+	domain := topDir(f.dir)
+	if edges[domain] == nil {
+		return
+	}
+	src := nodeFor(domain, f.dir)
+	for _, imp := range f.imports {
+		if dst, ok := acyclicDst(edges, imp); ok && dst != src {
+			edges[src][dst] = true
+		}
+	}
 }
 
 // acyclicNodes —— the node set: every domain + each own-boundary sub-module present on disk.
@@ -239,36 +252,53 @@ func acyclicDst(edges map[string]map[string]bool, imp importRef) (string, bool) 
 	return imp.domain, true
 }
 
+// cycle-detection colours.
+const (
+	white = 0
+	grey  = 1
+	black = 2
+)
+
+// walker —— DFS state for cycle detection over the domain graph.
+type walker struct {
+	edges  map[string]map[string]bool
+	colour map[string]int
+	stack  []string
+	cycles [][]string
+}
+
 // findCycles —— DFS with a grey/black colouring; reports each back-edge as a cycle path.
 func findCycles(edges map[string]map[string]bool) [][]string {
-	const white, grey, black = 0, 1, 2
-	color := map[string]int{}
-	var cycles [][]string
-	var stack []string
-	var dfs func(string)
-	dfs = func(u string) {
-		color[u] = grey
-		stack = append(stack, u)
-		for _, v := range sortedNeighbours(edges[u]) {
-			if color[v] == grey {
-				if i := slices.Index(stack, v); i >= 0 {
-					cycles = append(cycles, append(slices.Clone(stack[i:]), v))
-				}
-				continue
-			}
-			if color[v] == white {
-				dfs(v)
-			}
-		}
-		color[u] = black
-		stack = stack[:len(stack)-1]
-	}
+	w := &walker{edges: edges, colour: map[string]int{}}
 	for _, n := range sortedNodes(edges) {
-		if color[n] == white {
-			dfs(n)
+		if w.colour[n] == white {
+			w.visit(n)
 		}
 	}
-	return cycles
+	return w.cycles
+}
+
+func (w *walker) visit(u string) {
+	w.colour[u] = grey
+	w.stack = append(w.stack, u)
+	for _, v := range sortedNeighbours(w.edges[u]) {
+		w.step(v)
+	}
+	w.colour[u] = black
+	w.stack = w.stack[:len(w.stack)-1]
+}
+
+// step —— one neighbour: a grey node closes a cycle, a white one recurses, black is done.
+func (w *walker) step(v string) {
+	switch w.colour[v] {
+	case grey:
+		if i := slices.Index(w.stack, v); i >= 0 {
+			w.cycles = append(w.cycles, append(slices.Clone(w.stack[i:]), v))
+		}
+	case white:
+		w.visit(v)
+	default: // black: already fully explored, nothing to do
+	}
 }
 
 // sortedNodes / sortedNeighbours —— deterministic iteration order (two concrete helpers rather
@@ -327,15 +357,22 @@ func layerViolations(f goFile, faceted []string) []string {
 	}
 	var out []string
 	for _, imp := range f.imports {
-		if imp.domain != domain || imp.sub == layer {
+		if !reachesSideOrUp(imp, domain, layer, lvl) {
 			continue
 		}
-		if other, isLayer := layerOf[imp.sub]; isLayer && other >= lvl {
-			out = append(out, fmt.Sprintf("  internal/%s/%s  ->  internal/%s/%s  "+
-				"(illegal layer direction)", domain, layer, domain, imp.sub))
-		}
+		out = append(out, fmt.Sprintf("  internal/%s/%s  ->  internal/%s/%s  "+
+			"(illegal layer direction)", domain, layer, domain, imp.sub))
 	}
 	return out
+}
+
+// reachesSideOrUp —— is this a sibling import at the same or a higher layer?
+func reachesSideOrUp(imp importRef, domain, layer string, lvl int) bool {
+	if imp.domain != domain || imp.sub == layer {
+		return false
+	}
+	other, isLayer := layerOf[imp.sub]
+	return isLayer && other >= lvl
 }
 
 func checkFacade(internal string) (result, error) {
@@ -346,13 +383,7 @@ func checkFacade(internal string) (result, error) {
 	faceted := facetedDomains(internal)
 	var bad []string
 	for _, f := range files {
-		owning := topDir(f.dir)
-		for _, imp := range f.imports {
-			if bypassesFacade(imp, owning, faceted) {
-				bad = append(bad, fmt.Sprintf("  %s  -> internal/%s/%s  "+
-					"(must go through .../facade)", f.rel, imp.domain, imp.sub))
-			}
-		}
+		bad = append(bad, facadeViolations(&f, faceted)...)
 	}
 	slices.Sort(bad)
 	bad = slices.Compact(bad)
@@ -365,6 +396,19 @@ func checkFacade(internal string) (result, error) {
 	}
 	return result{headline: fmt.Sprintf("check-domain-facade-boundary: %d domain(s) have a "+
 		"facade; outside code reaches them only via .../facade.", len(faceted))}, nil
+}
+
+// facadeViolations —— this file's imports that reach into another domain's guts.
+func facadeViolations(f *goFile, faceted []string) []string {
+	owning := topDir(f.dir)
+	var out []string
+	for _, imp := range f.imports {
+		if bypassesFacade(imp, owning, faceted) {
+			out = append(out, fmt.Sprintf("  %s  -> internal/%s/%s  "+
+				"(must go through .../facade)", f.rel, imp.domain, imp.sub))
+		}
+	}
+	return out
 }
 
 // bypassesFacade —— an outside package reaching a faceted domain's guts. A domain touching its own
