@@ -27,7 +27,7 @@ func buildMockStdio(t *testing.T) string {
 	bin := filepath.Join(t.TempDir(), "mcpmock")
 	//nolint:gosec // test：把已知 mock server 编译进 t.TempDir()，命令固定。
 	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, "./mcp")
-	cmd.Dir = "../../../mock-stack"
+	cmd.Dir = "../../../../mock-stack"
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "build mock stdio server: %s", out)
 	return bin

@@ -3,7 +3,7 @@
 // record / conflict-reason shapes. Consumers (admin list, owner cap, composition root) import here.
 // (Calendar-CONNECTOR errors are separate — see connector/contract/errors.go.)
 
-package booker
+package entity
 
 import (
 	"errors"

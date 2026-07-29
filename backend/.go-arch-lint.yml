@@ -41,8 +41,6 @@ components:
     in: internal/owner/jobs             # J phase: jobs plugin entry (Plugin impl)
   pluginownercore:
     in: internal/plugins/ownercore        # #135: owner-core caps externalized off core mcphandle (me; codes/chat/calendar next)
-  pluginbooker:
-    in: internal/plugins/booker           # #135 Slice 4: booking cluster (list_slots / cancel / policy / store) drained off the kernel
   jobsuc:
     in: internal/owner/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobsmcp:
@@ -280,14 +278,6 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # pluginbooker —— #135 Slice 4: booking 逻辑 (owner list_slots / cancel + visitor cancel + policy
-  # + store 契约) 从内核 drain 出来。只依赖 connectorcontract (CalendarProxy) + domain (BookingPolicy
-  # / CodeBooking / BookConflict*)。store/proxy 都是接口,由组装根注入具体实现。
-  pluginbooker:
-    mayDependOn:
-      - connectorcontract
-    anyVendorDeps: true
-
 
 
   # connectoropenapi —— #155 通用 openapi 执行核 leaf：spec 解析 + JSONata 绑定 + HTTP 代调。
@@ -476,7 +466,6 @@ deps:
       - paritymanifest
       - connectorcontract
       - connectorconsumer
-      - pluginbooker
       - stats
       - security
       - apierr
@@ -715,6 +704,10 @@ deps:
       - corpus
       - access
       - connector
+      # booking usecases (list_slots / cancel / cancel-own) reach calendars only through the
+      # category contract; the concrete proxy is injected at the composition root. Inherited
+      # from the dissolved plugins/booker, which had exactly this one dependency.
+      - connectorcontract
       - connectorconsumer
       - apierr
       - session
@@ -804,7 +797,6 @@ deps:
       - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
       - connectorcontract # #135 Slice 5: /connectors/mail 凭据表单 + 测试发信走 MailProxy 契约
       - capreg      # Phase H /capabilities：列 registry origin + owner-enable 开关
-      - pluginbooker # #190 /bookings + /booking-policy: booker.CodeBooking / BookingPolicy types
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
       - security    # #135 /ip-bans: BannedIP value object
     anyVendorDeps: true
@@ -833,7 +825,6 @@ deps:
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
       - httpx   # #132 /api/v1 inference-models 列表探测走统一 client
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
-      - pluginbooker # #135 Slice 4: visitor cancel-own-booking usecase
     anyVendorDeps: true
 
   # pubapi —— API-key facade. Reuses the visitor assembly (capreg) + usecases; whitelists non-Agentic
@@ -894,7 +885,6 @@ deps:
       - sandboxws
       - search
       - connectorcontract
-      - pluginbooker
       - conversation
       - owner
       - corpus

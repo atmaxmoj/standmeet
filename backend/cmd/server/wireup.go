@@ -14,7 +14,6 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
-	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
@@ -260,7 +259,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Visitor:      newVisitorSessionDeps(d),
 		SecureCookie: d.secureCookie,
 		MailStatus:   outboundSender(d),
-		Cancel: booker.VisitorCancelDeps{
+		Cancel: owner.VisitorCancelDeps{
 			Proxy: d.connectorSlots.Calendar(),
 			Store: newCapstoreBookingStore(d),
 		},

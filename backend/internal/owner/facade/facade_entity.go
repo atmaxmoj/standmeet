@@ -5,6 +5,8 @@ import "github.com/atmaxmoj/standmeet/internal/owner/entity"
 // 类型（实现:entity）.
 type (
 	AICredential    = entity.AICredential
+	BookingPolicy   = entity.BookingPolicy
+	CodeBooking     = entity.CodeBooking
 	CustomPage      = entity.CustomPage
 	CustomPageBuild = entity.CustomPageBuild
 	KeypairMetadata = entity.KeypairMetadata
@@ -38,6 +40,8 @@ var (
 	ErrPinUnpublished           = entity.ErrPinUnpublished
 	ErrPromptBuiltinImmutable   = entity.ErrPromptBuiltinImmutable
 	ErrPromptFragmentNotFound   = entity.ErrPromptFragmentNotFound
+	DefaultBookingPolicy        = entity.DefaultBookingPolicy
+	ErrBookingNotFound          = entity.ErrBookingNotFound
 	ErrPromptNameTaken          = entity.ErrPromptNameTaken
 	ErrPromptNotFound           = entity.ErrPromptNotFound
 	ErrPublicURLNotSet          = entity.ErrPublicURLNotSet

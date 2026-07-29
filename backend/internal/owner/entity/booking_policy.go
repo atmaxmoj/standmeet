@@ -1,6 +1,6 @@
 // calendar_policy.go —— BookingPolicy evaluation.
 
-package booker
+package entity
 
 import (
 	"errors"
@@ -27,42 +27,43 @@ var weekday3 = [...]string{
 	time.Saturday:  "sat",
 }
 
-type policyResult struct {
+// PolicyResult —— EvaluatePolicy 的判定结果:Reason 空 = 通过。
+type PolicyResult struct {
 	Reason BookConflictReason // 空 = pass
 }
 
-// evaluatePolicy —— 判一个 (start, duration) 是否符合 owner policy。
+// EvaluatePolicy —— 判一个 (start, duration) 是否符合 owner policy。
 // 评估顺序：lead time → weekday → working hours。
-func evaluatePolicy(
+func EvaluatePolicy(
 	policy *BookingPolicy, ownerTZ string,
 	start time.Time, durationMin int,
-) (policyResult, error) {
+) (PolicyResult, error) {
 	if !leadTimeOK(start, policy.MinLeadDays) {
-		return policyResult{Reason: BookConflictLeadTime}, nil
+		return PolicyResult{Reason: BookConflictLeadTime}, nil
 	}
 	loc, lerr := loadTimezone(ownerTZ)
 	if lerr != nil {
-		return policyResult{}, lerr
+		return PolicyResult{}, lerr
 	}
 	local := start.In(loc)
 	end := start.Add(time.Duration(durationMin) * time.Minute).In(loc)
 	if !weekdayAllowed(local.Weekday(), policy.AllowedWeekdays) {
-		return policyResult{Reason: BookConflictWeekday}, nil
+		return PolicyResult{Reason: BookConflictWeekday}, nil
 	}
 	return finishHoursCheck(policy, local, end)
 }
 
 func finishHoursCheck(
 	policy *BookingPolicy, local, end time.Time,
-) (policyResult, error) {
+) (PolicyResult, error) {
 	hErr := checkWorkingHours(policy, local, end)
 	if hErr == nil {
-		return policyResult{}, nil
+		return PolicyResult{}, nil
 	}
 	if errors.Is(hErr, ErrBookingPolicyMissingHours) {
-		return policyResult{}, hErr
+		return PolicyResult{}, hErr
 	}
-	return policyResult{Reason: BookConflictHours}, nil
+	return PolicyResult{Reason: BookConflictHours}, nil
 }
 
 // leadTimeOK —— start 必须在 now + minLeadDays 天之后。minLeadDays 恒为正

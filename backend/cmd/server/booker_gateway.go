@@ -16,7 +16,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
-	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
 	ownerroutes "github.com/atmaxmoj/standmeet/internal/routes/owner"
@@ -42,23 +42,23 @@ func newBookerPolicyStore(d *runtimeDeps) bookerPolicyStore {
 }
 
 // Get —— owner 的政策;没设过 → 默认(跟沙箱 booker 的 defaultBookingPolicy 一致)。
-func (b bookerPolicyStore) Get(ctx context.Context, ownerID string) (booker.BookingPolicy, error) {
+func (b bookerPolicyStore) Get(ctx context.Context, ownerID string) (owner.BookingPolicy, error) {
 	filter, ferr := json.Marshal(map[string]string{"owner_id": ownerID})
 	if ferr != nil {
-		return booker.BookingPolicy{}, fmt.Errorf("policy filter: %w", ferr)
+		return owner.BookingPolicy{}, fmt.Errorf("policy filter: %w", ferr)
 	}
 	recs, qerr := b.store.Query(ctx, bookerCapKind, bookerCapID, "policy", filter)
 	if qerr != nil {
-		return booker.BookingPolicy{}, fmt.Errorf("policy get: %w", qerr)
+		return owner.BookingPolicy{}, fmt.Errorf("policy get: %w", qerr)
 	}
 	if len(recs) == 0 {
-		return booker.DefaultBookingPolicy(ownerID), nil
+		return owner.DefaultBookingPolicy(ownerID), nil
 	}
 	var doc policyDoc
 	if uerr := json.Unmarshal(recs[0], &doc); uerr != nil {
-		return booker.BookingPolicy{}, fmt.Errorf("policy decode: %w", uerr)
+		return owner.BookingPolicy{}, fmt.Errorf("policy decode: %w", uerr)
 	}
-	return booker.BookingPolicy{
+	return owner.BookingPolicy{
 		OwnerID: ownerID, WorkingHoursStart: doc.WorkingHoursStart,
 		WorkingHoursEnd: doc.WorkingHoursEnd, AllowedWeekdays: doc.AllowedWeekdays,
 		MinLeadDays: doc.MinLeadDays, BufferMin: doc.BufferMin,
@@ -66,7 +66,7 @@ func (b bookerPolicyStore) Get(ctx context.Context, ownerID string) (booker.Book
 }
 
 // Set —— 覆盖 owner 的政策(单例:先删该 owner 旧文档,再插新的)。
-func (b bookerPolicyStore) Set(ctx context.Context, ownerID string, p *booker.BookingPolicy) error {
+func (b bookerPolicyStore) Set(ctx context.Context, ownerID string, p *owner.BookingPolicy) error {
 	filter, ferr := json.Marshal(map[string]string{"owner_id": ownerID})
 	if ferr != nil {
 		return fmt.Errorf("policy filter: %w", ferr)

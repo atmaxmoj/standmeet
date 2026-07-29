@@ -6,19 +6,20 @@
 //
 // 通知：visitor_email 有 → proxy 发取消通知 (sendUpdates=all)，无 → 不发。
 
-package booker
+package usecase
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
+	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
 // CancelBookingStore —— CancelBooking 用的窄接口：booking 行存取。连接器/凭据
 // 走 contract.CalendarProxy，不再 embed CalendarStore 的 token 部分。
 type CancelBookingStore interface {
-	GetBookingByID(ctx context.Context, ownerID, bookingID string) (CodeBooking, error)
+	GetBookingByID(ctx context.Context, ownerID, bookingID string) (entity.CodeBooking, error)
 	DeleteBooking(ctx context.Context, ownerID, bookingID string) error
 }
 

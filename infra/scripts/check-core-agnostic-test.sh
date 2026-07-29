@@ -9,7 +9,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 CHECK=infra/scripts/check-core-agnostic.sh
-PROBE=backend/internal/usecases/zz_probe_agnostic.go
+PROBE=backend/internal/capabilities/zz_probe_agnostic.go
 fail=0
 
 cleanup() { rm -f "$PROBE"; }
@@ -24,14 +24,14 @@ fi
 # 2) plant a fresh kernel leak: a new file naming "calendar". New filename → the (file,token) pair
 #    is not in the baseline → this is a NEW hit the ratchet must reject.
 cat > "$PROBE" <<'EOF'
-package usecases
+package capabilities
 
 // a fresh leak the baseline has never seen — the ratchet must reject it.
 func probeCalendarBook() string { return "calendar.book" }
 EOF
 
 if "$CHECK" >/dev/null 2>&1; then
-  echo "❌ check-core-agnostic MISSED a new 'calendar' leak planted in internal/usecases"
+  echo "❌ check-core-agnostic MISSED a new 'calendar' leak planted in internal/capabilities"
   fail=1
 else
   echo "✓ caught the planted kernel-capability leak"

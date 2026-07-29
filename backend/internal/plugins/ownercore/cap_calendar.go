@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
-	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 const capCalendarBundle = "calendar.bundle"
@@ -26,8 +26,8 @@ const capCalendarBundle = "calendar.bundle"
 // (CalendarStore) + booking 行存取 (CancelBookingStore)。凭据/代调走
 // CalendarProxy，不在 store 里。
 type CalendarOwnerStore interface {
-	booker.CalendarStore
-	booker.CancelBookingStore
+	owner.CalendarStore
+	owner.CancelBookingStore
 }
 
 type calendarCapability struct {
@@ -110,13 +110,13 @@ func (c *calendarCapability) handleListSlots(
 	if perr != nil {
 		return capreg.MCPError(perr.Error())
 	}
-	owner, oerr := c.ownerTZ.GetByID(ctx, ownerID)
+	prof, oerr := c.ownerTZ.GetByID(ctx, ownerID)
 	if oerr != nil {
 		c.log.Error("cap calendar.list_slots owner lookup", "err", oerr)
 		return capreg.MCPError("owner not found")
 	}
-	slots, err := booker.ListAvailableSlots(ctx, c.proxy, c.store, &booker.ListSlotsInput{
-		OwnerID: ownerID, OwnerTZ: owner.ProfileTimezone,
+	slots, err := owner.ListAvailableSlots(ctx, c.proxy, c.store, &owner.ListSlotsInput{
+		OwnerID: ownerID, OwnerTZ: prof.ProfileTimezone,
 		From: args.from, Until: args.until,
 		DurationMin: args.DurationMin, StepMin: args.StepMin,
 	})
@@ -171,7 +171,7 @@ type slotView struct {
 	End   string `json:"end"`
 }
 
-func viewSlots(slots []booker.AvailableSlot) []slotView {
+func viewSlots(slots []owner.AvailableSlot) []slotView {
 	out := make([]slotView, 0, len(slots))
 	for i := range slots {
 		out = append(out, slotView{
@@ -214,7 +214,7 @@ func (c *calendarCapability) handleCancelBooking(
 	if args.BookingID == "" {
 		return capreg.MCPError("booking_id is required")
 	}
-	cancelled, err := booker.CancelBooking(ctx, c.proxy, c.store, &booker.CancelBookingInput{
+	cancelled, err := owner.CancelBooking(ctx, c.proxy, c.store, &owner.CancelBookingInput{
 		OwnerID: ownerID, BookingID: args.BookingID,
 	})
 	if err != nil {
@@ -233,7 +233,7 @@ func (c *calendarCapability) handleCancelBooking(
 
 func calendarCapErr(log *slog.Logger, err error, op string) capreg.MCPResult {
 	switch {
-	case errors.Is(err, booker.ErrBookingNotFound):
+	case errors.Is(err, owner.ErrBookingNotFound):
 		return capreg.MCPError("booking not found")
 	case errors.Is(err, contract.ErrCalendarNotConnected):
 		return capreg.MCPError("calendar connector not connected")

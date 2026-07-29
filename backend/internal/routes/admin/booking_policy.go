@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // MountBookingPolicy —— /booking-policy GET + PATCH 挂载。
@@ -41,7 +41,7 @@ type policyPatchRequest struct {
 func (h *Handlers) getBookingPolicy() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		owner, oerr := h.AccountAdmin.Account.Owners.GetByID(r.Context(), ownerID)
+		prof, oerr := h.AccountAdmin.Account.Owners.GetByID(r.Context(), ownerID)
 		if oerr != nil {
 			h.Log.Error("get owner for policy", "err", oerr)
 			writeError(h.Log, w, serverErr())
@@ -53,11 +53,11 @@ func (h *Handlers) getBookingPolicy() http.HandlerFunc {
 			writeError(h.Log, w, serverErr())
 			return
 		}
-		writeJSON(h.Log, w, toPolicyView(&policy, owner.ProfileTimezone))
+		writeJSON(h.Log, w, toPolicyView(&policy, prof.ProfileTimezone))
 	}
 }
 
-func toPolicyView(p *booker.BookingPolicy, tz string) policyView {
+func toPolicyView(p *owner.BookingPolicy, tz string) policyView {
 	return policyView{
 		WorkingHoursStart: p.WorkingHoursStart,
 		WorkingHoursEnd:   p.WorkingHoursEnd,
@@ -135,8 +135,8 @@ func upsertPolicyFromPatch(
 }
 
 func mergePolicyPatch(
-	current *booker.BookingPolicy, patch *policyPatchRequest,
-) *booker.BookingPolicy {
+	current *owner.BookingPolicy, patch *policyPatchRequest,
+) *owner.BookingPolicy {
 	out := *current
 	applyStringPolicyFields(&out, patch)
 	applyNumericPolicyFields(&out, patch)
@@ -146,7 +146,7 @@ func mergePolicyPatch(
 	return &out
 }
 
-func applyStringPolicyFields(out *booker.BookingPolicy, patch *policyPatchRequest) {
+func applyStringPolicyFields(out *owner.BookingPolicy, patch *policyPatchRequest) {
 	if patch.WorkingHoursStart != nil {
 		out.WorkingHoursStart = *patch.WorkingHoursStart
 	}
@@ -155,7 +155,7 @@ func applyStringPolicyFields(out *booker.BookingPolicy, patch *policyPatchReques
 	}
 }
 
-func applyNumericPolicyFields(out *booker.BookingPolicy, patch *policyPatchRequest) {
+func applyNumericPolicyFields(out *owner.BookingPolicy, patch *policyPatchRequest) {
 	if patch.MinLeadDays != nil {
 		out.MinLeadDays = *patch.MinLeadDays
 	}

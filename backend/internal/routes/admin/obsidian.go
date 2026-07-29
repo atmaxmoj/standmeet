@@ -26,10 +26,10 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/corpus/obsidian"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
-	"github.com/atmaxmoj/standmeet/internal/corpus/obsidian"
 )
 
 // ObsidianDeps —— admin obsidian handlers 依赖。

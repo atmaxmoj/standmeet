@@ -10,7 +10,7 @@
 //   3. 单次 FreeBusy 查 [from, until]（via proxy）
 //   4. 过滤掉跟 busy 重叠的 slot；返排好序的 free slot 列表
 
-package booker
+package usecase
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
+	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
 const (
@@ -76,17 +77,17 @@ func ListAvailableSlots(
 // 拆出守 cyclop ≤5。未连 → ErrCalendarNotConnected。
 func listSlotsPolicy(
 	ctx context.Context, proxy contract.CalendarProxy, store CalendarStore, in *ListSlotsInput,
-) (BookingPolicy, error) {
+) (entity.BookingPolicy, error) {
 	connected, cErr := proxy.Connected(ctx, in.OwnerID)
 	if cErr != nil {
-		return BookingPolicy{}, fmt.Errorf("connector status: %w", cErr)
+		return entity.BookingPolicy{}, fmt.Errorf("connector status: %w", cErr)
 	}
 	if !connected {
-		return BookingPolicy{}, contract.ErrCalendarNotConnected
+		return entity.BookingPolicy{}, contract.ErrCalendarNotConnected
 	}
 	policy, perr := store.GetBookingPolicy(ctx, in.OwnerID)
 	if perr != nil {
-		return BookingPolicy{}, fmt.Errorf("load policy: %w", perr)
+		return entity.BookingPolicy{}, fmt.Errorf("load policy: %w", perr)
 	}
 	return policy, nil
 }
@@ -103,7 +104,7 @@ func queryListFreeBusy(
 }
 
 // enumerateSlots —— policy + step → 候选 slot 时间点（不查 FreeBusy）。
-func enumerateSlots(policy *BookingPolicy, in *ListSlotsInput) []AvailableSlot {
+func enumerateSlots(policy *entity.BookingPolicy, in *ListSlotsInput) []AvailableSlot {
 	step := time.Duration(slotStep(in)) * time.Minute
 	dur := time.Duration(in.DurationMin) * time.Minute
 	out := make([]AvailableSlot, 0, maxSlotsReturned)
@@ -122,9 +123,9 @@ func shouldKeepEnumerating(t, until time.Time, collected int) bool {
 }
 
 func slotPassesPolicy(
-	policy *BookingPolicy, in *ListSlotsInput, t time.Time,
+	policy *entity.BookingPolicy, in *ListSlotsInput, t time.Time,
 ) bool {
-	res, err := evaluatePolicy(policy, in.OwnerTZ, t, in.DurationMin)
+	res, err := entity.EvaluatePolicy(policy, in.OwnerTZ, t, in.DurationMin)
 	return err == nil && res.Reason == ""
 }
 

@@ -8,13 +8,13 @@ package admin
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // BookingPolicyStore —— owner 的预约政策读写(绑定到 booker 的隔离存储)。没设过 → 返默认。
 type BookingPolicyStore interface {
-	Get(ctx context.Context, ownerID string) (booker.BookingPolicy, error)
-	Set(ctx context.Context, ownerID string, p *booker.BookingPolicy) error
+	Get(ctx context.Context, ownerID string) (owner.BookingPolicy, error)
+	Set(ctx context.Context, ownerID string, p *owner.BookingPolicy) error
 }
 
 // BookingLister —— admin bookings list 的存储口。#187:绑定到 booker 的隔离 capstore(约成的会
@@ -22,7 +22,7 @@ type BookingPolicyStore interface {
 type BookingLister interface {
 	ListBookingsByOwner(
 		ctx context.Context, ownerID string, limit int32,
-	) ([]booker.CodeBooking, error)
+	) ([]owner.CodeBooking, error)
 }
 
 // CalendarAdminDeps —— booking 路由的存储依赖（仅预约存储，非连接器）。

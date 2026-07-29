@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
-	"github.com/atmaxmoj/standmeet/internal/plugins/booker"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 )
 
@@ -44,7 +44,7 @@ type convMemberResolver interface {
 	ConversationMemberID(ctx context.Context, ownerID, conversationID string) (string, error)
 }
 
-// capstoreBookingStore —— host booking store over booker's capstore. Satisfies booker.CalendarStore
+// capstoreBookingStore —— host booking store over booker's capstore. Satisfies owner.CalendarStore
 // + CancelBookingStore + VisitorCancelStore + the admin BookingLister.
 type capstoreBookingStore struct {
 	store   *capstore.Store
@@ -63,7 +63,7 @@ func newCapstoreBookingStore(d *runtimeDeps) capstoreBookingStore {
 // GetBookingPolicy —— booker's capstore policy (same source the sandbox reads).
 func (s capstoreBookingStore) GetBookingPolicy(
 	ctx context.Context, ownerID string,
-) (booker.BookingPolicy, error) {
+) (owner.BookingPolicy, error) {
 	return s.policy.Get(ctx, ownerID)
 }
 
@@ -71,22 +71,22 @@ func (s capstoreBookingStore) GetBookingPolicy(
 // capstore policy — the same doc the sandbox booker + admin /booking-policy read.
 func (s capstoreBookingStore) UpsertBookingPolicy(
 	ctx context.Context, in *ownercore.BookingPolicyUpsert,
-) (booker.BookingPolicy, error) {
-	p := booker.BookingPolicy{
+) (owner.BookingPolicy, error) {
+	p := owner.BookingPolicy{
 		OwnerID: in.OwnerID, WorkingHoursStart: in.WorkingHoursStart,
 		WorkingHoursEnd: in.WorkingHoursEnd, AllowedWeekdays: in.AllowedWeekdays,
 		MinLeadDays: in.MinLeadDays, BufferMin: in.BufferMin,
 	}
 	if err := s.policy.Set(ctx, in.OwnerID, &p); err != nil {
-		return booker.BookingPolicy{}, fmt.Errorf("upsert policy: %w", err)
+		return owner.BookingPolicy{}, fmt.Errorf("upsert policy: %w", err)
 	}
 	return s.policy.Get(ctx, in.OwnerID)
 }
 
 // CreateBooking —— host-side insert (interface completeness; chat bookings come from the sandbox).
 func (s capstoreBookingStore) CreateBooking(
-	ctx context.Context, in *booker.CreateBookingInput,
-) (booker.CodeBooking, error) {
+	ctx context.Context, in *owner.CreateBookingInput,
+) (owner.CodeBooking, error) {
 	doc, merr := json.Marshal(capstoreBookingDoc{
 		OwnerID: in.OwnerID, CodeID: in.CodeID, ConversationID: in.ConversationID,
 		GoogleEventID: in.GoogleEventID, GoogleHTMLLink: in.GoogleHTMLLink,
@@ -94,13 +94,13 @@ func (s capstoreBookingStore) CreateBooking(
 		StartAt: in.StartAt, EndAt: in.EndAt,
 	})
 	if merr != nil {
-		return booker.CodeBooking{}, fmt.Errorf("booking encode: %w", merr)
+		return owner.CodeBooking{}, fmt.Errorf("booking encode: %w", merr)
 	}
 	id, err := s.store.Insert(ctx, bookerCapKind, bookerCapID, capstoreBookingsColl, doc)
 	if err != nil {
-		return booker.CodeBooking{}, fmt.Errorf("booking insert: %w", err)
+		return owner.CodeBooking{}, fmt.Errorf("booking insert: %w", err)
 	}
-	return booker.CodeBooking{
+	return owner.CodeBooking{
 		ID: id, OwnerID: in.OwnerID, CodeID: in.CodeID, ConversationID: in.ConversationID,
 		GoogleEventID: in.GoogleEventID, GoogleHTMLLink: in.GoogleHTMLLink,
 		Summary: in.Summary, VisitorEmail: in.VisitorEmail, StartAt: in.StartAt, EndAt: in.EndAt,
@@ -125,17 +125,17 @@ func (s capstoreBookingStore) CountBookingsForCode(
 // GetBookingByID —— owner-scoped fetch by capstore record id.
 func (s capstoreBookingStore) GetBookingByID(
 	ctx context.Context, ownerID, bookingID string,
-) (booker.CodeBooking, error) {
+) (owner.CodeBooking, error) {
 	recs, err := s.bookings(ctx, map[string]string{"owner_id": ownerID})
 	if err != nil {
-		return booker.CodeBooking{}, err
+		return owner.CodeBooking{}, err
 	}
 	for i := range recs {
 		if recs[i].ID == bookingID {
 			return recordToBooking(&recs[i])
 		}
 	}
-	return booker.CodeBooking{}, booker.ErrBookingNotFound
+	return owner.CodeBooking{}, owner.ErrBookingNotFound
 }
 
 // DeleteBooking —— owner-scoped hard delete by record id.
@@ -148,7 +148,7 @@ func (s capstoreBookingStore) DeleteBooking(ctx context.Context, ownerID, bookin
 		return fmt.Errorf("booking delete: %w", err)
 	}
 	if n == 0 {
-		return booker.ErrBookingNotFound
+		return owner.ErrBookingNotFound
 	}
 	return nil
 }
@@ -157,30 +157,30 @@ func (s capstoreBookingStore) DeleteBooking(ctx context.Context, ownerID, bookin
 // require the booking's conversation to belong to memberID. Any mismatch → ErrBookingNotFound.
 func (s capstoreBookingStore) BookingForMemberByEvent(
 	ctx context.Context, ownerID, codeID, memberID, eventID string,
-) (booker.CodeBooking, error) {
+) (owner.CodeBooking, error) {
 	recs, err := s.bookings(ctx, map[string]string{
 		"owner_id": ownerID, "code_id": codeID, "google_event_id": eventID,
 	})
 	if err != nil {
-		return booker.CodeBooking{}, err
+		return owner.CodeBooking{}, err
 	}
 	for i := range recs {
 		if bk, ok := s.memberBooking(ctx, ownerID, memberID, &recs[i]); ok {
 			return bk, nil
 		}
 	}
-	return booker.CodeBooking{}, booker.ErrBookingNotFound
+	return owner.CodeBooking{}, owner.ErrBookingNotFound
 }
 
 // ListBookingsByOwner —— admin bookings list, capped at limit.
 func (s capstoreBookingStore) ListBookingsByOwner(
 	ctx context.Context, ownerID string, limit int32,
-) ([]booker.CodeBooking, error) {
+) ([]owner.CodeBooking, error) {
 	recs, err := s.bookings(ctx, map[string]string{"owner_id": ownerID})
 	if err != nil {
 		return nil, err
 	}
-	out := make([]booker.CodeBooking, 0, len(recs))
+	out := make([]owner.CodeBooking, 0, len(recs))
 	for i := range recs {
 		bk, derr := recordToBooking(&recs[i])
 		if derr != nil {
@@ -198,14 +198,14 @@ func (s capstoreBookingStore) ListBookingsByOwner(
 // resolve error or member mismatch → (zero, false); caller treats that as "not this member's".
 func (s capstoreBookingStore) memberBooking(
 	ctx context.Context, ownerID, memberID string, r *capstore.Record,
-) (booker.CodeBooking, bool) {
+) (owner.CodeBooking, bool) {
 	bk, derr := recordToBooking(r)
 	if derr != nil {
-		return booker.CodeBooking{}, false
+		return owner.CodeBooking{}, false
 	}
-	owner, merr := s.members.ConversationMemberID(ctx, ownerID, bk.ConversationID)
-	if merr != nil || owner != memberID {
-		return booker.CodeBooking{}, false
+	mid, merr := s.members.ConversationMemberID(ctx, ownerID, bk.ConversationID)
+	if merr != nil || mid != memberID {
+		return owner.CodeBooking{}, false
 	}
 	return bk, true
 }
@@ -224,12 +224,12 @@ func (s capstoreBookingStore) bookings(
 	return recs, nil
 }
 
-func recordToBooking(r *capstore.Record) (booker.CodeBooking, error) {
+func recordToBooking(r *capstore.Record) (owner.CodeBooking, error) {
 	var doc capstoreBookingDoc
 	if err := json.Unmarshal(r.Doc, &doc); err != nil {
-		return booker.CodeBooking{}, fmt.Errorf("booking decode: %w", err)
+		return owner.CodeBooking{}, fmt.Errorf("booking decode: %w", err)
 	}
-	return booker.CodeBooking{
+	return owner.CodeBooking{
 		ID: r.ID, OwnerID: doc.OwnerID, CodeID: doc.CodeID,
 		ConversationID: doc.ConversationID, GoogleEventID: doc.GoogleEventID,
 		GoogleHTMLLink: doc.GoogleHTMLLink, Summary: doc.Summary,

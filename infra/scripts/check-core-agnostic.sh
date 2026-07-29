@@ -28,8 +28,9 @@ cd "$(dirname "$0")/../.."
 
 BASELINE="backend/.core-agnostic-baseline"
 
-# The three kernel packages —— they must not let you infer that any concrete capability/connector exists.
-CORE_DIRS="backend/internal/usecases backend/internal/conversation/inference backend/internal/capabilities"
+# The kernel packages —— they must not let you infer that any concrete capability/connector exists.
+# (internal/usecases was the third; it is dissolved, so the agent engine + capability axis remain.)
+CORE_DIRS="backend/internal/conversation/inference backend/internal/capabilities"
 
 # Concrete capability/connector names. All are words with "almost zero legitimate reason" in the kernel. Deliberately excluded:
 #   - bare "mail"/"email"/"google"/"corpus" —— email is identity, corpus is a kernel primitive; catching them would

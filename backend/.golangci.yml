@@ -312,9 +312,9 @@ linters:
       # 白盒单测;同上豁免 testpackage。
       - path: internal/marketplace/
         linters: [testpackage]
-      # usecases 的 resolveConfirmation(#122 确认信归属/幂等/收件人那一关)是
-      # unexported 纯逻辑,值得白盒单测(UI 锁卡 → e2e 走不到幂等 409);同上豁免。
-      - path: internal/usecases/
+      # corpus/obsidian 的 extFromContentType(附件扩展名推断)是 unexported 纯逻辑,
+      # 值得白盒单测;同上豁免 testpackage。
+      - path: internal/corpus/obsidian/
         linters: [testpackage]
       # capabilities/capload 的能力装载 glue(toolCallBudget / newMCPAppCapability 等)是
       # unexported,值得白盒单测;同 usecases 豁免 testpackage。
