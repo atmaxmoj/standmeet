@@ -20,7 +20,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
-	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
+	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
 
 const capstoreBookingsColl = "bookings"

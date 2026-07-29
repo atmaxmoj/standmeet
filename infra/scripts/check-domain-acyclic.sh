@@ -15,20 +15,45 @@ INTERNAL="$ROOT/backend/internal"
 python3 - "$INTERNAL" <<'PY'
 import os, re, sys
 internal = sys.argv[1]
-# domain nodes = the 8 core modules from the class diagram + the capability axis. infra (leaf)/routes (top)/usecases are
+# domain nodes = the 8 core modules from the class diagram + the capability axis. infra (leaf)/routes (top) are
 # guarded by check-infra-not-domain + check-routes-not-imported respectively; here we only enforce **inter-domain** acyclicity.
-nodes = ["corpus", "conversation", "connector", "access", "owner",
-         "security", "marketplace", "stats", "capabilities"]
+DOMAINS = ["corpus", "conversation", "connector", "access", "owner",
+           "security", "marketplace", "stats", "capabilities"]
+# Sub-modules that keep their OWN boundary (same set check-domain-facade-boundary exempts): they are
+# not the domain's DDD core, they are aggregators/plugins hanging off it with their own entry points
+# (owner/ownercore is the owner-MCP cap bundle, owner/jobs the job loop, corpus/obsidian vault I/O,
+# conversation/inference the agent engine). Since the facade rule already treats them as separate
+# boundaries, this graph treats them as separate NODES -- otherwise an aggregator that legitimately
+# reaches across domains would forge a cycle onto the core it merely sits next to. The core of each
+# domain must still be a clean node.
+SUBMODULES = {"jobs", "inference", "obsidian", "ownercore"}
+
+def node_for(domain, dirpath):
+    rel = os.path.relpath(dirpath, os.path.join(internal, domain)).split(os.sep)
+    if rel and rel[0] in SUBMODULES:
+        return domain + "/" + rel[0]
+    return domain
+
+nodes = list(DOMAINS)
+for d in DOMAINS:
+    for sub in sorted(SUBMODULES):
+        if os.path.isdir(os.path.join(internal, d, sub)):
+            nodes.append(d + "/" + sub)
 edges = {d: set() for d in nodes}
-for d in nodes:
+for d in DOMAINS:
     for dirpath, _, files in os.walk(os.path.join(internal, d)):
+        src = node_for(d, dirpath)
         for fn in files:
             if not fn.endswith(".go") or fn.endswith("_test.go"):
                 continue
             txt = open(os.path.join(dirpath, fn)).read()
-            for imp in re.findall(r'atmaxmoj/standmeet/internal/([a-z0-9_]+)', txt):
-                if imp in edges and imp != d:
-                    edges[d].add(imp)
+            for imp in re.findall(r'atmaxmoj/standmeet/internal/([a-z0-9_]+)(?:/([a-z0-9_]+))?', txt):
+                dom, sub = imp
+                if dom not in edges:
+                    continue
+                dst = dom + "/" + sub if sub in SUBMODULES and (dom + "/" + sub) in edges else dom
+                if dst != src:
+                    edges[src].add(dst)
 
 # DFS cycle detection
 WHITE, GREY, BLACK = 0, 1, 2
@@ -51,5 +76,5 @@ if cycles:
     for c in cycles:
         print("  CYCLE: " + " -> ".join(c))
     sys.exit(1)
-print(f"check-domain-acyclic: {len(nodes)} domain nodes, dependency graph is acyclic (DAG holds).")
+print(f"check-domain-acyclic: {len(nodes)} domain/sub-module nodes, dependency graph is acyclic (DAG holds).")
 PY

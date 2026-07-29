@@ -11,7 +11,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
+	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
 
 // ───── connector service adapter ────────────────────────────────

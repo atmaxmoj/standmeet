@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
+	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
 
 // TestOwnerToolSchemasAreValidJSON —— 每个 owner-MCP 工具的 InputSchema 必须是

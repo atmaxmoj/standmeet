@@ -409,7 +409,7 @@ linters:
         linters: [forbidigo]
       # #135: ownercore 是从 mcphandle 外置出来的 owner-MCP capabilities，跟 mcphandle/jobsmcp
       # 同 schemaless 协议契约 (map[string]any result payload)，同样豁免裸 any。
-      - path: internal/plugins/ownercore/
+      - path: internal/owner/ownercore/
         linters: [forbidigo]
 
       # facade-parity manifest is a declaration DATA table — line-length / func-length rules

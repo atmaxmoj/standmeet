@@ -14,7 +14,7 @@
 #
 # Excluded: _test.go, and comment lines starting with `//` or `*`. CORE_DIRS holds only the three
 # kernel packages; the connector layer (internal/connector*), postgres, mailer, the composition
-# root (cmd/server), plugin leaves (internal/plugins/<cap>), and mcp-servers/ are **not** the
+# root (cmd/server), the owner-side cap bundles (internal/owner/{ownercore,jobs}), and mcp-servers/ are **not** the
 # kernel —— capability names there are legal.
 #
 # Usage:

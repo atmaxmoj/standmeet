@@ -31,7 +31,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
-	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
+	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"

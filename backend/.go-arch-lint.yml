@@ -40,7 +40,7 @@ components:
   pluginjobs:
     in: internal/owner/jobs             # J phase: jobs plugin entry (Plugin impl)
   pluginownercore:
-    in: internal/plugins/ownercore        # #135: owner-core caps externalized off core mcphandle (me; codes/chat/calendar next)
+    in: internal/owner/ownercore          # #135: owner-core caps externalized off core mcphandle (me; codes/chat/calendar next)
   jobsuc:
     in: internal/owner/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobsmcp:

@@ -10,7 +10,7 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
-	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
+	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
 
 func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
