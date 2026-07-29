@@ -10,7 +10,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // RegisterReportStoreOp —— 把 "report.store" 挂到 srv:{owner_id,conversation_id,html} →
@@ -27,7 +26,7 @@ func RegisterReportStoreOp(srv *capsocket.Server, reports conversation.ReportSto
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("report.store: decode: %w", err)
 		}
-		styled := usecases.ReportStyledDocument(usecases.SanitizeReportHTML(req.HTML))
+		styled := conversation.ReportStyledDocument(conversation.SanitizeReportHTML(req.HTML))
 		row, uerr := reports.Upsert(ctx, &conversation.UpsertReportInput{
 			OwnerID: req.OwnerID, ConversationID: req.ConversationID, HTML: styled,
 		})

@@ -12,7 +12,7 @@
 // CSS (the prompt forbids <style>/<script>, and SanitizeReportHTML strips them), so this trusted
 // wrapper is the sole styling.
 
-package usecases
+package usecase
 
 import "strings"
 

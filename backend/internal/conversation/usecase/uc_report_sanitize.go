@@ -5,7 +5,7 @@
 // internal/attacker URL (SSRF / tracking). We keep only a small set of formatting tags and strip
 // every external-resource-loading / scripting element before the HTML is stored or embedded.
 
-package usecases
+package usecase
 
 import (
 	"strings"

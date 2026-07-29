@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # check-internal-dirs.sh —— under backend/internal/ only three kinds of directory are allowed:
 #   1) the 8 core domain modules from the class diagram (backend-domain-modules.md class diagram)
-#   2) the generic app-layer usecases + the real inbound controller routes
+#   2) the real inbound controller routes
 #   3) the domain-less shared DDD infrastructure (///... — see the whitelist)
 # A directory not in the class diagram and not in any of the above = "an extra thing", and must be
-# broken up and put back (move the feature into a core module / usecases / or externalize it out of internal/, like plugins→mcp-servers/).
+# broken up and put back (move the feature into a core module, or externalize it out of internal/, like plugins->mcp-servers/).
 #
 # A directory outside the whitelist is red on hit. Known existing violations to break up go in
 # .internal-dirs-baseline (can only shrink: break one up, delete a line; also delete directories no
@@ -17,10 +17,10 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 INTERNAL="$ROOT/backend/internal"
 BASELINE="$ROOT/backend/.internal-dirs-baseline"
 
-# ── whitelist: class-diagram core modules + routes + usecases + domain-less infra ──
+# -- whitelist: class-diagram core modules + routes + domain-less infra --
 ALLOWED="
 access conversation connector corpus owner security marketplace stats capabilities
-routes usecases infra
+routes infra
 "
 
 is_allowed() {
@@ -57,7 +57,7 @@ for v in $violations; do
 	found=0
 	for b in $baseline; do [ "$v" = "$b" ] && found=1; done
 	if [ "$found" -eq 0 ]; then
-		echo "check-internal-dirs: internal/$v is not in the whitelist (class diagram/usecases/infra) and not in the baseline —— a directory absent from the class diagram must not be added; break it up and put it back."
+		echo "check-internal-dirs: internal/$v is not in the whitelist (class diagram/routes/infra) and not in the baseline —— a directory absent from the class diagram must not be added; break it up and put it back."
 		fail=1
 	fi
 done

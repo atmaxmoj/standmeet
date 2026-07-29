@@ -19,10 +19,8 @@ excludeFiles:
 # Components 命名对齐 Otium auth。按外部系统切 infra（postgres / inference /
 # storage / sandbox 各自独立）而不是扁平 infra/。
 components:
-  usecases:
-    in: internal/usecases
   obsidian:
-    in: internal/usecases/obsidian        # Obsidian vault import/export
+    in: internal/corpus/obsidian          # Obsidian vault import/export (corpus sub-module)
   pgstore:
     in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
   session:
@@ -202,30 +200,6 @@ components:
     in: internal/owner/jobs/jobsuc/db                # #135: jobsuc 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
 
 deps:
-  # Domain 纯内核，无 internal 依赖。
-  usecases:
-    mayDependOn:
-      - conversation
-      - access
-      - owner
-      - marketplace
-      - corpus
-      - session
-      - inference
-      - cryptobox
-      - sandbox
-      - mcpclient
-      - storage
-      - capreg
-      - mcpplugin
-      - capsocket
-      - search
-      - connectorconsumer
-      - connector
-      - pgstore
-      - apierr
-    anyVendorDeps: true
-
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
   search:
     mayDependOn: []
@@ -287,7 +261,6 @@ deps:
   reportroutes:
     mayDependOn:
       - capsocket
-      - usecases
       - conversation
     anyVendorDeps: true
   conversationroutes:
@@ -425,7 +398,6 @@ deps:
   # 接口注入 owner profile 查询，避免直接 import postgres；usecases 提供 token verify。
   mcphandle:
     mayDependOn:
-      - usecases
       - capreg
       - mcputil
       - jobsuc
@@ -460,7 +432,6 @@ deps:
       - marketplace
       - corpus
       - inference
-      - usecases
       - capreg
       - sandbox
       - mcpplugin
@@ -501,7 +472,6 @@ deps:
       - capabilities
       - capreg
       - mcputil
-      - usecases
       - httpx
       - paritymanifest
       - connectorcontract
@@ -521,7 +491,6 @@ deps:
       - jobsdb
       - owner
       - jobsmodel
-      - usecases
       - jobcache
       - jobfetch
       - jobdedup
@@ -802,7 +771,6 @@ deps:
       - conversation
       - printsess
       - session
-      - usecases
       - capreg
       - sandboxws
       - connectorcontract  # #155 连接器 diag：CalendarProxy/DTO 类型契约
@@ -827,7 +795,6 @@ deps:
       - access
       - marketplace
       - corpus
-      - usecases
       - obsidian
       - session
       - apierr
@@ -848,7 +815,6 @@ deps:
   obsidian:
     mayDependOn:
       - corpus
-      - usecases
       - storage
     anyVendorDeps: true
 
@@ -860,7 +826,6 @@ deps:
       - access
       - owner
       - corpus
-      - usecases
       - session
       - inference
       - apierr
@@ -879,7 +844,6 @@ deps:
       - access
       - conversation
       - owner
-      - usecases
       - capreg
       - paritymanifest
     anyVendorDeps: true
@@ -892,7 +856,6 @@ deps:
       - jobsmodel
       - config
       - session
-      - usecases
       - sysroutes
       - adminroutes
       - publicroutes

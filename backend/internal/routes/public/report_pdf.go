@@ -23,7 +23,6 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/gotenberg"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ReportPDFRenderer —— 把完整 HTML doc 渲成 PDF bytes 的窄口子
@@ -95,8 +94,8 @@ func handleReportPDFErr(h *Handlers, w http.ResponseWriter, err error) {
 // fragment (pre-unification) is sanitized + styled through the same `ReportStyledDocument` the
 // card/page use, so the PDF matches them instead of carrying its own divergent stylesheet.
 func wrapReportHTML(report *conversation.ChatReport) string {
-	if usecases.IsFullReportDocument(report.HTML) {
+	if conversation.IsFullReportDocument(report.HTML) {
 		return report.HTML
 	}
-	return usecases.ReportStyledDocument(usecases.SanitizeReportHTML(report.HTML))
+	return conversation.ReportStyledDocument(conversation.SanitizeReportHTML(report.HTML))
 }

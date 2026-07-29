@@ -51,6 +51,7 @@ var (
 	ForChat                   = usecase.ForChat
 	GetConversationTranscript = usecase.GetConversationTranscript
 	GhostTelemetry            = usecase.GhostTelemetry
+	IsFullReportDocument      = usecase.IsFullReportDocument
 	IssueCodeSession          = usecase.IssueCodeSession
 	IssuePublicSession        = usecase.IssuePublicSession
 	ListConversations         = usecase.ListConversations
@@ -62,6 +63,8 @@ var (
 	RecordDialog              = usecase.RecordDialog
 	RecordGhostShown          = usecase.RecordGhostShown
 	RecordPolicyGhost         = usecase.RecordPolicyGhost
+	ReportStyledDocument      = usecase.ReportStyledDocument
+	SanitizeReportHTML        = usecase.SanitizeReportHTML
 	SteeringCandidates        = usecase.SteeringCandidates
 	UnvisitedWaypoints        = usecase.UnvisitedWaypoints
 )
