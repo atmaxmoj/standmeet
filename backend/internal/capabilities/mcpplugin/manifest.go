@@ -88,11 +88,28 @@ const (
 	ACLAlways = "always"
 )
 
+// OwnerTool —— 插件暴露给 **owner 侧** 的一个工具,纯**声明数据**(名字/描述/入参 schema)。
+//
+// 为什么是数据而不是 dial 出来的:owner MCP 的工具表在装配期就要枚举(facade-parity 也照它对
+// 账),若靠 dial 就得在启动时把沙箱拉起来。声明是数据、实现在沙箱 —— 正是两条插件轴的
+// {declaration(data) → implementation → instance} 元结构;host 只在**真被调用时**才 dial。
+//
+// Name 是 owner MCP 上的对外名(如 "calendar.list_slots");Tool 是插件内部的 MCP 工具名
+// (如 "calendar_list_slots")。两者分开,让 owner 面的命名规范不绑死插件内部命名。
+type OwnerTool struct {
+	Name        string
+	Tool        string
+	Description string
+	InputSchema string
+}
+
 // Manifest —— 一条校验通过的 MCP 插件声明。
 type Manifest struct {
 	Requires []string
-	ID       string
-	Version  string
+	// OwnerTools —— 本插件在 owner 侧暴露的工具声明(Shape 含 owner 时才有意义)。
+	OwnerTools []OwnerTool
+	ID         string
+	Version    string
 	// Title —— 人类可读显示名（#109/#110 dock 按钮 label 透传它）。跟 MCP tool title 同角色：
 	// 显示用，区别于程序标识 ID。空 = 该能力没 title（不够格当 dock 按钮 label，无 id 兜底）。
 	Title            string

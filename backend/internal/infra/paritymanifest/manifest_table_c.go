@@ -81,8 +81,12 @@ func governanceEntries() []Entry {
 			Admin: []string{"PATCH /api/admin/booking-policy"},
 		},
 		{
-			Op:  act("calendar.list_slots", fp.Only("agent-facing booking helper; owner drives it via MCP", FacadeMCP)),
-			MCP: []string{"calendar.list_slots"},
+			// Served by the **sandboxed booker** via manifest.OwnerTools, not by ownercore: the
+			// policy evaluation + slot enumeration belong to the capability, and the host no
+			// longer keeps a second copy of either.
+			Op:     act("calendar.list_slots", fp.Only("agent-facing booking helper; owner drives it via MCP", FacadeMCP)),
+			MCP:    []string{"calendar.list_slots"},
+			Plugin: true,
 		},
 		{
 			Op:  act("calendar.cancel_booking", fp.Only("owner cancels via MCP; admin has the bookings list, not per-booking cancel", FacadeMCP)),

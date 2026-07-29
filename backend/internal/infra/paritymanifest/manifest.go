@@ -30,6 +30,27 @@ type Entry struct {
 	MCP   []string
 	Admin []string
 	Op    fp.Op
+	// Plugin —— this op's owner-MCP tool is served by the **plugin axis** (an externalized,
+	// sandboxed capability declaring it in manifest.OwnerTools), not by an in-process ownercore
+	// capability. The op is still live on the MCP facade, so it is not a gap; it simply is not in
+	// ownercore's registry, which is all the ownercore-scoped ratchet can see.
+	//
+	// This is a claim, not an escape hatch: TestParityPluginClaimsAreReal (cmd/server, where the
+	// built-in manifests live) asserts every name marked Plugin is genuinely declared by some
+	// built-in manifest's OwnerTools. Delete the plugin's tool and that test goes red.
+	Plugin bool
+}
+
+// PluginServedMCP —— every MCP tool name whose implementation lives on the plugin axis.
+func PluginServedMCP() []string {
+	out := []string{}
+	m := Manifest()
+	for i := range m { // index, not value: an Entry is large enough that copying it is flagged
+		if m[i].Plugin {
+			out = append(out, m[i].MCP...)
+		}
+	}
+	return out
 }
 
 func act(id string, r fp.Reach) fp.Op  { return fp.Op{ID: id, Kind: fp.Action, Reach: r} }
@@ -84,6 +105,9 @@ func AdminRoutes() []string {
 // (the registry's live tool names). This is the paydown worklist: shrinking it = filling gaps.
 func MCPMissing(liveMCP []string) []string {
 	out := []string{}
+	// Plugin-served tools are live on the MCP facade even though the ownercore registry (the only
+	// thing the caller can enumerate) does not contain them.
+	liveMCP = append(append([]string{}, liveMCP...), PluginServedMCP()...)
 	for _, v := range Check(liveMCP, AdminRoutes()) {
 		if v.Facade == FacadeMCP && v.Kind == "missing" {
 			out = append(out, v.OpID)

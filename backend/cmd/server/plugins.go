@@ -48,15 +48,21 @@ func connectorDepRegistry(ctx context.Context, d *runtimeDeps) *capreg.DepRegist
 // 运行时钩子的内建挂 per-session CapHooks（booker: connector+quota tool 闸；retrieval:
 // corpus-scope fragment/enabled 闸）。
 func registerBuiltins(d *runtimeDeps, hooks map[string]capload.CapHooks) {
-	manifests := []mcpplugin.Manifest{
-		askVisitorManifest(), summarizeManifest(), bookerManifest(), retrievalManifest(),
-		mailSenderManifest(),
-	}
 	dupes := capload.RegisterDiscoveredPluginsHooked(
-		d.agentSkills, manifests, capreg.OriginBuiltin, hooks, d.capDialErrLog(),
+		d.agentSkills, builtinManifests(), capreg.OriginBuiltin, hooks, d.capDialErrLog(),
 	)
 	for _, id := range dupes {
 		d.log.Warn("builtin register skipped (duplicate id)", "id", id)
+	}
+}
+
+// builtinManifests —— the built-in capability declarations, in ONE place. Registration and the
+// facade-parity plugin-claim test both read this, so a manifest can never be verified against a
+// stale copy (a test-only duplicate of setup data rots silently the moment the real one changes).
+func builtinManifests() []mcpplugin.Manifest {
+	return []mcpplugin.Manifest{
+		askVisitorManifest(), summarizeManifest(), bookerManifest(), retrievalManifest(),
+		mailSenderManifest(),
 	}
 }
 
@@ -132,12 +138,38 @@ func mailSenderManifest() mcpplugin.Manifest {
 func bookerManifest() mcpplugin.Manifest {
 	const sock = "/run/standmeet/booker.sock"
 	return mcpplugin.Manifest{
-		ID:           "calendar.book",
-		Title:        "Book a meeting",
-		Version:      "1",
-		Shape:        mcpplugin.ShapeVisitorOnly,
+		ID:      "calendar.book",
+		Title:   "Book a meeting",
+		Version: "1",
+		// ShapeBoth —— booker 同时面向访客(calendar_book / list_slots)和 **owner**
+		// (calendar.list_slots)。owner 侧工具声明在 OwnerTools 里,实现仍在沙箱:一份算法,
+		// 不再host/沙箱各一份(策略评估 + slot 枚举曾经重复实现过两遍)。
+		Shape:        mcpplugin.ShapeBoth,
 		ACL:          mcpplugin.ACLRoleGranted,
 		RawToolNames: true,
+		// OwnerTools —— owner 面的声明(数据)。owner MCP 工具表在装配期枚举(facade-parity
+		// 照它对账),所以不能靠启动时 dial 沙箱;真被调用才 dial。入参跟沙箱工具一致。
+		OwnerTools: []mcpplugin.OwnerTool{{
+			Name: "calendar.list_slots",
+			Tool: "calendar_list_slots",
+			Description: "Enumerate available [start, end] slots that pass booking policy " +
+				"(weekday + working_hours + min_lead_days) AND don't overlap any FreeBusy " +
+				"window. Returns up to 50 slots, RFC3339-formatted in UTC.",
+			InputSchema: `{
+				"type":"object",
+				"properties":{
+					"from_rfc3339":{"type":"string",
+						"description":"Search window start (RFC3339)."},
+					"until_rfc3339":{"type":"string",
+						"description":"Search window end (RFC3339)."},
+					"duration_min":{"type":"number",
+						"description":"Slot length in minutes (e.g. 30, 60)."},
+					"step_min":{"type":"number",
+						"description":"Slot enumeration step in minutes (default 30)."}
+				},
+				"required":["from_rfc3339","until_rfc3339","duration_min"]
+			}`,
+		}},
 		// 硬依赖 calendar connector：未连 → 经 global 单点闸隐藏（D-2，取代 booker
 		// SessionGate 里的 Connected() 自查）。smtp 不在此 —— 确认信是软依赖，没连也能
 		// book，只是 send_confirmation 那截不可用（per-tool，不 gate 整 cap）。

@@ -118,10 +118,6 @@ func (c *mcpAppCapability) Shape() capreg.Shape {
 // capreg.RequiresDeps，让 connector-gating 从写死在 booker 里收成单点。
 func (c *mcpAppCapability) Requires() []string { return c.m.Requires }
 
-func (*mcpAppCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{}
-}
-
 // SystemPromptFragment —— server initialize instructions 即本能力的 prompt 片段。
 // 按暴露门（role-grant）gate：role-granted 插件（外置 booker / echoer / 第三方）只在
 // role 授权时贡献 prompt，跟 in-process 时代 booker fragment 随 role gate 的行为一致；

@@ -10,9 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcputil"
@@ -65,121 +63,10 @@ func (*calendarCapability) SystemPromptFragmentID(
 }
 
 func (c *calendarCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{
-		c.listSlotsBinding(), c.cancelBookingBinding(),
-	}
-}
-
-// ───── calendar.list_slots ───────────────────────────────────────
-
-func (c *calendarCapability) listSlotsBinding() *capreg.MCPBinding {
-	return &capreg.MCPBinding{
-		Name: "calendar.list_slots",
-		Description: "Enumerate available [start, end] slots that pass booking policy " +
-			"(weekday + working_hours + min_lead_days) AND don't overlap any FreeBusy " +
-			"window. Returns up to 50 slots, RFC3339-formatted in UTC.",
-		InputSchema: json.RawMessage(`{
-			"type":"object",
-			"properties":{
-				"from_rfc3339":{"type":"string",
-					"description":"Search window start (RFC3339)."},
-				"until_rfc3339":{"type":"string",
-					"description":"Search window end (RFC3339)."},
-				"duration_min":{"type":"number",
-					"description":"Slot length in minutes (e.g. 30, 60)."},
-				"step_min":{"type":"number",
-					"description":"Slot enumeration step in minutes (default 30)."}
-			},
-			"required":["from_rfc3339","until_rfc3339","duration_min"]
-		}`),
-		Handler: c.handleListSlots,
-	}
-}
-
-type listSlotsArgsWire struct {
-	From        string `json:"from_rfc3339"`
-	Until       string `json:"until_rfc3339"`
-	DurationMin int    `json:"duration_min"`
-	StepMin     int    `json:"step_min"`
-}
-
-func (c *calendarCapability) handleListSlots(
-	ctx context.Context, ownerID string, raw json.RawMessage,
-) capreg.MCPResult {
-	args, perr := parseListSlotsArgs(raw)
-	if perr != nil {
-		return capreg.MCPError(perr.Error())
-	}
-	prof, oerr := c.ownerTZ.GetByID(ctx, ownerID)
-	if oerr != nil {
-		c.log.Error("cap calendar.list_slots owner lookup", "err", oerr)
-		return capreg.MCPError("owner not found")
-	}
-	slots, err := owner.ListAvailableSlots(ctx, c.proxy, c.store, &owner.ListSlotsInput{
-		OwnerID: ownerID, OwnerTZ: prof.ProfileTimezone,
-		From: args.from, Until: args.until,
-		DurationMin: args.DurationMin, StepMin: args.StepMin,
-	})
-	if err != nil {
-		return calendarCapErr(c.log, err, "list_slots")
-	}
-	return mcputil.MarshalResult(c.log, "calendar.list_slots",
-		map[string]any{"slots": viewSlots(slots)})
-}
-
-type listSlotsParsed struct {
-	from        time.Time
-	until       time.Time
-	DurationMin int
-	StepMin     int
-}
-
-func parseListSlotsArgs(raw json.RawMessage) (listSlotsParsed, error) {
-	var args listSlotsArgsWire
-	if err := json.Unmarshal(raw, &args); err != nil {
-		return listSlotsParsed{}, errors.New("invalid arguments: " + err.Error())
-	}
-	if vErr := validateListSlotsArgs(&args); vErr != nil {
-		return listSlotsParsed{}, vErr
-	}
-	from, fErr := time.Parse(time.RFC3339, args.From)
-	if fErr != nil {
-		return listSlotsParsed{}, fmt.Errorf("from_rfc3339 parse: %w", fErr)
-	}
-	until, uErr := time.Parse(time.RFC3339, args.Until)
-	if uErr != nil {
-		return listSlotsParsed{}, fmt.Errorf("until_rfc3339 parse: %w", uErr)
-	}
-	return listSlotsParsed{
-		from: from, until: until,
-		DurationMin: args.DurationMin, StepMin: args.StepMin,
-	}, nil
-}
-
-func validateListSlotsArgs(args *listSlotsArgsWire) error {
-	if args.From == "" || args.Until == "" {
-		return errors.New("from_rfc3339 + until_rfc3339 required")
-	}
-	if args.DurationMin <= 0 {
-		return errors.New("duration_min must be > 0")
-	}
-	return nil
-}
-
-type slotView struct {
-	Start string `json:"start"`
-	End   string `json:"end"`
-}
-
-func viewSlots(slots []owner.AvailableSlot) []slotView {
-	out := make([]slotView, 0, len(slots))
-	for i := range slots {
-		out = append(out, slotView{
-			Start: slots[i].Start.UTC().Format(time.RFC3339),
-			End:   slots[i].End.UTC().Format(time.RFC3339),
-		})
-	}
-	return out
+	// calendar.list_slots 不在这里 —— 它由**沙箱 booker** 经 manifest.OwnerTools 提供
+	// (一份算法归能力所有;host 曾经重复实现过策略评估 + slot 枚举)。这里只剩 host 侧
+	// 仍自持的 owner 工具。
+	return []*capreg.MCPBinding{c.cancelBookingBinding()}
 }
 
 // ───── calendar.cancel_booking ──────────────────────────────────

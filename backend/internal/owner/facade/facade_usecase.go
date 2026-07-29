@@ -5,13 +5,11 @@ import "github.com/atmaxmoj/standmeet/internal/owner/usecase"
 // 类型（实现:usecase）.
 type (
 	AIProviderDeps             = usecase.AIProviderDeps
-	AvailableSlot              = usecase.AvailableSlot
 	CalendarStore              = usecase.CalendarStore
 	CancelBookingInput         = usecase.CancelBookingInput
 	CancelBookingStore         = usecase.CancelBookingStore
 	CancelOwnBookingInput      = usecase.CancelOwnBookingInput
 	CreateBookingInput         = usecase.CreateBookingInput
-	ListSlotsInput             = usecase.ListSlotsInput
 	VisitorCancelDeps          = usecase.VisitorCancelDeps
 	AccountDeps                = usecase.AccountDeps
 	AllowedDomainsDeps         = usecase.AllowedDomainsDeps
@@ -133,6 +131,5 @@ var (
 	CancelBooking       = usecase.CancelBooking
 	CancelOwnBooking    = usecase.CancelOwnBooking
 	ErrPasswordTooShort = usecase.ErrPasswordTooShort
-	ListAvailableSlots  = usecase.ListAvailableSlots
 	ErrPublicURLInvalid = usecase.ErrPublicURLInvalid
 )
