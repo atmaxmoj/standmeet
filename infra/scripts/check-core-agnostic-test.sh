@@ -9,7 +9,13 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 CHECK=infra/scripts/check-core-agnostic.sh
-PROBE=backend/internal/capabilities/zz_probe_agnostic.go
+# Derive the probe location from the checker's own CORE_DIRS rather than hardcoding one: a
+# hardcoded path silently rots when the package moves (this probe pointed at the dissolved
+# internal/usecases). Planting into the FIRST kernel dir the checker actually scans also means the
+# probe can never drift out of the scanned set.
+PROBE_DIR="$(grep -m1 '^CORE_DIRS=' "$CHECK" | sed 's/^CORE_DIRS="//; s/".*//' | tr ' ' '\n' | head -1)"
+PROBE="$PROBE_DIR/zz_probe_agnostic.go"
+PROBE_PKG="$(sed -n 's/^package \([a-z0-9_]*\).*/\1/p' "$(find "$PROBE_DIR" -maxdepth 1 -name '*.go' ! -name '*_test.go' | head -1)" | head -1)"
 fail=0
 
 cleanup() { rm -f "$PROBE"; }
@@ -23,15 +29,15 @@ fi
 
 # 2) plant a fresh kernel leak: a new file naming "calendar". New filename → the (file,token) pair
 #    is not in the baseline → this is a NEW hit the ratchet must reject.
-cat > "$PROBE" <<'EOF'
-package capabilities
+cat > "$PROBE" <<EOF
+package $PROBE_PKG
 
 // a fresh leak the baseline has never seen — the ratchet must reject it.
 func probeCalendarBook() string { return "calendar.book" }
 EOF
 
 if "$CHECK" >/dev/null 2>&1; then
-  echo "❌ check-core-agnostic MISSED a new 'calendar' leak planted in internal/capabilities"
+  echo "❌ check-core-agnostic MISSED a new 'calendar' leak planted in $PROBE_DIR"
   fail=1
 else
   echo "✓ caught the planted kernel-capability leak"

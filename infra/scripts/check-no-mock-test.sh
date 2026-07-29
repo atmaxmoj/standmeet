@@ -10,7 +10,12 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 CHECK=infra/scripts/check-no-mock
-PROBE=backend/internal/usecases/zz_probe_double.go
+# Derive the probe location instead of hardcoding one: a hardcoded path silently rots the moment
+# the package moves (this self-test, and two others, broke that way when internal/usecases was
+# dissolved). Any real non-test Go package under backend/internal serves as the host.
+PROBE_DIR="$(dirname "$(find backend/internal -name '*.go' ! -name '*_test.go' | head -1)")"
+PROBE="$PROBE_DIR/zz_probe_double.go"
+PROBE_PKG="$(sed -n 's/^package \([a-z0-9_]*\).*/\1/p' "$(find "$PROBE_DIR" -maxdepth 1 -name '*.go' ! -name '*_test.go' | head -1)" | head -1)"
 fail=0
 
 cleanup() { rm -f "$PROBE"; }
@@ -24,8 +29,8 @@ fi
 
 # 2) plant a name-neutral test-double: a non-test prod file importing testify. No blacklisted name,
 #    so only an import-based check catches it.
-cat > "$PROBE" <<'EOF'
-package domain
+cat > "$PROBE" <<EOF
+package $PROBE_PKG
 
 import "github.com/stretchr/testify/require"
 
