@@ -21,6 +21,8 @@ excludeFiles:
 components:
   obsidian:
     in: internal/corpus/obsidian          # Obsidian vault import/export (corpus sub-module)
+  archcheck:
+    in: tools/archcheck                   # build-time lint tool: internal/'s import-graph gates
   pgstore:
     in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
   session:
@@ -200,6 +202,12 @@ components:
 deps:
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
   search:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # archcheck —— build-time gate over internal/'s import graph. Reads the tree with go/parser;
+  # imports NOTHING from internal/ (it must be able to run on a tree that does not compile).
+  archcheck:
     mayDependOn: []
     anyVendorDeps: true
 

@@ -316,6 +316,12 @@ linters:
       # 值得白盒单测;同上豁免 testpackage。
       - path: internal/corpus/obsidian/
         linters: [testpackage]
+      # tools/ 是构建期 lint 工具(archcheck:internal/ 的 import 图闸),不是 server 业务代码:
+      # 它的输出介质就是 stdout/exit code(不是 slog),而图算法(DFS 找环/分层判定/目录遍历)
+      # 天然分支多。这些是 CLI 形态固有的,不是可修的坏味道;真问题(裸 any / 行长 / os.Exit
+      # 位置 / 未包装错误)都已按规则改掉。gosec G703 是"遍历自己仓库的目录"误报。
+      - path: tools/
+        linters: [cyclop, gocognit, gosec]
       # capabilities/capload 的能力装载 glue(toolCallBudget / newMCPAppCapability 等)是
       # unexported,值得白盒单测;同 usecases 豁免 testpackage。
       - path: internal/routes/capload/
