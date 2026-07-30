@@ -206,6 +206,45 @@ unnecessary — it exists *because* the product is BYO-integration.)
 - Naming: `capreg` → *capability declaration registry*; `connector.Hub` → *connection (instance)
   registry*; the socket-op handlers move to `internal/routes/<domain>/` (controllers).
 
+## Externalization is not relocation — the booker lesson
+
+A capability is externalized only when the **host keeps none of its logic**. Moving the host copy
+to a tidier address inside `internal/` passes every structural gate and changes nothing: the gates
+measure shape, and a semantic duplicate has a perfectly legal shape.
+
+That is what had happened to booker. `mcp-servers/booker/policy.go` (187 lines) and the kernel's
+booking policy evaluator (167 lines) were two independent implementations of the same rules — same
+conflict tokens, same slot-enumeration constants — and each file's header asserted the *other* side
+owned it (`核心不再认识 booking policy`, `host 认不得 booking`). Both statements were false.
+
+The root cause was a mechanism gap, not carelessness: a sandboxed capability could only face
+visitors (`OwnerMCPBindings()` returned an empty slice), so any owner-facing surface of the same
+capability *had* to be reimplemented host-side. Fixed by `mcpplugin.Manifest.OwnerTools` —
+owner tools as declaration **data**, enumerable at assembly time, with the sandbox dialed only on
+invocation.
+
+Two defects fell out of it immediately, and both are the reason this matters:
+
+- Only the host binary imported `time/tzdata`. With the evaluator in the sandbox, every named IANA
+  zone failed to load and `list_slots` returned an **empty list** — indistinguishable from "the
+  owner has no availability". A duplicate does not just risk drift; it hides which copy carries the
+  environment the algorithm needs.
+- The two copies had different error conventions (MCP `isError` vs a `{ok:false,error,detail}`
+  payload), so externalizing one changed the owner-facing contract.
+
+**Still owed (the cancel cluster).** `owner/usecase/uc_booking_cancel.go` and
+`uc_booking_cancel_own.go` still duplicate `mcp-servers/booker/cancel.go`'s `deleteBooking`
+(delete the calendar event, then delete the capstore record). Only the *lookup* differs — owner
+resolves by `booking_id`, the sandbox by conversation + `event_id`. The externalization is:
+
+1. add an owner-scoped `calendar_cancel_booking` tool to the sandbox, resolving by booking id and
+   reusing its existing `deleteBooking`;
+2. declare it in `OwnerTools` and drop ownercore's `cancelBookingBinding`;
+3. point `POST /api/v1/booking-cancellation` (the deterministic visitor card action — a legitimate
+   host *controller*) at the sandbox's `calendar_cancel` with the visitor session context, which is
+   exactly what its `resolveConvBooking` already expects;
+4. delete both host usecases. `entity/booking.go` keeps only the types the admin surfaces read.
+
 ## Migration — connector as the pathfinder
 
 1. **Pathfinder (done):** the `connector.invoke` controller moved from `internal/connector` to
