@@ -21,6 +21,14 @@ import (
 	"net"
 	"os"
 
+	// time/tzdata embeds the IANA timezone database in the binary. This capability evaluates
+	// booking policy against the owner's named zone (e.g. America/Toronto), and it runs as a
+	// static CGO_ENABLED=0 binary inside a bubblewrap sandbox with no /usr/share/zoneinfo — so
+	// without this, LoadLocation fails, every candidate slot is rejected, and list_slots returns
+	// an empty list that looks exactly like "the owner has no availability". The host binary
+	// embeds it for the same reason; when the policy evaluator moved here, this had to move too.
+	_ "time/tzdata"
+
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )

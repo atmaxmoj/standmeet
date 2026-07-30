@@ -13,6 +13,7 @@ import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { callTool, initMCP } from '@/fixtures/mcp';
 
 interface ListSlotsResp { slots: Array<{ start: string; end: string }> }
+interface BadArgsResp { ok: boolean; error: string; detail: string }
 
 test.describe('Phase E-14c calendar.list_slots via MCP', () => {
   let seed: BaseSeed;
@@ -64,12 +65,24 @@ test.describe('Phase E-14c calendar.list_slots via MCP', () => {
         .toBeUndefined();
     });
 
-  test('list_slots with bad args returns isError', async () => {
-    await expect(
-      callTool(seed.request, apiToken, sid, 'calendar.list_slots',
-        { from_rfc3339: 'not-a-date', until_rfc3339: future(2, 9),
-          duration_min: 30 }),
-    ).rejects.toThrow(/from_rfc3339 parse/);
+  // Bad args must be REJECTED with a stated reason — never treated as "no availability", which
+  // is what an empty slot list would look like to the owner.
+  //
+  // The rejection now arrives as the capability's structured error payload
+  // ({ok:false, error:'invalid_args', detail}) rather than the MCP isError flag. That is a
+  // deliberate consequence of externalizing the tool: the sandboxed booker uses one error
+  // convention for all its tools (its result wire is what the visitor cards render, and an
+  // isError result gets text-prefixed, which would corrupt that JSON). Asserting the reason is
+  // strictly stronger than asserting the flag — it pins WHY it was rejected, not just that it was.
+  test('list_slots with bad args is rejected with a stated reason', async () => {
+    const resp = await callTool<BadArgsResp>(
+      seed.request, apiToken, sid, 'calendar.list_slots',
+      { from_rfc3339: 'not-a-date', until_rfc3339: future(2, 9), duration_min: 30 },
+    );
+    expect(resp.ok).toBe(false);
+    expect(resp.error).toBe('invalid_args');
+    expect(resp.detail).toMatch(/from_rfc3339 parse/);
+    expect(resp).not.toHaveProperty('slots');
   });
 
   // Regression guard: a named IANA timezone (not empty / UTC) must still
