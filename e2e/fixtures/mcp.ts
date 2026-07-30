@@ -173,6 +173,43 @@ function parseOrThrow<T>(name: string, text: string): T {
   }
 }
 
+// ToolOutcome —— 一次 tools/call 的**协议层**结果,不因工具自己报错而抛。
+//
+// callTool 把 isError 当失败抛出,那是"我要这个工具成功"的用法。有另一类断言需要区分
+// 两件完全不同的事:**工具被正常调用了但拒绝了入参**(健康:门在、依赖在、校验生效)
+// vs **调用根本没打通**(传输错 / handler 未注册 / 依赖是 nil 直接 panic)。前者是绿,
+// 后者是红,而 callTool 会把两者都变成 throw。
+export interface ToolOutcome {
+  status: number;
+  reachable: boolean; // 拿到了合法的 JSON-RPC result(无论 ok 还是 isError)
+  isError: boolean;
+  text: string;
+  rpcError: string; // 非空 = JSON-RPC 层错误(未知工具等)
+}
+
+// callToolOutcome —— 调一个工具,只报告"打通没打通",不对业务结果下判断。
+export async function callToolOutcome(
+  request: APIRequestContext,
+  bearer: string,
+  sessionId: string,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<ToolOutcome> {
+  const res = await mcpCall(request, {
+    jsonrpc: '2.0', id: nextID(), method: 'tools/call',
+    params: { name, arguments: args },
+  }, bearer, sessionId);
+  const rpcError = res.body?.error?.message ?? '';
+  const content = res.body?.result?.content?.[0];
+  return {
+    status: res.status,
+    reachable: res.status === 200 && res.body?.result !== undefined,
+    isError: res.body?.result?.isError === true,
+    text: content?.type === 'text' ? content.text : '',
+    rpcError,
+  };
+}
+
 // callToolMulti —— like callTool but returns the full content array. Use this
 // for tools that emit a text part + embedded binary (resume.draft / update_draft
 // return [TextContent(JSON), EmbeddedResource(PDF blob base64)]).

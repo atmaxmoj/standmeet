@@ -20,6 +20,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
+// PanicResultMarker —— handler panic 后返给客户端的错误前缀。导出是给守卫用:
+// e2e 逐个调用每个 owner 工具,靠这个标记把"工具崩了"跟"工具正常拒绝了空入参"分开。
+// 没有它,两者都只是一条 isError,守卫就成了睁眼瞎。
+const PanicResultMarker = "internal error: capability handler panicked"
+
 // registerCapabilities —— walk registry.OwnerMCPBindings() 把每个 binding
 // 装进 mcp-go server。corpus / page / job-loop 等若也有 MCP 面，自动出现
 // 在 owner MCP 的 tools/list。
@@ -39,13 +44,21 @@ func wrapCapabilityHandler(
 	h capreg.MCPHandler, toolName string, log *slog.Logger,
 ) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Error("mcp capability handler panic",
-					"tool", toolName, "panic", r, "stack", string(debug.Stack()))
-			}
+		// 结果用闭包变量接,recover 里改写它 —— 本仓库禁具名返回值,而"panic 后仍要返回
+		// 一个结果"必须有个地方落。原来只 log 不赋值,panic 后函数返回 (nil, nil):owner 的
+		// MCP 客户端收到"成功但空",崩掉的工具跟"这个工具本来就没输出"长得一模一样。
+		var out *mcpgo.CallToolResult
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Error("mcp capability handler panic",
+						"tool", toolName, "panic", r, "stack", string(debug.Stack()))
+					out = mcpgo.NewToolResultError(PanicResultMarker + ": " + toolName)
+				}
+			}()
+			out = runCapabilityHandler(ctx, h, &req)
 		}()
-		return runCapabilityHandler(ctx, h, &req), nil
+		return out, nil
 	}
 }
 
