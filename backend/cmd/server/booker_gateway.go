@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -278,45 +277,4 @@ func decodeCodeConfig(recs []json.RawMessage) (*bookingCodeConfig, error) {
 		return nil, fmt.Errorf("code_config decode: %w", uerr)
 	}
 	return &cfg, nil
-}
-
-// bookerQuotaGate —— #135:quota 闸留在 host,上限从 booker 自己的 capstore("code_config")读、
-// count 也在自己的 "bookings" 数(能力自己管自己;内核不再有 MaxBookings)。达上限 → 隐藏 tool
-// (hide,不 error-on-use)。无配置/无上限/无 code → 不闸。核心仍不认 "booking"。
-func bookerQuotaGate(d *runtimeDeps) capreg.SessionGate {
-	store := capstore.New(d.db)
-	return func(ctx context.Context, in *capreg.AssembleInput) (bool, error) {
-		return bookingWithinQuota(ctx, store, in.CodeID)
-	}
-}
-
-func bookingWithinQuota(ctx context.Context, store *capstore.Store, codeID string) (bool, error) {
-	cfg, cerr := bookingCodeConfigOf(ctx, store, codeID)
-	if cerr != nil {
-		return false, cerr
-	}
-	if noBookingLimit(cfg) {
-		return true, nil
-	}
-	count, err := bookerBookingCount(ctx, store, codeID)
-	if err != nil {
-		return false, err
-	}
-	return count < int64(*cfg.MaxBookings), nil
-}
-
-func noBookingLimit(cfg *bookingCodeConfig) bool {
-	return cfg == nil || cfg.MaxBookings == nil || *cfg.MaxBookings <= 0
-}
-
-func bookerBookingCount(ctx context.Context, store *capstore.Store, codeID string) (int64, error) {
-	filter, merr := json.Marshal(map[string]string{"code_id": codeID})
-	if merr != nil {
-		return 0, fmt.Errorf("booker quota filter: %w", merr)
-	}
-	count, cerr := store.Count(ctx, bookerCapKind, bookerCapID, "bookings", filter)
-	if cerr != nil {
-		return 0, fmt.Errorf("booker quota count: %w", cerr)
-	}
-	return count, nil
 }

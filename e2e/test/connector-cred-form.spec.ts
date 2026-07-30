@@ -378,17 +378,22 @@ test.describe('connector · credential form derived from spec · err (area B)', 
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
 
-  // ── err: no supported auth ───────────────────────────────────────────────
-  test('spec with no securityScheme → friendly "no supported auth" message',
+  // ── no securityScheme → manual-auth fallback, NOT a refusal ──────────────
+  //
+  // This used to assert a "no supported auth" dead end. F-H-2 (b956105b) deliberately changed it:
+  // real vendor specs often leave components.securitySchemes empty (Cal.com v2 does) while the API
+  // still wants `Authorization: Bearer …`, so refusing outright made those connectors
+  // unusable. The owner is now offered the three generic schemes (manual:bearer / manual:apikey /
+  // manual:basic) to pick from. Asserting the fallback is stronger than asserting the old refusal:
+  // it pins that the owner has a way FORWARD, which is the actual product requirement.
+  test('spec with no securityScheme → manual-auth fallback offers pickable schemes',
     async ({ adminPage: page }) => {
       await pasteSpec(page, SPEC_NO_AUTH);
 
       const status = page.getByTestId('connector-status');
-      await expect(status).toContainText(/no supported auth|不支持的认证|无可用认证/i);
-      // no fields, no Connect — nothing to fill.
-      await expect(page.getByTestId('connector-field-client_id')).toHaveCount(0);
-      await expect(page.getByTestId('connector-field-key')).toHaveCount(0);
-      await expect(page.getByTestId('connector-connect-button')).toHaveCount(0);
+      await expect(status).toContainText(/declares no authentication/i);
+      // The dead end is gone: the owner can pick a scheme and proceed.
+      await expect(status).toContainText(/pick one below/i);
     });
 
   // ── err: unsupported auth type ───────────────────────────────────────────

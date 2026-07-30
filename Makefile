@@ -314,9 +314,13 @@ test-fresh: clean test
 # usage:   make test-only SPEC=blog-posts
 #          make test-only SPEC=blog-posts GREP="MCP post_create"
 #          make test-only SPEC=visitor-ask-visitor REPEAT=15
+# 归档也挂在 test-only 上:playwright 的 test-results/ 会被**下一次**运行清空,而下一次运行
+# 通常就是去修第一个失败时敲的那条 test-only —— 其余失败的现场会在你需要它的前一秒自己删掉。
+# 只有 `make test` 归档是不够的:批次验证同样会产出必须留证的失败。
 test-only: dev-up
 	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
-	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT))
+	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
+		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
 # dev-app —— rebuild ONLY the dev app image (frontend-only change) and reuse the running
 # backend/mocks. Use when a fix is app-only and a full dev-up (which also rebuilds backend) is

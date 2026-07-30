@@ -210,6 +210,15 @@ type session struct {
 	VisitorName    string
 	VisitorEmail   string
 	RoleID         string
+	// NotifyOwner —— #130: 这个 session 的 role 要求约成后通知 owner。host 冻在 role snapshot
+	// 里、经 `_meta` 递进来 —— 开关是 owner 的 role 配置,通知信由本能力自己发。
+	NotifyOwner bool
+}
+
+// boolOf —— 从 _meta 取一个布尔(缺失/类型不符 → false)。
+func boolOf(raw map[string]any, key string) bool {
+	v, _ := raw[key].(bool)
+	return v
 }
 
 func sessionFromMeta(req mcpgo.CallToolRequest) session {
@@ -228,6 +237,7 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 		VisitorName:    str(raw, "visitor_name"),
 		VisitorEmail:   str(raw, "visitor_email"),
 		RoleID:         str(raw, "role_id"),
+		NotifyOwner:    boolOf(raw, "notify_owner"),
 	}
 }
 

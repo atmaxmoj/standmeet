@@ -39,6 +39,19 @@ func gwConnectorInvoke(
 	})
 }
 
+// gwConnectorInvokeBackground —— 交给 host 后台跑(带重试),不等结果。
+// 用于"结果不该挡住调用方"的调用:约成通知信。**不能**在本进程起 goroutine 代替 ——
+// 沙箱只活这一轮,tool 一返回进程就可能被回收,退避还没到就死了。
+func gwConnectorInvokeBackground(
+	ownerID, category, verb string, args json.RawMessage,
+) error {
+	_, err := gwCall("connector.invoke", map[string]any{
+		"owner_id": ownerID, "category": category, "verb": verb, "args": args,
+		"background": true,
+	})
+	return err
+}
+
 // gwCapstoreInsert —— 往本 cap 的隔离存储塞一份文档,回记录 id。
 func gwCapstoreInsert(collection string, doc json.RawMessage) (string, error) {
 	resp, err := gwCall("capstore.insert", map[string]any{

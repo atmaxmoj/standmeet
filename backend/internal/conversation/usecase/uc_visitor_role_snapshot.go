@@ -206,6 +206,9 @@ func buildRoleSnapshotByID(
 		RequireGhostEvidence: effectiveGhostEvidence(
 			role.RequireGhostEvidence(), overlay.requireGhostEvidence,
 		),
+		// #130: 约成通知开关随 role 冻下(无 per-code 覆盖)。沙箱 booker 经 session `_meta`
+		// 读它决定发不发通知信 —— 内核不发信,也不认识 "booking notify"。
+		NotifyOwnerOnBooking: role.NotifyOwnerOnBooking(),
 	}), nil
 }
 

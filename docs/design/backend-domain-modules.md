@@ -245,6 +245,57 @@ resolves by `booking_id`, the sandbox by conversation + `event_id`. The external
    exactly what its `resolveConvBooking` already expects;
 4. delete both host usecases. `entity/booking.go` keeps only the types the admin surfaces read.
 
+## Owed: ownercore is the fourth god-package, relocated not dissolved
+
+`internal/owner/ownercore` is 49 files importing **every** domain — corpus 14, access 9,
+marketplace 6, connector 5, conversation 2, stats 1, security 1. It is not owner's domain logic; it
+is the whole product's owner-MCP **tool surface**. Moving it from `internal/plugins/ownercore` to
+`internal/owner/ownercore` gave a god-package a tidier address, the same mistake the booker cluster
+got (see above).
+
+The tell: it is the sole reason `check-domain-acyclic` had to learn about own-boundary sub-modules.
+An aggregator that legitimately spans domains would otherwise forge `owner -> conversation` and
+close a cycle against the pre-existing `conversation -> owner`. That special case treats the
+symptom.
+
+This doc is also self-contradictory here: it sanctions `ownercore` under **owner** (as an
+in-process, non-sandboxed owner-side cap) while its own owner inventory is
+account/instance/page/custom_page/appearance/keypair/login/password/recovery + mail + prompts —
+which is not "every other domain's MCP tools". And the principle above says controllers are **only**
+`internal/routes/*`; an inbound owner-MCP tool surface is a controller.
+
+**Decided (owner, 2026-07-30):** *"ownercore 应该由各个模块自己 facade 出,然后从 route 绑出到
+MCP 上。"* So `ownercore` does not shrink — it **disappears**:
+
+- each domain exposes its own owner-MCP bindings **through its own facade** (`cap_corpus_*` → the
+  corpus facade, `cap_roles`/`cap_codes` → access, `cap_marketplace` → marketplace, `cap_page`/
+  `cap_account`/… → owner, and so on);
+- the **route layer** binds those onto the MCP surface — which is where a controller belongs, per
+  this doc's own "controllers are only `internal/routes/*`";
+- `internal/owner/ownercore/` ceases to exist; no domain holds another domain's tools.
+
+Falsifiable check that it actually worked (not just moved): the cross-domain edges disappear, so the
+own-boundary sub-module special case can be **deleted** from `check-domain-acyclic` and the gate
+still passes. If the special case is still needed, the aggregator is still there under a new name.
+
+## Owed: AI credentials cross the owner facade in plaintext
+
+`owner/entity/ai_credential.go` holds `AICredential{Provider, Key, Model, Endpoint}` where `Key` is,
+per its own comment, a **plaintext API key** — and `owner/facade/facade_entity.go` re-exports it, so
+`routes/public/{byoai_envelope,agent_turn,llm_chat_stream}.go` and
+`conversation/inference/resolver.go` all hold it. The type carries no protection: no redacting
+`String()`, no `MarshalJSON` mask, so one `slog` call or wrapped error puts the key in the logs.
+
+This is the same invariant the connector layer states loudly and keeps ("凭据永不出 vault";
+capabilities get handles, never secrets) — AI keys are the double standard. The BYOAI path genuinely
+needs the visitor's own key to reach inference, but the file's "one struct covers both paths" note is
+the problem: the owner's **decrypted vault secret** rides the same public type.
+
+**Target:** the secret stops crossing the facade — the resolver hands back an already-bound call
+door (or inference construction moves inside the credential boundary), and routes only pass the
+BYOAI envelope. Minimum stop-gap if that is deferred: redacting `String()`/`MarshalJSON` so it can
+never be logged by accident.
+
 ## Migration — connector as the pathfinder
 
 1. **Pathfinder (done):** the `connector.invoke` controller moved from `internal/connector` to

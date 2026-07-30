@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
@@ -29,6 +30,7 @@ type SlotStore interface {
 type Slots struct {
 	hub   *Hub
 	store SlotStore
+	log   *slog.Logger // 后台调用失败的去处;SetLogger 注入
 }
 
 // NewSlots —— composition root 注入 Hub + active 解析。

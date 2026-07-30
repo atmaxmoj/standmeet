@@ -181,6 +181,7 @@ func ensureConnectorSlots(d *runtimeDeps) {
 	}
 	d.connectorHub = connector.NewHub()
 	d.connectorSlots = connector.NewSlots(d.connectorHub, slotStoreAdapter{repo: d.connectorRepo})
+	d.connectorSlots.SetLogger(d.log) // 后台调用失败要有去处,否则静默
 }
 
 func registerDiscoveredConnectors(

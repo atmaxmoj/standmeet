@@ -26,7 +26,17 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		RoleID:         roleIDOf(in),
 		CorpusURIs:     corpusURIsOf(in),
 		CorpusDenials:  corpusDenialsOf(in),
+		//nolint:lll // #130: role 的约成通知开关,随 snapshot 冻结。
+		NotifyOwnerOnBooking: notifyOwnerOf(in),
 	}
+}
+
+// notifyOwnerOf —— 这个 session 的 role 是否要求约成后通知 owner。无 role → false。
+func notifyOwnerOf(in *capreg.AssembleInput) bool {
+	if in.RoleSnapshot == nil {
+		return false
+	}
+	return in.RoleSnapshot.NotifyOwnerOnBooking()
 }
 
 // roleIDOf —— 当前 session 的 role id。无 role(public/byoai)→ 空串。

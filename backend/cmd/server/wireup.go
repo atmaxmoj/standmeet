@@ -187,7 +187,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireSearchReconcile(ctx, d)
 	registerDiscoveredPlugins(d, depReg, map[string]capload.CapHooks{
 		// booker quota 闸(host 侧,经 capstore.count 数 booker 隔离预约;concretes 只在此组装根)。
-		"calendar.book":    {Gate: bookerQuotaGate(d)},
+		"calendar.book":    {Gate: bookerQuotaGate(d), State: bookerQuotaState(d)},
 		"corpus.retrieval": {Fragment: capload.CorpusScopeVisible},
 	})
 	wireCapabilityEnableGate(d)

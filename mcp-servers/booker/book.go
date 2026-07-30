@@ -196,6 +196,11 @@ func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string 
 		compensateDelete(s, inserted.EventID)
 		return friendlyCalErr(perr)
 	}
+	// #130 owner-notify:booking 已成立,通知是 best-effort 的尾巴 —— 失败只是没信。
+	notifyOwnerOfBooking(s, &bookingDoc{
+		OwnerID: s.OwnerID, CodeID: s.CodeID, GoogleEventID: inserted.EventID,
+		Summary: summary, VisitorEmail: s.VisitorEmail, StartAt: slot, EndAt: end,
+	})
 	return mustJSON(bookOKWire{
 		OK: true, EventID: inserted.EventID, HTMLLink: inserted.HTMLLink,
 		Start: slot.Format(time.RFC3339), End: end.Format(time.RFC3339),

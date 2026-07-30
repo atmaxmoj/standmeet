@@ -51,6 +51,8 @@ type RoleSnapshot struct {
 	// requireGhostEvidence —— F-A-10: 冻下的「内容型引导 ghost 需有证据」开关(role 值经 code 覆盖)。
 	// ghost 选择时据此把空证据的非终点 waypoint 从 steering 候选里剔除;终点/工具 waypoint 不受影响。
 	requireGhostEvidence bool
+	// notifyOwnerOnBooking —— #130 冻下的「约成通知 owner」开关。
+	notifyOwnerOnBooking bool
 }
 
 // RoleSnapshotInit —— NewRoleSnapshot 入参。
@@ -70,6 +72,9 @@ type RoleSnapshotInit struct {
 	DockButtons          []DockButtonConfig
 	Waypoints            []Waypoint
 	RequireGhostEvidence bool
+	// NotifyOwnerOnBooking —— #130: 这个 role 下约成后给 owner 自己发通知邮件。跟其余 role
+	// 配置一样随 session 冻结:访客整场会话按他进来时的 role 行为。
+	NotifyOwnerOnBooking bool
 }
 
 // NewRoleSnapshot —— 从 Init 构造。slice 字段 defensive clone；空 input → 空切片。
@@ -90,11 +95,15 @@ func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 		dockButtons:          cloneDockButtons(i.DockButtons),
 		waypoints:            cloneWaypoints(i.Waypoints),
 		requireGhostEvidence: i.RequireGhostEvidence,
+		notifyOwnerOnBooking: i.NotifyOwnerOnBooking,
 	}
 }
 
 // RequireGhostEvidence —— F-A-10: 冻下的开关。ghost 选择据此过滤空证据的非终点 waypoint。
 func (s *RoleSnapshot) RequireGhostEvidence() bool { return s.requireGhostEvidence }
+
+// NotifyOwnerOnBooking —— #130: 约成后是否给 owner 发通知信。
+func (s *RoleSnapshot) NotifyOwnerOnBooking() bool { return s.notifyOwnerOnBooking }
 
 // Waypoints —— 冻下的引导目的地（defensive copy，evidence_refs 也各自 clone）。
 func (s *RoleSnapshot) Waypoints() []Waypoint { return cloneWaypoints(s.waypoints) }
@@ -177,20 +186,22 @@ func (s *RoleSnapshot) DeniedCorpusURIs() []string { return slices.Clone(s.denie
 // 类型默认不可序列化，sidecar wire 形态把字段映出来。
 func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(roleSnapshotWire{
-		FrozenAt:           s.frozenAt,
-		RoleID:             s.roleID,
-		RoleName:           s.roleName,
-		PromptBody:         s.promptBody,
-		CodePromptBody:     s.codePromptBody,
-		CorpusURIs:         s.corpusURIs,
-		SkillPrompts:       s.skillPrompts,
-		AllowedTools:       s.allowedTools,
-		DeniedCapabilities: s.deniedCapabilities,
-		DeniedCorpusURIs:   s.deniedCorpusURIs,
-		SkillIDs:           s.skillIDs,
-		MCPServerIDs:       s.mcpServerIDs,
-		DockButtons:        s.dockButtons,
-		Waypoints:          s.waypoints,
+		FrozenAt:             s.frozenAt,
+		RoleID:               s.roleID,
+		RoleName:             s.roleName,
+		PromptBody:           s.promptBody,
+		CodePromptBody:       s.codePromptBody,
+		CorpusURIs:           s.corpusURIs,
+		SkillPrompts:         s.skillPrompts,
+		AllowedTools:         s.allowedTools,
+		DeniedCapabilities:   s.deniedCapabilities,
+		DeniedCorpusURIs:     s.deniedCorpusURIs,
+		SkillIDs:             s.skillIDs,
+		MCPServerIDs:         s.mcpServerIDs,
+		DockButtons:          s.dockButtons,
+		Waypoints:            s.waypoints,
+		RequireGhostEvidence: s.requireGhostEvidence,
+		NotifyOwnerOnBooking: s.notifyOwnerOnBooking,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal role snapshot: %w", err)
@@ -205,20 +216,22 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("unmarshal role snapshot: %w", err)
 	}
 	*s = NewRoleSnapshot(&RoleSnapshotInit{
-		FrozenAt:           w.FrozenAt,
-		RoleID:             w.RoleID,
-		RoleName:           w.RoleName,
-		PromptBody:         w.PromptBody,
-		CodePromptBody:     w.CodePromptBody,
-		CorpusURIs:         w.CorpusURIs,
-		SkillPrompts:       w.SkillPrompts,
-		AllowedTools:       w.AllowedTools,
-		DeniedCapabilities: w.DeniedCapabilities,
-		DeniedCorpusURIs:   w.DeniedCorpusURIs,
-		SkillIDs:           w.SkillIDs,
-		MCPServerIDs:       w.MCPServerIDs,
-		DockButtons:        w.DockButtons,
-		Waypoints:          w.Waypoints,
+		FrozenAt:             w.FrozenAt,
+		RoleID:               w.RoleID,
+		RoleName:             w.RoleName,
+		PromptBody:           w.PromptBody,
+		CodePromptBody:       w.CodePromptBody,
+		CorpusURIs:           w.CorpusURIs,
+		SkillPrompts:         w.SkillPrompts,
+		AllowedTools:         w.AllowedTools,
+		DeniedCapabilities:   w.DeniedCapabilities,
+		DeniedCorpusURIs:     w.DeniedCorpusURIs,
+		SkillIDs:             w.SkillIDs,
+		MCPServerIDs:         w.MCPServerIDs,
+		DockButtons:          w.DockButtons,
+		Waypoints:            w.Waypoints,
+		RequireGhostEvidence: w.RequireGhostEvidence,
+		NotifyOwnerOnBooking: w.NotifyOwnerOnBooking,
 	})
 	return nil
 }
@@ -240,4 +253,8 @@ type roleSnapshotWire struct {
 	MCPServerIDs       []string           `json:"mcp_server_ids,omitempty"`
 	DockButtons        []DockButtonConfig `json:"dock_buttons,omitempty"`
 	Waypoints          []Waypoint         `json:"waypoints,omitempty"`
+	// 布尔型 role 配置也必须过江:之前 wire 漏了它们,快照一旦走 JSON 往返就静默退回 false
+	// —— 冻结的开关"看起来还在",实际已经丢了(F-A-10 的 require_ghost_evidence 同样中招)。
+	RequireGhostEvidence bool `json:"require_ghost_evidence,omitempty"`
+	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking,omitempty"`
 }

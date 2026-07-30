@@ -13,29 +13,46 @@ import (
 )
 
 // Invoker —— 按名调用连接器(category+verb+args→json)。业务域 connector.Slots 满足它。
+//
+// InvokeBackground —— 立刻返回、调用在后台跑并按策略重试。给"结果不该挡住调用方"的调用用
+// (约成后的 owner 通知信)。**必须由 host 持有**:沙箱能力的进程只活这一轮,起在它里面的
+// 重试 goroutine 会随进程回收一起消失。
 type Invoker interface {
 	Invoke(
 		ctx context.Context, ownerID, category, verb string, args json.RawMessage,
 	) (json.RawMessage, error)
+	InvokeBackground(
+		ctx context.Context, ownerID, category, verb string, args json.RawMessage,
+	)
 }
 
 // RegisterInvokeOp —— 把 "connector.invoke" 挂到 srv:{owner_id,category,verb,args} → Invoke。
+// background=true → 不等结果直接回 {ok:true},调用在 host 后台跑(带重试)。
 func RegisterInvokeOp(srv *capsocket.Server, inv Invoker) {
 	srv.Handle("connector.invoke", func(
 		ctx context.Context, raw json.RawMessage,
 	) (json.RawMessage, error) {
 		var req struct {
-			OwnerID  string          `json:"owner_id"`
-			Category string          `json:"category"`
-			Verb     string          `json:"verb"`
-			Args     json.RawMessage `json:"args"`
+			OwnerID    string          `json:"owner_id"`
+			Category   string          `json:"category"`
+			Verb       string          `json:"verb"`
+			Args       json.RawMessage `json:"args"`
+			Background bool            `json:"background"`
 		}
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("connector.invoke: decode: %w", err)
 		}
+		if req.Background {
+			inv.InvokeBackground(ctx, req.OwnerID, req.Category, req.Verb, req.Args)
+			return json.RawMessage(`{"ok":true,"background":true}`), nil
+		}
 		out, err := inv.Invoke(ctx, req.OwnerID, req.Category, req.Verb, req.Args)
 		if err != nil {
-			return nil, fmt.Errorf("connector.invoke: %w", err)
+			// Name the owner/category/verb: "not configured" is meaningless without knowing WHICH
+			// owner was asked about — a stale or wrong owner id looks identical to a missing
+			// connector from here.
+			return nil, fmt.Errorf("connector.invoke %s/%s owner=%s: %w",
+				req.Category, req.Verb, req.OwnerID, err)
 		}
 		return out, nil
 	})

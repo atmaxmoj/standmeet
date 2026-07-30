@@ -1,126 +1,127 @@
-# E2E Test Failures — Run 200d
+# Full-suite failures — run 20260730T011543Z
 
-**Date**: 2026-05-27
-**Total Tests**: 200
-**Passed**: 138
-**Failed**: 61
-**Did not run**: 1
+`make test`: **1134 passed, 10 failed** (1.0h). Artifacts:
+`e2e/test-results-archive/20260730T011543Z/` (10 case dirs + `backend.log`).
+
+Context: this is one long refactor (dissolving the three by-layer god-packages + `internal/plugins`,
+then externalizing booker). The suite was green before it started, so **every red here is refactor
+fallout and none is exempt.**
 
 ---
 
-## Root Cause Categories
+## Batch A — spec-side rot: the refactor renamed a table, specs still use the old name
 
-### RC1: Missing data-testid on components (31 failures)
+**Proven cause** (identical stderr in both `error-context.md` files):
 
-Specs reference testids that don't exist in the UI. Fix: add testid to the component.
+```
+ERROR:  relation "owner_calendar_connectors" does not exist
+```
 
-| Spec | Expected testid | Component to fix |
+`backend/db/schema.sql` now has `owner_connectors` (line 764) and `owner_mail_connectors` (727);
+`owner_calendar_connectors` is gone — the connector refactor generalised the per-category table.
+Both specs `docker exec psql UPDATE owner_calendar_connectors ...` to force a token expiry, so they
+die in setup before asserting anything.
+
+| # | spec | test |
 |---|---|---|
-| admin-dashboard | `dashboard` | DashboardSection — no wrapper testid |
-| admin-dashboard | `kpi-entries` | Kpi card — no testid |
-| admin-dashboard | `needs-hand` | NeedsYourHand — no testid |
-| admin-dashboard (sparkline) | `svg` count | Sparkline — no testid |
-| admin-obsidian | `vault-stat-mode` etc | ObsidianSection StatCell — no testid |
-| admin-seo | `seo-site-title` etc | SeoSection FieldBlock — no testid |
-| admin-seo (sitemap) | `seo-regenerate` | SeoSection button — no testid |
-| admin-seo (indexing) | `seo-indexing` | SeoSection IndexingCard — no testid |
-| admin-system (terminal) | `system-terminal` | SystemSection DeploymentBlock — no testid |
-| admin-system (jobs) | `system-jobs` | SystemSection JobsTable — no testid |
-| admin-system (health) | `system-health` | SystemSection HealthChecks — no testid |
-| admin-sidebar (active) | `aria-current` attr | SidebarItem — no aria-current |
-| admin-preview | `code-picker` | PreviewSection CodePicker — no testid |
-| admin-conversations | `transcript-panel` | ConvTableRow expand — no testid |
-| admin-codes-extended | `code-qr` | CodeCard QR — no testid on QR element |
-| admin-codes-extended | `code-edit-label` | CodeCard edit — no edit-label testid |
-| admin-raw-crud | `dump-input` | RawDumpBox textarea — no testid |
-| chatroom-layout | `chatroom` | ChatRoom wrapper — no testid |
-| chat-composer | `starter-chips` | StarterChips — no testid |
-| chat-welcome | `chat-welcome` | ChatWelcome — no testid |
-| turn-rendering | `citations` | Citations — no testid in ChatRoom |
-| floating-chat-dock | `floating-dock-pill` | FloatingChatDock trigger — no testid |
-| wiki-landing-extended | `wiki-ask-about` | AskAboutThis — no testid |
-| output-landing-extended | `404-page` | Next.js not-found — no testid |
-| blog-tag-filter (empty) | `blog-empty` | BlogIndex empty — no testid |
-| gate-code-ux | `gate-error` | CodePanel error — no testid |
-| code-session-paste | `gate-error` | CodePanel error — no testid |
-| visitor-name-welcome | `chat-welcome-text` | ChatWelcome — no testid |
-| quota-warn-lockdown | `is-warn` class | SessionStrip — check class name |
-| admin-requests (approve) | `request-approve` | OpenActions — no testid |
+| A1 | `connector-dep-drop-mid-turn.spec.ts` | tool exposed at assembly but connection drops before the book call → no 500, no leak |
+| A2 | `connector-revoked-degrades.spec.ts` | refresh hits invalid_grant → friendly error, never a 500 |
 
-### RC2: Wrong selector / navigation flow (15 failures)
-
-Specs use locators that don't match actual UI structure.
-
-| Spec | Issue |
-|---|---|
-| admin-raw-crud | `locator.fill` on dump textarea — wrong selector |
-| admin-requests | `locator.click` to navigate to gate — wrong flow |
-| admin-preview (suggested) | `locator.click` on code picker — wrong selector |
-| admin-codes-extended (edit) | `locator.click` on edit button — button text mismatch |
-| admin-codes-extended (revoke) | `locator.click` on revoke — testid mismatch |
-| admin-codes-extended (conversations) | link text mismatch |
-| admin-skills-extended (delete) | `locator.click` on delete — wrong selector |
-| session-persistence (exit) | `locator.click` on exit — wrong selector |
-| cross-tab-sync (exit) | `locator.click` — same as session-persistence |
-| gate-request-access (all 3) | `locator.fill` on request form fields — wrong testid |
-| integration-code-chat-transcript | navigation flow doesn't match |
-| setup-wizard-extended (provider) | `selectOption` — not a select, is Segmented |
-| setup-wizard-extended (back) | `locator.click` — wrong button selector |
-
-### RC3: Backend API call wrong (3 failures)
-
-Specs call MCP with wrong parameters.
-
-| Spec | Issue |
-|---|---|
-| admin-applications (after commit) | `jobs.register_source` greenhouse config missing `company` |
-| admin-drafts (after draft) | same |
-| integration-job-loop | same |
-
-### RC4: Logic assertion wrong (5 failures)
-
-Specs assert behavior the UI doesn't actually have.
-
-| Spec | Issue |
-|---|---|
-| login-extended (empty email) | submit button isn't disabled — it shows error on click |
-| login-extended (empty password) | same |
-| setup-wizard-extended (handle) | next isn't disabled for illegal chars — validates on click |
-| gate-byoai-ux (provider switch) | placeholder doesn't change per provider |
-| visitor-name-welcome (greeting) | ChatWelcome text format differs from expected |
-
-### RC5: 404 page handling (2 failures)
-
-Specs expect a visible "404" element but Next.js notFound() renders differently.
-
-| Spec | Issue |
-|---|---|
-| wiki-landing-extended (404) | Next.js notFound — no testid, just default 404 |
-| output-landing-extended (404) | same |
+**Fix:** point both at the current table/columns. Verify the column names on `owner_connectors`
+first (`access_token_expires_at`? how is `provider = 'google'` expressed now the table is
+category-generic?) — do not assume they carried over unchanged.
 
 ---
 
-## Fix Plan — 5 batches
+## Batch B — copy changed, assertion did not
 
-### Batch 1: Add testids to components (RC1)
-Add data-testid to ~25 components. No spec changes needed — once testids exist, specs find them.
+**Proven cause** (the locator resolved 11× to the same text):
 
-### Batch 2: Fix spec selectors (RC2)
-Fix 15 specs to use correct locators matching actual UI.
+- expected: `/no supported auth|不支持的认证|无可用认证/i`
+- received: `"this spec declares no authentication — if the API needs a key, pick one below"`
 
-### Batch 3: Fix MCP call params (RC3)
-Fix 3 specs to include `company` in greenhouse config.
+| # | spec | test |
+|---|---|---|
+| B1 | `connector-cred-form.spec.ts` | spec with no securityScheme → friendly "no supported auth" message |
 
-### Batch 4: Fix logic assertions (RC4)
-Fix 5 specs to match actual UI behavior (e.g., error-on-click vs disabled).
-
-### Batch 5: Fix 404 handling (RC5)
-Fix 2 specs to assert Next.js default 404 page.
+**Settle before editing:** which side is right? The received copy is friendlier and actionable,
+which reads like a deliberate improvement, but I have not proven whether the refactor changed it
+deliberately or incidentally — check the string's history first. The test's *intent* (a friendly,
+non-technical message when a spec declares no auth) must survive either way.
 
 ---
 
-## Runs
+## Batch C — my change: booker is no longer `visitor_only`
 
-### Run 200d — baseline
-- Stats: `{ passed: 138, failed: 61, skipped: 1 }`
-- Root cause breakdown: RC1(31) + RC2(15) + RC3(3) + RC4(5) + RC5(2) + uncategorized(5)
+**Proven cause** (golden diff shows exactly one object removed):
+
+```
+-     "id": "calendar.book",
+-     "origin": "builtin",
+-     "shape": "visitor_only",
+```
+
+I set the booker manifest to `ShapeBoth` so it can serve owner tools (`calendar.list_slots`) from
+the sandbox. The spec filters `c.shape === 'visitor_only'`, so `calendar.book` drops out.
+
+| # | spec | test |
+|---|---|---|
+| C1 | `norm-inward-capabilities.spec.ts` | inward(visitor_only) 能力的 id + origin + 顺序逐字等于 golden |
+
+**Fix direction:** the snapshot's subject is *visitor-facing* capabilities, and booker still is one.
+The filter should be "not owner-only" — matching `capreg.VisitorCapabilityIDs`, the only Shape
+filter in the backend (`Shape() != ShapeOwnerOnly`) — with the golden recording `shape: 'both'`.
+Narrowing the golden instead would silently drop booking from the snapshot.
+
+---
+
+## Batch D — sandbox dial cancelled → the capability is silently HIDDEN
+
+**Proven cause** — archived `backend.log` carries 21 of these, each immediately followed by the
+capability being dropped from the session:
+
+```
+msg: "visitor capability failed to bind — hidden from this session"
+err: "plugin dial: mcp server unreachable: stdio initialize: transport error: context canceled"
+```
+
+counts: `corpus.retrieval` ×8, `ask_visitor` ×6, `summarize_conversation` ×6, `calendar.book` ×1.
+
+Two facts pin the mechanism:
+
+1. `mcpclient.dialTimeout` is **20s**; exceeding it yields `context deadline exceeded`. The log says
+   **`context canceled`**, which in Go means the **parent** context was cancelled — the inbound HTTP
+   request ended before the dial finished and its cancellation propagated in.
+2. The caller budgets match: `subjectivity-genre` fails with
+   `apiRequestContext.post: Timeout 10000ms exceeded` on `POST …/tools/corpus_read`. The client gives
+   up at 10s, cancelling the request, which cancels the in-flight sandbox dial.
+
+So a cold spawn is outlasting the caller's budget (>10s, <20s), and on that failure the capability is
+**hidden rather than reported** — the F-A-1 shape again: infra failure presenting as "this capability
+does not exist", which downstream reads as missing data.
+
+| # | spec | observable | consistent with |
+|---|---|---|---|
+| D1 | `tool-endpoint-calendar-book.spec.ts` | `capability_state.quota_remaining` expected 1, got `undefined` | `calendar.book` hidden → absent from `capability_state` |
+| D2 | `tool-endpoint-calendar-book.spec.ts` | expected 404, got 200 (quota cascade) | first book never burned quota because the cap was hidden |
+| D3 | `tool-endpoint-state-cascade.spec.ts` | `quota_remaining` expected 1, got `undefined` | same as D1 |
+| D4 | `subjectivity-genre.spec.ts` | `POST /tools/corpus_read` timeout 10s | `corpus.retrieval` dial cancelled (×8 in log) |
+| D5 | `booking-owner-notify.spec.ts` | no Mailpit mail within 10s | booking never completed → no owner notify |
+| D6 | `connector-retry-async-owner-notify-nonblocking.spec.ts` | test timeout 30s | same booking path |
+
+**NOT proven, must not be assumed:** *why* a cold spawn exceeds 10s in this run, and whether D5/D6
+share this cause or only the symptom. Per SOP step 4 this is the "logs insufficient → add logging"
+case: instrument the dial with spawn duration and which phase (bwrap exec vs MCP initialize), then
+re-capture and read — not guess "load".
+
+This batch is a **product** defect as much as a test one: a capability that vanishes because its
+sandbox was slow is fail-silent. The fix likely has two parts — make the spawn fast/warm enough, and
+make an infra failure legible instead of invisible.
+
+---
+
+## Order
+
+A → B → C → D. A/B/C have proven, self-contained causes; D needs a measurement pass first.
+A batch is done **only** when `make test-only SPEC="<batch specs>" REPEAT=5` is all-green.
+Full-suite re-run only after every batch is repeat-5 green.

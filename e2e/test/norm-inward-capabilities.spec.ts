@@ -1,6 +1,9 @@
 // norm-inward-capabilities.spec.ts —— 【对内 / inward】能力黄金快照(归一化安全网)。
 //
-// 对内能力 = 装载进 agent、给**访客 AI**用的本事(Shape=visitor_only)。这正是
+// 对内能力 = 装载进 agent、给**访客 AI**用的本事,即 **visitor-facing**:shape 为 visitor_only
+// 或 both。判据跟后端唯一的 shape 闸一致(capreg.VisitorCapabilityIDs: Shape() != owner_only)——
+// 一个能力同时服务 owner 面(booker 经 manifest.OwnerTools 出 calendar.list_slots)并不使它退出
+// 对内快照;拿 `=== 'visitor_only'` 当判据会让它悄悄掉出覆盖面。这正是
 // 本次「能力归一化」的迁移对象:把这几个内建从进程内 Go 外置成标准 MCP server
 // (架构图的 (乙))。加载机制变,但 diag/registry 看到的 id / origin / 顺序不变。
 //
@@ -36,7 +39,9 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // 一个 SessionGate（connector+quota）做 per-session 隐藏。
   { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
   { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
-  { id: 'calendar.book', shape: 'visitor_only', origin: 'builtin' },
+  // calendar.book —— shape=both:访客侧 calendar_book / calendar_list_slots,owner 侧
+  // calendar.list_slots(manifest.OwnerTools,沙箱实现)。策略评估 + slot 枚举只此一份。
+  { id: 'calendar.book', shape: 'both', origin: 'builtin' },
   { id: 'corpus.retrieval', shape: 'visitor_only', origin: 'builtin' },
   // mail.send —— 内置 SMTP 连接器 expose_as_agent_tools 暴露的发信 operation（访客侧
   // 「预约成功→发确认邮件」#122）。同 connector.agent_tools，Shape=VisitorOnly + per-session gate。
@@ -62,11 +67,11 @@ const GOLDEN_INWARD: readonly Cap[] = [
 test.describe('能力归一化 · 【对内】agent 能力黄金快照', () => {
   test.beforeAll(() => { resetInstance(); });
 
-  test('inward(visitor_only)能力的 id + origin + 顺序逐字等于 golden',
+  test('inward(visitor-facing)能力的 id + shape + origin + 顺序逐字等于 golden',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const inward = (await fetchRegistry(request))
-        .capabilities.filter((c) => c.shape === 'visitor_only');
+        .capabilities.filter((c) => c.shape !== 'owner_only');
       expect(inward).toEqual(GOLDEN_INWARD);
       await request.dispose();
     });

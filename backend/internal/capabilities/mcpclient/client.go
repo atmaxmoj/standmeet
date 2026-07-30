@@ -189,6 +189,11 @@ type SessionContext struct {
 	// capability/skill denials). Must travel WITH the grant: a facade that sees only the grant
 	// serves what the owner explicitly took back — a fail-open.
 	CorpusDenials []string
+	// NotifyOwnerOnBooking —— #130: this session's role wants the owner emailed when a visitor
+	// books. Frozen with the rest of the role config in the snapshot. Carried so the externalized
+	// booker can decide host-free whether to send that notification; the host neither sends it nor
+	// knows what "booking notify" means.
+	NotifyOwnerOnBooking bool
 }
 
 func (s *SessionContext) meta() map[string]any {
@@ -205,6 +210,7 @@ func (s *SessionContext) meta() map[string]any {
 		"role_id":         s.RoleID,
 		"corpus_uris":     s.CorpusURIs,
 		"corpus_denials":  s.CorpusDenials,
+		"notify_owner":    s.NotifyOwnerOnBooking,
 	}}
 }
 

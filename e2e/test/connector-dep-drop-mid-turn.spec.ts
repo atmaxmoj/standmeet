@@ -39,11 +39,20 @@ function future(days: number, hour: number): string {
 // expireAccessToken —— 标记 owner GCal access_token 过期,逼 book 走刷新路径
 // (刷新撞上已 revoke 的 token 端点)。
 function expireAccessToken(): void {
-  const sql = `UPDATE owner_calendar_connectors
-              SET access_token_expires_at = NOW() - INTERVAL '1 hour'
-              WHERE provider = 'google'`;
-  execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
-    { stdio: 'pipe' });
+  // The connector refactor generalised the per-category tables into one `owner_connectors`
+  // (connector_id / category / token_expires_at); `owner_calendar_connectors.provider` is gone.
+  // Guard the row count: a WHERE that matches nothing would still exit 0, leaving this helper
+  // silently doing nothing and the assertion failing somewhere far away.
+  const sql = `UPDATE owner_connectors
+              SET token_expires_at = NOW() - INTERVAL '1 hour'
+              WHERE connector_id = 'google-calendar'`;
+  const out = execSync(
+    `docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
+    { stdio: 'pipe' },
+  ).toString();
+  if (out.includes('UPDATE 0')) {
+    throw new Error(`expireAccessToken matched no connector row: ${out.trim()}`);
+  }
 }
 
 async function callBook(

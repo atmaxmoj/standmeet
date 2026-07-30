@@ -139,10 +139,15 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 	}
 	h, ok := s.handlers[env.Op]
 	if !ok {
+		s.log.Warn("capsocket: unknown op", "op", env.Op)
 		return errResp("unknown op: " + env.Op)
 	}
 	out, err := h(ctx, raw)
 	if err != nil {
+		// Say it out loud. The reply travels back into a sandbox that is free to swallow it
+		// (best-effort paths do exactly that), so without this the host side of a failed
+		// reach-back leaves no trace at all — the failure looks like "the cap simply did nothing".
+		s.log.Error("capsocket: op failed", "op", env.Op, "err", err)
 		return errResp(err.Error())
 	}
 	return out
