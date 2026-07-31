@@ -70,7 +70,6 @@ var baseline = map[string]bool{
 	"internal/routes/admin/corpus_tree_subjectivity.go":      true,
 	"internal/routes/admin/corpus_views.go":                  true,
 	"internal/routes/admin/custom_pages.go":                  true,
-	"internal/routes/admin/domains.go":                       true,
 	"internal/routes/admin/handle.go":                        true,
 	"internal/routes/admin/inference_usage.go":               true,
 	"internal/routes/admin/keypairs.go":                      true,

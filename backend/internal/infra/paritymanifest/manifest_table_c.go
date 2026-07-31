@@ -20,26 +20,12 @@ func governanceEntries() []Entry {
 			MCP:   []string{"access_requests.approve"},
 			Admin: []string{"POST /api/admin/access-requests/{id}/approve"},
 		},
-		// ip_bans 三条不在这张表里了 —— 它们搬进了出站收口(internal/routes/dispatcher)。
-		// 收口里的 op,parity 由结构回答:MCP 面遍历收口生成、admin 面只能经 Face 取能力,
-		// 取用即登记,启动时 Conform() 拿 Reach 跟登记对。台账里再写一行是多余的重复声明。
+		// ip_bans 和 domains 各三条不在这张表里了 —— 它们搬进了出站收口
+		// (internal/routes/dispatcher)。收口里的 op,parity 由结构回答:MCP 面遍历收口生成、
+		// admin 面只能经 Face 取能力、取用即登记,启动时 Conform() 拿 Reach 跟登记对。
+		// 台账里再写一行是多余的重复声明。
 		//
 		// 这张表只剩「还没搬的」。它随迁移缩短,搬完就整包删掉。
-		{
-			Op:    read("domains.list", fp.OwnerRead()),
-			MCP:   []string{"domains.list"},
-			Admin: []string{"GET /api/admin/allowed-domains"},
-		},
-		{
-			Op:    act("domains.add", fp.OwnerAction()),
-			MCP:   []string{"domains.add"},
-			Admin: []string{"POST /api/admin/allowed-domains"},
-		},
-		{
-			Op:    act("domains.remove", fp.OwnerAction()),
-			MCP:   []string{"domains.remove"},
-			Admin: []string{"DELETE /api/admin/allowed-domains/{domain}"},
-		},
 		{
 			Op:    read("capabilities.list", fp.OwnerRead()),
 			MCP:   []string{"capabilities.list"},

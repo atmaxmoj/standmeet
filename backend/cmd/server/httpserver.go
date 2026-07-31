@@ -78,7 +78,6 @@ type AdminDeps struct {
 	Conversations   conversation.ConversationsDeps
 	Ghosts          conversation.GhostDeps
 	BYOAI           owner.BYOAIDeps
-	Domains         owner.AllowedDomainsDeps
 	AccessRequests  access.RequestsDeps
 	HandleAdmin     owner.HandleDeps
 	PublicURLAdmin  owner.PublicURLDeps
@@ -209,7 +208,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Ghosts: deps.Admin.Ghosts,
 		},
 		BYOAI:   adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
-		Domains: adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
+		Domains: adminroutes.DomainsDeps{Face: adminFace(deps.Dispatch)},
 		AccessRequests: adminroutes.AccessRequestsDeps{
 			Reqs: deps.Admin.AccessRequests, Approve: deps.Admin.ApproveRequests,
 		},

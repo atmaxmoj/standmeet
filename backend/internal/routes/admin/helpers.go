@@ -43,16 +43,6 @@ func writeJSONStatus(log *slog.Logger, w http.ResponseWriter, status int, v any)
 	}
 }
 
-// writeRawJSON —— 200 + 已经序列化好的 JSON body。给从出站收口 wire 的路由用:载荷形状是
-// 收口那一份契约,本面不再解开重编一遍(重编就是又造了一份形状)。
-func writeRawJSON(log *slog.Logger, w http.ResponseWriter, body json.RawMessage) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write(body); err != nil {
-		log.Error("write json", logErrKey, err)
-	}
-}
-
 // rfc3339OrNil —— 可空时间 → 可空 RFC3339 字符串(nil 透传,前端不显 expiry)。
 func rfc3339OrNil(t *time.Time) *string {
 	if t == nil {

@@ -92,9 +92,8 @@ func buildAdminDeps(d *runtimeDeps) AdminDeps {
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
 			Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		},
-		Ghosts:  conversation.GhostDeps{Repo: d.ghostRepo},
-		BYOAI:   owner.BYOAIDeps{Owners: d.ownerRepo},
-		Domains: owner.AllowedDomainsDeps{Instance: d.instanceRepo},
+		Ghosts: conversation.GhostDeps{Repo: d.ghostRepo},
+		BYOAI:  owner.BYOAIDeps{Owners: d.ownerRepo},
 		AccessRequests: access.RequestsDeps{
 			Repo:   d.accessRequestRepo,
 			Owners: soleOwnerLookup{owners: d.ownerRepo},
