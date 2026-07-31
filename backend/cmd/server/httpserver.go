@@ -102,7 +102,6 @@ type AdminDeps struct {
 	Marketplace     marketplace.SearchDeps
 	Calendar        adminroutes.CalendarAdminDeps
 	Connectors      adminroutes.ConnectorsAdminDeps
-	Capabilities    adminroutes.CapabilityAdminDeps
 	ApproveRequests owner.ApproveRequestDeps
 	Sessions        *session.OwnerSessionStore
 	Usage           adminroutes.InferenceUsageSummarizer // #106 计费面板
@@ -244,7 +243,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Face: adminFace(deps.Dispatch)},
 		CalendarAdmin:     deps.Admin.Calendar,
 		ConnectorsAdmin:   deps.Admin.Connectors,
-		CapabilitiesAdmin: deps.Admin.Capabilities,
+		CapabilitiesAdmin: adminroutes.CapabilityAdminDeps{Face: adminFace(deps.Dispatch)},
 		IPBansAdmin:       adminroutes.IPBansAdminDeps{Face: adminFace(deps.Dispatch)},
 		Usage:             deps.Admin.Usage,
 		SystemInfo:        deps.Admin.SystemInfo,

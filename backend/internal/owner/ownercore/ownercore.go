@@ -35,7 +35,6 @@ type Deps struct {
 	Handle           *owner.HandleDeps
 	Calendar         *CalendarOwnerDeps
 	Writings         *corpus.WritingsDeps
-	Capabilities     *CapabilitiesOwnerDeps
 	Instance         *InstanceDeps
 	APIKeys          *APIKeysOwnerDeps
 	WritingsTx       *corpus.WritingsTxDeps
@@ -87,7 +86,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newCalendarCapability(d.Calendar.Proxy, d.Calendar.Store, d.Owners, d.Log))
 	// facade-parity fills.
 	// ip_bans 已搬回 security 域(security.OwnerMCPBundle),不在这里注册。
-	reg.MustRegister(newCapabilitiesCapability(d.Capabilities, d.Log))
 	reg.MustRegister(newInstanceCapability(d.Instance, d.Log))
 	reg.MustRegister(newAPIKeysCapability(d.APIKeys, d.Log))
 	reg.MustRegister(newConnectorsCapability(d.Connectors, d.Log))

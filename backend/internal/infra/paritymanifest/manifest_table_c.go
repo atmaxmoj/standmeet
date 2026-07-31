@@ -12,21 +12,6 @@ func governanceEntries() []Entry {
 		//
 		// 这张表只剩「还没搬的」。它随迁移缩短,搬完就整包删掉。
 		{
-			Op:    read("capabilities.list", fp.OwnerRead()),
-			MCP:   []string{"capabilities.list"},
-			Admin: []string{"GET /api/admin/capabilities/"},
-		},
-		{
-			Op:    act("capabilities.set_enabled", fp.OwnerAction()),
-			MCP:   []string{"capabilities.set_enabled"},
-			Admin: []string{"PATCH /api/admin/capabilities/{id}"},
-		},
-		{
-			Op:    act("capabilities.delete", fp.OwnerAction()),
-			MCP:   []string{"capabilities.delete"},
-			Admin: []string{"DELETE /api/admin/capabilities/{id}"},
-		},
-		{
 			Op:    read("bookings.list", fp.OwnerRead()),
 			MCP:   []string{"bookings.list"},
 			Admin: []string{"GET /api/admin/bookings/"},

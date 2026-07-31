@@ -128,10 +128,6 @@ func buildAdminDeps(d *runtimeDeps) AdminDeps {
 			Repo: newCapstoreBookingStore(d), Policy: newBookerPolicyStore(d),
 		},
 		Connectors: connectorsAdminDeps(d),
-		Capabilities: adminroutes.CapabilityAdminDeps{
-			Registry: d.agentSkills, Settings: d.capabilityRepo,
-			Skills: d.skillRepo, Connectors: d.connectorRepo,
-		},
 		ApproveRequests: owner.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Proxy: outboundSender(d),

@@ -53,7 +53,6 @@ var baseline = map[string]bool{
 	"internal/routes/admin/booking_store_deps.go":            true,
 	"internal/routes/admin/bookings.go":                      true,
 	"internal/routes/admin/byoai.go":                         true,
-	"internal/routes/admin/capabilities.go":                  true,
 	"internal/routes/admin/claim.go":                         true,
 	"internal/routes/admin/codes.go":                         true,
 	"internal/routes/admin/codes_view.go":                    true,
