@@ -41,7 +41,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		PagePins:         owner.PagePinDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
 		Corpus:           &corpusDeps,
 		Conversations:    &convsDeps,
-		Prompts:          &owner.PromptsDeps{Prompts: d.promptRepo},
 		Roles:            &rolesDeps,
 		MCPServers:       &marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Writings:         &corpus.WritingsDeps{Writings: d.writingRepo},

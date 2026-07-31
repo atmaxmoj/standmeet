@@ -44,7 +44,6 @@ type Deps struct {
 	WritingsTx       *corpus.WritingsTxDeps
 	Roles            *access.RolesDeps
 	Booking          *BookingOwnerDeps
-	Prompts          *owner.PromptsDeps
 	Conversations    *conversation.ConversationsDeps
 	PublicURL        owner.PublicURLDeps
 	PagePins         owner.PagePinDeps
@@ -86,7 +85,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newSubjectivityCapability(d.Corpus, d.Log))
 	reg.MustRegister(newAppearanceCapability(d.Appearance, d.Log))
 	reg.MustRegister(newChatCapability(d.Corpus, d.Conversations, d.Ghosts, d.Log))
-	reg.MustRegister(newPromptsCapability(d.Prompts, d.Log))
 	reg.MustRegister(newRolesCapability(d.Roles, reg.VisitorCapabilityIDs, d.Log))
 	reg.MustRegister(newMCPServersCapability(d.MCPServers, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))

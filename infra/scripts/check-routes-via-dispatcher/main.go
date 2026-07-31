@@ -76,7 +76,6 @@ var baseline = map[string]bool{
 	"internal/routes/admin/me.go":                            true,
 	"internal/routes/admin/obsidian.go":                      true,
 	"internal/routes/admin/page.go":                          true,
-	"internal/routes/admin/prompts.go":                       true,
 	"internal/routes/admin/public_url.go":                    true,
 	"internal/routes/admin/recovery.go":                      true,
 	"internal/routes/admin/roles.go":                         true,

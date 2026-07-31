@@ -185,31 +185,6 @@ func rolesPromptsSkills() []Entry {
 			Op:  act("roles.set_dock_buttons", fp.Only("chat-dock UI hint, folded into role update on admin", FacadeMCP)),
 			MCP: []string{"roles.set_dock_buttons"},
 		},
-		{
-			Op:    read("prompts.list", fp.OwnerRead()),
-			MCP:   []string{"prompt_list"},
-			Admin: []string{"GET /api/admin/prompts/"},
-		},
-		{
-			Op:    act("prompts.create", fp.OwnerAction()),
-			MCP:   []string{"prompt_create"},
-			Admin: []string{"POST /api/admin/prompts/"},
-		},
-		{
-			Op:    read("prompts.get", fp.OwnerRead()),
-			MCP:   []string{"prompts.get"},
-			Admin: []string{"GET /api/admin/prompts/{id}"},
-		},
-		{
-			Op:    act("prompts.update", fp.OwnerAction()),
-			MCP:   []string{"prompt_update"},
-			Admin: []string{"PUT /api/admin/prompts/{id}"},
-		},
-		{
-			Op:    act("prompts.delete", fp.OwnerAction()),
-			MCP:   []string{"prompt_delete"},
-			Admin: []string{"DELETE /api/admin/prompts/{id}"},
-		},
 		// skills 四条搬进了出站收口(dispatcher.Skills),连同 marketplace 一起 —— 它们共用
 		// "一个 skill 长什么样"这份形状,分开搬就会留下两份。
 	}

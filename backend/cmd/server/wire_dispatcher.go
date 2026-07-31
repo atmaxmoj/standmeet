@@ -25,6 +25,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
 		dispatcher.Skills(newSkillOps(d)),
 		dispatcher.Marketplace(newMarketOps(d)),
+		dispatcher.Prompts(newPromptOps(d)),
 	)
 }
 

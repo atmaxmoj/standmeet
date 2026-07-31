@@ -4,6 +4,7 @@
 //
 //	BadInput  调用方给错了        → HTTP 400 / MCP isError
 //	NotFound  要的东西不存在      → HTTP 404 / MCP isError
+//	Forbidden 这个东西不许被这么动  → HTTP 403 / MCP isError
 //	Conflict  跟已有状态冲突      → HTTP 409 / MCP isError
 //	Upstream  依赖的外部服务失败  → HTTP 502 / MCP isError(消息可以直接给人看)
 //	其余      这台机器出错了      → HTTP 500(细节进日志,不外泄)/ MCP isError
@@ -62,6 +63,21 @@ func Conflict(msg string) error { return conflictError{msg: msg} }
 // IsConflict —— 面据此回 409。
 func IsConflict(err error) bool {
 	var t conflictError
+	return errors.As(err, &t)
+}
+
+// forbiddenError —— 请求本身没问题、东西也在,但这个操作对它不允许(内置的不许改/不许删)。
+// 跟 BadInput 的区别是它不是"你写错了",跟 NotFound 的区别是它确实存在 —— 面回 403。
+type forbiddenError struct{ msg string }
+
+func (e forbiddenError) Error() string { return e.msg }
+
+// Forbidden —— 造一个"不许这么动"的错误。
+func Forbidden(msg string) error { return forbiddenError{msg: msg} }
+
+// IsForbidden —— 面据此回 403。
+func IsForbidden(err error) bool {
+	var t forbiddenError
 	return errors.As(err, &t)
 }
 
