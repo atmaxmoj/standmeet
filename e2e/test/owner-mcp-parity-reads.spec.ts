@@ -107,11 +107,15 @@ async function checkOwnerSettings(r: APIRequestContext): Promise<void> {
 }
 
 async function checkCapabilities(r: APIRequestContext): Promise<void> {
-  const caps = await callTool<Array<{ id: string; kind: string; enabled: boolean }>>(
+  // 载荷是 {"capabilities": [...]} —— admin 一直是这个信封，收口接手之后 MCP 也拿同一份。
+  // 连 connector 那两行也一并有了（迁移前 MCP 面整类缺席）。
+  const body = await callTool<{ capabilities: Array<{ id: string; kind: string; enabled: boolean }> }>(
     r, token, sid, 'capabilities.list', {});
+  const caps = body.capabilities;
   expect(caps.length, 'at least one capability').toBeGreaterThan(0);
   expect(typeof caps[0]!.id, 'cap.id string').toBe('string');
   expect(typeof caps[0]!.enabled, 'cap.enabled bool').toBe('boolean');
+  expect(caps.some((c) => c.kind === 'connector'), 'connector rows are present too').toBe(true);
 }
 
 async function checkEmptyRegistries(r: APIRequestContext): Promise<void> {

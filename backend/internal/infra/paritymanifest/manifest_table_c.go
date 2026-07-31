@@ -43,33 +43,7 @@ func governanceEntries() []Entry {
 
 // observability + marketplace.
 func observabilityEntries() []Entry {
-	return []Entry{
-		{
-			Op:    read("system.status", fp.OwnerRead()),
-			MCP:   []string{"instance.status"},
-			Admin: []string{"GET /api/admin/system"},
-		},
-		{
-			Op:    read("stats.inference_usage", fp.OwnerRead()),
-			MCP:   []string{"instance.inference_usage"},
-			Admin: []string{"GET /api/admin/inference-usage"},
-		},
-		{
-			Op:    read("stats.growth", fp.OwnerRead()),
-			MCP:   []string{"instance.corpus_growth"},
-			Admin: []string{"GET /api/admin/stats/growth"},
-		},
-		{
-			Op:    read("stats.activity", fp.OwnerRead()),
-			MCP:   []string{"instance.activity"},
-			Admin: []string{"GET /api/admin/stats/activity"},
-		},
-		{
-			Op:    read("stats.jobs", fp.OwnerRead()),
-			MCP:   []string{"instance.jobs"},
-			Admin: []string{"GET /api/admin/stats/jobs"},
-		},
-	}
+	return []Entry{}
 }
 
 // custom pages (authoring is MCP-only by product decision; only the list is on admin).

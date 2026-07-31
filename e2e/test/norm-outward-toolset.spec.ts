@@ -79,6 +79,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'ip_bans.list', 'ip_bans.add', 'ip_bans.remove',
   'domains.list', 'domains.add', 'domains.remove',
   'instance.status', 'instance.inference_usage', 'instance.corpus_growth',
+  // corpus_graph 是**新填的缺口**：admin 一直有 GET /stats/graph，MCP 没有孪生，
+  // 而且它连手写对照表里都没有一行 —— 棘轮从来看不见它。搬进收口后两个面都欠它。
+  'instance.corpus_graph',
   'instance.activity', 'instance.jobs',
   'marketplace.search', 'marketplace.install',
   'account.set_full_name', 'byoai.set', 'ai_provider.presets',

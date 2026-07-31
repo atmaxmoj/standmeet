@@ -43,7 +43,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 			Proxy: d.connectorSlots.Calendar(), Store: newCapstoreBookingStore(d),
 		},
 		Appearance: d.ownerRepo,
-		Instance:   ownerInstanceDeps(d),
 		APIKeys:    &ownercore.APIKeysOwnerDeps{Keys: d.apiKeyRepo, Roles: d.roleRepo},
 		Connectors: &ownercore.ConnectorsOwnerDeps{
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
@@ -61,13 +60,5 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		AIPresets:   ownerAIPresets(),
 		Ghosts:      &conversation.GhostDeps{Repo: d.ghostRepo},
 		Log:         d.log,
-	}
-}
-
-// ownerInstanceDeps —— instance observability reads (status / usage / growth / activity / jobs).
-func ownerInstanceDeps(d *runtimeDeps) *ownercore.InstanceDeps {
-	return &ownercore.InstanceDeps{
-		System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
-		Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
 	}
 }

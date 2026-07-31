@@ -48,11 +48,7 @@ type Handlers struct {
 	PageAdmin         PageAdminDeps
 	IPBansAdmin       IPBansAdminDeps
 	ConnectorsAdmin   ConnectorsAdminDeps
-	Usage             InferenceUsageSummarizer // #106 计费面板
-	SystemInfo        SystemInfoProvider       // #101 system 面板
-	Growth            GrowthProvider           // Monitor: SystemPulse corpus 增长
-	Activity          ActivityProvider         // Monitor: ActivityTicker 近期事件
-	Jobs              JobsProvider             // Monitor: background-jobs 表
+	InstanceAdmin     InstanceAdminDeps // 观测面：system / usage / stats.*
 	SecureCookie      bool
 }
 
@@ -106,12 +102,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountIPBans(r)
 	h.MountBookingPolicy(r)
 	h.MountBookings(r)
-	r.Get("/inference-usage", h.getInferenceUsage()) // #106 计费面板
-	r.Get("/system", h.getSystemInfo())              // #101 system 面板
-	r.Get("/stats/growth", h.getCorpusGrowth())      // Monitor: SystemPulse
-	r.Get("/stats/activity", h.getRecentActivity())  // Monitor: ActivityTicker
-	r.Get("/stats/graph", h.getCorpusGraph())        // TopBar: corpus link constellation
-	r.Get("/stats/jobs", h.getScheduledJobs())       // Monitor: background jobs
+	h.MountInstance(r)
 }
 
 type claimRequest struct {

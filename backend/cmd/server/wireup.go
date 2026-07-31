@@ -133,11 +133,6 @@ func buildAdminDeps(d *runtimeDeps) AdminDeps {
 			Owners: d.ownerRepo, Proxy: outboundSender(d),
 		},
 		Sessions:     d.sessionStore,
-		Usage:        d.inferenceUsageRepo,
-		SystemInfo:   newSysInfoProvider(d),
-		Growth:       d.growthRepo,
-		Activity:     d.activityRepo,
-		Jobs:         d.jobRegistry,
 		SecureCookie: d.secureCookie,
 	}
 }

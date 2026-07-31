@@ -29,6 +29,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.MCPServers(newMCPServerOps(d)),
 		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
+		dispatcher.Instance(newInstanceOps(d)),
 	)
 }
 

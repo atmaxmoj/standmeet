@@ -126,21 +126,31 @@ async function checkCorpusGet(r: APIRequestContext): Promise<void> {
 }
 
 async function checkCapabilities(r: APIRequestContext): Promise<void> {
-  const caps = await callTool<Array<{ id: string; enabled: boolean }>>(
-    r, token, sid, 'capabilities.list', {});
-  const target = caps.find((c) => c.enabled)!;
+  // 载荷是 {"capabilities": [...]}（admin 已发出去的信封，收口接手后两个面同一份）。
+  // 只挑 kind=capability 那种行来开关：connector 行前端锁死、skill 行走 skill 自己的开关。
+  const caps = await listCapabilities(r);
+  const target = caps.find((c) => c.enabled && c.kind === 'capability')!;
   await callTool(r, token, sid, 'capabilities.set_enabled', { id: target.id, enabled: false });
-  const after = await callTool<Array<{ id: string; enabled: boolean }>>(
-    r, token, sid, 'capabilities.list', {});
+  const after = await listCapabilities(r);
   expect(after.find((c) => c.id === target.id)?.enabled, 'cap now disabled').toBe(false);
 
   // skill_create 现在回**完整的 skill**(两个面同一份形状),identifier 字段是 `id`;
   // 迁移前 MCP 单独回 {skill_id,name},admin 回完整 skill —— 两份形状正是要消灭的东西。
   const skill = await callTool<{ id: string }>(
     r, token, sid, 'skill_create', { name: 'doomed-skill', prompt: 'to be deleted' });
-  const del = await callTool<{ id: string; deleted: boolean }>(
+  // 删除回 {"ok":true} —— admin 一直是这个形状，收口接手后两个面同一份
+  // （迁移前 MCP 单独回 {id, deleted}）。
+  const del = await callTool<{ ok: boolean }>(
     r, token, sid, 'capabilities.delete', { id: skill.id });
-  expect(del.deleted, 'owner skill deleted via capabilities.delete').toBe(true);
+  expect(del.ok, 'owner skill deleted via capabilities.delete').toBe(true);
+}
+
+interface CapabilityRow { id: string; kind: string; enabled: boolean }
+
+async function listCapabilities(r: APIRequestContext): Promise<CapabilityRow[]> {
+  const body = await callTool<{ capabilities: CapabilityRow[] }>(
+    r, token, sid, 'capabilities.list', {});
+  return body.capabilities;
 }
 
 test.describe('facade-parity · 新增 owner-MCP 写工具 roundtrip 守护', () => {
