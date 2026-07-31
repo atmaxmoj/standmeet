@@ -103,6 +103,11 @@ func AdminRoutes() []string {
 
 // MCPMissing —— op-ids that per their Reach must be on the owner-MCP facade but aren't in liveMCP
 // (the registry's live tool names). This is the paydown worklist: shrinking it = filling gaps.
+//
+// Scope note: this manifest only covers ops that have NOT yet moved to the outbound convergence
+// point. Once an op moves there, parity for it is a property of the structure (see
+// internal/routes/dispatcher/face.go) and its rows leave this table entirely — there is nothing
+// left here to check.
 func MCPMissing(liveMCP []string) []string {
 	out := []string{}
 	// Plugin-served tools are live on the MCP facade even though the ownercore registry (the only

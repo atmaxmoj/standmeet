@@ -296,6 +296,76 @@ door (or inference construction moves inside the credential boundary), and route
 BYOAI envelope. Minimum stop-gap if that is deferred: redacting `String()`/`MarshalJSON` so it can
 never be logged by accident.
 
+## The dispatcher — one outbound convergence point (decided 2026-07-30)
+
+Named by the owner: **`dispatcher`** (`internal/routes/dispatcher`). It is **not** an "owner"
+registry — it has nothing to do with the owner *domain*, and it is not a second `capreg`.
+
+Everything that goes OUT converges here, all of it protocol-agnostic:
+
+1. **domain operations** — each domain's facade exposes plain functions (`CreateRole(ctx, in)`);
+   the domain never learns whether it is served over MCP, HTTP, IM or an SDK;
+2. **connector capabilities** — the connector axis's category+verb surface;
+3. **capreg capabilities** — the agent-loadable ones, where they surface outward.
+
+Every face is then a **projection** of the dispatcher: MCP is *generated* (walk it, so there is no
+hand-written step to forget), HTTP admin is *verified* (hand-written REST shapes, cross-checked).
+Parity stops being a table someone maintains and becomes a property of the structure.
+
+Why this shape is forced: `capreg` imports `access/facade`, so a domain that reaches for `capreg`
+to declare its own tools closes an import cycle. The domain must therefore stay protocol-free and
+the adaptation must live at the dispatcher.
+
+**The missing gate.** Nothing today stops a face from reaching past the dispatcher: `routes/admin`
+directly imports 7 domain facades in **56** places (owner 22 · corpus 15 · access 6 · stats 5 ·
+marketplace 5 · conversation 2 · security 1). While that hole is open, parity can only ever be
+audited, never guaranteed. The gate — `routes/*` may reach capability only through the dispatcher —
+needs a shrink-only baseline (the repo's usual ratchet): the 56 go in, a NEW direct reach is red
+immediately, and each migrated resource deletes a line until the baseline file is deleted.
+
+## Owed: a generated fan-out makes omission impossible — and mis-exposure easy
+
+Flagged by the owner while designing the dispatcher: **"if the API is just exposed bare like this,
+exposing some of these operations is quite dangerous for the user."**
+
+This is the design's own shadow. The parity rule says *every* op whose Reach targets a face's class
+MUST appear there — which is exactly what kills silent omission, and exactly what could auto-publish
+something that should never have had a public door. The two faces are not equally trusted either: an
+owner's local MCP client is a different threat model from an HTTP API reachable with an API key
+(see `facade-directions.md`: public = anonymous role in the ACL, API-key facade).
+
+`Reach` + `Only(reason)` is the seam that exists today, but it is opt-OUT: forget to classify and
+the op is exposed by default. For a *generated* face, the default must not be "publish".
+
+**The two faces are both "the owner", but not equally exposed** (verified in code):
+
+| face | credential | carrier |
+|---|---|---|
+| MCP `/mcp` | owner-issued keypair, `Authorization: Sigv1 keyId,ts,sig` (`authMiddleware` → `owner.VerifySigv1`; legacy Bearer PAT deleted) | a long-lived, copyable secret pasted into a desktop AI client |
+| HTTP `/api/admin/*` | owner session cookie + CSRF (`authmw.WithOwner` + `RequireCSRF`) | a short-lived browser session |
+
+An unclaimed instance has no owner and no keypair, so nothing authenticates — and
+`runCapabilityHandler` re-checks `OwnerIDFrom(ctx)` even if the middleware were bypassed. Auth is
+not the gap. The gap is **blast radius**: an API key is a copyable, long-lived bearer of *every*
+generated op, and it lives inside a third-party AI client. Parity's default ("any OwnerAction
+belongs on every capable face") therefore hands a leaked key strictly more than a stolen session
+window would. That asymmetry — not authentication — is what a danger class has to price in.
+
+Not designed yet — deliberately deferred, recorded so it is not discovered after the fan-out is
+built. Open questions: does an op need an explicit danger/sensitivity class (destructive,
+raw-secret-bearing, billing-affecting) before any face may carry it? Should generation default to
+DENY until a face is named, inverting the current default? How does this compose with the API-key
+ACL rather than duplicating it?
+
+**Owed first step (owner, 2026-07-30): audit which of today's surfaces actually need protecting** —
+run it once the dispatcher lands, so the danger classes are derived from the real inventory rather
+than guessed up front. Walk every current endpoint and MCP tool and classify by blast radius, e.g.:
+destructive/irreversible (delete a role/code/corpus entry), credential-bearing (provider API key,
+connector secrets, keypair issuance), identity/authority-changing (claim, handle, recovery, ACL and
+denial edits), spend-incurring (inference, PDF render, outbound mail), and data-egress (export the
+vault, read the full corpus). The output is the input to the danger-class design: anything in the
+top classes is a candidate for "not carried by a long-lived-key face by default".
+
 ## Migration — connector as the pathfinder
 
 1. **Pathfinder (done):** the `connector.invoke` controller moved from `internal/connector` to

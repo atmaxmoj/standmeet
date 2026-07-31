@@ -21,7 +21,14 @@ ROOT="$(cd "${1:-.}" && pwd)"  # target Go source root (when make -C backend run
 # middleware to delegate to), so it legitimately runs at the looser cyclop
 # ≤5 business budget (enforced by golangci, not this ≤3 HTTP-handler cap).
 # Exclude it here so the ≤3 rule guards only the echo route handlers.
-EXCLUDE='internal/routes/mcphandle/|internal/routes/capload/|socket\.go'
+#
+# dispatcher is the outbound convergence point — same situation as mcphandle and
+# excluded for the same written reason: it holds no echo handler at all, only
+# adapters that decode schemaless JSON args, call a plain domain function, and
+# serialize the result.  There is no binding middleware to delegate the decode
+# to, so the branching is inherent, not leaked business logic.  golangci's
+# cyclop ≤5 still binds it.
+EXCLUDE='internal/routes/mcphandle/|internal/routes/capload/|internal/routes/dispatcher/|socket\.go'
 
 # gocyclo prints "<n> <pkg> <func> <file>:<line>" for every function whose
 # cyclomatic complexity exceeds the -over threshold.  Exit code 0 with

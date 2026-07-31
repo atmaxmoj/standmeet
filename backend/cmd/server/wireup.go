@@ -64,6 +64,7 @@ func buildServerDeps(d *runtimeDeps) *Deps {
 		CaptchaEnabled:  d.captchaEnabled,
 		PluginRegistry:  d.pluginRegistry,
 		BannedIPs:       d.bannedIPRepo,
+		Dispatch:        d.dispatch,
 	}
 }
 
@@ -330,10 +331,11 @@ func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHand
 }
 
 func buildMCPDeps(d *runtimeDeps) mcphandle.Deps {
-	// #135: owner tools all live in the ownercore plugin now; the MCP server only needs auth
-	// (Keypairs) + the capreg registry (AgentSkills) it walks for the tool list.
+	// 工具两个来源:capreg(capability 轴上真正的能力)+ dispatcher(出站收口,MCP 面是它的
+	// 投影)。迁移期并存 —— 每把一个资源搬进收口,ownercore 就少注册一组。
 	return mcphandle.Deps{
 		AgentSkills: d.agentSkills,
+		Dispatcher:  d.dispatch,
 		Keypairs:    keypairDeps(d),
 		Log:         d.log,
 	}

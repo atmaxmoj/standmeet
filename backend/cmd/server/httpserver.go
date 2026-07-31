@@ -23,6 +23,7 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -56,8 +57,10 @@ type Deps struct {
 	// PluginRegistry —— J.5: outbound plugins 一次性注册全套 admin REST hook。
 	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
 	PluginRegistry *capabilities.Registry
-	// BannedIPs —— 封禁 IP repo；公开面 BanGuard + admin ip-bans CRUD 共用。
+	// BannedIPs —— 封禁 IP repo；公开面 BanGuard 用（enforcement，不是 owner 能力）。
 	BannedIPs *security.BannedIPRepo
+	// Dispatch —— 出站收口。admin 面的能力只能从这儿 wire（路由形状仍照常手写）。
+	Dispatch *dispatcher.Dispatcher
 	// PubAPI —— the API-key facade (/api/pub/v1); api-key auth in its own middleware.
 	PubAPI *pubapi.Handlers
 	MCP    mcphandle.Deps
@@ -131,7 +134,25 @@ func New(deps *Deps) http.Handler {
 		deps.PubAPI.Mount(r)
 	}
 	r.Mount("/mcp", mcphandle.New(&deps.MCP))
+	assertDispatcherConformance(deps)
 	return r
+}
+
+// assertDispatcherConformance —— 全部面都挂完之后,拿每个 op 的 Reach 跟各个面实际投影的对一遍。
+// 有欠账就**不让这个进程活下去**。
+//
+// 为什么是 panic 而不是日志:少一个面的能力不会让任何请求报错 —— 它只是安静地不存在。这种缺陷
+// 只有人去用的时候才会发现,而那时它已经上线了。启动即失败,是唯一能把它挡在上线之前的形态。
+//
+// 这也是那张手写对照表被替换掉的东西:它只在有人跑测试时才对账,而且要有人记得往里加行。
+func assertDispatcherConformance(deps *Deps) {
+	if deps.Dispatch == nil {
+		return // 测试里可以不接收口
+	}
+	if report := deps.Dispatch.ConformReport(); report != "" {
+		panic("dispatcher: a face does not match the outbound convergence point — " +
+			"some capability is not projected onto a face it is owed on:\n" + report)
+	}
 }
 
 func mountInternal(r chi.Router, deps *Deps) {
@@ -227,7 +248,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		CalendarAdmin:     deps.Admin.Calendar,
 		ConnectorsAdmin:   deps.Admin.Connectors,
 		CapabilitiesAdmin: deps.Admin.Capabilities,
-		IPBansAdmin:       adminroutes.IPBansAdminDeps{Repo: deps.BannedIPs},
+		IPBansAdmin:       adminroutes.IPBansAdminDeps{Face: adminFace(deps.Dispatch)},
 		Usage:             deps.Admin.Usage,
 		SystemInfo:        deps.Admin.SystemInfo,
 		Growth:            deps.Admin.Growth,

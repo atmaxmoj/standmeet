@@ -55,7 +55,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 			Proxy: d.connectorSlots.Calendar(), Store: newCapstoreBookingStore(d),
 		},
 		Appearance:     d.ownerRepo,
-		IPBans:         ipBanStoreAdapter{repo: d.bannedIPRepo},
 		Domains:        owner.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: ownerAccessRequestsDeps(d),
 		Capabilities: &ownercore.CapabilitiesOwnerDeps{

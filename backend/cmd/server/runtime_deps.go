@@ -29,6 +29,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
@@ -97,12 +98,15 @@ type runtimeDeps struct {
 	printStore         *printsess.Store
 	marketplaceClient  *marketplace.Client
 	agentSkills        *capreg.Registry
-	searchClient       *search.Client // corpus 词法检索(Meili);nil = 未配 → 退 Postgres 全文
-	corpusIndexer      corpus.Indexer // 写路径索引传播;nil = 未配 Meili
-	captchaSiteKey     string
-	buildsRoot         string
-	secureCookie       bool
-	captchaEnabled     bool // #169 captcha 是否真启用(非 noop)—— code guard 的 escape 层
+	// dispatch —— 出站收口。assembleRuntimeDeps 之后由 main 回填(跟 pluginRegistry 同理);
+	// 全进程唯一一个,各个面都从它投影。
+	dispatch       *dispatcher.Dispatcher
+	searchClient   *search.Client // corpus 词法检索(Meili);nil = 未配 → 退 Postgres 全文
+	corpusIndexer  corpus.Indexer // 写路径索引传播;nil = 未配 Meili
+	captchaSiteKey string
+	buildsRoot     string
+	secureCookie   bool
+	captchaEnabled bool // #169 captcha 是否真启用(非 noop)—— code guard 的 escape 层
 }
 
 // recoveryDeps —— #100 account recovery 的窄依赖(owner repo + session store + mail proxy)。

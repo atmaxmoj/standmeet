@@ -20,21 +20,11 @@ func governanceEntries() []Entry {
 			MCP:   []string{"access_requests.approve"},
 			Admin: []string{"POST /api/admin/access-requests/{id}/approve"},
 		},
-		{
-			Op:    read("ip_bans.list", fp.OwnerRead()),
-			MCP:   []string{"ip_bans.list"},
-			Admin: []string{"GET /api/admin/ip-bans/"},
-		},
-		{
-			Op:    act("ip_bans.add", fp.OwnerAction()),
-			MCP:   []string{"ip_bans.add"},
-			Admin: []string{"POST /api/admin/ip-bans/"},
-		},
-		{
-			Op:    act("ip_bans.remove", fp.OwnerAction()),
-			MCP:   []string{"ip_bans.remove"},
-			Admin: []string{"DELETE /api/admin/ip-bans/{id}"},
-		},
+		// ip_bans 三条不在这张表里了 —— 它们搬进了出站收口(internal/routes/dispatcher)。
+		// 收口里的 op,parity 由结构回答:MCP 面遍历收口生成、admin 面只能经 Face 取能力,
+		// 取用即登记,启动时 Conform() 拿 Reach 跟登记对。台账里再写一行是多余的重复声明。
+		//
+		// 这张表只剩「还没搬的」。它随迁移缩短,搬完就整包删掉。
 		{
 			Op:    read("domains.list", fp.OwnerRead()),
 			MCP:   []string{"domains.list"},

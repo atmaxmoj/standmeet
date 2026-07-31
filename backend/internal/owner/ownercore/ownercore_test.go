@@ -14,14 +14,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
 
-// allOwnerCapIDs —— every owner-MCP capability id the plugin owns.
+// allOwnerCapIDs —— every owner-MCP capability id the plugin STILL owns.
+//
+// 这份清单是 ownercore 解散的**进度账**,而且**只能变短**:每把一个资源搬进出站收口
+// (internal/routes/dispatcher),就从这里删掉一行;删到空,ownercore 整包删除。
+// 变长 = 又往这个跨域包里塞东西,评审时该被拦下。
+//
+// 已搬走:ip_bans → dispatcher.IPBans(security 的仓储经组装根适配)。
 var allOwnerCapIDs = []string{
 	"owner.me", "codes.bundle", "seo.bundle",
 	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
 	"corpus.subjectivity.bundle", "appearance.bundle", "chat.bundle",
 	"prompts.bundle", "roles.bundle", "mcp_servers.bundle", "skills.bundle",
 	"writings.bundle", "custom_page.bundle", "page.bundle", "calendar.bundle",
-	"ip_bans.bundle", "domains.bundle", "access_requests.bundle",
+	"domains.bundle", "access_requests.bundle",
 	"capabilities.bundle", "instance.bundle", "connectors.bundle",
 	"marketplace.bundle", "booking.bundle", "account.bundle",
 	"byoai.bundle", "ai_provider.bundle", "api_keys.bundle",

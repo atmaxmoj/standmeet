@@ -18,6 +18,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
 type ctxKey struct{ name string }
@@ -31,7 +32,10 @@ var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 type Deps struct {
 	Keypairs    owner.KeypairDeps
 	AgentSkills *capreg.Registry
-	Log         *slog.Logger
+	// Dispatcher —— 出站收口:所有对外能力(域操作 / connector 能力 / capreg 能力)在这一处
+	// 声明,MCP 面是它的投影(generated)。见 internal/routes/dispatcher。
+	Dispatcher *dispatcher.Dispatcher
+	Log        *slog.Logger
 }
 
 // New 构造一个挂好工具的 http.Handler，调用方挂到 /mcp/* 路由。
@@ -92,9 +96,12 @@ func OwnerIDFrom(ctx context.Context) string {
 	return v
 }
 
-// registerTools 把所有 owner tool 注册到 mcpSrv。Phase E 收尾：只剩一行
-// registerCapabilities walk —— 所有 tool 都走 capreg.Registry（facade 聚合，
-// core 不写死）。
+// registerTools 把所有 owner tool 注册到 mcpSrv。两个来源:
+//   - capreg.Registry —— capability 轴上真正的能力(插件声明的 owner 工具等);
+//   - dispatcher —— 出站收口,MCP 面是它的投影(generated,见 from_dispatcher.go)。
+//
+// 迁移期两者并存:每把一个资源搬进收口,ownercore 就少注册一个,直到 ownercore 整包删除。
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
+	registerDispatcherOps(mcpSrv, deps.Dispatcher, deps.Log)
 }

@@ -120,6 +120,8 @@ func wireAndServe(
 	// must precede buildPluginRegistry: owner-MCP caps capture the connector dispatcher there.
 	ensureConnectorSlots(&deps)
 	deps.pluginRegistry = buildPluginRegistry(&deps)
+	// 出站收口只建一个:MCP 面和 admin 面必须投影自**同一份**声明,否则 parity 无从谈起。
+	deps.dispatch = buildDispatcher(&deps)
 	registerAgentSkills(ctx, &deps)
 	runBootMaintenance(ctx, &deps)
 	return serve(ctx, &deps, net.JoinHostPort(cfg.Host, cfg.Port), stop)

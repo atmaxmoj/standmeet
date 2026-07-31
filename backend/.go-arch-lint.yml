@@ -35,6 +35,8 @@ components:
     in: internal/infra/middleware               # chi middleware: WithOwner, RequireCSRF
   mcphandle:
     in: internal/routes/mcphandle         # owner MCP handles (controller layer): mcp-go server + tool handlers
+  dispatcher:
+    in: internal/routes/dispatcher        # 出站收口：能力声明一次，各个面（MCP/admin）是它的投影
   inference:
     in: internal/conversation/inference                # LLM provider abstraction
   agentcore:
@@ -402,6 +404,16 @@ deps:
       - jobsmcp
       - httpx
       - owner
+      - dispatcher      # MCP 面 = 出站收口的投影（generated）
+      - facadeparity    # 声明本面的 parity 档案（Facade profile）
+    anyVendorDeps: true
+
+  # dispatcher —— 出站收口。它只认协议无关的东西：facadeparity（Reach/Facade 词汇）。
+  # 它**不该**依赖任何域：域的普通函数经组装根适配成 Op 传进来（窄接口在收口这边声明），
+  # 于是收口不认识 corpus/security/... 的实体类型，域也不认识 MCP/HTTP。
+  dispatcher:
+    mayDependOn:
+      - facadeparity
     anyVendorDeps: true
 
   # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
@@ -790,6 +802,7 @@ deps:
   # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
+      - dispatcher      # admin 面的能力只能从出站收口 wire（路由形状仍手写）
       - conversation
       - connector
       - owner
@@ -850,6 +863,8 @@ deps:
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
+      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
+      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
       - middleware
       - capload
       - jobsmodel

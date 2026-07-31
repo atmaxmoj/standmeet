@@ -32,7 +32,6 @@ type Deps struct {
 	SEOStats         seoStatsReader
 	PageContent      pageContentStore
 	CodeDenials      codeDenialsStore
-	IPBans           ipBansStore
 	Owners           OwnerLookup
 	Skills           *marketplace.SkillsDeps
 	Connectors       *ConnectorsOwnerDeps
@@ -100,7 +99,7 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.PagePins, d.Log))
 	reg.MustRegister(newCalendarCapability(d.Calendar.Proxy, d.Calendar.Store, d.Owners, d.Log))
 	// facade-parity fills.
-	reg.MustRegister(newIPBansCapability(d.IPBans, d.Log))
+	// ip_bans 已搬回 security 域(security.OwnerMCPBundle),不在这里注册。
 	reg.MustRegister(newDomainsCapability(d.Domains, d.Log))
 	reg.MustRegister(newAccessRequestsCapability(d.AccessRequests, d.Log))
 	reg.MustRegister(newCapabilitiesCapability(d.Capabilities, d.Log))

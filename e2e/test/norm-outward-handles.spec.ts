@@ -21,6 +21,13 @@ interface RegistryListResp { capabilities: Cap[] }
 // GOLDEN(对外)—— 全 owner_only,本次不动,origin 全 builtin。
 // 注:jobs/resume/applications 也在此 —— 它们是 owner-facing 的自管理 MCP,
 // 跟 codes/seo 同类,不是对内能力。
+//
+// **这份 golden 会随 ownercore 解散而变短。** owner 的自管理工具本来就不该注册进 capreg
+// (capreg 是"本机 agent 能装载什么"的声明注册表,是另一根轴);它们正在搬进出站收口
+// (backend/internal/routes/dispatcher),由收口投影到 MCP 面。搬走一个,这里删一行。
+// 删空之后这个 golden 就翻面成边界断言:capreg 里**不该有任何** owner_only。
+//
+// 已搬走:ip_bans.bundle → dispatcher.IPBans(2026-07-30)。
 const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
@@ -42,7 +49,6 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'custom_page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'calendar.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'ip_bans.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'domains.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'access_requests.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'capabilities.bundle', shape: 'owner_only', origin: 'builtin' },

@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint secrets
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -41,6 +41,14 @@ routes-cyclo:
 # Optional uses *T; collections always return empty container.
 no-nil-container:
 	@tool=$$(mktemp) && ( cd ../infra/scripts/check-no-nil-container && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; exit $$rc
+
+# Faces may reach capability only through the outbound convergence point
+# (internal/routes/dispatcher) — a handler that imports a domain facade directly
+# has bypassed it, so nothing can guarantee parity or apply policy for that op.
+# Shrink-only baseline of the files that predate the dispatcher.
+routes-via-dispatcher:
+	@tool=$$(mktemp) && ( cd ../infra/scripts/check-routes-via-dispatcher && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; \
+		[ $$rc -eq 0 ] && bash ../infra/scripts/check-routes-via-dispatcher-test.sh; rc2=$$?; exit $$((rc + rc2))
 
 # All outbound HTTP must go through internal/httpx (retry + timeout + egress);
 # raw &http.Client{} / http.Get/Post anywhere else opts out of that infra.
