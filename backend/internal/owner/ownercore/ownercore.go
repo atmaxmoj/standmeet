@@ -24,7 +24,6 @@ const Name = "ownercore"
 
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
-	Marketplace      marketplace.InstallSkillDeps
 	Appearance       owner.CSSStore
 	Codes            CodesRevoker
 	CodeBookingQuota CodeBookingQuota
@@ -33,7 +32,6 @@ type Deps struct {
 	PageContent      pageContentStore
 	CodeDenials      codeDenialsStore
 	Owners           OwnerLookup
-	Skills           *marketplace.SkillsDeps
 	Connectors       *ConnectorsOwnerDeps
 	CustomPages      *owner.CustomPageDeps
 	Handle           *owner.HandleDeps
@@ -91,7 +89,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newPromptsCapability(d.Prompts, d.Log))
 	reg.MustRegister(newRolesCapability(d.Roles, reg.VisitorCapabilityIDs, d.Log))
 	reg.MustRegister(newMCPServersCapability(d.MCPServers, d.Log))
-	reg.MustRegister(newSkillsCapability(d.Skills, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
 	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.PagePins, d.Log))
@@ -102,7 +99,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newInstanceCapability(d.Instance, d.Log))
 	reg.MustRegister(newAPIKeysCapability(d.APIKeys, d.Log))
 	reg.MustRegister(newConnectorsCapability(d.Connectors, d.Log))
-	reg.MustRegister(newMarketplaceCapability(d.Marketplace, d.Log))
 	reg.MustRegister(newBookingCapability(d.Booking, d.Log))
 	reg.MustRegister(newAccountCapability(d.Account, d.Log))
 	reg.MustRegister(newBYOAICapability(d.BYOAI, d.Log))

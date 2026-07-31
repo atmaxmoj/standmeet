@@ -84,16 +84,6 @@ func observabilityEntries() []Entry {
 			MCP:   []string{"instance.jobs"},
 			Admin: []string{"GET /api/admin/stats/jobs"},
 		},
-		{
-			Op:    read("marketplace.search", fp.OwnerRead()),
-			MCP:   []string{"marketplace.search"},
-			Admin: []string{"GET /api/admin/marketplace/search"},
-		},
-		{
-			Op:    act("marketplace.install", fp.OwnerAction()),
-			MCP:   []string{"marketplace.install"},
-			Admin: []string{"POST /api/admin/marketplace/install"},
-		},
 	}
 }
 

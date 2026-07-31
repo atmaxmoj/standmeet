@@ -23,7 +23,7 @@ const CODE = 'DUMP-001';
 const SKILL = 'patent-review';
 const BODY_MARKER = '[DUMP-CARD-BODY]';
 
-interface SkillCreateResp { skill_id: string; name: string }
+interface SkillCreateResp { id: string; name: string }
 
 test.describe('visitor chat · GenericDumpCard (skill_*/ext_* fallback card)', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -75,7 +75,7 @@ async function seedSkillRoleCode(request: APIRequestContext): Promise<void> {
     data: {
       name: 'dump-role', description: 'dump card fixture role',
       prompt_id: null, corpus_uris: ['wiki://**'],
-      skill_ids: [skill.skill_id], mcp_server_ids: [],
+      skill_ids: [skill.id], mcp_server_ids: [],
     },
   });
   if (roleRes.status() !== 201) throw new Error(`create role: ${roleRes.status()}`);

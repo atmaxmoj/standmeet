@@ -132,14 +132,14 @@ async function seedSkillRoleAndCode(request: APIRequestContext): Promise<void> {
   // expose them yet per skill-scripts.spec).
   const apiToken = await createAPIToken(request, csrf, 'b3-skill-token');
   const sid = await initMCP(request, apiToken);
-  const skill = await callTool<{ skill_id: string }>(
+  const skill = await callTool<{ id: string }>(
     request, apiToken, sid, 'skill_create', SKILL,
   );
   const role = await createRole(request, csrf, {
     name: 'b3-skill-role',
     description: 'fixture: skill bundle',
     corpus_uris: ['wiki://**', 'output://**'],
-    skill_ids: [skill.skill_id],
+    skill_ids: [skill.id],
     mcp_server_ids: [],
   });
   await createCode(request, csrf, {

@@ -14,6 +14,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -63,6 +64,35 @@ func queryArgs(names ...string) argsFrom {
 	}
 }
 
+// queryArgsRenamed —— query string 搬进 args JSON,并允许改名:REST 的 ?q= 对应收口的 "query"。
+// 名字不一样是本面的历史包袱,不该逼收口跟着改 —— 换名字落在这一处。
+// numeric 里的项按数字解(收口那边是 integer 字段);解不动就整个略过,由收口取默认值。
+func queryArgsRenamed(rename map[string]string, numeric ...string) argsFrom {
+	return func(r *http.Request) (json.RawMessage, error) {
+		q := r.URL.Query()
+		fields := map[string]json.RawMessage{}
+		for from, to := range rename {
+			fields[to] = json.RawMessage(strconv.Quote(q.Get(from)))
+		}
+		addNumericQuery(fields, q, numeric)
+		out, err := json.Marshal(fields)
+		if err != nil {
+			return nil, dispatcher.BadInput("invalid query parameters")
+		}
+		return out, nil
+	}
+}
+
+// addNumericQuery —— 数字型 query 项。解不动就整个略过,由收口取它的默认值 ——
+// ?limit=abc 不该是个错误,它只是"没说"。
+func addNumericQuery(fields map[string]json.RawMessage, q url.Values, names []string) {
+	for _, n := range names {
+		if v, err := strconv.Atoi(q.Get(n)); err == nil {
+			fields[n] = json.RawMessage(strconv.Itoa(v))
+		}
+	}
+}
+
 // bodyWithURLParam —— body 里的字段 + 路径参数合成一份 args。REST 习惯把资源 id 放路径、
 // 其余放 body(PATCH /x/{id} + {"status":...}),收口只认一份扁平 args,合并落在这儿。
 func bodyWithURLParam(name string) argsFrom {
@@ -103,11 +133,20 @@ func urlParamArgs(name string) argsFrom {
 
 // jsonOK —— 200 + 收口给的载荷原样写出(不解开重编:重编就是又造了一份形状)。
 func jsonOK(log logger, w http.ResponseWriter, body json.RawMessage) {
+	writeStatusBody(log, w, http.StatusOK, body)
+}
+
+func writeStatusBody(log logger, w http.ResponseWriter, status int, body json.RawMessage) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(status)
 	if _, err := w.Write(body); err != nil {
 		log.Error("write json", logErrKey, err)
 	}
+}
+
+// jsonCreated —— 201 + 载荷。建资源的路由历史上就这么回。
+func jsonCreated(log logger, w http.ResponseWriter, body json.RawMessage) {
+	writeStatusBody(log, w, http.StatusCreated, body)
 }
 
 // noContent —— 204 空身。有些 admin 路由历史上就这么回,前端按这个契约写的。
@@ -139,15 +178,35 @@ func (h *Handlers) dispatchOp(
 // writeOpError —— 收口只给协议无关的类别,状态码是本面的翻译:
 // 调用方给错了 → 400,找不到 → 404,其余是这台机器的问题 → 500(细节进日志,不外泄)。
 func (h *Handlers) writeOpError(w http.ResponseWriter, id string, err error) {
-	switch {
-	case dispatcher.IsBadInput(err):
-		writeError(h.Log, w, envBadReq(err.Error()))
-	case dispatcher.IsNotFound(err):
-		writeError(h.Log, w, apierr.Envelope{
-			Status: http.StatusNotFound, Code: "not_found", Message: err.Error(),
-		})
-	default:
+	env, ok := opErrEnvelope(err)
+	if !ok {
 		h.Log.Error("dispatcher op failed", "op", id, logErrKey, err)
-		writeError(h.Log, w, serverErr())
+		env = serverErr()
 	}
+	writeError(h.Log, w, env)
+}
+
+// opErrClasses —— 收口的错误类别 → 本面的状态码。**一类一行**:这就是 errors.go 里说的
+// "每加一类,每个面加一条翻译"的那条。写成数据而不是分支,是因为它本来就是一张对照表。
+//
+// 不在表里 = 这台机器出错了 → 通用 500,消息不外泄(细节进日志)。
+var opErrClasses = []struct {
+	is     func(error) bool
+	code   string
+	status int
+}{
+	{dispatcher.IsBadInput, "bad_request", http.StatusBadRequest},
+	{dispatcher.IsNotFound, "not_found", http.StatusNotFound},
+	{dispatcher.IsConflict, "conflict", http.StatusConflict},
+	{dispatcher.IsUpstream, "upstream_failed", http.StatusBadGateway},
+}
+
+// opErrEnvelope —— 查表。ok=false 表示"不是任何一类",调用方据此记日志 + 回 500。
+func opErrEnvelope(err error) (apierr.Envelope, bool) {
+	for _, c := range opErrClasses {
+		if c.is(err) {
+			return apierr.Envelope{Status: c.status, Code: c.code, Message: err.Error()}, true
+		}
+	}
+	return apierr.Envelope{}, false
 }

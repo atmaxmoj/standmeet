@@ -1,7 +1,10 @@
-// wire_dispatcher.go —— 建出站收口:把各域 facade 的普通函数适配成 Op,汇成一处。
+// wire_dispatcher.go —— 建出站收口:这台实例对外能做的每一件事,在这里汇成一处。
 //
-// 迁移期这份清单会一直长:每把一个资源搬进来,ownercore 就少注册一组,直到 ownercore 整包删除。
-// 清单本身就是"这台实例对外能做什么"的全集 —— 它是交付物,不是脚手架。
+// 这份清单就是"对外能做什么"的全集 —— 它是交付物,不是脚手架。迁移期它一直长:
+// 每把一个资源搬进来,ownercore 就少注册一组,直到 ownercore 整包删除。
+//
+// **适配器按资源一文件一个**(wire_disp_<资源>.go),跟收口那边的 res_<资源>.go 对着看。
+// 这个文件只留"装配"本身:建收口、声明各个面的档案。
 //
 // 装饰器(鉴权/配额/审计/危险操作)统一挂在这里:每个面拿能力都只能经收口,所以策略有唯一的
 // 施加点,不会出现"某个 endpoint 忘了加"。
@@ -9,33 +12,19 @@
 package main
 
 import (
-	"context"
-	"errors"
-	"fmt"
-
-	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
-	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
-	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 )
 
-// buildDispatcher —— 组装出站收口。
+// buildDispatcher —— 组装出站收口。**一个资源一行**;每行的适配器和它的依赖都在
+// wire_disp_<资源>.go 里,这里只管把它们接起来。
 func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 	return dispatcher.New(
-		dispatcher.IPBans(ipBanOps{repo: d.bannedIPRepo}),
-		dispatcher.Domains(domainOps{deps: owner.AllowedDomainsDeps{Instance: d.instanceRepo}}),
-		dispatcher.AccessRequests(accessRequestOps{
-			reqs: access.RequestsDeps{
-				Repo: d.accessRequestRepo, Owners: soleOwnerLookup{owners: d.ownerRepo},
-			},
-			approve: owner.ApproveRequestDeps{
-				Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-				Owners: d.ownerRepo, Proxy: outboundSender(d),
-			},
-		}),
+		dispatcher.IPBans(newIPBanOps(d)),
+		dispatcher.Domains(newDomainOps(d)),
+		dispatcher.AccessRequests(newAccessRequestOps(d)),
+		dispatcher.Skills(newSkillOps(d)),
+		dispatcher.Marketplace(newMarketOps(d)),
 	)
 }
 
@@ -46,158 +35,4 @@ func adminFace(d *dispatcher.Dispatcher) *dispatcher.Face {
 		Name: "admin", Plane: fp.PlaneOwner, ServesRead: true, ServesActn: true,
 		CanCarry: []fp.FacadeClass{fp.Browser, fp.SecretBearing, fp.Multipart},
 	})
-}
-
-// ipBanOps —— security 仓储 → 收口要的窄口。收口不认识 security 的实体类型,这里做形状转换:
-// 域保持协议无关,协议层保持域无关,转换只此一处。
-type ipBanOps struct{ repo *security.BannedIPRepo }
-
-func (a ipBanOps) List(ctx context.Context, ownerID string) ([]dispatcher.IPBan, error) {
-	bans, err := a.repo.List(ctx, ownerID)
-	if err != nil {
-		return nil, fmt.Errorf("list banned ips: %w", err)
-	}
-	out := make([]dispatcher.IPBan, 0, len(bans))
-	for i := range bans {
-		out = append(out, toDispatcherIPBan(&bans[i]))
-	}
-	return out, nil
-}
-
-func (a ipBanOps) Ban(ctx context.Context, in *dispatcher.BanIP) (dispatcher.IPBan, error) {
-	ban, err := a.repo.Ban(ctx, &security.BanIPInput{
-		OwnerID: in.OwnerID, IP: in.IP, Reason: in.Reason, ExpiresAt: in.ExpiresAt,
-	})
-	if err != nil {
-		return dispatcher.IPBan{}, fmt.Errorf("ban ip: %w", err)
-	}
-	return toDispatcherIPBan(&ban), nil
-}
-
-func (a ipBanOps) Unban(ctx context.Context, ownerID, id string) error {
-	if err := a.repo.Unban(ctx, ownerID, id); err != nil {
-		return fmt.Errorf("unban ip: %w", err)
-	}
-	return nil
-}
-
-func toDispatcherIPBan(b *security.BannedIP) dispatcher.IPBan {
-	return dispatcher.IPBan{
-		ID: b.ID, IP: b.IP, Reason: b.Reason,
-		CreatedAt: b.CreatedAt, ExpiresAt: b.ExpiresAt,
-	}
-}
-
-// domainOps —— owner 的 allowed-domains 普通函数 → 收口要的窄口。
-//
-// 这几个函数是 instance 级设置(单 owner 实例),不吃 ownerID —— 适配器把它吃掉,
-// 收口那一侧的签名对所有资源保持一致。
-type domainOps struct{ deps owner.AllowedDomainsDeps }
-
-func (a domainOps) List(ctx context.Context, _ string) ([]string, error) {
-	list, err := owner.ListAllowedDomains(ctx, a.deps)
-	if err != nil {
-		return nil, fmt.Errorf("list allowed domains: %w", err)
-	}
-	return list, nil
-}
-
-func (a domainOps) Add(ctx context.Context, _, domain string) error {
-	return domainErr(owner.AddAllowedDomain(ctx, a.deps, domain))
-}
-
-func (a domainOps) Remove(ctx context.Context, _, domain string) error {
-	return domainErr(owner.RemoveAllowedDomain(ctx, a.deps, domain))
-}
-
-// domainErr —— 域说"这个字段空"(normalize 之后可能才变空),对外就是调用方给错了。
-// 翻译落在组装根:收口不 import apierr,域不认识 HTTP 状态码。
-func domainErr(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, apierr.ErrEmptyField) {
-		//nolint:wrapcheck // BadInput 就是要原样上抛:包一层会让面认不出这是调用方的错
-		return dispatcher.BadInput("domain is required")
-	}
-	return fmt.Errorf("mutate allowed domain: %w", err)
-}
-
-// accessRequestOps —— access/owner 的普通函数 → 收口要的窄口。
-//
-// 这个资源横跨两个域:list/update 在 access,approve 的闭环(发码 + 发信 + 置 replied)
-// 在 owner。跨域的编排落在组装根 —— 收口只看见一个资源。
-type accessRequestOps struct {
-	reqs    access.RequestsDeps
-	approve owner.ApproveRequestDeps
-}
-
-func (a accessRequestOps) List(
-	ctx context.Context, ownerID, status string,
-) ([]dispatcher.AccessRequest, error) {
-	rows, err := access.ListForOwner(ctx, a.reqs, ownerID, status)
-	if err != nil {
-		return nil, accessRequestErr(err)
-	}
-	out := make([]dispatcher.AccessRequest, 0, len(rows))
-	for i := range rows {
-		out = append(out, toDispatcherAccessRequest(&rows[i]))
-	}
-	return out, nil
-}
-
-func (a accessRequestOps) UpdateStatus(
-	ctx context.Context, ownerID, id, status string,
-) (dispatcher.AccessRequest, error) {
-	row, err := access.UpdateAccessRequestStatus(ctx, a.reqs, ownerID, id, status)
-	if err != nil {
-		return dispatcher.AccessRequest{}, accessRequestErr(err)
-	}
-	return toDispatcherAccessRequest(&row), nil
-}
-
-func (a accessRequestOps) Approve(
-	ctx context.Context, ownerID, id string,
-) (dispatcher.AccessApproval, error) {
-	out, err := owner.ApproveAccessRequest(ctx, a.approve, ownerID, id)
-	if err != nil {
-		return dispatcher.AccessApproval{}, accessRequestErr(err)
-	}
-	return dispatcher.AccessApproval{Code: out.Code, Link: out.Link}, nil
-}
-
-func toDispatcherAccessRequest(a *access.Request) dispatcher.AccessRequest {
-	return dispatcher.AccessRequest{
-		ID: a.ID, Name: a.Name, Org: a.Org, Email: a.Email,
-		Message: a.Message, Status: a.Status, CreatedAt: a.CreatedAt,
-	}
-}
-
-// accessRequestErr —— 域的错误词汇 → 收口的三类。邮件连接器没配好也是**调用方的问题**:
-// owner 得先去配,不是这台机器坏了。
-func accessRequestErr(err error) error {
-	if errors.Is(err, access.ErrAccessRequestNotFound) {
-		//nolint:wrapcheck // 类别错误要原样上抛:包一层面就认不出是 404 还是 500
-		return dispatcher.NotFound("request not found")
-	}
-	if msg, ok := accessRequestBadInput(err); ok {
-		//nolint:wrapcheck // 同上
-		return dispatcher.BadInput(msg)
-	}
-	return fmt.Errorf("access request op: %w", err)
-}
-
-// accessRequestBadInput —— 哪些域错误其实是"调用方(owner)得先去做点什么"。
-// 邮件连接器没配好也算:那是 owner 的待办,不是这台机器坏了。
-func accessRequestBadInput(err error) (string, bool) {
-	switch {
-	case errors.Is(err, apierr.ErrEmptyField):
-		return "missing required field", true
-	case errors.Is(err, access.ErrAccessRequestStatusInvalid):
-		return "invalid status value (want open, replied, or closed)", true
-	case errors.Is(err, consumer.ErrMailNotConfigured):
-		return "configure and test your mail connector first", true
-	default:
-		return "", false
-	}
 }

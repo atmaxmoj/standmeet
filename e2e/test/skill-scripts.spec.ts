@@ -34,7 +34,7 @@ const SCRIPT_FILENAME = 'run.sh';
 const MARKER = '[SANDBOX-MARKER]';
 
 interface SkillCreateResp {
-  skill_id: string;
+  id: string;
   name: string;
 }
 
@@ -100,7 +100,7 @@ async function createSkillAndCode(request: APIRequestContext): Promise<void> {
       },
     ],
   });
-  await createCodeAttachingSkill(request, csrf, skill.skill_id);
+  await createCodeAttachingSkill(request, csrf, skill.id);
 }
 
 async function createCodeAttachingSkill(

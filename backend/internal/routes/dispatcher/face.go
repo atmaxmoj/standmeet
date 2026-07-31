@@ -43,14 +43,23 @@ func (d *Dispatcher) Attach(profile fp.Facade) *Face {
 	return f
 }
 
-// Ops —— 生成型的面用它:一次取走全部操作,并登记为全部已投影。MCP 面走这条路,
+// Ops —— 生成型的面用它:一次取走**这个面该服务的**操作,并登记为已投影。MCP 面走这条路,
 // 所以"新增一个 op 忘了在 MCP 上注册"这件事在结构上不存在。
+//
+// 注意是"该服务的",不是"全部":筛子就是 Reach + 这个面的档案。少了这道筛,一个写明
+// Only(reason, "admin") 的 op 会照样长到 MCP 上 —— 那样 Reach 就只是注释,而"生成"会变成
+// "凡是收口里有的都露出去",正好是最危险的那种默认。
 func (f *Face) Ops() []Op {
-	ops := f.d.Ops()
-	for i := range ops {
-		f.served[ops[i].ID] = true
+	all := f.d.Ops()
+	out := make([]Op, 0, len(all))
+	for i := range all {
+		if !f.profile.Owes(&fp.Op{ID: all[i].ID, Kind: all[i].Kind, Reach: all[i].Reach}) {
+			continue // 这个面不欠它 —— 比如写明只在 admin 上的 op,不该长到 MCP
+		}
+		f.served[all[i].ID] = true
+		out = append(out, all[i])
 	}
-	return ops
+	return out
 }
 
 // Op —— 核对型的面用它:按 id 取一个操作(Invoke 已套好装饰器链),取到即登记为已投影。

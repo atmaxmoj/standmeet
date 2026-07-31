@@ -27,7 +27,7 @@ interface RegistryListResp { capabilities: Cap[] }
 // (backend/internal/routes/dispatcher),由收口投影到 MCP 面。搬走一个,这里删一行。
 // 删空之后这个 golden 就翻面成边界断言:capreg 里**不该有任何** owner_only。
 //
-// 已搬走(→ dispatcher):ip_bans.bundle、domains.bundle、access_requests.bundle。
+// 已搬走(→ dispatcher):ip_bans、domains、access_requests、skills、marketplace 的 bundle。
 const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
@@ -44,7 +44,6 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'prompts.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'roles.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'mcp_servers.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'skills.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'writings.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'custom_page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'page.bundle', shape: 'owner_only', origin: 'builtin' },
@@ -53,7 +52,6 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'instance.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'api_keys.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'connectors.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'marketplace.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'booking.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'account.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'byoai.bundle', shape: 'owner_only', origin: 'builtin' },

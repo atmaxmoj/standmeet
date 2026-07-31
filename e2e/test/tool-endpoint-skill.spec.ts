@@ -37,7 +37,7 @@ const L2_BODY_MARKER = '[SKILL-L2-BODY]';
 // the eager-model per-script tool name that must NO LONGER resolve.
 const LEGACY_TOOL_NAME = `skill_${SKILL_NAME}_main`;
 
-interface SkillCreateResp { skill_id: string; name: string }
+interface SkillCreateResp { id: string; name: string }
 
 interface SkillUseResult { skill_md?: string; error?: string }
 interface SkillRunResult {
@@ -82,7 +82,7 @@ async function seedOwnerWithSkill(request: APIRequestContext): Promise<string> {
       }],
     },
   );
-  return skill.skill_id;
+  return skill.id;
 }
 
 async function createRoleAndCode(

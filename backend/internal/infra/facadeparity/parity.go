@@ -106,6 +106,11 @@ type Facade struct {
 	ServesActn bool
 }
 
+// Owes —— 这个面欠不欠这个 op?**生成型的面必须用它来筛**,否则"生成"就变成了"全都露出去":
+// 一个写明 Only(reason, "admin") 的 op 会照样出现在 MCP 上,Reach 沦为注释。
+// Conform 里的 missing/leak 两个方向问的是同一件事,所以同一份判断在这儿导出一次。
+func (f Facade) Owes(op *Op) bool { return f.mustExpose(op) }
+
 func (f Facade) carries(c FacadeClass) bool { return slices.Contains(f.CanCarry, c) }
 
 // mustExpose —— does op belong on this facade, per the op's Reach and the facade's profile? First

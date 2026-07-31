@@ -210,25 +210,7 @@ func rolesPromptsSkills() []Entry {
 			MCP:   []string{"prompt_delete"},
 			Admin: []string{"DELETE /api/admin/prompts/{id}"},
 		},
-		{
-			Op:    read("skills.list", fp.OwnerRead()),
-			MCP:   []string{"skill_list"},
-			Admin: []string{"GET /api/admin/skills/"},
-		},
-		{
-			Op:    act("skills.create", fp.OwnerAction()),
-			MCP:   []string{"skill_create"},
-			Admin: []string{"POST /api/admin/skills/"},
-		},
-		{
-			Op:    act("skills.set_enabled", fp.OwnerAction()),
-			MCP:   []string{"skill_set_enabled"},
-			Admin: []string{"PATCH /api/admin/skills/{id}"},
-		},
-		{
-			Op:    act("skills.delete", fp.OwnerAction()),
-			MCP:   []string{"skill_delete"},
-			Admin: []string{"DELETE /api/admin/skills/{id}"},
-		},
+		// skills 四条搬进了出站收口(dispatcher.Skills),连同 marketplace 一起 —— 它们共用
+		// "一个 skill 长什么样"这份形状,分开搬就会留下两份。
 	}
 }

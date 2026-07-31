@@ -134,10 +134,12 @@ async function checkCapabilities(r: APIRequestContext): Promise<void> {
     r, token, sid, 'capabilities.list', {});
   expect(after.find((c) => c.id === target.id)?.enabled, 'cap now disabled').toBe(false);
 
-  const skill = await callTool<{ skill_id: string }>(
+  // skill_create 现在回**完整的 skill**(两个面同一份形状),identifier 字段是 `id`;
+  // 迁移前 MCP 单独回 {skill_id,name},admin 回完整 skill —— 两份形状正是要消灭的东西。
+  const skill = await callTool<{ id: string }>(
     r, token, sid, 'skill_create', { name: 'doomed-skill', prompt: 'to be deleted' });
   const del = await callTool<{ id: string; deleted: boolean }>(
-    r, token, sid, 'capabilities.delete', { id: skill.skill_id });
+    r, token, sid, 'capabilities.delete', { id: skill.id });
   expect(del.deleted, 'owner skill deleted via capabilities.delete').toBe(true);
 }
 

@@ -15,9 +15,14 @@ func noop(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 	return json.RawMessage(`{}`), nil
 }
 
+const (
+	thingsList  = "things.list"
+	thingsPaste = "things.paste"
+)
+
 func ownerOps() dispatcher.Resource {
 	return dispatcher.Resource{Name: "things", Ops: []dispatcher.Op{
-		{ID: "things.list", Kind: fp.Read, Reach: fp.OwnerRead(), Invoke: noop},
+		{ID: thingsList, Kind: fp.Read, Reach: fp.OwnerRead(), Invoke: noop},
 		{ID: "things.create", Kind: fp.Action, Reach: fp.OwnerAction(), Invoke: noop},
 	}}
 }
@@ -47,7 +52,7 @@ func TestVerifiedFaceMissingAnOpIsCaught(t *testing.T) {
 	d := dispatcher.New(ownerOps())
 	d.Attach(face("mcp")).Ops()
 	admin := d.Attach(face("admin"))
-	admin.MustOp("things.list") // 只 wire 了 list,漏了 create
+	admin.MustOp(thingsList) // 只 wire 了 list,漏了 create
 
 	vs := d.Conform()
 	require.Len(t, vs, 1)
@@ -80,7 +85,7 @@ func TestFaceAttachIsIdempotent(t *testing.T) {
 
 	d := dispatcher.New(ownerOps())
 	d.Attach(face("mcp")).Ops()
-	d.Attach(face("admin")).MustOp("things.list")
+	d.Attach(face("admin")).MustOp(thingsList)
 	d.Attach(face("admin")).MustOp("things.create")
 
 	require.Empty(t, d.Conform())
@@ -123,9 +128,44 @@ func TestDecoratorWrapsEveryFaceAlike(t *testing.T) {
 	_, err := mcpOps[0].Invoke(context.Background(), "o1", nil)
 	require.NoError(t, err)
 
-	adminOp := d.Attach(face("admin")).MustOp("things.list")
+	adminOp := d.Attach(face("admin")).MustOp(thingsList)
 	_, err = adminOp.Invoke(context.Background(), "o1", nil)
 	require.NoError(t, err)
 
-	require.Equal(t, []string{"things.list", "things.list"}, seen)
+	require.Equal(t, []string{thingsList, thingsList}, seen)
+}
+
+// TestGeneratedFaceDoesNotServeWhatItIsNotOwed —— 生成型的面只长出**它该服务的** op。
+//
+// 这条守的是一个真出现过的缺陷:Face.Ops() 原本返回收口里的全部 op,于是一个写明
+// Only(reason, "admin") 的 op(marketplace.install_manual)照样长到了 MCP 上 ——
+// Reach 沦为注释,而"生成"变成了"凡是收口里有的都露出去",正好是最危险的默认。
+//
+// 把这里的筛子去掉,这个测试会红。
+func TestGeneratedFaceDoesNotServeWhatItIsNotOwed(t *testing.T) {
+	t.Parallel()
+
+	adminOnly := dispatcher.Resource{Name: "things", Ops: []dispatcher.Op{
+		{ID: thingsList, Kind: fp.Read, Reach: fp.OwnerRead(), Invoke: noop},
+		{
+			ID: thingsPaste, Kind: fp.Action, Invoke: noop,
+			Reach: fp.Only("browser-only affordance", "admin"),
+		},
+	}}
+	d := dispatcher.New(adminOnly)
+
+	mcp := d.Attach(face("mcp"))
+	served := mcp.Ops()
+	got := make([]string, 0, len(served))
+	for _, op := range served {
+		got = append(got, op.ID)
+	}
+	require.Equal(t, []string{thingsList}, got,
+		"the generated face must not serve an op pinned to another face")
+
+	// 而 admin 面确实欠它 —— 只有它 wire 了,两个面才都对得上账。
+	admin := d.Attach(face("admin"))
+	admin.MustOp(thingsList)
+	admin.MustOp(thingsPaste)
+	require.Empty(t, d.Conform())
 }

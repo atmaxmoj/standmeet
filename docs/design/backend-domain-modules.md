@@ -366,6 +366,32 @@ denial edits), spend-incurring (inference, PDF render, outbound mail), and data-
 vault, read the full corpus). The output is the input to the danger-class design: anything in the
 top classes is a candidate for "not carried by a long-lived-key face by default".
 
+## Owed: Redis is the one shared dependency with no infra module (noticed by the owner, 2026-07-30)
+
+Every other shared external dependency has exactly one home: Postgres has `internal/infra/pgstore`
+("only the connection — a real piece of infrastructure, no domain DAO", says its own package doc),
+outbound HTTP has `httpx`, object storage has `storage`. Redis has none.
+
+The evidence:
+
+- **17 files import `go-redis/v9` directly** and pass a `*redis.Client` around.
+- Among them are domain packages — `access/usecase`, `connector`, `owner/jobs/cache`,
+  `owner/jobs/printsess`. A domain holding the driver is the same violation `pgstore` exists to
+  prevent, and neither `check-infra-not-domain` nor `check-core-agnostic` catches it, because both
+  gates ask about *direction* between our own packages, not about a vendor driver reaching a domain.
+- **Key names are invented per caller**, with no shared prefix scheme: `job:`, `session:`,
+  `vsession:`, `vsessions:code:`, `ratelimit:pub:`. Which keys belong to which domain, and whether
+  two of them can ever collide, is answerable only by grep.
+- Connect options, timeouts, retry policy and TTL conventions therefore have no single point of
+  application — the same disease the dispatcher exists to cure on the outbound side: **anything
+  without a convergence point grows N mutually-inconsistent copies.**
+
+This is structurally the same shape as the dispatcher work but a different axis (shared
+infrastructure, not outbound capability), so it is recorded rather than folded into that migration.
+The fix is an `internal/infra/redisstore` peer of `pgstore` that owns the client, the key
+namespacing, and the TTL vocabulary, plus a gate that forbids importing the driver outside it —
+seeded shrink-only from the 17 files, exactly like `check-routes-via-dispatcher`.
+
 ## Migration — connector as the pathfinder
 
 1. **Pathfinder (done):** the `connector.invoke` controller moved from `internal/connector` to

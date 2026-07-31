@@ -1,18 +1,23 @@
 // errors.go —— 收口把错误分成**协议无关的几类**,再具体的形态是各个面自己的事。
 //
-// 只有三类,而且刻意只有三类:
+// 类别表:
 //
-//	BadInput  调用方给错了      → HTTP 400 / MCP isError
-//	NotFound  要的东西不存在    → HTTP 404 / MCP isError
-//	其余      这台机器出错了    → HTTP 500(细节进日志,不外泄)/ MCP isError
+//	BadInput  调用方给错了        → HTTP 400 / MCP isError
+//	NotFound  要的东西不存在      → HTTP 404 / MCP isError
+//	Conflict  跟已有状态冲突      → HTTP 409 / MCP isError
+//	Upstream  依赖的外部服务失败  → HTTP 502 / MCP isError(消息可以直接给人看)
+//	其余      这台机器出错了      → HTTP 500(细节进日志,不外泄)/ MCP isError
 //
-// 收口不认识状态码,也不认识 isError。它只说清"是谁的错、是不是找不到",翻译留给面。
+// 收口不认识状态码,也不认识 isError。它只说清是哪一类,翻译留给面。
 //
-// 为什么需要它:admin 面把校验从 handler 搬进收口之后,handler 仍然要回 400/404 而不是一律
-// 500。如果没有这个区分,两边就得各留一份错误分类 —— 那正是收口要消灭的重复。
+// 为什么需要它:admin 面把校验从 handler 搬进收口之后,handler 仍然要回 400/404/409 而不是
+// 一律 500。没有这个区分,两边就得各留一份错误分类 —— 那正是收口要消灭的重复。
 //
-// 为什么不再多分:每加一类,每个面都要跟着加一条翻译。真正跨面稳定的语义就这么几个;
-// 更细的差别(比如"邮件连接器没配好")是**消息内容**,不是新的类别。
+// **加一类的标准是"有没有面因此行为不同",不是"话说得一样不一样"。** 409 是真类别:前端拿
+// status 分流(401 跳登录 / 409 就地处理 / 其余 toast),塌成 400 会改掉它的行为。502 也是:
+// 它带的是能直接给人看的话("抓不到这个 skill,检查来源"),塌成 500 会变成"internal error"。
+// 反过来,"邮件连接器没配好"跟"缺必填字段"对每个面的行为完全相同 —— 那是**消息内容**,
+// 不该变成新类别。每加一类,每个面都要跟着加一条翻译。
 
 package dispatcher
 
@@ -43,5 +48,34 @@ func NotFound(msg string) error { return notFoundError{msg: msg} }
 // IsNotFound —— 面据此回 404 而不是 400/500。
 func IsNotFound(err error) bool {
 	var t notFoundError
+	return errors.As(err, &t)
+}
+
+// conflictError —— 跟已经存在的状态冲突(重名、重复安装这类)。
+type conflictError struct{ msg string }
+
+func (e conflictError) Error() string { return e.msg }
+
+// Conflict —— 造一个"跟现状冲突"的错误。前端拿 409 就地处理,不走通用 toast。
+func Conflict(msg string) error { return conflictError{msg: msg} }
+
+// IsConflict —— 面据此回 409。
+func IsConflict(err error) bool {
+	var t conflictError
+	return errors.As(err, &t)
+}
+
+// upstreamError —— 我们依赖的外部服务失败了(抓不到远端 skill、上游超时)。
+// 消息是写给人看的,可以原样外露 —— 它说的不是我们的内部实现,而是"外面那边不行"。
+type upstreamError struct{ msg string }
+
+func (e upstreamError) Error() string { return e.msg }
+
+// Upstream —— 造一个"外部依赖失败"的错误。
+func Upstream(msg string) error { return upstreamError{msg: msg} }
+
+// IsUpstream —— 面据此回 502,并把消息给出去(不像 500 那样藏起来)。
+func IsUpstream(err error) bool {
+	var t upstreamError
 	return errors.As(err, &t)
 }

@@ -36,7 +36,7 @@ const UNGRANTED_SKILL = 'secret-skill';
 const L2_BODY_MARKER = '[SKILL-L2-BODY]';
 const SECRET_BODY_MARKER = '[SECRET-BODY]';
 
-interface SkillCreateResp { skill_id: string; name: string }
+interface SkillCreateResp { id: string; name: string }
 
 test.describe('Phase C · L2 progressive disclosure: skill_use discloses SKILL.md body', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -112,7 +112,7 @@ async function seedSkillsRoleCode(request: APIRequestContext): Promise<void> {
     description: 'Secret skill not granted to this role.',
     prompt: `Secret instructions ${SECRET_BODY_MARKER}.`,
   });
-  await createRoleAndCode(request, csrf, granted.skill_id);
+  await createRoleAndCode(request, csrf, granted.id);
 }
 
 async function createRoleAndCode(

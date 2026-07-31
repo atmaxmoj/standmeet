@@ -50,13 +50,13 @@ async function grantViaMCP(
   seq += 1;
   const token = await createAPIToken(seed.request, seed.csrf, `mcp-grant-${seq}`);
   const sid = await initMCP(seed.request, token);
-  const skill = await callTool<{ skill_id: string }>(seed.request, token, sid, 'skill_create', {
+  const skill = await callTool<{ id: string }>(seed.request, token, sid, 'skill_create', {
     name: `Schedule a meeting ${seq}`,
     prompt: 'Offer to book a call when the visitor wants to talk live.',
     allowed_tools: [...allowedTools],
   });
   const role = await callTool<{ role_id: string }>(seed.request, token, sid, 'role_create', {
-    name: `Booking Role ${seq}`, corpus_uris: ['wiki://**'], skill_ids: [skill.skill_id],
+    name: `Booking Role ${seq}`, corpus_uris: ['wiki://**'], skill_ids: [skill.id],
   });
   await callTool(seed.request, token, sid, 'codes.create', {
     code, label: 'mcp grant', assumed_role_id: role.role_id,

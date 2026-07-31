@@ -44,7 +44,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Prompts:          &owner.PromptsDeps{Prompts: d.promptRepo},
 		Roles:            &rolesDeps,
 		MCPServers:       &marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
-		Skills:           &marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		Writings:         &corpus.WritingsDeps{Writings: d.writingRepo},
 		WritingsTx:       &writingsTxDeps,
 		CustomPages: &owner.CustomPageDeps{
@@ -64,9 +63,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Connectors: &ownercore.ConnectorsOwnerDeps{
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
 			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,
-		},
-		Marketplace: marketplace.InstallSkillDeps{
-			Marketplace: d.marketplaceClient, Skills: d.skillRepo,
 		},
 		Booking: &ownercore.BookingOwnerDeps{
 			Repo: newCapstoreBookingStore(d), Owners: d.ownerRepo,
