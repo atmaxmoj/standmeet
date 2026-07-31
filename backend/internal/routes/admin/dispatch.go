@@ -11,10 +11,14 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
@@ -41,6 +45,49 @@ func bodyArgs(r *http.Request) (json.RawMessage, error) {
 		return nil, dispatcher.BadInput("invalid JSON body")
 	}
 	return raw, nil
+}
+
+// queryArgs —— query string(?status=open)搬进 args JSON。缺省就是空串,
+// 跟收口那边"空 = 不过滤"的约定一致。
+func queryArgs(names ...string) argsFrom {
+	return func(r *http.Request) (json.RawMessage, error) {
+		vals := map[string]string{}
+		for _, n := range names {
+			vals[n] = r.URL.Query().Get(n)
+		}
+		out, err := json.Marshal(vals)
+		if err != nil {
+			return nil, dispatcher.BadInput("invalid query parameters")
+		}
+		return out, nil
+	}
+}
+
+// bodyWithURLParam —— body 里的字段 + 路径参数合成一份 args。REST 习惯把资源 id 放路径、
+// 其余放 body(PATCH /x/{id} + {"status":...}),收口只认一份扁平 args,合并落在这儿。
+func bodyWithURLParam(name string) argsFrom {
+	return func(r *http.Request) (json.RawMessage, error) {
+		fields, err := decodeBodyFields(r)
+		if err != nil {
+			return nil, err
+		}
+		fields[name] = json.RawMessage(strconv.Quote(chi.URLParam(r, name)))
+		out, merr := json.Marshal(fields)
+		if merr != nil {
+			return nil, dispatcher.BadInput("invalid request")
+		}
+		return out, nil
+	}
+}
+
+// decodeBodyFields —— body 解成扁平字段表。空 body 合法(有些 PATCH 只靠路径参数),
+// 解不动才是调用方给错了。服务端的 r.Body 永远非 nil(至多是 http.NoBody)。
+func decodeBodyFields(r *http.Request) (map[string]json.RawMessage, error) {
+	fields := map[string]json.RawMessage{}
+	if err := json.NewDecoder(r.Body).Decode(&fields); err != nil && !errors.Is(err, io.EOF) {
+		return nil, dispatcher.BadInput("invalid JSON body")
+	}
+	return fields, nil
 }
 
 // urlParamArgs —— 路径参数(/{id})搬进 args JSON 的那一格。
@@ -89,13 +136,18 @@ func (h *Handlers) dispatchOp(
 	}
 }
 
-// writeOpError —— 收口只说「谁的错」,状态码是本面的翻译:调用方给错了 → 400,
-// 其余是这台机器的问题 → 500(细节进日志,不外泄)。
+// writeOpError —— 收口只给协议无关的类别,状态码是本面的翻译:
+// 调用方给错了 → 400,找不到 → 404,其余是这台机器的问题 → 500(细节进日志,不外泄)。
 func (h *Handlers) writeOpError(w http.ResponseWriter, id string, err error) {
-	if dispatcher.IsBadInput(err) {
+	switch {
+	case dispatcher.IsBadInput(err):
 		writeError(h.Log, w, envBadReq(err.Error()))
-		return
+	case dispatcher.IsNotFound(err):
+		writeError(h.Log, w, apierr.Envelope{
+			Status: http.StatusNotFound, Code: "not_found", Message: err.Error(),
+		})
+	default:
+		h.Log.Error("dispatcher op failed", "op", id, logErrKey, err)
+		writeError(h.Log, w, serverErr())
 	}
-	h.Log.Error("dispatcher op failed", "op", id, logErrKey, err)
-	writeError(h.Log, w, serverErr())
 }

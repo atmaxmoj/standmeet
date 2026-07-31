@@ -5,22 +5,7 @@ import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 // governance (access-requests / ip-bans / domains / capabilities / bookings).
 func governanceEntries() []Entry {
 	return []Entry{
-		{
-			Op:    read("access_requests.list", fp.OwnerRead()),
-			MCP:   []string{"access_requests.list"},
-			Admin: []string{"GET /api/admin/access-requests"},
-		},
-		{
-			Op:    act("access_requests.update", fp.OwnerAction()),
-			MCP:   []string{"access_requests.update"},
-			Admin: []string{"PATCH /api/admin/access-requests/{id}"},
-		},
-		{
-			Op:    act("access_requests.approve", fp.OwnerAction()),
-			MCP:   []string{"access_requests.approve"},
-			Admin: []string{"POST /api/admin/access-requests/{id}/approve"},
-		},
-		// ip_bans 和 domains 各三条不在这张表里了 —— 它们搬进了出站收口
+		// access_requests / ip_bans / domains 都不在这张表里了 —— 它们搬进了出站收口
 		// (internal/routes/dispatcher)。收口里的 op,parity 由结构回答:MCP 面遍历收口生成、
 		// admin 面只能经 Face 取能力、取用即登记,启动时 Conform() 拿 Reach 跟登记对。
 		// 台账里再写一行是多余的重复声明。

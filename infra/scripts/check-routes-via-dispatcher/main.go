@@ -45,7 +45,6 @@ const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 // **这份名单只能变短。** 每把一个资源搬进出站收口，删掉对应文件那一行。
 // 不要往里加行：加行意味着又造了一条绕过收口的路。
 var baseline = map[string]bool{
-	"internal/routes/admin/access_requests.go":               true,
 	"internal/routes/admin/account.go":                       true,
 	"internal/routes/admin/ai_provider.go":                   true,
 	"internal/routes/admin/appearance.go":                    true,

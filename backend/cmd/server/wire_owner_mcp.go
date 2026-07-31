@@ -54,8 +54,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Calendar: &ownercore.CalendarOwnerDeps{
 			Proxy: d.connectorSlots.Calendar(), Store: newCapstoreBookingStore(d),
 		},
-		Appearance:     d.ownerRepo,
-		AccessRequests: ownerAccessRequestsDeps(d),
+		Appearance: d.ownerRepo,
 		Capabilities: &ownercore.CapabilitiesOwnerDeps{
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
 			Skills: d.skillRepo, Connectors: d.connectorRepo,
@@ -81,20 +80,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		AIPresets:   ownerAIPresets(),
 		Ghosts:      &conversation.GhostDeps{Repo: d.ghostRepo},
 		Log:         d.log,
-	}
-}
-
-// ownerAccessRequestsDeps —— access-request list/update + approve (issues a code, mails it).
-func ownerAccessRequestsDeps(d *runtimeDeps) *ownercore.AccessRequestsOwnerDeps {
-	return &ownercore.AccessRequestsOwnerDeps{
-		Reqs: access.RequestsDeps{
-			Repo:   d.accessRequestRepo,
-			Owners: soleOwnerLookup{owners: d.ownerRepo},
-		},
-		Approve: owner.ApproveRequestDeps{
-			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-			Owners: d.ownerRepo, Proxy: outboundSender(d),
-		},
 	}
 }
 

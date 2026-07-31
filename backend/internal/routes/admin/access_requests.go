@@ -1,171 +1,29 @@
-// access_requests.go —— admin /access-requests endpoint (list + status update).
+// access_requests.go —— admin /access-requests endpoint (list + status update + approve)。
+//
+// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状：
+// status 过滤走 query、资源 id 走路径、其余进 body。
+// 错误的状态码翻译也在这个面：收口只说“调用方给错了 / 找不到 / 机器出错”。
 
 package admin
 
 import (
-	"encoding/json"
-	"log/slog"
-	"net/http"
-	"time"
-
 	"github.com/go-chi/chi/v5"
 
-	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
-	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// AccessRequestsDeps —— admin access-requests handlers 依赖。
+// AccessRequestsDeps —— admin access-requests handlers 的能力来源。
 type AccessRequestsDeps struct {
-	Reqs    access.RequestsDeps
-	Approve owner.ApproveRequestDeps
-}
-
-type approveResponse struct {
-	Code string `json:"code"`
-	Link string `json:"link"`
-}
-
-type accessRequestView struct {
-	CreatedAt string `json:"created_at"`
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Org       string `json:"org"`
-	Email     string `json:"email"`
-	Message   string `json:"message"`
-	Status    string `json:"status"`
-}
-
-type patchRequestBody struct {
-	Status string `json:"status"`
+	Face *dispatcher.Face
 }
 
 // MountAccessRequests 挂 /access-requests 子路由。
 func (h *Handlers) MountAccessRequests(r chi.Router) {
-	r.Get("/access-requests", h.listAccessRequests())
-	r.Patch("/access-requests/{id}", h.updateAccessRequest())
-	r.Post("/access-requests/{id}/approve", h.approveAccessRequest())
-}
-
-// approveAccessRequest —— 批准:issue AccessCode + 邮件发 requester + 状态置 replied。
-func (h *Handlers) approveAccessRequest() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		id := chi.URLParam(r, "id")
-		out, err := owner.ApproveAccessRequest(
-			r.Context(), h.AccessRequests.Approve, ownerID, id,
-		)
-		if err != nil {
-			handleApproveErr(h.Log, w, err)
-			return
-		}
-		writeJSON(h.Log, w, approveResponse{Code: out.Code, Link: out.Link})
-	}
-}
-
-func (h *Handlers) listAccessRequests() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		status := r.URL.Query().Get("status")
-		rows, err := access.ListForOwner(r.Context(), h.AccessRequests.Reqs, ownerID, status)
-		if err != nil {
-			handleAdminAccessRequestErr(h.Log, w, err)
-			return
-		}
-		writeAccessRequestList(h.Log, w, rows)
-	}
-}
-
-func (h *Handlers) updateAccessRequest() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		id := chi.URLParam(r, "id")
-		var body patchRequestBody
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeError(h.Log, w, envBadReq("invalid JSON body"))
-			return
-		}
-		out, err := access.UpdateAccessRequestStatus(
-			r.Context(), h.AccessRequests.Reqs, ownerID, id, body.Status,
-		)
-		if err != nil {
-			handleAdminAccessRequestErr(h.Log, w, err)
-			return
-		}
-		writeAccessRequestSingle(h.Log, w, &out)
-	}
-}
-
-func writeAccessRequestList(
-	log *slog.Logger, w http.ResponseWriter, rows []access.Request,
-) {
-	items := make([]accessRequestView, 0, len(rows))
-	for i := range rows {
-		items = append(items, toAccessRequestView(&rows[i]))
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		log.Error("encode access requests", "err", err)
-	}
-}
-
-func writeAccessRequestSingle(
-	log *slog.Logger, w http.ResponseWriter, a *access.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(toAccessRequestView(a)); err != nil {
-		log.Error("encode access request", "err", err)
-	}
-}
-
-func toAccessRequestView(a *access.Request) accessRequestView {
-	return accessRequestView{
-		ID:        a.ID,
-		Name:      a.Name,
-		Org:       a.Org,
-		Email:     a.Email,
-		Message:   a.Message,
-		Status:    a.Status,
-		CreatedAt: a.CreatedAt.Format(time.RFC3339),
-	}
-}
-
-var adminAccessRequestErrCases = []apierr.Case{
-	{Match: apierr.ErrEmptyField, Envelope: envBadReq("missing required field")},
-	{
-		Match:    access.ErrAccessRequestStatusInvalid,
-		Envelope: envBadReq("invalid status value"),
-	},
-	{Match: access.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
-		Status: http.StatusNotFound, Code: "not_found", Message: "request not found",
-	}},
-}
-
-func handleAdminAccessRequestErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	env := apierr.Classify(err, adminAccessRequestErrCases)
-	if env.Status >= http.StatusInternalServerError {
-		log.Error("admin access requests", "err", err)
-	}
-	writeError(log, w, env)
-}
-
-var approveErrCases = []apierr.Case{
-	{Match: consumer.ErrMailNotConfigured, Envelope: envBadReq(
-		"configure and test your mail connector first",
-	)},
-	{Match: access.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
-		Status: http.StatusNotFound, Code: "not_found", Message: "request not found",
-	}},
-}
-
-func handleApproveErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	env := apierr.Classify(err, approveErrCases)
-	if env.Status >= http.StatusInternalServerError {
-		log.Error("approve access request", "err", err)
-	}
-	writeError(log, w, env)
+	face := h.AccessRequests.Face
+	r.Get("/access-requests",
+		h.dispatchOp(face, "access_requests.list", queryArgs("status"), jsonOK))
+	r.Patch("/access-requests/{id}",
+		h.dispatchOp(face, "access_requests.update", bodyWithURLParam("id"), jsonOK))
+	r.Post("/access-requests/{id}/approve",
+		h.dispatchOp(face, "access_requests.approve", urlParamArgs("id"), jsonOK))
 }

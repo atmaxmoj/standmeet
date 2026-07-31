@@ -64,6 +64,17 @@ func marshalOut(v any) (json.RawMessage, error) { //nolint:forbidigo // 出站�
 	return out, nil
 }
 
+// decodeOptional —— 解可选入参:空 args 合法(全是可选字段的读操作),解不动才是调用方给错了。
+func decodeOptional(raw json.RawMessage, into any) error { //nolint:forbidigo // 解到任意结构
+	if len(raw) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, into); err != nil {
+		return BadInput("invalid arguments: " + err.Error())
+	}
+	return nil
+}
+
 // Invoke —— 一个操作的执行入口。入参是已解码的 args JSON,出参是待序列化的载荷。
 //
 // 刻意只用 json.RawMessage 两头:收口不认识 MCP 的 CallToolResult,也不认识 HTTP 的

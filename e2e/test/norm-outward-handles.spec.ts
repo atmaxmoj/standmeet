@@ -27,7 +27,7 @@ interface RegistryListResp { capabilities: Cap[] }
 // (backend/internal/routes/dispatcher),由收口投影到 MCP 面。搬走一个,这里删一行。
 // 删空之后这个 golden 就翻面成边界断言:capreg 里**不该有任何** owner_only。
 //
-// 已搬走:ip_bans.bundle → dispatcher.IPBans;domains.bundle → dispatcher.Domains(2026-07-30)。
+// 已搬走(→ dispatcher):ip_bans.bundle、domains.bundle、access_requests.bundle。
 const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
@@ -49,7 +49,6 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'custom_page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'calendar.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'access_requests.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'capabilities.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'instance.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'api_keys.bundle', shape: 'owner_only', origin: 'builtin' },

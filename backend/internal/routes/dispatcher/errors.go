@@ -1,10 +1,18 @@
-// errors.go —— 收口只区分一件事:**这是调用方给错了,还是这台机器出错了**。
+// errors.go —— 收口把错误分成**协议无关的几类**,再具体的形态是各个面自己的事。
 //
-// 再具体的形态是各个面自己的事:HTTP 面把前者翻成 400、后者翻成 500;MCP 面两者都是 isError
-// (协议里没有状态码这回事)。收口不认识状态码,也不认识 isError —— 它只说清是谁的错。
+// 只有三类,而且刻意只有三类:
 //
-// 为什么需要它:admin 面把校验从 handler 搬进收口之后,handler 仍然要回 400 而不是 500。
-// 如果没有这个区分,两边就得各留一份校验 —— 那正是收口要消灭的东西。
+//	BadInput  调用方给错了      → HTTP 400 / MCP isError
+//	NotFound  要的东西不存在    → HTTP 404 / MCP isError
+//	其余      这台机器出错了    → HTTP 500(细节进日志,不外泄)/ MCP isError
+//
+// 收口不认识状态码,也不认识 isError。它只说清"是谁的错、是不是找不到",翻译留给面。
+//
+// 为什么需要它:admin 面把校验从 handler 搬进收口之后,handler 仍然要回 400/404 而不是一律
+// 500。如果没有这个区分,两边就得各留一份错误分类 —— 那正是收口要消灭的重复。
+//
+// 为什么不再多分:每加一类,每个面都要跟着加一条翻译。真正跨面稳定的语义就这么几个;
+// 更细的差别(比如"邮件连接器没配好")是**消息内容**,不是新的类别。
 
 package dispatcher
 
@@ -21,5 +29,19 @@ func BadInput(msg string) error { return badInputError{msg: msg} }
 // IsBadInput —— 这个错误是调用方的问题吗?面据此选状态码。
 func IsBadInput(err error) bool {
 	var t badInputError
+	return errors.As(err, &t)
+}
+
+// notFoundError —— 要操作的东西不存在(id 对不上、已被删)。
+type notFoundError struct{ msg string }
+
+func (e notFoundError) Error() string { return e.msg }
+
+// NotFound —— 造一个"找不到"的错误。消息直接面向调用方。
+func NotFound(msg string) error { return notFoundError{msg: msg} }
+
+// IsNotFound —— 面据此回 404 而不是 400/500。
+func IsNotFound(err error) bool {
+	var t notFoundError
 	return errors.As(err, &t)
 }
