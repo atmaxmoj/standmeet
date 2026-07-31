@@ -14,7 +14,6 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
-	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -124,7 +123,6 @@ func buildAdminDeps(d *runtimeDeps) AdminDeps {
 		Drafts:       d.resumeDraftRepo,
 		Applications: d.applicationRepo,
 		Marketplace:  marketplace.SearchDeps{Client: d.marketplaceClient},
-		Calendar:     adminroutes.CalendarAdminDeps{Repo: newCapstoreBookingStore(d)},
 		Connectors:   connectorsAdminDeps(d),
 		ApproveRequests: owner.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,

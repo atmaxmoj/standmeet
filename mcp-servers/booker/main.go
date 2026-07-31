@@ -46,6 +46,7 @@ func main() {
 	srv.AddTool(cancelTool(), localHandler(doCancel))
 	srv.AddTool(rescheduleTool(), localHandler(doReschedule))
 	srv.AddTool(cancelByIDTool(), localHandler(doCancelByID))
+	srv.AddTool(listBookingsTool(), localHandler(doListBookings))
 	srv.AddResource(slotsCardResource(), slotsCardHandler)
 	srv.AddResource(bookedCardResource(), bookedCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
@@ -179,6 +180,19 @@ func withCard(t mcpgo.Tool, label, cardURI string) mcpgo.Tool {
 		"ui_resource":    cardURI,
 	})
 	return t
+}
+
+// listBookingsTool —— owner 面:列已约的会。host 侧曾经有一条 admin REST 路由直接查
+// booker 的存储(它认识了 booker 的数据形状),因为沙箱当时拿不到自己记录的 id。
+func listBookingsTool() mcpgo.Tool {
+	return mcpgo.NewToolWithRawSchema("bookings_list",
+		"List the owner's confirmed bookings, newest first, each with its booking id.",
+		json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"limit":{"type":"integer","description":"Max rows (default 50, max 200)."}
+			}
+		}`))
 }
 
 // cancelByIDTool —— owner 面:按预约 id 取消。host 侧曾经把这套逻辑又写了一遍

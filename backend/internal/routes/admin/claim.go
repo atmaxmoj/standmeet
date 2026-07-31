@@ -43,7 +43,6 @@ type Handlers struct {
 	PublicURLAdmin    PublicURLDeps
 	SEOAdmin          SEOAdminDeps
 	HandleAdmin       HandleDeps
-	CalendarAdmin     CalendarAdminDeps
 	Log               *slog.Logger
 	PageAdmin         PageAdminDeps
 	IPBansAdmin       IPBansAdminDeps
@@ -104,7 +103,6 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountCapabilities(r)
 	h.MountCapabilityConfig(r)
 	h.MountIPBans(r)
-	h.MountBookings(r)
 	h.MountInstance(r)
 }
 

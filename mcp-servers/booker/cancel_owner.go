@@ -42,7 +42,14 @@ func doCancelByID(s session, rawArgs json.RawMessage) string {
 	if derr := deleteBookingByRecord(s.OwnerID, rec, doc); derr != nil {
 		return bookErr("cancel_failed", derr.Error())
 	}
-	out, merr := json.Marshal(map[string]any{"ok": true, "booking_id": args.BookingID})
+	// 回包形状沿用 host 那份已经发出去的契约(owner 的 AI 客户端按它读)。
+	out, merr := json.Marshal(map[string]any{
+		"booking_id":      args.BookingID,
+		"google_event_id": doc.GoogleEventID,
+		"summary":         doc.Summary,
+		"cancelled":       true,
+		"sent_updates_to": doc.VisitorEmail,
+	})
 	if merr != nil {
 		return bookErr("cancel_failed", merr.Error())
 	}

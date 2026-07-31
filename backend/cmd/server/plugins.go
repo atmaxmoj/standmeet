@@ -170,6 +170,17 @@ func bookerManifest() mcpplugin.Manifest {
 				"required":["from_rfc3339","until_rfc3339","duration_min"]
 			}`,
 		}, {
+			Name: "bookings.list",
+			Tool: "bookings_list",
+			Description: "List the owner's confirmed bookings, newest first, each with " +
+				"its booking id.",
+			InputSchema: `{
+				"type":"object",
+				"properties":{
+					"limit":{"type":"integer","description":"Max rows (default 50, max 200)."}
+				}
+			}`,
+		}, {
 			Name: "calendar.cancel_booking",
 			Tool: "calendar_cancel_booking",
 			Description: "Cancel one of the owner's bookings by its booking id: removes " +

@@ -100,7 +100,6 @@ type AdminDeps struct {
 	Drafts          *jobsuc.ResumeDraftRepo
 	Applications    *jobsuc.ApplicationRepo
 	Marketplace     marketplace.SearchDeps
-	Calendar        adminroutes.CalendarAdminDeps
 	Connectors      adminroutes.ConnectorsAdminDeps
 	ApproveRequests owner.ApproveRequestDeps
 	Sessions        *session.OwnerSessionStore
@@ -236,7 +235,6 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Log:      deps.Log,
 		},
 		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Face: adminFace(deps.Dispatch)},
-		CalendarAdmin:     deps.Admin.Calendar,
 		ConnectorsAdmin:   deps.Admin.Connectors,
 		CapabilitiesAdmin: adminroutes.CapabilityAdminDeps{Face: adminFace(deps.Dispatch)},
 		IPBansAdmin:       adminroutes.IPBansAdminDeps{Face: adminFace(deps.Dispatch)},

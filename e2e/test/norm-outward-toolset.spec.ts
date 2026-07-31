@@ -66,7 +66,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // page / calendar / booking / appearance
   'page.update_handle', 'page.get', 'page.put', 'page.set_public_url',
   'page.pin', 'page.unpin',
-  'calendar.list_slots', 'calendar.cancel_booking',
+  // booker 的三个 owner 工具都由**沙箱**提供(OwnerTools 声明,实现在它自己那儿):
+  // 列表和取消曾经在 host 各有一份实现,跟沙箱那份是同一件事的不同写法。
+  'calendar.list_slots', 'calendar.cancel_booking', 'bookings.list',
   'set_owner_css', 'appearance.get_css',
   // connectors
   'connectors.list', 'connectors.catalog', 'connectors.status',
