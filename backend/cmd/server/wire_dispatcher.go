@@ -27,6 +27,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Marketplace(newMarketOps(d)),
 		dispatcher.Prompts(newPromptOps(d)),
 		dispatcher.MCPServers(newMCPServerOps(d)),
+		dispatcher.Roles(newRoleOps(d)),
 	)
 }
 

@@ -100,11 +100,17 @@ var promptErrClasses = []struct {
 	as       func() error
 }{
 	{apierr.ErrEmptyField, func() error { return dispatcher.BadInput("name is required") }},
-	{owner.ErrPromptNotFound, func() error { return dispatcher.NotFound("prompt not found") }},
+	// code 是已经发出去的契约,显式钉住(不能退成类别默认的 not_found / conflict / forbidden)。
+	{owner.ErrPromptNotFound, func() error {
+		return dispatcher.Coded(dispatcher.NotFound("prompt not found"), "prompt_not_found")
+	}},
 	{owner.ErrPromptNameTaken, func() error {
-		return dispatcher.Conflict("prompt name already taken")
+		return dispatcher.Coded(
+			dispatcher.Conflict("prompt name already taken"), "prompt_name_taken")
 	}},
 	{owner.ErrPromptBuiltinImmutable, func() error {
-		return dispatcher.Forbidden("builtin prompt cannot be renamed or deleted")
+		return dispatcher.Coded(
+			dispatcher.Forbidden("builtin prompt cannot be renamed or deleted"),
+			"prompt_builtin_immutable")
 	}},
 }

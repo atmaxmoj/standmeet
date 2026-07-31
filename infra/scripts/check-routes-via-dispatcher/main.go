@@ -77,7 +77,6 @@ var baseline = map[string]bool{
 	"internal/routes/admin/page.go":                          true,
 	"internal/routes/admin/public_url.go":                    true,
 	"internal/routes/admin/recovery.go":                      true,
-	"internal/routes/admin/roles.go":                         true,
 	"internal/routes/admin/seo.go":                           true,
 	"internal/routes/admin/stats_activity.go":                true,
 	"internal/routes/admin/stats_growth.go":                  true,

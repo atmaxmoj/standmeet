@@ -203,11 +203,24 @@ var opErrClasses = []struct {
 }
 
 // opErrEnvelope —— 查表。ok=false 表示"不是任何一类",调用方据此记日志 + 回 500。
+//
+// code 优先用错误上显式钉的那个(dispatcher.Coded):像 role_name_taken 这种是已经发出去的
+// 契约,前端按它分流。没钉过才退到类别的默认 code。
 func opErrEnvelope(err error) (apierr.Envelope, bool) {
 	for _, c := range opErrClasses {
 		if c.is(err) {
-			return apierr.Envelope{Status: c.status, Code: c.code, Message: err.Error()}, true
+			return apierr.Envelope{
+				Status: c.status, Code: pinnedOr(err, c.code), Message: err.Error(),
+			}, true
 		}
 	}
 	return apierr.Envelope{}, false
+}
+
+// pinnedOr —— 显式钉过的 code 优先,没钉过用类别默认的。
+func pinnedOr(err error, fallback string) string {
+	if pinned, ok := dispatcher.CodeOf(err); ok {
+		return pinned
+	}
+	return fallback
 }

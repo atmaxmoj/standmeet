@@ -118,13 +118,20 @@ var skillErrClasses = []struct {
 	{apierr.ErrEmptyField, func() error {
 		return dispatcher.BadInput("name and prompt are required")
 	}},
+	// code 是已经发出去的契约,显式钉住(不能退成类别默认的 conflict / not_found)。
 	{marketplace.ErrSkillNameTaken, func() error {
-		return dispatcher.Conflict("a skill with that name is already installed")
+		return dispatcher.Coded(
+			dispatcher.Conflict("a skill with that name is already installed"),
+			"skill_name_taken")
 	}},
 	{marketplace.ErrSkillBuiltinImmutable, func() error {
-		return dispatcher.BadInput("builtin skill cannot be deleted")
+		return dispatcher.Coded(
+			dispatcher.Forbidden("builtin skill cannot be deleted"),
+			"skill_builtin_immutable")
 	}},
-	{marketplace.ErrSkillNotFound, func() error { return dispatcher.NotFound("skill not found") }},
+	{marketplace.ErrSkillNotFound, func() error {
+		return dispatcher.Coded(dispatcher.NotFound("skill not found"), "skill_not_found")
+	}},
 }
 
 // marketOps —— 市场检索 + 安装。安装的产物是一个 skill,所以跟 skillOps 共用形状转换。
@@ -188,9 +195,13 @@ func installErr(err error) error {
 		return dispatcher.BadInput("source, id, and a non-empty SKILL.md are required")
 	case errors.Is(err, marketplace.ErrSkillNameTaken):
 		//nolint:wrapcheck // 同上
-		return dispatcher.Conflict("a skill with that name is already installed")
+		return dispatcher.Coded(
+			dispatcher.Conflict("a skill with that name is already installed"),
+			"skill_name_taken")
 	default:
 		//nolint:wrapcheck // 同上
-		return dispatcher.Upstream("could not fetch or parse the skill — check the source")
+		return dispatcher.Coded(
+			dispatcher.Upstream("could not fetch or parse the skill — check the source."),
+			"install_failed")
 	}
 }

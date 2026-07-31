@@ -156,36 +156,8 @@ func codesEntries() []Entry {
 // roles / prompts / skills.
 func rolesPromptsSkills() []Entry {
 	return []Entry{
-		{
-			Op:    read("roles.list", fp.OwnerRead()),
-			MCP:   []string{"role_list"},
-			Admin: []string{"GET /api/admin/roles/"},
-		},
-		{
-			Op:    act("roles.create", fp.OwnerAction()),
-			MCP:   []string{"role_create"},
-			Admin: []string{"POST /api/admin/roles/"},
-		},
-		{
-			Op:    read("roles.get", fp.OwnerRead()),
-			MCP:   []string{"roles.get"},
-			Admin: []string{"GET /api/admin/roles/{id}"},
-		},
-		{
-			Op:    act("roles.update", fp.OwnerAction()),
-			MCP:   []string{"role_update"},
-			Admin: []string{"PUT /api/admin/roles/{id}"},
-		},
-		{
-			Op:    act("roles.delete", fp.OwnerAction()),
-			MCP:   []string{"role_delete"},
-			Admin: []string{"DELETE /api/admin/roles/{id}"},
-		},
-		{
-			Op:  act("roles.set_dock_buttons", fp.Only("chat-dock UI hint, folded into role update on admin", FacadeMCP)),
-			MCP: []string{"roles.set_dock_buttons"},
-		},
-		// skills 四条搬进了出站收口(dispatcher.Skills),连同 marketplace 一起 —— 它们共用
-		// "一个 skill 长什么样"这份形状,分开搬就会留下两份。
+		// roles / prompts / skills 三组都搬进了出站收口(dispatcher.{Roles,Prompts,Skills}),
+		// skills 连同 marketplace 一起 —— 它们共用"一个 skill 长什么样"这份形状,
+		// 分开搬就会留下两份。这个函数现在是空的,等最后一批搬完连同整包一起删。
 	}
 }

@@ -9,7 +9,6 @@ package ownercore
 import (
 	"log/slog"
 
-	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -40,7 +39,6 @@ type Deps struct {
 	Instance         *InstanceDeps
 	APIKeys          *APIKeysOwnerDeps
 	WritingsTx       *corpus.WritingsTxDeps
-	Roles            *access.RolesDeps
 	Booking          *BookingOwnerDeps
 	Conversations    *conversation.ConversationsDeps
 	PublicURL        owner.PublicURLDeps
@@ -83,7 +81,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newSubjectivityCapability(d.Corpus, d.Log))
 	reg.MustRegister(newAppearanceCapability(d.Appearance, d.Log))
 	reg.MustRegister(newChatCapability(d.Corpus, d.Conversations, d.Ghosts, d.Log))
-	reg.MustRegister(newRolesCapability(d.Roles, reg.VisitorCapabilityIDs, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
 	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.PagePins, d.Log))

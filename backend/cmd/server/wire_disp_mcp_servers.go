@@ -88,10 +88,13 @@ var mcpServerErrClasses = []struct {
 	{apierr.ErrEmptyField, func() error {
 		return dispatcher.BadInput("name and url are required")
 	}},
+	// code 是已经发出去的契约,显式钉住(不能退成类别默认的 not_found / conflict)。
 	{marketplace.ErrMCPServerNotFound, func() error {
-		return dispatcher.NotFound("mcp server not found")
+		return dispatcher.Coded(
+			dispatcher.NotFound("mcp server not found"), "mcp_server_not_found")
 	}},
 	{marketplace.ErrMCPServerNameTaken, func() error {
-		return dispatcher.Conflict("mcp server name already taken")
+		return dispatcher.Coded(
+			dispatcher.Conflict("mcp server name already taken"), "mcp_server_name_taken")
 	}},
 }

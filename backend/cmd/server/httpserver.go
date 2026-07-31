@@ -218,7 +218,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		CustomPages:     deps.Admin.CustomPages,
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Face: adminFace(deps.Dispatch)},
 		PromptsAdmin:    adminroutes.PromptsAdminDeps{Face: adminFace(deps.Dispatch)},
-		RolesAdmin:      adminroutes.RolesAdminDeps{Roles: deps.Admin.Roles},
+		RolesAdmin:      adminroutes.RolesAdminDeps{Face: adminFace(deps.Dispatch)},
 		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Face: adminFace(deps.Dispatch)},
 		WritingsAdmin: adminroutes.WritingsAdminDeps{
 			Writings: deps.Admin.Writings,

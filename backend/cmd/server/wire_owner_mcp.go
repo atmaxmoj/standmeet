@@ -5,7 +5,6 @@
 package main
 
 import (
-	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -21,12 +20,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
 		Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
 	}
-	rolesDeps := access.RolesDeps{
-		Roles: d.roleRepo,
-		Refs: roleRefValidator{
-			prompts: d.promptRepo, skills: d.skillRepo, servers: d.mcpServerRepo,
-		},
-	}
 	writingsTxDeps := corpus.WritingsTxDeps{
 		Writings:    d.writingRepo,
 		WritingRefs: d.writingRefRepo,
@@ -40,7 +33,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		PagePins:         owner.PagePinDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
 		Corpus:           &corpusDeps,
 		Conversations:    &convsDeps,
-		Roles:            &rolesDeps,
 		Writings:         &corpus.WritingsDeps{Writings: d.writingRepo},
 		WritingsTx:       &writingsTxDeps,
 		CustomPages: &owner.CustomPageDeps{
