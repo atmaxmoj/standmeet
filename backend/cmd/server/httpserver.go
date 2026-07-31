@@ -219,7 +219,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Face: adminFace(deps.Dispatch)},
 		PromptsAdmin:    adminroutes.PromptsAdminDeps{Face: adminFace(deps.Dispatch)},
 		RolesAdmin:      adminroutes.RolesAdminDeps{Roles: deps.Admin.Roles},
-		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Servers: deps.Admin.MCPServers},
+		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Face: adminFace(deps.Dispatch)},
 		WritingsAdmin: adminroutes.WritingsAdminDeps{
 			Writings: deps.Admin.Writings,
 			WritingsTx: corpus.WritingsTxDeps{

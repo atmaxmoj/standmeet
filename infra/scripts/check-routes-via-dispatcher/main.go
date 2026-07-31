@@ -72,7 +72,6 @@ var baseline = map[string]bool{
 	"internal/routes/admin/handle.go":                        true,
 	"internal/routes/admin/inference_usage.go":               true,
 	"internal/routes/admin/keypairs.go":                      true,
-	"internal/routes/admin/mcp_servers.go":                   true,
 	"internal/routes/admin/me.go":                            true,
 	"internal/routes/admin/obsidian.go":                      true,
 	"internal/routes/admin/page.go":                          true,

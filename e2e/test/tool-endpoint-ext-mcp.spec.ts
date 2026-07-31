@@ -35,7 +35,7 @@ const CODE_WITH_SERVER = 'EXT-GRANT';
 const CODE_NO_SERVER = 'EXT-NONE';
 const CODE_UNREACHABLE = 'EXT-DEAD';
 
-interface CreateServerResp { server_id: string; name: string; url: string }
+interface CreateServerResp { id: string; name: string; url: string }
 
 interface ExtToolResult { content?: { text?: string }[] }
 
@@ -73,7 +73,7 @@ async function registerExtServer(request: APIRequestContext): Promise<string> {
     request, apiToken, sid, 'mcp_server_create',
     { name: SERVER_NAME, url: MOCK_MCP_URL },
   );
-  return server.server_id;
+  return server.id;
 }
 
 async function createRoleAndCode(
@@ -177,7 +177,7 @@ async function setupUnreachableCode(request: APIRequestContext): Promise<void> {
     request, apiToken, sid, 'mcp_server_create',
     { name: UNREACHABLE_SERVER_NAME, url: UNREACHABLE_MCP_URL },
   );
-  await createRoleAndCode(request, csrf, dead.server_id, CODE_UNREACHABLE);
+  await createRoleAndCode(request, csrf, dead.id, CODE_UNREACHABLE);
 }
 
 async function assertUnreachableServerReturns404(

@@ -64,16 +64,16 @@ test.describe('能力归一化 · 【对外】零覆盖 MCP 工具守护(搬动�
   test('mcp_servers: mcp_server_list 列出 + mcp_server_delete 删',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const made = await callTool<{ server_id: string }>(
+      const made = await callTool<{ id: string }>(
         request, token, sid, 'mcp_server_create',
         { name: 'cov-srv', url: 'http://mcp-server-mock:9000/mcp' });
       const list = await callTool<Array<{ id: string }>>(
         request, token, sid, 'mcp_server_list', {});
-      expect(list.some((s) => s.id === made.server_id), 'list shows created server')
+      expect(list.some((s) => s.id === made.id), 'list shows created server')
         .toBe(true);
       const del = await callTool<{ server_id: string }>(
-        request, token, sid, 'mcp_server_delete', { server_id: made.server_id });
-      expect(del.server_id).toBe(made.server_id);
+        request, token, sid, 'mcp_server_delete', { server_id: made.id });
+      expect(del.server_id).toBe(made.id);
       await request.dispose();
     });
 

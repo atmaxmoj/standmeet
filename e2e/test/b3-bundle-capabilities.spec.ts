@@ -151,7 +151,7 @@ async function seedExtServerRoleAndCode(request: APIRequestContext): Promise<voi
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const apiToken = await createAPIToken(request, csrf, 'b3-mcp-token');
   const sid = await initMCP(request, apiToken);
-  const server = await callTool<{ server_id: string }>(
+  const server = await callTool<{ id: string }>(
     request, apiToken, sid, 'mcp_server_create',
     { name: EXT_SERVER_NAME, url: MOCK_MCP_URL },
   );
@@ -160,7 +160,7 @@ async function seedExtServerRoleAndCode(request: APIRequestContext): Promise<voi
     description: 'fixture: ext mcp bundle',
     corpus_uris: ['wiki://**', 'output://**'],
     skill_ids: [],
-    mcp_server_ids: [server.server_id],
+    mcp_server_ids: [server.id],
   });
   await createCode(request, csrf, {
     code: EXT_CODE, label: 'b3 ext', assumed_role_id: role.id,

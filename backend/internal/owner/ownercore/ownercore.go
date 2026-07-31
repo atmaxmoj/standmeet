@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
 // Name —— plugin registry identity.
@@ -37,7 +36,6 @@ type Deps struct {
 	Handle           *owner.HandleDeps
 	Calendar         *CalendarOwnerDeps
 	Writings         *corpus.WritingsDeps
-	MCPServers       *marketplace.MCPServersDeps
 	Capabilities     *CapabilitiesOwnerDeps
 	Instance         *InstanceDeps
 	APIKeys          *APIKeysOwnerDeps
@@ -86,7 +84,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newAppearanceCapability(d.Appearance, d.Log))
 	reg.MustRegister(newChatCapability(d.Corpus, d.Conversations, d.Ghosts, d.Log))
 	reg.MustRegister(newRolesCapability(d.Roles, reg.VisitorCapabilityIDs, d.Log))
-	reg.MustRegister(newMCPServersCapability(d.MCPServers, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
 	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.PagePins, d.Log))

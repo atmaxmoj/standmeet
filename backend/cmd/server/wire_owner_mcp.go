@@ -8,7 +8,6 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
@@ -42,7 +41,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Corpus:           &corpusDeps,
 		Conversations:    &convsDeps,
 		Roles:            &rolesDeps,
-		MCPServers:       &marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Writings:         &corpus.WritingsDeps{Writings: d.writingRepo},
 		WritingsTx:       &writingsTxDeps,
 		CustomPages: &owner.CustomPageDeps{

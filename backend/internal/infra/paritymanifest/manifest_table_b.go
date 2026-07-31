@@ -7,26 +7,6 @@ func connectorsMCPServers() []Entry {
 	browser := func(id, why string) fp.Op { return act(id, fp.Only(why, FacadeAdmin)) }
 	return []Entry{
 		{
-			Op:    read("mcp_servers.list", fp.OwnerRead()),
-			MCP:   []string{"mcp_server_list"},
-			Admin: []string{"GET /api/admin/mcp-servers/"},
-		},
-		{
-			Op:    act("mcp_servers.create", fp.OwnerAction()),
-			MCP:   []string{"mcp_server_create"},
-			Admin: []string{"POST /api/admin/mcp-servers/"},
-		},
-		{
-			Op:    act("mcp_servers.delete", fp.OwnerAction()),
-			MCP:   []string{"mcp_server_delete"},
-			Admin: []string{"DELETE /api/admin/mcp-servers/{id}"},
-		},
-		{
-			Op:    act("mcp_servers.grant_dep", fp.OwnerAction()),
-			MCP:   []string{"mcp_server_grant_dep"},
-			Admin: []string{"POST /api/admin/mcp-servers/{id}/dep-grants"},
-		},
-		{
 			Op:    read("connectors.list", fp.OwnerRead()),
 			MCP:   []string{"connectors.list"},
 			Admin: []string{"GET /api/admin/connectors/"},

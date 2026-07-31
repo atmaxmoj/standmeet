@@ -21,12 +21,12 @@ import (
 // 变长 = 又往这个跨域包里塞东西,评审时该被拦下。
 //
 // 已搬走(→ internal/routes/dispatcher):ip_bans、domains、access_requests、
-// skills、marketplace、prompts。
+// skills、marketplace、prompts、mcp_servers。
 var allOwnerCapIDs = []string{
 	"owner.me", "codes.bundle", "seo.bundle",
 	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
 	"corpus.subjectivity.bundle", "appearance.bundle", "chat.bundle",
-	"roles.bundle", "mcp_servers.bundle", "writings.bundle",
+	"roles.bundle", "writings.bundle",
 	"custom_page.bundle", "page.bundle", "calendar.bundle",
 	"capabilities.bundle", "instance.bundle", "connectors.bundle",
 	"booking.bundle", "account.bundle",

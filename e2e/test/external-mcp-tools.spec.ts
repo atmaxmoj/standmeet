@@ -35,7 +35,7 @@ const CODE = 'EXT-001';
 const EXT_MARKER = '[EXT-MCP-MARKER]';
 
 interface CreateServerResp {
-  server_id: string;
+  id: string;
   name: string;
   url: string;
 }
@@ -92,7 +92,7 @@ async function registerServerAndCode(request: APIRequestContext): Promise<void> 
       url: MOCK_MCP_URL,
     },
   );
-  await createCodeAttachingServer(request, csrf, server.server_id);
+  await createCodeAttachingServer(request, csrf, server.id);
 }
 
 async function createCodeAttachingServer(

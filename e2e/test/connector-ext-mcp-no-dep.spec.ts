@@ -48,7 +48,7 @@ const SERVER_NAME = 'cal-ext';
 const REQUIRES_CAL_TOOL = `ext_${SERVER_NAME}_needs_calendar`;
 const CODE = 'EXTMCPDEP-001';
 
-interface CreateServerResp { server_id: string; name: string; url: string }
+interface CreateServerResp { id: string; name: string; url: string }
 interface VisitorCapabilitiesResp { tool_specs: readonly { name: string }[] }
 
 async function sessionToolNames(
@@ -92,7 +92,7 @@ async function registerExtServerAndCode(
       prompt_id: null,
       corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
       skill_ids: [],
-      mcp_server_ids: [server.server_id],
+      mcp_server_ids: [server.id],
     },
   });
   if (roleRes.status() !== 201) {
@@ -106,7 +106,7 @@ async function registerExtServerAndCode(
   if (codeRes.status() !== 201 && codeRes.status() !== 200) {
     throw new Error(`create code: ${codeRes.status()} ${await codeRes.text()}`);
   }
-  return server.server_id;
+  return server.id;
 }
 
 // authorizeDepGrant —— owner-side explicit consent that lifts the lowest-trust default
