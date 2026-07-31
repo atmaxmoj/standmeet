@@ -165,16 +165,6 @@ func settingsEntries() []Entry {
 			Admin: []string{"PATCH /api/admin/public-url"},
 		},
 		{
-			Op:    read("appearance.get_css", fp.OwnerRead()),
-			MCP:   []string{"appearance.get_css"},
-			Admin: []string{"GET /api/admin/appearance/css"},
-		},
-		{
-			Op:    act("appearance.set_css", fp.OwnerAction()),
-			MCP:   []string{"set_owner_css"},
-			Admin: []string{"PUT /api/admin/appearance/css"},
-		},
-		{
 			Op:    read("seo.get_settings", fp.OwnerRead()),
 			MCP:   []string{"seo.get_settings"},
 			Admin: []string{"GET /api/admin/seo"},

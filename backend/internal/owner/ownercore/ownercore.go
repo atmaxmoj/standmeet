@@ -22,7 +22,6 @@ const Name = "ownercore"
 
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
-	Appearance       owner.CSSStore
 	Codes            CodesRevoker
 	CodeBookingQuota CodeBookingQuota
 	SEO              SEOWriter
@@ -77,7 +76,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusMutationsCapability(d.Corpus, d.Log))
 	reg.MustRegister(newSubjectivityCapability(d.Corpus, d.Log))
-	reg.MustRegister(newAppearanceCapability(d.Appearance, d.Log))
 	reg.MustRegister(newChatCapability(d.Corpus, d.Conversations, d.Ghosts, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))

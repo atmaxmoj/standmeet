@@ -49,6 +49,7 @@ type Handlers struct {
 	IPBansAdmin       IPBansAdminDeps
 	ConnectorsAdmin   ConnectorsAdminDeps
 	InstanceAdmin     InstanceAdminDeps // 观测面：system / usage / stats.*
+	AppearanceAdmin   AppearanceAdminDeps
 	SecureCookie      bool
 }
 

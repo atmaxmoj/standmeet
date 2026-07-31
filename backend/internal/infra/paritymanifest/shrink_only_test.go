@@ -19,7 +19,7 @@ import (
 //
 // 所以迁移的每一步都从这里删行,删到 0,**整个包连同这个测试一起删掉**。
 // 数字变大 = 又有人往手写台账里加东西,而不是把能力搬进收口 —— 那是往回走。
-const remainingOps = 88
+const remainingOps = 86
 
 func TestManifestOnlyShrinks(t *testing.T) {
 	t.Parallel()

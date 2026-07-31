@@ -42,8 +42,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Calendar: &ownercore.CalendarOwnerDeps{
 			Proxy: d.connectorSlots.Calendar(), Store: newCapstoreBookingStore(d),
 		},
-		Appearance: d.ownerRepo,
-		APIKeys:    &ownercore.APIKeysOwnerDeps{Keys: d.apiKeyRepo, Roles: d.roleRepo},
+		APIKeys: &ownercore.APIKeysOwnerDeps{Keys: d.apiKeyRepo, Roles: d.roleRepo},
 		Connectors: &ownercore.ConnectorsOwnerDeps{
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
 			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,

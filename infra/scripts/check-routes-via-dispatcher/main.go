@@ -47,7 +47,6 @@ const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 var baseline = map[string]bool{
 	"internal/routes/admin/account.go":                       true,
 	"internal/routes/admin/ai_provider.go":                   true,
-	"internal/routes/admin/appearance.go":                    true,
 	"internal/routes/admin/auth.go":                          true,
 	"internal/routes/admin/booking_policy.go":                true,
 	"internal/routes/admin/booking_store_deps.go":            true,
