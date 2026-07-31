@@ -169,6 +169,18 @@ func bookerManifest() mcpplugin.Manifest {
 				},
 				"required":["from_rfc3339","until_rfc3339","duration_min"]
 			}`,
+		}, {
+			Name: "calendar.cancel_booking",
+			Tool: "calendar_cancel_booking",
+			Description: "Cancel one of the owner's bookings by its booking id: removes " +
+				"the calendar event and the stored booking record.",
+			InputSchema: `{
+				"type":"object",
+				"properties":{
+					"booking_id":{"type":"string","description":"The booking record id."}
+				},
+				"required":["booking_id"]
+			}`,
 		}},
 		Config: bookerConfigFields(),
 		// 硬依赖 calendar connector：未连 → 经 global 单点闸隐藏（D-2，取代 booker

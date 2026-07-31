@@ -92,3 +92,29 @@ func wireMailSenderGateway(ctx context.Context, d *runtimeDeps) {
 	ownerroutes.RegisterOwnerMetaOp(srv, d.ownerRepo)
 	go srv.Serve(ctx)
 }
+
+// QueryRecords / DeleteByID —— 带记录 id 的读写(见 capstoreroutes.BoundStore 的说明:
+// 能力够不到自己记录的 id,就只能在别处长出一份副本)。
+func (b boundCapStore) QueryRecords(
+	ctx context.Context, collection string, filter json.RawMessage,
+) ([]capstoreroutes.BoundRecord, error) {
+	recs, err := b.store.QueryWithIDs(ctx, b.kind, b.id, collection, filter)
+	if err != nil {
+		return nil, fmt.Errorf("capstore query records: %w", err)
+	}
+	out := make([]capstoreroutes.BoundRecord, 0, len(recs))
+	for i := range recs {
+		out = append(out, capstoreroutes.BoundRecord{ID: recs[i].ID, Doc: recs[i].Doc})
+	}
+	return out, nil
+}
+
+func (b boundCapStore) DeleteByID(
+	ctx context.Context, collection, recordID string,
+) (int64, error) {
+	n, err := b.store.DeleteByID(ctx, b.kind, b.id, collection, recordID)
+	if err != nil {
+		return 0, fmt.Errorf("capstore delete by id: %w", err)
+	}
+	return n, nil
+}

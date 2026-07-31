@@ -155,3 +155,43 @@ func gwCapConfig(ownerID string) (map[string]json.RawMessage, error) {
 	}
 	return out, nil
 }
+
+// capRecord —— 一条自己的记录:id + 文档。
+type capRecord struct {
+	ID  string          `json:"id"`
+	Doc json.RawMessage `json:"doc"`
+}
+
+// gwCapstoreQueryRecords —— 带 id 的查询。按 id 取消一条预约,先得能看见 id。
+func gwCapstoreQueryRecords(collection string, filter json.RawMessage) ([]capRecord, error) {
+	resp, err := gwCall("capstore.query_records", map[string]any{
+		"collection": collection, "filter": filter,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Records []capRecord `json:"records"`
+	}
+	if uerr := json.Unmarshal(resp, &out); uerr != nil {
+		return nil, fmt.Errorf("capstore query_records decode: %w", uerr)
+	}
+	return out.Records, nil
+}
+
+// gwCapstoreDeleteByID —— 按记录 id 删自己的一条。
+func gwCapstoreDeleteByID(collection, recordID string) (int64, error) {
+	resp, err := gwCall("capstore.delete_by_id", map[string]any{
+		"collection": collection, "record_id": recordID,
+	})
+	if err != nil {
+		return 0, err
+	}
+	var out struct {
+		Deleted int64 `json:"deleted"`
+	}
+	if uerr := json.Unmarshal(resp, &out); uerr != nil {
+		return 0, fmt.Errorf("capstore delete_by_id decode: %w", uerr)
+	}
+	return out.Deleted, nil
+}

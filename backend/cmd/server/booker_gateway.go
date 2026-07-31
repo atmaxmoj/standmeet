@@ -246,3 +246,29 @@ func decodeCodeConfig(recs []json.RawMessage) (*bookingCodeConfig, error) {
 	}
 	return &cfg, nil
 }
+
+// QueryRecords —— 带记录 id 的查询。沙箱要按 id 取消自己的一条预约,就必须先能看见 id。
+func (b bookerCapStore) QueryRecords(
+	ctx context.Context, collection string, filter json.RawMessage,
+) ([]capstoreroutes.BoundRecord, error) {
+	recs, err := b.store.QueryWithIDs(ctx, bookerCapKind, bookerCapID, collection, filter)
+	if err != nil {
+		return nil, fmt.Errorf("booker capstore query records: %w", err)
+	}
+	out := make([]capstoreroutes.BoundRecord, 0, len(recs))
+	for i := range recs {
+		out = append(out, capstoreroutes.BoundRecord{ID: recs[i].ID, Doc: recs[i].Doc})
+	}
+	return out, nil
+}
+
+// DeleteByID —— 按记录 id 删一条。
+func (b bookerCapStore) DeleteByID(
+	ctx context.Context, collection, recordID string,
+) (int64, error) {
+	n, err := b.store.DeleteByID(ctx, bookerCapKind, bookerCapID, collection, recordID)
+	if err != nil {
+		return 0, fmt.Errorf("booker capstore delete by id: %w", err)
+	}
+	return n, nil
+}

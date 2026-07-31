@@ -26,7 +26,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Assets:      corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 	}
 	return &ownercore.Deps{
-		Owners:           d.ownerRepo,
 		Codes:            d.codeRepo,
 		CodeBookingQuota: newBookerQuotaStore(d),
 		SEO:              d.seoRepo,
@@ -38,10 +37,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		CustomPages: &owner.CustomPageDeps{
 			Pages: d.customPageRepo, Builds: d.customBuildRepo,
 		},
-		Handle: &owner.HandleDeps{Owners: d.ownerRepo},
-		Calendar: &ownercore.CalendarOwnerDeps{
-			Proxy: d.connectorSlots.Calendar(), Store: newCapstoreBookingStore(d),
-		},
+		Handle:  &owner.HandleDeps{Owners: d.ownerRepo},
 		APIKeys: &ownercore.APIKeysOwnerDeps{Keys: d.apiKeyRepo, Roles: d.roleRepo},
 		Connectors: &ownercore.ConnectorsOwnerDeps{
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},

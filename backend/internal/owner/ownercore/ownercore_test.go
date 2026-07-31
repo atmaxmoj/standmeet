@@ -22,23 +22,22 @@ import (
 //
 // 已搬走(→ internal/routes/dispatcher):ip_bans、domains、access_requests、
 // skills、marketplace、prompts、mcp_servers、roles、capabilities、instance、
-// appearance、booking(策略归 capconfig)、byoai + ai_provider(合成 settings)、account。
+// appearance、booking(策略归 capconfig)、byoai + ai_provider(合成 settings)、account、
+// calendar(取消归 booker 的 OwnerTools + 卡片的 mcp-ui:tool)。
 var allOwnerCapIDs = []string{
 	"codes.bundle", "seo.bundle",
 	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
 	"corpus.subjectivity.bundle", "chat.bundle",
 	"writings.bundle",
-	"custom_page.bundle", "page.bundle", "calendar.bundle",
-	"connectors.bundle",
+	"custom_page.bundle", "page.bundle", "connectors.bundle",
 	"api_keys.bundle",
 }
 
 func TestPlugin_RegistersAllOwnerCaps(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
-	// Calendar is a *CalendarOwnerDeps the ctor dereferences; other nil deps are fine (ctors just
-	// store, handlers aren't called here).
-	p := ownercore.New(&ownercore.Deps{Calendar: &ownercore.CalendarOwnerDeps{}})
+	// nil deps 无所谓:ctor 只是存下来,这里不调 handler。
+	p := ownercore.New(&ownercore.Deps{})
 	p.RegisterCapabilities(reg)
 
 	for _, id := range allOwnerCapIDs {

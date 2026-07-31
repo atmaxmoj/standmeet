@@ -28,7 +28,7 @@ const liveToolCap = 64
 func TestFacadeParity_MCPGapsRatchet(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
-	p := ownercore.New(&ownercore.Deps{Calendar: &ownercore.CalendarOwnerDeps{}})
+	p := ownercore.New(&ownercore.Deps{})
 	p.RegisterCapabilities(reg)
 
 	live := make([]string, 0, liveToolCap)
@@ -51,7 +51,7 @@ func TestFacadeParity_MCPGapsRatchet(t *testing.T) {
 func TestFacadeParity_EveryLiveMCPToolIsInManifest(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
-	p := ownercore.New(&ownercore.Deps{Calendar: &ownercore.CalendarOwnerDeps{}})
+	p := ownercore.New(&ownercore.Deps{})
 	p.RegisterCapabilities(reg)
 
 	claimed := map[string]bool{}

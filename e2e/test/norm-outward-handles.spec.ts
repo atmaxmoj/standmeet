@@ -44,7 +44,6 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'writings.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'custom_page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'page.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'calendar.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'api_keys.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'connectors.bundle', shape: 'owner_only', origin: 'builtin' },
 ];

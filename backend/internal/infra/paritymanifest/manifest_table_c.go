@@ -34,8 +34,12 @@ func governanceEntries() []Entry {
 			Plugin: true,
 		},
 		{
-			Op:  act("calendar.cancel_booking", fp.Only("owner cancels via MCP; admin has the bookings list, not per-booking cancel", FacadeMCP)),
-			MCP: []string{"calendar.cancel_booking"},
+			// 跟 list_slots 一样,由**沙箱 booker** 经 manifest.OwnerTools 提供:
+			// 删日历事件 + 删自己那条记录都是 booker 的事,host 曾经又实现了一遍
+			// (uc_booking_cancel*.go + ownercore 的 cap_calendar),现在那两份已删。
+			Op:     act("calendar.cancel_booking", fp.Only("owner cancels via MCP; admin has the bookings list, not per-booking cancel", FacadeMCP)),
+			MCP:    []string{"calendar.cancel_booking"},
+			Plugin: true,
 		},
 	}
 }

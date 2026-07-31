@@ -35,7 +35,6 @@ import (
 type Handlers struct {
 	Visitor      conversation.VisitorSessionDeps
 	MailStatus   owner.OutboundSender // can-email gate in /sessions response (widget enable)
-	Cancel       owner.VisitorCancelDeps
 	Usage        UsageRecorder
 	Reports      conversation.ReportStore
 	Corpus       conversation.DialogCorpusLookup
@@ -94,11 +93,12 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/sessions/{id}/app-state/{tool}", h.withVisitorSession(h.getAppState()))
 	r.Put("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.setAppState()))
 	r.Delete("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.deleteAppState()))
-	// #122: 约成后访客点确认卡 → send_confirmation 现在是沙箱 booker 的 tool(mcp-ui:tool),
-	// 由 booker 的 capstore confirmations marker 做幂等 —— 老的 host /booking-confirmation 路由已退役。
+	// #122/#123: 约成后访客点卡上的按钮(发确认信 / 取消)→ 直接经 mcp-ui:tool 派给沙箱 booker
+	// 自己的工具(send_confirmation / calendar_cancel),host 不再有对应的 REST 路由。
+	// 两条老路由都已退役 —— 取消那条曾经在 host 留了两份实现(owner 侧 + 访客侧),
+	// 跟沙箱里那份是同一件事的三种写法。
 	// #123: 访客取消自己约的会议。隔离在 usecase(owner+code+member 解析 event_id),
 	// 不属于本 member → 404。AI 不参与。
-	r.Post("/booking-cancellation", h.withVisitorSession(h.cancelOwnBooking()))
 	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
 	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。
 	r.Get("/report/{id}", h.withVisitorSession(h.getReport()))

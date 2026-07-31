@@ -45,6 +45,7 @@ func main() {
 	srv.AddTool(sendConfirmationTool(), localHandler(doSendConfirmation))
 	srv.AddTool(cancelTool(), localHandler(doCancel))
 	srv.AddTool(rescheduleTool(), localHandler(doReschedule))
+	srv.AddTool(cancelByIDTool(), localHandler(doCancelByID))
 	srv.AddResource(slotsCardResource(), slotsCardHandler)
 	srv.AddResource(bookedCardResource(), bookedCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
@@ -178,6 +179,21 @@ func withCard(t mcpgo.Tool, label, cardURI string) mcpgo.Tool {
 		"ui_resource":    cardURI,
 	})
 	return t
+}
+
+// cancelByIDTool —— owner 面:按预约 id 取消。host 侧曾经把这套逻辑又写了一遍
+// (uc_booking_cancel*.go + ownercore 的 cap_calendar),因为沙箱够不到自己记录的 id。
+func cancelByIDTool() mcpgo.Tool {
+	return mcpgo.NewToolWithRawSchema("calendar_cancel_booking",
+		"Cancel one of the owner's bookings by its booking id: removes the calendar "+
+			"event and the stored booking record.",
+		json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"booking_id":{"type":"string","description":"The booking record id."}
+			},
+			"required":["booking_id"]
+		}`))
 }
 
 func listSlotsTool() mcpgo.Tool {

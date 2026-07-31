@@ -6,7 +6,6 @@ package ownercore
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
@@ -32,10 +31,4 @@ type SEOWriter interface {
 	UpsertSettings(
 		ctx context.Context, in *corpus.SEOSettings,
 	) (corpus.SEOSettings, error)
-}
-
-// CalendarOwnerDeps —— newCalendarCapability 入参打包（connector proxy + calendar store）。
-type CalendarOwnerDeps struct {
-	Proxy contract.CalendarProxy
-	Store CalendarOwnerStore
 }

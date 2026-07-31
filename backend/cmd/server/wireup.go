@@ -248,10 +248,6 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Visitor:      newVisitorSessionDeps(d),
 		SecureCookie: d.secureCookie,
 		MailStatus:   outboundSender(d),
-		Cancel: owner.VisitorCancelDeps{
-			Proxy: d.connectorSlots.Calendar(),
-			Store: newCapstoreBookingStore(d),
-		},
 		Resolver:     d.providerResolver,
 		Reports:      d.chatReportRepo,
 		Sessions:     d.visitorStore,

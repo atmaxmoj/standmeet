@@ -16,9 +16,7 @@ func TestOwnerToolSchemasAreValidJSON(t *testing.T) {
 	t.Parallel()
 
 	reg := capreg.NewRegistry()
-	ownercore.New(&ownercore.Deps{
-		Calendar: &ownercore.CalendarOwnerDeps{}, // ctor derefs .Proxy/.Store
-	}).RegisterCapabilities(reg)
+	ownercore.New(&ownercore.Deps{}).RegisterCapabilities(reg)
 
 	for _, b := range reg.OwnerMCPBindings() {
 		if len(b.InputSchema) == 0 {

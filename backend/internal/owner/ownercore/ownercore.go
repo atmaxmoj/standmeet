@@ -29,10 +29,8 @@ type Deps struct {
 	PageContent      pageContentStore
 	CodeDenials      codeDenialsStore
 	Connectors       *ConnectorsOwnerDeps
-	Owners           OwnerLookup
 	CustomPages      *owner.CustomPageDeps
 	Handle           *owner.HandleDeps
-	Calendar         *CalendarOwnerDeps
 	Writings         *corpus.WritingsDeps
 	APIKeys          *APIKeysOwnerDeps
 	WritingsTx       *corpus.WritingsTxDeps
@@ -75,7 +73,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
 	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.PagePins, d.Log))
-	reg.MustRegister(newCalendarCapability(d.Calendar.Proxy, d.Calendar.Store, d.Owners, d.Log))
 	// facade-parity fills.
 	// ip_bans 已搬回 security 域(security.OwnerMCPBundle),不在这里注册。
 	reg.MustRegister(newAPIKeysCapability(d.APIKeys, d.Log))
