@@ -42,10 +42,8 @@ type Deps struct {
 	PagePins         owner.PagePinDeps
 	Corpus           *corpus.Deps
 	Account          owner.AccountDeps
-	BYOAI            owner.BYOAIDeps
 	Log              *slog.Logger
 	Ghosts           *conversation.GhostDeps
-	AIPresets        []AIProviderPreset
 }
 
 // Plugin —— implements capabilities.Plugin + capabilities.CapabilityRegistrar.
@@ -87,6 +85,4 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newConnectorsCapability(d.Connectors, d.Log))
 	reg.MustRegister(newBookingCapability(d.Booking, d.Log))
 	reg.MustRegister(newAccountCapability(d.Account, d.Log))
-	reg.MustRegister(newBYOAICapability(d.BYOAI, d.Log))
-	reg.MustRegister(newAIProviderCapability(d.AIPresets, d.Log))
 }

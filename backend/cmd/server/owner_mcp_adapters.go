@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
@@ -133,20 +132,4 @@ func (a seoStatsAdapter) CountPublished(
 		return ownercore.SEOStats{}, fmt.Errorf("adapter count published: %w", err)
 	}
 	return ownercore.SEOStats{Wiki: c.Wiki, Outputs: c.Outputs, Writings: c.Writings}, nil
-}
-
-// ───── ai provider presets ──────────────────────────────────────
-
-// ownerAIPresets —— snapshot the built-in provider presets into the ownercore-facing
-// shape (keeps ownercore free of the inference package).
-func ownerAIPresets() []ownercore.AIProviderPreset {
-	presets := inference.All()
-	out := make([]ownercore.AIProviderPreset, 0, len(presets))
-	for i := range presets {
-		out = append(out, ownercore.AIProviderPreset{
-			Name: presets[i].Name, Label: presets[i].Label,
-			BaseURL: presets[i].BaseURL, KeyPrefix: presets[i].KeyPrefix,
-		})
-	}
-	return out
 }

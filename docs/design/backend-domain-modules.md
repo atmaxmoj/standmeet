@@ -392,6 +392,33 @@ The fix is an `internal/infra/redisstore` peer of `pgstore` that owns the client
 namespacing, and the TTL vocabulary, plus a gate that forbids importing the driver outside it —
 seeded shrink-only from the 17 files, exactly like `check-routes-via-dispatcher`.
 
+## Owed: a composition-root adapter can drop a Deps field and nothing notices
+
+Found while migrating `ai_provider` (2026-07-31). The adapter built
+`owner.AIProviderDeps{Owners: d.ownerRepo}` and omitted `Providers`, the validator the domain
+calls to check the provider name. Go zero-values the interface, everything compiles, every gate
+stays green, and the first write panics on a nil dereference — caught only because an e2e spec
+exercised that route.
+
+This is structural, not a slip: **every** `wire_disp_*.go` adapter hand-builds a domain `Deps`
+struct, and Go has no notion of a required field. The blast radius grows with each migrated
+resource, and the failure mode is the worst kind — invisible until a user takes that exact action.
+
+Two candidate fixes, neither built yet:
+
+- **Constructors instead of struct literals.** If each domain exported `NewAIProviderDeps(owners,
+  providers)` rather than an exported struct, omission would be a compile error. Costs a
+  constructor per Deps type; catches everything, at build time.
+- **Reach the admin face the way MCP is already reached.** `owner-mcp-every-tool-wired` calls every
+  MCP tool with `{}` and demands a clean validation error rather than a panic — that is exactly the
+  guard that would have caught this, except `ai_provider.set` is admin-only so the spec never sees
+  it. The dispatcher now knows which ops each face serves, so the same sweep can be generated for
+  the admin face. The care needed is that mutating ops must not actually run: the sweep would have
+  to assert on argument validation only.
+
+Until one exists, the migration's own e2e coverage is what stands between this class and
+production, which is thinner than it should be.
+
 ## Migration — connector as the pathfinder
 
 1. **Pathfinder (done):** the `connector.invoke` controller moved from `internal/connector` to

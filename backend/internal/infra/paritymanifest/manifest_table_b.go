@@ -179,19 +179,5 @@ func settingsEntries() []Entry {
 			MCP:   []string{"seo.stats"},
 			Admin: []string{"GET /api/admin/seo/stats"},
 		},
-		{
-			Op:    act("ai_provider.set", fp.Only("sets a raw provider API key", FacadeAdmin)),
-			Admin: []string{"PATCH /api/admin/ai-provider"},
-		},
-		{
-			Op:    read("ai_provider.presets", fp.OwnerRead()),
-			MCP:   []string{"ai_provider.presets"},
-			Admin: []string{"GET /api/admin/ai-provider/presets"},
-		},
-		{
-			Op:    act("byoai.set", fp.OwnerAction()),
-			MCP:   []string{"byoai.set"},
-			Admin: []string{"PUT /api/admin/byoai"},
-		},
 	}
 }

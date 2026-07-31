@@ -94,10 +94,19 @@ async function checkAccountAndByoai(r: APIRequestContext): Promise<void> {
   const me = await callTool<{ full_name: string }>(r, token, sid, 'me', {});
   expect(me.full_name, 'me reflects rename').toBe('Renamed Owner');
 
-  const byoai = await callTool<{ enabled: boolean; providers: string[] }>(
-    r, token, sid, 'byoai.set', { enabled: true, providers: ['deepseek'], blurb: 'bring key' });
-  expect(byoai.enabled, 'byoai enabled').toBe(true);
-  expect(byoai.providers, 'byoai providers saved').toContain('deepseek');
+  // byoai.set 回的是**整片 settings**（ai + byoai）——admin 一直是这个信封，
+  // 收口接手后两个面同一份，前端可以直接 swap 进缓存。
+  const settings = await callTool<{
+    ai: { provider: string; endpoint: string; model: string };
+    byoai: { enabled: boolean; providers: string[] };
+  }>(r, token, sid, 'byoai.set', {
+    enabled: true, providers: ['deepseek'], blurb: 'bring key',
+  });
+  expect(settings.byoai.enabled, 'byoai enabled').toBe(true);
+  expect(settings.byoai.providers, 'byoai providers saved').toContain('deepseek');
+  // 迁移前这条写路径回的那份漏了 ai.endpoint / ai.model，swap 一次就把它们抹空。
+  expect(settings.ai, 'ai slice comes back whole').toHaveProperty('endpoint');
+  expect(settings.ai, 'ai slice comes back whole').toHaveProperty('model');
 }
 
 async function checkBookingPolicy(r: APIRequestContext): Promise<void> {

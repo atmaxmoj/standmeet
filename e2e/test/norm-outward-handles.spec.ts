@@ -48,8 +48,6 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'connectors.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'booking.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'account.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'byoai.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'ai_provider.bundle', shape: 'owner_only', origin: 'builtin' },
 ];
 
 test.describe('能力归一化 · 【对外】自管理 MCP handles 黄金快照(本次不碰)', () => {

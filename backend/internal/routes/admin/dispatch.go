@@ -196,6 +196,7 @@ var opErrClasses = []struct {
 	status int
 }{
 	{dispatcher.IsBadInput, "bad_request", http.StatusBadRequest},
+	{dispatcher.IsUnauthed, "unauthorized", http.StatusUnauthorized},
 	{dispatcher.IsNotFound, "not_found", http.StatusNotFound},
 	{dispatcher.IsForbidden, "forbidden", http.StatusForbidden},
 	{dispatcher.IsConflict, "conflict", http.StatusConflict},

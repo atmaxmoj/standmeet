@@ -3,6 +3,7 @@
 // 类别表:
 //
 //	BadInput  调用方给错了        → HTTP 400 / MCP isError
+//	Unauthed  这个身份不再有效    → HTTP 401 / MCP isError(前端据此跳登录)
 //	NotFound  要的东西不存在      → HTTP 404 / MCP isError
 //	Forbidden 这个东西不许被这么动  → HTTP 403 / MCP isError
 //	Conflict  跟已有状态冲突      → HTTP 409 / MCP isError
@@ -63,6 +64,22 @@ func Conflict(msg string) error { return conflictError{msg: msg} }
 // IsConflict —— 面据此回 409。
 func IsConflict(err error) bool {
 	var t conflictError
+	return errors.As(err, &t)
+}
+
+// unauthedError —— 这次请求的身份不再成立(会话指向的 owner 已经不存在这类)。
+// 跟 Forbidden 的区别是:Forbidden 说"你是谁我认,但这件事不许做",这个说"你是谁我已经不认了"。
+// 前端拿 401 会跳登录,所以它必须跟 403 分开。
+type unauthedError struct{ msg string }
+
+func (e unauthedError) Error() string { return e.msg }
+
+// Unauthed —— 造一个"身份不再有效"的错误。
+func Unauthed(msg string) error { return unauthedError{msg: msg} }
+
+// IsUnauthed —— 面据此回 401(而不是 403/404)。
+func IsUnauthed(err error) bool {
+	var t unauthedError
 	return errors.As(err, &t)
 }
 

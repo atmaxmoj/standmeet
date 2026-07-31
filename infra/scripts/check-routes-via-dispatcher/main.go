@@ -46,12 +46,10 @@ const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 // 不要往里加行：加行意味着又造了一条绕过收口的路。
 var baseline = map[string]bool{
 	"internal/routes/admin/account.go":                       true,
-	"internal/routes/admin/ai_provider.go":                   true,
 	"internal/routes/admin/auth.go":                          true,
 	"internal/routes/admin/booking_policy.go":                true,
 	"internal/routes/admin/booking_store_deps.go":            true,
 	"internal/routes/admin/bookings.go":                      true,
-	"internal/routes/admin/byoai.go":                         true,
 	"internal/routes/admin/claim.go":                         true,
 	"internal/routes/admin/codes.go":                         true,
 	"internal/routes/admin/codes_view.go":                    true,

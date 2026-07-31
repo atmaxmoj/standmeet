@@ -21,7 +21,8 @@ import (
 // 变长 = 又往这个跨域包里塞东西,评审时该被拦下。
 //
 // 已搬走(→ internal/routes/dispatcher):ip_bans、domains、access_requests、
-// skills、marketplace、prompts、mcp_servers、roles、capabilities、instance、appearance。
+// skills、marketplace、prompts、mcp_servers、roles、capabilities、instance、appearance、
+// byoai + ai_provider(合成 settings)。
 var allOwnerCapIDs = []string{
 	"owner.me", "codes.bundle", "seo.bundle",
 	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
@@ -30,7 +31,7 @@ var allOwnerCapIDs = []string{
 	"custom_page.bundle", "page.bundle", "calendar.bundle",
 	"connectors.bundle",
 	"booking.bundle", "account.bundle",
-	"byoai.bundle", "ai_provider.bundle", "api_keys.bundle",
+	"api_keys.bundle",
 }
 
 func TestPlugin_RegistersAllOwnerCaps(t *testing.T) {

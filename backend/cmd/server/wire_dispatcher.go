@@ -31,6 +31,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.Instance(newInstanceOps(d)),
 		dispatcher.Appearance(newAppearanceOps(d)),
+		dispatcher.SettingsResource(newSettingsOps(d)),
 	)
 }
 

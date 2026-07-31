@@ -55,8 +55,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		PublicURL:   owner.PublicURLDeps{Owners: d.ownerRepo},
 		SEOStats:    seoStatsAdapter{repo: d.seoRepo},
 		Account:     owner.AccountDeps{Owners: d.ownerRepo},
-		BYOAI:       owner.BYOAIDeps{Owners: d.ownerRepo},
-		AIPresets:   ownerAIPresets(),
 		Ghosts:      &conversation.GhostDeps{Repo: d.ghostRepo},
 		Log:         d.log,
 	}
