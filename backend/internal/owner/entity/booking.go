@@ -10,35 +10,12 @@ import (
 	"time"
 )
 
-const (
-	// DefaultMinLeadDays —— DefaultBookingPolicy 的 min_lead_days 兜底 (2 天)。
-	DefaultMinLeadDays = 2
-	// DefaultBufferMin —— DefaultBookingPolicy 的 buffer_min 兜底。
-	DefaultBufferMin = 15
-)
-
-// BookingPolicy —— owner availability constraints applied per book attempt.
-type BookingPolicy struct {
-	UpdatedAt         time.Time
-	OwnerID           string
-	WorkingHoursStart string // 'HH:MM'
-	WorkingHoursEnd   string // 'HH:MM'
-	AllowedWeekdays   []string
-	MinLeadDays       int32
-	BufferMin         int32
-}
-
-// DefaultBookingPolicy —— 没显式 set 时的兜底 (admin UI 也用同一份种子)。
-func DefaultBookingPolicy(ownerID string) BookingPolicy {
-	return BookingPolicy{
-		OwnerID:           ownerID,
-		MinLeadDays:       DefaultMinLeadDays,
-		AllowedWeekdays:   []string{"mon", "tue", "wed", "thu", "fri"},
-		WorkingHoursStart: "09:00",
-		WorkingHoursEnd:   "18:00",
-		BufferMin:         DefaultBufferMin,
-	}
-}
+// 预约**策略**不在这儿了 —— 它是 booker 这个外置能力自己的东西:字段和默认值声明在
+// booker 的 manifest(Config),值存在 booker 自己的隔离存储,沙箱经 capconfig.get 读回。
+// host 曾经有一份类型 + 默认值,沙箱有另一份,两份飘了(host 说工作到 18:00、缓冲 15 分钟,
+// 沙箱按 17:00、缓冲 0),而注释还写着"跟沙箱一致"。
+//
+// 这里只剩 host 确实要认识的东西:一条**已经存在的预约记录**的形状(取消要按 id 找它)。
 
 // CodeBooking —— 持久化的 calendar.book 记录（一条事件 = 一行）。
 type CodeBooking struct {

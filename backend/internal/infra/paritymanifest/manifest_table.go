@@ -24,31 +24,10 @@ func concat(groups ...[]Entry) []Entry {
 	return out
 }
 
-// account / session.
+// session / keypairs —— account 本身已搬进出站收口(dispatcher.Account),
+// 剩下的是浏览器会话生命周期和凭据引导面,它们本来就只在 admin 上。
 func accountEntries() []Entry {
-	secret := func(id, why string) fp.Op { return act(id, fp.Only(why, FacadeAdmin)) }
 	return []Entry{
-		{
-			Op:    read("account.me", fp.OwnerRead()),
-			MCP:   []string{"me"},
-			Admin: []string{"GET /api/admin/me"},
-		},
-		{
-			Op:  act("account.set_full_name", fp.OwnerAction()),
-			MCP: []string{"account.set_full_name"}, Admin: []string{"PATCH /api/admin/account/full-name"},
-		},
-		{
-			Op:    secret("account.change_email", "verifies + changes the login email (current-password gated)"),
-			Admin: []string{"PATCH /api/admin/account/email"},
-		},
-		{
-			Op:    secret("account.change_password", "raw password; current-password gated"),
-			Admin: []string{"PATCH /api/admin/account/password"},
-		},
-		{
-			Op:    secret("account.generate_recovery", "mints a recovery secret"),
-			Admin: []string{"POST /api/admin/account/recovery"},
-		},
 		{
 			Op:    act("session.logout", fp.Only("browser session lifecycle, not a driveable capability", FacadeAdmin)),
 			Admin: []string{"POST /api/admin/me/logout"},

@@ -25,6 +25,7 @@ func (h *Handlers) MountAccount(r chi.Router) {
 	r.Route("/account", func(r chi.Router) {
 		r.Patch("/full-name",
 			h.dispatchOp(face, "account.set_full_name", bodyArgs, jsonOK))
+		r.Patch("/timezone", h.dispatchOp(face, "account.set_timezone", bodyArgs, jsonOK))
 		r.Patch("/email", h.dispatchOp(face, "account.change_email", bodyArgs, jsonOK))
 		r.Patch("/password",
 			h.dispatchOp(face, "account.change_password", bodyArgs, noContent))

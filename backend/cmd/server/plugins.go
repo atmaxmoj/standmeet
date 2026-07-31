@@ -277,7 +277,9 @@ func keepResolvableDeps(
 //
 // 这几个字段以前在 host 手写了一整套(entity 类型 + 默认值 + capstore 读写 + admin 路由 +
 // 表单 + 一个 owner MCP 工具),沙箱里还有自己的一份 —— 两份已经飘了:host 说工作到 18:00、
-// 缓冲 15 分钟,沙箱按 17:00、缓冲 0。**默认值现在只有这一处**。
+// 缓冲 15 分钟,沙箱按 17:00、缓冲 0。取 host 那份(18:00 / 15):沙箱那份是**退化**的那一边
+// —— 它连 buffer_min 都没设(=0),而面板、文档和 e2e 一直说 18:00 / 15。
+// 也就是说访客过去在 17:00–18:00 之间订不上,而面板显示可以。**默认值现在只有这一处**。
 func bookerConfigFields() []mcpplugin.ConfigField {
 	return []mcpplugin.ConfigField{
 		{
@@ -287,7 +289,7 @@ func bookerConfigFields() []mcpplugin.ConfigField {
 		},
 		{
 			Key: "working_hours_end", Label: "Working hours end",
-			Type: mcpplugin.ConfigTypeTime, Default: `"17:00"`,
+			Type: mcpplugin.ConfigTypeTime, Default: `"18:00"`,
 			Description: "Latest time of day a visitor may book.",
 		},
 		{
@@ -298,11 +300,13 @@ func bookerConfigFields() []mcpplugin.ConfigField {
 		{
 			Key: "min_lead_days", Label: "Minimum lead time (days)",
 			Type: mcpplugin.ConfigTypeInt, Default: `2`,
+			Min:         new(1),
 			Description: "How far ahead a booking must be made.",
 		},
 		{
 			Key: "buffer_min", Label: "Buffer between meetings (minutes)",
 			Type: mcpplugin.ConfigTypeInt, Default: `15`,
+			Min:         new(0),
 			Description: "Gap kept clear either side of an existing event.",
 		},
 	}

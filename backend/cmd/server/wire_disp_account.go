@@ -40,6 +40,7 @@ func (a accountOps) Me(ctx context.Context, ownerID string) (dispatcher.Me, erro
 		Owner: dispatcher.OwnerProfile{
 			OwnerID: profile.ID, Email: profile.Email, Handle: profile.Handle,
 			FullName: profile.FullName, PublicURL: profile.PublicURL,
+			Timezone: profile.ProfileTimezone,
 		},
 		Settings: toDispatcherSettings(&settings),
 	}, nil
@@ -53,6 +54,18 @@ func (a accountOps) SetFullName(
 		return "", accountErr(err)
 	}
 	return updated.FullName, nil
+}
+
+// SetTimezone —— owner 档案上的时区。空串 = UTC(域那侧的约定)。
+func (a accountOps) SetTimezone(ctx context.Context, ownerID, tz string) (string, error) {
+	if err := a.account.Owners.UpdateProfileTimezone(ctx, ownerID, tz); err != nil {
+		return "", accountErr(err)
+	}
+	profile, gerr := a.account.Owners.GetByID(ctx, ownerID)
+	if gerr != nil {
+		return "", accountErr(gerr)
+	}
+	return profile.ProfileTimezone, nil
 }
 
 func (a accountOps) ChangeEmail(

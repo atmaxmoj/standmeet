@@ -33,6 +33,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Appearance(newAppearanceOps(d)),
 		dispatcher.SettingsResource(newSettingsOps(d)),
 		dispatcher.Account(newAccountOps(d)),
+		dispatcher.CapabilityConfig(newCapConfigOps(d)),
 	)
 }
 

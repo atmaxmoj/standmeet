@@ -20,7 +20,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
-	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
 
 const capstoreBookingsColl = "bookings"
@@ -49,63 +48,14 @@ type convMemberResolver interface {
 type capstoreBookingStore struct {
 	store   *capstore.Store
 	members convMemberResolver
-	policy  bookerPolicyStore
 }
 
 func newCapstoreBookingStore(d *runtimeDeps) capstoreBookingStore {
-	return capstoreBookingStore{
-		store:   capstore.New(d.db),
-		policy:  newBookerPolicyStore(d),
-		members: d.chatRepo,
-	}
+	return capstoreBookingStore{store: capstore.New(d.db), members: d.chatRepo}
 }
 
-// GetBookingPolicy —— booker's capstore policy (same source the sandbox reads).
-func (s capstoreBookingStore) GetBookingPolicy(
-	ctx context.Context, ownerID string,
-) (owner.BookingPolicy, error) {
-	return s.policy.Get(ctx, ownerID)
-}
-
-// UpsertBookingPolicy —— owner sets its booking policy (owner MCP booking cap) into booker's
-// capstore policy — the same doc the sandbox booker + admin /booking-policy read.
-func (s capstoreBookingStore) UpsertBookingPolicy(
-	ctx context.Context, in *ownercore.BookingPolicyUpsert,
-) (owner.BookingPolicy, error) {
-	p := owner.BookingPolicy{
-		OwnerID: in.OwnerID, WorkingHoursStart: in.WorkingHoursStart,
-		WorkingHoursEnd: in.WorkingHoursEnd, AllowedWeekdays: in.AllowedWeekdays,
-		MinLeadDays: in.MinLeadDays, BufferMin: in.BufferMin,
-	}
-	if err := s.policy.Set(ctx, in.OwnerID, &p); err != nil {
-		return owner.BookingPolicy{}, fmt.Errorf("upsert policy: %w", err)
-	}
-	return s.policy.Get(ctx, in.OwnerID)
-}
-
-// CreateBooking —— host-side insert (interface completeness; chat bookings come from the sandbox).
-func (s capstoreBookingStore) CreateBooking(
-	ctx context.Context, in *owner.CreateBookingInput,
-) (owner.CodeBooking, error) {
-	doc, merr := json.Marshal(capstoreBookingDoc{
-		OwnerID: in.OwnerID, CodeID: in.CodeID, ConversationID: in.ConversationID,
-		GoogleEventID: in.GoogleEventID, GoogleHTMLLink: in.GoogleHTMLLink,
-		Summary: in.Summary, VisitorEmail: in.VisitorEmail,
-		StartAt: in.StartAt, EndAt: in.EndAt,
-	})
-	if merr != nil {
-		return owner.CodeBooking{}, fmt.Errorf("booking encode: %w", merr)
-	}
-	id, err := s.store.Insert(ctx, bookerCapKind, bookerCapID, capstoreBookingsColl, doc)
-	if err != nil {
-		return owner.CodeBooking{}, fmt.Errorf("booking insert: %w", err)
-	}
-	return owner.CodeBooking{
-		ID: id, OwnerID: in.OwnerID, CodeID: in.CodeID, ConversationID: in.ConversationID,
-		GoogleEventID: in.GoogleEventID, GoogleHTMLLink: in.GoogleHTMLLink,
-		Summary: in.Summary, VisitorEmail: in.VisitorEmail, StartAt: in.StartAt, EndAt: in.EndAt,
-	}, nil
-}
+// 这儿曾经还有一个 CreateBooking —— 注释写着"for interface completeness",也就是
+// **没有任何调用方**,只为满足一个同样没人用的接口。约成的会是沙箱里写进来的。已删。
 
 // CountBookingsForCode —— capstore count of this code's bookings.
 func (s capstoreBookingStore) CountBookingsForCode(

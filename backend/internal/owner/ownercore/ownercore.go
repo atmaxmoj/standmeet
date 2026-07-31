@@ -36,7 +36,6 @@ type Deps struct {
 	Writings         *corpus.WritingsDeps
 	APIKeys          *APIKeysOwnerDeps
 	WritingsTx       *corpus.WritingsTxDeps
-	Booking          *BookingOwnerDeps
 	Conversations    *conversation.ConversationsDeps
 	PublicURL        owner.PublicURLDeps
 	PagePins         owner.PagePinDeps
@@ -81,5 +80,4 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	// ip_bans 已搬回 security 域(security.OwnerMCPBundle),不在这里注册。
 	reg.MustRegister(newAPIKeysCapability(d.APIKeys, d.Log))
 	reg.MustRegister(newConnectorsCapability(d.Connectors, d.Log))
-	reg.MustRegister(newBookingCapability(d.Booking, d.Log))
 }

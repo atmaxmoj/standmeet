@@ -13,11 +13,10 @@ import (
 )
 
 const (
-	defaultMinLeadDays = 2
-	maxHour            = 23
-	maxMinute          = 59
-	minutesInHr        = 60
-	hhmmSegments       = 2
+	maxHour      = 23
+	maxMinute    = 59
+	minutesInHr  = 60
+	hhmmSegments = 2
 )
 
 // 冲突原因(空 = 通过)。**字符串值必须跟旧 domain.BookConflict* 字节一致** —— 前端卡片
@@ -44,16 +43,9 @@ type bookingPolicy struct {
 	BufferMin         int32    `json:"buffer_min"`
 }
 
-// defaultBookingPolicy —— owner 没显式设过时的兜底。
-func defaultBookingPolicy(ownerID string) bookingPolicy {
-	return bookingPolicy{
-		OwnerID:           ownerID,
-		MinLeadDays:       defaultMinLeadDays,
-		AllowedWeekdays:   []string{"mon", "tue", "wed", "thu", "fri"},
-		WorkingHoursStart: "09:00",
-		WorkingHoursEnd:   "17:00",
-	}
-}
+// 默认值不在这儿了 —— 它是 host manifest 里 Config 声明的一部分,经 capconfig.get 兜好底
+// 之后一起送来(见 loadPolicy)。这儿曾经有一份 defaultBookingPolicy(),host 侧也有一份,
+// 两份飘了:host 说工作到 18:00、缓冲 15 分钟,这儿按 17:00、缓冲 0。
 
 // weekday3 —— Go time.Weekday → 3-letter 小写(mon..sun)。
 var weekday3 = [...]string{

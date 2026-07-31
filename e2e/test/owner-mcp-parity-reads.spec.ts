@@ -145,14 +145,14 @@ async function checkConnectors(r: APIRequestContext): Promise<void> {
   expect(typeof catalog[0]!.category, 'catalog entry has category').toBe('string');
 }
 
-async function checkBooking(r: APIRequestContext): Promise<void> {
-  const policy = await callTool<{ working_hours_start: string; allowed_weekdays: string[] }>(
-    r, token, sid, 'booking.get_policy', {});
-  expect(typeof policy.working_hours_start, 'policy.working_hours_start string').toBe('string');
-  expect(Array.isArray(policy.allowed_weekdays), 'policy.allowed_weekdays array').toBe(true);
-
-  const bookings = await callTool<unknown[]>(r, token, sid, 'bookings.list', {});
-  expect(Array.isArray(bookings), 'bookings.list array').toBe(true);
+// 预约策略经**通用**的 capability_config 口读 —— booker 自己声明的字段,
+// 不再有 booking.get_policy 这种按能力名写死的工具。
+async function checkBookingConfig(r: APIRequestContext): Promise<void> {
+  const cfg = await callTool<{ fields: { key: string; value: unknown }[] }>(
+    r, token, sid, 'capability_config.get', { capability_id: 'calendar.book' });
+  const byKey = new Map(cfg.fields.map((f) => [f.key, f.value]));
+  expect(typeof byKey.get('working_hours_start'), 'working_hours_start string').toBe('string');
+  expect(Array.isArray(byKey.get('allowed_weekdays')), 'allowed_weekdays array').toBe(true);
 }
 
 async function checkCodes(r: APIRequestContext): Promise<void> {
@@ -180,8 +180,8 @@ test.describe('facade-parity · 新增 owner-MCP 只读工具功能守护', () =
     ({ playwright }) => run(playwright, checkEmptyRegistries));
   test('connectors.list empty + catalog has built-ins',
     ({ playwright }) => run(playwright, checkConnectors));
-  test('booking.get_policy + bookings.list return the scheduling surface',
-    ({ playwright }) => run(playwright, checkBooking));
+  test('capability_config.get returns booker\'s declared scheduling fields',
+    ({ playwright }) => run(playwright, checkBookingConfig));
   test('codes.list shows the seeded code; codes.list_members returns an array',
     ({ playwright }) => run(playwright, checkCodes));
 });

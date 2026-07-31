@@ -124,11 +124,8 @@ func buildAdminDeps(d *runtimeDeps) AdminDeps {
 		Drafts:       d.resumeDraftRepo,
 		Applications: d.applicationRepo,
 		Marketplace:  marketplace.SearchDeps{Client: d.marketplaceClient},
-		Calendar: adminroutes.CalendarAdminDeps{
-			Repo: newCapstoreBookingStore(d), Policy: newBookerPolicyStore(d),
-			Owners: d.ownerRepo,
-		},
-		Connectors: connectorsAdminDeps(d),
+		Calendar:     adminroutes.CalendarAdminDeps{Repo: newCapstoreBookingStore(d)},
+		Connectors:   connectorsAdminDeps(d),
 		ApproveRequests: owner.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Proxy: outboundSender(d),

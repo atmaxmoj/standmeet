@@ -136,3 +136,22 @@ func gwOwnerMeta(ownerID, field string) (string, error) {
 	}
 	return r.Value, nil
 }
+
+// gwCapConfig —— 问 host 要**本能力自己的配置**。
+//
+// 为什么不是自己去 capstore 查那份文档:**默认值在声明里**(host 的 manifest ConfigField),
+// 沙箱看不见声明。自己查存储的话,owner 没设过就什么都读不到,于是只能在这儿再写一份默认值 ——
+// 那正是 host/沙箱两份策略当初漂移的根子(host 说到 18:00、缓冲 15,这儿按 17:00、缓冲 0)。
+//
+// 这个 op 回的是**已经按声明兜好底的最终值**,拿到就能用。
+func gwCapConfig(ownerID string) (map[string]json.RawMessage, error) {
+	resp, err := gwCall("capconfig.get", map[string]any{"owner_id": ownerID})
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]json.RawMessage
+	if uerr := json.Unmarshal(resp, &out); uerr != nil {
+		return nil, fmt.Errorf("capconfig decode: %w", uerr)
+	}
+	return out, nil
+}

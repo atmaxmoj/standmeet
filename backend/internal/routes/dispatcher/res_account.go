@@ -20,6 +20,7 @@ import (
 type AccountStore interface {
 	Me(ctx context.Context, ownerID string) (Me, error)
 	SetFullName(ctx context.Context, ownerID, fullName string) (string, error)
+	SetTimezone(ctx context.Context, ownerID, tz string) (string, error)
 	ChangeEmail(ctx context.Context, in *ChangeEmail) (string, error)
 	ChangePassword(ctx context.Context, in *ChangePassword) error
 	GenerateRecovery(ctx context.Context, ownerID string) error
@@ -38,6 +39,9 @@ type OwnerProfile struct {
 	Handle    string
 	FullName  string
 	PublicURL string
+	// Timezone —— IANA 时区名。它是 owner 的档案,不是哪个能力的设置 ——
+	// booker 解释"工作时间到几点"要用它,但换个能力也会用。
+	Timezone string
 }
 
 // ChangeEmail —— 改登录邮箱的入参(要当前密码)。
@@ -79,6 +83,20 @@ func Account(store AccountStore) Resource {
 			Kind:   fp.Action,
 			Reach:  fp.OwnerAction(),
 			Invoke: accountSetFullName(store),
+		},
+		{
+			ID: "account.set_timezone",
+			Description: "Set the owner's IANA timezone (e.g. America/New_York). Capabilities " +
+				"that reason about time of day — booking hours, for one — read it from here; " +
+				"it is the owner's profile, not any one capability's setting.",
+			InputSchema: json.RawMessage(`{
+				"type":"object",
+				"properties":{"timezone":{"type":"string","description":"IANA tz name."}},
+				"required":["timezone"]
+			}`),
+			Kind:   fp.Action,
+			Reach:  fp.OwnerAction(),
+			Invoke: accountSetTimezone(store),
 		},
 		{
 			ID: "account.change_email",
@@ -136,6 +154,7 @@ type ownerOut struct {
 	Handle    string `json:"handle"`
 	FullName  string `json:"full_name"`
 	PublicURL string `json:"public_url"`
+	Timezone  string `json:"timezone"`
 }
 
 type meOut struct {
@@ -153,6 +172,7 @@ func accountMe(store AccountStore) Invoke {
 			Owner: ownerOut{
 				OwnerID: me.Owner.OwnerID, Email: me.Owner.Email, Handle: me.Owner.Handle,
 				FullName: me.Owner.FullName, PublicURL: me.Owner.PublicURL,
+				Timezone: me.Owner.Timezone,
 			},
 			Settings: toSettingsOut(&me.Settings),
 		})
@@ -180,6 +200,24 @@ func accountSetFullName(store AccountStore) Invoke {
 			return nil, fmt.Errorf("set full name: %w", err)
 		}
 		return marshalOut(ownerFieldOut{FullName: name})
+	}
+}
+
+type timezoneArgs struct {
+	Timezone string `json:"timezone"`
+}
+
+func accountSetTimezone(store AccountStore) Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in timezoneArgs
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return nil, BadInput("invalid arguments: " + err.Error())
+		}
+		tz, err := store.SetTimezone(ctx, ownerID, in.Timezone)
+		if err != nil {
+			return nil, fmt.Errorf("set timezone: %w", err)
+		}
+		return marshalOut(map[string]string{"timezone": tz})
 	}
 }
 

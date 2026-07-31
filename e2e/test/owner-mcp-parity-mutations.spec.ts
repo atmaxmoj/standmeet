@@ -3,7 +3,7 @@
 // 且副作用落库。
 //
 // 覆盖: ip_bans.{add,remove} · domains.{add,remove} · codes.{add_denial,remove_denial,
-// list_denials} · account.set_full_name · byoai.set · booking.set_policy · page.{put,
+// list_denials} · account.set_full_name · byoai.set · capability_config.{set,get} · page.{put,
 // set_public_url} · corpus_get_entry(写 raw_dump 后回读) · capabilities.{set_enabled,delete}
 
 import { test, expect } from '@/fixtures/test';
@@ -91,8 +91,10 @@ async function checkAccountAndByoai(r: APIRequestContext): Promise<void> {
   const named = await callTool<{ full_name: string }>(
     r, token, sid, 'account.set_full_name', { full_name: 'Renamed Owner' });
   expect(named.full_name, 'set_full_name echoes').toBe('Renamed Owner');
-  const me = await callTool<{ full_name: string }>(r, token, sid, 'me', {});
-  expect(me.full_name, 'me reflects rename').toBe('Renamed Owner');
+  // me 回 {owner, settings}（admin 的 GET /me 一直是这个信封）——迁移前 MCP 的 me 是
+  // 手拼字符串出来的四字段 JSON，连转义都没有。
+  const me = await callTool<{ owner: { full_name: string } }>(r, token, sid, 'me', {});
+  expect(me.owner.full_name, 'me reflects rename').toBe('Renamed Owner');
 
   // byoai.set 回的是**整片 settings**（ai + byoai）——admin 一直是这个信封，
   // 收口接手后两个面同一份，前端可以直接 swap 进缓存。
@@ -109,11 +111,28 @@ async function checkAccountAndByoai(r: APIRequestContext): Promise<void> {
   expect(settings.ai, 'ai slice comes back whole').toHaveProperty('model');
 }
 
-async function checkBookingPolicy(r: APIRequestContext): Promise<void> {
-  await callTool(r, token, sid, 'booking.set_policy', { working_hours_start: '10:00' });
-  const policy = await callTool<{ working_hours_start: string }>(
-    r, token, sid, 'booking.get_policy', {});
-  expect(policy.working_hours_start, 'policy reflects set_policy').toBe('10:00');
+// 预约策略是 booker **自己声明**的配置，经通用的 capability_config 口读写 ——
+// 不再有 booking.get_policy / booking.set_policy 这种按能力名写死的工具。
+// 值和默认值都来自声明，沙箱经 capconfig.get 读同一份（以前 host 和沙箱各有一份，飘了）。
+async function checkCapabilityConfig(r: APIRequestContext): Promise<void> {
+  const BOOKER = 'calendar.book';
+  const listed = await callTool<{ capabilities: string[] }>(
+    r, token, sid, 'capability_config.list', {});
+  expect(listed.capabilities, 'booker declares settings').toContain(BOOKER);
+
+  await callTool(r, token, sid, 'capability_config.set', {
+    capability_id: BOOKER, values: { working_hours_start: '10:00' },
+  });
+  const cfg = await callTool<{ fields: { key: string; value: unknown; overridden: boolean }[] }>(
+    r, token, sid, 'capability_config.get', { capability_id: BOOKER });
+  const start = cfg.fields.find((f) => f.key === 'working_hours_start')!;
+  expect(start.value, 'config reflects the write').toBe('10:00');
+  expect(start.overridden, 'and is marked as owner-set').toBe(true);
+
+  // 没设过的字段回声明里的默认值，并且标着 overridden=false。
+  const end = cfg.fields.find((f) => f.key === 'working_hours_end')!;
+  expect(end.value, 'untouched field falls back to the declared default').toBe('18:00');
+  expect(end.overridden).toBe(false);
 }
 
 async function checkPage(r: APIRequestContext): Promise<void> {
@@ -171,8 +190,8 @@ test.describe('facade-parity · 新增 owner-MCP 写工具 roundtrip 守护', ()
     ({ playwright }) => run(playwright, checkCodeDenials));
   test('account.set_full_name reflects in me; byoai.set persists',
     ({ playwright }) => run(playwright, checkAccountAndByoai));
-  test('booking.set_policy reflected by get_policy',
-    ({ playwright }) => run(playwright, checkBookingPolicy));
+  test('capability_config: declared defaults + owner overrides',
+    ({ playwright }) => run(playwright, checkCapabilityConfig));
   test('page.put roundtrip + set_public_url persists',
     ({ playwright }) => run(playwright, checkPage));
   test('corpus_get_entry returns a dumped raw entry',

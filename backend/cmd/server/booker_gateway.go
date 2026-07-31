@@ -17,78 +17,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	capconfigroutes "github.com/atmaxmoj/standmeet/internal/routes/capconfig"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
 	ownerroutes "github.com/atmaxmoj/standmeet/internal/routes/owner"
 )
 
-// policyDoc —— booker capstore "policy" collection 的落盘形状。json 键跟沙箱 booker 的
-// bookingPolicy 一致,owner 经此写、沙箱 booker 经 loadPolicy 读同一份文档。
-type policyDoc struct {
-	OwnerID           string   `json:"owner_id"`
-	WorkingHoursStart string   `json:"working_hours_start"`
-	WorkingHoursEnd   string   `json:"working_hours_end"`
-	AllowedWeekdays   []string `json:"allowed_weekdays"`
-	MinLeadDays       int32    `json:"min_lead_days"`
-	BufferMin         int32    `json:"buffer_min"`
-}
-
-// bookerPolicyStore —— admin /booking-policy 的存储后端:owner 的预约政策存 booker 的隔离
-// capstore(policy 单一来源;沙箱 booker 也读它)。核心不再有 booking_policy 表参与。
-type bookerPolicyStore struct{ store *capstore.Store }
-
-func newBookerPolicyStore(d *runtimeDeps) bookerPolicyStore {
-	return bookerPolicyStore{store: capstore.New(d.db)}
-}
-
-// Get —— owner 的政策;没设过 → 默认(跟沙箱 booker 的 defaultBookingPolicy 一致)。
-func (b bookerPolicyStore) Get(ctx context.Context, ownerID string) (owner.BookingPolicy, error) {
-	filter, ferr := json.Marshal(map[string]string{"owner_id": ownerID})
-	if ferr != nil {
-		return owner.BookingPolicy{}, fmt.Errorf("policy filter: %w", ferr)
-	}
-	recs, qerr := b.store.Query(ctx, bookerCapKind, bookerCapID, "policy", filter)
-	if qerr != nil {
-		return owner.BookingPolicy{}, fmt.Errorf("policy get: %w", qerr)
-	}
-	if len(recs) == 0 {
-		return owner.DefaultBookingPolicy(ownerID), nil
-	}
-	var doc policyDoc
-	if uerr := json.Unmarshal(recs[0], &doc); uerr != nil {
-		return owner.BookingPolicy{}, fmt.Errorf("policy decode: %w", uerr)
-	}
-	return owner.BookingPolicy{
-		OwnerID: ownerID, WorkingHoursStart: doc.WorkingHoursStart,
-		WorkingHoursEnd: doc.WorkingHoursEnd, AllowedWeekdays: doc.AllowedWeekdays,
-		MinLeadDays: doc.MinLeadDays, BufferMin: doc.BufferMin,
-	}, nil
-}
-
-// Set —— 覆盖 owner 的政策(单例:先删该 owner 旧文档,再插新的)。
-func (b bookerPolicyStore) Set(ctx context.Context, ownerID string, p *owner.BookingPolicy) error {
-	filter, ferr := json.Marshal(map[string]string{"owner_id": ownerID})
-	if ferr != nil {
-		return fmt.Errorf("policy filter: %w", ferr)
-	}
-	if _, derr := b.store.Delete(ctx, bookerCapKind, bookerCapID, "policy", filter); derr != nil {
-		return fmt.Errorf("policy clear: %w", derr)
-	}
-	doc, merr := json.Marshal(policyDoc{
-		OwnerID: ownerID, WorkingHoursStart: p.WorkingHoursStart,
-		WorkingHoursEnd: p.WorkingHoursEnd, AllowedWeekdays: p.AllowedWeekdays,
-		MinLeadDays: p.MinLeadDays, BufferMin: p.BufferMin,
-	})
-	if merr != nil {
-		return fmt.Errorf("policy encode: %w", merr)
-	}
-	if _, ierr := b.store.Insert(ctx, bookerCapKind, bookerCapID, "policy", doc); ierr != nil {
-		return fmt.Errorf("policy set: %w", ierr)
-	}
-	return nil
-}
+// 预约**策略**的读写不在这儿了 —— 它是 booker 自己的配置:字段和默认值声明在 booker 的
+// manifest(Config),值经通用的 capconfig 存进 booker 自己的隔离存储,沙箱经 capconfig.get
+// 读回。host 这一侧曾经有一份 policyDoc + bookerPolicyStore + 自己的默认值兜底,注释还写着
+// "跟沙箱 defaultBookingPolicy 一致" —— 实际不一致(host 到 18:00、缓冲 15;沙箱 17:00、缓冲 0)。
 
 // bookerCapID —— booker 的 capstore 归属(schema = mcp_calendar_book)。
 const bookerCapKind = capstore.KindMCP

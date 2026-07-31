@@ -20,11 +20,13 @@ import (
 
 const capCalendarBundle = "calendar.bundle"
 
-// CalendarOwnerStore —— owner 日历工具需要 booking policy/count/create
-// (CalendarStore) + booking 行存取 (CancelBookingStore)。凭据/代调走
-// CalendarProxy，不在 store 里。
+// CalendarOwnerStore —— 这个 cap 只剩 calendar.cancel_booking 一个工具,所以它只需要
+// 取一行预约 + 删一行。
+//
+// 曾经它还内嵌 owner.CalendarStore(policy/count/create)—— 但 policy 已经彻底归沙箱
+// (声明在 manifest 的 Config,值经 capconfig 走),host 不该再因为一个"取消"而认识
+// booking policy。
 type CalendarOwnerStore interface {
-	owner.CalendarStore
 	owner.CancelBookingStore
 }
 

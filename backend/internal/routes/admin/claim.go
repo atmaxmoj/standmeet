@@ -50,7 +50,9 @@ type Handlers struct {
 	ConnectorsAdmin   ConnectorsAdminDeps
 	InstanceAdmin     InstanceAdminDeps // 观测面：system / usage / stats.*
 	AppearanceAdmin   AppearanceAdminDeps
-	SecureCookie      bool
+	// CapabilityConfigAdmin —— 通用的能力配置面(取代每个能力一套手写路由)。
+	CapabilityConfigAdmin CapabilityConfigAdminDeps
+	SecureCookie          bool
 }
 
 // MountUnauthed 挂不需要 owner session 的 endpoint：claim / login。
@@ -100,8 +102,8 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountMarketplace(r)
 	h.MountConnectors(r)
 	h.MountCapabilities(r)
+	h.MountCapabilityConfig(r)
 	h.MountIPBans(r)
-	h.MountBookingPolicy(r)
 	h.MountBookings(r)
 	h.MountInstance(r)
 }

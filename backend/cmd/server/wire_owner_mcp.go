@@ -47,9 +47,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
 			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,
 		},
-		Booking: &ownercore.BookingOwnerDeps{
-			Repo: newCapstoreBookingStore(d), Owners: d.ownerRepo,
-		},
 		CodeDenials: d.codeDenialRepo,
 		PageContent: d.ownerRepo,
 		PublicURL:   owner.PublicURLDeps{Owners: d.ownerRepo},

@@ -35,21 +35,22 @@ type listSlotsInput struct {
 	StepMin     int
 }
 
-// loadPolicy —— 从 booker 自己的 capstore 取 owner policy;没设过 → 兜底默认。
+// loadPolicy —— 问 host 要本能力的配置。
+//
+// 值和默认值都来自**声明**(host manifest 里的 ConfigField),这儿不再有第二份默认值:
+// 以前这里自带 defaultBookingPolicy(),host 侧也有一份,两份已经飘了
+// (host 说工作到 18:00、缓冲 15 分钟,这儿按 17:00、缓冲 0)。
 func loadPolicy(ownerID string) (bookingPolicy, error) {
-	filter, merr := json.Marshal(map[string]string{"owner_id": ownerID})
-	if merr != nil {
-		return bookingPolicy{}, fmt.Errorf("policy filter: %w", merr)
-	}
-	recs, err := gwCapstoreQuery("policy", filter)
+	values, err := gwCapConfig(ownerID)
 	if err != nil {
 		return bookingPolicy{}, err
 	}
-	if len(recs) == 0 {
-		return defaultBookingPolicy(ownerID), nil
+	doc, merr := json.Marshal(values)
+	if merr != nil {
+		return bookingPolicy{}, fmt.Errorf("policy encode: %w", merr)
 	}
-	var p bookingPolicy
-	if uerr := json.Unmarshal(recs[0], &p); uerr != nil {
+	p := bookingPolicy{OwnerID: ownerID}
+	if uerr := json.Unmarshal(doc, &p); uerr != nil {
 		return bookingPolicy{}, fmt.Errorf("decode policy: %w", uerr)
 	}
 	return p, nil

@@ -100,22 +100,32 @@ export interface BookingPolicy {
   timezone: string;
 }
 
+// 预约策略是 booker 这个能力**自己声明**的配置（manifest 的 Config），面板经通用的
+// capability-config 口读写 —— 后端没有 /booking-policy 这种按能力名写死的路由了。
+// timezone 不在其中：那是 owner 的档案（换个能力也会用它解释"几点"），走 account。
+const BOOKER = 'calendar.book';
+
+interface ConfigField { key: string; value: unknown }
+
 export async function getBookingPolicy(
   request: APIRequestContext,
 ): Promise<BookingPolicy> {
-  const res = await request.get(`${BACKEND}/api/admin/booking-policy`);
+  const res = await request.get(
+    `${BACKEND}/api/admin/capabilities/${BOOKER}/config`);
   if (res.status() !== 200) throw new Error(`policy get: ${res.status()}`);
-  return await res.json() as BookingPolicy;
+  const body = await res.json() as { fields: ConfigField[] };
+  const out: Record<string, unknown> = {};
+  for (const f of body.fields) out[f.key] = f.value;
+  const me = await request.get(`${BACKEND}/api/admin/me`);
+  const owner = (await me.json() as { owner: { timezone: string } }).owner;
+  return { ...out, timezone: owner.timezone } as unknown as BookingPolicy;
 }
 
 export async function setBookingPolicy(
   request: APIRequestContext, csrf: string, patch: Partial<BookingPolicy>,
 ): Promise<void> {
-  const res = await request.patch(
-    `${BACKEND}/api/admin/booking-policy`,
-    { data: patch, headers: { 'X-Csrftoken': csrf } },
-  );
-  if (res.status() !== 200) throw new Error(`policy set: ${res.status()}`);
+  const status = await patchBookingPolicyStatus(request, csrf, patch);
+  if (status !== 200) throw new Error(`policy set: ${status}`);
 }
 
 // patchBookingPolicyStatus —— PATCH 并返回 HTTP 状态码(不断言成功)。给
@@ -123,9 +133,16 @@ export async function setBookingPolicy(
 export async function patchBookingPolicyStatus(
   request: APIRequestContext, csrf: string, patch: Partial<BookingPolicy>,
 ): Promise<number> {
+  const { timezone, ...fields } = patch as Record<string, unknown>;
+  if (timezone !== undefined) {
+    const tzRes = await request.patch(`${BACKEND}/api/admin/account/timezone`,
+      { data: { timezone }, headers: { 'X-Csrftoken': csrf } });
+    if (tzRes.status() !== 200) return tzRes.status();
+  }
+  if (Object.keys(fields).length === 0) return 200;
   const res = await request.patch(
-    `${BACKEND}/api/admin/booking-policy`,
-    { data: patch, headers: { 'X-Csrftoken': csrf } },
+    `${BACKEND}/api/admin/capabilities/${BOOKER}/config`,
+    { data: { values: fields }, headers: { 'X-Csrftoken': csrf } },
   );
   return res.status();
 }

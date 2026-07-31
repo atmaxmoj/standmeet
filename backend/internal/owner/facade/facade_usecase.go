@@ -5,11 +5,9 @@ import "github.com/atmaxmoj/standmeet/internal/owner/usecase"
 // 类型（实现:usecase）.
 type (
 	AIProviderDeps             = usecase.AIProviderDeps
-	CalendarStore              = usecase.CalendarStore
 	CancelBookingInput         = usecase.CancelBookingInput
 	CancelBookingStore         = usecase.CancelBookingStore
 	CancelOwnBookingInput      = usecase.CancelOwnBookingInput
-	CreateBookingInput         = usecase.CreateBookingInput
 	VisitorCancelDeps          = usecase.VisitorCancelDeps
 	AccountDeps                = usecase.AccountDeps
 	AllowedDomainsDeps         = usecase.AllowedDomainsDeps

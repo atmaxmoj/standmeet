@@ -27,12 +27,13 @@ interface RegistryListResp { capabilities: Cap[] }
 // (backend/internal/routes/dispatcher),由收口投影到 MCP 面。搬走一个,这里删一行。
 // 删空之后这个 golden 就翻面成边界断言:capreg 里**不该有任何** owner_only。
 //
-// 已搬走(→ dispatcher):ip_bans、domains、access_requests、skills、marketplace 的 bundle。
+// 已搬走(→ dispatcher):ip_bans、domains、access_requests、skills、marketplace、prompts、
+// mcp_servers、roles、capabilities、instance、appearance、account/me、byoai + ai_provider。
+// booking 的策略更进一步:它是 booker 这个外置能力自己的配置,经通用的 capability_config 口走。
 const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'owner.me', shape: 'owner_only', origin: 'builtin' },
   { id: 'codes.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'seo.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'corpus.raw.bundle', shape: 'owner_only', origin: 'builtin' },
@@ -46,8 +47,6 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'calendar.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'api_keys.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'connectors.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'booking.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'account.bundle', shape: 'owner_only', origin: 'builtin' },
 ];
 
 test.describe('能力归一化 · 【对外】自管理 MCP handles 黄金快照(本次不碰)', () => {

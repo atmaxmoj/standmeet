@@ -67,7 +67,6 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'page.update_handle', 'page.get', 'page.put', 'page.set_public_url',
   'page.pin', 'page.unpin',
   'calendar.list_slots', 'calendar.cancel_booking',
-  'booking.get_policy', 'booking.set_policy', 'bookings.list',
   'set_owner_css', 'appearance.get_css',
   // connectors
   'connectors.list', 'connectors.catalog', 'connectors.status',
@@ -78,13 +77,16 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'access_requests.list', 'access_requests.update', 'access_requests.approve',
   'ip_bans.list', 'ip_bans.add', 'ip_bans.remove',
   'domains.list', 'domains.add', 'domains.remove',
+  // 能力的可设置项走**通用**口（capability_config.*），不再是每个能力一组写死的工具：
+  // booking.get_policy / set_policy 就是那样来的，跟沙箱那份策略飘了。
+  'capability_config.list', 'capability_config.get', 'capability_config.set',
   'instance.status', 'instance.inference_usage', 'instance.corpus_growth',
   // corpus_graph 是**新填的缺口**：admin 一直有 GET /stats/graph，MCP 没有孪生，
   // 而且它连手写对照表里都没有一行 —— 棘轮从来看不见它。搬进收口后两个面都欠它。
   'instance.corpus_graph',
   'instance.activity', 'instance.jobs',
   'marketplace.search', 'marketplace.install',
-  'account.set_full_name', 'byoai.set', 'ai_provider.presets',
+  'account.set_full_name', 'account.set_timezone', 'byoai.set', 'ai_provider.presets',
   // api-key facade management (facade-directions.md; MCP-first)
   'api_keys.create', 'api_keys.list', 'api_keys.revoke', 'api_keys.update',
   'api_keys.list_denials', 'api_keys.add_denial', 'api_keys.remove_denial',

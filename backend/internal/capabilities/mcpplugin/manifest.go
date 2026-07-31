@@ -103,44 +103,6 @@ type OwnerTool struct {
 	InputSchema string
 }
 
-// ConfigField —— 插件的一个**可配置项**,同样是纯声明数据。
-//
-// 为什么必须有这一类:在此之前,一个能力想要"owner 能调的设置"是**没有路**的 ——
-// 能力能声明自己要哪个连接器(Requires)、能声明自己出哪些 owner 工具(OwnerTools),
-// 唯独不能声明"我有哪些可配置项"。于是 booker 的预约策略只能在 host 手写一整套:
-// 实体类型、默认值、capstore 读写、admin 路由、表单、还有一个 owner MCP 工具。
-// 手写的那份必然飘,而且已经飘了(host 说工作到 18:00、缓冲 15 分钟,沙箱按 17:00、缓冲 0)。
-//
-// 这跟 OwnerTools 那次补的是**同一个洞**:沙箱能力当时没法对 owner 出工具,于是 owner 侧被迫
-// 在 host 重写一遍。机制缺口造出重复,重复必然漂移。
-//
-// 补上之后,host 只做三件**通用**的事:按声明渲染表单、把 owner 填的值存进这个能力自己的
-// 隔离存储、读的时候拿声明的默认值兜底。host 不认识 "working_hours" 这种词。
-//
-// **默认值只有这一处。** 能力实现侧不该再有一份 defaultXxx() —— 那就是又一个副本。
-type ConfigField struct {
-	// Key —— 存储与回读用的稳定键(能力实现按这个键读)。
-	Key string
-	// Label —— 面板上显示的名字。
-	Label string
-	// Type —— 面板据此渲染:string / int / bool / time / string_list。
-	Type string
-	// Description —— 面板上的一行说明。
-	Description string
-	// Default —— 默认值的 JSON 字面量(`"17:00"` / `2` / `["mon","tue"]`)。
-	// owner 没设过时,读到的就是它。
-	Default string
-}
-
-// 配置项类型 —— 面板据此选控件,host 据此校验;能力不该发明表外的类型。
-const (
-	ConfigTypeString     = "string"
-	ConfigTypeInt        = "int"
-	ConfigTypeBool       = "bool"
-	ConfigTypeTime       = "time"
-	ConfigTypeStringList = "string_list"
-)
-
 // Manifest —— 一条校验通过的 MCP 插件声明。
 type Manifest struct {
 	Requires []string

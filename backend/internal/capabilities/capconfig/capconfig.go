@@ -107,7 +107,7 @@ func (s *Store) Set(
 	ctx context.Context, ownerID string,
 	decl []mcpplugin.ConfigField, values map[string]json.RawMessage,
 ) error {
-	if err := rejectUndeclared(decl, values); err != nil {
+	if err := check(decl, values); err != nil {
 		return err
 	}
 	doc, merr := buildDoc(ownerID, values)
@@ -123,9 +123,9 @@ func (s *Store) Set(
 	return nil
 }
 
-// rejectUndeclared —— 面板发来一个声明里没有的字段是调用方的错,不该悄悄存下来
-// 变成永远没人读的垃圾。
-func rejectUndeclared(decl []mcpplugin.ConfigField, values map[string]json.RawMessage) error {
+// check —— 写之前的全部把关:键必须是声明过的,值必须符合声明。
+// 声明外的键不该悄悄存下来变成永远没人读的垃圾。
+func check(decl []mcpplugin.ConfigField, values map[string]json.RawMessage) error {
 	declared := map[string]bool{}
 	for i := range decl {
 		declared[decl[i].Key] = true
@@ -135,7 +135,7 @@ func rejectUndeclared(decl []mcpplugin.ConfigField, values map[string]json.RawMe
 			return fmt.Errorf("%w: %q", ErrUnknownField, k)
 		}
 	}
-	return nil
+	return validate(decl, values)
 }
 
 // stored —— owner 显式设过的那些键。没设过 → 空表(不是错)。

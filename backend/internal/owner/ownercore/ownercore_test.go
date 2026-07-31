@@ -21,16 +21,15 @@ import (
 // 变长 = 又往这个跨域包里塞东西,评审时该被拦下。
 //
 // 已搬走(→ internal/routes/dispatcher):ip_bans、domains、access_requests、
-// skills、marketplace、prompts、mcp_servers、roles、capabilities、instance、appearance、
-// byoai + ai_provider(合成 settings)。
+// skills、marketplace、prompts、mcp_servers、roles、capabilities、instance、
+// appearance、booking(策略归 capconfig)、byoai + ai_provider(合成 settings)、account。
 var allOwnerCapIDs = []string{
-	"owner.me", "codes.bundle", "seo.bundle",
+	"codes.bundle", "seo.bundle",
 	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
 	"corpus.subjectivity.bundle", "chat.bundle",
 	"writings.bundle",
 	"custom_page.bundle", "page.bundle", "calendar.bundle",
 	"connectors.bundle",
-	"booking.bundle", "account.bundle",
 	"api_keys.bundle",
 }
 

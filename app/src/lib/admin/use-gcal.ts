@@ -53,9 +53,30 @@ export const BookingPolicySchema = z.object({
 });
 export type BookingPolicy = z.infer<typeof BookingPolicySchema>;
 
+// 预约策略是 booker 这个能力**自己声明**的配置，经通用的 capability-config 口读写；
+// 后端不再有按能力名写死的 /booking-policy。timezone 不在其中 —— 那是 owner 的档案
+// （换个能力也会用它解释"几点"），走 /me + /account/timezone。
+const BOOKER_CAP = 'calendar.book';
+
+const CapConfigSchema = z.object({
+  fields: z.array(z.object({ key: z.string(), value: z.unknown() })),
+});
+
+const MeTimezoneSchema = z.object({ owner: z.object({ timezone: z.string() }) });
+
+async function fetchPolicy(): Promise<BookingPolicy> {
+  const [cfg, me] = await Promise.all([
+    adminAPI.get(`/capabilities/${BOOKER_CAP}/config`, CapConfigSchema),
+    adminAPI.get('/me', MeTimezoneSchema),
+  ]);
+  const byKey: Record<string, unknown> = {};
+  for (const f of cfg.fields) byKey[f.key] = f.value;
+  return BookingPolicySchema.parse({ ...byKey, timezone: me.owner.timezone });
+}
+
 export const policyStore = createResourceStore<BookingPolicy>({
   name: 'gcal-policy',
-  fetcher: () => adminAPI.get('/booking-policy', BookingPolicySchema),
+  fetcher: fetchPolicy,
 });
 
 // ─── hook ──────────────────────────────────────────────────────
@@ -151,6 +172,12 @@ async function disconnect(): Promise<void> {
 }
 
 async function savePolicy(patch: Partial<BookingPolicy>): Promise<void> {
-  await adminAPI.patchVoid('/booking-policy', patch);
+  const { timezone, ...fields } = patch;
+  if (timezone !== undefined) {
+    await adminAPI.patchVoid('/account/timezone', { timezone });
+  }
+  if (Object.keys(fields).length > 0) {
+    await adminAPI.patchVoid(`/capabilities/${BOOKER_CAP}/config`, { values: fields });
+  }
   await policyStore.getState().refresh();
 }

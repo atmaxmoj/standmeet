@@ -242,8 +242,11 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		IPBansAdmin:       adminroutes.IPBansAdminDeps{Face: adminFace(deps.Dispatch)},
 		InstanceAdmin:     adminroutes.InstanceAdminDeps{Face: adminFace(deps.Dispatch)},
 		AppearanceAdmin:   adminroutes.AppearanceAdminDeps{Face: adminFace(deps.Dispatch)},
-		Log:               deps.Log,
-		SecureCookie:      deps.Admin.SecureCookie,
+		CapabilityConfigAdmin: adminroutes.CapabilityConfigAdminDeps{
+			Face: adminFace(deps.Dispatch),
+		},
+		Log:          deps.Log,
+		SecureCookie: deps.Admin.SecureCookie,
 	}
 }
 
