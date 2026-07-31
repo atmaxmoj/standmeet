@@ -170,6 +170,7 @@ func bookerManifest() mcpplugin.Manifest {
 				"required":["from_rfc3339","until_rfc3339","duration_min"]
 			}`,
 		}},
+		Config: bookerConfigFields(),
 		// 硬依赖 calendar connector：未连 → 经 global 单点闸隐藏（D-2，取代 booker
 		// SessionGate 里的 Connected() 自查）。smtp 不在此 —— 确认信是软依赖，没连也能
 		// book，只是 send_confirmation 那截不可用（per-tool，不 gate 整 cap）。
@@ -269,4 +270,40 @@ func keepResolvableDeps(
 		kept = append(kept, manifests[i])
 	}
 	return kept
+}
+
+// bookerConfigFields —— booker 预约策略的**声明**。owner 面板按它通用渲染,值存进 booker
+// 自己的隔离存储,沙箱经 capconfig.get 读回(默认值已兜好)。
+//
+// 这几个字段以前在 host 手写了一整套(entity 类型 + 默认值 + capstore 读写 + admin 路由 +
+// 表单 + 一个 owner MCP 工具),沙箱里还有自己的一份 —— 两份已经飘了:host 说工作到 18:00、
+// 缓冲 15 分钟,沙箱按 17:00、缓冲 0。**默认值现在只有这一处**。
+func bookerConfigFields() []mcpplugin.ConfigField {
+	return []mcpplugin.ConfigField{
+		{
+			Key: "working_hours_start", Label: "Working hours start",
+			Type: mcpplugin.ConfigTypeTime, Default: `"09:00"`,
+			Description: "Earliest time of day a visitor may book.",
+		},
+		{
+			Key: "working_hours_end", Label: "Working hours end",
+			Type: mcpplugin.ConfigTypeTime, Default: `"17:00"`,
+			Description: "Latest time of day a visitor may book.",
+		},
+		{
+			Key: "allowed_weekdays", Label: "Bookable weekdays",
+			Type: mcpplugin.ConfigTypeStringList, Default: `["mon","tue","wed","thu","fri"]`,
+			Description: "Three-letter lowercase weekdays that accept bookings.",
+		},
+		{
+			Key: "min_lead_days", Label: "Minimum lead time (days)",
+			Type: mcpplugin.ConfigTypeInt, Default: `2`,
+			Description: "How far ahead a booking must be made.",
+		},
+		{
+			Key: "buffer_min", Label: "Buffer between meetings (minutes)",
+			Type: mcpplugin.ConfigTypeInt, Default: `15`,
+			Description: "Gap kept clear either side of an existing event.",
+		},
+	}
 }

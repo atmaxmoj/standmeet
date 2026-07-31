@@ -147,6 +147,8 @@ components:
     in: connectors                        # built-in connector data (embedded manifest/spec/binding) + Load — own top-level dir, out of internal/
   cryptobox:
     in: internal/infra/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
+  capconfig:
+    in: internal/capabilities/capconfig                # 能力可配置项的通用存取（声明在 manifest，值落 capstore）；host 不认识任何字段含义
   capstore:
     in: internal/capabilities/capstore                 # #135 constrained-reachback: per-plugin 隔离 JSONB 存储（每 connector/mcp 一 schema）；leaf，只依赖 pgx
   retry:
@@ -171,6 +173,8 @@ components:
     in: internal/routes/connector         # socket 入站 API controller: connector.invoke (薄壳→connector.Slots)
   capstoreroutes:
     in: internal/routes/capstore          # socket 入站 API controller: capstore.* (薄壳→BoundStore)
+  capconfigroutes:
+    in: internal/routes/capconfig         # socket 入站 API controller: capconfig.get (薄壳→BoundConfig)
   ownerroutes:
     in: internal/routes/owner             # socket 入站 API controller: owner.meta (薄壳→OwnerMetaLookup)
   reportroutes:
@@ -260,6 +264,21 @@ deps:
   capstoreroutes:
     mayDependOn:
       - capsocket
+    anyVendorDeps: true
+
+  # capconfigroutes —— 沙箱经它读自己的配置（默认值已由声明兜好）。跟 capstoreroutes 同形：
+  # 薄壳，构造期绑死到某个 cap，沙箱填不了别人的。
+  capconfigroutes:
+    mayDependOn:
+      - capsocket
+    anyVendorDeps: true
+
+  # capconfig —— 能力配置的通用读写。只认 capstore（值往哪存）+ mcpplugin（声明长什么样）；
+  # 不认识任何一个业务字段。
+  capconfig:
+    mayDependOn:
+      - capstore
+      - mcpplugin
     anyVendorDeps: true
   ownerroutes:
     mayDependOn:
@@ -863,6 +882,8 @@ deps:
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
+      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
+      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
       - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
       - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
       # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField

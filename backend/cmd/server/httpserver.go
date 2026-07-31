@@ -206,7 +206,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AccessRequests:  adminroutes.AccessRequestsDeps{Face: adminFace(deps.Dispatch)},
 		HandleAdmin:     adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
 		PublicURLAdmin:  adminroutes.PublicURLDeps{PublicURL: deps.Admin.PublicURLAdmin},
-		AccountAdmin:    adminroutes.AccountDeps{Account: deps.Admin.AccountAdmin},
+		AccountAdmin:    adminroutes.AccountDeps{Face: adminFace(deps.Dispatch)},
 		Recovery:        deps.Admin.Recovery,
 		AIProviderAdmin: adminroutes.AIProviderDeps{Face: adminFace(deps.Dispatch)},
 		CustomPages:     deps.Admin.CustomPages,

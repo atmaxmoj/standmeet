@@ -126,6 +126,7 @@ func buildAdminDeps(d *runtimeDeps) AdminDeps {
 		Marketplace:  marketplace.SearchDeps{Client: d.marketplaceClient},
 		Calendar: adminroutes.CalendarAdminDeps{
 			Repo: newCapstoreBookingStore(d), Policy: newBookerPolicyStore(d),
+			Owners: d.ownerRepo,
 		},
 		Connectors: connectorsAdminDeps(d),
 		ApproveRequests: owner.ApproveRequestDeps{

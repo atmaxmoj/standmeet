@@ -29,4 +29,13 @@ type BookingLister interface {
 type CalendarAdminDeps struct {
 	Repo   BookingLister
 	Policy BookingPolicyStore
+	// Owners —— 预约策略要读/写 owner 的时区。以前是从 AccountAdmin 里借的,
+	// account 搬进出站收口之后那条路没了 —— 借别人的依赖本来就该是自己声明的。
+	Owners BookingOwnerProfile
+}
+
+// BookingOwnerProfile —— 预约策略需要的 owner 档案窄口(时区读写)。
+type BookingOwnerProfile interface {
+	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
+	UpdateProfileTimezone(ctx context.Context, ownerID, tz string) error
 }

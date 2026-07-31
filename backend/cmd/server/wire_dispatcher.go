@@ -32,6 +32,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Instance(newInstanceOps(d)),
 		dispatcher.Appearance(newAppearanceOps(d)),
 		dispatcher.SettingsResource(newSettingsOps(d)),
+		dispatcher.Account(newAccountOps(d)),
 	)
 }
 

@@ -72,7 +72,7 @@ func (h *Handlers) MountUnauthed(
 // MountAuthed 挂需要 owner session 的 endpoint。caller 负责先用
 // middleware.WithOwner 包这个 router。
 func (h *Handlers) MountAuthed(r chi.Router) {
-	r.Get("/me", h.me())
+	h.MountMe(r)
 	r.Post("/me/logout", h.logout())
 	r.Get("/csrf", h.csrfEndpoint())
 	r.Route("/keypairs", func(r chi.Router) { h.MountKeypairs(r) })

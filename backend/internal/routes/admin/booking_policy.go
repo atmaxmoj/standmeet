@@ -41,7 +41,7 @@ type policyPatchRequest struct {
 func (h *Handlers) getBookingPolicy() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		prof, oerr := h.AccountAdmin.Account.Owners.GetByID(r.Context(), ownerID)
+		prof, oerr := h.CalendarAdmin.Owners.GetByID(r.Context(), ownerID)
 		if oerr != nil {
 			h.Log.Error("get owner for policy", "err", oerr)
 			writeError(h.Log, w, serverErr())
@@ -167,7 +167,7 @@ func applyNumericPolicyFields(out *owner.BookingPolicy, patch *policyPatchReques
 func applyTimezoneUpdate(
 	r *http.Request, h *Handlers, w http.ResponseWriter, ownerID, tz string,
 ) {
-	owners := h.AccountAdmin.Account.Owners
+	owners := h.CalendarAdmin.Owners
 	if err := owners.UpdateProfileTimezone(r.Context(), ownerID, tz); err != nil {
 		h.Log.Error("update profile timezone", "err", err)
 		writeError(h.Log, w, serverErr())

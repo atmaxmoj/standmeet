@@ -13,9 +13,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capconfig"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	capconfigroutes "github.com/atmaxmoj/standmeet/internal/routes/capconfig"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
 	ownerroutes "github.com/atmaxmoj/standmeet/internal/routes/owner"
@@ -153,8 +156,35 @@ func wireBookerGateway(ctx context.Context, d *runtimeDeps) {
 	}
 	connectorroutes.RegisterInvokeOp(srv, d.connectorSlots)
 	capstoreroutes.RegisterOps(srv, bookerCapStore{store: store})
+	// 沙箱经它读自己的配置(声明的默认值已经兜好)。没有这条,沙箱就只能自己再写一份默认值。
+	capconfigroutes.RegisterOps(srv, bookerConfig(store))
 	ownerroutes.RegisterOwnerMetaOp(srv, d.ownerRepo)
 	go srv.Serve(ctx)
+}
+
+// bookerConfig —— 绑死到 booker 命名空间 + booker 声明的配置读口。
+func bookerConfig(store *capstore.Store) boundCapConfig {
+	return boundCapConfig{
+		cfg:  capconfig.New(store, bookerCapKind, bookerCapID),
+		decl: bookerManifest().Config,
+	}
+}
+
+// boundCapConfig —— capconfigroutes.BoundConfig 的实现:构造期绑死 (kind,id,声明),
+// 沙箱那侧只能问"我的配置",填不了别人的。
+type boundCapConfig struct {
+	cfg  *capconfig.Store
+	decl []mcpplugin.ConfigField
+}
+
+func (b boundCapConfig) Values(
+	ctx context.Context, ownerID string,
+) (map[string]json.RawMessage, error) {
+	values, err := b.cfg.Values(ctx, ownerID, b.decl)
+	if err != nil {
+		return nil, fmt.Errorf("booker config: %w", err)
+	}
+	return values, nil
 }
 
 // bookerQuotaStore —— adminroutes.BookingQuotaStore 的实现:admin 发码/改配额/列表读写 booker

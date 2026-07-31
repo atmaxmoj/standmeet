@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
@@ -39,21 +38,6 @@ var recoverErrCases = []apierr.Case{
 
 // generateRecovery —— authed:生成 recovery phrase(只存 hash)+ 明文邮给 owner。没配 mail
 // connector → Send 失败 → 502(引导去配)。
-func (h *Handlers) generateRecovery() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		if err := owner.GenerateRecovery(r.Context(), &h.Recovery, ownerID); err != nil {
-			h.Log.Warn("generate recovery", "err", err)
-			writeError(h.Log, w, apierr.Envelope{
-				Status:  http.StatusBadGateway,
-				Code:    "recovery_send_failed",
-				Message: "couldn't email the recovery phrase — verify your mail connector first",
-			})
-			return
-		}
-		writeJSON(h.Log, w, map[string]bool{"sent": true})
-	}
-}
 
 // recover —— public(login-guard'd):{email, phrase} 对上 → 发 owner session(登进去改密码)。
 func (h *Handlers) recover() http.HandlerFunc {
