@@ -2,7 +2,5 @@
 # their own. Shrink-only: move one resource into its domain, delete its line here.
 # Never add a line — adding one means a boundary grew a second version of
 # something the domain already says.
-internal/routes/dispatcher/res_capabilities.go
-internal/routes/dispatcher/res_capability_config.go
 internal/security/facade/facade.go
 internal/security/facade/facade_captcha.go

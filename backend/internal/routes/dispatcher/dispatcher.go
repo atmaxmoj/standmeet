@@ -44,8 +44,6 @@
 package dispatcher
 
 import (
-	"encoding/json"
-	"fmt"
 	"slices"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
@@ -53,16 +51,6 @@ import (
 
 // opsPerResourceHint —— 预分配用的每资源操作数估计(list/create/update/delete 这种规模)。
 const opsPerResourceHint = 4
-
-// marshalOut —— 序列化出站载荷。序列化失败是这台机器的问题(载荷是我们自己造的),
-// 所以包成普通错误上抛,不是 BadInput。
-func marshalOut(v any) (json.RawMessage, error) { //nolint:forbidigo // 出站载荷天然是任意形状
-	out, err := json.Marshal(v)
-	if err != nil {
-		return nil, fmt.Errorf("marshal result: %w", err)
-	}
-	return out, nil
-}
 
 // Op / Invoke 的定义在 internal/infra/facadeparity(域要能声明自己会做什么,而域不该
 // import 路由)。收口只是再导出它们 —— 见 vocabulary.go。

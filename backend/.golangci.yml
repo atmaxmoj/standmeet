@@ -290,6 +290,10 @@ linters:
       # the class from the faces that switch on it.
       - path: internal/[a-z0-9]+/ops/
         linters: [wrapcheck]
+      # The two plugin axes declare their own resources in the composition root
+      # (cmd/server/axis_*.go) — same job as a domain's ops package, same reason.
+      - path: cmd/server/axis_
+        linters: [wrapcheck]
       # Same echo-handler reasoning for middleware as for routes:
       # `func(c echo.Context) error` requires `return c.JSON(...)`.
       - path: internal/infra/middleware/

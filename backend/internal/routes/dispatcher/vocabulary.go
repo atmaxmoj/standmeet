@@ -38,6 +38,3 @@ var (
 	Coded  = fp.Coded
 	CodeOf = fp.CodeOf
 )
-
-// emptyArgsSchema —— 不收参数的 op 的入参 schema。还没搬进域的那两个资源在用,搬完就消失。
-var emptyArgsSchema = fp.NoArgs

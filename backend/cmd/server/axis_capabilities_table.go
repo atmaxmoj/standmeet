@@ -1,8 +1,8 @@
-// wire_disp_capabilities.go —— "访客能用什么"这张表的装配 → 出站收口的窄口。
+// axis_capabilities_table.go —— "访客能用什么"这张表怎么装出来(声明在 axis_capabilities.go)。
 //
 // 这张表要读四处:能力注册表(有哪些能力 + 它们的 origin)、capability_settings
 // (owner 关掉了哪些)、owner 自己的 skill、连接器槽(日历 / 邮件连上没有)。
-// 这个跨四处的编排属于组装根 —— 收口只要一句"给我这张表"。
+// 两根插件轴在这一侧,所以这段跨四处的编排也在这一侧。
 
 package main
 
@@ -13,8 +13,8 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
 // connector kind 的稳定行 id(可关不可删 —— 断开而不是删掉)。
@@ -45,9 +45,7 @@ type capabilityFacts struct {
 	mail     bool
 }
 
-func (a capabilityOps) List(
-	ctx context.Context, ownerID string,
-) ([]dispatcher.CapabilityRow, error) {
+func (a capabilityOps) List(ctx context.Context, ownerID string) ([]capabilityRow, error) {
 	facts, err := a.load(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("load capability facts: %w", err)
@@ -75,8 +73,7 @@ func (a capabilityOps) SetEnabled(ctx context.Context, ownerID, id string, enabl
 // Delete —— 只有 owner 自己写的 skill 可删。注册表能力(builtin/managed)和 connector 行都拒。
 func (a capabilityOps) Delete(ctx context.Context, ownerID, id string) error {
 	if !a.deletable(id) {
-		//nolint:wrapcheck // 类别错误原样上抛
-		return dispatcher.BadInput("this capability is built in and cannot be deleted")
+		return fp.BadInput("this capability is built in and cannot be deleted")
 	}
 	if err := a.skills.Delete(ctx, ownerID, id); err != nil {
 		return fmt.Errorf("delete owner skill: %w", err)
@@ -110,16 +107,16 @@ func (a capabilityOps) categoryConnected(ctx context.Context, ownerID, category 
 // registryRows —— 注册表里**面向访客**的能力各一行。
 //
 // owner-only 的不列:owner-enable 闸只作用于访客装配,给它们放一个开关,那个开关什么都不做。
-func (a capabilityOps) registryRows(facts *capabilityFacts) []dispatcher.CapabilityRow {
+func (a capabilityOps) registryRows(facts *capabilityFacts) []capabilityRow {
 	caps := a.registry.List()
-	out := make([]dispatcher.CapabilityRow, 0, len(caps))
+	out := make([]capabilityRow, 0, len(caps))
 	for _, c := range caps {
 		if c.Shape() == capreg.ShapeOwnerOnly {
 			continue
 		}
 		id := c.ID()
 		origin, _ := a.registry.OriginOf(id)
-		out = append(out, dispatcher.CapabilityRow{
+		out = append(out, capabilityRow{
 			ID: id, Title: capabilityTitleOf(c), Origin: string(origin), Kind: "capability",
 			Enabled: !facts.disabled[id], Deletable: origin.Deletable(),
 			Dependency: dependencyOf(id, facts),
@@ -143,32 +140,30 @@ func capabilityTitleOf(c capreg.Capability) string {
 }
 
 // dependencyOf —— 这个能力等的是哪个连接器,连上没有。没有依赖返 nil。
-func dependencyOf(id string, facts *capabilityFacts) *dispatcher.CapabilityDependency {
+func dependencyOf(id string, facts *capabilityFacts) *capabilityDependency {
 	switch id {
 	case "calendar.book":
-		return &dispatcher.CapabilityDependency{Name: "Google Calendar", Connected: facts.gcal}
+		return &capabilityDependency{Name: "Google Calendar", Connected: facts.gcal}
 	case "mail.send":
-		return &dispatcher.CapabilityDependency{Name: "Mail", Connected: facts.mail}
+		return &capabilityDependency{Name: "Mail", Connected: facts.mail}
 	default:
 		return nil
 	}
 }
 
 // connectorSlotRows —— 平台托管的连接器槽各一行。可关不可删(断开,不是删掉)。
-func connectorSlotRows(facts *capabilityFacts) []dispatcher.CapabilityRow {
+func connectorSlotRows(facts *capabilityFacts) []capabilityRow {
 	managed := string(capreg.OriginManaged)
-	return []dispatcher.CapabilityRow{
+	return []capabilityRow{
 		{
 			ID: connectorGCalRowID, Origin: managed, Kind: "connector",
 			Enabled: facts.gcal, Deletable: false,
-			Dependency: &dispatcher.CapabilityDependency{
-				Name: "Google Calendar", Connected: facts.gcal,
-			},
+			Dependency: &capabilityDependency{Name: "Google Calendar", Connected: facts.gcal},
 		},
 		{
 			ID: connectorMailRowID, Origin: managed, Kind: "connector",
 			Enabled: facts.mail, Deletable: false,
-			Dependency: &dispatcher.CapabilityDependency{Name: "SMTP", Connected: facts.mail},
+			Dependency: &capabilityDependency{Name: "SMTP", Connected: facts.mail},
 		},
 	}
 }
@@ -177,14 +172,14 @@ func connectorSlotRows(facts *capabilityFacts) []dispatcher.CapabilityRow {
 //
 // enabled 读的是 **skill 自己**的全局开关(skill runner 真读的那个),不是
 // capability_settings —— skill 不是注册表能力,别拿 owner-enable 闸的表当它的真值。
-func ownerSkillRows(facts *capabilityFacts) []dispatcher.CapabilityRow {
-	out := make([]dispatcher.CapabilityRow, 0, len(facts.skills))
+func ownerSkillRows(facts *capabilityFacts) []capabilityRow {
+	out := make([]capabilityRow, 0, len(facts.skills))
 	for i := range facts.skills {
 		s := &facts.skills[i]
 		if s.IsBuiltin {
 			continue // 内建 skill 不算 owner-origin,不可删
 		}
-		out = append(out, dispatcher.CapabilityRow{
+		out = append(out, capabilityRow{
 			ID: s.ID, Origin: string(capreg.OriginOwner), Kind: "skill",
 			Enabled: s.Enabled, Deletable: true,
 		})

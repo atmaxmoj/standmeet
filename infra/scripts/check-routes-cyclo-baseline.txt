@@ -21,8 +21,4 @@ capload toolRequires
 capload toolUIHTML
 capload wantsWorkspace
 capload wrapMCPAppTools
-dispatcher capabilitiesDelete
-dispatcher capabilitiesSetEnabled
-dispatcher capabilityConfigGet
-dispatcher capabilityConfigSet
 mcphandle runCapabilityHandler

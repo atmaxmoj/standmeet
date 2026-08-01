@@ -1,6 +1,6 @@
-// wire_disp_capability_config.go —— 任意能力的可设置项 → 出站收口的窄口。
+// axis_capability_config_store.go —— 任意能力的可设置项怎么读写(声明在 axis_capability_config.go)。
 //
-// 组装根在这儿把两样东西对上:能力的**声明**(manifest 的 Config)和它**自己的隔离存储**。
+// 这儿把两样东西对上:能力的**声明**(manifest 的 Config)和它**自己的隔离存储**。
 // 除此之外它什么都不知道 —— 没有一个字段名是写死的,加一个可配置项只需要在 manifest 里加一行。
 
 package main
@@ -15,8 +15,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capconfig"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
-	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
+
+// configField —— 一个配置项的声明 + 当前值。Value / Default 是 JSON 字面量;
+// Overridden=false 时两者相同。
+type configField struct {
+	Key         string
+	Label       string
+	Type        string
+	Description string
+	Value       string
+	Default     string
+	Overridden  bool
+}
 
 type capConfigOps struct {
 	store *capstore.Store
@@ -45,9 +57,7 @@ func (a capConfigOps) Configurable(_ context.Context) []string {
 	return out
 }
 
-func (a capConfigOps) Get(
-	ctx context.Context, ownerID, capID string,
-) ([]dispatcher.ConfigField, error) {
+func (a capConfigOps) Get(ctx context.Context, ownerID, capID string) ([]configField, error) {
 	b, err := a.bind(capID)
 	if err != nil {
 		return nil, err
@@ -56,9 +66,9 @@ func (a capConfigOps) Get(
 	if gerr != nil {
 		return nil, fmt.Errorf("capability config get: %w", gerr)
 	}
-	out := make([]dispatcher.ConfigField, 0, len(fields))
+	out := make([]configField, 0, len(fields))
 	for i := range fields {
-		out = append(out, dispatcher.ConfigField{
+		out = append(out, configField{
 			Key: fields[i].Key, Label: fields[i].Label, Type: fields[i].Type,
 			Description: fields[i].Description, Value: fields[i].Value,
 			Default: fields[i].Default, Overridden: fields[i].Overridden,
@@ -76,8 +86,7 @@ func (a capConfigOps) Set(
 	}
 	if serr := b.store.Set(ctx, ownerID, b.decl, values); serr != nil {
 		if isCapConfigCallerErr(serr) {
-			//nolint:wrapcheck // 类别错误原样上抛
-			return dispatcher.BadInput(serr.Error())
+			return fp.BadInput(serr.Error())
 		}
 		return fmt.Errorf("capability config set: %w", serr)
 	}
@@ -100,8 +109,7 @@ type boundConfig struct {
 func (a capConfigOps) bind(capID string) (boundConfig, error) {
 	decl, ok := a.decls[capID]
 	if !ok {
-		//nolint:wrapcheck // 类别错误原样上抛
-		return boundConfig{}, dispatcher.NotFound("no such configurable capability: " + capID)
+		return boundConfig{}, fp.NotFound("no such configurable capability: " + capID)
 	}
 	return boundConfig{decl: decl, store: capconfig.New(a.store, capstore.KindMCP, capID)}, nil
 }
