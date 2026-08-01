@@ -34,15 +34,12 @@ dispatcher codesSetCorpusDenials
 dispatcher codesSetGhostEvidence
 dispatcher codesSetWaypoints
 dispatcher conversationsGet
-dispatcher domainsMutate
 dispatcher instanceCorpusGraph
-dispatcher ipBansRemove
 dispatcher marketplaceInstall
 dispatcher marketplaceSearch
 dispatcher mcpServersDelete
 dispatcher parseAccessRequestUpdate
 dispatcher parseGrantDep
-dispatcher parseIPBanAdd
 dispatcher parseMCPServerCreate
 dispatcher parsePromptCreate
 dispatcher parseSkillCreate

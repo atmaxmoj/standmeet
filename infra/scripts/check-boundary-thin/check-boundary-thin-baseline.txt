@@ -4,7 +4,6 @@
 # something the domain already says.
 internal/routes/dispatcher/res_access_requests.go
 internal/routes/dispatcher/res_account.go
-internal/routes/dispatcher/res_appearance.go
 internal/routes/dispatcher/res_capabilities.go
 internal/routes/dispatcher/res_capability_config.go
 internal/routes/dispatcher/res_codes.go
@@ -21,7 +20,6 @@ internal/routes/dispatcher/res_marketplace.go
 internal/routes/dispatcher/res_mcp_servers.go
 internal/routes/dispatcher/res_page.go
 internal/routes/dispatcher/res_page_ops.go
-internal/routes/dispatcher/res_prompts.go
 internal/routes/dispatcher/res_roles.go
 internal/routes/dispatcher/res_roles_ops.go
 internal/routes/dispatcher/res_seo.go

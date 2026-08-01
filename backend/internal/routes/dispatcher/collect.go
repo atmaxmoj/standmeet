@@ -17,6 +17,8 @@ import (
 type Deps struct {
 	Corpus         corpus.Deps
 	AllowedDomains owner.AllowedDomainsDeps
+	OwnerCSS       owner.CSSStore
+	Prompts        owner.PromptsDeps
 	BannedIPs      *security.BannedIPRepo
 }
 
@@ -26,5 +28,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "subjectivity", Ops: corpus.SubjectivityOps(d.Corpus)},
 		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},
 		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
+		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS)},
+		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},
 	}
 }

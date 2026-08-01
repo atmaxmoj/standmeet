@@ -8,5 +8,7 @@ import "github.com/atmaxmoj/standmeet/internal/owner/ops"
 
 // 操作组（实现:ops）.
 var (
-	DomainOps = ops.Domains
+	AppearanceOps = ops.Appearance
+	DomainOps     = ops.Domains
+	PromptOps     = ops.Prompts
 )
