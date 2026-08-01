@@ -11,6 +11,7 @@ type (
 	AIPreset          = ops.AIPreset
 	OpsAccountDeps    = ops.AccountDeps
 	OpsAccessRequests = ops.AccessRequestsDeps
+	OpsPage           = ops.PageOpsDeps
 	OpsSEO            = ops.SEODeps
 	SettingsDeps      = ops.SettingsDeps
 )
@@ -22,6 +23,7 @@ var (
 	AppearanceOps    = ops.Appearance
 	CustomPageOps    = ops.CustomPages
 	DomainOps        = ops.Domains
+	PageOps          = ops.Page
 	PromptOps        = ops.Prompts
 	SEOOps           = ops.SEO
 	SettingsOps      = ops.Settings

@@ -23,13 +23,14 @@ type Deps struct {
 	Corpus         corpus.Deps
 	Writings       corpus.OpsWritingsDeps
 	Instance       stats.InstanceDeps
+	Page           owner.OpsPage
 	Account        owner.OpsAccountDeps
 	Marketplace    marketplace.InstallSkillDeps
 	SEO            owner.OpsSEO
 	CustomPages    owner.CustomPageDeps
-	OwnerCSS       owner.CSSStore
 	Skills         marketplace.SkillsDeps
 	MCPServers     marketplace.MCPServersDeps
+	OwnerCSS       owner.CSSStore
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
 	Prompts        owner.PromptsDeps
@@ -55,5 +56,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "codes", Ops: access.CodeOps(d.Codes)},
 		{Name: "access_requests", Ops: owner.AccessRequestOps(d.AccessRequests)},
 		{Name: "seo", Ops: owner.SEOOps(d.SEO)},
+		{Name: "page", Ops: owner.PageOps(d.Page)},
 	}
 }

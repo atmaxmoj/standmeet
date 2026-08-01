@@ -787,6 +787,7 @@ deps:
   ownerops:
     mayDependOn:
       - ownerentity
+      - ownerrepo
       - ownerusecase
       - facadeparity
       - apierr
