@@ -9,16 +9,22 @@ package dispatcher
 
 import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 )
 
 // Deps —— 各域对外声明操作时需要的依赖包,由组装根填。
 type Deps struct {
-	Corpus corpus.Deps
+	Corpus         corpus.Deps
+	AllowedDomains owner.AllowedDomainsDeps
+	BannedIPs      *security.BannedIPRepo
 }
 
-// Collect —— 把各域声明的操作汇成资源清单。
-func Collect(d Deps) []Resource {
+// Collect —— 把各域声明的操作汇成资源清单。一个资源一行。
+func Collect(d *Deps) []Resource {
 	return []Resource{
 		{Name: "subjectivity", Ops: corpus.SubjectivityOps(d.Corpus)},
+		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},
+		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
 	}
 }

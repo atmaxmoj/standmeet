@@ -83,6 +83,8 @@ components:
     in: internal/security/ban             # security 内部:IP 封禁 entity+repo(facade 后的兄弟子包)
   securitycaptcha:
     in: internal/security/captcha         # security 内部:captcha Verifier+turnstile(facade 后的兄弟子包)
+  securityops:
+    in: internal/security/ops             # security 内部:本域对外能做什么的声明
   jobsmodel:
     in: internal/owner/jobs/jobsmodel                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
   conversation:
@@ -119,6 +121,8 @@ components:
     in: internal/owner/repo          # owner guts: 仓储（over db + pgstore + cryptobox）
   ownerusecase:
     in: internal/owner/usecase       # owner guts: 用例/编排
+  ownerops:
+    in: internal/owner/ops           # owner guts: 本域对外能做什么的声明
   sandbox:
     in: internal/capabilities/sandbox                  # owner-curated skill script 在 docker container 里跑
   capabilities:
@@ -631,10 +635,17 @@ deps:
     mayDependOn:
       - httpx
     anyVendorDeps: true
+  # securityops —— 本域对外的操作声明（id/schema/reach/实现）。只认本域的实现 + 中立词汇。
+  securityops:
+    mayDependOn:
+      - securityban
+      - facadeparity
+    anyVendorDeps: true
   security:
     mayDependOn:
       - securityban
       - securitycaptcha
+      - securityops
       - pgstore
     anyVendorDeps: true
 
@@ -746,6 +757,15 @@ deps:
       - ownerentity
       - ownerrepo
       - ownerusecase
+      - ownerops
+    anyVendorDeps: true
+  # ownerops —— 本域对外的操作声明。只认本域的用例 + 中立词汇,不认识任何面。
+  ownerops:
+    mayDependOn:
+      - ownerentity
+      - ownerusecase
+      - facadeparity
+      - apierr
     anyVendorDeps: true
   ownerentity:
     mayDependOn: []

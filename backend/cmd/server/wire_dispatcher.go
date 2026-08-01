@@ -13,6 +13,7 @@ package main
 
 import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
@@ -23,10 +24,12 @@ import (
 // 声明和实现被摊在收口和这里,每个资源一个 wire_disp_*.go。它们正在一个个搬回域里,
 // 搬完一个就从这里消失一行。
 func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
-	resources := dispatcher.Collect(dispatcher.Deps{Corpus: corpusDepsOf(d)})
+	resources := dispatcher.Collect(&dispatcher.Deps{
+		Corpus:         corpusDepsOf(d),
+		BannedIPs:      d.bannedIPRepo,
+		AllowedDomains: owner.AllowedDomainsDeps{Instance: d.instanceRepo},
+	})
 	return dispatcher.New(append(resources,
-		dispatcher.IPBans(newIPBanOps(d)),
-		dispatcher.Domains(newDomainOps(d)),
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
 		dispatcher.Skills(newSkillOps(d)),
 		dispatcher.Marketplace(newMarketOps(d)),
