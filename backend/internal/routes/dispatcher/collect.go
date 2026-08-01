@@ -18,16 +18,17 @@ import (
 
 // Deps —— 各域对外声明操作时需要的依赖包,由组装根填。
 type Deps struct {
-	Corpus         corpus.Deps
+	AccessRequests owner.OpsAccessRequests
 	Codes          access.OpsCodes
+	Corpus         corpus.Deps
 	Writings       corpus.OpsWritingsDeps
 	Instance       stats.InstanceDeps
 	Account        owner.OpsAccountDeps
 	Marketplace    marketplace.InstallSkillDeps
 	MCPServers     marketplace.MCPServersDeps
-	Skills         marketplace.SkillsDeps
 	CustomPages    owner.CustomPageDeps
 	OwnerCSS       owner.CSSStore
+	Skills         marketplace.SkillsDeps
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
 	Prompts        owner.PromptsDeps
@@ -51,5 +52,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "skills", Ops: marketplace.SkillOps(d.Skills)},
 		{Name: "marketplace", Ops: marketplace.MarketplaceOps(d.Marketplace)},
 		{Name: "codes", Ops: access.CodeOps(d.Codes)},
+		{Name: "access_requests", Ops: owner.AccessRequestOps(d.AccessRequests)},
 	}
 }

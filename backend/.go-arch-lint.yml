@@ -790,6 +790,10 @@ deps:
       - ownerusecase
       - facadeparity
       - apierr
+      # access_requests 横跨两域：数据在 access（经它的正门），批准闭环在本域。
+      - access
+      # 出站通道没配好要能说清是"去配一下"，那个哨兵在连接器消费侧。
+      - connectorconsumer
     anyVendorDeps: true
   ownerentity:
     mayDependOn: []

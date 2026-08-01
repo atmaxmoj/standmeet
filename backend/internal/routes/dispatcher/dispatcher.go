@@ -64,17 +64,6 @@ func marshalOut(v any) (json.RawMessage, error) { //nolint:forbidigo // 出站�
 	return out, nil
 }
 
-// decodeOptional —— 解可选入参:空 args 合法(全是可选字段的读操作),解不动才是调用方给错了。
-func decodeOptional(raw json.RawMessage, into any) error { //nolint:forbidigo // 解到任意结构
-	if len(raw) == 0 {
-		return nil
-	}
-	if err := json.Unmarshal(raw, into); err != nil {
-		return BadInput("invalid arguments: " + err.Error())
-	}
-	return nil
-}
-
 // Op / Invoke 的定义在 internal/infra/facadeparity(域要能声明自己会做什么,而域不该
 // import 路由)。收口只是再导出它们 —— 见 vocabulary.go。
 

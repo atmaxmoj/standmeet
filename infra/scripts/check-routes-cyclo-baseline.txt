@@ -22,13 +22,11 @@ capload toolUIHTML
 capload wantsWorkspace
 capload wrapMCPAppTools
 dispatcher (seoEntryArgs).validate
-dispatcher accessRequestsApprove
 dispatcher capabilitiesDelete
 dispatcher capabilitiesSetEnabled
 dispatcher capabilityConfigGet
 dispatcher capabilityConfigSet
 dispatcher conversationsGet
-dispatcher parseAccessRequestUpdate
 dispatcher rolesSetDockButtons
 dispatcher seoSetEntry
 dispatcher seoUpdateSettings

@@ -65,6 +65,16 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		Marketplace: marketplace.InstallSkillDeps{
 			Marketplace: d.marketplaceClient, Skills: d.skillRepo,
 		},
+		// 申请这份数据在 access,批准的闭环(发码 + 发信 + 置 replied)在 owner。
+		AccessRequests: owner.OpsAccessRequests{
+			Requests: access.RequestsDeps{
+				Repo: d.accessRequestRepo, Owners: soleOwnerLookup{owners: d.ownerRepo},
+			},
+			Approve: owner.ApproveRequestDeps{
+				Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
+				Owners: d.ownerRepo, Proxy: outboundSender(d),
+			},
+		},
 		Codes: access.OpsCodes{
 			Codes: access.CodesDeps{
 				Codes: d.codeRepo, Roles: d.roleRepo, Sessions: d.visitorStore,
@@ -81,7 +91,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		},
 	})
 	return dispatcher.New(append(resources,
-		dispatcher.AccessRequests(newAccessRequestOps(d)),
 		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),
