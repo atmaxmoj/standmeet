@@ -16,6 +16,7 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // buildDispatcher —— 组装出站收口。
@@ -53,6 +54,10 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 			},
 			Log: d.log,
 		},
+		Instance: stats.InstanceDeps{
+			System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
+			Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
+		},
 	})
 	return dispatcher.New(append(resources,
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
@@ -61,7 +66,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.MCPServers(newMCPServerOps(d)),
 		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
-		dispatcher.Instance(newInstanceOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),
 		dispatcher.Codes(newCodeOps(d), newCodeOps(d)),
 		dispatcher.SEO(newSEOOps(d)),

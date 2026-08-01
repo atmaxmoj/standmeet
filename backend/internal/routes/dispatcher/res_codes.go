@@ -24,6 +24,20 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
+// emptyArgsSchema / formatOptionalTime —— **迁移期**的两个共用件,还没搬进域的那几个资源
+// 在用。它们放在这个已经进了 check-boundary-thin 基线的文件里,是为了跟着最后一个资源一起
+// 消失 —— 谁搬走 codes,谁就得把它们一并处理,门会逼着做。
+var emptyArgsSchema = json.RawMessage(`{"type":"object","properties":{}}`)
+
+// formatOptionalTime —— nil 保持 null(调用方据此显示"没有")。
+func formatOptionalTime(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.UTC().Format(time.RFC3339)
+	return &s
+}
+
 // CodeStore —— 码本身的读写(ACL 面在 CodeACLStore:一张码的**身份**和它的**权限收窄**
 // 是两件事,接口也分开 —— 挤成一个 11 方法的口子,读的人就看不出这条线在哪)。
 type CodeStore interface {

@@ -11,12 +11,14 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // Deps —— 各域对外声明操作时需要的依赖包,由组装根填。
 type Deps struct {
 	Corpus         corpus.Deps
 	Writings       corpus.OpsWritingsDeps
+	Instance       stats.InstanceDeps
 	Account        owner.OpsAccountDeps
 	OwnerCSS       owner.CSSStore
 	CustomPages    owner.CustomPageDeps
@@ -38,5 +40,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "account", Ops: owner.AccountOps(d.Account)},
 		{Name: "custom_pages", Ops: owner.CustomPageOps(d.CustomPages)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
+		{Name: "instance", Ops: stats.InstanceOps(d.Instance)},
 	}
 }

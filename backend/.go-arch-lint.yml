@@ -77,6 +77,8 @@ components:
     in: internal/stats/entity             # stats guts: 读模型值对象
   statsrepo:
     in: internal/stats/repo               # stats guts: 查询仓储（over db + pgstore）
+  statsops:
+    in: internal/stats/ops                # stats guts: 本域对外能做什么的声明
   security:
     in: internal/security/facade          # #135: 请求级防护域 facade (banned_ip / captcha)；域外只 import 这里
   securityban:
@@ -614,6 +616,14 @@ deps:
     mayDependOn:
       - statsentity
       - statsrepo
+      - statsops
+    anyVendorDeps: true
+  # statsops —— 本域对外的操作声明。只认本域的实现 + 中立词汇,不认识任何面。
+  statsops:
+    mayDependOn:
+      - statsentity
+      - statsrepo
+      - facadeparity
     anyVendorDeps: true
   statsentity:
     mayDependOn: []
