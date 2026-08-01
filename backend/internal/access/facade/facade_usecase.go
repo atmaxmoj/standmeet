@@ -54,5 +54,8 @@ const (
 var (
 	ErrAPIKeyLabelRequired    = usecase.ErrAPIKeyLabelRequired
 	ErrAPIKeyRoleRequired     = usecase.ErrAPIKeyRoleRequired
+	ErrRefMCPServerNotFound   = usecase.ErrRefMCPServerNotFound
+	ErrRefPromptNotFound      = usecase.ErrRefPromptNotFound
+	ErrRefSkillNotFound       = usecase.ErrRefSkillNotFound
 	ErrVisitorSessionNotFound = usecase.ErrVisitorSessionNotFound
 )

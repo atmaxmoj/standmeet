@@ -26,5 +26,4 @@ dispatcher capabilitiesSetEnabled
 dispatcher capabilityConfigGet
 dispatcher capabilityConfigSet
 dispatcher conversationsGet
-dispatcher rolesSetDockButtons
 mcphandle runCapabilityHandler

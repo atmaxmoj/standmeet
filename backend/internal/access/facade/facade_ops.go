@@ -10,7 +10,11 @@ import "github.com/atmaxmoj/standmeet/internal/access/ops"
 type (
 	CodeExtras = ops.CodeExtras
 	OpsCodes   = ops.CodesDeps
+	OpsRoles   = ops.RolesDeps
 )
 
 // 操作组（实现:ops）.
-var CodeOps = ops.Codes
+var (
+	CodeOps = ops.Codes
+	RoleOps = ops.Roles
+)

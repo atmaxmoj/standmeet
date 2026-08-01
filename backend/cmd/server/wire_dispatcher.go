@@ -62,13 +62,13 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		SEO:            seoDepsOf(d),
 		AccessRequests: accessRequestDepsOf(d),
 		Codes:          codeDepsOf(d),
+		Roles:          roleDepsOf(d),
 		Instance: stats.InstanceDeps{
 			System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
 			Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
 		},
 	})
 	return dispatcher.New(append(resources,
-		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),
 		dispatcher.Conversations(newConversationOps(d)),
@@ -113,6 +113,20 @@ func accessRequestDepsOf(d *runtimeDeps) owner.OpsAccessRequests {
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Proxy: outboundSender(d),
 		},
+	}
+}
+
+// roleDepsOf —— ValidCapabilityIDs 存的是**闭包**:能力注册表要等 registerAgentSkills
+// 跑完才齐,而收口在那之前就建好了。存快照的话 dock 按钮会拿到一张空的合法能力表。
+func roleDepsOf(d *runtimeDeps) access.OpsRoles {
+	return access.OpsRoles{
+		Roles: access.RolesDeps{
+			Roles: d.roleRepo,
+			Refs: roleRefValidator{
+				prompts: d.promptRepo, skills: d.skillRepo, servers: d.mcpServerRepo,
+			},
+		},
+		ValidCapabilityIDs: func() []string { return d.agentSkills.VisitorCapabilityIDs() },
 	}
 }
 

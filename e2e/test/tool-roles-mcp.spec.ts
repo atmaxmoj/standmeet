@@ -4,7 +4,7 @@
 // Tools: role_create / role_list / role_delete。publicRow builtin
 // 不可删 (usecase 拦截，MCP 返 isError)。
 
-import type { Playwright } from '@playwright/test';
+import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { test, expect } from '@/fixtures/test';
 
@@ -35,17 +35,50 @@ async function seedRolesMCP(
   return { sid, apiToken };
 }
 
-interface RoleCreateResp { role_id: string; name: string }
+// 一个 role 在每个面上是同一份形状(id / skill_ids / mcp_server_ids)——
+// 归一化前 MCP 那份是另一套字段名(role_id / skill_count / mcp_server_count)。
+interface RoleCreateResp { id: string; name: string }
 interface RoleRow {
-  role_id: string;
+  id: string;
   name: string;
   description?: string;
   corpus_uris: string[];
-  skill_count: number;
-  mcp_server_count: number;
+  skill_ids: string[];
+  mcp_server_ids: string[];
   is_builtin?: boolean;
 }
 interface OK { ok: boolean }
+
+// expectDeleteRemovesIt —— 建一个再删掉,列表里就没了。
+async function expectDeleteRemovesIt(
+  request: APIRequestContext, apiToken: string, sid: string,
+): Promise<void> {
+  const created = await callTool<RoleCreateResp>(
+    request, apiToken, sid, 'role_create',
+    { name: 'role-to-delete', corpus_uris: [] },
+  );
+  const del = await callTool<OK>(
+    request, apiToken, sid, 'role_delete', { role_id: created.id },
+  );
+  expect(del.ok).toBe(true);
+  const list = await callTool<RoleRow[]>(request, apiToken, sid, 'role_list', {});
+  expect(list.find((r) => r.id === created.id)).toBeUndefined();
+}
+
+// expectUnknownSkillRejected —— 挂一个不存在的 skill:role 写入要说清是"这个 id 找不到",
+// 而不是一句 internal error。存在性校验由组装根的适配器做(它认识 marketplace),错误经
+// access 自己的端口哨兵回来 —— 接错了这句话就会退化成兜底文案。
+async function expectUnknownSkillRejected(
+  request: APIRequestContext, apiToken: string, sid: string,
+): Promise<void> {
+  await expect(
+    callTool(request, apiToken, sid, 'role_create', {
+      name: 'role-with-bogus-skill',
+      corpus_uris: [],
+      skill_ids: ['00000000-0000-0000-0000-000000000000'],
+    }),
+  ).rejects.toThrow(/skill ids not found/);
+}
 
 test.describe('Phase E-6 roles CRUD via MCP', () => {
   let sid: string;
@@ -67,12 +100,12 @@ test.describe('Phase E-6 roles CRUD via MCP', () => {
         },
       );
       expect(created.name).toBe('recruiter-default');
-      expect(created.role_id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
 
       const list = await callTool<RoleRow[]>(
         request, apiToken, sid, 'role_list', {},
       );
-      const found = list.find((r) => r.role_id === created.role_id);
+      const found = list.find((r) => r.id === created.id);
       expect(found?.name).toBe('recruiter-default');
       expect([...(found?.corpus_uris ?? [])].sort()).toEqual(
         ['output://**', 'wiki://**'],
@@ -87,19 +120,14 @@ test.describe('Phase E-6 roles CRUD via MCP', () => {
   test('role_delete on non-builtin removes it from role_list',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const created = await callTool<RoleCreateResp>(
-        request, apiToken, sid, 'role_create',
-        { name: 'role-to-delete', corpus_uris: [] },
-      );
-      const del = await callTool<OK>(
-        request, apiToken, sid, 'role_delete',
-        { role_id: created.role_id },
-      );
-      expect(del.ok).toBe(true);
-      const list = await callTool<RoleRow[]>(
-        request, apiToken, sid, 'role_list', {},
-      );
-      expect(list.find((r) => r.role_id === created.role_id)).toBeUndefined();
+      await expectDeleteRemovesIt(request, apiToken, sid);
+      await request.dispose();
+    });
+
+  test('role_create with an unknown skill id says which reference is missing',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await expectUnknownSkillRejected(request, apiToken, sid);
       await request.dispose();
     });
 
@@ -113,7 +141,7 @@ test.describe('Phase E-6 roles CRUD via MCP', () => {
       if (!publicRow) throw new Error('public missing');
       await expect(
         callTool(request, apiToken, sid, 'role_delete',
-          { role_id: publicRow.role_id }),
+          { role_id: publicRow.id }),
       ).rejects.toThrow(/builtin role cannot be deleted/);
       await request.dispose();
     });
