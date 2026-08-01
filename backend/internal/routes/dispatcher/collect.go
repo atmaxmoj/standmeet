@@ -9,6 +9,7 @@ package dispatcher
 
 import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
@@ -22,6 +23,7 @@ type Deps struct {
 	Account        owner.OpsAccountDeps
 	OwnerCSS       owner.CSSStore
 	CustomPages    owner.CustomPageDeps
+	MCPServers     marketplace.MCPServersDeps
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
 	Prompts        owner.PromptsDeps
@@ -41,5 +43,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "custom_pages", Ops: owner.CustomPageOps(d.CustomPages)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
 		{Name: "instance", Ops: stats.InstanceOps(d.Instance)},
+		{Name: "mcp_servers", Ops: marketplace.MCPServerOps(d.MCPServers)},
 	}
 }

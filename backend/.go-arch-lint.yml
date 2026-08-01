@@ -71,6 +71,8 @@ components:
     in: internal/marketplace/repo         # marketplace guts: 仓储（over db + pgstore）
   marketplaceusecase:
     in: internal/marketplace/usecase      # marketplace guts: 用例 + 市场拉取客户端
+  marketplaceops:
+    in: internal/marketplace/ops          # marketplace guts: 本域对外能做什么的声明
   stats:
     in: internal/stats/facade             # #135: stats 域 facade（对外协议）；域外只 import 这里
   statsentity:
@@ -812,6 +814,15 @@ deps:
       - marketplaceentity
       - marketplacerepo
       - marketplaceusecase
+      - marketplaceops
+    anyVendorDeps: true
+  # marketplaceops —— 本域对外的操作声明。只认本域的实现 + 中立词汇,不认识任何面。
+  marketplaceops:
+    mayDependOn:
+      - marketplaceentity
+      - marketplaceusecase
+      - facadeparity
+      - apierr
     anyVendorDeps: true
   marketplaceentity:
     mayDependOn: []

@@ -14,6 +14,7 @@ package main
 import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
@@ -54,6 +55,9 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 			},
 			Log: d.log,
 		},
+		MCPServers: marketplace.MCPServersDeps{
+			Servers: d.mcpServerRepo, Codes: d.codeRepo,
+		},
 		Instance: stats.InstanceDeps{
 			System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
 			Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
@@ -63,7 +67,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
 		dispatcher.Skills(newSkillOps(d)),
 		dispatcher.Marketplace(newMarketOps(d)),
-		dispatcher.MCPServers(newMCPServerOps(d)),
 		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),
