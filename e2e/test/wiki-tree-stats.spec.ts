@@ -7,8 +7,8 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { initMCP, callTool } from '@/fixtures/mcp';
-import { seedWiki } from '@/fixtures/corpus';
+import { initMCP } from '@/fixtures/mcp';
+import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -50,7 +50,5 @@ test.describe('F3 wiki sidebar stats (entries / roots / gated)', () => {
 });
 
 async function indexWiki(request: APIRequestContext, sid: string, wikiID: string): Promise<void> {
-  await callTool<unknown>(request, mcpToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID, excerpt: '', published: true,
-  });
+  await publishEntry(request, mcpToken, sid, { genre: 'wiki', id: wikiID });
 }

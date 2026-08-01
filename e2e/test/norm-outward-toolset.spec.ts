@@ -27,13 +27,14 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN —— tools/list 必须逐字返回这 129 个 owner 工具(排序后比,顺序噪声由 mcp-go
+// GOLDEN —— tools/list 必须逐字返回这 128 个 owner 工具(排序后比,顺序噪声由 mcp-go
 // 注册顺序决定、不在本条职责内)。facade-parity 全额付清后(56→0):每个 admin 面的
 // owner 能力都有一个 owner-MCP 孪生工具。新增/删除 owner 工具必须同步更新本 golden。
 const GOLDEN_TOOLSET: readonly string[] = [
   // me / seo / codes
   'me',
-  'seo.set_output_seo', 'seo.set_wiki_seo', 'seo.update_settings',
+  // wiki / output 合成一个 op（genre 是参数）——面板早就是一条路由。
+  'seo.set_entry_seo', 'seo.update_settings',
   'seo.get_settings', 'seo.stats',
   'codes.create', 'codes.revoke', 'codes.update_quotas',
   'codes.list', 'codes.list_members',

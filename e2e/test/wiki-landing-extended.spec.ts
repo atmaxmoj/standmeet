@@ -12,7 +12,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
-import { seedPublicWiki } from '@/fixtures/corpus';
+import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { enterCodeSession, goto } from '@/fixtures/navigate';
@@ -242,10 +242,8 @@ async function seedIndexedWiki(request: APIRequestContext): Promise<void> {
     body: longBody,
     title: 'Wiki Extended',
   });
-  await callTool(request, token, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID,
-    excerpt: 'Extended wiki test.',
-    published: true,
+  await publishEntry(request, token, sid, {
+    genre: 'wiki', id: wikiID, excerpt: 'Extended wiki test.',
   });
 }
 
@@ -261,8 +259,8 @@ async function seedTaggedWiki(request: APIRequestContext): Promise<void> {
     wiki_id: wikiID, title: 'Tagged Entry', body: 'Tagged wiki content.',
     tags: ['lucerna', 'eval', 'thinking'],
   });
-  await callTool(request, token, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID, excerpt: 'A tagged wiki.', published: true,
+  await publishEntry(request, token, sid, {
+    genre: 'wiki', id: wikiID, excerpt: 'A tagged wiki.',
   });
 }
 
@@ -289,9 +287,7 @@ async function seedNestedWiki(request: APIRequestContext): Promise<{
   });
   const childID = promo.wiki_id;
   for (const id of [parentID, childID]) {
-    await callTool(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: id, excerpt: '', published: true,
-    });
+    await publishEntry(request, token, sid, { genre: 'wiki', id });
   }
   return { parentTitle, childTitle, childPath: await discoverWikiPath(request, parentID, childID) };
 }
@@ -327,9 +323,7 @@ async function seedLinkedWikis(request: APIRequestContext): Promise<{
     body: `This links to [[${dstTitle}]] in the corpus.`, title: srcTitle,
   });
   for (const id of [dstID, srcID]) {
-    await callTool(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: id, excerpt: '', published: true,
-    });
+    await publishEntry(request, token, sid, { genre: 'wiki', id });
   }
   return {
     srcTitle,

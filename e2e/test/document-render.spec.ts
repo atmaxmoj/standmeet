@@ -9,9 +9,9 @@
 import { test, expect, type APIRequestContext } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { seedWiki } from '@/fixtures/corpus';
+import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { initMCP, callTool } from '@/fixtures/mcp';
+import { initMCP } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -157,8 +157,8 @@ async function seedAllFixtures(request: APIRequestContext): Promise<void> {
       body: FIXTURE_BODIES[key],
       title: `Render fixture · ${key}`, path,
     });
-    await callTool<unknown>(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: wikiID, excerpt: `${key} render fixture.`, published: true,
+    await publishEntry(request, token, sid, {
+      genre: 'wiki', id: wikiID, excerpt: `${key} render fixture.`,
     });
   }
 }

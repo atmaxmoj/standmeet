@@ -23,7 +23,10 @@
 
 package dispatcher
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // badInputError —— 调用方给的入参不对(缺必填、格式错、id 不存在这类)。
 type badInputError struct{ msg string }
@@ -111,4 +114,10 @@ func Upstream(msg string) error { return upstreamError{msg: msg} }
 func IsUpstream(err error) bool {
 	var t upstreamError
 	return errors.As(err, &t)
+}
+
+// opErr —— 每个 op 的统一包法:说清楚是哪一步坏的,同时保住 errors.Is
+// (适配器把域哨兵翻成上面那些类别,包一层不能把它挡掉)。
+func opErr(what string, err error) error {
+	return fmt.Errorf("%s: %w", what, err)
 }

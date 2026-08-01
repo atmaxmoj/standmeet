@@ -30,6 +30,7 @@ import { callTool, initMCP } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
+import { publishEntry } from '@/fixtures/corpus';
 
 const OWNER = {
   email: 'treeowner@example.com',
@@ -260,7 +261,5 @@ async function promote(
 async function markIndexed(
   request: APIRequestContext, sid: string, wikiID: string,
 ): Promise<void> {
-  await callTool<unknown>(request, mcpToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID, excerpt: '', published: true,
-  });
+  await publishEntry(request, mcpToken, sid, { genre: 'wiki', id: wikiID });
 }

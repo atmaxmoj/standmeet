@@ -190,7 +190,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Corpus:     adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
 		CodesAdmin: adminroutes.CodesDeps{Face: adminFace(deps.Dispatch)},
 		PageAdmin:  adminroutes.PageAdminDeps{Owners: deps.Admin.Owners, Pins: pins},
-		SEOAdmin:   adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO, Pins: pins},
+		SEOAdmin:   adminroutes.SEOAdminDeps{Face: adminFace(deps.Dispatch)},
 		Conversations: adminroutes.ConversationsDeps{
 			Chats:  deps.Admin.Conversations,
 			Ghosts: deps.Admin.Ghosts,

@@ -194,7 +194,7 @@ func codesDenials(store CodeACLStore) Invoke {
 		}
 		d, err := store.Denials(ctx, ownerID, id)
 		if err != nil {
-			return nil, wrapCodeErr("list denials", err)
+			return nil, opErr("list denials", err)
 		}
 		return marshalOut(toCodeDenialsOut(&d))
 	}
@@ -220,7 +220,7 @@ func codesDenialWrite(
 		in.OwnerID = ownerID
 		d, err := apply(ctx, in)
 		if err != nil {
-			return nil, wrapCodeErr(what, err)
+			return nil, opErr(what, err)
 		}
 		return marshalOut(toCodeDenialsOut(&d))
 	}
@@ -244,7 +244,7 @@ func codesSetCorpusDenials(store CodeACLStore) Invoke {
 		}
 		d, err := store.SetCorpusDenials(ctx, ownerID, in.CodeID, nonNilStrings(in.URIs))
 		if err != nil {
-			return nil, wrapCodeErr("set corpus denials", err)
+			return nil, opErr("set corpus denials", err)
 		}
 		return marshalOut(toCodeDenialsOut(&d))
 	}
@@ -258,7 +258,7 @@ func codesWaypoints(store CodeACLStore) Invoke {
 		}
 		w, err := store.Waypoints(ctx, ownerID, id)
 		if err != nil {
-			return nil, wrapCodeErr("read waypoints", err)
+			return nil, opErr("read waypoints", err)
 		}
 		return marshalOut(toCodeWaypointsOut(&w))
 	}
@@ -280,7 +280,7 @@ func codesSetWaypoints(store CodeACLStore) Invoke {
 		}
 		w, err := store.SetWaypoints(ctx, ownerID, in.CodeID, in.Waypoints)
 		if err != nil {
-			return nil, wrapCodeErr("set waypoints", err)
+			return nil, opErr("set waypoints", err)
 		}
 		return marshalOut(toCodeWaypointsOut(&w))
 	}

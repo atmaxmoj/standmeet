@@ -10,9 +10,9 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from "@playwright/test";
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { seedPublicWiki } from '@/fixtures/corpus';
+import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { callTool, initMCP } from '@/fixtures/mcp';
+import { initMCP } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -59,9 +59,7 @@ async function setupIndexedWiki(request: APIRequestContext): Promise<void> {
     title: WIKI.title,
     tags: ['personal'],
   });
-  await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID,
-    excerpt: WIKI.description,
-    published: true,
+  await publishEntry(request, apiToken, sid, {
+    genre: 'wiki', id: wikiID, excerpt: WIKI.description,
   });
 }

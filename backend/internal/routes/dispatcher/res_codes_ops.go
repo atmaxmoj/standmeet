@@ -5,7 +5,6 @@ package dispatcher
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -39,11 +38,6 @@ func toCodeRow(c *Code) codeRow {
 		CreatedAt: c.CreatedAt.UTC().Format(time.RFC3339),
 		ExpiresAt: formatOptionalTime(c.ExpiresAt),
 	}
-}
-
-// wrapCodeErr —— 统一包一层,保住 errors.Is(适配器用哨兵翻类别)。
-func wrapCodeErr(what string, err error) error {
-	return fmt.Errorf("%s: %w", what, err)
 }
 
 type codeIDArgs struct {
@@ -96,7 +90,7 @@ func codesList(store CodeStore) Invoke {
 	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
 		rows, err := store.List(ctx, ownerID)
 		if err != nil {
-			return nil, wrapCodeErr("list codes", err)
+			return nil, opErr("list codes", err)
 		}
 		out := make([]codeRow, 0, len(rows))
 		for i := range rows {
@@ -131,7 +125,7 @@ func codesCreate(store CodeStore) Invoke {
 		}
 		code, err := store.Create(ctx, in.toCreateCode(ownerID, expires))
 		if err != nil {
-			return nil, wrapCodeErr("create code", err)
+			return nil, opErr("create code", err)
 		}
 		row := toCodeRow(&code)
 		return marshalOut(row)
@@ -169,7 +163,7 @@ func codesRevoke(store CodeStore) Invoke {
 			return nil, perr
 		}
 		if err := store.Revoke(ctx, ownerID, id); err != nil {
-			return nil, wrapCodeErr("revoke code", err)
+			return nil, opErr("revoke code", err)
 		}
 		return marshalOut(revokedOut{CodeID: id, Revoked: true})
 	}
@@ -203,7 +197,7 @@ func codesUpdateQuotas(store CodeStore) Invoke {
 			MaxTurnsPerSession: in.MaxTurnsPerSession, MaxBookings: in.MaxBookings,
 		})
 		if err != nil {
-			return nil, wrapCodeErr("update quotas", err)
+			return nil, opErr("update quotas", err)
 		}
 		row := toCodeRow(&code)
 		return marshalOut(row)
@@ -226,7 +220,7 @@ func codesSetGhostEvidence(store CodeStore) Invoke {
 		}
 		code, err := store.SetGhostEvidence(ctx, ownerID, in.CodeID, in.RequireGhostEvidence)
 		if err != nil {
-			return nil, wrapCodeErr("set ghost evidence", err)
+			return nil, opErr("set ghost evidence", err)
 		}
 		row := toCodeRow(&code)
 		return marshalOut(row)
@@ -249,7 +243,7 @@ func codesMembers(store CodeStore) Invoke {
 		}
 		rows, err := store.Members(ctx, ownerID, id)
 		if err != nil {
-			return nil, wrapCodeErr("list members", err)
+			return nil, opErr("list members", err)
 		}
 		out := make([]codeMemberOut, 0, len(rows))
 		for i := range rows {

@@ -13,6 +13,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
+import { publishEntry } from '@/fixtures/corpus';
 
 const OWNER = {
   email: 'outlandscale@example.com', password: 'correct-horse-battery-staple',
@@ -77,7 +78,5 @@ async function promoteOutput(
 async function indexOutput(
   request: APIRequestContext, sid: string, outputID: string,
 ): Promise<void> {
-  await callTool<unknown>(request, mcpToken, sid, 'seo.set_output_seo', {
-    output_id: outputID, excerpt: '', published: true,
-  });
+  await publishEntry(request, mcpToken, sid, { genre: 'output', id: outputID });
 }

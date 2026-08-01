@@ -9,9 +9,10 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
-import { claim, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { initMCP, listTools } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 
@@ -23,6 +24,8 @@ const OWNER = {
 };
 
 const CODE = 'B5-001';
+
+type PW = Parameters<Parameters<typeof test>[1]>[0]['playwright'];
 
 interface RegCap { id: string; shape: string }
 interface RegistryListResp { capabilities: RegCap[] }
@@ -51,15 +54,11 @@ test.describe('Phase B-5 owner-only capability isolation', () => {
     await request.dispose();
   });
 
-  test('registry-list yields at least owner.me + seo.bundle as owner-only',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
-      const ids = await fetchOwnerOnlyIDs(request);
-      // B-4 落 owner.me；B-5 落 seo.bundle。后续 commit 加入更多。
-      expect(ids).toContain('owner.me');
-      expect(ids).toContain('seo.bundle');
-      await request.dispose();
-    });
+  // 原来这条点名 owner.me + seo.bundle 当哨兵。它们搬进出站收口之后就不在 capreg 里了，
+  // 于是这条会因为**搬家**而红 —— 它守的其实不是那两个名字，是「owner 能做的事一件都不
+  // 漏给访客」。所以改成对着**整张 owner 工具面**比，谁搬家都不影响它守的东西。
+  test('the whole owner tool surface is disjoint from the visitor tool surface',
+    ownerSurfaceStaysOwnerSide);
 
   test('none of the owner-only capability IDs appear in a visitor session',
     async ({ playwright }) => {
@@ -77,26 +76,32 @@ test.describe('Phase B-5 owner-only capability isolation', () => {
       await request.dispose();
     });
 
-  test('owner-side tool names absent from visitor tool_specs',
-    async ({ playwright }) => {
-      // owner-only tool names (e.g. 'me', 'seo.set_wiki_seo') 没理由出现
-      // 在 visitor 这边。枚举几个白名单值；后续 commit 加入更多 tool 时
-      // 再扩。
-      const request = await playwright.request.newContext();
-      const sess = await issueSession(request, {
-        handle: OWNER.handle, code: CODE, visitor_name: 'V',
-      });
-      const body = await fetchVisitorCapabilities(request, sess.session_token);
-      const names = body.tool_specs.map((t) => t.name);
-      for (const ownerTool of [
-        'me', 'seo.set_wiki_seo', 'seo.update_settings',
-      ]) {
-        expect(names,
-          `owner-only tool ${ownerTool} must not be exposed to visitor`).not.toContain(ownerTool);
-      }
-      await request.dispose();
-    });
 });
+
+// ownerSurfaceStaysOwnerSide —— owner 用真 MCP 客户端能调到的每一个工具，都不该出现在
+// 访客那份 tool_specs 里。比的是**整张面**，不是几个手抄的名字：手抄的那份只在有人想起
+// 来扩它时才增长。
+async function ownerSurfaceStaysOwnerSide(
+  { playwright }: { playwright: PW },
+): Promise<void> {
+  const request = await playwright.request.newContext();
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'b5-surface');
+  const sid = await initMCP(request, token);
+  const ownerTools = (await listTools(request, token, sid)).map((t) => t.name);
+  expect(ownerTools.length, 'the owner surface must not be empty').toBeGreaterThan(0);
+
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  const body = await fetchVisitorCapabilities(request, sess.session_token);
+  const visitorTools = new Set(body.tool_specs.map((t) => t.name));
+  for (const name of ownerTools) {
+    expect(visitorTools.has(name),
+      `owner tool ${name} must not be exposed to a visitor`).toBe(false);
+  }
+  await request.dispose();
+}
 
 async function fetchOwnerOnlyIDs(request: APIRequestContext): Promise<string[]> {
   const res = await request.get(`${BACKEND}/internal/diag/registry`);

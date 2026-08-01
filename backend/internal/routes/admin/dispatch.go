@@ -95,19 +95,28 @@ func addNumericQuery(fields map[string]json.RawMessage, q url.Values, names []st
 
 // bodyWithURLParam —— body 里的字段 + 路径参数合成一份 args。REST 习惯把资源 id 放路径、
 // 其余放 body(PATCH /x/{id} + {"status":...}),收口只认一份扁平 args,合并落在这儿。
-func bodyWithURLParam(name string) argsFrom {
+func bodyWithURLParam(names ...string) argsFrom {
 	return func(r *http.Request) (json.RawMessage, error) {
 		fields, err := decodeBodyFields(r)
 		if err != nil {
 			return nil, err
 		}
-		fields[name] = json.RawMessage(strconv.Quote(chi.URLParam(r, name)))
-		out, merr := json.Marshal(fields)
-		if merr != nil {
-			return nil, dispatcher.BadInput("invalid request")
-		}
-		return out, nil
+		return mergeURLParams(r, fields, names)
 	}
+}
+
+// mergeURLParams —— 路径参数覆盖到 body 字段上,合成一份扁平 args。
+func mergeURLParams(
+	r *http.Request, fields map[string]json.RawMessage, names []string,
+) (json.RawMessage, error) {
+	for _, name := range names {
+		fields[name] = json.RawMessage(strconv.Quote(chi.URLParam(r, name)))
+	}
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return nil, dispatcher.BadInput("invalid request")
+	}
+	return out, nil
 }
 
 // decodeBodyFields —— body 解成扁平字段表。空 body 合法(有些 PATCH 只靠路径参数),

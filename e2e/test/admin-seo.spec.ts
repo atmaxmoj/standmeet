@@ -105,21 +105,54 @@ test.describe('admin SEO section (real backend)', () => {
       await expect(adminPage.getByTestId('seo-stat-wiki')).toHaveText(/[1-9]/);
     });
 
+  // 面板存了 site_title，然后 owner 在 Claude Code 里只改 robots —— 标题必须还在。
+  //
+  // 这条守的是一个真 bug：那条 upsert 整行覆写，而 MCP 那份入参里没有 site_title，
+  // 于是每次从 AI 客户端改一下 robots，owner 自己写的站点标题就被洗成空。修法不是
+  // 在 MCP 那边补一个字段，是让"没提到"和"设成空"在入参里分得开（两个面同一条规则）。
+  test('MCP update_settings without site_title keeps the title the panel saved',
+    mcpKeepsSiteTitle);
+
   // per-entry SEO now speaks {excerpt, published}. Old field names are gone.
-  test('PATCH wiki { excerpt, published } → 200', async ({ request }) => {
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    const token = await createAPIToken(request, csrf, 'seo-patch');
-    const sid = await initMCP(request, token);
-    const raw = await callTool<{ raw_id: string }>(
-      request, token, sid, 'raw_dump', { body: 'x', source: 'mcp:e2e', tags: [] });
-    const wiki = await callTool<{ wiki_id: string }>(
-      request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title: 'SEO Patch Test' });
-    const res = await patchWikiSEO(request, csrf, wiki.wiki_id, {
-      excerpt: 'a short excerpt', published: true,
-    });
-    expect(res.status()).toBe(200);
-  });
+  test('PATCH wiki { excerpt, published } → 200', patchesOneEntry);
 });
+
+async function mcpKeepsSiteTitle({ request }: { request: APIRequestContext }): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const put = await request.put('/api/admin/seo', {
+    headers: { 'X-Csrftoken': csrf },
+    data: {
+      site_title: 'Kept Through MCP', og_template: '%s · kept',
+      sitemap_extras: [], index_robots: true,
+    },
+  });
+  expect(put.status()).toBe(200);
+
+  const token = await createAPIToken(request, csrf, 'seo-merge');
+  const sid = await initMCP(request, token);
+  await callTool<unknown>(request, token, sid, 'seo.update_settings',
+    { index_robots: false });
+
+  const after = await callTool<{ site_title: string; index_robots: boolean }>(
+    request, token, sid, 'seo.get_settings', {});
+  expect(after.index_robots, 'the field it did mention changed').toBe(false);
+  expect(after.site_title, 'the field it never mentioned survived')
+    .toBe('Kept Through MCP');
+}
+
+async function patchesOneEntry({ request }: { request: APIRequestContext }): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'seo-patch');
+  const sid = await initMCP(request, token);
+  const raw = await callTool<{ raw_id: string }>(
+    request, token, sid, 'raw_dump', { body: 'x', source: 'mcp:e2e', tags: [] });
+  const wiki = await callTool<{ wiki_id: string }>(
+    request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title: 'SEO Patch Test' });
+  const res = await patchWikiSEO(request, csrf, wiki.wiki_id, {
+    excerpt: 'a short excerpt', published: true,
+  });
+  expect(res.status()).toBe(200);
+}
 
 async function patchWikiSEO(
   request: APIRequestContext, csrf: string, wikiID: string,

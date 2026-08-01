@@ -175,8 +175,8 @@ async function initOwner(playwright: Playwright): Promise<void> {
     body: 'lucerna is a local-first knowledge tool.',
     title: 'Lucerna', path: 'projects/lucerna',
   });
-  await callTool(request, apiToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: luc.wikiID, excerpt: 'a local-first knowledge tool', published: true,
+  await callTool(request, apiToken, sid, 'seo.set_entry_seo', {
+    genre: 'wiki', id: luc.wikiID, excerpt: 'a local-first knowledge tool', published: true,
   });
   await createCode(request, csrf, {
     code: CODE, label: 'Dock test',

@@ -15,9 +15,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
-import { seedWiki } from '@/fixtures/corpus';
+import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { callTool, initMCP } from '@/fixtures/mcp';
+import { initMCP } from '@/fixtures/mcp';
 import { enterCodeSession, goto } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
@@ -63,9 +63,7 @@ async function seedTreeAndCode(request: APIRequestContext): Promise<void> {
   const parent = await seedWiki(request, apiToken, sid, {
     body: PARENT.body, title: PARENT.title, path: PARENT.path,
   });
-  await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: parent.wikiID, excerpt: '', published: true,
-  });
+  await publishEntry(request, apiToken, sid, { genre: 'wiki', id: parent.wikiID });
   // GATED child (not published) → invisible to anonymous SSR, visible only via the token re-fetch.
   await seedWiki(request, apiToken, sid, {
     body: CHILD.body, title: CHILD.title, path: CHILD.path,

@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
 
@@ -116,20 +115,4 @@ func uploadedSpec(in ownercore.UploadedSpecArg) *connector.UploadedSpec {
 		AuthScheme: in.AuthScheme, Spec: in.Spec, Binding: in.Binding,
 		ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}
-}
-
-// ───── seo stats adapter ────────────────────────────────────────
-
-// seoStatsAdapter —— maps *corpus.SEORepo.CountPublished (corpus.PublishedCounts)
-// to the ownercore-neutral SEOStats.
-type seoStatsAdapter struct{ repo *corpus.SEORepo }
-
-func (a seoStatsAdapter) CountPublished(
-	ctx context.Context, ownerID string,
-) (ownercore.SEOStats, error) {
-	c, err := a.repo.CountPublished(ctx, ownerID)
-	if err != nil {
-		return ownercore.SEOStats{}, fmt.Errorf("adapter count published: %w", err)
-	}
-	return ownercore.SEOStats{Wiki: c.Wiki, Outputs: c.Outputs, Writings: c.Writings}, nil
 }

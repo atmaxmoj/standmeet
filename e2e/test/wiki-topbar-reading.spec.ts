@@ -5,8 +5,8 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { initMCP, callTool } from '@/fixtures/mcp';
-import { seedWiki } from '@/fixtures/corpus';
+import { initMCP } from '@/fixtures/mcp';
+import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -28,9 +28,7 @@ test.describe('F3 wiki reader TopBar reading-state', () => {
     const token = await createAPIToken(request, csrf, 'readtop-seed');
     const sid = await initMCP(request, token);
     const w = await seedWiki(request, token, sid, { title: TITLE, body: 'body of the entry.' });
-    await callTool<unknown>(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: w.wikiID, excerpt: '', published: true,
-    });
+    await publishEntry(request, token, sid, { genre: 'wiki', id: w.wikiID });
     await request.dispose();
   });
 

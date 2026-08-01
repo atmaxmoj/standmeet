@@ -82,11 +82,6 @@ func corpusEntries() []Entry {
 			Admin: []string{"POST /api/admin/corpus/{genre}/{id}/promote"},
 		},
 		{
-			Op:    act("corpus.set_seo", fp.OwnerAction()),
-			MCP:   []string{"seo.set_wiki_seo", "seo.set_output_seo"},
-			Admin: []string{"PATCH /api/admin/corpus/{genre}/{id}/seo"},
-		},
-		{
 			Op:  act("subjectivity.write", fp.Only("owner's private self-model; curated via MCP, no admin write form", FacadeMCP)),
 			MCP: []string{"subjectivity_write"},
 		},

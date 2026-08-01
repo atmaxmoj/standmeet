@@ -14,6 +14,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { publishEntry } from '@/fixtures/corpus';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -99,7 +100,5 @@ async function promote(
 async function markIndexed(
   request: APIRequestContext, sid: string, wikiID: string,
 ): Promise<void> {
-  await callTool<unknown>(request, mcpToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID, excerpt: '', published: true,
-  });
+  await publishEntry(request, mcpToken, sid, { genre: 'wiki', id: wikiID });
 }

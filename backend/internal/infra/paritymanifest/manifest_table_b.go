@@ -164,20 +164,5 @@ func settingsEntries() []Entry {
 			MCP:   []string{"page.set_public_url"},
 			Admin: []string{"PATCH /api/admin/public-url"},
 		},
-		{
-			Op:    read("seo.get_settings", fp.OwnerRead()),
-			MCP:   []string{"seo.get_settings"},
-			Admin: []string{"GET /api/admin/seo"},
-		},
-		{
-			Op:    act("seo.set_settings", fp.OwnerAction()),
-			MCP:   []string{"seo.update_settings"},
-			Admin: []string{"PUT /api/admin/seo"},
-		},
-		{
-			Op:    read("seo.stats", fp.OwnerRead()),
-			MCP:   []string{"seo.stats"},
-			Admin: []string{"GET /api/admin/seo/stats"},
-		},
 	}
 }

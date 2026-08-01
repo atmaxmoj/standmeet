@@ -8,8 +8,8 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { initMCP, callTool } from '@/fixtures/mcp';
-import { seedWiki } from '@/fixtures/corpus';
+import { initMCP } from '@/fixtures/mcp';
+import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -35,9 +35,7 @@ test.describe('W3/F1 wiki reader meta row: sources count + cover tag', () => {
     const w = await seedWiki(request, mcpToken, sid, {
       title: 'Lonely Note', body: 'A standalone note with no tags.',
     });
-    await callTool<unknown>(request, mcpToken, sid, 'seo.set_wiki_seo', {
-      wiki_id: w.wikiID, excerpt: '', published: true,
-    });
+    await publishEntry(request, mcpToken, sid, { genre: 'wiki', id: w.wikiID });
     await request.dispose();
   });
 

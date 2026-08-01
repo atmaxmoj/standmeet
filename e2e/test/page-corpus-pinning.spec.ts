@@ -11,7 +11,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { seedWiki } from '@/fixtures/corpus';
+import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
@@ -71,8 +71,8 @@ async function seedFixture(playwright: PW): Promise<void> {
     path: 'thinking-in-systems',
   });
   publishedID = a.wikiID;
-  await callTool(request, apiToken, mcpSID, 'seo.set_wiki_seo',
-    { wiki_id: publishedID, excerpt: EXCERPT_A, published: true });
+  await publishEntry(request, apiToken, mcpSID,
+    { genre: 'wiki', id: publishedID, excerpt: EXCERPT_A });
   const b = await seedWiki(request, apiToken, mcpSID, {
     title: 'Gated Thought', body: 'Not for the public page.', path: 'gated-thought',
   });
@@ -118,8 +118,8 @@ async function pinUnpublishedRejected(playwright: PW): Promise<void> {
 // ── 不变量端点 2:unpublish 已 pin 条目 → 成功 + 自动 unpin + 声明 ──
 async function unpublishDropsCard(page: Page, playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
-  const res = await callTool<SetSEOResult>(request, apiToken, mcpSID, 'seo.set_wiki_seo',
-    { wiki_id: publishedID, excerpt: EXCERPT_A, published: false });
+  const res = await callTool<SetSEOResult>(request, apiToken, mcpSID, 'seo.set_entry_seo',
+    { genre: 'wiki', id: publishedID, excerpt: EXCERPT_A, published: false });
   expect(res.published).toBe(false);
   expect(res.unpinned_sections, 'the side effect is declared in the tool result')
     .toContain('insights');
@@ -145,8 +145,8 @@ async function emptySectionsHidden(page: Page): Promise<void> {
 // ── admin GUI:pin manager 从 published 条目里挑,保存后主页渲染 ──
 async function adminPinManagerRenders(page: Page, playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
-  await callTool(request, apiToken, mcpSID, 'seo.set_wiki_seo',
-    { wiki_id: publishedID, excerpt: EXCERPT_A, published: true });
+  await publishEntry(request, apiToken, mcpSID,
+    { genre: 'wiki', id: publishedID, excerpt: EXCERPT_A });
   await request.dispose();
 
   await loginViaGUI(page);

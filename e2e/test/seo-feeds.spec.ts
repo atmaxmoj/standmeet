@@ -10,9 +10,9 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { seedPublicWiki } from '@/fixtures/corpus';
+import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { callTool, initMCP } from '@/fixtures/mcp';
+import { initMCP } from '@/fixtures/mcp';
 
 const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 
@@ -67,9 +67,7 @@ async function seedIndexedWiki(request: APIRequestContext): Promise<void> {
     title: 'Why StandMeet exists',
     tags: ['intro'],
   });
-  await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID,
-    excerpt: 'The founding observation.',
-    published: true,
+  await publishEntry(request, apiToken, sid, {
+    genre: 'wiki', id: wikiID, excerpt: 'The founding observation.',
   });
 }

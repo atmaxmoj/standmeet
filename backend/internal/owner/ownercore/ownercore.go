@@ -23,7 +23,6 @@ const Name = "ownercore"
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
 	SEO           SEOWriter
-	SEOStats      seoStatsReader
 	PageContent   pageContentStore
 	Connectors    *ConnectorsOwnerDeps
 	CustomPages   *owner.CustomPageDeps
@@ -60,7 +59,6 @@ func (*Plugin) Name() string { return Name }
 // core capreg (was mcphandle.RegisterAgentSkills). dup/empty ID panics via capreg.MustRegister.
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	d := p.deps
-	reg.MustRegister(newSEOCapability(d.SEO, d.SEOStats, d.PagePins, d.Log))
 	reg.MustRegister(newCorpusRawCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusMutationsCapability(d.Corpus, d.Log))

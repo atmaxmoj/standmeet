@@ -91,8 +91,8 @@ async function buildPipeline(request: APIRequestContext) {
   const wiki = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
     raw_id: raw.raw_id, title: WIKI_TITLE,
   });
-  await callTool(request, token, sid, 'seo.set_wiki_seo', {
-    wiki_id: wiki.wiki_id, excerpt: 'Pipeline test wiki.', published: true,
+  await callTool(request, token, sid, 'seo.set_entry_seo', {
+    genre: 'wiki', id: wiki.wiki_id, excerpt: 'Pipeline test wiki.', published: true,
   });
   const output = await callTool<{ output_id: string }>(
     request, token, sid, 'promote_wiki_to_output',

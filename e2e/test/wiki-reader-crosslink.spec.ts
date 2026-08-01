@@ -10,9 +10,9 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { seedPublicWiki } from '@/fixtures/corpus';
+import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { callTool, initMCP } from '@/fixtures/mcp';
+import { initMCP } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -64,7 +64,5 @@ async function seedLinkedPair(playwright: Playwright): Promise<void> {
 async function publish(
   request: APIRequestContext, token: string, sid: string, wikiID: string,
 ): Promise<void> {
-  await callTool(request, token, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID, excerpt: '', published: true,
-  });
+  await publishEntry(request, token, sid, { genre: 'wiki', id: wikiID });
 }

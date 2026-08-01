@@ -94,6 +94,20 @@ async function findExistingChild(
   return hit?.id ?? '';
 }
 
+// publishEntry —— 把一条 corpus 条目设为公开（wiki / output 同一个 op，genre 是参数）。
+//
+// 九个 spec 各自抄了一份这段调用，于是 tool 一改名就要改九处。一处调用，一处改。
+export async function publishEntry(
+  request: APIRequestContext,
+  apiToken: string,
+  sessionId: string,
+  opts: { genre: 'wiki' | 'output'; id: string; excerpt?: string },
+): Promise<void> {
+  await callTool<unknown>(request, apiToken, sessionId, 'seo.set_entry_seo', {
+    genre: opts.genre, id: opts.id, excerpt: opts.excerpt ?? '', published: true,
+  });
+}
+
 // seedPublicWiki —— 老 spec 入口；retrieval-redesign 之后 path 字段是主要
 // 标识，旧 spec 调用方暂时无 path 入参，让此 helper 自动用 wiki/<random>
 // path（重设后 backend 也会同样 derive）。tags 字段保留入参但 ignore ——
