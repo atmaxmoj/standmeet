@@ -22,6 +22,5 @@ internal/routes/dispatcher/res_roles_ops.go
 internal/routes/dispatcher/res_seo.go
 internal/routes/dispatcher/res_seo_ops.go
 internal/routes/dispatcher/res_skills.go
-internal/routes/dispatcher/res_writings.go
 internal/security/facade/facade.go
 internal/security/facade/facade_captcha.go

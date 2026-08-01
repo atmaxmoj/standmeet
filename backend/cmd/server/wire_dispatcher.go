@@ -12,6 +12,7 @@
 package main
 
 import (
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
@@ -44,6 +45,14 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		CustomPages: owner.CustomPageDeps{
 			Pages: d.customPageRepo, Builds: d.customBuildRepo,
 		},
+		Writings: corpus.OpsWritingsDeps{
+			Writings: corpus.WritingsDeps{Writings: d.writingRepo},
+			Tx: corpus.WritingsTxDeps{
+				Writings: d.writingRepo, WritingRefs: d.writingRefRepo,
+				Assets: corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+			},
+			Log: d.log,
+		},
 	})
 	return dispatcher.New(append(resources,
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
@@ -57,7 +66,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Codes(newCodeOps(d), newCodeOps(d)),
 		dispatcher.SEO(newSEOOps(d)),
 		dispatcher.Conversations(newConversationOps(d)),
-		dispatcher.Writings(newWritingOps(d)),
 		dispatcher.Page(newPageOps(d)),
 	)...)
 }

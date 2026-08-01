@@ -16,6 +16,7 @@ import (
 // Deps —— 各域对外声明操作时需要的依赖包,由组装根填。
 type Deps struct {
 	Corpus         corpus.Deps
+	Writings       corpus.OpsWritingsDeps
 	Account        owner.OpsAccountDeps
 	OwnerCSS       owner.CSSStore
 	CustomPages    owner.CustomPageDeps
@@ -36,5 +37,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "settings", Ops: owner.SettingsOps(d.Settings)},
 		{Name: "account", Ops: owner.AccountOps(d.Account)},
 		{Name: "custom_pages", Ops: owner.CustomPageOps(d.CustomPages)},
+		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
 	}
 }
