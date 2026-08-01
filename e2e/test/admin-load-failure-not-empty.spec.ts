@@ -55,7 +55,7 @@ async function fail(page: Page, glob: string | RegExp): Promise<void> {
 // corpusLoadFailure —— RED（修复前）：catch 把 loaded 设成 true，granted 留空 → 卡片印出
 // 「(role grants nothing)」。那句话是错的，且错在**让人放心**的方向。
 async function corpusLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
-  await fail(adminPage, '**/api/admin/codes/*/corpus');
+  await fail(adminPage, '**/api/admin/codes/*/denials');
   await gotoAdminSection(adminPage, 'codes');
   await expect(adminPage.getByTestId('code-list')).toBeVisible({ timeout: 10_000 });
   await expect(
@@ -67,7 +67,7 @@ async function corpusLoadFailure({ adminPage }: { adminPage: Page }): Promise<vo
 // corpusLoadFailureIsVisible —— 光是「不说谎」不够：owner 得知道这里没拉到，否则控制盘上少了
 // 一块而无人察觉。断言的是**好结果**（错误在场），不是「没崩」。
 async function corpusLoadFailureIsVisible({ adminPage }: { adminPage: Page }): Promise<void> {
-  await fail(adminPage, '**/api/admin/codes/*/corpus');
+  await fail(adminPage, '**/api/admin/codes/*/denials');
   await gotoAdminSection(adminPage, 'codes');
   await expect(adminPage.getByTestId('code-list')).toBeVisible({ timeout: 10_000 });
   await expect(

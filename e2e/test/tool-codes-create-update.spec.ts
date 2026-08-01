@@ -40,9 +40,12 @@ async function seedCodesMCP(
   return { sid, apiToken, roleID: role.id };
 }
 
-interface CreateResp { code_id: string; code: string; label: string }
+// 两个面同一份载荷之后，MCP 拿到的就是**整行码**（跟面板 /codes/ 一样的形状）：
+// 行的主键叫 `id`，不是以前 MCP 私有那份的 `code_id`。入参仍叫 code_id —— 那是
+// "对哪张码"，不是行里的字段。
+interface CreateResp { id: string; code: string; label: string }
 interface UpdateQuotasResp {
-  code_id: string;
+  id: string;
   max_members: number | null;
   max_turns_per_session: number | null;
 }
@@ -80,7 +83,7 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
       });
       expect(list.status()).toBe(200);
       const rows = await list.json() as Array<{ id: string; code: string }>;
-      expect(rows.find((c) => c.id === created.code_id)?.code)
+      expect(rows.find((c) => c.id === created.id)?.code)
         .toBe('MCP-CREATE-001');
       await request.dispose();
     });
@@ -100,11 +103,11 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
       const updated = await callTool<UpdateQuotasResp>(
         request, apiToken, sid, 'codes.update_quotas',
         {
-          code_id: created.code_id,
+          code_id: created.id,
           max_turns_per_session: 50,
         },
       );
-      expect(updated.code_id).toBe(created.code_id);
+      expect(updated.id).toBe(created.id);
       expect(updated.max_turns_per_session).toBe(50);
       expect(updated.max_members).toBe(3);
       await request.dispose();

@@ -22,24 +22,21 @@ const Name = "ownercore"
 
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
-	Codes            CodesRevoker
-	CodeBookingQuota CodeBookingQuota
-	SEO              SEOWriter
-	SEOStats         seoStatsReader
-	PageContent      pageContentStore
-	CodeDenials      codeDenialsStore
-	Connectors       *ConnectorsOwnerDeps
-	CustomPages      *owner.CustomPageDeps
-	Handle           *owner.HandleDeps
-	Writings         *corpus.WritingsDeps
-	APIKeys          *APIKeysOwnerDeps
-	WritingsTx       *corpus.WritingsTxDeps
-	Conversations    *conversation.ConversationsDeps
-	PublicURL        owner.PublicURLDeps
-	PagePins         owner.PagePinDeps
-	Corpus           *corpus.Deps
-	Log              *slog.Logger
-	Ghosts           *conversation.GhostDeps
+	SEO           SEOWriter
+	SEOStats      seoStatsReader
+	PageContent   pageContentStore
+	Connectors    *ConnectorsOwnerDeps
+	CustomPages   *owner.CustomPageDeps
+	Handle        *owner.HandleDeps
+	Writings      *corpus.WritingsDeps
+	APIKeys       *APIKeysOwnerDeps
+	WritingsTx    *corpus.WritingsTxDeps
+	Conversations *conversation.ConversationsDeps
+	PublicURL     owner.PublicURLDeps
+	PagePins      owner.PagePinDeps
+	Corpus        *corpus.Deps
+	Log           *slog.Logger
+	Ghosts        *conversation.GhostDeps
 }
 
 // Plugin —— implements capabilities.Plugin + capabilities.CapabilityRegistrar.
@@ -63,7 +60,6 @@ func (*Plugin) Name() string { return Name }
 // core capreg (was mcphandle.RegisterAgentSkills). dup/empty ID panics via capreg.MustRegister.
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	d := p.deps
-	reg.MustRegister(newCodesCapability(d.Codes, d.CodeDenials, d.CodeBookingQuota, d.Log))
 	reg.MustRegister(newSEOCapability(d.SEO, d.SEOStats, d.PagePins, d.Log))
 	reg.MustRegister(newCorpusRawCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))

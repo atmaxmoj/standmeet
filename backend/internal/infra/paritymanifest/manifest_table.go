@@ -93,50 +93,17 @@ func corpusEntries() []Entry {
 	}
 }
 
-// codes + per-code ACL.
+// codes + per-code ACL —— 都搬进了出站收口(dispatcher.Codes)。
+//
+// 顺带补上了三条一直没被登记的 admin 路由(waypoints / corpus / ghost-evidence):
+// 它们既没有 MCP 孪生,也没有台账行,棘轮从来看不见 —— 跟 /stats/graph 同一类。
 func codesEntries() []Entry {
-	return []Entry{
-		{
-			Op:  read("codes.list", fp.OwnerRead()),
-			MCP: []string{"codes.list"}, Admin: []string{"GET /api/admin/codes/"},
-		},
-		{
-			Op:  act("codes.create", fp.OwnerAction()),
-			MCP: []string{"codes.create"}, Admin: []string{"POST /api/admin/codes/"},
-		},
-		{
-			Op:  act("codes.revoke", fp.OwnerAction()),
-			MCP: []string{"codes.revoke"}, Admin: []string{"POST /api/admin/codes/{id}/revoke"},
-		},
-		{
-			Op:  act("codes.update_quotas", fp.OwnerAction()),
-			MCP: []string{"codes.update_quotas"}, Admin: []string{"PATCH /api/admin/codes/{id}/quotas"},
-		},
-		{
-			Op:  read("codes.list_members", fp.OwnerRead()),
-			MCP: []string{"codes.list_members"}, Admin: []string{"GET /api/admin/codes/{id}/members"},
-		},
-		{
-			Op:  read("codes.list_denials", fp.OwnerRead()),
-			MCP: []string{"codes.list_denials"}, Admin: []string{"GET /api/admin/codes/{id}/denials"},
-		},
-		{
-			Op:  act("codes.add_denial", fp.OwnerAction()),
-			MCP: []string{"codes.add_denial"}, Admin: []string{"POST /api/admin/codes/{id}/denials/{kind}"},
-		},
-		{
-			Op:    act("codes.remove_denial", fp.OwnerAction()),
-			MCP:   []string{"codes.remove_denial"},
-			Admin: []string{"DELETE /api/admin/codes/{id}/denials/{kind}/{targetId}"},
-		},
-	}
+	return []Entry{}
 }
 
-// roles / prompts / skills.
+// roles / prompts / skills 三组也都搬进了出站收口(dispatcher.{Roles,Prompts,Skills})。
+// skills 连同 marketplace 一起 —— 它们共用"一个 skill 长什么样"这份形状。
+// 这个函数现在是空的,等最后一批搬完连同整包一起删。
 func rolesPromptsSkills() []Entry {
-	return []Entry{
-		// roles / prompts / skills 三组都搬进了出站收口(dispatcher.{Roles,Prompts,Skills}),
-		// skills 连同 marketplace 一起 —— 它们共用"一个 skill 长什么样"这份形状,
-		// 分开搬就会留下两份。这个函数现在是空的,等最后一批搬完连同整包一起删。
-	}
+	return []Entry{}
 }

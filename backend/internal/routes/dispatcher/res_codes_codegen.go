@@ -1,9 +1,15 @@
-// codes_codegen.go —— frontend / fixture 不传 code 时按 label 派生
-// 'LABEL-XXX' 形态的人类可读 code。从 codes.go 拆出守 350-line cap。
+// res_codes_codegen.go —— 不传 code 时按 label 派生 'LABEL-XXX' 形态的人类可读 code。
+//
+// 以前它只长在 admin 面上,于是同一件事两个面不一样:面板可以不填 code(后端派生一个),
+// 而 MCP 的 codes.create 必须显式给。它是**业务**,不是 REST 形状,所以归收口 —— 两个面
+// 现在都能省略 code。
 
-package admin
+package dispatcher
 
-import "crypto/rand"
+import (
+	"crypto/rand"
+	"fmt"
+)
 
 const (
 	codeLabelMaxLen  = 12
@@ -19,21 +25,21 @@ var codeRand = cryptoRandRead
 func cryptoRandRead(b []byte) (int, error) {
 	n, err := rand.Read(b)
 	if err != nil {
-		return n, err
+		return n, fmt.Errorf("read random bytes: %w", err)
 	}
 	return n, nil
 }
 
-// ensureCodePlaintext —— mutates req.Code if empty。
-func ensureCodePlaintext(req *createCodeRequest) {
-	if req.Code != "" {
-		return
+// derivedCode —— 没给 code 时按 label 派生一个。给了就原样用。
+func derivedCode(code, label string) string {
+	if code != "" {
+		return code
 	}
-	prefix := normalizeCodeLabel(req.Label)
+	prefix := normalizeCodeLabel(label)
 	if prefix == "" {
 		prefix = "CODE"
 	}
-	req.Code = prefix + "-" + randomCodeSuffix()
+	return prefix + "-" + randomCodeSuffix()
 }
 
 func normalizeCodeLabel(label string) string {

@@ -25,7 +25,7 @@ import (
 // appearance、booking(策略归 capconfig)、byoai + ai_provider(合成 settings)、account、
 // calendar(取消归 booker 的 OwnerTools + 卡片的 mcp-ui:tool)。
 var allOwnerCapIDs = []string{
-	"codes.bundle", "seo.bundle",
+	"seo.bundle",
 	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
 	"corpus.subjectivity.bundle", "chat.bundle",
 	"writings.bundle",

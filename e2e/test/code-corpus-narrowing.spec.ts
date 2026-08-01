@@ -8,15 +8,17 @@
 // 就能过。真正要证的是「role 授了，但这张码收回了」。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Playwright } from '@playwright/test';
+import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { login as loginAPI } from '@/fixtures/admin';
+import { gotoAdminSection } from '@/fixtures/navigate';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
 import {
   BACKEND, claimSyncOwner, syncOwner, syncSession, syncRead, type SyncOwner,
 } from '@/fixtures/vault-sync';
 
 type Ctx = { playwright: Playwright };
+type PageCtx = { adminPage: Page };
 const OWNER: SyncOwner = syncOwner('codecorpus');
 
 // EMPLOYER —— CV 里的 PII 替身。每条断言都在找**这个字符串**，而不是找"报错了没"。
@@ -43,6 +45,8 @@ test.describe('ACL · per-code corpus narrowing (role grants, this code takes ba
   });
 
   test('inherits the role grant when the code takes nothing back', inheritsByDefault);
+  test('owner narrows the code from the panel; the box shows what the role granted',
+    narrowsFromThePanel);
   test('a code that takes back subjectivity://cv cannot read it', codeNarrows);
   test('…while the rest of the role grant still reads on that same code', narrowingIsSurgical);
   test('a denial cannot OPEN what the role never granted', denyCannotOpen);
@@ -53,9 +57,9 @@ async function setDenied(
   request: APIRequestContext, codeID: string, denied: string[],
 ): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const res = await request.put(`${BACKEND}/api/admin/codes/${codeID}/corpus`, {
+  const res = await request.put(`${BACKEND}/api/admin/codes/${codeID}/denials/corpus`, {
     headers: { 'X-Csrftoken': csrf },
-    data: { denied },
+    data: { uris: denied },
   });
   expect(res.status(), 'owner can narrow a code').toBe(200);
 }
@@ -75,6 +79,32 @@ async function inheritsByDefault({ playwright }: Ctx): Promise<void> {
   const read = await syncRead(request, await syncSession(request, OWNER), 'cv');
   expect(read.body ?? '', 'no denials → the role grant stands').toContain(EMPLOYER);
   await request.dispose();
+}
+
+// narrowsFromThePanel —— owner 真正做这件事的地方是**卡片上那个框**，不是 curl。
+// 上面几条都直接打 API，于是这个框自己（读什么、写什么、存完还在不在）一直没人验过。
+// 断言的是好结果：继承来的正列表印在框里、存完访客真的读不到、刷新后收回列表还在。
+async function narrowsFromThePanel({ adminPage, playwright }: Ctx & PageCtx): Promise<void> {
+  await gotoAdminSection(adminPage, 'codes');
+  const box = adminPage.getByTestId('code-corpus-SYNC-ALL');
+  await expect(box).toBeVisible({ timeout: 10_000 });
+  await expect(box, 'the role grant is shown for comparison').toContainText('subjectivity://**');
+
+  await box.getByTestId('code-corpus-denied-SYNC-ALL').fill('subjectivity://cv');
+  await box.getByTestId('code-corpus-save-SYNC-ALL').click();
+  await expect(adminPage.getByText(/corpus narrowed for SYNC-ALL/i)).toBeVisible();
+
+  const request = await playwright.request.newContext();
+  const read = await syncRead(request, await syncSession(request, OWNER), 'cv');
+  expect(read.body ?? '', 'saving from the panel really takes it back').not.toContain(EMPLOYER);
+  await request.dispose();
+
+  await adminPage.reload();
+  await gotoAdminSection(adminPage, 'codes');
+  await expect(
+    adminPage.getByTestId('code-corpus-denied-SYNC-ALL'),
+    'what the owner saved is what the box reads back',
+  ).toHaveValue('subjectivity://cv');
 }
 
 // codeNarrows —— 核心：role 授了 subjectivity://**，这张码收回 cv → 读不到，且 PII 不回来。

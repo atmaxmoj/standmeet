@@ -27,7 +27,7 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN —— tools/list 必须逐字返回这 125 个 owner 工具(排序后比,顺序噪声由 mcp-go
+// GOLDEN —— tools/list 必须逐字返回这 129 个 owner 工具(排序后比,顺序噪声由 mcp-go
 // 注册顺序决定、不在本条职责内)。facade-parity 全额付清后(56→0):每个 admin 面的
 // owner 能力都有一个 owner-MCP 孪生工具。新增/删除 owner 工具必须同步更新本 golden。
 const GOLDEN_TOOLSET: readonly string[] = [
@@ -38,6 +38,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'codes.create', 'codes.revoke', 'codes.update_quotas',
   'codes.list', 'codes.list_members',
   'codes.list_denials', 'codes.add_denial', 'codes.remove_denial',
+  // 这四条以前只有面板有（waypoints 读写 / ghost-evidence / corpus 收回整份），
+  // 既没有 MCP 孪生也没进台账。搬进收口之后两个面同时欠它们。
+  'codes.set_corpus_denials', 'codes.set_ghost_evidence',
+  'codes.waypoints', 'codes.set_waypoints',
   // corpus raw / output / wiki / subjectivity
   'subjectivity_write',
   'raw_dump', 'list_recent_raw',

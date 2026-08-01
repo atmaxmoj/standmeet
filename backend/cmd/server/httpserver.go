@@ -94,7 +94,6 @@ type AdminDeps struct {
 	WritingRefs     *corpus.WritingRefRepo
 	SEO             *corpus.SEORepo
 	Codes           *access.CodeRepo
-	Booking         adminroutes.BookingQuotaStore // #135: booker 自管的 per-code 预约配额读写口
 	CodeDenials     *access.CodeDenialRepo
 	Owners          *owner.Repo
 	Drafts          *jobsuc.ResumeDraftRepo
@@ -188,14 +187,10 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		KeypairsAdmin: adminroutes.KeypairsAdminDeps{
 			Deps: deps.Admin.Keypairs, Log: deps.Log,
 		},
-		Corpus: adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
-		CodesAdmin: adminroutes.CodesDeps{
-			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
-			Sessions: deps.Public.Sessions, Denials: deps.Admin.CodeDenials,
-			Booking: deps.Admin.Booking,
-		},
-		PageAdmin: adminroutes.PageAdminDeps{Owners: deps.Admin.Owners, Pins: pins},
-		SEOAdmin:  adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO, Pins: pins},
+		Corpus:     adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+		CodesAdmin: adminroutes.CodesDeps{Face: adminFace(deps.Dispatch)},
+		PageAdmin:  adminroutes.PageAdminDeps{Owners: deps.Admin.Owners, Pins: pins},
+		SEOAdmin:   adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO, Pins: pins},
 		Conversations: adminroutes.ConversationsDeps{
 			Chats:  deps.Admin.Conversations,
 			Ghosts: deps.Admin.Ghosts,

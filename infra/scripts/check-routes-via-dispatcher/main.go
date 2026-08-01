@@ -45,15 +45,8 @@ const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 // **这份名单只能变短。** 每把一个资源搬进出站收口，删掉对应文件那一行。
 // 不要往里加行：加行意味着又造了一条绕过收口的路。
 var baseline = map[string]bool{
-	"internal/routes/admin/account.go":                       true,
 	"internal/routes/admin/auth.go":                          true,
-	"internal/routes/admin/booking_policy.go":                true,
-	"internal/routes/admin/booking_store_deps.go":            true,
-	"internal/routes/admin/bookings.go":                      true,
 	"internal/routes/admin/claim.go":                         true,
-	"internal/routes/admin/codes.go":                         true,
-	"internal/routes/admin/codes_view.go":                    true,
-	"internal/routes/admin/codes_waypoints.go":               true,
 	"internal/routes/admin/conversations.go":                 true,
 	"internal/routes/admin/conversations_ghost_telemetry.go": true,
 	"internal/routes/admin/corpus.go":                        true,
@@ -67,7 +60,6 @@ var baseline = map[string]bool{
 	"internal/routes/admin/custom_pages.go":                  true,
 	"internal/routes/admin/handle.go":                        true,
 	"internal/routes/admin/keypairs.go":                      true,
-	"internal/routes/admin/me.go":                            true,
 	"internal/routes/admin/obsidian.go":                      true,
 	"internal/routes/admin/page.go":                          true,
 	"internal/routes/admin/public_url.go":                    true,
@@ -90,7 +82,6 @@ var baseline = map[string]bool{
 	"internal/routes/public/access_requests.go":              true,
 	"internal/routes/public/agent_turn.go":                   true,
 	"internal/routes/public/app_state.go":                    true,
-	"internal/routes/public/booking_cancellation.go":         true,
 	"internal/routes/public/byoai_envelope.go":               true,
 	"internal/routes/public/chat.go":                         true,
 	"internal/routes/public/custom_pages.go":                 true,

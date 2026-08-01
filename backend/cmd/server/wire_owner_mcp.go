@@ -26,14 +26,12 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Assets:      corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 	}
 	return &ownercore.Deps{
-		Codes:            d.codeRepo,
-		CodeBookingQuota: newBookerQuotaStore(d),
-		SEO:              d.seoRepo,
-		PagePins:         owner.PagePinDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
-		Corpus:           &corpusDeps,
-		Conversations:    &convsDeps,
-		Writings:         &corpus.WritingsDeps{Writings: d.writingRepo},
-		WritingsTx:       &writingsTxDeps,
+		SEO:           d.seoRepo,
+		PagePins:      owner.PagePinDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
+		Corpus:        &corpusDeps,
+		Conversations: &convsDeps,
+		Writings:      &corpus.WritingsDeps{Writings: d.writingRepo},
+		WritingsTx:    &writingsTxDeps,
 		CustomPages: &owner.CustomPageDeps{
 			Pages: d.customPageRepo, Builds: d.customBuildRepo,
 		},
@@ -43,7 +41,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
 			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,
 		},
-		CodeDenials: d.codeDenialRepo,
 		PageContent: d.ownerRepo,
 		PublicURL:   owner.PublicURLDeps{Owners: d.ownerRepo},
 		SEOStats:    seoStatsAdapter{repo: d.seoRepo},

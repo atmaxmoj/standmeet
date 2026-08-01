@@ -117,7 +117,6 @@ func buildAdminDeps(d *runtimeDeps) AdminDeps {
 		WritingRefs:  d.writingRefRepo,
 		SEO:          d.seoRepo,
 		Codes:        d.codeRepo,
-		Booking:      newBookerQuotaStore(d),
 		CodeDenials:  d.codeDenialRepo,
 		Owners:       d.ownerRepo,
 		Drafts:       d.resumeDraftRepo,
