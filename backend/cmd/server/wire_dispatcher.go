@@ -58,6 +58,12 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		MCPServers: marketplace.MCPServersDeps{
 			Servers: d.mcpServerRepo, Codes: d.codeRepo,
 		},
+		// skill 用例要 skill repo + code repo(删之前得看有没有邀请码还在用它)。
+		Skills: marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
+		// 装一个市场 skill = 抓远端 SKILL.md + 落成一个自己的 skill,所以两头都要。
+		Marketplace: marketplace.InstallSkillDeps{
+			Marketplace: d.marketplaceClient, Skills: d.skillRepo,
+		},
 		Instance: stats.InstanceDeps{
 			System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
 			Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
@@ -65,8 +71,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 	})
 	return dispatcher.New(append(resources,
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
-		dispatcher.Skills(newSkillOps(d)),
-		dispatcher.Marketplace(newMarketOps(d)),
 		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),

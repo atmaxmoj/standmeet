@@ -24,7 +24,6 @@ capload wrapMCPAppTools
 dispatcher (denialArgs).validate
 dispatcher (seoEntryArgs).validate
 dispatcher accessRequestsApprove
-dispatcher appearanceSetCSS
 dispatcher capabilitiesDelete
 dispatcher capabilitiesSetEnabled
 dispatcher capabilityConfigGet
@@ -34,18 +33,8 @@ dispatcher codesSetCorpusDenials
 dispatcher codesSetGhostEvidence
 dispatcher codesSetWaypoints
 dispatcher conversationsGet
-dispatcher instanceCorpusGraph
-dispatcher marketplaceInstall
-dispatcher marketplaceSearch
-dispatcher mcpServersDelete
 dispatcher parseAccessRequestUpdate
-dispatcher parseGrantDep
-dispatcher parseMCPServerCreate
-dispatcher parsePromptCreate
-dispatcher parseSkillCreate
 dispatcher rolesSetDockButtons
 dispatcher seoSetEntry
 dispatcher seoUpdateSettings
-dispatcher skillsDelete
-dispatcher skillsSetEnabled
 mcphandle runCapabilityHandler

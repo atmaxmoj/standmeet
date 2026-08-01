@@ -24,6 +24,8 @@ type Deps struct {
 	OwnerCSS       owner.CSSStore
 	CustomPages    owner.CustomPageDeps
 	MCPServers     marketplace.MCPServersDeps
+	Skills         marketplace.SkillsDeps
+	Marketplace    marketplace.InstallSkillDeps
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
 	Prompts        owner.PromptsDeps
@@ -44,5 +46,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
 		{Name: "instance", Ops: stats.InstanceOps(d.Instance)},
 		{Name: "mcp_servers", Ops: marketplace.MCPServerOps(d.MCPServers)},
+		{Name: "skills", Ops: marketplace.SkillOps(d.Skills)},
+		{Name: "marketplace", Ops: marketplace.MarketplaceOps(d.Marketplace)},
 	}
 }

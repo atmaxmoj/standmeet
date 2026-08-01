@@ -7,4 +7,8 @@ package marketplace
 import "github.com/atmaxmoj/standmeet/internal/marketplace/ops"
 
 // 操作组（实现:ops）.
-var MCPServerOps = ops.MCPServers
+var (
+	MCPServerOps   = ops.MCPServers
+	SkillOps       = ops.Skills
+	MarketplaceOps = ops.Marketplace
+)
