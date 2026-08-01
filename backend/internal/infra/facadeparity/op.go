@@ -15,6 +15,9 @@ import (
 // 所以它能命名一个操作,而不必知道调用方是从 MCP、HTTP 还是别的还没写的东西过来的。
 type Invoke func(ctx context.Context, ownerID string, args json.RawMessage) (json.RawMessage, error)
 
+// NoArgs —— 不收参数的操作的入参 schema。
+var NoArgs = json.RawMessage(`{"type":"object","properties":{}}`)
+
 // Op —— 一个操作的整份声明:稳定 id、给调用方看的说明、入参 schema、语义类别、
 // 暴露意图(哪些面欠它),以及实现。
 type Op struct {

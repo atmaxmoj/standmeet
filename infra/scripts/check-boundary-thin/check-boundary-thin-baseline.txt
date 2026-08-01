@@ -5,9 +5,6 @@
 internal/routes/dispatcher/res_access_requests.go
 internal/routes/dispatcher/res_capabilities.go
 internal/routes/dispatcher/res_capability_config.go
-internal/routes/dispatcher/res_codes.go
-internal/routes/dispatcher/res_codes_acl.go
-internal/routes/dispatcher/res_codes_ops.go
 internal/routes/dispatcher/res_conversations.go
 internal/routes/dispatcher/res_conversations_funnel.go
 internal/routes/dispatcher/res_conversations_shape.go

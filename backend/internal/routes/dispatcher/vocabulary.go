@@ -39,8 +39,10 @@ var (
 	CodeOf = fp.CodeOf
 )
 
-// opErr / requireArgs —— 中立词汇的两个小工具。还没搬进域的那些资源在用,搬完就消失。
+// opErr / requireArgs / emptyArgsSchema —— 中立词汇的几个小件。还没搬进域的那些资源
+// 在用,搬完就消失。
 var (
-	opErr       = fp.OpErr
-	requireArgs = fp.RequireArgs
+	opErr           = fp.OpErr
+	requireArgs     = fp.RequireArgs
+	emptyArgsSchema = fp.NoArgs
 )

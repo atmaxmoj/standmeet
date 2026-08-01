@@ -135,6 +135,23 @@ test.describe('能力归一化 · 【对外】tools/list 工具面 golden(真实
     await request.dispose();
   });
 
+  // 一个能力可以在 codes 的入参上加自己的字段(booker 的 max_bookings 是第一个,走
+  // access.CodeExtras)。access 域不认识它,所以没有任何编译期的东西钉住"它还在":
+  // 接线断了照样绿,只是 owner 从 MCP 再也设不了预约配额。这条钉的就是那个。
+  test('codes 的入参 schema 带着能力贡献的字段(max_bookings)', async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    const tools = await listTools(request, token, sid);
+    for (const name of ['codes.create', 'codes.update_quotas']) {
+      const tool = tools.find((t) => t.name === name);
+      expect(tool, `${name} missing from tools/list`).toBeTruthy();
+      expect(
+        Object.keys(tool?.inputSchema?.properties ?? {}),
+        `${name} lost the capability-contributed field`,
+      ).toContain('max_bookings');
+    }
+    await request.dispose();
+  });
+
   test('tools/list body 非空(回归守护:坏 schema 曾让整张表返空)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();

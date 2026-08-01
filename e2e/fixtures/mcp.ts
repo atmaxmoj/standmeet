@@ -108,7 +108,12 @@ export async function initMCP(request: APIRequestContext, bearer: string): Promi
 }
 
 // MCPToolDef —— tools/list 单条工具元数据(name + 可选描述/schema)。
-export interface MCPToolDef { name: string; description?: string }
+// inputSchema 是 MCP 客户端据以填参的那份 —— 字段掉了,客户端就再也发不出那个参数。
+export interface MCPToolDef {
+  name: string;
+  description?: string;
+  inputSchema?: { properties?: Record<string, unknown> };
+}
 interface MCPListResult { tools: MCPToolDef[] }
 
 // listTools —— 真实 MCP 工具发现路径(tools/list)。这条路径会序列化**全部**

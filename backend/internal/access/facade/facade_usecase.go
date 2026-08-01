@@ -5,6 +5,7 @@ import "github.com/atmaxmoj/standmeet/internal/access/usecase"
 // 类型（实现:usecase）.
 type (
 	APIKeyRoleGetter         = usecase.APIKeyRoleGetter
+	CodeACLDeps              = usecase.CodeACLDeps
 	CodeQuotaUpdate          = usecase.CodeQuotaUpdate
 	CodesDeps                = usecase.CodesDeps
 	IssueAPIKeyDeps          = usecase.IssueAPIKeyDeps

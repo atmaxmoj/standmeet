@@ -84,5 +84,8 @@ var ErrMemberQuotaReached = errors.New("member quota reached for code")
 // ErrMemberNotFound —— 按 id 找 member 没找到(client 存的 member_id 失效)。
 var ErrMemberNotFound = errors.New("code member not found")
 
+// ErrDenialKindUnknown —— 一条拒绝的 kind 不是 capability / skill / corpus 之一。
+var ErrDenialKindUnknown = errors.New("denial kind must be capability, skill or corpus")
+
 // ErrTurnQuotaReached —— 这个 session 已用满 max_turns_per_session。
 var ErrTurnQuotaReached = errors.New("turn quota reached for session")

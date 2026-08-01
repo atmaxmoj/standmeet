@@ -12,6 +12,7 @@
 package main
 
 import (
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
@@ -64,6 +65,16 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		Marketplace: marketplace.InstallSkillDeps{
 			Marketplace: d.marketplaceClient, Skills: d.skillRepo,
 		},
+		Codes: access.OpsCodes{
+			Codes: access.CodesDeps{
+				Codes: d.codeRepo, Roles: d.roleRepo, Sessions: d.visitorStore,
+			},
+			ACL: access.CodeACLDeps{
+				Codes: d.codeRepo, Denials: d.codeDenialRepo, Roles: d.roleRepo,
+			},
+			// booker 在一张码上占一个 max_bookings 字段,见 booker_code_config.go。
+			Extras: newBookerCodeExtras(d),
+		},
 		Instance: stats.InstanceDeps{
 			System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
 			Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
@@ -74,7 +85,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),
-		dispatcher.Codes(newCodeOps(d), newCodeOps(d)),
 		dispatcher.SEO(newSEOOps(d)),
 		dispatcher.Conversations(newConversationOps(d)),
 		dispatcher.Page(newPageOps(d)),

@@ -8,6 +8,7 @@
 package dispatcher
 
 import (
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -18,14 +19,15 @@ import (
 // Deps —— 各域对外声明操作时需要的依赖包,由组装根填。
 type Deps struct {
 	Corpus         corpus.Deps
+	Codes          access.OpsCodes
 	Writings       corpus.OpsWritingsDeps
 	Instance       stats.InstanceDeps
 	Account        owner.OpsAccountDeps
-	OwnerCSS       owner.CSSStore
-	CustomPages    owner.CustomPageDeps
+	Marketplace    marketplace.InstallSkillDeps
 	MCPServers     marketplace.MCPServersDeps
 	Skills         marketplace.SkillsDeps
-	Marketplace    marketplace.InstallSkillDeps
+	CustomPages    owner.CustomPageDeps
+	OwnerCSS       owner.CSSStore
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
 	Prompts        owner.PromptsDeps
@@ -48,5 +50,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "mcp_servers", Ops: marketplace.MCPServerOps(d.MCPServers)},
 		{Name: "skills", Ops: marketplace.SkillOps(d.Skills)},
 		{Name: "marketplace", Ops: marketplace.MarketplaceOps(d.Marketplace)},
+		{Name: "codes", Ops: access.CodeOps(d.Codes)},
 	}
 }

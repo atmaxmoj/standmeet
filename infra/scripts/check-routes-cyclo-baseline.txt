@@ -21,17 +21,12 @@ capload toolRequires
 capload toolUIHTML
 capload wantsWorkspace
 capload wrapMCPAppTools
-dispatcher (denialArgs).validate
 dispatcher (seoEntryArgs).validate
 dispatcher accessRequestsApprove
 dispatcher capabilitiesDelete
 dispatcher capabilitiesSetEnabled
 dispatcher capabilityConfigGet
 dispatcher capabilityConfigSet
-dispatcher codesMembers
-dispatcher codesSetCorpusDenials
-dispatcher codesSetGhostEvidence
-dispatcher codesSetWaypoints
 dispatcher conversationsGet
 dispatcher parseAccessRequestUpdate
 dispatcher rolesSetDockButtons

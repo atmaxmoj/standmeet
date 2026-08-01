@@ -117,6 +117,8 @@ components:
     in: internal/access/repo         # access guts: 仓储（over db + pgstore）
   accessusecase:
     in: internal/access/usecase      # access guts: 用例/编排 + 窄端口
+  accessops:
+    in: internal/access/ops          # access guts: 本域对外能做什么的声明
   owner:
     in: internal/owner/facade        # #135: owner 域 facade（对外协议）；域外只 import 这里
   ownerentity:
@@ -746,6 +748,16 @@ deps:
       - accessentity
       - accessrepo
       - accessusecase
+      - accessops
+    anyVendorDeps: true
+  # accessops —— 本域对外的操作声明（id/schema/reach/实现）。只认本域的用例 + 中立词汇。
+  accessops:
+    mayDependOn:
+      - accessentity
+      - accessrepo
+      - accessusecase
+      - facadeparity
+      - apierr
     anyVendorDeps: true
   accessentity:
     mayDependOn: []

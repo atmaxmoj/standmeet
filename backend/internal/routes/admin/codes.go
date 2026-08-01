@@ -71,10 +71,13 @@ func (h *Handlers) mountCodeACL(r chi.Router, face *dispatcher.Face) {
 
 // denialTargetFields —— 各 kind 在 body 里用的字段名（历史形状：字段名跟着 kind 变）。
 // 收口那边统一是 target_id，这里做映射 —— 这就是"REST 形状留在面上"的具体样子。
+//
+// kind 本身是这条路由自己的路径段，所以在这儿是字面量；能接受哪几个值由 op 的 schema 说，
+// 面不复述那份判断（给错了域会回一句 bad input）。
 var denialTargetFields = map[string]string{
-	dispatcher.DenialKindCapability: "capability_id",
-	dispatcher.DenialKindSkill:      "skill_id",
-	dispatcher.DenialKindCorpus:     "uri",
+	"capability": "capability_id",
+	"skill":      "skill_id",
+	"corpus":     "uri",
 }
 
 // addDenialArgs —— POST /codes/{id}/denials/{kind}：kind 在路径，target 在 body。
