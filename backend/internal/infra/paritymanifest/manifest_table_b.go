@@ -79,29 +79,9 @@ func connectorsMCPServers() []Entry {
 func contentEntries() []Entry {
 	return []Entry{
 		{
-			Op:    read("writings.list", fp.OwnerRead()),
-			MCP:   []string{"writing_list"},
-			Admin: []string{"GET /api/admin/writings/"},
-		},
-		{
 			Op:    act("writings.save", fp.OwnerAction()),
 			MCP:   []string{"writing_create"},
 			Admin: []string{"POST /api/admin/writings/", "PATCH /api/admin/writings/{id}"},
-		},
-		{
-			Op:    act("writings.publish", fp.OwnerAction()),
-			MCP:   []string{"writing_publish"},
-			Admin: []string{"POST /api/admin/writings/{id}/publish"},
-		},
-		{
-			Op:    act("writings.unpublish", fp.OwnerAction()),
-			MCP:   []string{"writing_unpublish"},
-			Admin: []string{"POST /api/admin/writings/{id}/unpublish"},
-		},
-		{
-			Op:    act("writings.delete", fp.OwnerAction()),
-			MCP:   []string{"writing_delete"},
-			Admin: []string{"DELETE /api/admin/writings/{id}"},
 		},
 		{
 			Op:    read("obsidian.export", fp.Only("streams the vault as a zip download (browser file save)", FacadeAdmin)),

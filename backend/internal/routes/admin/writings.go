@@ -18,14 +18,15 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
 const timeFmt = time.RFC3339
 
-// WritingsAdminDeps —— admin writings handlers 依赖。Writings (slim) 用于
-// 读 / publish；WritingsTx (with Assets) 用于 create / update / delete。
+// WritingsAdminDeps —— admin writings handlers 依赖。Face 给列出 / 发布 / 删除；
+// WritingsTx 还留着,因为 save 是 multipart,还没搬进收口(见 MountWritings)。
 type WritingsAdminDeps struct {
-	Writings   corpus.WritingsDeps
+	Face       *dispatcher.Face
 	WritingsTx corpus.WritingsTxDeps
 	Tree       WritingsTreeProvider // lazy tree + grid pagination (concrete WritingRepo)
 }
@@ -77,44 +78,25 @@ type writingSaveRequest struct {
 }
 
 // MountWritings 挂 /writings 子路由。
+//
+// 列出 / 发布 / 取消发布 / 删除的能力来自出站收口；save 还没搬 —— 它这边是 multipart
+// （内联图片跟表单一起传），MCP 那边是一串 URL，字节流进不了 JSON op。要并成一个 op，
+// 得先把「上传素材」拆成独立一步，那会动到编辑器的保存路径。
 func (h *Handlers) MountWritings(r chi.Router) {
+	face := h.WritingsAdmin.Face
 	r.Route("/writings", func(r chi.Router) {
-		r.Get("/", h.listAdminWritings())
+		r.Get("/", h.dispatchOp(face, "writings.list", emptyArgs, jsonOK))
 		r.Get("/tree", h.treeWritings())
 		r.Get("/page", h.pageWritings())
 		r.Post("/", h.createAdminWriting())
 		r.Patch("/{id}", h.updateAdminWriting())
-		r.Post("/{id}/publish", h.publishAdminWriting())
-		r.Post("/{id}/unpublish", h.unpublishAdminWriting())
-		r.Delete("/{id}", h.deleteAdminWriting())
+		r.Post("/{writing_id}/publish",
+			h.dispatchOp(face, "writings.publish", urlParamArgs("writing_id"), jsonOK))
+		r.Post("/{writing_id}/unpublish",
+			h.dispatchOp(face, "writings.unpublish", urlParamArgs("writing_id"), jsonOK))
+		r.Delete("/{writing_id}",
+			h.dispatchOp(face, "writings.delete", urlParamArgs("writing_id"), noContent))
 	})
-}
-
-func (h *Handlers) listAdminWritings() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		rows, err := corpus.ListAllWritings(r.Context(), h.WritingsAdmin.Writings, ownerID)
-		if err != nil {
-			logEncodeErr(h.Log, "list writings", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		writeWritingsList(r, h, w, rows)
-	}
-}
-
-func writeWritingsList(
-	r *http.Request, h *Handlers, w http.ResponseWriter, rows []corpus.Writing,
-) {
-	items := make([]writingView, 0, len(rows))
-	for i := range rows {
-		items = append(items, toWritingViewResolved(r, h, &rows[i]))
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		logEncodeErr(h.Log, "encode writings", err)
-	}
 }
 
 func toWritingViewResolved(r *http.Request, h *Handlers, wg *corpus.Writing) writingView {
@@ -261,63 +243,5 @@ func writeSavedWriting(
 	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(toWritingViewResolved(r, h, wg)); err != nil {
 		logEncodeErr(h.Log, "encode writing", err)
-	}
-}
-
-func writeWritingResp(
-	r *http.Request, h *Handlers, w http.ResponseWriter, wg *corpus.Writing,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(toWritingViewResolved(r, h, wg)); err != nil {
-		logEncodeErr(h.Log, "encode writing", err)
-	}
-}
-
-func (h *Handlers) publishAdminWriting() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		writingID := chi.URLParam(r, "id")
-		wg, err := corpus.PublishWriting(
-			r.Context(), h.WritingsAdmin.Writings, ownerID, writingID,
-		)
-		if err != nil {
-			logEncodeErr(h.Log, "publish writing", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		writeWritingResp(r, h, w, &wg)
-	}
-}
-
-func (h *Handlers) unpublishAdminWriting() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		writingID := chi.URLParam(r, "id")
-		wg, err := corpus.UnpublishWriting(
-			r.Context(), h.WritingsAdmin.Writings, ownerID, writingID,
-		)
-		if err != nil {
-			logEncodeErr(h.Log, "unpublish writing", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		writeWritingResp(r, h, w, &wg)
-	}
-}
-
-func (h *Handlers) deleteAdminWriting() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		writingID := chi.URLParam(r, "id")
-		err := corpus.DeleteWritingWithAssets(
-			r.Context(), h.WritingsAdmin.WritingsTx, ownerID, writingID,
-		)
-		if err != nil {
-			logEncodeErr(h.Log, "delete writing", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
 	}
 }

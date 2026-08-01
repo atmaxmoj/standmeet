@@ -1,6 +1,9 @@
-// cap_writings.go —— Phase E-9: owner writings CRUD via Capability。
-// 4 tools: writing_create / writing_list / writing_publish / writing_delete。
-// owner-only。inline file uploads (`files` array) 走 cap_writings_files.go。
+// cap_writings.go —— 只剩 writing_create 一个工具。
+//
+// 列出 / 发布 / 取消发布 / 删除都搬进了出站收口(dispatcher.Writings)。**写**没搬:
+// 面板那边它是 multipart(正文里的内联图片跟表单一起传),MCP 这边是一串 URL 让服务端去取。
+// 字节流进不了一个 JSON op —— 要并成一个 op,得先把"上传素材"拆成独立一步,那会动到
+// 编辑器的保存路径。这是**已知的欠账**,不是"这条不该统一"。
 
 package ownercore
 
@@ -50,10 +53,7 @@ func (*writingsCapability) SystemPromptFragmentID(
 }
 
 func (c *writingsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{
-		c.createBinding(), c.listBinding(),
-		c.publishBinding(), c.unpublishBinding(), c.deleteBinding(),
-	}
+	return []*capreg.MCPBinding{c.createBinding()}
 }
 
 // ───── writing_create ─────────────────────────────────────────────
@@ -194,132 +194,4 @@ func buildWritingSaveInput(
 		ParentID:   args.ParentID,
 		Publish:    args.Publish,
 	}
-}
-
-// ───── writing_list ────────────────────────────────────────────
-
-func (c *writingsCapability) listBinding() *capreg.MCPBinding {
-	return &capreg.MCPBinding{
-		Name:        "writing_list",
-		Description: "List all writings (drafts + published, newest first).",
-		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
-		Handler:     c.handleList,
-	}
-}
-
-type writingListRow struct {
-	PublishedAt string   `json:"published_at,omitempty"`
-	UpdatedAt   string   `json:"updated_at"`
-	ID          string   `json:"id"`
-	Slug        string   `json:"slug"`
-	Title       string   `json:"title"`
-	Excerpt     string   `json:"excerpt,omitempty"`
-	Visibility  string   `json:"visibility"`
-	Tags        []string `json:"tags"`
-	Published   bool     `json:"published"`
-}
-
-func (c *writingsCapability) handleList(
-	ctx context.Context, ownerID string, _ json.RawMessage,
-) capreg.MCPResult {
-	rows, err := corpus.ListAllWritings(ctx, *c.ro, ownerID)
-	if err != nil {
-		c.log.Error("cap writing_list", "err", err)
-		return capreg.MCPError("list writings failed")
-	}
-	out := make([]writingListRow, 0, len(rows))
-	for i := range rows {
-		out = append(out, writingRowToCapView(&rows[i]))
-	}
-	return mcputil.MarshalResult(c.log, "writing_list", out)
-}
-
-func writingRowToCapView(w *corpus.Writing) writingListRow {
-	row := writingListRow{
-		ID: w.ID(), Slug: w.Slug(), Title: w.Title(),
-		Excerpt: w.Excerpt(), Visibility: w.VisibilityMode(),
-		Tags: w.Tags(), Published: w.IsPublished(),
-		UpdatedAt: w.UpdatedAt().Format(mcpTimeFmt),
-	}
-	if pub, ok := w.PublishedAt(); ok {
-		row.PublishedAt = corpus.PublishedAtRFC3339(&pub)
-	}
-	return row
-}
-
-// ───── writing_publish ────────────────────────────────────────
-
-func (c *writingsCapability) publishBinding() *capreg.MCPBinding {
-	return &capreg.MCPBinding{
-		Name:        "writing_publish",
-		Description: "Publish a draft writing (sets published_at=now).",
-		InputSchema: writingByIDSchema(),
-		Handler:     c.handlePublish,
-	}
-}
-
-type writingByIDArgsWire struct {
-	WritingID string `json:"writing_id"`
-}
-
-func writingByIDSchema() json.RawMessage {
-	return json.RawMessage(`{
-		"type":"object",
-		"properties":{
-			"writing_id":{"type":"string"}
-		},
-		"required":["writing_id"]
-	}`)
-}
-
-func (c *writingsCapability) handlePublish(
-	ctx context.Context, ownerID string, raw json.RawMessage,
-) capreg.MCPResult {
-	var args writingByIDArgsWire
-	if err := json.Unmarshal(raw, &args); err != nil {
-		return capreg.MCPError("invalid arguments: " + err.Error())
-	}
-	if args.WritingID == "" {
-		return capreg.MCPError("writing_id is required")
-	}
-	wg, err := corpus.PublishWriting(ctx, *c.ro, ownerID, args.WritingID)
-	if err != nil {
-		c.log.Error("cap writing_publish", "err", err)
-		return capreg.MCPError("publish writing failed")
-	}
-	return mcputil.MarshalResult(c.log, "writing_publish", map[string]any{
-		"writing_id": wg.ID(), "slug": wg.Slug(), "published": true,
-	})
-}
-
-// ───── writing_delete ────────────────────────────────────────
-
-func (c *writingsCapability) deleteBinding() *capreg.MCPBinding {
-	return &capreg.MCPBinding{
-		Name:        "writing_delete",
-		Description: "Delete a writing.",
-		InputSchema: writingByIDSchema(),
-		Handler:     c.handleDelete,
-	}
-}
-
-func (c *writingsCapability) handleDelete(
-	ctx context.Context, ownerID string, raw json.RawMessage,
-) capreg.MCPResult {
-	var args writingByIDArgsWire
-	if err := json.Unmarshal(raw, &args); err != nil {
-		return capreg.MCPError("invalid arguments: " + err.Error())
-	}
-	if args.WritingID == "" {
-		return capreg.MCPError("writing_id is required")
-	}
-	if err := corpus.DeleteWritingWithAssets(
-		ctx, *c.rw, ownerID, args.WritingID,
-	); err != nil {
-		c.log.Error("cap writing_delete", "err", err)
-		return capreg.MCPError("delete writing failed")
-	}
-	return mcputil.MarshalResult(c.log, "writing_delete", map[string]string{
-		"writing_id": args.WritingID,
-	})
 }

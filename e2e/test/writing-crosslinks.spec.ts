@@ -86,13 +86,13 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
   test('delete A → B backlinks cleared (FK cascade)',
     async ({ request, page }) => {
       const { token: tok, sid } = await mcpSession(request, 'delete-crosslink-token');
-      // 取到 writing-a 的 id：writing_list 第一手。
+      // 取到 writing-a 的 id：writings.list 第一手。
       const rows = await callTool<{ id: string; slug: string }[]>(
-        request, tok, sid, 'writing_list', {},
+        request, tok, sid, 'writings.list', {},
       );
       const aRow = rows.find((p) => p.slug === 'writing-a');
       expect(aRow).toBeTruthy();
-      await callTool(request, tok, sid, 'writing_delete', { writing_id: aRow!.id });
+      await callTool(request, tok, sid, 'writings.delete', { writing_id: aRow!.id });
 
       await goto(page, '/writings/writing-b');
       // backlinks 段 disappear；至少不含 writing-a。

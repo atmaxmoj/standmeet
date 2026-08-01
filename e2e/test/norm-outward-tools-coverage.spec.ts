@@ -6,7 +6,7 @@
 // 搬完保持绿):
 //   skills        → skill_list · skill_delete
 //   mcp_servers   → mcp_server_list · mcp_server_delete
-//   writings      → writing_publish
+//   writings      → writings.publish
 //   custom_page   → custom_page.build
 //   seo           → seo.update_settings
 //
@@ -77,13 +77,13 @@ test.describe('能力归一化 · 【对外】零覆盖 MCP 工具守护(搬动�
       await request.dispose();
     });
 
-  test('writings: writing_publish 发布草稿', async ({ playwright }) => {
+  test('writings: writings.publish 发布草稿', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const w = await callTool<{ writing_id: string }>(
       request, token, sid, 'writing_create',
       { slug: 'cov-writing', title: 'Cov', body_md: '# body' });
     const pub = await callTool<{ published: boolean }>(
-      request, token, sid, 'writing_publish', { writing_id: w.writing_id });
+      request, token, sid, 'writings.publish', { writing_id: w.writing_id });
     expect(pub.published).toBe(true);
     await request.dispose();
   });

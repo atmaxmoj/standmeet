@@ -62,8 +62,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'skill_create', 'skill_list', 'skill_delete', 'skill_set_enabled',
   'capabilities.list', 'capabilities.set_enabled', 'capabilities.delete',
   // writings
-  'writing_create', 'writing_list', 'writing_publish', 'writing_delete',
-  'writing_unpublish',
+  // save 还是 writing_create(multipart 那半边没搬,见 res_writings.go 的说明);
+  // 其余四个搬进收口后按资源统一叫 writings.*。
+  'writing_create',
+  'writings.list', 'writings.publish', 'writings.unpublish', 'writings.delete',
   // custom page
   'custom_page.create', 'custom_page.list', 'custom_page.get_build',
   'custom_page.write_file', 'custom_page.build', 'custom_page.delete',
