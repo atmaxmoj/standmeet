@@ -16,10 +16,12 @@ import (
 // Deps —— 各域对外声明操作时需要的依赖包,由组装根填。
 type Deps struct {
 	Corpus         corpus.Deps
-	AllowedDomains owner.AllowedDomainsDeps
+	Account        owner.OpsAccountDeps
 	OwnerCSS       owner.CSSStore
-	Prompts        owner.PromptsDeps
 	BannedIPs      *security.BannedIPRepo
+	AllowedDomains owner.AllowedDomainsDeps
+	Prompts        owner.PromptsDeps
+	Settings       owner.SettingsDeps
 }
 
 // Collect —— 把各域声明的操作汇成资源清单。一个资源一行。
@@ -30,5 +32,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
 		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS)},
 		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},
+		{Name: "settings", Ops: owner.SettingsOps(d.Settings)},
+		{Name: "account", Ops: owner.AccountOps(d.Account)},
 	}
 }

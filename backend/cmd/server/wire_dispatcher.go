@@ -30,6 +30,17 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		AllowedDomains: owner.AllowedDomainsDeps{Instance: d.instanceRepo},
 		OwnerCSS:       d.ownerRepo,
 		Prompts:        owner.PromptsDeps{Prompts: d.promptRepo},
+		Settings: owner.SettingsDeps{
+			BYOAI: owner.BYOAIDeps{Owners: d.ownerRepo},
+			// Providers 不能漏:域用它校验 provider 名是不是已知 preset。少给这个字段
+			// 不会编译报错,只会在第一次写入时 nil 解引用 —— 装配期的坑。
+			AI:      owner.AIProviderDeps{Owners: d.ownerRepo, Providers: inferenceProviders{}},
+			Presets: aiPresets(),
+		},
+		Account: owner.OpsAccountDeps{
+			Account:  owner.AccountDeps{Owners: d.ownerRepo},
+			Recovery: recoveryDeps(d),
+		},
 	})
 	return dispatcher.New(append(resources,
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
@@ -39,8 +50,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.Instance(newInstanceOps(d)),
-		dispatcher.SettingsResource(newSettingsOps(d)),
-		dispatcher.Account(newAccountOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),
 		dispatcher.Codes(newCodeOps(d), newCodeOps(d)),
 		dispatcher.SEO(newSEOOps(d)),

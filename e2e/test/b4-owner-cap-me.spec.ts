@@ -1,12 +1,12 @@
-// b4-owner-cap-me.spec.ts —— Phase B-4 契约：`me` 这个 owner MCP tool 从
-// 老 server.go AddTool 调用迁成 agentskills Capability + OwnerMCPBinding；
-// adapter (mcp/adapter.go) 把 binding 桥接到 mcp-go server。
+// b4-owner-cap-me.spec.ts —— `me` 这个 owner 工具的契约。
 //
-// 验：
-//   1. /internal/diag/registry 含 owner.me，shape=owner_only
-//   2. owner via MCP 调 'me' 仍然返 owner profile (regression — api-tokens
-//      spec 已覆盖，这里加单测让 B-4 改动失败时立即 surface)
-//   3. owner.me 不出现在 visitor session 的 capability map (Shape 自洽)
+// 它换过两次家：先从 server.go 的 AddTool 迁成 capreg capability（那时这条 spec 断言
+// registry 里有 owner.me），再从 capreg 迁进出站收口（现在 owner 域自己声明它）。
+// 断言那个**中间形态**的两条已经删掉——它们守的是搬家的痕迹，不是契约。
+//
+// 留下的是一直成立的那件事：
+//   1. owner 用真 MCP 客户端调 `me`，拿到自己的 profile
+//   2. `me` 不出现在访客那一侧（owner 的东西不漏给访客）
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -27,16 +27,18 @@ const OWNER = {
 
 const CODE = 'B4-001';
 
-interface RegCap { id: string; shape: string }
-interface RegistryListResp { capabilities: RegCap[] }
 interface VisitorCap { id: string }
 interface VisitorCapabilitiesResp {
   capabilities: VisitorCap[];
   tool_specs: Array<{ name: string }>;
 }
-interface MeResp { owner_id: string; email: string; handle: string; full_name: string }
+// me 回 {owner, settings}（面板的 GET /me 一直是这个信封；MCP 那份以前是手拼字符串
+// 出来的四个字段，连转义都没有）。
+interface MeResp {
+  owner: { owner_id: string; email: string; handle: string; full_name: string };
+}
 
-test.describe('Phase B-4 owner.me Capability via registry adapter', () => {
+test.describe('owner `me` over MCP', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -55,19 +57,7 @@ test.describe('Phase B-4 owner.me Capability via registry adapter', () => {
     await request.dispose();
   });
 
-  test('registry-list contains owner.me with shape=owner_only',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
-      const res = await request.get(`${BACKEND}/internal/diag/registry`);
-      if (res.status() !== 200) throw new Error(`registry-list: ${res.status()}`);
-      const body = await res.json() as RegistryListResp;
-      const me = body.capabilities.find((c) => c.id === 'owner.me');
-      expect(me, 'owner.me must appear').toBeDefined();
-      expect(me?.shape).toBe('owner_only');
-      await request.dispose();
-    });
-
-  test('owner.me does NOT appear in visitor session capability map',
+  test('me does NOT appear in a visitor session',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const sess = await issueSession(request, {
@@ -91,9 +81,9 @@ test.describe('Phase B-4 owner.me Capability via registry adapter', () => {
       const apiToken = await createAPIToken(request, csrf, 'b4-me-token');
       const sid = await initMCP(request, apiToken);
       const me = await callTool<MeResp>(request, apiToken, sid, 'me', {});
-      expect(me.email).toBe(OWNER.email);
-      expect(me.handle).toBe(OWNER.handle);
-      expect(me.full_name).toBe(OWNER.fullName);
+      expect(me.owner.email).toBe(OWNER.email);
+      expect(me.owner.handle).toBe(OWNER.handle);
+      expect(me.owner.full_name).toBe(OWNER.fullName);
       await request.dispose();
     });
 });

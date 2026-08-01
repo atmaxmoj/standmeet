@@ -6,9 +6,18 @@ package owner
 
 import "github.com/atmaxmoj/standmeet/internal/owner/ops"
 
+// 声明操作时要的类型（实现:ops）.
+type (
+	AIPreset       = ops.AIPreset
+	OpsAccountDeps = ops.AccountDeps
+	SettingsDeps   = ops.SettingsDeps
+)
+
 // 操作组（实现:ops）.
 var (
+	AccountOps    = ops.Account
 	AppearanceOps = ops.Appearance
 	DomainOps     = ops.Domains
 	PromptOps     = ops.Prompts
+	SettingsOps   = ops.Settings
 )
