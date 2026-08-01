@@ -65,6 +65,11 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		Marketplace: marketplace.InstallSkillDeps{
 			Marketplace: d.marketplaceClient, Skills: d.skillRepo,
 		},
+		// 公开一条 wiki 的另一半是主页:取消公开要把 pin 着它的栏目一起摘掉。
+		SEO: owner.OpsSEO{
+			SEO:  d.seoRepo,
+			Pins: owner.PagePinDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
+		},
 		// 申请这份数据在 access,批准的闭环(发码 + 发信 + 置 replied)在 owner。
 		AccessRequests: owner.OpsAccessRequests{
 			Requests: access.RequestsDeps{
@@ -94,7 +99,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Roles(newRoleOps(d)),
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),
-		dispatcher.SEO(newSEOOps(d)),
 		dispatcher.Conversations(newConversationOps(d)),
 		dispatcher.Page(newPageOps(d)),
 	)...)

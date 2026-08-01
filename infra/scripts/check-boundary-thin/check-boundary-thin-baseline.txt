@@ -11,7 +11,5 @@ internal/routes/dispatcher/res_page.go
 internal/routes/dispatcher/res_page_ops.go
 internal/routes/dispatcher/res_roles.go
 internal/routes/dispatcher/res_roles_ops.go
-internal/routes/dispatcher/res_seo.go
-internal/routes/dispatcher/res_seo_ops.go
 internal/security/facade/facade.go
 internal/security/facade/facade_captcha.go

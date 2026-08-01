@@ -21,13 +21,10 @@ capload toolRequires
 capload toolUIHTML
 capload wantsWorkspace
 capload wrapMCPAppTools
-dispatcher (seoEntryArgs).validate
 dispatcher capabilitiesDelete
 dispatcher capabilitiesSetEnabled
 dispatcher capabilityConfigGet
 dispatcher capabilityConfigSet
 dispatcher conversationsGet
 dispatcher rolesSetDockButtons
-dispatcher seoSetEntry
-dispatcher seoUpdateSettings
 mcphandle runCapabilityHandler

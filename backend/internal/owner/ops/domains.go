@@ -51,6 +51,14 @@ func Domains(deps usecase.AllowedDomainsDeps) []fp.Op {
 
 var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
+// nonNilStrings —— nil 切片序列化成 null,调用方要的是 []。
+func nonNilStrings(in []string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return in
+}
+
 func domainSchema(desc string) json.RawMessage {
 	return json.RawMessage(`{
 		"type":"object",

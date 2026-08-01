@@ -790,8 +790,10 @@ deps:
       - ownerusecase
       - facadeparity
       - apierr
-      # access_requests 横跨两域：数据在 access（经它的正门），批准闭环在本域。
+      # 跨域资源由**能 import 另一边**的那个域声明，都只经对方的正门：
+      # access_requests（数据在 access，批准闭环在本域）、seo（条目在 corpus，摘 pin 在本域）。
       - access
+      - corpus
       # 出站通道没配好要能说清是"去配一下"，那个哨兵在连接器消费侧。
       - connectorconsumer
     anyVendorDeps: true
