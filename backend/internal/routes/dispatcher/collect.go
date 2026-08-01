@@ -18,6 +18,7 @@ type Deps struct {
 	Corpus         corpus.Deps
 	Account        owner.OpsAccountDeps
 	OwnerCSS       owner.CSSStore
+	CustomPages    owner.CustomPageDeps
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
 	Prompts        owner.PromptsDeps
@@ -34,5 +35,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},
 		{Name: "settings", Ops: owner.SettingsOps(d.Settings)},
 		{Name: "account", Ops: owner.AccountOps(d.Account)},
+		{Name: "custom_pages", Ops: owner.CustomPageOps(d.CustomPages)},
 	}
 }

@@ -41,6 +41,9 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 			Account:  owner.AccountDeps{Owners: d.ownerRepo},
 			Recovery: recoveryDeps(d),
 		},
+		CustomPages: owner.CustomPageDeps{
+			Pages: d.customPageRepo, Builds: d.customBuildRepo,
+		},
 	})
 	return dispatcher.New(append(resources,
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
@@ -56,7 +59,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Conversations(newConversationOps(d)),
 		dispatcher.Writings(newWritingOps(d)),
 		dispatcher.Page(newPageOps(d)),
-		dispatcher.CustomPages(newCustomPageOps(d)),
 	)...)
 }
 

@@ -17,6 +17,7 @@ type (
 var (
 	AccountOps    = ops.Account
 	AppearanceOps = ops.Appearance
+	CustomPageOps = ops.CustomPages
 	DomainOps     = ops.Domains
 	PromptOps     = ops.Prompts
 	SettingsOps   = ops.Settings
