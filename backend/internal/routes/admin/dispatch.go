@@ -153,6 +153,19 @@ func writeStatusBody(log logger, w http.ResponseWriter, status int, body json.Ra
 	}
 }
 
+// jsonListOK —— 200 + 把收口给的数组包一层 {"<key>": [...]}。有些 admin 路由历史上就这么回,
+// 前端按这个契约写的;收口那边是一个裸数组(MCP 面要的是那个)。包这一层是本面的形状决定。
+func jsonListOK(key string) renderOK {
+	return func(log logger, w http.ResponseWriter, body json.RawMessage) {
+		wrapped, err := json.Marshal(map[string]json.RawMessage{key: body})
+		if err != nil {
+			log.Error("wrap list body", logErrKey, err)
+			wrapped = body
+		}
+		writeStatusBody(log, w, http.StatusOK, wrapped)
+	}
+}
+
 // jsonCreated —— 201 + 载荷。建资源的路由历史上就这么回。
 func jsonCreated(log logger, w http.ResponseWriter, body json.RawMessage) {
 	writeStatusBody(log, w, http.StatusCreated, body)

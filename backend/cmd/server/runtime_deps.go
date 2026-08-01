@@ -117,12 +117,10 @@ func recoveryDeps(d *runtimeDeps) owner.RecoveryDeps {
 	}
 }
 
-// connectorsAdminDeps —— admin connectors 面板依赖(connectorsvc + mail slot)。抽出来让
-// buildAdminDeps 保持 ≤70 行(funlen)。
+// connectorsAdminDeps —— admin connectors 面板依赖:能力经收口取,编排服务只剩浏览器专属的
+// 那几条(OAuth 跳转、明文凭据表单)还在直连。
 func connectorsAdminDeps(d *runtimeDeps) adminroutes.ConnectorsAdminDeps {
 	return adminroutes.ConnectorsAdminDeps{
-		Svc:      newConnectorService(d),
-		Mail:     d.connectorSlots.Mail(),
-		MailKind: d.connectorSlots.MailKind,
+		Svc: newConnectorService(d), Face: adminFace(d.dispatch),
 	}
 }

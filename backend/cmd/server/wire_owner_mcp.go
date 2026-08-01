@@ -21,10 +21,6 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Corpus:     &corpusDeps,
 		Writings:   &corpus.WritingsDeps{Writings: d.writingRepo},
 		WritingsTx: &writingsTxDeps,
-		Connectors: &ownercore.ConnectorsOwnerDeps{
-			Svc:  connSvcAdapter{svc: newConnectorService(d)},
-			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,
-		},
-		Log: d.log,
+		Log:        d.log,
 	}
 }

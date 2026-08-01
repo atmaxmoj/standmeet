@@ -16,13 +16,16 @@ const errConnectorWrap = "connector %q: %w"
 // Manifest —— 一个连接器的声明（数据，非代码）。openapi: spec+binding（+ owner 选的 AuthScheme）；
 // protocol: 由 Protocol 字段选内置协议 runtime（P3）。内置与上传同构，只是数据来源不同。
 type Manifest struct {
-	ID                 string
-	Kind               string // "openapi" | "protocol"
-	Category           string
-	Protocol           string // protocol kind: "smtp" | "caldav"
-	AuthScheme         string // openapi: owner 选中的 securityScheme key（空 = spec 里唯一那个）
-	Spec               []byte
-	Binding            []byte
+	ID         string
+	Kind       string // "openapi" | "protocol"
+	Category   string
+	Protocol   string // protocol kind: "smtp" | "caldav"
+	AuthScheme string // openapi: owner 选中的 securityScheme key（空 = spec 里唯一那个）
+	Spec       []byte
+	Binding    []byte
+	// OwnerOps —— 这个连接器自己声明的 owner 侧操作（见 owner_op.go）。空 = 它只有
+	// 通用注册表那套（列/连/断/删），没有品类专属的动作。
+	OwnerOps           []OwnerOp
 	ExposeAsAgentTools bool // openapi: 把 raw operations 暴露成 agent 工具（§3，可无 binding）
 }
 

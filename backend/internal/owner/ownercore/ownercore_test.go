@@ -24,11 +24,11 @@ import (
 // skills、marketplace、prompts、mcp_servers、roles、capabilities、instance、
 // appearance、booking(策略归 capconfig)、byoai + ai_provider(合成 settings)、account、
 // calendar(取消归 booker 的 OwnerTools + 卡片的 mcp-ui:tool)、api_keys(连 ACL 与
-// api.open/close/list_candidates 一起)。
+// api.open/close/list_candidates 一起)、connectors(通用注册表归连接器轴,
+// mail_test_send 归 smtp 连接器自己的 manifest)。
 var allOwnerCapIDs = []string{
 	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
 	"writings.bundle",
-	"connectors.bundle",
 }
 
 func TestPlugin_RegistersAllOwnerCaps(t *testing.T) {

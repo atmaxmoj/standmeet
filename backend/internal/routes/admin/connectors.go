@@ -5,7 +5,6 @@
 package admin
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -13,86 +12,57 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
 const (
 	maxCredBytes = 64 << 10 // 64 KiB
-	paramID      = "id"
+	// maxSpecBodyBytes —— 建/改连接器的请求体上限（spec 文本 + JSON 信封余量）。
+	maxSpecBodyBytes = 4 << 20 // 4 MiB
+	paramID          = "id"
 )
 
-// ConnectorsAdminDeps —— 通用连接器路由依赖：编排服务 + active mail 分派器（test-send 用）。
+// ConnectorsAdminDeps —— 通用连接器路由依赖。
+//
+// Face —— 连接器的能力经出站收口取(声明在连接器轴那边)。Svc 只剩浏览器专属的那几条还在用:
+// OAuth 跳转、明文凭据表单 —— 它们本来就只在这个面上。
 type ConnectorsAdminDeps struct {
-	Svc      *connector.Service
-	Mail     contract.MailProxy
-	MailKind func(ctx context.Context, ownerID string) string
+	Svc  *connector.Service
+	Face *dispatcher.Face
 }
 
 // MountConnectors —— /connectors 子路由。
 func (h *Handlers) MountConnectors(r chi.Router) {
 	r.Route("/connectors", func(r chi.Router) {
-		r.Get("/", h.listConnectors())
-		r.Get("/catalog", h.connectorCatalog())
-		r.Post("/", h.createConnector())
-		r.Post("/mail/test-send", h.mailTestSend())
-		r.Post("/validate-spec", h.validateSpec())
-		r.Route("/{id}", func(r chi.Router) {
-			r.Put("/", h.updateConnector())
-			r.Get("/credential-form", h.connectorCredentialForm())
-			r.Post("/credentials", h.saveConnectorCredentials())
-			r.Get("/status", h.connectorStatus())
-			r.Post("/connect", h.connectConnector())
-			r.Get("/callback", h.connectorOAuthCallback())
-			r.Post("/activate", h.activateConnector())
-			r.Post("/disconnect", h.disconnectConnector())
-			r.Delete("/", h.deleteConnector())
-		})
+		face := h.ConnectorsAdmin.Face
+		r.Get("/", h.dispatchOp(face, "connectors.list", emptyArgs, jsonListOK("connectors")))
+		r.Get("/catalog",
+			h.dispatchOp(face, "connectors.catalog", emptyArgs, jsonListOK("connectors")))
+		r.Post("/", h.dispatchOp(face, "connectors.create", connectorWriteArgs, jsonCreated))
+		r.Post("/mail/test-send",
+			h.dispatchOp(face, "connectors.mail_test_send", bodyArgs, jsonOK))
+		r.Post("/validate-spec", h.dispatchOp(face, "connectors.validate_spec", bodyArgs, jsonOK))
+		h.mountConnectorItem(r, face)
 	})
 }
 
-type connectorStatusResp struct {
-	ID             string `json:"id"`
-	Category       string `json:"category"`
-	Kind           string `json:"kind"`
-	HasCredentials bool   `json:"has_credentials"`
-	Connected      bool   `json:"connected"`
-	Active         bool   `json:"active"`
-}
-
-type connectorsListResp struct {
-	Connectors []connectorStatusResp `json:"connectors"`
-}
-
-type connectInitResp struct {
-	AuthURL   string `json:"auth_url,omitempty"`
-	State     string `json:"state,omitempty"`
-	Error     string `json:"error,omitempty"`
-	Connected bool   `json:"connected"`
-}
-
-func statusRow(c *connector.Connection) connectorStatusResp {
-	return connectorStatusResp{
-		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind,
-		HasCredentials: len(c.Credentials) > 0,
-		Connected:      c.Connected, Active: c.Active,
-	}
-}
-
-func (h *Handlers) listConnectors() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		conns, err := h.ConnectorsAdmin.Svc.List(r.Context(), ownerID)
-		if err != nil {
-			h.writeConnErr(w, err)
-			return
-		}
-		rows := make([]connectorStatusResp, 0, len(conns))
-		for i := range conns {
-			rows = append(rows, statusRow(&conns[i]))
-		}
-		writeJSON(h.Log, w, connectorsListResp{Connectors: rows})
-	}
+// mountConnectorItem —— /{id} 那一组。前四条经收口;后四条是浏览器专属的(OAuth 跳转、
+// 明文凭据),只在这个面上,所以照常直连编排服务。
+func (h *Handlers) mountConnectorItem(r chi.Router, face *dispatcher.Face) {
+	r.Route("/{id}", func(r chi.Router) {
+		r.Put("/", h.dispatchOp(face, "connectors.update", connectorUpdateArgs, jsonOK))
+		r.Get("/status", h.dispatchOp(face, "connectors.status", urlParamArgs(paramID), jsonOK))
+		r.Post("/activate",
+			h.dispatchOp(face, "connectors.activate", urlParamArgs(paramID), jsonOK))
+		r.Post("/disconnect",
+			h.dispatchOp(face, "connectors.disconnect", urlParamArgs(paramID), jsonOK))
+		r.Delete("/", h.dispatchOp(face, "connectors.delete", urlParamArgs(paramID), jsonOK))
+		r.Get("/credential-form", h.connectorCredentialForm())
+		r.Post("/credentials", h.saveConnectorCredentials())
+		r.Post("/connect", h.connectConnector())
+		r.Get("/callback", h.connectorOAuthCallback())
+	})
 }
 
 // connectorWriteReq —— Kind ""/"openapi" → 上传 spec+binding；"protocol" → 协议连接器（Protocol
@@ -109,13 +79,67 @@ type connectorWriteReq struct {
 	ExposeAsAgentTools bool            `json:"expose_as_agent_tools"`
 }
 
-// uploadedSpec —— connectorWriteReq → connector.UploadedSpec（create + update 共用）。admin UI
-// 走 spec_text/binding_text 原文（YAML 绑定不必前端解析）；e2e 直 POST 走 spec/binding 对象。
-func (b *connectorWriteReq) uploadedSpec() *connector.UploadedSpec {
-	return &connector.UploadedSpec{
-		Spec: rawOrText(b.Spec, b.SpecText), Binding: rawOrText(b.Binding, b.BindingText),
-		AuthScheme: b.AuthScheme, ExposeAsAgentTools: b.ExposeAsAgentTools,
+// connectorWriteArgs / connectorUpdateArgs —— 面板的 body → 收口要的 args。
+//
+// 面板贴的是**原文**(spec_text / binding_text,YAML 不必前端解析),e2e 直 POST 走
+// spec / binding 对象。收口那边只认一份:spec / binding 两个字符串。这个换算是这个面的
+// 历史包袱,所以落在这一处。
+func connectorWriteArgs(r *http.Request) (json.RawMessage, error) {
+	body, err := decodeConnectorWrite(r)
+	if err != nil {
+		return nil, err
 	}
+	return body.opArgs("")
+}
+
+func connectorUpdateArgs(r *http.Request) (json.RawMessage, error) {
+	body, err := decodeConnectorWrite(r)
+	if err != nil {
+		return nil, err
+	}
+	return body.opArgs(chi.URLParam(r, paramID))
+}
+
+func decodeConnectorWrite(r *http.Request) (connectorWriteReq, error) {
+	var body connectorWriteReq
+	dec := json.NewDecoder(io.LimitReader(r.Body, maxSpecBodyBytes))
+	if derr := dec.Decode(&body); derr != nil {
+		return body, dispatcher.BadInput("invalid JSON body")
+	}
+	return body, nil
+}
+
+// connectorOpArgs —— 收口那边 connectors.create / connectors.update 的入参形状。
+type connectorOpArgs struct {
+	ID                 string `json:"id,omitempty"`
+	Kind               string `json:"kind,omitempty"`
+	Protocol           string `json:"protocol,omitempty"`
+	Category           string `json:"category,omitempty"`
+	AuthScheme         string `json:"auth_scheme,omitempty"`
+	Spec               string `json:"spec,omitempty"`
+	Binding            string `json:"binding,omitempty"`
+	ExposeAsAgentTools bool   `json:"expose_as_agent_tools"`
+}
+
+func (b *connectorWriteReq) opArgs(id string) (json.RawMessage, error) {
+	out, err := json.Marshal(connectorOpArgs{
+		ID: id, Kind: b.Kind, Protocol: b.Protocol, Category: b.Category,
+		AuthScheme:         b.AuthScheme,
+		Spec:               string(rawOrText(b.Spec, b.SpecText)),
+		Binding:            string(rawOrText(b.Binding, b.BindingText)),
+		ExposeAsAgentTools: b.ExposeAsAgentTools,
+	})
+	if err != nil {
+		return nil, dispatcher.BadInput("invalid request")
+	}
+	return out, nil
+}
+
+type connectInitResp struct {
+	AuthURL   string `json:"auth_url,omitempty"`
+	State     string `json:"state,omitempty"`
+	Error     string `json:"error,omitempty"`
+	Connected bool   `json:"connected"`
 }
 
 // rawOrText —— 优先用原文（admin UI 贴的 JSON/YAML），否则用 JSON 对象（e2e 直 POST）。
@@ -124,80 +148,6 @@ func rawOrText(raw json.RawMessage, text string) []byte {
 		return []byte(text)
 	}
 	return raw
-}
-
-// decodeWriteBody —— 解 create/update 的 JSON body（限长 maxCredBytes）。坏 JSON → 写 400 + ok=false，
-// 调用方据此早返。create/update 共用，免去逐 handler 抄解码样板。
-func (h *Handlers) decodeWriteBody(
-	w http.ResponseWriter, r *http.Request,
-) (connectorWriteReq, bool) {
-	var body connectorWriteReq
-	dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
-	if derr := dec.Decode(&body); derr != nil {
-		writeError(h.Log, w, envBadReq("invalid JSON body"))
-		return connectorWriteReq{}, false
-	}
-	return body, true
-}
-
-// deleteConnector —— 删一个 owner 自建连接器（DELETE）。内置不可删 → 409；删后它填的品类 cap 复闸。
-func (h *Handlers) deleteConnector() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		err := h.ConnectorsAdmin.Svc.Delete(r.Context(), ownerID, chi.URLParam(r, paramID))
-		if err != nil {
-			h.writeConnErr(w, err)
-			return
-		}
-		writeJSON(h.Log, w, map[string]bool{"ok": true})
-	}
-}
-
-// createConnectorID —— 按 kind 建连接器：protocol 走 CreateProtocol（无 spec）；其余走 CreateUploaded
-// （openapi spec+binding）。
-func createConnectorID(
-	ctx context.Context, svc *connector.Service, ownerID string, body *connectorWriteReq,
-) (string, error) {
-	if body.Kind == "protocol" {
-		return svc.CreateProtocol(ctx, ownerID, body.Category, body.Protocol)
-	}
-	return svc.CreateUploaded(ctx, ownerID, body.uploadedSpec())
-}
-
-// createConnector —— 上传一个 openapi 连接器（spec + JSONata binding）。201 {id}；坏 manifest → 400。
-func (h *Handlers) createConnector() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		body, ok := h.decodeWriteBody(w, r)
-		if !ok {
-			return
-		}
-		id, err := createConnectorID(r.Context(), h.ConnectorsAdmin.Svc, ownerID, &body)
-		if err != nil {
-			h.writeConnErr(w, err)
-			return
-		}
-		writeCreated(h.Log, w, map[string]string{"id": id})
-	}
-}
-
-// updateConnector —— 编辑已建上传连接器的 spec+binding（PUT）。坏 manifest → 400；内置 → 409。
-func (h *Handlers) updateConnector() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		body, ok := h.decodeWriteBody(w, r)
-		if !ok {
-			return
-		}
-		in := body.uploadedSpec()
-		if err := h.ConnectorsAdmin.Svc.UpdateUploaded(
-			r.Context(), ownerID, chi.URLParam(r, paramID), in,
-		); err != nil {
-			h.writeConnErr(w, err)
-			return
-		}
-		writeJSON(h.Log, w, map[string]bool{"ok": true})
-	}
 }
 
 type credFormField struct {
@@ -263,18 +213,6 @@ func (h *Handlers) saveConnectorCredentials() http.HandlerFunc {
 	}
 }
 
-func (h *Handlers) connectorStatus() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		conn, err := h.ConnectorsAdmin.Svc.Status(r.Context(), ownerID, chi.URLParam(r, paramID))
-		if err != nil {
-			h.writeConnErr(w, err)
-			return
-		}
-		writeJSON(h.Log, w, statusRow(&conn))
-	}
-}
-
 func (h *Handlers) connectConnector() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
@@ -286,31 +224,5 @@ func (h *Handlers) connectConnector() http.HandlerFunc {
 		writeJSON(h.Log, w, connectInitResp{
 			AuthURL: res.AuthURL, State: res.State, Error: res.Error, Connected: res.Connected,
 		})
-	}
-}
-
-func (h *Handlers) activateConnector() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		if err := h.ConnectorsAdmin.Svc.Activate(
-			r.Context(), ownerID, chi.URLParam(r, paramID),
-		); err != nil {
-			h.writeConnErr(w, err)
-			return
-		}
-		writeJSON(h.Log, w, map[string]bool{"ok": true})
-	}
-}
-
-func (h *Handlers) disconnectConnector() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		if err := h.ConnectorsAdmin.Svc.Disconnect(
-			r.Context(), ownerID, chi.URLParam(r, paramID),
-		); err != nil {
-			h.writeConnErr(w, err)
-			return
-		}
-		writeJSON(h.Log, w, map[string]bool{"ok": true})
 	}
 }

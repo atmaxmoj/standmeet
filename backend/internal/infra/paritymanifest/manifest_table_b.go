@@ -6,46 +6,12 @@ import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 func connectorsMCPServers() []Entry {
 	browser := func(id, why string) fp.Op { return act(id, fp.Only(why, FacadeAdmin)) }
 	return []Entry{
-		{
-			Op:    read("connectors.list", fp.OwnerRead()),
-			MCP:   []string{"connectors.list"},
-			Admin: []string{"GET /api/admin/connectors/"},
-		},
-		{
-			Op:    read("connectors.catalog", fp.OwnerRead()),
-			MCP:   []string{"connectors.catalog"},
-			Admin: []string{"GET /api/admin/connectors/catalog"},
-		},
-		{
-			Op:    read("connectors.status", fp.OwnerRead()),
-			MCP:   []string{"connectors.status"},
-			Admin: []string{"GET /api/admin/connectors/{id}/status"},
-		},
-		{
-			Op:    act("connectors.create", fp.OwnerAction()),
-			MCP:   []string{"connectors.create"},
-			Admin: []string{"POST /api/admin/connectors/"},
-		},
-		{
-			Op:    act("connectors.update", fp.OwnerAction()),
-			MCP:   []string{"connectors.update"},
-			Admin: []string{"PUT /api/admin/connectors/{id}"},
-		},
-		{
-			Op:    act("connectors.delete", fp.OwnerAction()),
-			MCP:   []string{"connectors.delete"},
-			Admin: []string{"DELETE /api/admin/connectors/{id}"},
-		},
-		{
-			Op:    act("connectors.activate", fp.OwnerAction()),
-			MCP:   []string{"connectors.activate"},
-			Admin: []string{"POST /api/admin/connectors/{id}/activate"},
-		},
-		{
-			Op:    act("connectors.disconnect", fp.OwnerAction()),
-			MCP:   []string{"connectors.disconnect"},
-			Admin: []string{"POST /api/admin/connectors/{id}/disconnect"},
-		},
+		// 通用注册表那 9 条(list / catalog / status / create / update / delete /
+		// activate / disconnect / validate_spec)已经由**连接器轴自己声明**
+		// (cmd/server/axis_connectors.go),经收口投影到面上;mail_test_send 则归了
+		// smtp 连接器自己的 manifest。这张表因此不再有它们的行。
+		//
+		// 剩下这四条是浏览器专属的(OAuth 跳转、明文凭据表单):它们本来就只在 admin 上。
 		{
 			Op:    browser("connectors.oauth_connect", "begins a browser OAuth redirect"),
 			Admin: []string{"POST /api/admin/connectors/{id}/connect"},
@@ -61,16 +27,6 @@ func connectorsMCPServers() []Entry {
 		{
 			Op:    read("connectors.credential_form", fp.Only("browser credential form schema", FacadeAdmin)),
 			Admin: []string{"GET /api/admin/connectors/{id}/credential-form"},
-		},
-		{
-			Op:    act("connectors.validate_spec", fp.OwnerAction()),
-			MCP:   []string{"connectors.validate_spec"},
-			Admin: []string{"POST /api/admin/connectors/validate-spec"},
-		},
-		{
-			Op:    act("connectors.mail_test_send", fp.OwnerAction()),
-			MCP:   []string{"connectors.mail_test_send"},
-			Admin: []string{"POST /api/admin/connectors/mail/test-send"},
 		},
 	}
 }

@@ -77,6 +77,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 	return dispatcher.New(append(resources,
 		capabilityResource(d),
 		capabilityConfigResource(d),
+		connectorResource(d),
 	)...)
 }
 
