@@ -111,21 +111,7 @@ func contentEntries() []Entry {
 			Op:    act("obsidian.import", fp.Only("multipart vault upload; the sync connector's ingest surface", FacadeAdmin).Except(fp.Multipart)),
 			Admin: []string{"POST /api/admin/obsidian/import"},
 		},
-		{
-			Op:    read("conversations.list", fp.OwnerRead()),
-			MCP:   []string{"conversations.list"},
-			Admin: []string{"GET /api/admin/conversations"},
-		},
-		{
-			Op:    read("conversations.get", fp.OwnerRead()),
-			MCP:   []string{"chat.show_grounding"},
-			Admin: []string{"GET /api/admin/conversations/{id}"},
-		},
-		{
-			Op:    read("conversations.ghost_telemetry", fp.OwnerRead()),
-			MCP:   []string{"conversations.ghost_telemetry"},
-			Admin: []string{"GET /api/admin/ghosts/telemetry"},
-		},
+		// conversations 三条都搬进了出站收口(dispatcher.Conversations)。
 	}
 }
 

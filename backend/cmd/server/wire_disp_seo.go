@@ -45,19 +45,15 @@ func (a seoOps) Settings(
 func (a seoOps) SaveSettings(
 	ctx context.Context, in *dispatcher.UpdateSEOSettings,
 ) (dispatcher.SEOSettings, error) {
-	cur, err := a.seo.GetSettings(ctx, in.OwnerID)
+	saved, err := corpus.PatchSEOSettings(ctx, a.seo, &corpus.SEOSettingsPatch{
+		OwnerID:       in.OwnerID,
+		SiteTitle:     corpus.OptionalText{Value: in.SiteTitle.Value, Set: in.SiteTitle.Set},
+		OGTemplate:    corpus.OptionalText{Value: in.OGTemplate.Value, Set: in.OGTemplate.Set},
+		SitemapExtras: corpus.OptionalTextList(in.SitemapExtras),
+		IndexRobots:   corpus.OptionalFlag(in.IndexRobots),
+	})
 	if err != nil {
 		return dispatcher.SEOSettings{}, seoErr(err)
-	}
-	saved, serr := a.seo.UpsertSettings(ctx, &corpus.SEOSettings{
-		OwnerID:       in.OwnerID,
-		SiteTitle:     in.SiteTitle.Or(cur.SiteTitle),
-		IndexRobots:   in.IndexRobots.Or(cur.IndexRobots),
-		SitemapExtras: in.SitemapExtras.Or(cur.SitemapExtras),
-		OGTemplate:    in.OGTemplate.Or(cur.OGTemplate),
-	})
-	if serr != nil {
-		return dispatcher.SEOSettings{}, seoErr(serr)
 	}
 	return toDispatcherSEOSettings(&saved), nil
 }

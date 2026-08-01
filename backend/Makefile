@@ -32,10 +32,11 @@ fmt-check:
 max-lines:
 	@bash ../infra/scripts/check-max-lines.sh
 
-# Route handlers must stay at cyclo ≤ 3 — anything richer is business
-# logic leaking into the presentation layer.
+# Faces and domain facades stay at cyclo ≤ 3 — anything richer is business
+# logic, which belongs in the domain where every caller gets it.
 routes-cyclo:
 	@bash ../infra/scripts/check-routes-cyclo.sh
+	@bash ../infra/scripts/check-routes-cyclo-test.sh
 
 # Container types (slice/map/chan) must never return nil — project principle.
 # Optional uses *T; collections always return empty container.

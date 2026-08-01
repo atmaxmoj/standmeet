@@ -1,10 +1,11 @@
-// res_codes_codegen.go —— 不传 code 时按 label 派生 'LABEL-XXX' 形态的人类可读 code。
+// code_derive.go —— 不传 code 时按 label 派生 'LABEL-XXX' 形态的人类可读 code。
 //
-// 以前它只长在 admin 面上,于是同一件事两个面不一样:面板可以不填 code(后端派生一个),
-// 而 MCP 的 codes.create 必须显式给。它是**业务**,不是 REST 形状,所以归收口 —— 两个面
-// 现在都能省略 code。
+// 这条规则住在域里。它先是只长在 admin 面上(于是 MCP 那边 code 必填),后来被搬进出站
+// 收口 —— 那仍然是"只有走那条路的调用方才有"。建码有三个入口(面板、MCP、job-loop 的
+// CreateAccessCodeTx),规则放在任何一个入口上,另外两个就得各写一份,然后飘。
+// 它是**建码这件事本身**的一部分,所以跟着建码走。
 
-package dispatcher
+package entity
 
 import (
 	"crypto/rand"
@@ -30,8 +31,8 @@ func cryptoRandRead(b []byte) (int, error) {
 	return n, nil
 }
 
-// derivedCode —— 没给 code 时按 label 派生一个。给了就原样用。
-func derivedCode(code, label string) string {
+// DeriveCode —— 没给 code 时按 label 派生一个。给了就原样用。
+func DeriveCode(code, label string) string {
 	if code != "" {
 		return code
 	}

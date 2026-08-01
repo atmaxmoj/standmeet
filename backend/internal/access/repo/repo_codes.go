@@ -62,6 +62,8 @@ func CreateAccessCodeTx(
 
 // createCodeOn —— 在任意 DBTX(池连接或事务)上写一条 access_code。Create 与 CreateAccessCodeTx 共用。
 func createCodeOn(ctx context.Context, q *db.Queries, in *CreateCodeInput) (entity.Code, error) {
+	// 没给 code 就按 label 派生一个。每条建码路径都汇进这里,所以规则只此一份。
+	in.Code = entity.DeriveCode(in.Code, in.Label)
 	params, perr := buildCreateCodeParams(in)
 	if perr != nil {
 		return entity.Code{}, perr

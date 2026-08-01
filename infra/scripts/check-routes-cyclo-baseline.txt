@@ -1,0 +1,54 @@
+# check-routes-cyclo baseline — functions in routes/ or a domain facade that are
+# still above cyclo 3. Shrink-only: fix one, delete its line. Never add a line.
+#
+# Identity is "<package> <function>" (line numbers drift with unrelated edits).
+capload (*APIToolset).Close
+capload (*extMCPBundle).absorb
+capload (*mcpAppCapability).VisitorBinding
+capload (*mcpAppCapability).ownerToolHandler
+capload (*openapiAgentToolsCapability).VisitorBinding
+capload RegisterDiscoveredPluginsHooked
+capload buildAuthHeaders
+capload dialAndList
+capload dialOne
+capload extToolDepsAllowed
+capload loadMCPServersForRole
+capload loadSkillsForBinding
+capload makeSkillRunScript
+capload overlayCapState
+capload renderSkillScriptsSection
+capload toolRequires
+capload toolUIHTML
+capload wantsWorkspace
+capload wrapMCPAppTools
+dispatcher (denialArgs).validate
+dispatcher (seoEntryArgs).validate
+dispatcher accessRequestsApprove
+dispatcher appearanceSetCSS
+dispatcher capabilitiesDelete
+dispatcher capabilitiesSetEnabled
+dispatcher capabilityConfigGet
+dispatcher capabilityConfigSet
+dispatcher codesMembers
+dispatcher codesSetCorpusDenials
+dispatcher codesSetGhostEvidence
+dispatcher codesSetWaypoints
+dispatcher conversationsGet
+dispatcher domainsMutate
+dispatcher instanceCorpusGraph
+dispatcher ipBansRemove
+dispatcher marketplaceInstall
+dispatcher marketplaceSearch
+dispatcher mcpServersDelete
+dispatcher parseAccessRequestUpdate
+dispatcher parseGrantDep
+dispatcher parseIPBanAdd
+dispatcher parseMCPServerCreate
+dispatcher parsePromptCreate
+dispatcher parseSkillCreate
+dispatcher rolesSetDockButtons
+dispatcher seoSetEntry
+dispatcher seoUpdateSettings
+dispatcher skillsDelete
+dispatcher skillsSetEnabled
+mcphandle runCapabilityHandler

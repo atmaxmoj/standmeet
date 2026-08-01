@@ -1,9 +1,12 @@
-// mcp-show-grounding.spec.ts —— MCP `chat.show_grounding` debug tool。
+// mcp-show-grounding.spec.ts —— MCP 上读一份逐字稿（conversations.get）。
 //
 // 用户故事：
-//   owner 在 Claude / Cursor 里 chat.show_grounding(conversation_id="…")
-//   → 看到 visitor 提问 / assistant 回复 + cited wiki + cited output 完整
-//   body。owner 据此决定要不要再 promote / edit。
+//   owner 在 Claude / Cursor 里 conversations.get(conversation_id="…")
+//   → 看到 visitor 提问 / assistant 回复 + 被引 wiki / output 的完整 body。
+//   owner 据此决定要不要再 promote / edit。
+//
+// 这份载荷现在跟面板那份是同一个：被引条目在 wiki_refs / output_refs 里，
+// 每条自带 body（以前 MCP 那份叫 cited_outputs，面板那份没有 body）。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -26,13 +29,12 @@ const OUTPUT_TITLE = 'Polished essay marker';
 const CODE = 'INTRO-001';
 
 interface GroundingPayload {
-  conversation_id: string;
-  visitor_name: string;
+  conversation: { id: string; visitor_name: string };
   messages: { role: string; body: string; cited_output_ids: string[] }[];
-  cited_outputs: { id: string; title: string; body: string }[];
+  output_refs: { id: string; title: string; body: string }[];
 }
 
-test.describe('MCP chat.show_grounding returns full transcript + cited bodies', () => {
+test.describe('MCP conversations.get returns full transcript + cited bodies', () => {
   let token: string;
   let convID: string;
 
@@ -48,16 +50,19 @@ test.describe('MCP chat.show_grounding returns full transcript + cited bodies', 
     await request.dispose();
   });
 
-  test('show_grounding returns assistant message + cited output title',
+  test('conversations.get returns assistant message + cited output title and body',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const sid = await initMCP(request, token);
       const result = await callTool<GroundingPayload>(
-        request, token, sid, 'chat.show_grounding',
+        request, token, sid, 'conversations.get',
         { conversation_id: convID },
       );
       expect(result.messages.length).toBeGreaterThan(0);
-      expect(result.cited_outputs.some((o) => o.title === OUTPUT_TITLE)).toBeTruthy();
+      const cited = result.output_refs.find((o) => o.title === OUTPUT_TITLE);
+      expect(cited, 'the cited output is in the transcript').toBeTruthy();
+      expect(cited?.body ?? '', 'and it carries its body — that is what owner debugs with')
+        .not.toBe('');
       await request.dispose();
     });
 });

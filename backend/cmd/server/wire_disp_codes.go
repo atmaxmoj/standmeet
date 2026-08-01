@@ -15,7 +15,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
@@ -23,19 +22,20 @@ import (
 )
 
 type codeOps struct {
-	codes    *access.CodeRepo
-	denials  *access.CodeDenialRepo
-	quota    bookerQuotaStore
-	roles    *access.RoleRepo
-	sessions *access.VisitorSessionStore
-	log      *slog.Logger
+	deps    access.CodesDeps
+	codes   *access.CodeRepo
+	denials *access.CodeDenialRepo
+	quota   bookerQuotaStore
+	roles   *access.RoleRepo
 }
 
 func newCodeOps(d *runtimeDeps) codeOps {
 	return codeOps{
+		deps: access.CodesDeps{
+			Codes: d.codeRepo, Roles: d.roleRepo, Sessions: d.visitorStore,
+		},
 		codes: d.codeRepo, denials: d.codeDenialRepo,
 		quota: newBookerQuotaStore(d), roles: d.roleRepo,
-		sessions: d.visitorStore, log: d.log,
 	}
 }
 
@@ -54,13 +54,9 @@ func (a codeOps) List(ctx context.Context, ownerID string) ([]dispatcher.Code, e
 func (a codeOps) Create(
 	ctx context.Context, in *dispatcher.CreateCode,
 ) (dispatcher.Code, error) {
-	roleID, rerr := a.resolveRoleID(ctx, in.OwnerID, in.AssumedRoleID)
-	if rerr != nil {
-		return dispatcher.Code{}, rerr
-	}
-	code, err := a.codes.Create(ctx, &access.CreateCodeInput{
+	code, err := access.IssueCode(ctx, a.deps, &access.CreateCodeInput{
 		OwnerID: in.OwnerID, Code: in.Code, Label: in.Label, Purpose: in.Purpose,
-		Ghosts: in.Ghosts, AssumedRoleID: roleID, PromptID: in.PromptID,
+		Ghosts: in.Ghosts, AssumedRoleID: in.AssumedRoleID, PromptID: in.PromptID,
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession, ExpiresAt: in.ExpiresAt,
 	})
@@ -71,30 +67,18 @@ func (a codeOps) Create(
 	return a.toDispatcherCode(ctx, &code), nil
 }
 
-// Revoke —— 撤码,并清掉这张码已经发出去的 visitor session。
-//
-// 清 session 是撤销的另一半:不清,持码人手里的 token 还活着,要等到下一 turn 的
-// per-turn 检查才被挡。清失败只记一笔 —— 那一层仍然会挡住,只是 cookie 暂时不清。
 func (a codeOps) Revoke(ctx context.Context, ownerID, codeID string) error {
-	if err := a.codes.Revoke(ctx, ownerID, codeID); err != nil {
-		return codeErr(err)
-	}
-	if derr := a.sessions.DeleteByCode(ctx, codeID); derr != nil {
-		a.log.Error("revoke: purge visitor sessions", "err", derr, "code_id", codeID)
-	}
-	return nil
+	return codeErr(access.RevokeCode(ctx, a.deps, ownerID, codeID))
 }
 
-// UpdateQuotas —— 底下那条 SQL 是**盲写**(SET 两列),所以没提到的字段要先读回当前值
-// 填上,否则会被悄悄清成"不限"。
 func (a codeOps) UpdateQuotas(
 	ctx context.Context, in *dispatcher.UpdateCodeQuotas,
 ) (dispatcher.Code, error) {
-	q, merr := a.mergeQuotas(ctx, in)
-	if merr != nil {
-		return dispatcher.Code{}, merr
-	}
-	code, err := a.codes.UpdateQuotas(ctx, in.OwnerID, in.CodeID, q.turns, q.members)
+	code, err := access.UpdateCodeQuotas(ctx, a.deps, &access.CodeQuotaUpdate{
+		OwnerID: in.OwnerID, CodeID: in.CodeID,
+		MaxTurnsPerSession: quotaOf(in.MaxTurnsPerSession),
+		MaxMembers:         quotaOf(in.MaxMembers),
+	})
 	if err != nil {
 		return dispatcher.Code{}, codeErr(err)
 	}
@@ -102,6 +86,12 @@ func (a codeOps) UpdateQuotas(
 		a.writeQuota(ctx, in.CodeID, in.MaxBookings.Value)
 	}
 	return a.toDispatcherCode(ctx, &code), nil
+}
+
+// quotaOf —— 收口的三态入参 → 域的三态入参。两边是同一个概念的两种表达:
+// 线上("字段出没出现")和域里("要不要动这个配额")。
+func quotaOf(o dispatcher.OptionalInt32) access.OptionalQuota {
+	return access.OptionalQuota{Value: o.Value, Set: o.Set}
 }
 
 func (a codeOps) SetGhostEvidence(
@@ -130,46 +120,6 @@ func (a codeOps) Members(
 		})
 	}
 	return out, nil
-}
-
-// quotaPair —— 写进那条盲写 SQL 的两个值。
-type quotaPair struct {
-	turns   *int32
-	members *int32
-}
-
-// mergeQuotas —— 两个字段都提到了就不用读;否则读当前行补上没提到的那个。
-func (a codeOps) mergeQuotas(
-	ctx context.Context, in *dispatcher.UpdateCodeQuotas,
-) (quotaPair, error) {
-	if in.MaxTurnsPerSession.Set && in.MaxMembers.Set {
-		return quotaPair{turns: in.MaxTurnsPerSession.Value, members: in.MaxMembers.Value}, nil
-	}
-	cur, gerr := a.codes.GetByID(ctx, in.CodeID)
-	if gerr != nil {
-		return quotaPair{}, codeErr(gerr)
-	}
-	if cur.OwnerID != in.OwnerID {
-		return quotaPair{}, codeErr(access.ErrCodeInvalid)
-	}
-	return quotaPair{
-		turns:   in.MaxTurnsPerSession.Or(cur.MaxTurnsPerSession),
-		members: in.MaxMembers.Or(cur.MaxMembers),
-	}, nil
-}
-
-// resolveRoleID —— 没显式指定 role 时兜到 owner 的 public role(claim 那一刻种下的)。
-// 这条兜底以前只长在面板那条路由上:同一件事,MCP 那边必须显式给 role_id,
-// 于是 owner 在两个面上"发一张最普通的码"要打不一样的字。
-func (a codeOps) resolveRoleID(ctx context.Context, ownerID, requested string) (string, error) {
-	if requested != "" {
-		return requested, nil
-	}
-	public, err := a.roles.GetByName(ctx, ownerID, access.PublicRoleName)
-	if err != nil {
-		return "", codeErr(err)
-	}
-	return public.ID(), nil
 }
 
 // toDispatcherCode —— 域实体 + booker 的配额 → 收口形状。

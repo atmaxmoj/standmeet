@@ -115,15 +115,11 @@ type codeCreateArgs struct {
 
 func codesCreate(store CodeStore) Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		var in codeCreateArgs
-		if err := json.Unmarshal(raw, &in); err != nil {
-			return nil, BadInput("invalid arguments: " + err.Error())
+		in, perr := decodeCodeCreate(raw, ownerID)
+		if perr != nil {
+			return nil, perr
 		}
-		expires, eerr := parseOptionalRFC3339(in.ExpiresAt)
-		if eerr != nil {
-			return nil, eerr
-		}
-		code, err := store.Create(ctx, in.toCreateCode(ownerID, expires))
+		code, err := store.Create(ctx, in)
 		if err != nil {
 			return nil, opErr("create code", err)
 		}
@@ -132,16 +128,24 @@ func codesCreate(store CodeStore) Invoke {
 	}
 }
 
-// toCreateCode —— 入参 → 收口的写入形状。assumed_role_id 留空由适配器兜到 public role
-// (面板一直是这么做的;MCP 那边以前**必填**,于是同一件事两个面规则不同)。
-func (in *codeCreateArgs) toCreateCode(ownerID string, expires *time.Time) *CreateCode {
+// decodeCodeCreate —— 解参。code 留空、assumed_role_id 留空都合法:前者由域派生,
+// 后者由域兜到 public role。这一层不替它们做决定。
+func decodeCodeCreate(raw json.RawMessage, ownerID string) (*CreateCode, error) {
+	var in codeCreateArgs
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return nil, BadInput("invalid arguments: " + err.Error())
+	}
+	expires, eerr := parseOptionalRFC3339(in.ExpiresAt)
+	if eerr != nil {
+		return nil, eerr
+	}
 	return &CreateCode{
-		OwnerID: ownerID, Code: derivedCode(in.Code, in.Label), Label: in.Label,
+		OwnerID: ownerID, Code: in.Code, Label: in.Label,
 		Purpose: in.Purpose, Ghosts: nonNilStrings(in.Ghosts),
 		AssumedRoleID: in.AssumedRoleID, PromptID: in.PromptID,
 		MaxMembers: in.MaxMembers, MaxTurnsPerSession: in.MaxTurnsPerSession,
 		MaxBookings: in.MaxBookings, ExpiresAt: expires,
-	}
+	}, nil
 }
 
 // parseOptionalRFC3339 —— 空 = 不设(永不过期),不是错。
@@ -185,23 +189,31 @@ type codeQuotaArgs struct {
 
 func codesUpdateQuotas(store CodeStore) Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		var in codeQuotaArgs
-		if err := json.Unmarshal(raw, &in); err != nil {
-			return nil, BadInput("invalid arguments: " + err.Error())
+		in, perr := decodeCodeQuotas(raw, ownerID)
+		if perr != nil {
+			return nil, perr
 		}
-		if in.CodeID == "" {
-			return nil, BadInput("code_id is required")
-		}
-		code, err := store.UpdateQuotas(ctx, &UpdateCodeQuotas{
-			OwnerID: ownerID, CodeID: in.CodeID, MaxMembers: in.MaxMembers,
-			MaxTurnsPerSession: in.MaxTurnsPerSession, MaxBookings: in.MaxBookings,
-		})
+		code, err := store.UpdateQuotas(ctx, in)
 		if err != nil {
 			return nil, opErr("update quotas", err)
 		}
 		row := toCodeRow(&code)
 		return marshalOut(row)
 	}
+}
+
+func decodeCodeQuotas(raw json.RawMessage, ownerID string) (*UpdateCodeQuotas, error) {
+	var in codeQuotaArgs
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return nil, BadInput("invalid arguments: " + err.Error())
+	}
+	if in.CodeID == "" {
+		return nil, BadInput("code_id is required")
+	}
+	return &UpdateCodeQuotas{
+		OwnerID: ownerID, CodeID: in.CodeID, MaxMembers: in.MaxMembers,
+		MaxTurnsPerSession: in.MaxTurnsPerSession, MaxBookings: in.MaxBookings,
+	}, nil
 }
 
 type codeGhostArgs struct {

@@ -5,8 +5,11 @@ import "github.com/atmaxmoj/standmeet/internal/access/usecase"
 // 类型（实现:usecase）.
 type (
 	APIKeyRoleGetter         = usecase.APIKeyRoleGetter
+	CodeQuotaUpdate          = usecase.CodeQuotaUpdate
+	CodesDeps                = usecase.CodesDeps
 	IssueAPIKeyDeps          = usecase.IssueAPIKeyDeps
 	IssueAPIKeyInput         = usecase.IssueAPIKeyInput
+	OptionalQuota            = usecase.OptionalQuota
 	IssuedVisitor            = usecase.IssuedVisitor
 	RefValidator             = usecase.RefValidator
 	RequestsDeps             = usecase.RequestsDeps
@@ -26,13 +29,16 @@ var (
 	DeleteRole                = usecase.DeleteRole
 	GetRole                   = usecase.GetRole
 	IssueAPIKey               = usecase.IssueAPIKey
+	IssueCode                 = usecase.IssueCode
 	ListForOwner              = usecase.ListForOwner
 	ListRoles                 = usecase.ListRoles
 	NewVisitorSessionStore    = usecase.NewVisitorSessionStore
 	ResolveAPIKey             = usecase.ResolveAPIKey
+	RevokeCode                = usecase.RevokeCode
 	SetRoleDockButtons        = usecase.SetRoleDockButtons
 	SubmitForOwner            = usecase.SubmitForOwner
 	UpdateAccessRequestStatus = usecase.UpdateAccessRequestStatus
+	UpdateCodeQuotas          = usecase.UpdateCodeQuotas
 	UpdateRole                = usecase.UpdateRole
 )
 

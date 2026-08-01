@@ -51,8 +51,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'list_recent_wiki', 'update_wiki', 'delete_wiki',
   'corpus_get_entry',
   // chat / conversations / prompts / roles
-  'chat.show_grounding',
-  'conversations.list', 'conversations.ghost_telemetry',
+  // 一份逐字稿两个面同一份载荷之后,读它的 op 就叫 conversations.get
+  // (原 chat.show_grounding 只是 MCP 那份的名字)。
+  'conversations.list', 'conversations.get', 'conversations.ghost_telemetry',
   'prompt_create', 'prompt_list', 'prompt_delete', 'prompt_update', 'prompts.get',
   'role_create', 'role_list', 'role_delete', 'role_update', 'roles.get',
   'roles.set_dock_buttons',

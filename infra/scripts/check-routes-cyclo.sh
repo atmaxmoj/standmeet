@@ -1,48 +1,78 @@
 #!/usr/bin/env bash
-# check-routes-cyclo: route handlers carry presentation concerns only —
-# parse the request, dispatch to a service, render the response.  Any
-# branch above cyclo 3 almost always means business logic is leaking
-# into the handler (the project's most-repeated "presentation layer"
-# review smell — see the feedback_presentation_rules memory).
+# check-routes-cyclo: faces and facades may only declare and delegate.
 #
-# golangci-lint's cyclop is globally set to max 3 already, so this
-# script is partially redundant — but it's a fast, narrowly-scoped
-# guardrail that surfaces the right error message ("split your
-# handler") instead of cyclop's generic one, and it stays green even
-# if a future contributor raises the global cyclop budget.
+# Rule: every function under internal/routes/ and inside every domain's facade
+# package must stay at cyclomatic complexity <= 3.
+#
+# Why the whole package and not just HTTP handlers: branching is what business
+# logic looks like. Once a face decides "how this thing is computed", only the
+# callers that come through that face get the rule — vault sync, the job loop
+# and every other entry point do not, so they grow their own copy and the two
+# drift. This gate used to cover handler functions only, and explicitly
+# excluded dispatcher/ mcphandle/ capload/ on the grounds that "they decode
+# schemaless JSON by hand, so the branching is inherent". That reason does not
+# hold: decoding can move onto an args type or a domain function, while
+# excluding whole packages waved through actual business (deriving a code from
+# a label, merging quotas, validating enums all arrived that way).
+#
+# Facades are the same case: a facade re-exports and delegates. A branch inside
+# one means the domain and its front door disagree about the rule.
+#
+# The baseline may only shrink. Each line is a function the migration has not
+# split yet; fix one, delete its line. Wanting to add a line is exactly the
+# thing this gate exists to stop.
 
 set -euo pipefail
 
 MAX_CYCLO=3
-ROOT="$(cd "${1:-.}" && pwd)"  # target Go source root (when make -C backend runs, CWD=backend → default .)
+ROOT="$(cd "${1:-.}" && pwd)"  # target Go source root (make -C backend → CWD=backend)
+GOCYCLO="$(go env GOPATH)/bin/gocyclo"
+BASELINE_FILE="$(cd "$(dirname "$0")" && pwd)/check-routes-cyclo-baseline.txt"
 
-# mcphandle is the MCP owner-handle controller — it lives under
-# internal/routes/ but parses schemaless JSON args inline (no echo binding
-# middleware to delegate to), so it legitimately runs at the looser cyclop
-# ≤5 business budget (enforced by golangci, not this ≤3 HTTP-handler cap).
-# Exclude it here so the ≤3 rule guards only the echo route handlers.
-#
-# dispatcher is the outbound convergence point — same situation as mcphandle and
-# excluded for the same written reason: it holds no echo handler at all, only
-# adapters that decode schemaless JSON args, call a plain domain function, and
-# serialize the result.  There is no binding middleware to delegate the decode
-# to, so the branching is inherent, not leaked business logic.  golangci's
-# cyclop ≤5 still binds it.
-EXCLUDE='internal/routes/mcphandle/|internal/routes/capload/|internal/routes/dispatcher/|socket\.go'
+# socket.go: long-lived read/write loops, where the select/case branching is
+# the protocol itself rather than a business decision.
+SKIP='socket\.go'
 
-# gocyclo prints "<n> <pkg> <func> <file>:<line>" for every function whose
-# cyclomatic complexity exceeds the -over threshold.  Exit code 0 with
-# empty stdout means everything's under budget.
-violations=$("$(go env GOPATH)/bin/gocyclo" -over "$MAX_CYCLO" "$ROOT/internal/routes/" 2>&1 | grep -vE "$EXCLUDE" || true)
+target_dirs() {
+  echo "$ROOT/internal/routes/"
+  find "$ROOT/internal" -type d -name facade | sort
+}
 
-if [ -n "$violations" ]; then
-  echo "check-routes-cyclo: handlers above cyclo $MAX_CYCLO — extract the branching"
-  echo "into a domain or application function and call it from the handler."
+# gocyclo prints "<n> <pkg> <func> <file>:<line>". Identity is "<pkg> <func>":
+# line numbers drift with unrelated edits, and a baseline keyed on them would
+# go red for no reason.
+scan_keys() {
+  # shellcheck disable=SC2046
+  # gocyclo exits non-zero when -over finds anything, which is the normal case
+  # here — swallow the status, the comparison below is what decides.
+  "$GOCYCLO" -over "$MAX_CYCLO" $(target_dirs) 2>/dev/null \
+    | grep -vE "$SKIP" | awk '{print $2" "$3}' | sort -u || true
+}
+
+current="$(scan_keys)"
+baseline="$(grep -vE '^\s*(#|$)' "$BASELINE_FILE" | sort -u || true)"
+
+new="$(comm -23 <(printf '%s\n' "$current") <(printf '%s\n' "$baseline") | grep -v '^$' || true)"
+if [ -n "$new" ]; then
+  echo "check-routes-cyclo: new function above cyclo $MAX_CYCLO in a face or facade."
+  echo "Branching means business: move it into the domain and leave the face"
+  echo "with a declaration and a call."
   echo ""
-  echo "$violations"
+  printf '%s\n' "$new"
   exit 1
 fi
 
-# Function count for the friendly summary (excluding mcphandle, see above).
-total=$("$(go env GOPATH)/bin/gocyclo" "$ROOT/internal/routes/" 2>/dev/null | grep -vcE "$EXCLUDE" || true)
-echo "check-routes-cyclo: $total handler functions scanned, all ≤ $MAX_CYCLO."
+stale="$(comm -13 <(printf '%s\n' "$current") <(printf '%s\n' "$baseline") | grep -v '^$' || true)"
+# shellcheck disable=SC2046
+total="$("$GOCYCLO" $(target_dirs) 2>/dev/null | grep -cvE "$SKIP" || true)"
+left="$(printf '%s\n' "$baseline" | grep -cv '^$' || true)"
+
+summary="check-routes-cyclo: $total functions scanned in routes/ + every domain facade"
+if [ -n "$stale" ]; then
+  n="$(printf '%s\n' "$stale" | grep -cv '^$' || true)"
+  echo "$summary ($left baselined, $n already clean — delete them from the baseline)."
+elif [ "$left" -gt 0 ]; then
+  echo "$summary ($left baselined left to split, ratchet holds)."
+else
+  echo "$summary, all ≤ $MAX_CYCLO (baseline empty)."
+fi
