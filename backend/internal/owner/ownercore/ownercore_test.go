@@ -28,7 +28,7 @@ var allOwnerCapIDs = []string{
 	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
 	"corpus.subjectivity.bundle",
 	"writings.bundle",
-	"custom_page.bundle", "connectors.bundle",
+	"connectors.bundle",
 	"api_keys.bundle",
 }
 

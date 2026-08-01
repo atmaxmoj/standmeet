@@ -10,7 +10,6 @@ import (
 	"log/slog"
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
@@ -21,14 +20,13 @@ const Name = "ownercore"
 
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
-	SEO         SEOWriter
-	Connectors  *ConnectorsOwnerDeps
-	CustomPages *owner.CustomPageDeps
-	Writings    *corpus.WritingsDeps
-	APIKeys     *APIKeysOwnerDeps
-	WritingsTx  *corpus.WritingsTxDeps
-	Corpus      *corpus.Deps
-	Log         *slog.Logger
+	SEO        SEOWriter
+	Connectors *ConnectorsOwnerDeps
+	Writings   *corpus.WritingsDeps
+	APIKeys    *APIKeysOwnerDeps
+	WritingsTx *corpus.WritingsTxDeps
+	Corpus     *corpus.Deps
+	Log        *slog.Logger
 }
 
 // Plugin —— implements capabilities.Plugin + capabilities.CapabilityRegistrar.
@@ -57,7 +55,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newCorpusMutationsCapability(d.Corpus, d.Log))
 	reg.MustRegister(newSubjectivityCapability(d.Corpus, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
-	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
 	// facade-parity fills.
 	// ip_bans 已搬回 security 域(security.OwnerMCPBundle),不在这里注册。
 	reg.MustRegister(newAPIKeysCapability(d.APIKeys, d.Log))

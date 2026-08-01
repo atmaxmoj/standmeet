@@ -34,7 +34,9 @@ export default function App() {
 
 interface PagePayload { id: string; slug: string; title: string }
 interface BuildPayload { build_id: string; status: string }
-interface ListPayload { pages: PagePayload[] }
+// 列表是**一行行页面**，跟面板那份同一形状（以前 MCP 这份多包一层 {pages:[...]}，
+// 而且只有 id/slug/title，看不出 live/staging 状态）。
+type ListPayload = PagePayload[];
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('custom_page lifecycle: staging → live → list → delete', () => {
@@ -66,7 +68,7 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
 
       const inList = await callTool<ListPayload>(
         request, apiToken, sid, 'custom_page.list', {});
-      expect(inList.pages.find((p) => p.slug === SLUG)).toBeTruthy();
+      expect(inList.find((p) => p.slug === SLUG)).toBeTruthy();
 
       // UI 视角：admin custom-pages section → 点 view live ↗ → /p/<slug> 渲染。
       await gotoAdminSection(page, 'custom-pages');
@@ -83,7 +85,7 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
 
       const afterDelete = await callTool<ListPayload>(
         request, apiToken, sid, 'custom_page.list', {});
-      expect(afterDelete.pages.find((p) => p.slug === SLUG)).toBeUndefined();
+      expect(afterDelete.find((p) => p.slug === SLUG)).toBeUndefined();
 
       // 当前在 /p/<slug> standalone React 页面，没 admin nav；page.goBack()
       // 回到 /admin/custom-pages（等价"用户看完 live 版本后浏览器后退"）。

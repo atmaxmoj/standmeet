@@ -39,6 +39,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Conversations(newConversationOps(d)),
 		dispatcher.Writings(newWritingOps(d)),
 		dispatcher.Page(newPageOps(d)),
+		dispatcher.CustomPages(newCustomPageOps(d)),
 	)
 }
 

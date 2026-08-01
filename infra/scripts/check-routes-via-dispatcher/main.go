@@ -55,7 +55,6 @@ var baseline = map[string]bool{
 	"internal/routes/admin/corpus_tree.go":                   true,
 	"internal/routes/admin/corpus_tree_subjectivity.go":      true,
 	"internal/routes/admin/corpus_views.go":                  true,
-	"internal/routes/admin/custom_pages.go":                  true,
 	"internal/routes/admin/keypairs.go":                      true,
 	"internal/routes/admin/obsidian.go":                      true,
 	"internal/routes/admin/recovery.go":                      true,

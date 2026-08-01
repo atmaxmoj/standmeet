@@ -46,24 +46,8 @@ func observabilityEntries() []Entry {
 	return []Entry{}
 }
 
-// custom pages (authoring is MCP-only by product decision; only the list is on admin).
+// custom pages —— 都搬进了出站收口(dispatcher.CustomPages)。"写只在 MCP 上"这条产品
+// 决定现在写在每个 op 的 Reach 里,不再是这张表上的一行。
 func customPageEntries() []Entry {
-	only := func(id string) fp.Op {
-		return act(id, fp.Only("custom-page authoring is MCP-only by product decision (sandbox builder)", FacadeMCP))
-	}
-	return []Entry{
-		{
-			Op:    read("custom_page.list", fp.OwnerRead()),
-			MCP:   []string{"custom_page.list"},
-			Admin: []string{"GET /api/admin/custom-pages"},
-		},
-		{Op: only("custom_page.create"), MCP: []string{"custom_page.create"}},
-		{Op: only("custom_page.write_file"), MCP: []string{"custom_page.write_file"}},
-		{Op: only("custom_page.build"), MCP: []string{"custom_page.build"}},
-		{Op: only("custom_page.get_build"), MCP: []string{"custom_page.get_build"}},
-		{Op: only("custom_page.promote_to_staging"), MCP: []string{"custom_page.promote_to_staging"}},
-		{Op: only("custom_page.promote_to_live"), MCP: []string{"custom_page.promote_to_live"}},
-		{Op: only("custom_page.rollback"), MCP: []string{"custom_page.rollback"}},
-		{Op: only("custom_page.delete"), MCP: []string{"custom_page.delete"}},
-	}
+	return []Entry{}
 }

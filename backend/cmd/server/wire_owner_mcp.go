@@ -6,7 +6,6 @@ package main
 
 import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 )
 
@@ -25,10 +24,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Corpus:     &corpusDeps,
 		Writings:   &corpus.WritingsDeps{Writings: d.writingRepo},
 		WritingsTx: &writingsTxDeps,
-		CustomPages: &owner.CustomPageDeps{
-			Pages: d.customPageRepo, Builds: d.customBuildRepo,
-		},
-		APIKeys: &ownercore.APIKeysOwnerDeps{Keys: d.apiKeyRepo, Roles: d.roleRepo},
+		APIKeys:    &ownercore.APIKeysOwnerDeps{Keys: d.apiKeyRepo, Roles: d.roleRepo},
 		Connectors: &ownercore.ConnectorsOwnerDeps{
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
 			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,
