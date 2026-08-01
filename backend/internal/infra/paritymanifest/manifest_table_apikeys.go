@@ -1,35 +1,11 @@
 package paritymanifest
 
-import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
-
-// apiKeyEntries —— owner-plane management of the API-key facade: mint/list/revoke/update keys, their
-// per-key denials, and the candidacy ("open") toggles. MCP-first by product decision (the owner
-// drives their instance from their AI client); the admin UI is a later wave, so each is Only(mcp)
-// with that reason rather than an unreasoned admin gap. These manage the api facade; they do not
-// live ON it (they are owner-plane, not outward).
+// apiKeyEntries —— API-key facade 的 owner 侧管理(发钥匙 / 列 / 撤 / 改 + per-key 收窄
+// + 开给 API 面的候选开关)已经搬进 access 域自己的声明(internal/access/ops),收口去
+// facade 取。
+//
+// 于是这张表不再需要它们的行:"只在 MCP 上"这个决定连同理由写在那条声明的 Reach 上,
+// 启动时由 dispatcher.Conform() 对账 —— 这正是这个包最后要消失的方式。
 func apiKeyEntries() []Entry {
-	mcp := func(id string, read bool) Entry {
-		reach := fp.Only("API-key facade management is MCP-first; admin UI is a later wave", FacadeMCP)
-		op := act(id, reach)
-		if read {
-			op = readOp(id, reach)
-		}
-		return Entry{Op: op, MCP: []string{id}}
-	}
-	return []Entry{
-		mcp("api_keys.create", false),
-		mcp("api_keys.list", true),
-		mcp("api_keys.revoke", false),
-		mcp("api_keys.update", false),
-		mcp("api_keys.list_denials", true),
-		mcp("api_keys.add_denial", false),
-		mcp("api_keys.remove_denial", false),
-		mcp("api.open", false),
-		mcp("api.close", false),
-		mcp("api.list_candidates", true),
-	}
+	return []Entry{}
 }
-
-// readOp —— a Read-kind op with the given reach (local alias so apiKeyEntries can pick kind by flag
-// without shadowing the package-level read helper's name).
-func readOp(id string, r fp.Reach) fp.Op { return read(id, r) }

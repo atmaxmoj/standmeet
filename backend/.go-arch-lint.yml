@@ -980,6 +980,8 @@ deps:
       - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
       - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
       - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
+      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - paritymanifest
       # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
       # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
       # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。

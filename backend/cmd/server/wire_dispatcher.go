@@ -18,6 +18,7 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
@@ -65,6 +66,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		Codes:          codeDepsOf(d),
 		Roles:          roleDepsOf(d),
 		Conversations:  conversationDepsOf(d),
+		APIKeys:        apiKeyDepsOf(d),
 		Instance: stats.InstanceDeps{
 			System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
 			Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
@@ -116,6 +118,14 @@ func accessRequestDepsOf(d *runtimeDeps) owner.OpsAccessRequests {
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Proxy: outboundSender(d),
 		},
+	}
+}
+
+// apiKeyDepsOf —— 能开给 API 面的是哪些能力,那是能力轴的知识,所以从这一侧注入。
+func apiKeyDepsOf(d *runtimeDeps) access.OpsAPIKeys {
+	return access.OpsAPIKeys{
+		Keys: d.apiKeyRepo, Roles: d.roleRepo,
+		APICandidates: paritymanifest.APICandidateCapabilities,
 	}
 }
 

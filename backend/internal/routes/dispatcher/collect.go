@@ -35,6 +35,7 @@ type Deps struct {
 	OwnerCSS       owner.CSSStore
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
+	APIKeys        access.OpsAPIKeys
 	Conversations  conversation.OpsConversations
 	Prompts        owner.PromptsDeps
 	Settings       owner.SettingsDeps
@@ -62,5 +63,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "page", Ops: owner.PageOps(d.Page)},
 		{Name: "roles", Ops: access.RoleOps(d.Roles)},
 		{Name: "conversations", Ops: conversation.ConversationOps(&d.Conversations)},
+		{Name: "api_keys", Ops: access.APIKeyOps(d.APIKeys)},
 	}
 }

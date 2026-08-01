@@ -23,7 +23,6 @@ type Deps struct {
 	SEO        SEOWriter
 	Connectors *ConnectorsOwnerDeps
 	Writings   *corpus.WritingsDeps
-	APIKeys    *APIKeysOwnerDeps
 	WritingsTx *corpus.WritingsTxDeps
 	Corpus     *corpus.Deps
 	Log        *slog.Logger
@@ -54,8 +53,7 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusMutationsCapability(d.Corpus, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
-	// facade-parity fills.
-	// ip_bans 已搬回 security 域(security.OwnerMCPBundle),不在这里注册。
-	reg.MustRegister(newAPIKeysCapability(d.APIKeys, d.Log))
+	// ip_bans 已搬回 security 域,api_keys 已搬回 access 域(它们各自声明,经收口投影到面上),
+	// 不在这里注册。
 	reg.MustRegister(newConnectorsCapability(d.Connectors, d.Log))
 }
