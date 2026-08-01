@@ -31,6 +31,8 @@ type (
 	OutboundSender             = usecase.OutboundSender
 	PageDeps                   = usecase.PageDeps
 	PagePinDeps                = usecase.PagePinDeps
+	OwnerPageView              = usecase.OwnerPageView
+	PinnableEntry              = usecase.PinnableEntry
 	PasswordResetDeps          = usecase.PasswordResetDeps
 	PasswordUpdateInput        = usecase.PasswordUpdateInput
 	PromptsDeps                = usecase.PromptsDeps
@@ -84,6 +86,8 @@ var (
 	ListPrompts               = usecase.ListPrompts
 	LoadSoleOwner             = usecase.LoadSoleOwner
 	Login                     = usecase.Login
+	BuildOwnerPageView        = usecase.BuildOwnerPageView
+	ListPinnable              = usecase.ListPinnable
 	PinToPage                 = usecase.PinToPage
 	PromoteToLive             = usecase.PromoteToLive
 	PromoteToStaging          = usecase.PromoteToStaging

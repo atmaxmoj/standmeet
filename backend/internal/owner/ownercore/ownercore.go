@@ -9,7 +9,6 @@ package ownercore
 import (
 	"log/slog"
 
-	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 
@@ -22,20 +21,14 @@ const Name = "ownercore"
 
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
-	SEO           SEOWriter
-	PageContent   pageContentStore
-	Connectors    *ConnectorsOwnerDeps
-	CustomPages   *owner.CustomPageDeps
-	Handle        *owner.HandleDeps
-	Writings      *corpus.WritingsDeps
-	APIKeys       *APIKeysOwnerDeps
-	WritingsTx    *corpus.WritingsTxDeps
-	Conversations *conversation.ConversationsDeps
-	PublicURL     owner.PublicURLDeps
-	PagePins      owner.PagePinDeps
-	Corpus        *corpus.Deps
-	Log           *slog.Logger
-	Ghosts        *conversation.GhostDeps
+	SEO         SEOWriter
+	Connectors  *ConnectorsOwnerDeps
+	CustomPages *owner.CustomPageDeps
+	Writings    *corpus.WritingsDeps
+	APIKeys     *APIKeysOwnerDeps
+	WritingsTx  *corpus.WritingsTxDeps
+	Corpus      *corpus.Deps
+	Log         *slog.Logger
 }
 
 // Plugin —— implements capabilities.Plugin + capabilities.CapabilityRegistrar.
@@ -65,7 +58,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newSubjectivityCapability(d.Corpus, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
-	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.PagePins, d.Log))
 	// facade-parity fills.
 	// ip_bans 已搬回 security 域(security.OwnerMCPBundle),不在这里注册。
 	reg.MustRegister(newAPIKeysCapability(d.APIKeys, d.Log))

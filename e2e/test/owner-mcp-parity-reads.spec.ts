@@ -123,8 +123,11 @@ async function checkEmptyRegistries(r: APIRequestContext): Promise<void> {
   const convs = await callTool<unknown[]>(r, token, sid, 'conversations.list', {});
   expect(Array.isArray(convs), 'conversations.list array').toBe(true);
 
-  const ghosts = await callTool<unknown[]>(r, token, sid, 'conversations.ghost_telemetry', {});
-  expect(Array.isArray(ghosts), 'ghost_telemetry array').toBe(true);
+  // 遥测回 {waypoints, totals} —— 面板一直是这个信封；MCP 那份以前是裸数组、没有总计。
+  const ghosts = await callTool<{ waypoints: unknown[]; totals: { shown: number } }>(
+    r, token, sid, 'conversations.ghost_telemetry', {});
+  expect(Array.isArray(ghosts.waypoints), 'ghost_telemetry waypoints').toBe(true);
+  expect(typeof ghosts.totals.shown, 'and it carries the totals').toBe('number');
 
   const reqs = await callTool<unknown[]>(r, token, sid, 'access_requests.list', {});
   expect(Array.isArray(reqs), 'access_requests.list array').toBe(true);

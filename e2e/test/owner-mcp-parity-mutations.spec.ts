@@ -38,10 +38,11 @@ async function setup(playwright: Playwright): Promise<void> {
   });
   token = await createAPIToken(request, csrf, 'parity-mut');
   sid = await initMCP(request, token);
-  const made = await callTool<{ code_id: string }>(request, token, sid, 'codes.create', {
+  // 建码回的是**整行码**(两个面同一份载荷),主键叫 id。
+  const made = await callTool<{ id: string }>(request, token, sid, 'codes.create', {
     code: 'MUT-001', label: 'MUT', assumed_role_id: role.id,
   });
-  codeID = made.code_id;
+  codeID = made.id;
   await request.dispose();
 }
 

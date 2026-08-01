@@ -97,38 +97,6 @@ func contentEntries() []Entry {
 
 // owner settings (page / appearance / seo / handle / url / ai / byoai).
 func settingsEntries() []Entry {
-	return []Entry{
-		{
-			Op:    read("page.get", fp.OwnerRead()),
-			MCP:   []string{"page.get"},
-			Admin: []string{"GET /api/admin/page"},
-		},
-		{
-			Op:    act("page.put", fp.OwnerAction()),
-			MCP:   []string{"page.put"},
-			Admin: []string{"PUT /api/admin/page"},
-		},
-		{
-			// pin/unpin 是主页 insights/projects 的装填口(corpus pin 列表);
-			// admin 面走同一条 PUT /page(pin 列表随整段内容保存)。
-			Op:    act("page.pin", fp.OwnerAction()),
-			MCP:   []string{"page.pin"},
-			Admin: []string{"PUT /api/admin/page"},
-		},
-		{
-			Op:    act("page.unpin", fp.OwnerAction()),
-			MCP:   []string{"page.unpin"},
-			Admin: []string{"PUT /api/admin/page"},
-		},
-		{
-			Op:    act("page.set_handle", fp.OwnerAction()),
-			MCP:   []string{"page.update_handle"},
-			Admin: []string{"PATCH /api/admin/handle"},
-		},
-		{
-			Op:    act("page.set_public_url", fp.OwnerAction()),
-			MCP:   []string{"page.set_public_url"},
-			Admin: []string{"PATCH /api/admin/public-url"},
-		},
-	}
+	// page / handle / public-url 都搬进了出站收口(dispatcher.Page)。
+	return []Entry{}
 }

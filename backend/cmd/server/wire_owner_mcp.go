@@ -5,7 +5,6 @@
 package main
 
 import (
-	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
@@ -16,34 +15,24 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
 		Subjectivity: d.subjectivityRepo, Index: d.corpusIndexer,
 	}
-	convsDeps := conversation.ConversationsDeps{
-		Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
-		Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
-	}
 	writingsTxDeps := corpus.WritingsTxDeps{
 		Writings:    d.writingRepo,
 		WritingRefs: d.writingRefRepo,
 		Assets:      corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 	}
 	return &ownercore.Deps{
-		SEO:           d.seoRepo,
-		PagePins:      owner.PagePinDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
-		Corpus:        &corpusDeps,
-		Conversations: &convsDeps,
-		Writings:      &corpus.WritingsDeps{Writings: d.writingRepo},
-		WritingsTx:    &writingsTxDeps,
+		SEO:        d.seoRepo,
+		Corpus:     &corpusDeps,
+		Writings:   &corpus.WritingsDeps{Writings: d.writingRepo},
+		WritingsTx: &writingsTxDeps,
 		CustomPages: &owner.CustomPageDeps{
 			Pages: d.customPageRepo, Builds: d.customBuildRepo,
 		},
-		Handle:  &owner.HandleDeps{Owners: d.ownerRepo},
 		APIKeys: &ownercore.APIKeysOwnerDeps{Keys: d.apiKeyRepo, Roles: d.roleRepo},
 		Connectors: &ownercore.ConnectorsOwnerDeps{
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
 			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,
 		},
-		PageContent: d.ownerRepo,
-		PublicURL:   owner.PublicURLDeps{Owners: d.ownerRepo},
-		Ghosts:      &conversation.GhostDeps{Repo: d.ghostRepo},
-		Log:         d.log,
+		Log: d.log,
 	}
 }

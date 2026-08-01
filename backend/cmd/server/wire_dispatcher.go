@@ -38,6 +38,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.SEO(newSEOOps(d)),
 		dispatcher.Conversations(newConversationOps(d)),
 		dispatcher.Writings(newWritingOps(d)),
+		dispatcher.Page(newPageOps(d)),
 	)
 }
 

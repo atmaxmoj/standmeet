@@ -121,3 +121,14 @@ func IsUpstream(err error) bool {
 func opErr(what string, err error) error {
 	return fmt.Errorf("%s: %w", what, err)
 }
+
+// requireArgs —— 缺哪个必填字段就报哪个。面这一层只管"给没给";给了之后合不合法
+// (格式、枚举、存不存在)是域的事。
+func requireArgs(pairs ...[2]string) error {
+	for _, p := range pairs {
+		if p[1] == "" {
+			return BadInput(p[0] + " is required")
+		}
+	}
+	return nil
+}
