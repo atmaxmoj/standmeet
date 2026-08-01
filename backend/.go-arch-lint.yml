@@ -727,6 +727,7 @@ deps:
   corpusops:
     mayDependOn:
       - corpusentity
+      - corpusrepo
       - corpususecase
       - facadeparity
       - apierr

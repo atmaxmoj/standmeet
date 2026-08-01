@@ -104,6 +104,13 @@ The session identity (owner / conversation) stays host-planted on the tool-call
 
 ## Component placement
 
+> **Where this stands (2026-08-01):** the ops moved out of the kernel, but the
+> host package below was never built — the vocabulary is spread over four hand-written
+> gateways in the composition root, `capsocket.Handle(op, h)` still accepts any op, and
+> a plugin declares socket *files* rather than the ops it needs. `hostdesk.md` finishes
+> this design: one convergence point, `HostOps` on the manifest, boot failure on a
+> declaration the host does not publish.
+
 - The reach-back gateway (the fixed vocabulary, host-owned) is a new host package. It
   depends on `connector`, the corpus listers, `capstore`, the LLM provider, the owner
   getter. The kernel does NOT depend on it.
