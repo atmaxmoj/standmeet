@@ -39,8 +39,5 @@ var (
 	CodeOf = fp.CodeOf
 )
 
-// opErr / emptyArgsSchema —— 中立词汇的两个小件。还没搬进域的那些资源在用,搬完就消失。
-var (
-	opErr           = fp.OpErr
-	emptyArgsSchema = fp.NoArgs
-)
+// emptyArgsSchema —— 不收参数的 op 的入参 schema。还没搬进域的那两个资源在用,搬完就消失。
+var emptyArgsSchema = fp.NoArgs

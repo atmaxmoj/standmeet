@@ -15,6 +15,7 @@ package main
 
 import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
@@ -63,6 +64,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		AccessRequests: accessRequestDepsOf(d),
 		Codes:          codeDepsOf(d),
 		Roles:          roleDepsOf(d),
+		Conversations:  conversationDepsOf(d),
 		Instance: stats.InstanceDeps{
 			System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
 			Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
@@ -71,7 +73,6 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 	return dispatcher.New(append(resources,
 		dispatcher.Capabilities(newCapabilityOps(d)),
 		dispatcher.CapabilityConfig(newCapConfigOps(d)),
-		dispatcher.Conversations(newConversationOps(d)),
 	)...)
 }
 
@@ -113,6 +114,20 @@ func accessRequestDepsOf(d *runtimeDeps) owner.OpsAccessRequests {
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Proxy: outboundSender(d),
 		},
+	}
+}
+
+// conversationDepsOf —— 逐字稿要回读被引条目的正文,所以连着语料仓储一起给。
+func conversationDepsOf(d *runtimeDeps) conversation.OpsConversations {
+	return conversation.OpsConversations{
+		Chats: conversation.ConversationsDeps{
+			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo,
+			Output:       d.outputRepo,
+			Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
+		},
+		Ghosts: conversation.GhostDeps{Repo: d.ghostRepo},
+		Corpus: corpusDepsOf(d),
+		Log:    d.log,
 	}
 }
 

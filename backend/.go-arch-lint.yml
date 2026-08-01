@@ -97,6 +97,8 @@ components:
     in: internal/conversation/entity # conversation guts: 值对象/实体 + 域错误
   conversationrepo:
     in: internal/conversation/repo   # conversation guts: 仓储（over db + pgstore）
+  conversationops:
+    in: internal/conversation/ops    # conversation guts: 本域对外能做什么的声明
   conversationusecase:
     in: internal/conversation/usecase # conversation guts: 用例/编排
   corpus:
@@ -675,6 +677,16 @@ deps:
       - conversationentity
       - conversationrepo
       - conversationusecase
+      - conversationops
+    anyVendorDeps: true
+  # conversationops —— 本域对外的操作声明。逐字稿要回读被引条目的正文，所以经 corpus 的正门。
+  conversationops:
+    mayDependOn:
+      - conversationentity
+      - conversationrepo
+      - conversationusecase
+      - corpus
+      - facadeparity
     anyVendorDeps: true
   conversationentity:
     mayDependOn:

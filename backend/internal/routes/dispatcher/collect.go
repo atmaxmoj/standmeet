@@ -9,6 +9,7 @@ package dispatcher
 
 import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -34,6 +35,7 @@ type Deps struct {
 	OwnerCSS       owner.CSSStore
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
+	Conversations  conversation.OpsConversations
 	Prompts        owner.PromptsDeps
 	Settings       owner.SettingsDeps
 }
@@ -59,5 +61,6 @@ func Collect(d *Deps) []Resource {
 		{Name: "seo", Ops: owner.SEOOps(d.SEO)},
 		{Name: "page", Ops: owner.PageOps(d.Page)},
 		{Name: "roles", Ops: access.RoleOps(d.Roles)},
+		{Name: "conversations", Ops: conversation.ConversationOps(&d.Conversations)},
 	}
 }

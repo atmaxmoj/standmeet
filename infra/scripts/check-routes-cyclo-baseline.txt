@@ -25,5 +25,4 @@ dispatcher capabilitiesDelete
 dispatcher capabilitiesSetEnabled
 dispatcher capabilityConfigGet
 dispatcher capabilityConfigSet
-dispatcher conversationsGet
 mcphandle runCapabilityHandler
