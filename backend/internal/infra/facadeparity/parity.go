@@ -89,12 +89,7 @@ func (r Reach) Except(classes ...FacadeClass) Reach {
 // Reason —— the OptOut justification for an Only reach (empty otherwise). Surfaced in audits.
 func (r Reach) Reason() string { return r.reason }
 
-// Op —— one owner operation: a stable ID, its semantic Kind, and its Reach.
-type Op struct {
-	ID    string
-	Reach Reach
-	Kind  Kind
-}
+// Op / Invoke 的定义在 op.go。
 
 // Facade —— an outgoing surface: a name, the trust plane it faces, the capability classes it CAN
 // carry (its profile), and whether it serves reads and/or actions.

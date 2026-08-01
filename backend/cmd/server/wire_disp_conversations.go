@@ -19,10 +19,7 @@ import (
 )
 
 func newConversationOps(d *runtimeDeps) conversationOps {
-	corpusDeps := corpus.Deps{
-		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
-		Subjectivity: d.subjectivityRepo, Index: d.corpusIndexer,
-	}
+	corpusDeps := corpusDepsOf(d)
 	return conversationOps{
 		chats: conversation.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo,

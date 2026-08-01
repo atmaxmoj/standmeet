@@ -10,10 +10,7 @@ import (
 )
 
 func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
-	corpusDeps := corpus.Deps{
-		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
-		Subjectivity: d.subjectivityRepo, Index: d.corpusIndexer,
-	}
+	corpusDeps := corpusDepsOf(d)
 	writingsTxDeps := corpus.WritingsTxDeps{
 		Writings:    d.writingRepo,
 		WritingRefs: d.writingRefRepo,

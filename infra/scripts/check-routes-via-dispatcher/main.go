@@ -2,8 +2,15 @@
 //
 // # 规则
 //
-// internal/routes/** 下的文件不可以 import 任何域的 facade（internal/<domain>/facade）。
-// 面要用的能力，必须由组装根声明成 dispatcher 的 Op，面经 Face 取。
+// internal/routes 下**除收口以外**的文件不可以 import 任何域的 facade
+// （internal/<domain>/facade）。面要用的能力，必须先在收口声明成 Op，面经 Face 取。
+//
+// 收口本身**当然**要 import 各域的 facade —— 它是出站汇聚点，认识每个域是它的定义。
+// facade 存在的意义就是给它这条路：域的正门开着，只是不许**面**从这儿进。
+//
+// 这个范围我一开始写错过：扫了整个 internal/routes，把收口自己也禁了。后果是一连串的 ——
+// 调用只能挪到唯一能同时看见两边的地方（组装根），于是每个资源都要在收口重新声明一遍
+// 域已有的入参/出参，再写一段"把 A 抄成 B"的搬运。**内部的能力被这道门推到了外部。**
 //
 // # 为什么
 //
@@ -33,6 +40,9 @@ import (
 
 // scanRoot —— 只管面这一层。不读 os.Args / env（gosec G703：别把路径当 untrusted input）。
 const scanRoot = "./internal/routes"
+
+// convergence —— 出站收口自己。它不是面，是面取能力的那个点，所以不在这条规则里。
+const convergence = "internal/routes/dispatcher/"
 
 // facadeSuffix —— 域对外的唯一入口就叫 facade（check-domain-facade-boundary 保证这点）。
 const facadeSuffix = "/facade"
@@ -148,7 +158,7 @@ func offenders() ([]string, error) {
 		if werr != nil {
 			return werr
 		}
-		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+		if skipPath(path, d.IsDir()) {
 			return nil
 		}
 		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
@@ -164,6 +174,14 @@ func offenders() ([]string, error) {
 		return nil
 	})
 	return out, err
+}
+
+// skipPath —— 目录、非 Go 文件、测试文件不看;收口自己也不看(它不是面)。
+func skipPath(path string, isDir bool) bool {
+	if isDir || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+		return true
+	}
+	return strings.Contains(filepath.ToSlash(path), convergence)
 }
 
 // isDomainFacade —— internal/<domain>/facade（正好两段，排除 internal/routes/... 这种更深的）。

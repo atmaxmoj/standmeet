@@ -38,12 +38,12 @@
 //
 // 于是 parity 不再是一张要人维护的对照表,而是结构的性质:两个面同源。
 //
-// 为什么适配必须落在这儿而不是域里:capreg import 了 access/facade,域一旦 import capreg 去
-// 声明自己的工具,access 就撞 import cycle。域保持协议无关,适配在收口做。
+// 收口自己**不实现任何能力**:它 import 各域的 facade,把各域声明的操作汇起来再导出。
+// 声明(id / 说明 / 入参 schema / reach / 实现)属于域,词汇在 internal/infra/facadeparity ——
+// 那是域和收口都能 import 的中立包,所以域说得出口,而不必依赖路由。
 package dispatcher
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -75,25 +75,8 @@ func decodeOptional(raw json.RawMessage, into any) error { //nolint:forbidigo //
 	return nil
 }
 
-// Invoke —— 一个操作的执行入口。入参是已解码的 args JSON,出参是待序列化的载荷。
-//
-// 刻意只用 json.RawMessage 两头:收口不认识 MCP 的 CallToolResult,也不认识 HTTP 的
-// ResponseWriter —— 那是各个面自己的事。错误原样上抛,由面翻译成该面的错误形态
-// (MCP 的 isError / HTTP 的状态码)。
-type Invoke func(ctx context.Context, ownerID string, in json.RawMessage) (json.RawMessage, error)
-
-// Op —— 一个操作:稳定 id、语义类别、暴露意图、入参 schema、执行入口。
-//
-// Reach 是**意图**(OwnerAction / OwnerRead / Only(reason)),不点具体面的名字 —— 这才让它
-// 在新增一个面时仍然成立:新面一注册,立刻知道自己欠哪些操作。
-type Op struct {
-	Invoke      Invoke
-	ID          string
-	Description string
-	InputSchema json.RawMessage
-	Reach       fp.Reach
-	Kind        fp.Kind
-}
+// Op / Invoke 的定义在 internal/infra/facadeparity(域要能声明自己会做什么,而域不该
+// import 路由)。收口只是再导出它们 —— 见 vocabulary.go。
 
 // Resource —— 按资源分组的一组操作(roles.{list,create,update,delete} 放一起),
 // 跟 owner 心里的模型一致,也让读的人一眼看到"这个东西能被怎么摆弄"。

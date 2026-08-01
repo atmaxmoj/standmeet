@@ -16,10 +16,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// buildDispatcher —— 组装出站收口。**一个资源一行**;每行的适配器和它的依赖都在
-// wire_disp_<资源>.go 里,这里只管把它们接起来。
+// buildDispatcher —— 组装出站收口。
+//
+// 组装根只做一件事:把 repo 装成各域的依赖包交给收口(dispatcher.Collect),收口去各域的
+// facade 取它们自己声明的操作。下面那一长串 `dispatcher.X(newXOps(d))` 是**旧形状**:
+// 声明和实现被摊在收口和这里,每个资源一个 wire_disp_*.go。它们正在一个个搬回域里,
+// 搬完一个就从这里消失一行。
 func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
-	return dispatcher.New(
+	resources := dispatcher.Collect(dispatcher.Deps{Corpus: corpusDepsOf(d)})
+	return dispatcher.New(append(resources,
 		dispatcher.IPBans(newIPBanOps(d)),
 		dispatcher.Domains(newDomainOps(d)),
 		dispatcher.AccessRequests(newAccessRequestOps(d)),
@@ -40,7 +45,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		dispatcher.Writings(newWritingOps(d)),
 		dispatcher.Page(newPageOps(d)),
 		dispatcher.CustomPages(newCustomPageOps(d)),
-	)
+	)...)
 }
 
 // adminFace —— admin HTTP 面在 parity 里的档案。它是浏览器应用,所以能承载浏览器流程、

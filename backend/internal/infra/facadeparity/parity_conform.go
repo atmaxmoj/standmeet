@@ -32,8 +32,8 @@ type Exposure struct {
 // conformant.
 func Conform(manifest []Op, exposures []Exposure) []Violation {
 	byID := make(map[string]Op, len(manifest))
-	for _, op := range manifest {
-		byID[op.ID] = op
+	for i := range manifest {
+		byID[manifest[i].ID] = manifest[i]
 	}
 	out := make([]Violation, 0, len(exposures))
 	for i := range exposures {

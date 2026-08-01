@@ -53,7 +53,6 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newCorpusRawCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusMutationsCapability(d.Corpus, d.Log))
-	reg.MustRegister(newSubjectivityCapability(d.Corpus, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	// facade-parity fills.
 	// ip_bans 已搬回 security 域(security.OwnerMCPBundle),不在这里注册。

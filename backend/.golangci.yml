@@ -284,6 +284,12 @@ linters:
       # so it is NOT exempt from wrapcheck (keeps its pre-move budget).
       - path: internal/routes/(admin|public|sys)/
         linters: [wrapcheck]
+      # A domain's ops package classifies its own errors into the protocol-neutral
+      # vocabulary (facadeparity.BadInput / NotFound / Coded / …). Those constructors
+      # MAKE an error; there is nothing upstream to wrap, and wrapping one would hide
+      # the class from the faces that switch on it.
+      - path: internal/[a-z0-9]+/ops/
+        linters: [wrapcheck]
       # Same echo-handler reasoning for middleware as for routes:
       # `func(c echo.Context) error` requires `return c.JSON(...)`.
       - path: internal/infra/middleware/

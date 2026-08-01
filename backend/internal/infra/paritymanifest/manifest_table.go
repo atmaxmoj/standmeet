@@ -81,10 +81,8 @@ func corpusEntries() []Entry {
 			MCP:   []string{"promote_to_wiki", "promote_wiki_to_output"},
 			Admin: []string{"POST /api/admin/corpus/{genre}/{id}/promote"},
 		},
-		{
-			Op:  act("subjectivity.write", fp.Only("owner's private self-model; curated via MCP, no admin write form", FacadeMCP)),
-			MCP: []string{"subjectivity_write"},
-		},
+		// subjectivity.write 搬进了 corpus 域自己的声明(internal/corpus/ops),
+		// 收口去 facade 取 —— 它的 Reach 就写在那条声明上,不再需要这张表上的一行。
 	}
 }
 

@@ -101,6 +101,8 @@ components:
     in: internal/corpus/repo         # corpus guts: 仓储（over db + pgstore）
   corpususecase:
     in: internal/corpus/usecase      # corpus guts: 用例/编排 + 读取端口
+  corpusops:
+    in: internal/corpus/ops          # corpus guts: 本域对外能做什么的声明（id/schema/reach/实现）
   access:
     in: internal/access/facade       # #135: access 域 facade（对外协议）；域外只 import 这里
   accessentity:
@@ -427,12 +429,22 @@ deps:
       - facadeparity    # 声明本面的 parity 档案（Facade profile）
     anyVendorDeps: true
 
-  # dispatcher —— 出站收口。它只认协议无关的东西：facadeparity（Reach/Facade 词汇）。
-  # 它**不该**依赖任何域：域的普通函数经组装根适配成 Op 传进来（窄接口在收口这边声明），
-  # 于是收口不认识 corpus/security/... 的实体类型，域也不认识 MCP/HTTP。
+  # dispatcher —— 出站收口。它 import 各域的**正门**（facade），把各域自己声明的操作汇起来
+  # 再导出；除此之外只认协议无关的 facadeparity（Op/Reach/错误类别这套词汇）。
+  #
+  # 这条以前写的是「不该依赖任何域，域的函数经组装根适配成 Op 传进来」。那条约束的后果是
+  # 一连串的：域说不出自己会什么 → 声明只能挪到唯一同时看见两边的地方（组装根）→ 收口得
+  # 复述一遍域已有的入参出参 → 每个资源多一份搬运。facade 存在的意义就是给收口这条路。
   dispatcher:
     mayDependOn:
       - facadeparity
+      - access
+      - conversation
+      - corpus
+      - marketplace
+      - owner
+      - security
+      - stats
     anyVendorDeps: true
 
   # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
@@ -671,6 +683,16 @@ deps:
       - corpusentity
       - corpusrepo
       - corpususecase
+      - corpusops
+    anyVendorDeps: true
+  # corpusops —— 本域对外的操作声明。它在域里(而不是在收口里)，所以域说得出自己会什么；
+  # 它只认本域的用例 + 中立词汇，不认识任何面。
+  corpusops:
+    mayDependOn:
+      - corpusentity
+      - corpususecase
+      - facadeparity
+      - apierr
     anyVendorDeps: true
   corpusentity:
     mayDependOn:

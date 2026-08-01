@@ -21,7 +21,7 @@
 // 反过来,"邮件连接器没配好"跟"缺必填字段"对每个面的行为完全相同 —— 那是**消息内容**,
 // 不该变成新类别。每加一类,每个面都要跟着加一条翻译。
 
-package dispatcher
+package facadeparity
 
 import (
 	"errors"
@@ -116,15 +116,15 @@ func IsUpstream(err error) bool {
 	return errors.As(err, &t)
 }
 
-// opErr —— 每个 op 的统一包法:说清楚是哪一步坏的,同时保住 errors.Is
-// (适配器把域哨兵翻成上面那些类别,包一层不能把它挡掉)。
-func opErr(what string, err error) error {
+// OpErr —— 每个 op 的统一包法:说清楚是哪一步坏的,同时保住 errors.Is
+// (域把自己的哨兵翻成上面那些类别,包一层不能把它挡掉)。
+func OpErr(what string, err error) error {
 	return fmt.Errorf("%s: %w", what, err)
 }
 
-// requireArgs —— 缺哪个必填字段就报哪个。面这一层只管"给没给";给了之后合不合法
-// (格式、枚举、存不存在)是域的事。
-func requireArgs(pairs ...[2]string) error {
+// RequireArgs —— 缺哪个必填字段就报哪个。这一层只管"给没给";给了之后合不合法
+// (格式、枚举、存不存在)是域自己判。
+func RequireArgs(pairs ...[2]string) error {
 	for _, p := range pairs {
 		if p[1] == "" {
 			return BadInput(p[0] + " is required")

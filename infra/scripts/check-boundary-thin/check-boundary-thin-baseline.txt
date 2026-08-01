@@ -1,0 +1,35 @@
+# check-boundary-thin baseline —— boundaries that still hold a shape or a rule of
+# their own. Shrink-only: move one resource into its domain, delete its line here.
+# Never add a line — adding one means a boundary grew a second version of
+# something the domain already says.
+internal/routes/dispatcher/res_access_requests.go
+internal/routes/dispatcher/res_account.go
+internal/routes/dispatcher/res_appearance.go
+internal/routes/dispatcher/res_capabilities.go
+internal/routes/dispatcher/res_capability_config.go
+internal/routes/dispatcher/res_codes.go
+internal/routes/dispatcher/res_codes_acl.go
+internal/routes/dispatcher/res_codes_ops.go
+internal/routes/dispatcher/res_conversations.go
+internal/routes/dispatcher/res_conversations_funnel.go
+internal/routes/dispatcher/res_conversations_shape.go
+internal/routes/dispatcher/res_custom_pages.go
+internal/routes/dispatcher/res_custom_pages_ops.go
+internal/routes/dispatcher/res_domains.go
+internal/routes/dispatcher/res_instance.go
+internal/routes/dispatcher/res_instance_ops.go
+internal/routes/dispatcher/res_ip_bans.go
+internal/routes/dispatcher/res_marketplace.go
+internal/routes/dispatcher/res_mcp_servers.go
+internal/routes/dispatcher/res_page.go
+internal/routes/dispatcher/res_page_ops.go
+internal/routes/dispatcher/res_prompts.go
+internal/routes/dispatcher/res_roles.go
+internal/routes/dispatcher/res_roles_ops.go
+internal/routes/dispatcher/res_seo.go
+internal/routes/dispatcher/res_seo_ops.go
+internal/routes/dispatcher/res_settings.go
+internal/routes/dispatcher/res_skills.go
+internal/routes/dispatcher/res_writings.go
+internal/security/facade/facade.go
+internal/security/facade/facade_captcha.go

@@ -12,7 +12,7 @@
 //
 // 默认 code 够用时不必写:只有"这个 code 是已经发出去的契约"才需要显式钉住。
 
-package dispatcher
+package facadeparity
 
 import "errors"
 
