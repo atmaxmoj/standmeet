@@ -11,6 +11,8 @@ type OpsWritingsDeps = ops.WritingsDeps
 
 // 操作组（实现:ops）.
 var (
+	CorpusReadOps   = ops.CorpusReads
+	CorpusWriteOps  = ops.CorpusWrites
 	SubjectivityOps = ops.Subjectivity
 	WritingOps      = ops.Writings
 )

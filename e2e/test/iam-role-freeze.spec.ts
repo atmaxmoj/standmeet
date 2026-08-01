@@ -120,17 +120,17 @@ async function seedOutput(
   request: APIRequestContext, apiToken: string, sessionID: string,
 ): Promise<void> {
   // raw → wiki → output chain;output 树路径 = slug('Output B') = 'output-b'。
-  const raw = await callTool<{ raw_id: string }>(
-    request, apiToken, sessionID, 'raw_dump',
-    { body: 'output essay about retrieval', source: 'mcp:e2e', tags: [] },
+  const raw = await callTool<{ id: string }>(
+    request, apiToken, sessionID, 'corpus.create',
+    { genre: 'raw', body: 'output essay about retrieval', source: 'mcp:e2e', tags: [] },
   );
-  const wiki = await callTool<{ wiki_id: string }>(
-    request, apiToken, sessionID, 'promote_to_wiki',
-    { raw_id: raw.raw_id, title: 'Wiki B', tags: [] },
+  const wiki = await callTool<{ id: string }>(
+    request, apiToken, sessionID, 'corpus.promote',
+    { genre: 'raw', id: raw.id, title: 'Wiki B', tags: [] },
   );
-  await callTool<{ output_id: string }>(
-    request, apiToken, sessionID, 'promote_wiki_to_output',
-    { wiki_id: wiki.wiki_id, title: 'Output B', tags: [] },
+  await callTool<{ id: string }>(
+    request, apiToken, sessionID, 'corpus.promote',
+    { genre: 'wiki', id: wiki.id, title: 'Output B', tags: [] },
   );
 }
 

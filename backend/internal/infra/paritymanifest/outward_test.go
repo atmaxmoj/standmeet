@@ -50,13 +50,17 @@ func TestOutward_AgenticOpsAreNeverRenderable(t *testing.T) {
 // the outward api surface.
 func TestOutward_OwnerOpOnAPIFacadeIsLeak(t *testing.T) {
 	t.Parallel()
+	// 取一个**这张表里还有的** owner op 当样本。corpus.list 曾经是这个样本,它搬进
+	// corpus 域之后从表里消失,这条就退化成了 orphan 而不是 leak —— 样本得跟着表走。
+	// 表清空的那天,这条断言搬到收口那侧(dispatcher.Conform)。
+	const ownerSample = "writings.save"
 	api := fp.Facade{Name: "api", Plane: fp.PlaneOutward, ServesRead: true, ServesActn: true}
 	vs := fp.Conform(pm.AllOps(), []fp.Exposure{
-		{Facade: api, Exposed: map[string]bool{"corpus.list": true}},
+		{Facade: api, Exposed: map[string]bool{ownerSample: true}},
 	})
 	leaked := false
 	for _, v := range vs {
-		if v.Kind == "leak" && v.OpID == "corpus.list" {
+		if v.Kind == "leak" && v.OpID == ownerSample {
 			leaked = true
 		}
 	}

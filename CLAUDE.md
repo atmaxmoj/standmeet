@@ -25,7 +25,9 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 2. **BYOAI** — no code, visitor brings own API key, public slice of corpus only.
 3. **Gate** — fully blocked, can request access.
 
-**Ingest is owner-curated, not auto-distilled.** Owner's AI calls MCP write tools (`raw_dump`, `promote_to_wiki`, `upload_media`, `set_tags`, …). The earlier "observe and distill" path (`observer/`) was tried and gave low-quality output — that direction is dead.
+**Ingest is owner-curated, not auto-distilled.** Owner's AI calls MCP write tools — `corpus.create` / `corpus.promote` / `corpus.update` / `corpus.delete`, where the genre (`raw` / `wiki` / `output`) is a **parameter**, not a separate tool; plus `writing_create` and `subjectivity_write`. The earlier "observe and distill" path (`observer/`) was tried and gave low-quality output — that direction is dead.
+
+> Attachments / images / hero art exist for `writings` only. `upload_media` appears in older notes but was never implemented, and the `media_assets` table (with its raw/wiki/output foreign keys) has no writer. Bringing assets to every genre is planned work, not something the code already does.
 
 **SDK.** Core capabilities (chat, content retrieval, asset rendering, access-code check) are packaged for embedding into anyone's site:
 - `@standmeet/sdk` — React components + hooks

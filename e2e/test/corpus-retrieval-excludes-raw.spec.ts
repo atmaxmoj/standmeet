@@ -40,8 +40,9 @@ test.describe('retrieval excludes raw even when the role greedily grants raw://*
     const token = await createAPIToken(request, csrf, 'exclude-raw-seed');
     const sid = await initMCP(request, token);
     // A raw entry (never promoted) + a wiki entry — each with a unique keyword.
-    await callTool(request, token, sid, 'raw_dump',
-      { body: `private raw thought about ${RAW_KEY}`, source: 'mcp:e2e', tags: [] });
+    await callTool(request, token, sid, 'corpus.create',
+      { genre: 'raw', body: `private raw thought about ${RAW_KEY}`,
+        source: 'mcp:e2e', tags: [] });
     await seedWiki(request, token, sid, { title: 'Public Wiki', body: `note about ${WIKI_KEY}` });
     // GREEDY role: grants raw://** (which is hardcode-denied) + wiki://**.
     const role = await createRole(request, csrf, {

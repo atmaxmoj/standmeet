@@ -187,7 +187,9 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		KeypairsAdmin: adminroutes.KeypairsAdminDeps{
 			Deps: deps.Admin.Keypairs, Log: deps.Log,
 		},
-		Corpus:           adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+		Corpus: adminroutes.CorpusDeps{
+			Corpus: deps.Admin.Corpus, Face: adminFace(deps.Dispatch),
+		},
 		CodesAdmin:       adminroutes.CodesDeps{Face: adminFace(deps.Dispatch)},
 		PageAdmin:        adminroutes.PageAdminDeps{Face: adminFace(deps.Dispatch)},
 		SEOAdmin:         adminroutes.SEOAdminDeps{Face: adminFace(deps.Dispatch)},

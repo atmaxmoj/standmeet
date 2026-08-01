@@ -71,15 +71,15 @@ async function seedAndChat(request: APIRequestContext): Promise<string> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const apiToken = await createAPIToken(request, csrf, 'owner-debug');
   const sid = await initMCP(request, apiToken);
-  const raw = await callTool<{ raw_id: string }>(request, apiToken, sid, 'raw_dump', {
-    body: 'rough', source: 'mcp:spec', tags: [],
+  const raw = await callTool<{ id: string }>(request, apiToken, sid, 'corpus.create', {
+    genre: 'raw', body: 'rough', source: 'mcp:spec', tags: [],
   });
-  const wiki = await callTool<{ wiki_id: string }>(request, apiToken, sid, 'promote_to_wiki', {
-    raw_id: raw.raw_id, title: 'curated', tags: [],
+  const wiki = await callTool<{ id: string }>(request, apiToken, sid, 'corpus.promote', {
+    genre: 'raw', id: raw.id, title: 'curated', tags: [],
   });
-  const out = await callTool<{ output_id: string; path: string }>(
-    request, apiToken, sid, 'promote_wiki_to_output',
-    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, tags: [] },
+  const out = await callTool<{ id: string; path: string }>(
+    request, apiToken, sid, 'corpus.promote',
+    { genre: 'wiki', id: wiki.id, title: OUTPUT_TITLE, tags: [] },
   );
   await createCode(request, csrf, {
     code: CODE, label: 'intro', purpose: 'grounding debug',

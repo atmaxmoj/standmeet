@@ -58,8 +58,8 @@ async function aiPushesRaw(request: APIRequestContext, body: string): Promise<vo
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const apiToken = await createAPIToken(request, csrf, 'cursor-mbp');
   const sid = await initMCP(request, apiToken);
-  await callTool<{ raw_id: string }>(request, apiToken, sid, 'raw_dump', {
-    body, source: 'mcp:cursor', tags: ['architecture'],
+  await callTool<{ id: string }>(request, apiToken, sid, 'corpus.create', {
+    genre: 'raw', body, source: 'mcp:cursor', tags: ['architecture'],
   });
 }
 

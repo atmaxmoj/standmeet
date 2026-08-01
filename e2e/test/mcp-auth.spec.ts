@@ -31,7 +31,7 @@ test.describe('MCP rejects bad Bearer tokens', () => {
   test('tool call without Bearer → isError unauthorized', async ({ playwright }) => {
     const ctx = await playwright.request.newContext();
     const session = await mcpInitNoAuth(ctx);
-    const out = await mcpCallTool(ctx, session, 'list_recent_raw', {}, undefined);
+    const out = await mcpCallTool(ctx, session, 'corpus.list', { genre: 'raw' }, undefined);
     expect(isUnauthorized(out)).toBe(true);
     await ctx.dispose();
   });
@@ -39,7 +39,7 @@ test.describe('MCP rejects bad Bearer tokens', () => {
   test('tool call with garbage Bearer → isError unauthorized', async ({ playwright }) => {
     const ctx = await playwright.request.newContext();
     const session = await mcpInitNoAuth(ctx);
-    const out = await mcpCallTool(ctx, session, 'list_recent_raw', {}, 'not-a-real-token');
+    const out = await mcpCallTool(ctx, session, 'corpus.list', { genre: 'raw' }, 'not-a-real-token');
     expect(isUnauthorized(out)).toBe(true);
     await ctx.dispose();
   });

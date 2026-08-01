@@ -254,9 +254,9 @@ async function seedTaggedWiki(request: APIRequestContext): Promise<void> {
   const { wikiID } = await seedPublicWiki(request, token, sid, {
     body: 'Tagged wiki content.', title: 'Tagged Entry',
   });
-  // tags 只能经 update_wiki 设(promote/seed 不带)。
-  await callTool(request, token, sid, 'update_wiki', {
-    wiki_id: wikiID, title: 'Tagged Entry', body: 'Tagged wiki content.',
+  // tags 只能经 corpus.update 设(promote/seed 不带)。
+  await callTool(request, token, sid, 'corpus.update', {
+    genre: 'wiki', id: wikiID, title: 'Tagged Entry', body: 'Tagged wiki content.',
     tags: ['lucerna', 'eval', 'thinking'],
   });
   await publishEntry(request, token, sid, {
@@ -278,14 +278,14 @@ async function seedNestedWiki(request: APIRequestContext): Promise<{
   const { wikiID: parentID } = await seedPublicWiki(request, token, sid, {
     body: 'Parent body.', title: parentTitle,
   });
-  // 子条直接 promote 时带 parent_id(镜像 seed_persona,稳),不走 update_wiki reparent。
-  const dump = await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump', {
-    body: 'Child body.', source: 'mcp:test', tags: [], private: false,
+  // 子条直接 promote 时带 parent_id(镜像 seed_persona,稳),不走 corpus.update reparent。
+  const dump = await callTool<{ id: string }>(request, token, sid, 'corpus.create', {
+    genre: 'raw', body: 'Child body.', source: 'mcp:test', tags: [], private: false,
   });
-  const promo = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
-    raw_id: dump.raw_id, title: childTitle, body: 'Child body.', parent_id: parentID,
+  const promo = await callTool<{ id: string }>(request, token, sid, 'corpus.promote', {
+    genre: 'raw', id: dump.id, title: childTitle, body: 'Child body.', parent_id: parentID,
   });
-  const childID = promo.wiki_id;
+  const childID = promo.id;
   for (const id of [parentID, childID]) {
     await publishEntry(request, token, sid, { genre: 'wiki', id });
   }

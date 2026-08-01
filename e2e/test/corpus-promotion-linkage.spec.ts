@@ -39,24 +39,26 @@ test.describe('corpus promotion linkage: raw→wiki→output source ids point up
       const token = await createAPIToken(request, csrf, 'promo-linkage');
       const sid = await initMCP(request, token);
 
-      const raw = await callTool<{ raw_id: string }>(
-        request, token, sid, 'raw_dump',
-        { body: 'source thought for promotion linkage', source: 'mcp:e2e', tags: [] });
-      const wiki = await callTool<{ wiki_id: string }>(
-        request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title: 'Linked Wiki' });
-      const output = await callTool<{ output_id: string }>(
-        request, token, sid, 'promote_wiki_to_output',
-        { wiki_id: wiki.wiki_id, title: 'Linked Output' });
+      const raw = await callTool<{ id: string }>(
+        request, token, sid, 'corpus.create',
+        { genre: 'raw', body: 'source thought for promotion linkage',
+          source: 'mcp:e2e', tags: [] });
+      const wiki = await callTool<{ id: string }>(
+        request, token, sid, 'corpus.promote',
+        { genre: 'raw', id: raw.id, title: 'Linked Wiki' });
+      const output = await callTool<{ id: string }>(
+        request, token, sid, 'corpus.promote',
+        { genre: 'wiki', id: wiki.id, title: 'Linked Output' });
 
       // wiki.source_raw_ids → the raw it came from.
-      const wikiDetail = await getDetail(request, 'wiki', wiki.wiki_id);
+      const wikiDetail = await getDetail(request, 'wiki', wiki.id);
       expect(wikiDetail.source_raw_ids, 'wiki records the raw it was promoted from')
-        .toContain(raw.raw_id);
+        .toContain(raw.id);
 
       // output.source_wiki_ids → the wiki it came from.
-      const outDetail = await getDetail(request, 'output', output.output_id);
+      const outDetail = await getDetail(request, 'output', output.id);
       expect(outDetail.source_wiki_ids, 'output records the wiki it was promoted from')
-        .toContain(wiki.wiki_id);
+        .toContain(wiki.id);
 
       await request.dispose();
     });

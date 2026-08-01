@@ -57,11 +57,10 @@ const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 var baseline = map[string]bool{
 	"internal/routes/admin/auth.go":                          true,
 	"internal/routes/admin/claim.go":                         true,
-	"internal/routes/admin/corpus.go":                        true,
-	"internal/routes/admin/corpus_crud.go":                   true,
-	"internal/routes/admin/corpus_detail.go":                 true,
-	"internal/routes/admin/corpus_output.go":                 true,
-	"internal/routes/admin/corpus_page.go":                   true,
+	// corpus.go / corpus_crud.go 只剩树和分页那两个面板独有的视图还直连;列表 / 详情 /
+	// 建改删提升都经收口了。corpus_detail.go 和 corpus_output.go 整个消失。
+	"internal/routes/admin/corpus.go":      true,
+	"internal/routes/admin/corpus_page.go": true,
 	"internal/routes/admin/corpus_tree.go":                   true,
 	"internal/routes/admin/corpus_tree_subjectivity.go":      true,
 	"internal/routes/admin/corpus_views.go":                  true,

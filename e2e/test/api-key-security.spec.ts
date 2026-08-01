@@ -111,7 +111,7 @@ async function checkNoLeak(r: APIRequestContext): Promise<void> {
 
   const disc = await facadeDiscover(r, goodKey);
   const names = (await disc.json() as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
-  for (const owner of ['raw_dump', 'codes.create', 'api_keys.create', 'me']) {
+  for (const owner of ['corpus.create', 'codes.create', 'api_keys.create', 'me']) {
     expect(names, `owner tool ${owner} never in outward discovery`).not.toContain(owner);
   }
 }

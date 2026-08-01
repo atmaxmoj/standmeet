@@ -101,8 +101,8 @@ async function initOwner(playwright: Playwright): Promise<void> {
   const apiToken = await createAPIToken(request, csrf, 'sidebar-seed');
   const sid = await initMCP(request, apiToken);
   // Seed a raw entry (unprocessed)
-  await callTool(request, apiToken, sid, 'raw_dump', {
-    body: 'unprocessed raw entry for badge test.', source: 'mcp:e2e', tags: [],
+  await callTool(request, apiToken, sid, 'corpus.create', {
+    genre: 'raw', body: 'unprocessed raw entry for badge test.', source: 'mcp:e2e', tags: [],
   });
   await request.dispose();
 }

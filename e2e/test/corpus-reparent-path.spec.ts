@@ -79,25 +79,27 @@ test.describe('corpus reparent → derived path cascades to node + descendants',
     });
 });
 
-// promoteWiki —— raw_dump → promote_to_wiki (optional parent) → wiki_id.
+// promoteWiki —— corpus.create(raw) → corpus.promote(genre:'raw') → 新 wiki 的 id。
 async function promoteWiki(
   request: APIRequestContext, token: string, sid: string, title: string, parent?: string,
 ): Promise<string> {
-  const raw = await callTool<{ raw_id: string }>(
-    request, token, sid, 'raw_dump', { body: `body of ${title}`, source: 'mcp:e2e', tags: [] });
-  const args: Record<string, unknown> = { raw_id: raw.raw_id, title };
+  const raw = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.create',
+    { genre: 'raw', body: `body of ${title}`, source: 'mcp:e2e', tags: [] });
+  const args: Record<string, unknown> = { genre: 'raw', id: raw.id, title };
   if (parent !== undefined) args['parent_id'] = parent;
-  const w = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', args);
-  return w.wiki_id;
+  const w = await callTool<{ id: string }>(request, token, sid, 'corpus.promote', args);
+  return w.id;
 }
 
-// reparentWiki —— update_wiki changing parent_id (keeps title/body).
+// reparentWiki —— corpus.update 改 parent_id(标题正文照旧)。
 async function reparentWiki(
   request: APIRequestContext, token: string, sid: string,
   wikiID: string, title: string, parentID: string,
 ): Promise<void> {
-  await callTool<{ id: string }>(request, token, sid, 'update_wiki', {
-    wiki_id: wikiID, title, body: `body of ${title}`, tags: [], parent_id: parentID,
+  await callTool<{ id: string }>(request, token, sid, 'corpus.update', {
+    genre: 'wiki', id: wikiID, title, body: `body of ${title}`,
+    tags: [], parent_id: parentID,
   });
 }
 

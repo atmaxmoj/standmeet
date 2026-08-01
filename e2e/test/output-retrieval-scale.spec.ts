@@ -106,20 +106,20 @@ async function seedNeedleThenFillers(request: APIRequestContext, csrf: string): 
   }
 }
 
-// seedOutput —— raw_dump → promote_to_wiki → promote_wiki_to_output。返 output_id。
+// seedOutput —— corpus.create(raw) → promote 到 wiki → promote 到 output。返新 output 的 id。
 async function seedOutput(
   request: APIRequestContext, token: string, sid: string, title: string, body: string,
 ): Promise<string> {
-  const raw = await callTool<{ raw_id: string }>(
-    request, token, sid, 'raw_dump', { body, source: 'mcp:e2e', tags: [] },
+  const raw = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.create', { genre: 'raw', body, source: 'mcp:e2e', tags: [] },
   );
-  const wiki = await callTool<{ wiki_id: string }>(
-    request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title, tags: [] },
+  const wiki = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.promote', { genre: 'raw', id: raw.id, title, tags: [] },
   );
-  const out = await callTool<{ output_id: string }>(
-    request, token, sid, 'promote_wiki_to_output', { wiki_id: wiki.wiki_id, title, tags: [] },
+  const out = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.promote', { genre: 'wiki', id: wiki.id, title, tags: [] },
   );
-  return out.output_id;
+  return out.id;
 }
 
 interface CitedRefView { id: string; path: string }

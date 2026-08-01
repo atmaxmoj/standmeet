@@ -82,8 +82,8 @@ async function seedManyRaw(playwright: Playwright): Promise<void> {
   const batch = 10;
   for (let start = 0; start < indices.length; start += batch) {
     await Promise.all(indices.slice(start, start + batch).map((i) =>
-      callTool(request, apiToken, sid, 'raw_dump',
-        { body: `raw scale note ${i}`, source: 'mcp:e2e', tags: [] })));
+      callTool(request, apiToken, sid, 'corpus.create',
+        { genre: 'raw', body: `raw scale note ${i}`, source: 'mcp:e2e', tags: [] })));
   }
   await request.dispose();
 }

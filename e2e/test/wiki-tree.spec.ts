@@ -241,20 +241,20 @@ async function issueGatedSession(request: APIRequestContext): Promise<string> {
   return sess.session_token;
 }
 
-// promote —— raw_dump → promote_to_wiki(可挂 parent),返回 wiki_id。
+// promote —— corpus.create(raw) → corpus.promote(可挂 parent),返回新 wiki 的 id。
 async function promote(
   request: APIRequestContext, sid: string, title: string, parent?: string,
 ): Promise<string> {
-  const raw = await callTool<{ raw_id: string }>(
-    request, mcpToken, sid, 'raw_dump',
-    { body: `body of ${title}`, source: 'mcp:e2e', tags: [] },
+  const raw = await callTool<{ id: string }>(
+    request, mcpToken, sid, 'corpus.create',
+    { genre: 'raw', body: `body of ${title}`, source: 'mcp:e2e', tags: [] },
   );
-  const args: Record<string, unknown> = { raw_id: raw.raw_id, title };
+  const args: Record<string, unknown> = { genre: 'raw', id: raw.id, title };
   if (parent !== undefined) args['parent_id'] = parent;
-  const w = await callTool<{ wiki_id: string }>(
-    request, mcpToken, sid, 'promote_to_wiki', args,
+  const w = await callTool<{ id: string }>(
+    request, mcpToken, sid, 'corpus.promote', args,
   );
-  return w.wiki_id;
+  return w.id;
 }
 
 // markIndexed —— seo.set_wiki_seo(indexed=true)。

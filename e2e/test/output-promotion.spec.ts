@@ -55,17 +55,17 @@ async function aiBuildsThroughThreeTiers(request: APIRequestContext): Promise<st
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const apiToken = await createAPIToken(request, csrf, 'cursor-mbp');
   const sid = await initMCP(request, apiToken);
-  const raw = await callTool<{ raw_id: string }>(
-    request, apiToken, sid, 'raw_dump',
-    { body: RAW_BODY, source: 'mcp:cursor', tags: ['architecture'] },
+  const raw = await callTool<{ id: string }>(
+    request, apiToken, sid, 'corpus.create',
+    { genre: 'raw', body: RAW_BODY, source: 'mcp:cursor', tags: ['architecture'] },
   );
-  const wiki = await callTool<{ wiki_id: string }>(
-    request, apiToken, sid, 'promote_to_wiki',
-    { raw_id: raw.raw_id, title: WIKI_TITLE },
+  const wiki = await callTool<{ id: string }>(
+    request, apiToken, sid, 'corpus.promote',
+    { genre: 'raw', id: raw.id, title: WIKI_TITLE },
   );
-  await callTool<{ output_id: string }>(
-    request, apiToken, sid, 'promote_wiki_to_output',
-    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE },
+  await callTool<{ id: string }>(
+    request, apiToken, sid, 'corpus.promote',
+    { genre: 'wiki', id: wiki.id, title: OUTPUT_TITLE },
   );
   return OUTPUT_TITLE;
 }

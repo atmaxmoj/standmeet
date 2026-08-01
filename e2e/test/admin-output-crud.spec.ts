@@ -51,13 +51,13 @@ async function seedOutput(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'outcrud-seed');
   const sid = await initMCP(request, token);
-  const raw = await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump', {
-    body: 'raw for output test', source: 'mcp:e2e', tags: [],
+  const raw = await callTool<{ id: string }>(request, token, sid, 'corpus.create', {
+    genre: 'raw', body: 'raw for output test', source: 'mcp:e2e', tags: [],
   });
-  const wiki = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
-    raw_id: raw.raw_id, title: 'Wiki for Output',
+  const wiki = await callTool<{ id: string }>(request, token, sid, 'corpus.promote', {
+    genre: 'raw', id: raw.id, title: 'Wiki for Output',
   });
-  await callTool(request, token, sid, 'promote_wiki_to_output', {
-    wiki_id: wiki.wiki_id, title: 'Test Output Entry',
+  await callTool(request, token, sid, 'corpus.promote', {
+    genre: 'wiki', id: wiki.id, title: 'Test Output Entry',
   });
 }

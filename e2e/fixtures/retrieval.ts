@@ -81,7 +81,7 @@ export async function updateWiki(
 export async function deleteWiki(
   request: APIRequestContext, apiToken: string, sid: string, wikiID: string,
 ): Promise<unknown> {
-  return callTool(request, apiToken, sid, 'delete_wiki', { wiki_id: wikiID });
+  return callTool(request, apiToken, sid, 'corpus.delete', { genre: 'wiki', id: wikiID });
 }
 
 // promoteWikiToOutput —— wiki → output 提升(genre 迁移的 write 路径)。
@@ -89,8 +89,8 @@ export async function promoteWikiToOutput(
   request: APIRequestContext, apiToken: string, sid: string,
   wikiID: string, fields: { title: string; body: string },
 ): Promise<unknown> {
-  return callTool(request, apiToken, sid, 'promote_wiki_to_output', {
-    wiki_id: wikiID, title: fields.title, body: fields.body,
+  return callTool(request, apiToken, sid, 'corpus.promote', {
+    genre: 'wiki', id: wikiID, title: fields.title, body: fields.body,
   });
 }
 

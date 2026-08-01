@@ -167,10 +167,12 @@ test.describe('subjectivity is a private visibility tier — grounded but not ci
   });
 
   test('regression: a wiki note is still read and cited (subjectivity change did not break wiki)', async () => {
-    const raw = await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump',
-      { body: 'At FlowPay I built a payment reconciliation pipeline over Kafka — WIKIMARKER.', source: 'mcp', tags: [] });
-    const wiki = await callTool<{ wiki_id: string; path: string }>(request, token, sid, 'promote_to_wiki',
-      { raw_id: raw.raw_id, title: 'Payment reconciliation pipeline', tags: [] });
+    const raw = await callTool<{ id: string }>(request, token, sid, 'corpus.create',
+      { genre: 'raw',
+        body: 'At FlowPay I built a payment reconciliation pipeline over Kafka — WIKIMARKER.',
+        source: 'mcp', tags: [] });
+    const wiki = await callTool<{ id: string; path: string }>(request, token, sid, 'corpus.promote',
+      { genre: 'raw', id: raw.id, title: 'Payment reconciliation pipeline', tags: [] });
     const tag = await scriptMockToolCall(request, { name: 'corpus_read', args: { path: wiki.path } });
     const t = await askAndTranscript('payment reconciliation pipeline', tag);
     expect(cited(t, 'wiki').size, 'wiki is still cited (regression)').toBeGreaterThan(0);

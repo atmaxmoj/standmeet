@@ -81,12 +81,12 @@ test.describe('admin corpus virtual grid', () => {
 async function promoteWiki(
   request: APIRequestContext, token: string, sid: string, title: string,
 ): Promise<string> {
-  const raw = await callTool<{ raw_id: string }>(
-    request, token, sid, 'raw_dump',
-    { body: `body of ${title}`, source: 'mcp:e2e', tags: [] },
+  const raw = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.create',
+    { genre: 'raw', body: `body of ${title}`, source: 'mcp:e2e', tags: [] },
   );
-  const w = await callTool<{ wiki_id: string }>(
-    request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title },
+  const w = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.promote', { genre: 'raw', id: raw.id, title },
   );
-  return w.wiki_id;
+  return w.id;
 }

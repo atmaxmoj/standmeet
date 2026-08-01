@@ -43,13 +43,13 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // 既没有 MCP 孪生也没进台账。搬进收口之后两个面同时欠它们。
   'codes.set_corpus_denials', 'codes.set_ghost_evidence',
   'codes.waypoints', 'codes.set_waypoints',
-  // corpus raw / output / wiki / subjectivity
+  // corpus —— genre 是**参数**,不是三套工具:归一化前这里是 11 个工具
+  // (raw_dump / list_recent_{raw,wiki,output} / update_{wiki,output} /
+  //  delete_{wiki,output} / promote_to_wiki / promote_wiki_to_output / corpus_get_entry),
+  // 而且 MCP 上建不了 wiki、改不了 raw —— 那四个格子是收成一个参数之后自动补齐的。
   'subjectivity_write',
-  'raw_dump', 'list_recent_raw',
-  'list_recent_output', 'update_output', 'delete_output',
-  'promote_to_wiki', 'promote_wiki_to_output',
-  'list_recent_wiki', 'update_wiki', 'delete_wiki',
-  'corpus_get_entry',
+  'corpus.list', 'corpus.get',
+  'corpus.create', 'corpus.update', 'corpus.delete', 'corpus.promote',
   // chat / conversations / prompts / roles
   // 一份逐字稿两个面同一份载荷之后,读它的 op 就叫 conversations.get
   // (原 chat.show_grounding 只是 MCP 那份的名字)。

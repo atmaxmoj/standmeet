@@ -61,22 +61,22 @@ async function seedOutputViaMCP(request: APIRequestContext): Promise<string> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'corpus-seeder');
   const sid = await initMCP(request, token);
-  const raw = await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump', {
-    body: 'rough draft on local-first software', source: 'mcp:spec', tags: [],
+  const raw = await callTool<{ id: string }>(request, token, sid, 'corpus.create', {
+    genre: 'raw', body: 'rough draft on local-first software', source: 'mcp:spec', tags: [],
   });
-  const wiki = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
-    raw_id: raw.raw_id, title: 'Local-first sketch', tags: [],
+  const wiki = await callTool<{ id: string }>(request, token, sid, 'corpus.promote', {
+    genre: 'raw', id: raw.id, title: 'Local-first sketch', tags: [],
   });
-  const out = await callTool<{ output_id: string }>(
-    request, token, sid, 'promote_wiki_to_output',
+  const out = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.promote',
     {
-      wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, tags: [],
+      genre: 'wiki', id: wiki.id, title: OUTPUT_TITLE, tags: [],
       // body 在 promote 时复用 source wiki body，我们再写 SQL 覆一份 distinct marker。
     },
   );
   // overwrite body via DB to embed the marker string we'll assert in browser.
-  setOutputBody(out.output_id, OUTPUT_BODY);
-  return out.output_id;
+  setOutputBody(out.id, OUTPUT_BODY);
+  return out.id;
 }
 
 function setOutputBody(outputID: string, body: string): void {

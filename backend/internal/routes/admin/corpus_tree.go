@@ -28,7 +28,7 @@ func (h *Handlers) treeWiki() http.HandlerFunc {
 			it.HasChildren = rows[i].HasChildren
 			items = append(items, it)
 		}
-		writeWikiListJSON(h.Log, w, items)
+		writeItemsJSON(h.Log, w, "encode wiki tree", items)
 	}
 }
 
@@ -47,7 +47,7 @@ func (h *Handlers) treeOutput() http.HandlerFunc {
 			it.HasChildren = rows[i].HasChildren
 			items = append(items, it)
 		}
-		writeOutputListJSON(h.Log, w, items)
+		writeItemsJSON(h.Log, w, "encode output tree", items)
 	}
 }
 
@@ -64,7 +64,7 @@ func (h *Handlers) treeRaw() http.HandlerFunc {
 		for i := range rows {
 			items = append(items, rawTreeItem(&rows[i]))
 		}
-		writeRawListJSON(h.Log, w, items)
+		writeItemsJSON(h.Log, w, "encode raw tree", items)
 	}
 }
 
@@ -73,7 +73,7 @@ func (h *Handlers) treeRaw() http.HandlerFunc {
 // leaked raw markup into the card); only the tree-specific fields are added here.
 func rawTreeItem(c *corpus.TreeChild[corpus.Raw]) rawListItem {
 	row := &c.Entry
-	it := rawItemBase(row)
+	it := rawItemFromDomain(row)
 	it.HasChildren = c.HasChildren
 	if p := slugJoin(c.PathTitles); p != "" {
 		it.Path = &p

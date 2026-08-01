@@ -51,10 +51,12 @@ test.describe('QUERY (RFC 10008) on read-only retrieval tools', () => {
     const { csrf } = await loginAPI(request, O.email, O.password);
     const ownerToken = await createAPIToken(request, csrf, 'owner');
     const sid = await initMCP(request, ownerToken);
-    const raw = await callTool<{ raw_id: string }>(request, ownerToken, sid, 'raw_dump',
-      { body: 'At FlowPay I built a payment reconciliation pipeline over Kafka.', source: 'mcp', tags: [] });
-    await callTool(request, ownerToken, sid, 'promote_to_wiki',
-      { raw_id: raw.raw_id, title: 'Payment reconciliation pipeline', tags: [] });
+    const raw = await callTool<{ id: string }>(request, ownerToken, sid, 'corpus.create',
+      { genre: 'raw',
+        body: 'At FlowPay I built a payment reconciliation pipeline over Kafka.',
+        source: 'mcp', tags: [] });
+    await callTool(request, ownerToken, sid, 'corpus.promote',
+      { genre: 'raw', id: raw.id, title: 'Payment reconciliation pipeline', tags: [] });
     const role = await createRole(request, csrf, {
       name: 'q-corpus', description: 'corpus retrieval', corpus_uris: ['wiki://**'],
     });

@@ -1,39 +1,46 @@
-// corpus.go —— admin /raw + /wiki list endpoints。
-// 当前只做 list（验证 MCP 写入是否真到 DB）；CRUD 写到时再加。
+// corpus.go —— admin 的语料面:列表 / 详情 / 建 / 改 / 删 / 提升,genre 走路径参数。
+//
+// 能力全部经出站收口取(声明在 internal/corpus/ops);这一层只留 REST 形状:genre 在路径、
+// id 在路径、其余在 body,以及成功回 200 还是 201 还是 204。
+//
+// 树视图和分页视图(/tree、/page)是**面板独有**的浏览形态,不经收口:它们回的是树节点,
+// 不是"一条语料"。
 
 package admin
 
 import (
 	"encoding/json"
-	"errors"
-	"log/slog"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
 // CorpusDeps —— admin corpus handlers 的依赖。
+//
+// Face —— 语料的能力经收口取。Corpus 只剩树/分页那两个面板独有的视图还在直连。
 type CorpusDeps struct {
 	Corpus corpus.Deps
+	Face   *dispatcher.Face
 }
 
 const (
 	defaultCorpusLimit = 50
 	maxCorpusLimit     = 200
+	paramGenre         = "genre"
+	paramEntryID       = "id"
 )
 
-// MountCorpus 挂统一的 corpus list + create 路由：genre 作路径参数（合并了原
-// /raw · /wiki · /output 三套 URL —— genre 本来就是参数，不该拆成不同 endpoint）。
+// MountCorpus 挂 corpus 的列表 + 新建:genre 作路径参数(合并了原 /raw · /wiki · /output
+// 三套 URL —— genre 本来就是参数,不该拆成不同 endpoint)。
 func (h *Handlers) MountCorpus(r chi.Router) {
-	r.Get("/corpus/{genre}", h.byGenre(map[string]http.HandlerFunc{
-		"raw": h.listRaw(), "wiki": h.listWiki(), "output": h.listOutput(),
-	}))
+	face := h.Corpus.Face
+	r.Get("/corpus/{genre}", h.dispatchOp(face, "corpus.list", corpusListArgs, jsonOK))
+	r.Post("/corpus/{genre}", h.dispatchOp(face, "corpus.create", corpusBodyArgs, jsonCreated))
 	r.Get("/corpus/{genre}/tree", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.treeRaw(), "wiki": h.treeWiki(), "output": h.treeOutput(),
 		"subjectivity": h.treeSubjectivity(),
@@ -41,16 +48,13 @@ func (h *Handlers) MountCorpus(r chi.Router) {
 	r.Get("/corpus/{genre}/page", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.pageRaw(), "wiki": h.pageWiki(), "output": h.pageOutput(),
 	}))
-	r.Post("/corpus/{genre}", h.byGenre(map[string]http.HandlerFunc{
-		"raw": h.createRaw(), "wiki": h.createWiki(), "output": h.createOutput(),
-	}))
 }
 
-// byGenre —— corpus 路由的 genre-参数分派：URL 的 {genre} 选对应 per-genre handler。
-// 未知 / 该 op 不支持的 genre → 404 unknown_genre（复刻旧行为：旧无该 genre 路由即 chi 404）。
+// byGenre —— 树/分页那两条还在用的 genre 分派:URL 的 {genre} 选对应 handler。
+// 未知 / 该视图不支持的 genre → 404 unknown_genre。
 func (h *Handlers) byGenre(m map[string]http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if handler, ok := m[chi.URLParam(r, "genre")]; ok {
+		if handler, ok := m[chi.URLParam(r, paramGenre)]; ok {
 			handler(w, r)
 			return
 		}
@@ -60,201 +64,60 @@ func (h *Handlers) byGenre(m map[string]http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-type createRawRequest struct {
-	Source string   `json:"source"`
-	Body   string   `json:"body"`
-	Tags   []string `json:"tags"`
-}
-
-func (h *Handlers) createRaw() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		var req createRawRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(h.Log, w, envBadReq("invalid JSON body"))
-			return
-		}
-		raw, err := corpus.RawDump(r.Context(), h.Corpus.Corpus, &corpus.RawDumpInput{
-			OwnerID: ownerID, Body: req.Body, Source: defaultSource(req.Source), Tags: req.Tags,
-		})
-		if err != nil {
-			handleCreateRawErr(h.Log, w, err)
-			return
-		}
-		writeCreatedRaw(h.Log, w, &raw)
+// corpusListArgs —— genre 在路径,limit 在 query。收口那边只认一份扁平 args。
+//
+// limit 解不动就整个略过,由域取默认值 —— ?limit=abc 不是错误,是"没说"。
+func corpusListArgs(r *http.Request) (json.RawMessage, error) {
+	fields := map[string]json.RawMessage{
+		paramGenre: quoteJSON(chi.URLParam(r, paramGenre)),
 	}
-}
-
-func defaultSource(s string) string {
-	if s == "" {
-		return "admin"
+	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 {
+		fields["limit"] = json.RawMessage(strconv.Itoa(n))
 	}
-	return s
+	return marshalArgs(fields)
 }
 
-func handleCreateRawErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, apierr.ErrEmptyField) {
-		writeError(log, w, envBadReq("body is required"))
-		return
-	}
-	log.Error("create raw", "err", err)
-	writeError(log, w, serverErr())
-}
-
-func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *corpus.Raw) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	item := rawItemBase(raw)
-	logEncodeErr(log, "encode created raw", json.NewEncoder(w).Encode(item))
-}
-
-// rawItemBase —— the shared raw list-item fields EVERY construction site needs, so none can drift
-// on Preview/Status/etc. (F-R-1 shipped broken because the tree path built its own item and missed
-// Preview). Path / ParentID / HasChildren are position-specific — the caller sets those.
-func rawItemBase(row *corpus.Raw) rawListItem {
-	return rawListItem{
-		ID:        row.ID(),
-		Body:      row.Body(),
-		Preview:   corpus.LeadLine(row.Body(), excerptMaxLen), // clean lead (F-R-1)
-		Source:    row.Source(),
-		Tags:      row.Tags(),
-		Status:    rawStatus(row),
-		CreatedAt: row.CreatedAt().Format(time.RFC3339),
-	}
-}
-
-type rawListItem struct {
-	ParentID  *string `json:"parent_id"`
-	Path      *string `json:"path"`
-	CreatedAt string  `json:"created_at"`
-	ID        string  `json:"id"`
-	Body      string  `json:"body"`
-	// Preview —— a CLEAN lead excerpt (LeadLine: markup/structure stripped) for the card. Body
-	// stays the raw source for inline editing; the card must show Preview, not a raw substring
-	// of Body (F-R-1).
-	Preview string   `json:"preview"`
-	Source  string   `json:"source"`
-	Status  string   `json:"status"`
-	Tags    []string `json:"tags"`
-	// HasChildren —— tree view only: this node can be drilled into (lazy layer).
-	HasChildren bool `json:"has_children,omitempty"`
-}
-
-type wikiListItem struct {
-	ParentID     *string  `json:"parent_id"`
-	Path         *string  `json:"path"`
-	ID           string   `json:"id"`
-	Title        string   `json:"title"`
-	Excerpt      string   `json:"excerpt"`
-	Preview      string   `json:"preview,omitempty"`
-	CreatedAt    string   `json:"created_at"`
-	Tags         []string `json:"tags"`
-	SourceRawIDs []string `json:"source_raw_ids"`
-	ShowAsSource bool     `json:"show_as_source"`
-	Published    bool     `json:"published"`
-	HasChildren  bool     `json:"has_children,omitempty"`
-}
-
-func (h *Handlers) listRaw() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		limit := parseLimit(r.URL.Query().Get("limit"))
-		rows, err := h.Corpus.Corpus.Raw.ListByOwner(r.Context(), ownerID, limit)
-		if err != nil {
-			h.Log.Error("list raw", "err", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		writeRawList(h.Log, w, rows)
-	}
-}
-
-func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []corpus.Raw) {
-	paths := corpus.RawTreePaths(rows) // raw is now a corpus_notes tree — derive its address
-	items := make([]rawListItem, 0, len(rows))
-	for i := range rows {
-		items = append(items, rawItemOf(&rows[i], paths))
-	}
-	writeRawListJSON(log, w, items)
-}
-
-// rawItemOf —— one raw row → list item, with its derived tree path + parent.
-func rawItemOf(row *corpus.Raw, paths map[string]string) rawListItem {
-	item := rawItemBase(row)
-	if p, ok := paths[row.ID()]; ok {
-		item.Path = &p
-	}
-	if pid, ok := row.ParentID(); ok {
-		item.ParentID = &pid
-	}
-	return item
-}
-
-// rawStatus —— the sidebar "raw" badge counts entries that still need
-// curation. A raw dump is "unprocessed" until the owner promotes it to wiki
-// (MarkPromoted sets promoted_to); after that it's "promoted". Archived rows
-// never reach this list. The admin badge filters on status == "unprocessed".
-func rawStatus(row *corpus.Raw) string {
-	if row.IsPromoted() {
-		return "promoted"
-	}
-	return "unprocessed"
-}
-
-func (h *Handlers) listWiki() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		limit := parseLimit(r.URL.Query().Get("limit"))
-		rows, err := h.Corpus.Corpus.Wiki.ListByOwner(r.Context(), ownerID, limit)
-		if err != nil {
-			h.Log.Error("list wiki", "err", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		writeWikiList(h.Log, w, rows)
-	}
-}
-
-func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []corpus.Wiki) {
-	paths := corpus.WikiTreePaths(rows)
-	items := make([]wikiListItem, 0, len(rows))
-	for i := range rows {
-		items = append(items, wikiItemFromDomain(&rows[i], paths[rows[i].ID()]))
-	}
-	writeWikiListJSON(log, w, items)
-}
-
-func writeRawListJSON(log *slog.Logger, w http.ResponseWriter, items []rawListItem) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	logEncodeErr(log, "encode raw list", json.NewEncoder(w).Encode(items))
-}
-
-func writeWikiListJSON(log *slog.Logger, w http.ResponseWriter, items []wikiListItem) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	logEncodeErr(log, "encode wiki list", json.NewEncoder(w).Encode(items))
-}
-
-// logEncodeErr 收口 json encode error 的 slog 调用，避免 add-constant 把
-// "err" 字面量统计到上限。每个 helper 自带 msg，调用点 cyclo 不变。
-func logEncodeErr(log *slog.Logger, msg string, err error) {
+// corpusBodyArgs —— body 里的字段 + 路径上的 genre。
+func corpusBodyArgs(r *http.Request) (json.RawMessage, error) {
+	fields, err := decodeBodyFields(r)
 	if err != nil {
-		log.Error(msg, "err", err)
+		return nil, err
 	}
+	fields[paramGenre] = quoteJSON(chi.URLParam(r, paramGenre))
+	return marshalArgs(fields)
 }
 
-func parseLimit(s string) int32 {
-	n, err := strconv.Atoi(s)
-	if err != nil || n <= 0 {
-		return defaultCorpusLimit
+// corpusEntryArgs —— body + 路径上的 genre 和 id(改)。
+func corpusEntryArgs(r *http.Request) (json.RawMessage, error) {
+	fields, err := decodeBodyFields(r)
+	if err != nil {
+		return nil, err
 	}
-	return clampLimit(n)
+	fields[paramGenre] = quoteJSON(chi.URLParam(r, paramGenre))
+	fields[paramEntryID] = quoteJSON(chi.URLParam(r, paramEntryID))
+	return marshalArgs(fields)
 }
 
-func clampLimit(n int) int32 {
-	if n > maxCorpusLimit {
-		return maxCorpusLimit
+// corpusIDArgs —— 只要路径上的 genre 和 id(读 / 删)。
+func corpusIDArgs(r *http.Request) (json.RawMessage, error) {
+	return marshalArgs(map[string]json.RawMessage{
+		paramGenre:   quoteJSON(chi.URLParam(r, paramGenre)),
+		paramEntryID: quoteJSON(chi.URLParam(r, paramEntryID)),
+	})
+}
+
+func marshalArgs(fields map[string]json.RawMessage) (json.RawMessage, error) {
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return nil, dispatcher.BadInput("invalid request")
 	}
-	return int32(n)
+	return out, nil
+}
+
+func quoteJSON(s string) json.RawMessage {
+	out, err := json.Marshal(s)
+	if err != nil {
+		return json.RawMessage(`""`)
+	}
+	return out
 }

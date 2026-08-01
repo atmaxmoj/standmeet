@@ -104,15 +104,15 @@ async function renameKeepsCitation({ playwright }: { playwright: Playwright }): 
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   // Seed inline (not via promoteWiki) to capture the promote-returned path for the
   // scripted corpus_read below.
-  const raw = await callTool<{ raw_id: string }>(
-    request, mcpToken, sid, 'raw_dump',
-    { body: 'body of Quantum ledger notes', source: 'mcp:e2e', tags: [] },
+  const raw = await callTool<{ id: string }>(
+    request, mcpToken, sid, 'corpus.create',
+    { genre: 'raw', body: 'body of Quantum ledger notes', source: 'mcp:e2e', tags: [] },
   );
-  const wiki = await callTool<{ wiki_id: string; path: string }>(
-    request, mcpToken, sid, 'promote_to_wiki',
-    { raw_id: raw.raw_id, title: 'Quantum ledger notes' },
+  const wiki = await callTool<{ id: string; path: string }>(
+    request, mcpToken, sid, 'corpus.promote',
+    { genre: 'raw', id: raw.id, title: 'Quantum ledger notes' },
   );
-  const wikiID = wiki.wiki_id;
+  const wikiID = wiki.id;
   await createCode(request, csrf, { code: RENAME_CODE, label: 'rename' });
 
   // visitor 问 → 注册 mock 读这条 → cited_wiki_ids = [wikiID]。
@@ -200,41 +200,42 @@ async function deleteGrandparentCascades({ adminPage }: { adminPage: Page }): Pr
   await expect(adminPage.getByTestId(`wiki-row-${childID}`)).toHaveCount(0);
 }
 
-// promoteWiki —— raw_dump → promote_to_wiki(可挂 parent),返回 wiki_id。
+// promoteWiki —— corpus.create(raw) → corpus.promote(可挂 parent),返回新 wiki 的 id。
 // parent_id 无效时 promote_to_wiki 抛(callTool 把 tool error 抛出来)。
 async function promoteWiki(
   request: APIRequestContext, token: string, sid: string,
   title: string, parent?: string,
 ): Promise<string> {
-  const raw = await callTool<{ raw_id: string }>(
-    request, token, sid, 'raw_dump',
-    { body: `body of ${title}`, source: 'mcp:e2e', tags: [] },
+  const raw = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.create',
+    { genre: 'raw', body: `body of ${title}`, source: 'mcp:e2e', tags: [] },
   );
-  const args: Record<string, unknown> = { raw_id: raw.raw_id, title };
+  const args: Record<string, unknown> = { genre: 'raw', id: raw.id, title };
   if (parent !== undefined) args['parent_id'] = parent;
-  const w = await callTool<{ wiki_id: string }>(
-    request, token, sid, 'promote_to_wiki', args,
+  const w = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.promote', args,
   );
-  return w.wiki_id;
+  return w.id;
 }
 
-// reparentWiki —— update_wiki 改 parent_id(成环时 callTool 抛 tool error)。
+// reparentWiki —— corpus.update 改 parent_id(成环时 callTool 抛 tool error)。
 async function reparentWiki(
   request: APIRequestContext, token: string, sid: string,
   wikiID: string, title: string, parentID: string,
 ): Promise<void> {
-  await callTool<{ id: string }>(request, token, sid, 'update_wiki', {
-    wiki_id: wikiID, title, body: `body of ${title}`, tags: [], parent_id: parentID,
+  await callTool<{ id: string }>(request, token, sid, 'corpus.update', {
+    genre: 'wiki', id: wikiID, title, body: `body of ${title}`,
+    tags: [], parent_id: parentID,
   });
 }
 
-// renameWiki —— update_wiki 只改 title(body/tags 占位)。
+// renameWiki —— corpus.update 只改 title(body/tags 占位)。
 async function renameWiki(
   request: APIRequestContext, token: string, sid: string,
   wikiID: string, newTitle: string,
 ): Promise<void> {
-  await callTool<{ id: string }>(request, token, sid, 'update_wiki', {
-    wiki_id: wikiID, title: newTitle, body: 'body after rename', tags: [],
+  await callTool<{ id: string }>(request, token, sid, 'corpus.update', {
+    genre: 'wiki', id: wikiID, title: newTitle, body: 'body after rename', tags: [],
   });
 }
 

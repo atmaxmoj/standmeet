@@ -66,13 +66,15 @@ test.describe('public wiki landing + sitemap cover the whole corpus, not newest-
 async function promoteWiki(
   request: APIRequestContext, sid: string, title: string, body: string,
 ): Promise<string> {
-  const raw = await callTool<{ raw_id: string }>(
-    request, mcpToken, sid, 'raw_dump', { body, source: 'mcp:e2e', tags: [] },
+  const raw = await callTool<{ id: string }>(
+    request, mcpToken, sid, 'corpus.create',
+    { genre: 'raw', body, source: 'mcp:e2e', tags: [] },
   );
-  const wiki = await callTool<{ wiki_id: string }>(
-    request, mcpToken, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title, tags: [] },
+  const wiki = await callTool<{ id: string }>(
+    request, mcpToken, sid, 'corpus.promote',
+    { genre: 'raw', id: raw.id, title, tags: [] },
   );
-  return wiki.wiki_id;
+  return wiki.id;
 }
 
 async function indexWiki(request: APIRequestContext, sid: string, wikiID: string): Promise<void> {

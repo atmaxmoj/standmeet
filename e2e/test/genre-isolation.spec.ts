@@ -59,13 +59,14 @@ async function seedFourGenres({ playwright }: Ctx): Promise<void> {
   sid = await initMCP(request, token);
   // Same keyword in four genres.
   await seedWiki(request, token, sid, { title: 'Iso Wiki', body: `wiki note ${KEY}` });
-  const w = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
-    raw_id: (await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump',
-      { body: `output src ${KEY}`, source: 'mcp:e2e', tags: [] })).raw_id,
+  const w = await callTool<{ id: string }>(request, token, sid, 'corpus.promote', {
+    genre: 'raw',
+    id: (await callTool<{ id: string }>(request, token, sid, 'corpus.create',
+      { genre: 'raw', body: `output src ${KEY}`, source: 'mcp:e2e', tags: [] })).id,
     title: 'Iso Output Src',
   });
-  await callTool(request, token, sid, 'promote_wiki_to_output',
-    { wiki_id: w.wiki_id, title: 'Iso Output' });
+  await callTool(request, token, sid, 'corpus.promote',
+    { genre: 'wiki', id: w.id, title: 'Iso Output' });
   await callTool(request, token, sid, 'subjectivity_write',
     { title: 'Iso Subj', body: `subjectivity note ${KEY}`, tags: [] });
   await callTool(request, token, sid, 'writing_create', {

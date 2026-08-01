@@ -1,5 +1,8 @@
-// corpus.ts —— MCP raw_dump → promote_to_wiki / promote_wiki_to_output 的
-// 合成 helper（spec 用作 fixture，让 retrieval agent 有内容可搜）。
+// corpus.ts —— 经 MCP 播种语料的 helper(spec 用它让 retrieval agent 有东西可搜)。
+//
+// 工具是 corpus.create / corpus.promote,genre 是**参数**;主键统一叫 id。
+// 归一化前这里是 raw_dump / promote_to_wiki / promote_wiki_to_output 三个工具、
+// raw_id / wiki_id / output_id 三个主键名。
 //
 // 重设后字段：
 //   • path —— 唯一标识 (取代 seo_slug)。retrieval ACL 按 path-glob 评估。
@@ -10,8 +13,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { callTool } from '@/fixtures/mcp';
 
-interface RawDumpResult { raw_id: string }
-interface PromoteWikiResult { wiki_id: string }
+// 一条语料在每个面上的那一份形状:主键叫 id(三个 genre 同一份),genre 是参数。
+// 归一化前这里读的是 raw_id / wiki_id / output_id 三个不同的名字。
+interface CorpusEntry { id: string }
 
 export interface SeedWikiOpts {
   body: string;
@@ -35,20 +39,20 @@ export async function seedWiki(
   // 兄弟被后端拒(Obsidian 语义),同一个 describe 里多次 seed 同一篇不该撞。
   const existing = await findExistingChild(request, apiToken, sessionId, opts.title, parentID);
   if (existing !== '') return { rawID: '', wikiID: existing };
-  const dump = await callTool<RawDumpResult>(
-    request, apiToken, sessionId, 'raw_dump',
-    { body: opts.body, source: 'mcp:e2e', tags: [] },
+  const dump = await callTool<CorpusEntry>(
+    request, apiToken, sessionId, 'corpus.create',
+    { genre: 'raw', body: opts.body, source: 'mcp:e2e', tags: [] },
   );
   const args: Record<string, unknown> = {
-    raw_id: dump.raw_id, title: opts.title,
+    genre: 'raw', id: dump.id, title: opts.title,
   };
   if (opts.path) args['path'] = opts.path;
   if (parentID !== '') args['parent_id'] = parentID;
   if (opts.showAsSource === false) args['show_as_source'] = false;
-  const promote = await callTool<PromoteWikiResult>(
-    request, apiToken, sessionId, 'promote_to_wiki', args,
+  const promoted = await callTool<CorpusEntry>(
+    request, apiToken, sessionId, 'corpus.promote', args,
   );
-  return { rawID: dump.raw_id, wikiID: promote.wiki_id };
+  return { rawID: dump.id, wikiID: promoted.id };
 }
 
 // seedParentChain —— path 'a/b/leaf' → 建 a、b 两个父节点(title = 段),返回最
@@ -64,16 +68,16 @@ async function seedParentChain(
   for (const seg of segments.slice(0, -1)) {
     const existing = await findExistingChild(request, apiToken, sessionId, seg, parentID);
     if (existing !== '') { parentID = existing; continue; }
-    const dump = await callTool<RawDumpResult>(
-      request, apiToken, sessionId, 'raw_dump',
-      { body: seg, source: 'mcp:e2e', tags: [] },
+    const dump = await callTool<CorpusEntry>(
+      request, apiToken, sessionId, 'corpus.create',
+      { genre: 'raw', body: seg, source: 'mcp:e2e', tags: [] },
     );
-    const args: Record<string, unknown> = { raw_id: dump.raw_id, title: seg };
+    const args: Record<string, unknown> = { genre: 'raw', id: dump.id, title: seg };
     if (parentID !== '') args['parent_id'] = parentID;
-    const promote = await callTool<PromoteWikiResult>(
-      request, apiToken, sessionId, 'promote_to_wiki', args,
+    const promoted = await callTool<CorpusEntry>(
+      request, apiToken, sessionId, 'corpus.promote', args,
     );
-    parentID = promote.wiki_id;
+    parentID = promoted.id;
   }
   return parentID;
 }
@@ -87,7 +91,7 @@ async function findExistingChild(
   title: string, parentID: string,
 ): Promise<string> {
   const rows = await callTool<WikiRow[]>(
-    request, apiToken, sessionId, 'list_recent_wiki', { limit: 500 },
+    request, apiToken, sessionId, 'corpus.list', { genre: 'wiki', limit: 200 },
   );
   const wantParent = parentID === '' ? null : parentID;
   const hit = rows.find((r) => r.title === title && (r.parent_id ?? null) === wantParent);

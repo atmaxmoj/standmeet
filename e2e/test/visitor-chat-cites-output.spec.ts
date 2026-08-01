@@ -80,17 +80,17 @@ async function seedThreeTierCorpus(
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'corpus-seeder');
   const sid = await initMCP(request, token);
-  const raw = await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump', {
-    body: RAW_BODY, source: 'mcp:spec', tags: [],
+  const raw = await callTool<{ id: string }>(request, token, sid, 'corpus.create', {
+    genre: 'raw', body: RAW_BODY, source: 'mcp:spec', tags: [],
   });
-  const wiki = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
-    raw_id: raw.raw_id, title: WIKI_TITLE, tags: [],
+  const wiki = await callTool<{ id: string }>(request, token, sid, 'corpus.promote', {
+    genre: 'raw', id: raw.id, title: WIKI_TITLE, tags: [],
   });
-  const out = await callTool<{ output_id: string; path: string }>(
-    request, token, sid, 'promote_wiki_to_output',
-    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, tags: [] },
+  const out = await callTool<{ id: string; path: string }>(
+    request, token, sid, 'corpus.promote',
+    { genre: 'wiki', id: wiki.id, title: OUTPUT_TITLE, tags: [] },
   );
-  return { outputID: out.output_id, outputPath: out.path, csrf };
+  return { outputID: out.id, outputPath: out.path, csrf };
 }
 
 async function fetchAssistantCitedOutputs(

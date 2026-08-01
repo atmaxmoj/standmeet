@@ -63,16 +63,19 @@ test.describe('public output landing + sitemap cover the whole corpus, not newes
 async function promoteOutput(
   request: APIRequestContext, sid: string, title: string, body: string,
 ): Promise<string> {
-  const raw = await callTool<{ raw_id: string }>(
-    request, mcpToken, sid, 'raw_dump', { body, source: 'mcp:e2e', tags: [] },
+  const raw = await callTool<{ id: string }>(
+    request, mcpToken, sid, 'corpus.create',
+    { genre: 'raw', body, source: 'mcp:e2e', tags: [] },
   );
-  const wiki = await callTool<{ wiki_id: string }>(
-    request, mcpToken, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title, tags: [] },
+  const wiki = await callTool<{ id: string }>(
+    request, mcpToken, sid, 'corpus.promote',
+    { genre: 'raw', id: raw.id, title, tags: [] },
   );
-  const out = await callTool<{ output_id: string }>(
-    request, mcpToken, sid, 'promote_wiki_to_output', { wiki_id: wiki.wiki_id, title, tags: [] },
+  const out = await callTool<{ id: string }>(
+    request, mcpToken, sid, 'corpus.promote',
+    { genre: 'wiki', id: wiki.id, title, tags: [] },
   );
-  return out.output_id;
+  return out.id;
 }
 
 async function indexOutput(

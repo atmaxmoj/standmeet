@@ -45,11 +45,11 @@ test.describe('A.3-IAM raw://** is hardcoded deny regardless of role config', ()
     // (which should be owner-only).
     const token = await createAPIToken(request, csrf, 'raw-deny-seed');
     const sid = await initMCP(request, token);
-    const raw = await callTool<{ raw_id: string }>(
-      request, token, sid, 'raw_dump',
-      { body: 'private raw thoughts', source: 'mcp:e2e', tags: ['private'] },
+    const raw = await callTool<{ id: string }>(
+      request, token, sid, 'corpus.create',
+      { genre: 'raw', body: 'private raw thoughts', source: 'mcp:e2e', tags: ['private'] },
     );
-    rawID = raw.raw_id;
+    rawID = raw.id;
     // Even though owner tries to grant raw://**, the hardcode wins.
     const role = await createRole(request, csrf, {
       name: 'raw-greedy',

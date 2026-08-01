@@ -1,9 +1,10 @@
-// Package ownercore —— #135 externalization. ALL owner-side MCP capabilities that used to be
-// core-registered in mcphandle's RegisterAgentSkills now live here as one in-process plugin, using
-// the jobs-plugin pattern (capabilities.CapabilityRegistrar) — no separate process/socket,
-// since owner
-// tools are trusted (owner-authenticated MCP facade) and need no sandbox isolation like the visitor
-// leaf caps. This is what makes core zero-owner-capabilities without per-cap process overhead.
+// Package ownercore —— **正在解散**。这里曾经装着全部 owner-MCP 能力(#135 把它们从
+// mcphandle 搬进这个进程内插件),现在它们一个个回到了自己的域:域声明 op,收口汇聚,
+// MCP 面是收口的投影。
+//
+// 只剩 writings 的**写**(writing_create)。它没走,是因为面板那条是 multipart(正文里的
+// 内联图片跟表单一起传)、MCP 这条是一串 URL 让服务端去取 —— 字节流进不了一个 JSON op。
+// 要并成一份,得先把"上传素材"拆成独立一步。那笔债还清,这个包就整包删除。
 package ownercore
 
 import (
@@ -18,12 +19,10 @@ import (
 // Name —— plugin registry identity.
 const Name = "ownercore"
 
-// Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
+// Deps —— 只剩 writings 的写要的那些。
 type Deps struct {
-	SEO        SEOWriter
 	Writings   *corpus.WritingsDeps
 	WritingsTx *corpus.WritingsTxDeps
-	Corpus     *corpus.Deps
 	Log        *slog.Logger
 }
 
@@ -37,21 +36,17 @@ var (
 	_ capabilities.CapabilityRegistrar = (*Plugin)(nil)
 )
 
-// New 构造 owner-core 插件。deps 是 boot 期一次性的 fat 依赖包，用指针避免 160B 值拷贝。
+// New 构造 owner-core 插件。
 func New(deps *Deps) *Plugin { return &Plugin{deps: deps} }
 
 // Name —— capabilities.Plugin.
 func (*Plugin) Name() string { return Name }
 
-// RegisterCapabilities —— capabilities.CapabilityRegistrar: register every owner-MCP
-// capability into
-// core capreg (was mcphandle.RegisterAgentSkills). dup/empty ID panics via capreg.MustRegister.
+// RegisterCapabilities —— 只注册还没搬走的那一个。
+//
+// 已经走了:ip_bans → security、api_keys → access、connectors → 连接器轴、
+// corpus 四件 → corpus 域(genre 收成参数)、seo / page / custom_page / chat / account
+// 等等 → 各自的域。它们现在都经出站收口投影到 MCP 面。
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
-	d := p.deps
-	reg.MustRegister(newCorpusRawCapability(d.Corpus, d.SEO, d.Log))
-	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))
-	reg.MustRegister(newCorpusMutationsCapability(d.Corpus, d.Log))
-	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
-	// ip_bans 已搬回 security 域,api_keys 已搬回 access 域,connectors 归了连接器轴自己
-	// (它们各自声明,经收口投影到面上),都不在这里注册。
+	reg.MustRegister(newWritingsCapability(p.deps.WritingsTx, p.deps.Writings, p.deps.Log))
 }

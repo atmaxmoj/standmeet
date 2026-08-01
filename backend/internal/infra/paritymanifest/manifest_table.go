@@ -51,39 +51,14 @@ func accountEntries() []Entry {
 	}
 }
 
-// corpus (raw/wiki/output/subjectivity).
+// corpus —— 六条(list / get / create / update / delete / promote)都搬进了 corpus 域自己的
+// 声明(internal/corpus/ops),genre 从"三套工具"收成了一个参数,收口去 facade 取。
+//
+// 这张表原来把它们记成"一个 op、三个 MCP 工具"(list_recent_raw / _wiki / _output),那正是
+// 台账在替结构记账;现在一个 op 就是一个工具,parity 由 dispatcher.Conform() 保证。
+// subjectivity.write 同理,更早就搬走了。
 func corpusEntries() []Entry {
-	return []Entry{
-		{
-			Op:    read("corpus.list", fp.OwnerRead()),
-			MCP:   []string{"list_recent_raw", "list_recent_wiki", "list_recent_output"},
-			Admin: []string{"GET /api/admin/corpus/{genre}"},
-		},
-		{
-			Op:  read("corpus.get", fp.OwnerRead()),
-			MCP: []string{"corpus_get_entry"}, Admin: []string{"GET /api/admin/corpus/{genre}/{id}"},
-		},
-		{
-			Op:  act("corpus.create", fp.OwnerAction()),
-			MCP: []string{"raw_dump"}, Admin: []string{"POST /api/admin/corpus/{genre}"},
-		},
-		{
-			Op:  act("corpus.update", fp.OwnerAction()),
-			MCP: []string{"update_wiki", "update_output"}, Admin: []string{"PATCH /api/admin/corpus/{genre}/{id}"},
-		},
-		{
-			Op:    act("corpus.delete", fp.OwnerAction()),
-			MCP:   []string{"delete_wiki", "delete_output"},
-			Admin: []string{"DELETE /api/admin/corpus/{genre}/{id}"},
-		},
-		{
-			Op:    act("corpus.promote", fp.OwnerAction()),
-			MCP:   []string{"promote_to_wiki", "promote_wiki_to_output"},
-			Admin: []string{"POST /api/admin/corpus/{genre}/{id}/promote"},
-		},
-		// subjectivity.write 搬进了 corpus 域自己的声明(internal/corpus/ops),
-		// 收口去 facade 取 —— 它的 Reach 就写在那条声明上,不再需要这张表上的一行。
-	}
+	return []Entry{}
 }
 
 // codes + per-code ACL —— 都搬进了出站收口(dispatcher.Codes)。

@@ -137,21 +137,21 @@ async function seedTree(request: APIRequestContext, csrf: string): Promise<void>
   }
 }
 
-// promote —— raw_dump + promote_to_wiki(显式 parent_id),返 wiki_id。path 不传,
+// promote —— corpus.create(raw) + corpus.promote(显式 parent_id),返新 wiki 的 id。path 不传,
 // 后端按 parent 链 + pathSegment(title) 树派生。
 async function promote(
   request: APIRequestContext, token: string, sid: string,
   title: string, parentID: string, body: string,
 ): Promise<string> {
-  const dump = await mcpCallTool<{ raw_id: string }>(
-    request, token, sid, 'raw_dump', { body, source: 'mcp:e2e', tags: [] },
+  const dump = await mcpCallTool<{ id: string }>(
+    request, token, sid, 'corpus.create', { genre: 'raw', body, source: 'mcp:e2e', tags: [] },
   );
-  const args: Record<string, unknown> = { raw_id: dump.raw_id, title };
+  const args: Record<string, unknown> = { genre: 'raw', id: dump.id, title };
   if (parentID !== '') args['parent_id'] = parentID;
-  const wiki = await mcpCallTool<{ wiki_id: string }>(
-    request, token, sid, 'promote_to_wiki', args,
+  const wiki = await mcpCallTool<{ id: string }>(
+    request, token, sid, 'corpus.promote', args,
   );
-  return wiki.wiki_id;
+  return wiki.id;
 }
 
 async function freshSession(request: APIRequestContext): Promise<VisitorSession> {

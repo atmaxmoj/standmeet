@@ -57,12 +57,14 @@ async function seedOneNotePerGenre({ playwright }: Ctx): Promise<void> {
   token = await createAPIToken(request, csrf, 'addr-seed');
   sid = await initMCP(request, token);
   await seedWiki(request, token, sid, { title: 'Addr Wiki', body: 'wiki addr body' });
-  const w = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
-    raw_id: (await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump',
-      { body: 'out src', source: 'mcp:e2e', tags: [] })).raw_id,
+  const w = await callTool<{ id: string }>(request, token, sid, 'corpus.promote', {
+    genre: 'raw',
+    id: (await callTool<{ id: string }>(request, token, sid, 'corpus.create',
+      { genre: 'raw', body: 'out src', source: 'mcp:e2e', tags: [] })).id,
     title: 'Addr Output Src',
   });
-  await callTool(request, token, sid, 'promote_wiki_to_output', { wiki_id: w.wiki_id, title: 'Addr Output' });
+  await callTool(request, token, sid, 'corpus.promote',
+    { genre: 'wiki', id: w.id, title: 'Addr Output' });
   await callTool(request, token, sid, 'writing_create', {
     slug: 'addr-writing', title: 'Addr Writing', excerpt: 'x', body_md: 'writing addr body',
     tags: [], publish: true,

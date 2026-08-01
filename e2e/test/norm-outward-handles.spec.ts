@@ -30,18 +30,17 @@ interface RegistryListResp { capabilities: Cap[] }
 // 已搬走(→ dispatcher):ip_bans、domains、access_requests、skills、marketplace、prompts、
 // mcp_servers、roles、capabilities、instance、appearance、account/me、byoai + ai_provider、
 // seo、page、custom_page、chat、corpus.subjectivity、api_keys、connectors(通用注册表归
-// 连接器轴,mail_test_send 归 smtp 连接器自己的 manifest)。
+// 连接器轴,mail_test_send 归 smtp 连接器自己的 manifest)、corpus 四件(genre 从三套工具
+// 收成一个参数,顺手补上 MCP 原来缺的四个格子)。
 // booking 的策略更进一步:它是 booker 这个外置能力自己的配置,经通用的 capability_config 口走。
 //
-// 只剩 corpus 三件 + writings:它们搬完,这份 golden 就只剩 jobs 插件那三条,
-// 然后翻面成边界断言 —— capreg 里**不该有任何** owner_only。
+// 只剩 writings 的**写**:面板 multipart / MCP 一串 URL,字节流进不了一个 JSON op。
+// 那笔债还清,这份 golden 就只剩 jobs 插件那三条,然后翻面成边界断言 ——
+// capreg 里**不该有任何** owner_only。
 const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'corpus.raw.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'corpus.output.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'corpus.mutations.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'writings.bundle', shape: 'owner_only', origin: 'builtin' },
 ];
 

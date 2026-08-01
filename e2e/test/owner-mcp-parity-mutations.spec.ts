@@ -146,11 +146,12 @@ async function checkPage(r: APIRequestContext): Promise<void> {
 }
 
 async function checkCorpusGet(r: APIRequestContext): Promise<void> {
-  const dumped = await callTool<{ raw_id: string }>(
-    r, token, sid, 'raw_dump', { body: 'a private thought about distributed systems', tags: ['sys'] });
+  const dumped = await callTool<{ id: string }>(
+    r, token, sid, 'corpus.create',
+    { genre: 'raw', body: 'a private thought about distributed systems', tags: ['sys'] });
   const entry = await callTool<{ genre: string; id: string; body: string }>(
-    r, token, sid, 'corpus_get_entry', { genre: 'raw', id: dumped.raw_id });
-  expect(entry.id, 'corpus_get_entry returns the entry').toBe(dumped.raw_id);
+    r, token, sid, 'corpus.get', { genre: 'raw', id: dumped.id });
+  expect(entry.id, 'corpus.get returns the entry').toBe(dumped.id);
   expect(entry.body, 'body matches the dump').toContain('distributed systems');
 }
 

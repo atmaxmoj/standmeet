@@ -116,17 +116,17 @@ async function errorCascade({ playwright }: Ctx): Promise<void> {
 
 // ─── helpers ────────────────────────────────────────────────────
 async function promoteWiki(request: APIRequestContext, title: string, body: string): Promise<string> {
-  const raw = await callTool<{ raw_id: string }>(
-    request, token, sid, 'raw_dump', { body, source: 'mcp:e2e', tags: [] });
-  const w = await callTool<{ wiki_id: string }>(
-    request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title });
-  return w.wiki_id;
+  const raw = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.create', { genre: 'raw', body, source: 'mcp:e2e', tags: [] });
+  const w = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.promote', { genre: 'raw', id: raw.id, title });
+  return w.id;
 }
 async function promoteOutput(request: APIRequestContext, title: string, body: string): Promise<string> {
   const wiki = await promoteWiki(request, title + ' src', body);
-  const o = await callTool<{ output_id: string }>(
-    request, token, sid, 'promote_wiki_to_output', { wiki_id: wiki, title });
-  return o.output_id;
+  const o = await callTool<{ id: string }>(
+    request, token, sid, 'corpus.promote', { genre: 'wiki', id: wiki, title });
+  return o.id;
 }
 async function deleteWiki(request: APIRequestContext, id: string): Promise<void> {
   // admin route is owner-authed → fresh login on this context sets the cookie + csrf.

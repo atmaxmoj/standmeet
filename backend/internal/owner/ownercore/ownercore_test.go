@@ -25,9 +25,11 @@ import (
 // appearance、booking(策略归 capconfig)、byoai + ai_provider(合成 settings)、account、
 // calendar(取消归 booker 的 OwnerTools + 卡片的 mcp-ui:tool)、api_keys(连 ACL 与
 // api.open/close/list_candidates 一起)、connectors(通用注册表归连接器轴,
-// mail_test_send 归 smtp 连接器自己的 manifest)。
+// mail_test_send 归 smtp 连接器自己的 manifest)、corpus 四件(genre 从三套工具收成一个参数)。
+//
+// 只剩 writings 的**写**:面板 multipart / MCP 一串 URL,字节流进不了一个 JSON op。
+// 那笔债还清,这份清单空掉,整包删除。
 var allOwnerCapIDs = []string{
-	"corpus.raw.bundle", "corpus.output.bundle", "corpus.mutations.bundle",
 	"writings.bundle",
 }
 

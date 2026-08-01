@@ -92,11 +92,11 @@ test.describe('admin SEO section (real backend)', () => {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const token = await createAPIToken(request, csrf, 'seo-stats');
       const sid = await initMCP(request, token);
-      const raw = await callTool<{ raw_id: string }>(
-        request, token, sid, 'raw_dump', { body: 'x', source: 'mcp:e2e', tags: [] });
-      const wiki = await callTool<{ wiki_id: string }>(
-        request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title: 'Stats Wiki' });
-      await patchWikiSEO(request, csrf, wiki.wiki_id, { excerpt: 'e', published: true });
+      const raw = await callTool<{ id: string }>(request, token, sid, 'corpus.create',
+        { genre: 'raw', body: 'x', source: 'mcp:e2e', tags: [] });
+      const wiki = await callTool<{ id: string }>(request, token, sid, 'corpus.promote',
+        { genre: 'raw', id: raw.id, title: 'Stats Wiki' });
+      await patchWikiSEO(request, csrf, wiki.id, { excerpt: 'e', published: true });
 
       await gotoAdminSection(adminPage, 'seo');
       const stats = adminPage.getByTestId('seo-indexing');
@@ -144,11 +144,11 @@ async function patchesOneEntry({ request }: { request: APIRequestContext }): Pro
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'seo-patch');
   const sid = await initMCP(request, token);
-  const raw = await callTool<{ raw_id: string }>(
-    request, token, sid, 'raw_dump', { body: 'x', source: 'mcp:e2e', tags: [] });
-  const wiki = await callTool<{ wiki_id: string }>(
-    request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title: 'SEO Patch Test' });
-  const res = await patchWikiSEO(request, csrf, wiki.wiki_id, {
+  const raw = await callTool<{ id: string }>(request, token, sid, 'corpus.create',
+    { genre: 'raw', body: 'x', source: 'mcp:e2e', tags: [] });
+  const wiki = await callTool<{ id: string }>(request, token, sid, 'corpus.promote',
+    { genre: 'raw', id: raw.id, title: 'SEO Patch Test' });
+  const res = await patchWikiSEO(request, csrf, wiki.id, {
     excerpt: 'a short excerpt', published: true,
   });
   expect(res.status()).toBe(200);
