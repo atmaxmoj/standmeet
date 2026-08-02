@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 )
 
 // Plugin —— 一个 outbound use case 的最小标识。具体能力 (MCP tools / admin
@@ -32,6 +33,15 @@ type CapabilityRegistrar interface {
 // 到入参 router (caller 负责事先用 WithOwner / RequireCSRF middleware 包好)。
 type AdminRouter interface {
 	MountAdminRoutes(r chi.Router)
+}
+
+// PeriodicWorker —— optional hook: plugin 声明自己的周期任务(要清的过期行之类)。
+//
+// 只声明"做什么、多久一次";什么时候起、怎么进 Monitor 的面板,归宿主的一份调度
+// (internal/infra/periodic)。这个 hook 在之前是不存在的,于是 jobs 插件的 resume-draft
+// 清扫写在了组装根里 —— 插件的业务落在装配的地方,只因为 ticker 在那儿。
+type PeriodicWorker interface {
+	PeriodicJobs() []periodic.Job
 }
 
 // Registry —— 启动期注册全部启用 plugins。boot 跑一次 Register*，wireup
@@ -86,4 +96,15 @@ func (r *Registry) MountAllAdminRoutes(router chi.Router) {
 			ar.MountAdminRoutes(router)
 		}
 	}
+}
+
+// AllPeriodicJobs —— 汇齐所有 plugin 声明的周期任务,交给宿主那一份调度去起。
+func (r *Registry) AllPeriodicJobs() []periodic.Job {
+	out := []periodic.Job{}
+	for _, p := range r.plugins {
+		if pw, ok := p.(PeriodicWorker); ok {
+			out = append(out, pw.PeriodicJobs()...)
+		}
+	}
+	return out
 }

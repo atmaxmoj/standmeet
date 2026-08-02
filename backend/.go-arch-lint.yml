@@ -193,6 +193,8 @@ components:
     in: internal/routes/hostdesk          # 入站收口：域声明 host op，各能力的 socket 是它的投影
   hostop:
     in: internal/infra/hostop             # 入站那套词汇（Op/Invoke/socket 路径规则）；leaf，不认识任何域
+  periodic:
+    in: internal/infra/periodic           # 周期任务的一份调度：声明方给「做什么」，这里管「多久一次 + 簿记」
   cmd:
     in: cmd/server
 
@@ -295,6 +297,12 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # periodic —— 周期任务的一份调度。leaf：它不认识任何域，也不认识 stats（簿记面是个窄接口，
+  # 由组装根把 JobRegistry 递进来），所以任何一方都能声明自己的周期任务而不牵连别人。
+  periodic:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # hostdesk —— 入站收口，出站 dispatcher 的镜像。它 import 各域的**正门**（facade）+ 两根轴
   # 自己的 controller 薄壳，把大家声明的 host op 汇起来，再按每个能力 manifest 点的名字发。
   #
@@ -355,6 +363,8 @@ deps:
   capabilities:
     mayDependOn:
       - capreg
+      # periodic —— 插件声明周期任务的那个 optional hook 用它的类型；调度不在这儿。
+      - periodic
     anyVendorDeps: true
 
   capload:
@@ -508,6 +518,8 @@ deps:
       - jobsuc
       - jobsmcp
       - jobsadmin
+      # periodic —— resume draft 的 1d-TTL 清扫由本插件声明(以前写在组装根)。
+      - periodic
     anyVendorDeps: true
 
   # pluginownercore —— #135: owner-core owner-MCP caps externalized off core mcphandle. Self-contained:
@@ -754,6 +766,8 @@ deps:
       - access
       # hostop 取代了 capsocket：本域声明的是"我开了读语料这七件事"，不是"我挂在哪根 socket 上"。
       - hostop
+      # periodic —— Meili 恢复后的 reconcile 是本域的周期任务；调度和簿记归宿主。
+      - periodic
       - apierr
       - pgstore
       - storage
@@ -914,7 +928,8 @@ deps:
 
   # sandboxws —— per-session 沙箱工作区生命周期 leaf：纯 stdlib (os/filepath/sync/time)。
   sandboxws:
-    mayDependOn: []
+    mayDependOn:
+      - periodic # 过期工作区的清扫是本子系统自己的声明,不是组装根的 cron
     anyVendorDeps: true
 
   # admin routes (/api/admin/*) 派发到 usecases；handler 自己 cyclo ≤3。
@@ -1009,6 +1024,8 @@ deps:
       # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
       - hostdesk
       - hostop
+      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      - periodic
       - mcphandle
       - inference
       - jobcache

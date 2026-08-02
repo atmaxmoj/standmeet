@@ -146,8 +146,7 @@ func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
 // 注册进 d.agentSkills。跟 build*Deps 共享底层 repo 引用；run() 阶段调用
 // 一次，capability 闭包持 deps，server 跑期间 deps 不再变。
 func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
-	wireSandboxWorkspaces(ctx, d)
-	wireResumeDraftSweeper(ctx, d)
+	wireSandboxWorkspaces(d)
 	// connector 命名依赖注册表一处建、一处 set：ext-mcp dep-grant 闸（工具 _meta.requires
 	// 按 grant+connected 放行）与 registerDiscoveredPlugins 的 Requires 校验共用同一份。
 	depReg := connectorDepRegistry(ctx, d)
@@ -162,13 +161,14 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	// 网关(summarize / booker / mail-sender / retrieval),各自站一个 socket、各自挂动词。
 	wireHostDesk(ctx, d, &skills)
 	wireSearchIndex(ctx, d)
-	wireSearchReconcile(ctx, d)
 	registerDiscoveredPlugins(d, depReg, map[string]capload.CapHooks{
 		// booker quota 闸(host 侧,经 capstore.count 数 booker 隔离预约;concretes 只在此组装根)。
 		"calendar.book":    {Gate: bookerQuotaGate(d), State: bookerQuotaState(d)},
 		"corpus.retrieval": {Fragment: capload.CorpusScopeVisible},
 	})
 	wireCapabilityEnableGate(d)
+	// 周期任务:各处声明,一份调度。放最后 —— 插件都注册完了,声明才齐。
+	wirePeriodicJobs(ctx, d)
 }
 
 // wireCapabilityEnableGate —— Phase H: 把 owner-enable 闸接到 registry。访客

@@ -73,8 +73,8 @@ export async function updateWiki(
   request: APIRequestContext, apiToken: string, sid: string,
   wikiID: string, fields: { title: string; body: string },
 ): Promise<unknown> {
-  return callTool(request, apiToken, sid, 'update_wiki', {
-    wiki_id: wikiID, title: fields.title, body: fields.body, tags: [],
+  return callTool(request, apiToken, sid, 'corpus.update', {
+    genre: 'wiki', id: wikiID, title: fields.title, body: fields.body, tags: [],
   });
 }
 

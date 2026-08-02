@@ -14,6 +14,7 @@ type (
 	IndexDeps                       = usecase.IndexDeps
 	Indexer                         = usecase.Indexer
 	Links                           = usecase.Links
+	SoleOwnerID                     = usecase.SoleOwnerID
 	ListPublishedWritingsPageInput  = usecase.ListPublishedWritingsPageInput
 	ListPublishedWritingsPageResult = usecase.ListPublishedWritingsPageResult
 	MapEntry                        = usecase.MapEntry
@@ -78,6 +79,7 @@ var (
 	RebuildNoteRefs                = usecase.RebuildNoteRefs
 	CorpusHostOps                  = usecase.CorpusHostOps
 	CorpusHostOpsFor               = usecase.CorpusHostOpsFor
+	IndexPeriodicJobs              = usecase.IndexPeriodicJobs
 	ReindexCorpusOwner             = usecase.ReindexCorpusOwner
 	ResolveAssetURLs               = usecase.ResolveAssetURLs
 	ResolveByName                  = usecase.ResolveByName

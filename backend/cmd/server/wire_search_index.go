@@ -7,7 +7,6 @@ package main
 
 import (
 	"context"
-	"time"
 
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
@@ -32,34 +31,6 @@ func wireSearchIndex(ctx context.Context, d *runtimeDeps) {
 	}
 }
 
-// searchReconcileInterval —— 后台 reconcile tick。Meili 恢复后这个间隔内把 down 期间的写补上。
-const searchReconcileInterval = 8 * time.Second
-
-// wireSearchReconcile —— 后台循环:Meili 挂过(写失败置脏)后,恢复了就整批重建,补齐漏索引的写(D4)。
-func wireSearchReconcile(ctx context.Context, d *runtimeDeps) {
-	if d.corpusIndexer == nil {
-		return
-	}
-	go d.reconcileLoop(ctx)
-}
-
-func (d *runtimeDeps) reconcileLoop(ctx context.Context) {
-	ticker := time.NewTicker(searchReconcileInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			d.reconcileOnce(ctx)
-		}
-	}
-}
-
-func (d *runtimeDeps) reconcileOnce(ctx context.Context) {
-	soleOwner, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.ownerRepo})
-	if err != nil {
-		return
-	}
-	d.corpusIndexer.Reconcile(ctx, soleOwner.ID)
-}
+// reconcile 的那个后台循环不在这儿了:它是 corpus 域自己的周期任务声明
+// (corpus.IndexPeriodicJobs),由 wirePeriodicJobs 汇总起调度 —— 顺带第一次进了 Monitor
+// 的后台任务面板(手写的那版从来没登记过,一直在跑却看不见)。

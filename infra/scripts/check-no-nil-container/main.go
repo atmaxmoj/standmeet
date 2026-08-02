@@ -156,15 +156,51 @@ func scanFile(fset *token.FileSet, path string) (int, error) {
 // checkFunc walks one FuncDecl, looking at each ReturnStmt for nil
 // container violations.
 func checkFunc(fset *token.FileSet, fd *ast.FuncDecl) int {
-	resultTypes := flattenResults(fd.Type.Results.List)
+	return checkBody(fset, fd.Name.Name, fd.Type, fd.Body)
+}
+
+// checkBody —— one function's returns, checked against ITS OWN signature.
+//
+// A nested func literal gets its own pass and stops the outer walk. Without that, a closure's
+// `return nil` (an error result, perfectly legal) was reported against the ENCLOSING function's
+// results — so `func Jobs() []Job { return []Job{Named(..., func(ctx) error { ... return nil })} }`
+// was flagged as "Jobs returns nil". A checker that reports a violation the source does not
+// contain teaches people to route around it.
+func checkBody(fset *token.FileSet, name string, ft *ast.FuncType, body *ast.BlockStmt) int {
+	if body == nil || ft.Results == nil {
+		return checkNestedOnly(fset, name, body)
+	}
+	resultTypes := flattenResults(ft.Results.List)
 	violations := 0
-	ast.Inspect(fd.Body, func(n ast.Node) bool {
+	ast.Inspect(body, func(n ast.Node) bool {
+		if lit, isLit := n.(*ast.FuncLit); isLit {
+			violations += checkBody(fset, name, lit.Type, lit.Body)
+			return false // its returns belong to ITS signature, not ours
+		}
 		rs, ok := n.(*ast.ReturnStmt)
 		if !ok || len(rs.Results) == 0 {
 			return true
 		}
-		violations += checkReturn(fset, fd, resultTypes, rs)
+		violations += checkReturn(fset, name, resultTypes, rs)
 		return true
+	})
+	return violations
+}
+
+// checkNestedOnly —— a body whose own signature has no results still has to be walked: a closure
+// inside it can return containers.
+func checkNestedOnly(fset *token.FileSet, name string, body *ast.BlockStmt) int {
+	if body == nil {
+		return 0
+	}
+	violations := 0
+	ast.Inspect(body, func(n ast.Node) bool {
+		lit, isLit := n.(*ast.FuncLit)
+		if !isLit {
+			return true
+		}
+		violations += checkBody(fset, name, lit.Type, lit.Body)
+		return false
 	})
 	return violations
 }
@@ -180,7 +216,7 @@ func returnPosCheckable(resultTypes []ast.Expr, rs *ast.ReturnStmt) bool {
 
 // checkReturn —— 单个 ReturnStmt 的容器-nil 检查；split 出来降 checkFunc 认知复杂度。
 func checkReturn(
-	fset *token.FileSet, fd *ast.FuncDecl, resultTypes []ast.Expr, rs *ast.ReturnStmt,
+	fset *token.FileSet, name string, resultTypes []ast.Expr, rs *ast.ReturnStmt,
 ) int {
 	if !returnPosCheckable(resultTypes, rs) {
 		return 0
@@ -191,7 +227,7 @@ func checkReturn(
 			pos := fset.Position(rs.Pos())
 			_, _ = fmt.Fprintf(os.Stderr,
 				"%s:%d: %s returns nil for %s at position %d — return empty %s instead\n",
-				pos.Filename, pos.Line, fd.Name.Name,
+				pos.Filename, pos.Line, name,
 				exprString(t), i, exprString(t))
 			violations++
 		}

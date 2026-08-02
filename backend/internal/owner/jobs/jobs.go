@@ -14,12 +14,16 @@
 package jobs
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmcp"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
@@ -49,12 +53,34 @@ type Plugin struct {
 // New —— DI 构造；composition root 一次性持。
 func New(deps Deps) *Plugin { return &Plugin{deps: deps} }
 
-// 静态保证三个 interface 全部实现。
+// 静态保证四个 interface 全部实现。
 var (
 	_ capabilities.Plugin              = (*Plugin)(nil)
 	_ capabilities.CapabilityRegistrar = (*Plugin)(nil)
 	_ capabilities.AdminRouter         = (*Plugin)(nil)
+	_ capabilities.PeriodicWorker      = (*Plugin)(nil)
 )
+
+// resumeDraftSweepEvery —— 草稿是 1d TTL。读路径本来就 SQL 过滤掉过期行(正确性不靠这个
+// 清扫),清扫只是别让过期行在库里堆着,所以一小时一次够了。
+const resumeDraftSweepEvery = time.Hour
+
+// PeriodicJobs —— capabilities.PeriodicWorker 实现:本插件的周期任务。
+//
+// 这件事以前住在组装根的 resume_draft_sweep.go 里 —— 一个 ticker、一份 Register/Report
+// 簿记、一句手写的 "every 1h"。插件的业务落在装配的地方,只因为当时没有"插件声明周期任务"
+// 这个机制。现在它回自己家,循环和簿记归宿主。
+func (p *Plugin) PeriodicJobs() []periodic.Job {
+	return []periodic.Job{periodic.Named(
+		"resume-draft sweep", resumeDraftSweepEvery,
+		func(ctx context.Context) error {
+			if err := p.deps.DraftsRepo.SweepExpired(ctx); err != nil {
+				return fmt.Errorf("resume-draft sweep: %w", err)
+			}
+			return nil
+		},
+	)}
+}
 
 // Name —— 跟 plugin registry 一致。
 func (*Plugin) Name() string { return Name }
