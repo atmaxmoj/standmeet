@@ -43,8 +43,6 @@ components:
     in: agentcore                         # public facade over the agentic loop (eval-harness 等 out-of-module driver 入口)
   pluginjobs:
     in: internal/owner/jobs             # J phase: jobs plugin entry (Plugin impl)
-  pluginownercore:
-    in: internal/owner/ownercore          # #135: owner-core caps externalized off core mcphandle (me; codes/chat/calendar next)
   jobsuc:
     in: internal/owner/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobsmcp:
@@ -199,8 +197,20 @@ components:
     in: internal/infra/hostop             # 入站那套词汇（Op/Invoke/socket 路径规则）；leaf，不认识任何域
   periodic:
     in: internal/infra/periodic           # 周期任务的一份调度：声明方给「做什么」，这里管「多久一次 + 簿记」
+  # cmd —— 组装根,现在分成五个包 + 根上的启动序列。对**层次**而言它们是同一件东西:
+  # 唯一允许跨所有 layer 的地方。彼此之间的方向单向:deps ← port ← axisconn ← axiscap ← wire ← cmd。
   cmd:
     in: cmd/server
+  cmddeps:
+    in: cmd/server/deps                   # 跑着的那一堆东西：只有数据，没有装配（叶子）
+  cmdport:
+    in: cmd/server/port                   # 组装根实现某个域声明的窄口
+  cmdaxisconn:
+    in: cmd/server/axisconn               # 连接器轴的接线
+  cmdaxiscap:
+    in: cmd/server/axiscap                # 能力轴的接线
+  cmdwire:
+    in: cmd/server/wire                   # 把一个机制接起来（两个收口 / 周期任务 / 检索索引）
 
   corpusdb:
     in: internal/corpus/db                # #135: corpus 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
@@ -240,7 +250,7 @@ deps:
     anyVendorDeps: true
 
   # paritymanifest —— facade-parity 的具体 owner 能力 manifest（真源）+ 真 facade 对照。只依赖
-  # facadeparity（机制）；被 pluginownercore 的 conformance test 消费。
+  # facadeparity（机制）；被组装根的 conformance test 消费。
   paritymanifest:
     mayDependOn:
       - facadeparity
@@ -544,28 +554,9 @@ deps:
       - periodic
     anyVendorDeps: true
 
-  # pluginownercore —— #135: owner-core owner-MCP caps externalized off core mcphandle. Self-contained:
-  # its own narrow OwnerLookup interface (postgres.OwnerRepo satisfies it structurally at cmd), so no
-  # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
-  pluginownercore:
-    mayDependOn:
-      - conversation
-      - connector
-      - access
-      - owner
-      - marketplace
-      - corpus
-      - capabilities
-      - capreg
-      - mcputil
-      - httpx
-      - paritymanifest
-      - connectorcontract
-      - connectorconsumer
-      - stats
-      - security
-      - apierr
-    anyVendorDeps: true
+  # pluginownercore 没了。它曾经是 owner-MCP 能力的**集散地**,一个包同时依赖七八个域 ——
+  # 上面这份 mayDependOn 就是它的病历。每个操作回自己的域、经出站收口投影之后,这个包空了,
+  # 整包删除。跨域的大杂烩不该有一个合法地址。
 
   # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核
   # 心 usecases 同款依赖集 (domain/postgres/cryptobox + jobfetch/jobcache)。
@@ -768,6 +759,9 @@ deps:
       - corpususecase
       - facadeparity
       - apierr
+      # httpx —— 写长文时按 owner 给的 https 地址取回内联配图。出站 HTTP 一律经 httpx
+      # (retry + timeout + egress 封锁);这条尤其要,因为地址是 owner 递进来的。
+      - httpx
     anyVendorDeps: true
   corpusentity:
     mayDependOn:
@@ -1020,6 +1014,11 @@ deps:
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
+      - cmddeps
+      - cmdport
+      - cmdaxisconn
+      - cmdaxiscap
+      - cmdwire
       - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
       - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
       - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
@@ -1072,7 +1071,6 @@ deps:
       - capreg
       - capabilities
       - pluginjobs
-      - pluginownercore
       - capsocket
       - capstore
       - connectorconsumer
@@ -1084,6 +1082,350 @@ deps:
       - corpus
       - pgstore
     anyVendorDeps: true
+
+  # 组装根内部那五个包。层次上跟 cmd 同权(都可跨层),彼此之间**单向**。
+  # cmddeps —— 它要各域的 facade 是因为字段类型就是那些域的对象。它**在组装根内部**是叶子:
+  # 下面四个包一个都不 import,所以方向立得住。
+  cmddeps:
+    mayDependOn:
+      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
+      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
+      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
+      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
+      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
+      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - paritymanifest
+      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
+      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
+      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      - apierr
+      - middleware
+      - capload
+      - jobsmodel
+      - config
+      - session
+      - sysroutes
+      - adminroutes
+      - publicroutes
+      - pubapi
+      - connectorroutes
+      - capstoreroutes
+      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
+      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
+      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      - hostdesk
+      - hostop
+      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      - periodic
+      - mcphandle
+      - inference
+      - jobcache
+      - jobfetch
+      - jobsuc
+      - gotenberg
+      - connector
+      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      - connectorbuiltins
+      - capabilitybuiltins
+      - printsess
+      - stats
+      - marketplace
+      - security
+      - access
+      - cryptobox
+      - sandbox
+      - mcpclient
+      - mcpplugin
+      - storage
+      - capreg
+      - capabilities
+      - pluginjobs
+      - capsocket
+      - capstore
+      - connectorconsumer
+      - sandboxws
+      - search
+      - connectorcontract
+      - conversation
+      - owner
+      - corpus
+      - pgstore
+    anyVendorDeps: true
+
+  cmdport:
+    mayDependOn:
+      - cmddeps
+      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
+      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
+      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
+      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
+      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
+      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - paritymanifest
+      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
+      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
+      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      - apierr
+      - middleware
+      - capload
+      - jobsmodel
+      - config
+      - session
+      - sysroutes
+      - adminroutes
+      - publicroutes
+      - pubapi
+      - connectorroutes
+      - capstoreroutes
+      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
+      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
+      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      - hostdesk
+      - hostop
+      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      - periodic
+      - mcphandle
+      - inference
+      - jobcache
+      - jobfetch
+      - jobsuc
+      - gotenberg
+      - connector
+      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      - connectorbuiltins
+      - capabilitybuiltins
+      - printsess
+      - stats
+      - marketplace
+      - security
+      - access
+      - cryptobox
+      - sandbox
+      - mcpclient
+      - mcpplugin
+      - storage
+      - capreg
+      - capabilities
+      - pluginjobs
+      - capsocket
+      - capstore
+      - connectorconsumer
+      - sandboxws
+      - search
+      - connectorcontract
+      - conversation
+      - owner
+      - corpus
+      - pgstore
+    anyVendorDeps: true
+
+  cmdaxisconn:
+    mayDependOn:
+      - cmddeps
+      - cmdport
+      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
+      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
+      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
+      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
+      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
+      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - paritymanifest
+      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
+      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
+      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      - apierr
+      - middleware
+      - capload
+      - jobsmodel
+      - config
+      - session
+      - sysroutes
+      - adminroutes
+      - publicroutes
+      - pubapi
+      - connectorroutes
+      - capstoreroutes
+      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
+      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
+      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      - hostdesk
+      - hostop
+      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      - periodic
+      - mcphandle
+      - inference
+      - jobcache
+      - jobfetch
+      - jobsuc
+      - gotenberg
+      - connector
+      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      - connectorbuiltins
+      - capabilitybuiltins
+      - printsess
+      - stats
+      - marketplace
+      - security
+      - access
+      - cryptobox
+      - sandbox
+      - mcpclient
+      - mcpplugin
+      - storage
+      - capreg
+      - capabilities
+      - pluginjobs
+      - capsocket
+      - capstore
+      - connectorconsumer
+      - sandboxws
+      - search
+      - connectorcontract
+      - conversation
+      - owner
+      - corpus
+      - pgstore
+    anyVendorDeps: true
+
+  cmdaxiscap:
+    mayDependOn:
+      - cmddeps
+      - cmdport
+      - cmdaxisconn
+      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
+      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
+      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
+      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
+      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
+      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - paritymanifest
+      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
+      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
+      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      - apierr
+      - middleware
+      - capload
+      - jobsmodel
+      - config
+      - session
+      - sysroutes
+      - adminroutes
+      - publicroutes
+      - pubapi
+      - connectorroutes
+      - capstoreroutes
+      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
+      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
+      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      - hostdesk
+      - hostop
+      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      - periodic
+      - mcphandle
+      - inference
+      - jobcache
+      - jobfetch
+      - jobsuc
+      - gotenberg
+      - connector
+      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      - connectorbuiltins
+      - capabilitybuiltins
+      - printsess
+      - stats
+      - marketplace
+      - security
+      - access
+      - cryptobox
+      - sandbox
+      - mcpclient
+      - mcpplugin
+      - storage
+      - capreg
+      - capabilities
+      - pluginjobs
+      - capsocket
+      - capstore
+      - connectorconsumer
+      - sandboxws
+      - search
+      - connectorcontract
+      - conversation
+      - owner
+      - corpus
+      - pgstore
+    anyVendorDeps: true
+
+  cmdwire:
+    mayDependOn:
+      - cmddeps
+      - cmdport
+      - cmdaxisconn
+      - cmdaxiscap
+      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
+      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
+      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
+      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
+      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
+      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - paritymanifest
+      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
+      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
+      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      - apierr
+      - middleware
+      - capload
+      - jobsmodel
+      - config
+      - session
+      - sysroutes
+      - adminroutes
+      - publicroutes
+      - pubapi
+      - connectorroutes
+      - capstoreroutes
+      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
+      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
+      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      - hostdesk
+      - hostop
+      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      - periodic
+      - mcphandle
+      - inference
+      - jobcache
+      - jobfetch
+      - jobsuc
+      - gotenberg
+      - connector
+      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      - connectorbuiltins
+      - capabilitybuiltins
+      - printsess
+      - stats
+      - marketplace
+      - security
+      - access
+      - cryptobox
+      - sandbox
+      - mcpclient
+      - mcpplugin
+      - storage
+      - capreg
+      - capabilities
+      - pluginjobs
+      - capsocket
+      - capstore
+      - connectorconsumer
+      - sandboxws
+      - search
+      - connectorcontract
+      - conversation
+      - owner
+      - corpus
+      - pgstore
+    anyVendorDeps: true
+
 
   corpusdb:
     mayDependOn: []

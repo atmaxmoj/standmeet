@@ -37,8 +37,12 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // 路径以 origin=builtin 加载（在 capreg loader 之后、managed 第三方之前）。主 app 内
   // 已无任何 specific MCP 能力代码。id/shape/origin 不变，加载机制变。calendar.book 还叠
   // 一个 SessionGate（connector+quota）做 per-session 隐藏。
+  //
+  // **这五个的顺序按 id 排**,因为声明搬进 backend/capabilities/<id>/manifest.yaml 之后,
+  // 加载顺序就是目录顺序,而目录顺序是 id 的顺序。以前的顺序是有人在 Go 里把它们打成一个
+  // slice 的先后 —— 那个顺序没有理由,而且谁重排一下 slice 就变了。现在它由 id 推出来,
+  // 改不动:要换顺序只能改 id,而 id 是对外的名字。
   { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
-  { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
   // calendar.book —— shape=both:访客侧 calendar_book / calendar_list_slots,owner 侧
   // calendar.list_slots(manifest.OwnerTools,沙箱实现)。策略评估 + slot 枚举只此一份。
   { id: 'calendar.book', shape: 'both', origin: 'builtin' },
@@ -46,6 +50,7 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // mail.send —— 内置 SMTP 连接器 expose_as_agent_tools 暴露的发信 operation（访客侧
   // 「预约成功→发确认邮件」#122）。同 connector.agent_tools，Shape=VisitorOnly + per-session gate。
   { id: 'mail.send', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
   { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
   // everything / fsmcp —— 真·第三方 MCP server（@modelcontextprotocol 官方参考
   // server），经 sandbox_stdio 在 bwrap 隔离里加载（STANDMEET_PLUGINS 声明，managed）。

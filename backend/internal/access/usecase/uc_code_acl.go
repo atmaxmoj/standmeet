@@ -50,8 +50,18 @@ type CodeDenialRef struct {
 	TargetID string
 }
 
-// ListCodeDenials —— 读全三类,外加对照用的正列表。
-func ListCodeDenials(ctx context.Context, d CodeACLDeps, codeID string) (CodeDenials, error) {
+// ListCodeDenials —— 读全三类,外加对照用的正列表。**先确认这张码是这个 owner 的**。
+func ListCodeDenials(
+	ctx context.Context, d CodeACLDeps, ownerID, codeID string,
+) (CodeDenials, error) {
+	if err := ownsCode(ctx, d, ownerID, codeID); err != nil {
+		return CodeDenials{}, err
+	}
+	return listDenials(ctx, d, codeID)
+}
+
+// listDenials —— 三类拒绝的原始读。归属已经确认过的路径走这条,不重复查一次码。
+func listDenials(ctx context.Context, d CodeACLDeps, codeID string) (CodeDenials, error) {
 	caps, cerr := d.Denials.ListCapabilities(ctx, codeID)
 	if cerr != nil {
 		return CodeDenials{}, fmt.Errorf("list code denials: %w", cerr)
@@ -101,12 +111,15 @@ func RemoveCodeDenial(
 // SetCodeCorpusDenials —— 整份替换收回列表。不校验 glob 语法:跟 role 的正列表同一种
 // 语言,而且这是纯减法 —— 写错顶多少读到东西,不会泄露。
 func SetCodeCorpusDenials(
-	ctx context.Context, d CodeACLDeps, codeID string, uris []string,
+	ctx context.Context, d CodeACLDeps, ownerID, codeID string, uris []string,
 ) (CodeDenials, error) {
+	if err := ownsCode(ctx, d, ownerID, codeID); err != nil {
+		return CodeDenials{}, err
+	}
 	if err := d.Denials.SetCorpusURIs(ctx, codeID, uris); err != nil {
 		return CodeDenials{}, fmt.Errorf("set corpus denials: %w", err)
 	}
-	return ListCodeDenials(ctx, d, codeID)
+	return listDenials(ctx, d, codeID)
 }
 
 // denialWrite —— 写一条拒绝。加和删各有一张表(见下),所以往下传的是**要做的那件事**,
@@ -129,8 +142,11 @@ func denialRemovers(d CodeACLDeps) map[string]denialWrite {
 	}
 }
 
-// writeCodeDenial —— 按 kind 取那一类的写法,写完回读整份。调用方只看见"三类拒绝",
-// 不需要知道它们落在两个仓储方法族上。
+// writeCodeDenial —— 先确认这张码是**这个 owner 的**,再按 kind 取那一类的写法,写完回读整份。
+//
+// 归属这一问一度不在这儿:入参里带着 OwnerID,却一路没人看。后果是拿到任何一个 code id
+// (甚至一个不存在的)就能往上写拒绝 —— 多租户下那是越权写别人的码。ACL 的写路径上,
+// "这东西是不是你的"必须先问,而不是靠调用方只传自己的 id。
 func writeCodeDenial(
 	ctx context.Context, d CodeACLDeps, in *CodeDenialRef, writes map[string]denialWrite,
 ) (CodeDenials, error) {
@@ -138,10 +154,26 @@ func writeCodeDenial(
 	if !ok {
 		return CodeDenials{}, entity.ErrDenialKindUnknown
 	}
+	if err := ownsCode(ctx, d, in.OwnerID, in.CodeID); err != nil {
+		return CodeDenials{}, err
+	}
 	if err := write(ctx, in.CodeID, in.TargetID); err != nil {
 		return CodeDenials{}, fmt.Errorf("write code denial: %w", err)
 	}
-	return ListCodeDenials(ctx, d, in.CodeID)
+	return listDenials(ctx, d, in.CodeID)
+}
+
+// ownsCode —— 这张码归这个 owner 吗。不存在和不属于你,对外是**同一个**答案:
+// 否则这个端点就成了一台"这个 id 存在吗"的探测器。
+func ownsCode(ctx context.Context, d CodeACLDeps, ownerID, codeID string) error {
+	code, err := d.Codes.GetByID(ctx, codeID)
+	if err != nil {
+		return fmt.Errorf("owns code: %w", err)
+	}
+	if code.OwnerID != ownerID {
+		return entity.ErrCodeInvalid
+	}
+	return nil
 }
 
 // corpus 拒绝存的是整份 URI 列表,所以加/删都是读-改-写。

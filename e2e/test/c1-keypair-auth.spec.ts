@@ -286,6 +286,11 @@ function parseMCPText(text: string): MCPResponse | null {
   return null;
 }
 
+// mcpCallMe —— 返回 `me` 载荷里的 **owner 块**。
+//
+// 载荷是 {owner:{…}, settings:{…}} —— 两个面同一份载荷之后,MCP 不再有自己那份扁平的。
+// 这个 helper 以前直接按扁平解,于是 email/handle 恒为 undefined,而失败信息只会说
+// "expected alice@example.com, received undefined",看不出是形状变了。
 async function mcpCallMe(
   request: APIRequestContext, keyID: string, pem: string, sid: string,
 ): Promise<{ email: string; handle: string; full_name: string }> {
@@ -303,7 +308,13 @@ async function mcpCallMe(
   if (content?.type !== 'text' || !content.text) {
     throw new Error('me call: no text content');
   }
-  return JSON.parse(content.text) as { email: string; handle: string; full_name: string };
+  const payload = JSON.parse(content.text) as {
+    owner?: { email: string; handle: string; full_name: string };
+  };
+  if (!payload.owner) {
+    throw new Error(`me call: payload has no owner block: ${content.text.slice(0, 200)}`);
+  }
+  return payload.owner;
 }
 
 async function generateRandomEd25519Pem(): Promise<string> {

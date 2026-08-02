@@ -149,12 +149,12 @@ func nonNilWaypoints(in []entity.Waypoint) []entity.Waypoint {
 }
 
 func listCodeDenials(deps usecase.CodeACLDeps) fp.Invoke {
-	return func(ctx context.Context, _ string, raw json.RawMessage) (json.RawMessage, error) {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		id, perr := parseCodeID(raw)
 		if perr != nil {
 			return nil, perr
 		}
-		d, err := usecase.ListCodeDenials(ctx, deps, id)
+		d, err := usecase.ListCodeDenials(ctx, deps, ownerID, id)
 		if err != nil {
 			return nil, codeErr(err)
 		}
@@ -207,7 +207,7 @@ type codeCorpusArgs struct {
 // setCodeCorpusDenials —— 整份替换。语料收回是 owner 在一个文本框里编辑的一张清单,
 // 逐条加/删表达不了"存这一版"。
 func setCodeCorpusDenials(deps usecase.CodeACLDeps) fp.Invoke {
-	return func(ctx context.Context, _ string, raw json.RawMessage) (json.RawMessage, error) {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in codeCorpusArgs
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return nil, fp.BadInput("invalid arguments: " + err.Error())
@@ -215,7 +215,8 @@ func setCodeCorpusDenials(deps usecase.CodeACLDeps) fp.Invoke {
 		if err := fp.RequireArgs([2]string{"code_id", in.CodeID}); err != nil {
 			return nil, err
 		}
-		d, err := usecase.SetCodeCorpusDenials(ctx, deps, in.CodeID, nonNilStrings(in.URIs))
+		d, err := usecase.SetCodeCorpusDenials(
+			ctx, deps, ownerID, in.CodeID, nonNilStrings(in.URIs))
 		if err != nil {
 			return nil, codeErr(err)
 		}

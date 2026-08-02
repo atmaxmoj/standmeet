@@ -8,7 +8,7 @@ func connectorsMCPServers() []Entry {
 	return []Entry{
 		// 通用注册表那 9 条(list / catalog / status / create / update / delete /
 		// activate / disconnect / validate_spec)已经由**连接器轴自己声明**
-		// (cmd/server/axis_conn_ops.go),经收口投影到面上;mail_test_send 则归了
+		// (cmd/server/axisconn/ops.go),经收口投影到面上;mail_test_send 则归了
 		// smtp 连接器自己的 manifest。这张表因此不再有它们的行。
 		//
 		// 剩下这四条是浏览器专属的(OAuth 跳转、明文凭据表单):它们本来就只在 admin 上。

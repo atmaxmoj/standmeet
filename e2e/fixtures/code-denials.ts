@@ -79,3 +79,25 @@ export async function listCodeDenials(
   if (res.status() !== 200) throw new Error(`list code denials: ${res.status()}`);
   return await res.json() as CodeDenials;
 }
+
+/** Read the code's deny sets, returning the raw HTTP status (for the not-yours / 4xx paths). */
+export async function listCodeDenialsStatus(
+  request: APIRequestContext, csrf: string, codeId: string,
+): Promise<number> {
+  const res = await request.get(
+    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/denials`,
+    { headers: { 'X-Csrftoken': csrf } },
+  );
+  return res.status();
+}
+
+/** Replace the whole corpus-denial list for a code. Returns HTTP status. */
+export async function setCodeCorpusDenials(
+  request: APIRequestContext, csrf: string, codeId: string, uris: readonly string[],
+): Promise<number> {
+  const res = await request.put(
+    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/denials/corpus`,
+    { data: { uris: [...uris] }, headers: { 'X-Csrftoken': csrf } },
+  );
+  return res.status();
+}

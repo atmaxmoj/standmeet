@@ -1,0 +1,169 @@
+// ops.go —— 资源 connectors:owner 手上这些"连出去的线",由**连接器轴**自己声明。
+//
+// 这一组分两半:
+//
+//	通用注册表   列 / 目录 / 状态 / 建 / 改 / 删 / 激活 / 断开 / 验 spec —— 对任何品类
+//	             都一样,所以住在这里,而且**不认识任何一个品类的名字**。
+//	品类专属     连接器自己在 manifest 里声明(connector.OwnerOp),比如 smtp 的
+//	             connectors.mail_test_send。声明是数据,实现由这一侧按品类契约接上。
+//
+// 拆开之前 mail_test_send 长在通用注册表上,于是通用那层里出现了 "mail" —— 加一个品类专属
+// 动作就得改通用层。现在加一个 = 在那个连接器的 manifest 里加一段。
+
+package axisconn
+
+import (
+	"context"
+	"encoding/json"
+
+	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+
+	"github.com/atmaxmoj/standmeet/internal/connector"
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
+)
+
+// ConnectorResource —— 通用注册表 + 各连接器自己声明的那些。
+func ConnectorResource(d *deps.Runtime) dispatcher.Resource {
+	ops := newConnectorOps(d)
+	return dispatcher.Resource{
+		Name: "connectors",
+		Ops:  append(connectorRegistryOps(ops), connectorDeclaredOps(d)...),
+	}
+}
+
+func connectorRegistryOps(ops connectorOps) []fp.Op {
+	return append([]fp.Op{
+		{
+			ID: "connectors.list",
+			Description: "List the owner's configured connectors with their category, " +
+				"kind, and credential / connected / active state.",
+			InputSchema: fp.NoArgs,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      listConnectors(ops),
+		},
+		{
+			ID: "connectors.catalog",
+			Description: "List the built-in connectors available to connect (id / " +
+				"category / kind); fetch per-connector status and credential forms separately.",
+			InputSchema: fp.NoArgs,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      catalogConnectors(ops),
+		},
+		{
+			ID:          "connectors.status",
+			Description: "Read a single connector's status (category / kind + flags).",
+			InputSchema: connectorIDSchema,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      connectorStatus(ops),
+		},
+	}, connectorWriteOps(ops)...)
+}
+
+var connectorIDSchema = json.RawMessage(`{
+	"type":"object",
+	"properties":{"id":{"type":"string","description":"Connector id."}},
+	"required":["id"]
+}`)
+
+// connectorRowOut —— 一个连接:id / 品类 / kind + 凭据、连上、激活三个状态。
+type connectorRowOut struct {
+	ID             string `json:"id"`
+	Category       string `json:"category"`
+	Kind           string `json:"kind"`
+	HasCredentials bool   `json:"has_credentials"`
+	Connected      bool   `json:"connected"`
+	Active         bool   `json:"active"`
+}
+
+func toConnectorRow(c *connector.Connection) connectorRowOut {
+	return connectorRowOut{
+		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind,
+		HasCredentials: len(c.Credentials) > 0,
+		Connected:      c.Connected, Active: c.Active,
+	}
+}
+
+func toConnectorRows(conns []connector.Connection) []connectorRowOut {
+	rows := make([]connectorRowOut, 0, len(conns))
+	for i := range conns {
+		rows = append(rows, toConnectorRow(&conns[i]))
+	}
+	return rows
+}
+
+func listConnectors(ops connectorOps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
+		conns, err := ops.svc.List(ctx, ownerID)
+		if err != nil {
+			return nil, fp.OpErr("list connectors", err)
+		}
+		return json.Marshal(toConnectorRows(conns))
+	}
+}
+
+func catalogConnectors(ops connectorOps) fp.Invoke {
+	return func(_ context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
+		return json.Marshal(toConnectorRows(ops.svc.Catalog()))
+	}
+}
+
+type connectorIDArgs struct {
+	ID string `json:"id"`
+}
+
+func parseConnectorID(raw json.RawMessage) (string, error) {
+	var in connectorIDArgs
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return "", fp.BadInput("invalid arguments: " + err.Error())
+	}
+	return in.ID, fp.RequireArgs([2]string{"id", in.ID})
+}
+
+func connectorStatus(ops connectorOps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		id, perr := parseConnectorID(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		conn, err := ops.svc.Status(ctx, ownerID, id)
+		if err != nil {
+			return nil, fp.OpErr("read connector status", err)
+		}
+		return json.Marshal(toConnectorRow(&conn))
+	}
+}
+
+// connectorDeclaredOps —— 各内置连接器在自己 manifest 里声明的那些 owner 操作。
+//
+// 声明里的 op 指向品类契约上的一个动作;这一侧按 op 找实现。manifest 声明了一个没人实现的
+// op,启动就炸 —— 那是一句谎话,不能等到 owner 点下去才发现。
+func connectorDeclaredOps(d *deps.Runtime) []fp.Op {
+	impls := connectorOpImpls(d)
+	manifests := loadBuiltinConnectorManifests(d)
+	out := make([]fp.Op, 0, len(manifests))
+	for i := range manifests {
+		out = append(out, declaredOpsOf(&manifests[i], impls)...)
+	}
+	return out
+}
+
+func declaredOpsOf(m *connector.Manifest, impls map[string]fp.Invoke) []fp.Op {
+	out := make([]fp.Op, 0, len(m.OwnerOps))
+	for _, decl := range m.OwnerOps {
+		invoke, ok := impls[decl.Op]
+		if !ok {
+			panic("connector " + m.ID + " declares owner op " + decl.Name +
+				" over unimplemented contract op " + decl.Op)
+		}
+		out = append(out, fp.Op{
+			ID: decl.Name, Description: decl.Description,
+			InputSchema: decl.InputSchema, Kind: fp.Action,
+			Reach: fp.OwnerAction(), Invoke: invoke,
+		})
+	}
+	return out
+}

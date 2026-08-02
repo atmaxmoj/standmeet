@@ -89,7 +89,11 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   test('acl-deny-undo-reissue · deny → clear → reissue → capability back', async () => {
     const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
     expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
-    expect(await clearCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(204);
+    // 200 + 改完的那份清单,跟 POST 同形。曾经是 204(无正文):那样面板改完还得再拉一次,
+    // 而"改成什么样了"只能靠它自己猜。
+    expect(await clearCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(200);
+    const left = await listCodeDenials(seed.request, seed.csrf, code.id);
+    expect(left.capability_ids, 'the denial is really gone, not just a 200').not.toContain(CAP);
     const v = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'eUndo' });
     await expectCalendarBookExposed(seed.request, v.session_token, true);
   });

@@ -291,8 +291,9 @@ linters:
       - path: internal/[a-z0-9]+/ops/
         linters: [wrapcheck]
       # The two plugin axes declare their own resources in the composition root
-      # (cmd/server/axis_*.go) — same job as a domain's ops package, same reason.
-      - path: cmd/server/axis_
+      # (cmd/server/axiscap, cmd/server/axisconn) — same job as a domain's ops
+      # package, same reason.
+      - path: cmd/server/axis(cap|conn)/
         linters: [wrapcheck]
       # Same echo-handler reasoning for middleware as for routes:
       # `func(c echo.Context) error` requires `return c.JSON(...)`.
@@ -422,10 +423,6 @@ linters:
       # J.3: jobs plugin 的 MCP capabilities 跟 internal/mcp 同形态，同
       # schemaless 协议契约 (map[string]any payload)。
       - path: internal/owner/jobs/jobsmcp/
-        linters: [forbidigo]
-      # #135: ownercore 是从 mcphandle 外置出来的 owner-MCP capabilities，跟 mcphandle/jobsmcp
-      # 同 schemaless 协议契约 (map[string]any result payload)，同样豁免裸 any。
-      - path: internal/owner/ownercore/
         linters: [forbidigo]
 
       # facade-parity manifest is a declaration DATA table — line-length / func-length rules

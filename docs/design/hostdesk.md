@@ -1,10 +1,34 @@
 # Host desk — the inbound convergence point (and how a plugin declares what it needs)
 
-**Status:** design (2026-08-01). Completes `constrained-reachback.md`, which fixed the
+**Status: BUILT (2026-08-01/02).** Completes `constrained-reachback.md`, which fixed the
 vocabulary but never built the place that owns it. Mirrors `facade-parity.md` /
 `facade-directions.md` on the inbound side.
 
-## Where we actually are
+## What landed
+
+Everything below, plus the two follow-ons it opened up. Where the text still says
+"will" or "should", read it as the record of the decision, not of pending work.
+
+| Piece | Where it lives | Gate |
+|---|---|---|
+| Inbound vocabulary (`Op`, `Invoke`, socket-path rule) | `internal/infra/hostop` | — |
+| Inbound convergence point (`Collect`, `Serve`) | `internal/routes/hostdesk` | `check-hostops-via-desk` |
+| Ops ordered BY NAME; path derived from the id | `Sandbox.HostOps []string` | `check-axes-declare-in-data` |
+| Periodic jobs: one scheduler, derived schedule | `internal/infra/periodic` | `check-periodic-via-scheduler` |
+| Per-code capability settings + quota as declarations | `capconfig` scope + `capquota` | — |
+| Both axes declare in data | `backend/capabilities/`, `backend/connectors/` | `check-axes-declare-in-data` |
+
+Deleted along the way: the four `*_gateway.go` files, `internal/routes/{owner,report,conversation,inference}`,
+`capsocket.Handle`, `resume_draft_sweep.go`, and booker's three per-code files
+(`booker_code_config.go` / `booker_code_store.go` / `booker_quota.go`).
+
+One thing changed shape versus the design below: **the socket path is derived, not
+declared at all.** The manifest names ops; `hostop.SocketPath(id)` turns the trusted
+plugin id into the path, and the loader injects it as one env var
+(`STANDMEET_HOST_SOCKET`) shared by every capability. Each plugin used to invent its own
+name for that variable, so the same fact had four names.
+
+## Where we were
 
 `constrained-reachback.md` states the target: *"The host OWNS one closed reach-back
 vocabulary. A sandboxed capability may only CALL those ops; it may never ADD an op …
@@ -132,13 +156,30 @@ stops compiling, which is what `constrained-reachback.md` asked for.
 | `cmd/server/mail_sender_gateway.go` | 120 | 1–2 names in the mail-sender manifest |
 | `cmd/server/booker_gateway.go` | 274 | 4 names in the booker manifest |
 
-## Not covered here
+## Not covered here — and how it turned out
 
 The booker host-side leftovers that are **not** reach-back —
 `booker_quota.go` (a per-code booking gate) and `booker_code_config.go` (booker's field
-on an invite code) — are a different missing mechanism: **per-code capability config**.
-Today `capconfig` is per-owner only. Until that exists, those two files are the debt
-made visible, not the debt paid.
+on an invite code) — were a different missing mechanism: **per-code capability config**.
+
+**Built.** `capconfig`'s mount point became a *parameter* (`Scope`: owner or code) rather
+than a second copy of the package, and two new manifest declarations replaced all 294
+lines:
+
+```yaml
+code_config:                 # the fields this capability occupies on an invite code
+  - key: max_bookings
+    type: int
+    default: "null"          # not set = no limit; the "empty" here means something
+quota:                       # allowance, usage, and how a row names its code
+  config_key: max_bookings
+  collection: bookings
+  code_field: code_id
+```
+
+`capquota` executes that, and `Allow`/`Remaining` share one count — they had been two
+separately written hooks, and when booker was externalized only the gate came back, so
+`quota_remaining` was nil for months while the frontend contract still promised it.
 
 ---
 
@@ -150,24 +191,88 @@ made visible, not the debt paid.
 the workspace sweep inside `sandbox_workspaces.go` are **plugin business written in the
 composition root**, for one reason: the ticker and the job registry live there.
 
-## The design
+There was a third loop nobody had counted: corpus's Meili reconcile ticked every 8s for
+its entire life **without ever registering**, so the panel that answers "what runs here"
+had never heard of it. A hand-written loop forgets the bookkeeping — that is the failure
+mode, not the loop itself.
+
+## The design — as built
+
+`internal/infra/periodic` owns the loop, the interval and the bookkeeping. Each side owns
+only *what to do*, and declares it where that knowledge lives:
 
 ```go
-// mcpplugin.Manifest
-Jobs []PeriodicJob
-
-type PeriodicJob struct {
+type Job struct {
+    Run   Run           // what to do
     Name  string        // "resume-draft sweep" — shown on the Monitor panel
-    Every time.Duration
-    Op    string        // the host op to call — same vocabulary as HostOps
+    Every time.Duration // how often; the panel's schedule string is DERIVED from this
 }
 ```
 
-The host owns one scheduler: register with `jobRegistry` → run once at boot (so
-`last_run` has a definite value) → ticker → `Report(ok|error)`.
+Three declaration sites, one per kind of owner:
 
-The split is fixed: **what to do** is whatever `Op` names (it lives in a domain or a
-plugin); **when to do it, and the bookkeeping** belong to the host. Declaration is data,
-exactly like `OwnerTools`, `Config`, `connector.OwnerOps` and `HostOps`.
+| Who | How it declares |
+|---|---|
+| a plugin | `capabilities.PeriodicWorker` — a new optional hook beside `CapabilityRegistrar` / `AdminRouter` |
+| an axis's own subsystem | its own `periodic.go` (`sandboxws.Manager.PeriodicJobs`) |
+| a domain | its own usecase (`corpus.IndexPeriodicJobs`) |
 
-Both sweep loops collapse into one line each in their manifest.
+The composition root collects them, one line per source, and starts them.
+
+Two things are structural rather than remembered. **Registration belongs to the
+scheduler**, so a job cannot run unseen. And the schedule string shown on the panel is
+computed from the interval that actually fires — it used to be hand-written *next to* the
+interval, i.e. two sources for one fact, free to say "every 5m" while the ticker fired
+hourly.
+
+The original sketch routed the work through a host `Op` named in the manifest. That was
+wrong for these three: none of them belong to a sandboxed capability, and running them
+through the socket would have meant a round trip to reach code already in the process.
+The declaration is the same shape; only the callee is direct.
+
+---
+
+# The two axes get the same address
+
+Once a capability's declaration stopped being wiring, it stopped belonging in the wiring
+directory. `backend/capabilities/<id>/manifest.yaml` now mirrors `backend/connectors/<id>/manifest.yaml`
+exactly — two plugin axes, one address structure, both `go:embed`'d, both read by a small
+loader that translates the on-disk shape into the host's shape.
+
+What that removed, beyond the 250 lines of Go literals: the socket path is no longer
+authored anywhere. `host_ops` names *what* a capability wants; `hostop.SocketPath(id)`
+derives *where*, from an id the host trusts; the loader injects it as
+`STANDMEET_HOST_SOCKET` — one variable name for every capability, where there used to be
+four names for the same fact and four hand-written paths to keep in sync with them.
+
+A capability that orders nothing gets no socket and no variable. Offline by construction,
+not by remembering to leave a field empty.
+
+`check-axes-declare-in-data` holds both halves: no `mcpplugin.Manifest` literal outside
+the loader, and no socket path inside a declaration.
+
+---
+
+# The composition root
+
+`cmd/server` had grown to 36 files with no filing rule — the filename could not answer
+"what is this doing here?". Six prefixes now do, stated in `cmd/server/doc.go`:
+`main.go`, `boot_*`, `wire_*`, `axis_cap_*`, `axis_conn_*`, `port_*`, `cmd_*`.
+
+`port_*` is the one worth naming explicitly: the root **implementing a narrow port a
+domain declared**. That is the shape that keeps a domain from having to know about
+`owner` / `inference` / redis in return, and it had been scattered under five different
+suffixes (`*_adapters.go`, `*_adapter.go`, `*_validators.go`, and two files named after
+the thing they implement).
+
+---
+
+# What is still open
+
+**`ownercore` is down to one tool: `writing_create`.** Everything else went home to its
+domain. That last one is blocked on a product decision, not a mechanism: the admin face
+posts multipart (inline images travel with the form) while MCP posts a list of URLs for
+the server to fetch — a byte stream does not fit through a JSON op. Unifying them means
+first splitting "upload an asset" into its own step, which is the same work as giving
+every genre attachments / images / a hero image. When that lands, the package is deleted
+outright.

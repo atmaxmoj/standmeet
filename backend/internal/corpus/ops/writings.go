@@ -1,8 +1,8 @@
-// writings.go —— owner 的长文:列出 / 发布 / 取消发布 / 删除。
+// writings.go —— owner 的长文:建 / 列出 / 发布 / 取消发布 / 删除。
 //
-// 写(save)不在这儿:面板那边它是 multipart(正文里的内联图片跟表单一起传),MCP 那边是
-// 一串 URL 让服务端去取。字节流进不了一个 JSON op —— 要并成一个,得先把"上传素材"拆成
-// 独立一步,那会动到编辑器的保存路径。这是**已知的欠账**,不是"这条不该统一"。
+// 建那一条的声明单独一个文件(writings_create.go),因为它带着一份自己的欠账:admin 面还
+// 走手写的 multipart 路由,所以它的 Reach 是 Only(理由, "mcp")。差异登记在收口里,不是
+// 靠躲在收口外面。
 //
 // MCP 那份列表以前只有一行摘要(没有正文、地址、阅读时长、配图 URL),于是 owner 从
 // Claude Code 看不到自己写了什么,只看得到标题。现在两个面同一份完整记录。
@@ -34,9 +34,10 @@ type WritingsDeps struct {
 	Log      *slog.Logger
 }
 
-// Writings —— 列出 / 发布 / 取消发布 / 删除。
+// Writings —— 建 / 列出 / 发布 / 取消发布 / 删除。
 func Writings(deps WritingsDeps) []fp.Op {
 	return []fp.Op{
+		writingsCreateOp(deps),
 		{
 			ID: "writings.list",
 			Description: "List every writing, draft and published, newest first, with body " +

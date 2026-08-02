@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/url"
 
+	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
@@ -32,7 +34,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
-	"github.com/atmaxmoj/standmeet/internal/owner/ownercore"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
@@ -133,7 +134,7 @@ type deferredWiring struct {
 
 func assembleRuntimeDeps(
 	log *slog.Logger, cfg *config.Config, c *conns, repos *repoSet, dw *deferredWiring,
-) runtimeDeps {
+) deps.Runtime {
 	captchaVerifier := security.NewFromConfig(
 		security.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
 	)
@@ -141,67 +142,67 @@ func assembleRuntimeDeps(
 	// 词法检索(Meili)。MEILI_URL 空 → searchClient/indexer 为 nil,检索退 Postgres 全文、写不索引。
 	searchClient := search.New(cfg.MeiliURL, cfg.MeiliKey)
 	corpusIndexer := corpus.NewCorpusIndexer(searchClient, repos.vaultSync, log)
-	return runtimeDeps{
-		log: log, db: c.db, rdb: c.rdb,
-		instanceRepo: repos.instance, ownerRepo: repos.owner,
-		keypairRepo: repos.keypair, rawRepo: repos.raw, wikiRepo: repos.wiki,
-		subjectivityRepo: repos.subjectivity,
-		vaultSyncRepo:    repos.vaultSync,
-		noteRefRepo:      repos.noteRef,
-		outputRepo:       repos.output,
-		growthRepo:       repos.growth,
-		activityRepo:     repos.activity,
-		jobRegistry:      stats.NewJobRegistry(),
-		corpus:           corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
-		codeRepo:         repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
-		seoRepo:            repos.seo,
-		customPageRepo:     repos.customPage,
-		customBuildRepo:    repos.customBuild,
-		accessRequestRepo:  repos.accessRequest,
-		jobSourceRepo:      repos.jobSource,
-		resumeDraftRepo:    repos.resumeDraft,
-		applicationRepo:    repos.application,
-		skillRepo:          repos.skill,
-		mcpServerRepo:      repos.mcpServer,
-		promptRepo:         repos.prompt,
-		roleRepo:           repos.role,
-		writingRepo:        repos.writing,
-		writingRefRepo:     repos.writingRef,
-		assetRepo:          repos.asset,
-		mailRepo:           repos.mailConnector,
-		capabilityRepo:     repos.capability,
-		ghostRepo:          repos.ghost,
-		chatReportRepo:     repos.chatReport,
-		inferenceUsageRepo: repos.inferenceUsage,
-		bannedIPRepo:       repos.bannedIP,
-		apiKeyRepo:         repos.apiKey,
-		appStateRepo:       repos.appState,
-		connectorRepo:      repos.connector,
-		storageClient:      dw.storageClient,
-		jobCachePool:       jobcache.New(c.rdb, 0),
-		jobFetchRegistry:   newJobFetchRegistry(cfg),
-		sessionStore:       session.NewOwnerSessionStore(c.rdb),
-		visitorStore:       access.NewVisitorSessionStore(c.rdb),
-		queryQueue:         session.NewQueryQueue(cfg.QueryQueueMaxConcurrent),
-		providerResolver:   dw.providerResolver,
-		setupTokenHolder:   dw.setupTokenHolder,
-		captchaVerifier:    captchaVerifier,
-		captchaEnabled:     cfg.TurnstileSiteKey != "" && cfg.TurnstileSecret != "",
-		captchaSiteKey:     captchaSiteKeyFor(cfg),
-		secureCookie:       cfg.SecureCookie,
-		buildsRoot:         cfg.CustomPagesRoot,
-		sandboxRunner:      sandbox.FromEnv(cfg.SandboxDriver),
-		printStore:         printStore,
-		pdfRenderer:        buildPDFRenderer(log, cfg, printStore),
-		reportPDFRenderer:  buildReportPDFRenderer(cfg),
-		marketplaceClient: marketplace.NewFromEnv(
+	return deps.Runtime{
+		Log: log, DB: c.db, RDB: c.rdb,
+		InstanceRepo: repos.instance, OwnerRepo: repos.owner,
+		KeypairRepo: repos.keypair, RawRepo: repos.raw, WikiRepo: repos.wiki,
+		SubjectivityRepo: repos.subjectivity,
+		VaultSyncRepo:    repos.vaultSync,
+		NoteRefRepo:      repos.noteRef,
+		OutputRepo:       repos.output,
+		GrowthRepo:       repos.growth,
+		ActivityRepo:     repos.activity,
+		JobRegistry:      stats.NewJobRegistry(),
+		Corpus:           corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
+		CodeRepo:         repos.code, CodeDenialRepo: repos.codeDenial, ChatRepo: repos.chat,
+		SEORepo:            repos.seo,
+		CustomPageRepo:     repos.customPage,
+		CustomBuildRepo:    repos.customBuild,
+		AccessRequestRepo:  repos.accessRequest,
+		JobSourceRepo:      repos.jobSource,
+		ResumeDraftRepo:    repos.resumeDraft,
+		ApplicationRepo:    repos.application,
+		SkillRepo:          repos.skill,
+		MCPServerRepo:      repos.mcpServer,
+		PromptRepo:         repos.prompt,
+		RoleRepo:           repos.role,
+		WritingRepo:        repos.writing,
+		WritingRefRepo:     repos.writingRef,
+		AssetRepo:          repos.asset,
+		MailRepo:           repos.mailConnector,
+		CapabilityRepo:     repos.capability,
+		GhostRepo:          repos.ghost,
+		ChatReportRepo:     repos.chatReport,
+		InferenceUsageRepo: repos.inferenceUsage,
+		BannedIPRepo:       repos.bannedIP,
+		APIKeyRepo:         repos.apiKey,
+		AppStateRepo:       repos.appState,
+		ConnectorRepo:      repos.connector,
+		StorageClient:      dw.storageClient,
+		JobCachePool:       jobcache.New(c.rdb, 0),
+		JobFetchRegistry:   newJobFetchRegistry(cfg),
+		SessionStore:       session.NewOwnerSessionStore(c.rdb),
+		VisitorStore:       access.NewVisitorSessionStore(c.rdb),
+		QueryQueue:         session.NewQueryQueue(cfg.QueryQueueMaxConcurrent),
+		ProviderResolver:   dw.providerResolver,
+		SetupTokenHolder:   dw.setupTokenHolder,
+		CaptchaVerifier:    captchaVerifier,
+		CaptchaEnabled:     cfg.TurnstileSiteKey != "" && cfg.TurnstileSecret != "",
+		CaptchaSiteKey:     captchaSiteKeyFor(cfg),
+		SecureCookie:       cfg.SecureCookie,
+		BuildsRoot:         cfg.CustomPagesRoot,
+		SandboxRunner:      sandbox.FromEnv(cfg.SandboxDriver),
+		PrintStore:         printStore,
+		PdfRenderer:        buildPDFRenderer(log, cfg, printStore),
+		ReportPDFRenderer:  buildReportPDFRenderer(cfg),
+		MarketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
-		agentSkills: capreg.NewRegistry(),
+		AgentSkills: capreg.NewRegistry(),
 		// capStores —— wireCapabilityStorage 按各能力的声明填(provision 一次)。
-		capStores:     map[string]*capstore.Store{},
-		searchClient:  searchClient,
-		corpusIndexer: corpusIndexer,
+		CapStores:     map[string]*capstore.Store{},
+		SearchClient:  searchClient,
+		CorpusIndexer: corpusIndexer,
 		// J.5: pluginRegistry 在 assembleRuntimeDeps 返回后由 caller 用全
 		// 套 deps 构造 (jobs.Plugin 需要 *jobsuc.JobsDeps 等闭包持引用)。
 		// 这里留 nil 让 lint 看到字段被用；wirePluginRegistry 后再回填。
@@ -215,26 +216,27 @@ func assembleRuntimeDeps(
 // 入参 *runtimeDeps：jobs.Plugin 需要 *jobsuc.JobsDeps / ResumeDeps /
 // ApplicationsDeps 等闭包持引用；这些 Deps 字段在 assembleRuntimeDeps
 // 跑完之后才齐，所以本函数在 assemble 之后再调一次。
-func buildPluginRegistry(d *runtimeDeps) *capabilities.Registry {
+func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 	reg := capabilities.NewRegistry()
 	jobsDeps := jobsuc.JobsDeps{
-		Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
+		Sources: d.JobSourceRepo, Cache: d.JobCachePool, Registry: d.JobFetchRegistry,
 	}
-	resumeDeps := jobsuc.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool}
+	resumeDeps := jobsuc.ResumeDeps{Drafts: d.ResumeDraftRepo, Cache: d.JobCachePool}
 	appsDeps := jobsuc.ApplicationsDeps{
-		Apps: d.applicationRepo, Owners: d.ownerRepo,
-		Roles: d.roleRepo, Renderer: d.pdfRenderer,
+		Apps: d.ApplicationRepo, Owners: d.OwnerRepo,
+		Roles: d.RoleRepo, Renderer: d.PdfRenderer,
 	}
 	reg.Register(pluginjobs.New(pluginjobs.Deps{
 		Jobs:         &jobsDeps,
 		Resume:       &resumeDeps,
 		Applications: &appsDeps,
-		DraftsRepo:   d.resumeDraftRepo,
-		AppsRepo:     d.applicationRepo,
-		SourcesRepo:  d.jobSourceRepo,
-		Log:          d.log,
+		DraftsRepo:   d.ResumeDraftRepo,
+		AppsRepo:     d.ApplicationRepo,
+		SourcesRepo:  d.JobSourceRepo,
+		Log:          d.Log,
 	}))
-	reg.Register(ownercore.New(buildOwnerCoreDeps(d)))
+	// 这儿曾经还有一句 ownercore —— 那个包装着全部 owner-MCP 能力,一个跨域的大杂烩。
+	// 它的最后一个操作(写长文)已经回 corpus 域了,包整个删掉。
 	return reg
 }
 

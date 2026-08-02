@@ -20,7 +20,9 @@ const OWNER = {
 };
 
 interface ToolCallResult { content?: Array<{ type: string; text?: string }>; isError?: boolean }
-interface MeResp { email: string; handle: string; full_name: string }
+// MeResp —— `me` 的载荷是 {owner:{…}, settings:{…}}。两个面同一份载荷之后,MCP 不再有
+// 自己那份扁平的;按扁平解会得到一串 undefined,而失败信息看不出是形状变了。
+interface MeResp { owner?: { email: string; handle: string; full_name: string } }
 
 test.describe('Phase C-3 @standmeet/mcp-client stdio bridge', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -52,8 +54,9 @@ test.describe('Phase C-3 @standmeet/mcp-client stdio bridge', () => {
         const content = result.content?.[0];
         expect(content?.type).toBe('text');
         const me = JSON.parse(content?.text ?? '{}') as MeResp;
-        expect(me.email).toBe(OWNER.email);
-        expect(me.handle).toBe(OWNER.handle);
+        expect(me.owner, 'me returns an owner block').toBeTruthy();
+        expect(me.owner?.email).toBe(OWNER.email);
+        expect(me.owner?.handle).toBe(OWNER.handle);
       } finally {
         client.close();
       }

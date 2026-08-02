@@ -16,11 +16,16 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
+
+	"github.com/atmaxmoj/standmeet/cmd/server/axiscap"
+	"github.com/atmaxmoj/standmeet/cmd/server/axisconn"
+	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	"github.com/atmaxmoj/standmeet/cmd/server/wire"
 
 	// time/tzdata 把 IANA 时区库嵌进二进制 —— 静态 CGO_ENABLED=0 binary 跑在不带 tzdata 的
 	// 镜像时 time.LoadLocation("America/Toronto") 这类命名时区否则会失败(booking working-hours
 	// 评估对每个候选 slot 报错 → list_slots 永远 0 候选)。嵌进二进制保证任何 owner tz 都能加载。
-	_ "time/tzdata"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -113,22 +118,22 @@ func wireAndServe(
 	if serr != nil {
 		return serr
 	}
-	deps := assembleRuntimeDeps(log, cfg, c, repos, &deferredWiring{
+	rt := assembleRuntimeDeps(log, cfg, c, repos, &deferredWiring{
 		providerResolver: providerResolver,
 		setupTokenHolder: setupTokenHolder,
 		storageClient:    storageClient,
 	})
 	// must precede buildPluginRegistry: owner-MCP caps capture the connector dispatcher there.
-	ensureConnectorSlots(&deps)
+	axisconn.EnsureConnectorSlots(&rt)
 	// 各能力自己的隔离存储先备好:出站收口(码上的字段)、入站收口(沙箱读写)、用量闸
 	// 三条路都从同一份取,provision 只跑这一次。
-	wireCapabilityStorage(ctx, &deps)
-	deps.pluginRegistry = buildPluginRegistry(&deps)
+	axiscap.CapabilityStorageInit(ctx, &rt)
+	rt.PluginRegistry = buildPluginRegistry(&rt)
 	// 出站收口只建一个:MCP 面和 admin 面必须投影自**同一份**声明,否则 parity 无从谈起。
-	deps.dispatch = buildDispatcher(&deps)
-	registerAgentSkills(ctx, &deps)
-	runBootMaintenance(ctx, &deps)
-	return serve(ctx, &deps, net.JoinHostPort(cfg.Host, cfg.Port), stop)
+	rt.Dispatch = wire.BuildDispatcher(&rt)
+	registerAgentSkills(ctx, &rt)
+	runBootMaintenance(ctx, &rt)
+	return serve(ctx, &rt, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }
 
 // initStorage —— 启动时 init MinIO + ensure bucket。STORAGE_ENDPOINT 已经
@@ -252,35 +257,35 @@ func closeRedis(log *slog.Logger, rdb *redis.Client) {
 	}
 }
 
-func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.CancelFunc) error {
+func serve(ctx context.Context, rt *deps.Runtime, addr string, stop context.CancelFunc) error {
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           New(buildServerDeps(deps)),
+		Handler:           New(buildServerDeps(rt)),
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 		ReadTimeout:       httpReadTimeout,
 		WriteTimeout:      httpWriteTimeout,
 		IdleTimeout:       httpIdleTimeout,
 	}
 
-	deps.log.Info("plugins enabled", "names", deps.pluginRegistry.Names())
+	rt.Log.Info("plugins enabled", "names", rt.PluginRegistry.Names())
 
 	go func() {
-		deps.log.Info("server starting", "addr", srv.Addr)
+		rt.Log.Info("server starting", "addr", srv.Addr)
 		if lerr := srv.ListenAndServe(); lerr != nil && !errors.Is(lerr, http.ErrServerClosed) {
-			deps.log.Error("listen", "err", lerr)
+			rt.Log.Error("listen", "err", lerr)
 			stop()
 		}
 	}()
 
 	<-ctx.Done()
-	deps.log.Info("server stopping")
+	rt.Log.Info("server stopping")
 
 	// shutdown 用 ctx 派生但去掉 cancel 信号，再加超时；这样 contextcheck
 	// 不报"new context"且 graceful shutdown 不会被原 ctx 立即终止。
 	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 	defer cancel()
 	if serr := srv.Shutdown(shutdownCtx); serr != nil {
-		deps.log.Warn("shutdown", "err", serr)
+		rt.Log.Warn("shutdown", "err", serr)
 	}
 
 	return nil

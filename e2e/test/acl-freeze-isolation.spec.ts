@@ -11,7 +11,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { expectCalendarBookExposed } from '@/fixtures/agent-skills-grant';
 import { setCapabilityEnabled, sessionToolNames } from '@/fixtures/capabilities';
-import { setCodeCapabilityDenial } from '@/fixtures/code-denials';
+import {
+  setCodeCapabilityDenial, listCodeDenialsStatus, setCodeCorpusDenials,
+} from '@/fixtures/code-denials';
 import { createCode } from '@/fixtures/codes';
 import { createRole } from '@/fixtures/roles';
 import { OWNER, seedOwnerGCalConnected, teardownSeed, type BaseSeed } from '@/fixtures/gcal-setup';
@@ -102,9 +104,20 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
     expect(tools).not.toContain('corpus_search');
   });
 
-  test('acl-code-denial-scoped-to-owner · deny on a code not owned by this owner → 4xx', async () => {
-    const foreignCodeID = '00000000-0000-0000-0000-000000000000';
-    const status = await setCodeCapabilityDenial(seed.request, seed.csrf, foreignCodeID, CAP);
-    expect([403, 404]).toContain(status);
-  });
+  // 一张码的 ACL 是 owner 的东西:**读、写、整份替换**三条路都要先问"这张码是不是你的"。
+  // 只测写那一条是不够的 —— 归属检查漏掉过一次,而漏的方式正是"某一条路没问"。
+  // 不存在的 id 和别人的 id 给同一个答案:否则这个端点就成了一台"这个 id 存在吗"的探测器。
+  test('acl-code-denial-scoped-to-owner · a code not owned by this owner is 4xx on every ACL path',
+    async () => {
+      const foreign = '00000000-0000-0000-0000-000000000000';
+
+      const write = await setCodeCapabilityDenial(seed.request, seed.csrf, foreign, CAP);
+      expect([403, 404], `write denial: got ${write}`).toContain(write);
+
+      const read = await listCodeDenialsStatus(seed.request, seed.csrf, foreign);
+      expect([403, 404], `read denials: got ${read}`).toContain(read);
+
+      const replace = await setCodeCorpusDenials(seed.request, seed.csrf, foreign, ['wiki://**']);
+      expect([403, 404], `replace corpus denials: got ${replace}`).toContain(replace);
+    });
 });

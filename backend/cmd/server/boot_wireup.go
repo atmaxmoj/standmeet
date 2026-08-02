@@ -7,6 +7,13 @@ package main
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/cmd/server/axiscap"
+	"github.com/atmaxmoj/standmeet/cmd/server/axisconn"
+	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	"github.com/atmaxmoj/standmeet/cmd/server/port"
+	"github.com/atmaxmoj/standmeet/cmd/server/wire"
+	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
+
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/capload"
@@ -22,11 +29,11 @@ import (
 
 // buildServerDeps —— 把每个 sub-router 的 Deps 块组装出来。serve() 不再
 // 直接铺开 50+ 行 struct literal，function-length lint 友好。
-func buildServerDeps(d *runtimeDeps) *Deps {
+func buildServerDeps(d *deps.Runtime) *Deps {
 	return &Deps{
-		DB:                   d.db,
-		Redis:                d.rdb,
-		Log:                  d.log,
+		DB:                   d.DB,
+		Redis:                d.RDB,
+		Log:                  d.Log,
 		Admin:                buildAdminDeps(d),
 		Public:               buildPublicDeps(d),
 		PubAPI:               buildPubAPIDeps(d),
@@ -36,167 +43,153 @@ func buildServerDeps(d *runtimeDeps) *Deps {
 		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:  buildPublicPasswordResetDeps(d),
 		PublicWritings: publicroutes.WritingHandlers{
-			Writings: corpus.WritingsDeps{Writings: d.writingRepo},
+			Writings: corpus.WritingsDeps{Writings: d.WritingRepo},
 			CrossLink: corpus.CrossLinkQueryDeps{
-				Writings: d.writingRepo, WritingRefs: d.writingRefRepo,
+				Writings: d.WritingRepo, WritingRefs: d.WritingRefRepo,
 			},
-			Page:   owner.PageDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
-			Assets: corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
-			Log:    d.log,
+			Page:   owner.PageDeps{Owners: d.OwnerRepo, Wiki: d.WikiRepo},
+			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
+			Log:    d.Log,
 		},
-		Builds:       sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
-		TLSAsk:       sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
-		PrintSession: sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
-		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.agentSkills, Log: d.log},
+		Builds:       sysroutes.BuilderDeps{Log: d.Log, Builds: d.CustomBuildRepo},
+		TLSAsk:       sysroutes.TLSAskDeps{Log: d.Log, Domains: d.InstanceRepo},
+		PrintSession: sysroutes.PrintSessionDeps{Log: d.Log, Store: d.PrintStore},
+		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.AgentSkills, Log: d.Log},
 		DiagSession:  buildDiagSessionDeps(d),
 		DiagConnector: sysroutes.DiagConnectorDeps{
-			Calendar:  d.connectorSlots.ConnectorCalendar,
-			Mail:      d.connectorSlots.ConnectorMail,
-			AgentCall: d.connectorSlots.AgentCall,
-			Log:       d.log,
+			Calendar:  d.ConnectorSlots.ConnectorCalendar,
+			Mail:      d.ConnectorSlots.ConnectorMail,
+			AgentCall: d.ConnectorSlots.AgentCall,
+			Log:       d.Log,
 		},
 		DiagSandbox: sysroutes.DiagSandboxDeps{
-			Workspaces: d.sandboxWorkspaces, Log: d.log,
+			Workspaces: d.SandboxWorkspaces, Log: d.Log,
 		},
 		MCP:             buildMCPDeps(d),
-		CaptchaVerifier: d.captchaVerifier,
-		CaptchaEnabled:  d.captchaEnabled,
-		PluginRegistry:  d.pluginRegistry,
-		BannedIPs:       d.bannedIPRepo,
-		Dispatch:        d.dispatch,
+		CaptchaVerifier: d.CaptchaVerifier,
+		CaptchaEnabled:  d.CaptchaEnabled,
+		PluginRegistry:  d.PluginRegistry,
+		BannedIPs:       d.BannedIPRepo,
+		Dispatch:        d.Dispatch,
 	}
 }
 
 // runBootMaintenance —— boot 时一次性维护(best-effort,失败只 warn 不阻断启动)。
 // #106: 清 >7 天的 inference_usage 老行(7 天小表,查询本就只看 7 天)。
-func runBootMaintenance(ctx context.Context, d *runtimeDeps) {
-	if cerr := d.inferenceUsageRepo.Cleanup(ctx); cerr != nil {
-		d.log.Warn("inference usage cleanup", "err", cerr)
+func runBootMaintenance(ctx context.Context, d *deps.Runtime) {
+	if cerr := d.InferenceUsageRepo.Cleanup(ctx); cerr != nil {
+		d.Log.Warn("inference usage cleanup", "err", cerr)
 	}
 }
 
-func buildAdminDeps(d *runtimeDeps) AdminDeps {
+func buildAdminDeps(d *deps.Runtime) AdminDeps {
 	return AdminDeps{
 		Claim: owner.ClaimDeps{
-			Instance: d.instanceRepo, Skills: d.skillRepo,
-			Prompts: d.promptRepo, Roles: d.roleRepo,
+			Instance: d.InstanceRepo, Skills: d.SkillRepo,
+			Prompts: d.PromptRepo, Roles: d.RoleRepo,
 		},
-		Login:    owner.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
-		Keypairs: keypairDeps(d),
+		Login:    owner.LoginDeps{Owners: d.OwnerRepo, Sessions: d.SessionStore},
+		Keypairs: port.KeypairDeps(d),
 		Corpus: corpus.Deps{
-			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
-			Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo, Index: d.corpusIndexer,
+			Raw: d.RawRepo, Wiki: d.WikiRepo, Output: d.OutputRepo, NoteRefs: d.NoteRefRepo,
+			Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo, Index: d.CorpusIndexer,
 		},
 		Conversations: conversation.ConversationsDeps{
-			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
-			Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
+			Chats: d.ChatRepo, Wiki: d.WikiRepo, Writing: d.WritingRepo, Output: d.OutputRepo,
+			Subjectivity: corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),
 		},
-		Ghosts: conversation.GhostDeps{Repo: d.ghostRepo},
-		BYOAI:  owner.BYOAIDeps{Owners: d.ownerRepo},
+		Ghosts: conversation.GhostDeps{Repo: d.GhostRepo},
+		BYOAI:  owner.BYOAIDeps{Owners: d.OwnerRepo},
 		AccessRequests: access.RequestsDeps{
-			Repo:   d.accessRequestRepo,
-			Owners: soleOwnerLookup{owners: d.ownerRepo},
+			Repo:   d.AccessRequestRepo,
+			Owners: port.NewSoleOwnerLookup(d),
 		},
-		HandleAdmin:    owner.HandleDeps{Owners: d.ownerRepo},
-		PublicURLAdmin: owner.PublicURLDeps{Owners: d.ownerRepo},
-		AccountAdmin:   owner.AccountDeps{Owners: d.ownerRepo},
-		Recovery:       recoveryDeps(d),
-		AIProvider:     owner.AIProviderDeps{Owners: d.ownerRepo, Providers: inferenceProviders{}},
-		CustomPages:    owner.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
-		Skills:         marketplace.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
-		Prompts:        owner.PromptsDeps{Prompts: d.promptRepo},
+		HandleAdmin:    owner.HandleDeps{Owners: d.OwnerRepo},
+		PublicURLAdmin: owner.PublicURLDeps{Owners: d.OwnerRepo},
+		AccountAdmin:   owner.AccountDeps{Owners: d.OwnerRepo},
+		Recovery:       port.RecoveryDeps(d),
+		AIProvider: owner.AIProviderDeps{
+			Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
+		},
+		CustomPages: owner.CustomPageDeps{Pages: d.CustomPageRepo, Builds: d.CustomBuildRepo},
+		Skills:      marketplace.SkillsDeps{Skills: d.SkillRepo, Codes: d.CodeRepo},
+		Prompts:     owner.PromptsDeps{Prompts: d.PromptRepo},
 		Roles: access.RolesDeps{
-			Roles: d.roleRepo,
-			Refs: roleRefValidator{
-				prompts: d.promptRepo, skills: d.skillRepo, servers: d.mcpServerRepo,
-			},
+			Roles: d.RoleRepo,
+			Refs:  port.NewRoleRefValidator(d),
 		},
-		MCPServers:   marketplace.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
-		Assets:       corpus.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
-		Writings:     corpus.WritingsDeps{Writings: d.writingRepo},
-		WritingRefs:  d.writingRefRepo,
-		SEO:          d.seoRepo,
-		Codes:        d.codeRepo,
-		CodeDenials:  d.codeDenialRepo,
-		Owners:       d.ownerRepo,
-		Drafts:       d.resumeDraftRepo,
-		Applications: d.applicationRepo,
-		Marketplace:  marketplace.SearchDeps{Client: d.marketplaceClient},
+		MCPServers:   marketplace.MCPServersDeps{Servers: d.MCPServerRepo, Codes: d.CodeRepo},
+		Assets:       corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
+		Writings:     corpus.WritingsDeps{Writings: d.WritingRepo},
+		WritingRefs:  d.WritingRefRepo,
+		SEO:          d.SEORepo,
+		Codes:        d.CodeRepo,
+		CodeDenials:  d.CodeDenialRepo,
+		Owners:       d.OwnerRepo,
+		Drafts:       d.ResumeDraftRepo,
+		Applications: d.ApplicationRepo,
+		Marketplace:  marketplace.SearchDeps{Client: d.MarketplaceClient},
 		Connectors:   connectorsAdminDeps(d),
 		ApproveRequests: owner.ApproveRequestDeps{
-			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-			Owners: d.ownerRepo, Proxy: outboundSender(d),
+			Reqs: d.AccessRequestRepo, Codes: d.CodeRepo, Roles: d.RoleRepo,
+			Owners: d.OwnerRepo, Proxy: port.OutboundSender(d),
 		},
-		Sessions:     d.sessionStore,
-		SecureCookie: d.secureCookie,
+		Sessions:     d.SessionStore,
+		SecureCookie: d.SecureCookie,
 	}
 }
 
 // buildDiagSessionDeps —— deps for /internal/diag/session.
 // Capability 自身闭包持 deps，本 deps 只装 session store + registry。
-func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
+func buildDiagSessionDeps(d *deps.Runtime) sysroutes.DiagSessionDeps {
 	return sysroutes.DiagSessionDeps{
-		Sessions: d.visitorStore,
-		Registry: d.agentSkills,
-		Log:      d.log,
+		Sessions: d.VisitorStore,
+		Registry: d.AgentSkills,
+		Log:      d.Log,
 	}
 }
 
 // registerAgentSkills —— 把 visitor-side + owner-side 内建 capability 都
 // 注册进 d.agentSkills。跟 build*Deps 共享底层 repo 引用；run() 阶段调用
 // 一次，capability 闭包持 deps，server 跑期间 deps 不再变。
-func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
-	wireSandboxWorkspaces(d)
+func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
+	axiscap.SandboxWorkspaces(d)
 	// connector 命名依赖注册表一处建、一处 set：ext-mcp dep-grant 闸（工具 _meta.requires
 	// 按 grant+connected 放行）与 registerDiscoveredPlugins 的 Requires 校验共用同一份。
-	depReg := connectorDepRegistry(ctx, d)
-	d.agentSkills.SetDepRegistry(depReg)
+	depReg := axisconn.DepRegistry(ctx, d)
+	d.AgentSkills.SetDepRegistry(depReg)
 	skills := buildVisitorSkillsDeps(d)
 	skills.DepConnected = depReg
-	capload.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
-	// #135: owner-MCP caps are no longer core-registered here — the ownercore plugin (+ jobs)
-	// register them via RegisterAllCapabilities below, into the same capreg.Registry, no dup IDs.
-	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
+	capload.RegisterVisitorSkills(d.AgentSkills, &skills, d.ChatRepo)
+	// 插件把自己的能力注册进同一个 capreg.Registry(重 ID 由 capreg 兜底 panic)。
+	// owner-MCP 那一整套已经不在这条路上了:每个操作由自己的域声明,经出站收口投影到 MCP 面。
+	d.PluginRegistry.RegisterAllCapabilities(d.AgentSkills)
 	// 入站收口:每个能力在自己的 manifest 里按名字点单,这一句照着发。原来这里是四个手写
 	// 网关(summarize / booker / mail-sender / retrieval),各自站一个 socket、各自挂动词。
-	wireHostDesk(ctx, d, &skills)
-	wireSearchIndex(ctx, d)
+	wire.HostDesk(ctx, d, &skills)
+	wire.SearchIndex(ctx, d)
 	hooks := map[string]capload.CapHooks{
 		"corpus.retrieval": {Fragment: capload.CorpusScopeVisible},
 	}
 	// 用量闸按各能力 manifest 里的 Quota 声明装上(闸 + 余量共用一条计数)。
-	capabilityQuotaHooks(d, hooks)
-	registerDiscoveredPlugins(d, depReg, hooks)
-	wireCapabilityEnableGate(d)
+	axiscap.CapabilityQuotaHooks(d, hooks)
+	axiscap.RegisterDiscoveredPlugins(d, depReg, hooks)
+	axiscap.CapabilityEnableGate(d)
 	// 周期任务:各处声明,一份调度。放最后 —— 插件都注册完了,声明才齐。
-	wirePeriodicJobs(ctx, d)
-}
-
-// wireCapabilityEnableGate —— Phase H: 把 owner-enable 闸接到 registry。访客
-// 装配时 registry 据此把 owner 关掉的 capability 摘掉。DB 错 → fail-open
-// (返 nil = 全开)，保 availability，不让一次读失败把所有能力都拦了。
-func wireCapabilityEnableGate(d *runtimeDeps) {
-	d.agentSkills.SetEnableGate(func(ctx context.Context, ownerID string) map[string]bool {
-		disabled, err := d.capabilityRepo.DisabledSet(ctx, ownerID)
-		if err != nil {
-			d.log.Warn("capability enable-gate load", "err", err, "owner", ownerID)
-			return map[string]bool{}
-		}
-		return disabled
-	})
+	wire.PeriodicJobs(ctx, d)
 }
 
 // buildVisitorSkillsDeps —— #131: capability 注册所需的原料(各 capability 的窄 deps
 // 由 RegisterVisitorSkills 从这里取)。registerAgentSkills 用,不进 Handlers。
-func buildVisitorSkillsDeps(d *runtimeDeps) conversation.VisitorSkillsDeps {
+func buildVisitorSkillsDeps(d *deps.Runtime) conversation.VisitorSkillsDeps {
 	return conversation.VisitorSkillsDeps{
-		Wiki: d.wikiRepo, Output: d.outputRepo, Writings: d.writingRepo,
-		Skills:          d.skillRepo,
-		Sandbox:         d.sandboxRunner,
-		MCPServers:      d.mcpServerRepo,
-		Reports:         d.chatReportRepo,
-		Resolver:        d.providerResolver,
-		AgentConnectors: &agentConnectorSource{repo: d.connectorRepo, slots: d.connectorSlots},
+		Wiki: d.WikiRepo, Output: d.OutputRepo, Writings: d.WritingRepo,
+		Skills:          d.SkillRepo,
+		Sandbox:         d.SandboxRunner,
+		MCPServers:      d.MCPServerRepo,
+		Reports:         d.ChatReportRepo,
+		Resolver:        d.ProviderResolver,
+		AgentConnectors: axisconn.NewAgentConnectorSource(d),
 	}
 }
 
@@ -205,112 +198,119 @@ const apiKeyDefaultRPM = 120
 
 // newVisitorSessionDeps —— the role-snapshot / assembly dependency bundle shared by the visitor
 // public routes and the API-key facade (both freeze a RoleSnapshot the same way).
-func newVisitorSessionDeps(d *runtimeDeps) conversation.VisitorSessionDeps {
+func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
 	return conversation.VisitorSessionDeps{
-		Codes: d.codeRepo, Chats: d.chatRepo,
-		Owners: d.ownerRepo, Skills: d.skillRepo,
-		Roles: d.roleRepo, Prompts: d.promptRepo,
-		Sessions:    d.visitorStore,
-		Wiki:        d.wikiRepo,
-		Writing:     d.writingRepo,
-		Output:      d.outputRepo,
-		AgentSkills: d.agentSkills,
-		CodeDenials: d.codeDenialRepo,
+		Codes: d.CodeRepo, Chats: d.ChatRepo,
+		Owners: d.OwnerRepo, Skills: d.SkillRepo,
+		Roles: d.RoleRepo, Prompts: d.PromptRepo,
+		Sessions:    d.VisitorStore,
+		Wiki:        d.WikiRepo,
+		Writing:     d.WritingRepo,
+		Output:      d.OutputRepo,
+		AgentSkills: d.AgentSkills,
+		CodeDenials: d.CodeDenialRepo,
 	}
 }
 
 // buildPubAPIDeps —— the API-key facade handlers (/api/pub/v1). Reuses the same visitor assembly +
 // role-snapshot machinery so ACL/denial/quota parity with codes holds by construction.
-func buildPubAPIDeps(d *runtimeDeps) *pubapi.Handlers {
+func buildPubAPIDeps(d *deps.Runtime) *pubapi.Handlers {
 	vs := newVisitorSessionDeps(d)
 	return pubapi.New(&pubapi.Deps{
-		Keys:        d.apiKeyRepo,
+		Keys:        d.APIKeyRepo,
 		Visitor:     &vs,
-		AgentSkills: d.agentSkills,
-		Redis:       d.rdb,
-		Log:         d.log,
+		AgentSkills: d.AgentSkills,
+		Redis:       d.RDB,
+		Log:         d.Log,
 		DefaultRPM:  apiKeyDefaultRPM,
 	})
 }
 
-func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
+func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 	return publicroutes.Handlers{
 		Visitor:      newVisitorSessionDeps(d),
-		SecureCookie: d.secureCookie,
-		MailStatus:   outboundSender(d),
-		Resolver:     d.providerResolver,
-		Reports:      d.chatReportRepo,
-		Sessions:     d.visitorStore,
-		QueryQueue:   d.queryQueue,
-		Corpus:       d.corpus,
-		Subjectivity: corpus.NewSubjectivityCiteResolver(d.subjectivityRepo),
-		Ledger:       conversation.NewWaypointLedger(d.vaultSyncRepo, d.visitorStore, d.log),
-		Ghosts:       conversation.GhostDeps{Repo: d.ghostRepo},
-		PDFRenderer:  d.reportPDFRenderer,
-		AppState:     d.appStateRepo,
-		Usage:        d.inferenceUsageRepo,
-		Log:          d.log,
-		// CodeGuard 由 internal/server 装配(middleware wiring 归 server 层,cmd 不引 middleware)。
+		SecureCookie: d.SecureCookie,
+		MailStatus:   port.OutboundSender(d),
+		Resolver:     d.ProviderResolver,
+		Reports:      d.ChatReportRepo,
+		Sessions:     d.VisitorStore,
+		QueryQueue:   d.QueryQueue,
+		Corpus:       d.Corpus,
+		Subjectivity: corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),
+		Ledger:       conversation.NewWaypointLedger(d.VaultSyncRepo, d.VisitorStore, d.Log),
+		Ghosts:       conversation.GhostDeps{Repo: d.GhostRepo},
+		PDFRenderer:  d.ReportPDFRenderer,
+		AppState:     d.AppStateRepo,
+		Usage:        d.InferenceUsageRepo,
+		Log:          d.Log,
 	}
 }
 
-func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
+func buildPublicPageDeps(d *deps.Runtime) publicroutes.PageHandlers {
 	return publicroutes.PageHandlers{
-		Page: owner.PageDeps{Owners: d.ownerRepo, Wiki: d.wikiRepo},
-		Log:  d.log,
+		Page: owner.PageDeps{Owners: d.OwnerRepo, Wiki: d.WikiRepo},
+		Log:  d.Log,
 		TokenIssuer: &setupTokenIssuerAdapter{
-			log: d.log, repo: d.instanceRepo, holder: d.setupTokenHolder,
+			log: d.Log, repo: d.InstanceRepo, holder: d.SetupTokenHolder,
 		},
-		CaptchaSiteKey: d.captchaSiteKey,
-		MailStatus:     owner.MailStatusDeps{Proxy: outboundSender(d)},
+		CaptchaSiteKey: d.CaptchaSiteKey,
+		MailStatus:     owner.MailStatusDeps{Proxy: port.OutboundSender(d)},
 	}
 }
 
-func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
+func buildPublicSEODeps(d *deps.Runtime) publicroutes.SEOHandlers {
 	return publicroutes.SEOHandlers{
 		Deps: owner.SEODeps{
-			Owners: d.ownerRepo, SEO: d.seoRepo,
-			Wiki: d.wikiRepo, Output: d.outputRepo,
-			NoteRefs: d.noteRefRepo,
+			Owners: d.OwnerRepo, SEO: d.SEORepo,
+			Wiki: d.WikiRepo, Output: d.OutputRepo,
+			NoteRefs: d.NoteRefRepo,
 		},
-		Sessions: d.visitorStore,
-		Log:      d.log,
+		Sessions: d.VisitorStore,
+		Log:      d.Log,
 	}
 }
 
-func buildPublicCustomPageDeps(d *runtimeDeps) publicroutes.CustomPageHandlers {
+func buildPublicCustomPageDeps(d *deps.Runtime) publicroutes.CustomPageHandlers {
 	return publicroutes.CustomPageHandlers{
-		Deps:       owner.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
-		Owners:     d.ownerRepo,
-		Log:        d.log,
-		BuildsRoot: d.buildsRoot,
+		Deps:       owner.CustomPageDeps{Pages: d.CustomPageRepo, Builds: d.CustomBuildRepo},
+		Owners:     d.OwnerRepo,
+		Log:        d.Log,
+		BuildsRoot: d.BuildsRoot,
 	}
 }
 
-func buildPublicAccessRequestsDeps(d *runtimeDeps) publicroutes.AccessRequestsHandlers {
+func buildPublicAccessRequestsDeps(d *deps.Runtime) publicroutes.AccessRequestsHandlers {
 	return publicroutes.AccessRequestsHandlers{
 		Reqs: access.RequestsDeps{
-			Repo:   d.accessRequestRepo,
-			Owners: soleOwnerLookup{owners: d.ownerRepo},
+			Repo:   d.AccessRequestRepo,
+			Owners: port.NewSoleOwnerLookup(d),
 		},
-		Log: d.log,
+		Log: d.Log,
 	}
 }
 
-func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHandlers {
+func buildPublicPasswordResetDeps(d *deps.Runtime) publicroutes.PasswordResetHandlers {
 	return publicroutes.PasswordResetHandlers{
-		Deps: owner.PasswordResetDeps{Owners: d.ownerRepo},
-		Log:  d.log,
+		Deps: owner.PasswordResetDeps{Owners: d.OwnerRepo},
+		Log:  d.Log,
 	}
 }
 
-func buildMCPDeps(d *runtimeDeps) mcphandle.Deps {
-	// 工具两个来源:capreg(capability 轴上真正的能力)+ dispatcher(出站收口,MCP 面是它的
-	// 投影)。迁移期并存 —— 每把一个资源搬进收口,ownercore 就少注册一组。
+func buildMCPDeps(d *deps.Runtime) mcphandle.Deps {
+	// 工具两个来源:capreg(能力轴上真正的能力,如 booker 的 OwnerTools)+ dispatcher
+	// (出站收口,MCP 面是它的投影)。两者不重叠:前者是插件自带的,后者是域声明的。
 	return mcphandle.Deps{
-		AgentSkills: d.agentSkills,
-		Dispatcher:  d.dispatch,
-		Keypairs:    keypairDeps(d),
-		Log:         d.log,
+		AgentSkills: d.AgentSkills,
+		Dispatcher:  d.Dispatch,
+		Keypairs:    port.KeypairDeps(d),
+		Log:         d.Log,
+	}
+}
+
+// connectorsAdminDeps —— admin connectors 面板依赖:能力经收口取,编排服务只剩浏览器专属的
+// 那几条(OAuth 跳转、明文凭据表单)还在直连。
+func connectorsAdminDeps(d *deps.Runtime) adminroutes.ConnectorsAdminDeps {
+	return adminroutes.ConnectorsAdminDeps{
+		Svc: axisconn.NewService(d), Face: wire.AdminFace(d.Dispatch),
 	}
 }

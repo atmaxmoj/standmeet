@@ -35,10 +35,14 @@ async function seedPromptsMCP(
   return { sid, apiToken };
 }
 
-interface PromptCreateResp { prompt_id: string; name: string }
+// 两个面同一份载荷之后,行的主键叫 `id`,而且带上了 body —— MCP 那份以前**没有 body**,
+// owner 从 Claude Code 列一遍看不到自己写的正文。入参仍叫 prompt_id:那是"对哪一条",
+// 不是行里的字段。
+interface PromptCreateResp { id: string; name: string }
 interface PromptRow {
-  prompt_id: string;
+  id: string;
   name: string;
+  body?: string;
   description?: string;
   is_builtin?: boolean;
 }
@@ -64,15 +68,17 @@ test.describe('Phase E-5 prompts CRUD via MCP', () => {
         },
       );
       expect(created.name).toBe('recruiter-persona');
-      expect(created.prompt_id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
 
       const list = await callTool<PromptRow[]>(
         request, apiToken, sid, 'prompt_list', {},
       );
-      const found = list.find((p) => p.prompt_id === created.prompt_id);
+      const found = list.find((p) => p.id === created.id);
       expect(found?.name).toBe('recruiter-persona');
       expect(found?.description).toBe('use when visitor came via job application code');
       expect(found?.is_builtin).not.toBe(true);
+      // body 也在:MCP 那份以前没有它,owner 列一遍看不到自己写的正文。
+      expect(found?.body).toBe('You are answering as the owner to a recruiter.');
 
       const publicRow = list.find((p) => p.is_builtin === true);
       expect(publicRow, 'public prompt should be seeded').toBeDefined();
@@ -88,13 +94,13 @@ test.describe('Phase E-5 prompts CRUD via MCP', () => {
       );
       const del = await callTool<PromptDeleteResp>(
         request, apiToken, sid, 'prompt_delete',
-        { prompt_id: created.prompt_id },
+        { prompt_id: created.id },
       );
       expect(del.ok).toBe(true);
       const list = await callTool<PromptRow[]>(
         request, apiToken, sid, 'prompt_list', {},
       );
-      expect(list.find((p) => p.prompt_id === created.prompt_id)).toBeUndefined();
+      expect(list.find((p) => p.id === created.id)).toBeUndefined();
       await request.dispose();
     });
 
@@ -109,8 +115,10 @@ test.describe('Phase E-5 prompts CRUD via MCP', () => {
       if (!publicRow) throw new Error('public missing');
       await expect(
         callTool(request, apiToken, sid, 'prompt_delete',
-          { prompt_id: publicRow.prompt_id }),
-      ).rejects.toThrow(/builtin prompt cannot be deleted/);
+          { prompt_id: publicRow.id }),
+        // 两个面同一份载荷之后,这条错误的文案是"cannot be renamed or deleted"(一条规则
+        // 管两件事)。断言只钉住"内置的删不掉"这个意思,不钉整句话。
+      ).rejects.toThrow(/builtin prompt cannot be (renamed or )?deleted/);
       await request.dispose();
     });
 });

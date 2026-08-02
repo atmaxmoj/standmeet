@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/atmaxmoj/standmeet/cmd/server/wire"
+
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -188,27 +190,27 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Deps: deps.Admin.Keypairs, Log: deps.Log,
 		},
 		Corpus: adminroutes.CorpusDeps{
-			Corpus: deps.Admin.Corpus, Face: adminFace(deps.Dispatch),
+			Corpus: deps.Admin.Corpus, Face: wire.AdminFace(deps.Dispatch),
 		},
-		CodesAdmin:       adminroutes.CodesDeps{Face: adminFace(deps.Dispatch)},
-		PageAdmin:        adminroutes.PageAdminDeps{Face: adminFace(deps.Dispatch)},
-		SEOAdmin:         adminroutes.SEOAdminDeps{Face: adminFace(deps.Dispatch)},
-		Conversations:    adminroutes.ConversationsDeps{Face: adminFace(deps.Dispatch)},
-		BYOAI:            adminroutes.BYOAIDeps{Face: adminFace(deps.Dispatch)},
-		Domains:          adminroutes.DomainsDeps{Face: adminFace(deps.Dispatch)},
-		AccessRequests:   adminroutes.AccessRequestsDeps{Face: adminFace(deps.Dispatch)},
-		HandleAdmin:      adminroutes.HandleDeps{Face: adminFace(deps.Dispatch)},
-		PublicURLAdmin:   adminroutes.PublicURLDeps{Face: adminFace(deps.Dispatch)},
-		AccountAdmin:     adminroutes.AccountDeps{Face: adminFace(deps.Dispatch)},
+		CodesAdmin:       adminroutes.CodesDeps{Face: wire.AdminFace(deps.Dispatch)},
+		PageAdmin:        adminroutes.PageAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		SEOAdmin:         adminroutes.SEOAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		Conversations:    adminroutes.ConversationsDeps{Face: wire.AdminFace(deps.Dispatch)},
+		BYOAI:            adminroutes.BYOAIDeps{Face: wire.AdminFace(deps.Dispatch)},
+		Domains:          adminroutes.DomainsDeps{Face: wire.AdminFace(deps.Dispatch)},
+		AccessRequests:   adminroutes.AccessRequestsDeps{Face: wire.AdminFace(deps.Dispatch)},
+		HandleAdmin:      adminroutes.HandleDeps{Face: wire.AdminFace(deps.Dispatch)},
+		PublicURLAdmin:   adminroutes.PublicURLDeps{Face: wire.AdminFace(deps.Dispatch)},
+		AccountAdmin:     adminroutes.AccountDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Recovery:         deps.Admin.Recovery,
-		AIProviderAdmin:  adminroutes.AIProviderDeps{Face: adminFace(deps.Dispatch)},
-		CustomPagesAdmin: adminroutes.CustomPagesDeps{Face: adminFace(deps.Dispatch)},
-		SkillsAdmin:      adminroutes.SkillsAdminDeps{Face: adminFace(deps.Dispatch)},
-		PromptsAdmin:     adminroutes.PromptsAdminDeps{Face: adminFace(deps.Dispatch)},
-		RolesAdmin:       adminroutes.RolesAdminDeps{Face: adminFace(deps.Dispatch)},
-		MCPServersAdmin:  adminroutes.MCPServersAdminDeps{Face: adminFace(deps.Dispatch)},
+		AIProviderAdmin:  adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
+		CustomPagesAdmin: adminroutes.CustomPagesDeps{Face: wire.AdminFace(deps.Dispatch)},
+		SkillsAdmin:      adminroutes.SkillsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		PromptsAdmin:     adminroutes.PromptsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		RolesAdmin:       adminroutes.RolesAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		MCPServersAdmin:  adminroutes.MCPServersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		WritingsAdmin: adminroutes.WritingsAdminDeps{
-			Face: adminFace(deps.Dispatch),
+			Face: wire.AdminFace(deps.Dispatch),
 			WritingsTx: corpus.WritingsTxDeps{
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
@@ -228,14 +230,14 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			PagePins: pins,
 			Log:      deps.Log,
 		},
-		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Face: adminFace(deps.Dispatch)},
+		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ConnectorsAdmin:   deps.Admin.Connectors,
-		CapabilitiesAdmin: adminroutes.CapabilityAdminDeps{Face: adminFace(deps.Dispatch)},
-		IPBansAdmin:       adminroutes.IPBansAdminDeps{Face: adminFace(deps.Dispatch)},
-		InstanceAdmin:     adminroutes.InstanceAdminDeps{Face: adminFace(deps.Dispatch)},
-		AppearanceAdmin:   adminroutes.AppearanceAdminDeps{Face: adminFace(deps.Dispatch)},
+		CapabilitiesAdmin: adminroutes.CapabilityAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		IPBansAdmin:       adminroutes.IPBansAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		InstanceAdmin:     adminroutes.InstanceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		AppearanceAdmin:   adminroutes.AppearanceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		CapabilityConfigAdmin: adminroutes.CapabilityConfigAdminDeps{
-			Face: adminFace(deps.Dispatch),
+			Face: wire.AdminFace(deps.Dispatch),
 		},
 		Log:          deps.Log,
 		SecureCookie: deps.Admin.SecureCookie,
