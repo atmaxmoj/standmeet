@@ -130,6 +130,10 @@ services:
       # provisions per-conversation workdirs under, bwrap-binds at /workspace, and
       # cron-sweeps by TTL. Inside the backend container's writable fs.
       - SANDBOX_WORKSPACE_ROOT=/srv/sandbox-workspaces
+      # 素材那条路只认 https,所以 external-mock 也有一个 https 面。它现签的证书
+      # 合进这份 bundle(系统根 + 它),后端指过来就既信真根也信这个 mock。
+      # 只在 dev/e2e:prod 用镜像自带的系统根。
+      - SSL_CERT_FILE=/mock-tls/bundle.crt
     depends_on:
       db:
         condition: service_healthy
@@ -170,6 +174,8 @@ services:
       - ./infra/dev-plugins.json:/etc/standmeet/plugins.json:ro
       # 沙箱第三方 MCP 插件代码（dev：host 上 npm 装好的目录；bwrap 只读挂进沙箱）。
       - ./infra/plugins:/srv/plugins:ro
+      # external-mock 现签的证书 + 合并根包(SSL_CERT_FILE 指到 bundle.crt)。
+      - mocktls:/mock-tls:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
       interval: 5s
@@ -222,14 +228,20 @@ services:
     environment:
       - PORT=9000
       - FIXTURES_DIR=/fixtures
+      # https 面(见 mock-stack/job-board/tls.go)。素材按地址取那一步只认 https。
+      - TLS_PORT=9443
+      - TLS_DIR=/mock-tls
     ports:
       # Exposed to host so e2e specs can hit /__mock/{set_day,reset} directly
       # via curl. Backend talks via the internal docker network.
       - "9000:9000"
+      - "9443:9443"
     volumes:
       # Whole fixtures dir; mock reads job-boards/{kind}/ + marketplace/
       # as siblings under /fixtures.
       - ./e2e/fixtures:/fixtures:ro
+      # 现签的证书 + "系统根 + 它" 的合并包写在这儿,后端只读挂同一个卷。
+      - mocktls:/mock-tls
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/__mock/state"]
       interval: 3s
@@ -423,5 +435,7 @@ volumes:
   pgdata: {}
   redisdata: {}
   miniodata: {}
+  # mocktls —— external-mock 现签的证书 + 合并根包;后端只读挂载来信任它。
+  mocktls: {}
   meilidata: {}
   custom_pages_data: {}

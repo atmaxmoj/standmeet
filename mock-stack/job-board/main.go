@@ -139,11 +139,25 @@ func (s *server) logRequests(next http.Handler) http.Handler {
 func (s *server) run(port string) error {
 	mux := http.NewServeMux()
 	s.routes(mux)
+	handler := s.logRequests(mux)
+	// https 面(见 tls.go)。素材那条路只认 https —— 那个守卫是对的,所以这个替身得
+	// 真的会 https,而不是把守卫放宽。证书在监听前签好写出,healthcheck 一通就能用。
+	if tlsPort, tlsDir := os.Getenv("TLS_PORT"), os.Getenv("TLS_DIR"); tlsPort != "" && tlsDir != "" {
+		pair, terr := s.prepareTLS(tlsDir)
+		if terr != nil {
+			return terr
+		}
+		go func() {
+			if err := s.serveTLS(handler, tlsPort, tlsDir, pair); err != nil {
+				s.log.Error("tls listener exit", "err", err)
+			}
+		}()
+	}
 	addr := ":" + port
 	s.log.Info("external-mock listening", "addr", addr, "root", s.root)
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           s.logRequests(mux),
+		Handler:           handler,
 		ReadHeaderTimeout: readHeaderTime,
 	}
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -171,6 +185,12 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /bamboohr/careers/list", s.serveBambooHR)
 	// Workable SPI jobs (authed): Bearer token required, wrong/missing → 401.
 	mux.HandleFunc("GET /workable/spi/v3/accounts/{company}/jobs", s.serveWorkable)
+
+	// 素材托管方的替身:owner 的图在别人家,后端按 https 地址去取。
+	// 三条"故意不对"的路径给取回那一步的守卫用 —— 只测 happy path 的守卫等于没有。
+	// bulk 单列:它要流式发指定量的字节(?mb=&type=),不能塞进按文件名查表的那条。
+	mux.HandleFunc("GET /media/bulk", s.serveMediaBulk)
+	mux.HandleFunc("GET /media/{filename}", s.serveMedia)
 
 	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)

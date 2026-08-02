@@ -443,6 +443,37 @@ func (q *Queries) GetNoteCssClasses(ctx context.Context, arg GetNoteCssClassesPa
 	return css_classes, err
 }
 
+const getNoteHero = `-- name: GetNoteHero :one
+SELECT body, cover_image_asset_id, cover_headline, cover_hue
+FROM corpus_notes WHERE id = $1 AND owner_id = $2
+`
+
+type GetNoteHeroParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+type GetNoteHeroRow struct {
+	Body              string
+	CoverImageAssetID pgtype.UUID
+	CoverHeadline     string
+	CoverHue          string
+}
+
+// 一条 note 上跟素材有关的那几样:正文(里面的 standmeet-asset 引用)和 hero 三件套。
+// 跨 genre 按 id —— 素材这件事对 genre 是无差别的。
+func (q *Queries) GetNoteHero(ctx context.Context, arg GetNoteHeroParams) (GetNoteHeroRow, error) {
+	row := q.db.QueryRow(ctx, getNoteHero, arg.ID, arg.OwnerID)
+	var i GetNoteHeroRow
+	err := row.Scan(
+		&i.Body,
+		&i.CoverImageAssetID,
+		&i.CoverHeadline,
+		&i.CoverHue,
+	)
+	return i, err
+}
+
 const getNoteMetaByID = `-- name: GetNoteMetaByID :one
 SELECT id, parent_id, title, published
 FROM corpus_notes
@@ -1094,6 +1125,52 @@ func (q *Queries) SearchNotes(ctx context.Context, arg SearchNotesParams) ([]Sea
 		return nil, err
 	}
 	return items, nil
+}
+
+const setNoteHero = `-- name: SetNoteHero :one
+UPDATE corpus_notes
+SET cover_image_asset_id = $3, cover_headline = $4, cover_hue = $5, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING id, cover_image_asset_id, cover_headline, cover_hue
+`
+
+type SetNoteHeroParams struct {
+	ID                pgtype.UUID
+	OwnerID           pgtype.UUID
+	CoverImageAssetID pgtype.UUID
+	CoverHeadline     string
+	CoverHue          string
+}
+
+type SetNoteHeroRow struct {
+	ID                pgtype.UUID
+	CoverImageAssetID pgtype.UUID
+	CoverHeadline     string
+	CoverHue          string
+}
+
+// hero 区 —— 任意 genre 的一条 corpus note 都能有。它不是"一张图":设计里是图 + 压在图上
+// 那句话 + 色调三样一起(见 app 的 Cover 组件)。三列本来就在这张共享表上,以前只有 writing
+// 那条路写它们,于是"每个 genre 都能有 hero"这句话在数据上成立、在代码里不成立。
+//
+// 三列一次写全:caller 先读回现值、只覆盖这次给了的那几项,再整份写回。这样"没提到的字段"
+// 不会被顺手抹掉 —— corpus.update 的既有调用方一个 hero 字段都不带。
+func (q *Queries) SetNoteHero(ctx context.Context, arg SetNoteHeroParams) (SetNoteHeroRow, error) {
+	row := q.db.QueryRow(ctx, setNoteHero,
+		arg.ID,
+		arg.OwnerID,
+		arg.CoverImageAssetID,
+		arg.CoverHeadline,
+		arg.CoverHue,
+	)
+	var i SetNoteHeroRow
+	err := row.Scan(
+		&i.ID,
+		&i.CoverImageAssetID,
+		&i.CoverHeadline,
+		&i.CoverHue,
+	)
+	return i, err
 }
 
 const setNoteTags = `-- name: SetNoteTags :exec

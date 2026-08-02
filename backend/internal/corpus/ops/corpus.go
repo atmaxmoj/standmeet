@@ -93,26 +93,33 @@ var (
 // 三个 genre 共用它:raw 没有 title / excerpt,wiki 没有 source_wiki_ids,output 没有
 // status —— 不适用的就是零值。字段名全是已经发出去的那些(面板的 zod schema 按它们读)。
 type corpusItemOut struct {
-	ParentID      *string  `json:"parent_id"`
-	Path          *string  `json:"path"`
-	Genre         string   `json:"genre"`
-	ID            string   `json:"id"`
-	Title         string   `json:"title"`
-	Body          string   `json:"body,omitempty"`
-	Preview       string   `json:"preview"`
-	Excerpt       string   `json:"excerpt"`
-	Source        string   `json:"source,omitempty"`
-	Status        string   `json:"status,omitempty"`
-	CreatedAt     string   `json:"created_at"`
-	UpdatedAt     string   `json:"updated_at"`
-	Tags          []string `json:"tags"`
-	SourceRawIDs  []string `json:"source_raw_ids"`
-	SourceWikiIDs []string `json:"source_wiki_ids"`
-	Outbound      []refOut `json:"outbound,omitempty"`
-	Backlinks     []refOut `json:"backlinks,omitempty"`
-	ShowAsSource  bool     `json:"show_as_source"`
-	Published     bool     `json:"published"`
-	HasChildren   bool     `json:"has_children,omitempty"`
+	ParentID *string `json:"parent_id"`
+	Path     *string `json:"path"`
+	// hero 区 —— 图 + 压在图上那句话 + 色调。三样都在共享表上,**任意 genre 都能有**。
+	CoverImageAssetID *string           `json:"cover_image_asset_id,omitempty"`
+	AssetURLs         map[string]string `json:"asset_urls,omitempty"`
+	Genre             string            `json:"genre"`
+	ID                string            `json:"id"`
+	Title             string            `json:"title"`
+	Body              string            `json:"body,omitempty"`
+	Preview           string            `json:"preview"`
+	Excerpt           string            `json:"excerpt"`
+	Source            string            `json:"source,omitempty"`
+	Status            string            `json:"status,omitempty"`
+	CreatedAt         string            `json:"created_at"`
+	UpdatedAt         string            `json:"updated_at"`
+	CoverHeadline     string            `json:"cover_headline,omitempty"`
+	CoverHue          string            `json:"cover_hue,omitempty"`
+	Tags              []string          `json:"tags"`
+	SourceRawIDs      []string          `json:"source_raw_ids"`
+	SourceWikiIDs     []string          `json:"source_wiki_ids"`
+	Outbound          []refOut          `json:"outbound,omitempty"`
+	Backlinks         []refOut          `json:"backlinks,omitempty"`
+	// 素材 —— 挂在这条语料上的图 / 附件。依附文章,可见性继承文章。
+	Assets       []usecase.AssetView `json:"assets,omitempty"`
+	ShowAsSource bool                `json:"show_as_source"`
+	Published    bool                `json:"published"`
+	HasChildren  bool                `json:"has_children,omitempty"`
 }
 
 // refOut —— 一条 note 之间的边(读下一条 / 被谁引)。
@@ -215,8 +222,27 @@ func getCorpus(deps usecase.Deps) fp.Invoke {
 		// 边(读下一条 / 被谁引)是旁证:取不到只当没有,不该让整条详情打不开。
 		refs := noteRefsOf(ctx, deps, ownerID, in.ID)
 		item.Outbound, item.Backlinks = refs.Outbound, refs.Backlinks
+		fillMedia(ctx, deps, ownerID, in.ID, &item)
 		return json.Marshal(item)
 	}
+}
+
+// fillMedia —— 把这条语料的 hero 和素材填进出参。
+//
+// 取不到只当没有:一份素材出问题不该让整条语料读不出来 —— 跟边那几行同一个道理。
+func fillMedia(
+	ctx context.Context, deps usecase.Deps, ownerID, noteID string, item *corpusItemOut,
+) {
+	media, ok := usecase.LoadNoteMedia(ctx, deps.Media, ownerID, noteID)
+	if !ok {
+		return
+	}
+	item.CoverHeadline, item.CoverHue = media.Hero.CoverHeadline, media.Hero.CoverHue
+	if media.Hero.CoverAssetID != "" {
+		cover := media.Hero.CoverAssetID
+		item.CoverImageAssetID = &cover
+	}
+	item.AssetURLs, item.Assets = media.URLs, media.Assets
 }
 
 func getByGenre(

@@ -90,7 +90,11 @@ var (
 				"description":"wiki only: per-note presentation classes."},
 			"show_as_source":{"type":"boolean",
 				"description":"false = the AI may read it but never cites it."},
-			"flagged_private":{"type":"boolean","description":"raw only: private hint."}
+			"flagged_private":{"type":"boolean","description":"raw only: private hint."},
+			"cover_image_asset_id":{"type":"string",
+				"description":"Hero image: an asset_id from assets.upload; '' clears it."},
+			"cover_headline":{"type":"string","description":"The line laid over the hero image."},
+			"cover_hue":{"type":"string","description":"Hero hue: 'amber' | 'violet' | 'acid'."}
 		},
 		"required":["genre","id"]
 	}`)
@@ -104,24 +108,43 @@ var (
 			"title":{"type":"string","description":"Title of the new entry."},
 			"parent_id":{"type":"string","description":"Parent for the new entry; root if empty."},
 			"tags":{"type":"array","items":{"type":"string"},
-				"description":"Extra tags on top of the source's."}
+				"description":"Extra tags on top of the source's."},
+			"show_as_source":{"type":"boolean",
+				"description":"false = readable by the AI but never cited. Default true."}
 		},
 		"required":["genre","id","title"]
 	}`)
 )
 
 // corpusWriteArgs —— 建和改共用的入参。哪些字段对哪个 genre 有意义,由下面的分派决定。
+//
+// hero 三项是**指针**:没给 = 不动,不是"清空"。其余字段整份替换(见 corpus.update 的说明),
+// 但 hero 不能跟着那个规矩 —— 既有调用方一个 hero 字段都不带,那样每次改正文都会把 owner
+// 设好的 hero 抹掉。
 type corpusWriteArgs struct {
-	Genre          string   `json:"genre"`
-	ID             string   `json:"id"`
-	Title          string   `json:"title"`
-	Body           string   `json:"body"`
-	ParentID       string   `json:"parent_id"`
-	Source         string   `json:"source"`
-	Tags           []string `json:"tags"`
-	CSSClasses     []string `json:"css_classes"`
-	ShowAsSource   bool     `json:"show_as_source"`
-	FlaggedPrivate bool     `json:"flagged_private"`
+	CoverImageAssetID *string  `json:"cover_image_asset_id"`
+	CoverHeadline     *string  `json:"cover_headline"`
+	CoverHue          *string  `json:"cover_hue"`
+	Genre             string   `json:"genre"`
+	ID                string   `json:"id"`
+	Title             string   `json:"title"`
+	Body              string   `json:"body"`
+	ParentID          string   `json:"parent_id"`
+	Source            string   `json:"source"`
+	ShowAsSource      *bool    `json:"show_as_source"`
+	Tags              []string `json:"tags"`
+	CSSClasses        []string `json:"css_classes"`
+	FlaggedPrivate    bool     `json:"flagged_private"`
+}
+
+// showAsSource —— 没给就是 true。
+//
+// **这是个契约,不是默认值的选择**:一条语料建出来就是可引用的来源;藏起来(meta/persona 那类)
+// 是 owner 明确要求的例外。genre 参数化之前这里是 `args.ShowAsSource == nil || *args.ShowAsSource`,
+// 参数化时被写成了一个裸 bool —— 于是"没提到这个字段"从"保持可引用"变成了"藏起来",
+// 而且编译不报、改口的人也看不见。裸 bool 表达不了"没给",所以它不该是 bool。
+func (a *corpusWriteArgs) showAsSource() bool {
+	return a.ShowAsSource == nil || *a.ShowAsSource
 }
 
 func decodeCorpusWrite(raw json.RawMessage) (corpusWriteArgs, error) {
@@ -197,10 +220,11 @@ func updateCorpus(deps usecase.Deps) fp.Invoke {
 		if err := fp.RequireArgs([2]string{"id", in.ID}); err != nil {
 			return nil, err
 		}
-		item, err := updateByGenre(ctx, deps, ownerID, &in)
+		item, err := applyCorpusUpdate(ctx, deps, ownerID, &in)
 		if err != nil {
 			return nil, corpusErr(err)
 		}
+		fillMedia(ctx, deps, ownerID, in.ID, &item)
 		return json.Marshal(item)
 	}
 }
@@ -219,14 +243,14 @@ func updateByGenre(
 		row, err := usecase.UpdateWiki(ctx, deps, &usecase.UpdateWikiReq{
 			OwnerID: ownerID, ID: in.ID, ParentID: parentOrNil(in.ParentID),
 			Title: in.Title, Body: in.Body, Tags: in.Tags,
-			ShowAsSource: in.ShowAsSource, CSSClasses: in.CSSClasses,
+			ShowAsSource: in.showAsSource(), CSSClasses: in.CSSClasses,
 		})
 		return wikiItem(&row, ""), err
 	default:
 		row, err := usecase.UpdateOutput(ctx, deps, &usecase.UpdateOutputReq{
 			OwnerID: ownerID, ID: in.ID, ParentID: parentOrNil(in.ParentID),
 			Title: in.Title, Body: in.Body, Tags: in.Tags,
-			ShowAsSource: in.ShowAsSource,
+			ShowAsSource: in.showAsSource(),
 		})
 		return outputItem(&row, ""), err
 	}
@@ -244,6 +268,9 @@ func deleteCorpus(deps usecase.Deps) fp.Invoke {
 		in, perr := decodeCorpusDelete(raw)
 		if perr != nil {
 			return nil, perr
+		}
+		if err := dropEntryAssets(ctx, deps, in.ID); err != nil {
+			return nil, corpusErr(err)
 		}
 		if err := deleteByGenre(ctx, deps, ownerID, in.Genre, in.ID); err != nil {
 			return nil, corpusErr(err)
@@ -280,48 +307,4 @@ func deleteByGenre(
 	default:
 		return usecase.DeleteOutput(ctx, deps, ownerID, id)
 	}
-}
-
-func promoteCorpus(deps usecase.Deps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, perr := decodeCorpusWrite(raw)
-		if perr != nil {
-			return nil, perr
-		}
-		if err := fp.RequireArgs(
-			[2]string{"id", in.ID}, [2]string{"title", in.Title}); err != nil {
-			return nil, err
-		}
-		item, err := promoteByGenre(ctx, deps, ownerID, &in)
-		if err != nil {
-			return nil, corpusErr(err)
-		}
-		return json.Marshal(item)
-	}
-}
-
-func promoteByGenre(
-	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
-) (corpusItemOut, error) {
-	if in.Genre == genreRaw {
-		row, err := usecase.PromoteToWiki(ctx, deps, &usecase.PromoteInput{
-			OwnerID: ownerID, RawID: in.ID, ParentID: parentOrNil(in.ParentID),
-			Title: in.Title, Tags: in.Tags,
-		})
-		if err != nil {
-			return corpusItemOut{}, err
-		}
-		return wikiItem(&row, entryPath(ctx, deps, genreWiki, ownerID, row.ID())), nil
-	}
-	if in.Genre == genreOutput {
-		return corpusItemOut{}, fp.BadInput("output is the last step; nothing to promote it to")
-	}
-	row, err := usecase.PromoteWikiToOutput(ctx, deps, &usecase.PromoteToOutputInput{
-		OwnerID: ownerID, WikiID: in.ID, ParentID: parentOrNil(in.ParentID),
-		Title: in.Title, Tags: in.Tags,
-	})
-	if err != nil {
-		return corpusItemOut{}, err
-	}
-	return outputItem(&row, entryPath(ctx, deps, genreOutput, ownerID, row.ID())), nil
 }

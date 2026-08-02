@@ -71,6 +71,12 @@ func sharedHostDeps(
 			Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
 			Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo,
 			NoteRefs: d.NoteRefRepo, Searcher: d.SearchClient,
+			// 素材:访客读到一条语料时顺带拿到它的图 / 附件。可见性纯继承 —— 读到条目
+			// 那一步已经过了 ACL,素材挂在它后面,不再判第二次。
+			Media: &corpus.NoteAssetsDeps{
+				Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
+				Hero:   d.NoteHeroRepo,
+			},
 		},
 		Owners:     d.OwnerRepo,
 		Connectors: d.ConnectorSlots,

@@ -32,6 +32,14 @@ let mcpToken = '';
 let oldRootID = '';
 
 test.describe('public wiki tree is truly lazy over the whole corpus, not newest-50', () => {
+  // 播种要 136 次串行 `/mcp` 往返(每个节点 = corpus.create + corpus.promote),实测墙钟
+  // **27.0 秒**(2026-08-02 全量:19:23:44.477→19:24:11.004,服务端 12.08s,其余是逐次
+  // HTTP + JSON-RPC 开销)。默认 30s 的 hook 预算刚好卡在这条线上,全量里必翻。
+  //
+  // **不并发化播种**:这几条断言的正是"第 51 条往后不能消失",候选集按 created_at 排序,
+  // 并发会打乱种入顺序 —— 那是改掉被测的前提,不是加速。
+  test.describe.configure({ timeout: 180_000 });
+
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

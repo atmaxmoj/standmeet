@@ -238,3 +238,21 @@ DELETE FROM corpus_notes
 WHERE owner_id = $1
   AND obsidian_imported_at IS NOT NULL
   AND NOT (id = ANY($2::uuid[]));
+
+-- name: SetNoteHero :one
+-- hero 区 —— 任意 genre 的一条 corpus note 都能有。它不是"一张图":设计里是图 + 压在图上
+-- 那句话 + 色调三样一起(见 app 的 Cover 组件)。三列本来就在这张共享表上,以前只有 writing
+-- 那条路写它们,于是"每个 genre 都能有 hero"这句话在数据上成立、在代码里不成立。
+--
+-- 三列一次写全:caller 先读回现值、只覆盖这次给了的那几项,再整份写回。这样"没提到的字段"
+-- 不会被顺手抹掉 —— corpus.update 的既有调用方一个 hero 字段都不带。
+UPDATE corpus_notes
+SET cover_image_asset_id = $3, cover_headline = $4, cover_hue = $5, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING id, cover_image_asset_id, cover_headline, cover_hue;
+
+-- name: GetNoteHero :one
+-- 一条 note 上跟素材有关的那几样:正文(里面的 standmeet-asset 引用)和 hero 三件套。
+-- 跨 genre 按 id —— 素材这件事对 genre 是无差别的。
+SELECT body, cover_image_asset_id, cover_headline, cover_hue
+FROM corpus_notes WHERE id = $1 AND owner_id = $2;

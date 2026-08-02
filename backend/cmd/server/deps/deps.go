@@ -67,6 +67,7 @@ type Runtime struct {
 	PromptRepo         *owner.PromptRepo
 	RoleRepo           *access.RoleRepo
 	AssetRepo          *corpus.AssetRepo
+	NoteHeroRepo       *corpus.NoteHeroRepo
 	WritingRepo        *corpus.WritingRepo
 	WritingRefRepo     *corpus.WritingRefRepo
 	MailRepo           *connector.MailRepo

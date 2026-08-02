@@ -134,7 +134,7 @@ func connectorIDAction(
 			return nil, perr
 		}
 		if err := apply(ctx, ownerID, id); err != nil {
-			return nil, fp.OpErr(what, err)
+			return nil, connErr(what, err)
 		}
 		return json.Marshal(connectorOKOut{ID: id, OK: true})
 	}
@@ -170,7 +170,7 @@ func createConnector(ops connectorOps) fp.Invoke {
 		}
 		id, err := createByKind(ctx, ops, ownerID, &in)
 		if err != nil {
-			return nil, fp.OpErr("create connector", err)
+			return nil, connErr("create connector", err)
 		}
 		return json.Marshal(connectorCreatedOut{ID: id})
 	}
@@ -207,7 +207,7 @@ func updateConnector(ops connectorOps) fp.Invoke {
 			AuthScheme: in.AuthScheme, Spec: []byte(in.Spec), Binding: []byte(in.Binding),
 			ExposeAsAgentTools: in.ExposeAsAgentTools,
 		}); err != nil {
-			return nil, fp.OpErr("update connector", err)
+			return nil, connErr("update connector", err)
 		}
 		return json.Marshal(connectorOKOut{ID: in.ID, OK: true})
 	}

@@ -44,7 +44,7 @@ func (r *RawRepo) UpdateBody(
 	q := db.New(r.pool)
 	row, qerr := q.UpdateRawBody(ctx, db.UpdateRawBodyParams{
 		ID: rawUUID, OwnerID: ownerUUID,
-		Body: in.Body, Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
+		Body: in.Body, Tags: nilSafeTags(in.Tags), FlaggedPrivate: in.FlaggedPrivate,
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
@@ -122,12 +122,13 @@ func buildWikiUpdateParams(in *UpdateWikiInput) (db.UpdateNoteBodyParams, error)
 	}
 	return db.UpdateNoteBodyParams{
 		ID: wikiUUID, OwnerID: ownerUUID, Genre: genreWiki,
-		Title: in.Title, Body: in.Body, Tags: in.Tags,
+		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
 		ParentID: parent, ShowAsSource: in.ShowAsSource, CssClasses: nilSafeTags(in.CSSClasses),
 	}, nil
 }
 
-// Delete 硬删一条 wiki。FK ON DELETE 链：media_assets.wiki_entry_id 置 NULL。
+// Delete 硬删一条 wiki。素材**不靠外键**跟着走:assets 按 holder_id 挂、没有 FK,
+// 所以删条目那一步由上层先删素材再删条目(见 ops/corpus_write_media.go 的 dropEntryAssets)。
 // output.source_wiki_ids 是 uuid[]，不会被 cascade 影响（残留 wiki id 不致命）。
 func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
@@ -199,7 +200,7 @@ func buildOutputUpdateParams(in *UpdateOutputInput) (db.UpdateNoteBodyParams, er
 	}
 	return db.UpdateNoteBodyParams{
 		ID: outputUUID, OwnerID: ownerUUID, Genre: genreOutput,
-		Title: in.Title, Body: in.Body, Tags: in.Tags,
+		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
 		ParentID: parent, ShowAsSource: in.ShowAsSource, CssClasses: []string{},
 	}, nil
 }

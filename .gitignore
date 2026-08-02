@@ -79,5 +79,13 @@ infra/plugins/ask-visitor/ask-visitor
 infra/plugins/summarize/summarize
 infra/plugins/booker/booker
 infra/plugins/retrieval/retrieval
+infra/plugins/mail-sender/mail-sender
 render-*.png
 e2e/test-results-archive/
+
+# `go build ./...` in mock-stack drops host binaries next to their package. The images
+# build their own; a committed host binary is churn that flips on every build.
+mock-stack/job-board/job-board
+mock-stack/mcp/mcp
+mock-stack/llm-gateway/llm-gateway
+mock-stack/mail/mail

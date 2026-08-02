@@ -11,6 +11,7 @@ type OpsWritingsDeps = ops.WritingsDeps
 
 // 操作组（实现:ops）.
 var (
+	AssetOps        = ops.AssetOps
 	CorpusReadOps   = ops.CorpusReads
 	CorpusWriteOps  = ops.CorpusWrites
 	SubjectivityOps = ops.Subjectivity

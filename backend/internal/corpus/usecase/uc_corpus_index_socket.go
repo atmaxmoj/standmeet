@@ -41,7 +41,7 @@ func CorpusHostOpsFor(deps *IndexDeps) []hostop.Op {
 	return CorpusHostOps(&pgCorpusLister{
 		wiki: deps.Wiki, output: deps.Output, writing: deps.Writings,
 		subjectivity: deps.Subjectivity, queryRepo: deps.VaultSync,
-		noteRefs: deps.NoteRefs, searcher: deps.Searcher,
+		noteRefs: deps.NoteRefs, searcher: deps.Searcher, media: deps.Media,
 	})
 }
 
@@ -117,15 +117,29 @@ func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, 
 	if err != nil {
 		return corpusReadErrWire(err, args.Path)
 	}
+	return marshalReadResult(readWire(ctx, l, req, &entry)), nil
+}
+
+// readWire —— 装配 corpus_read 的回参:正文里的原生查询就地解析,素材跟着条目一起给。
+//
+// 素材那一步在这里,是因为**走到这里 ACL 已经放行了** —— 可见性继承是结构保证的,
+// 不是又判一次。
+func readWire(
+	ctx context.Context, l Lister, req *corpusIndexReq, entry *Entry,
+) *readResultWire {
 	body := entry.Body
 	if qr, ok := l.(queryResolver); ok { // 服务端解析 standmeet-query 块(ACL-scoped)
 		body = ResolveQueryBlocks(ctx, qr, req.OwnerID, corpusScopeOf(req), body)
 	}
-	return marshalReadResult(&readResultWire{
+	wire := &readResultWire{
 		ID: entry.ID, Genre: entry.Genre, Body: body,
 		Path: entry.Path, Title: entry.Title, CSSClasses: entry.CSSClasses,
 		ShowAsSource: entry.ShowAsSource,
-	}), nil
+	}
+	if ar, ok := l.(assetReader); ok {
+		wire.Assets, wire.AssetURLs = ar.NoteMedia(ctx, req.OwnerID, entry.ID)
+	}
+	return wire
 }
 
 // corpusReadErrWire —— map Get's failure to the wire: denied/not-found are friendly tool

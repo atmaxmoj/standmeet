@@ -25,12 +25,28 @@ export async function enterCodeSession(
   page: Page, code: string, name?: string,
 ): Promise<void> {
   await goto(page, `/?code=${code}`);
+  // 只等 200,但**把沿途的非 200 记下来**。等待条件只认 200 是对的(会话建成才算进门),
+  // 可它会把真实原因过滤掉:后端一路回 401 / 429 时,超时信息只会说"等不到 response",
+  // 于是一次明确的拒绝伪装成挂起。2026-08-02 全量里就是这样 —— 后端 4 秒内回了
+  // 10×401 + 15×429,而失败信息里一个状态码都看不到。
+  const seen: number[] = [];
+  const note = (r: { url: () => string; status: () => number }) => {
+    if (r.url().endsWith('/api/v1/sessions') && r.status() !== 200) seen.push(r.status());
+  };
+  page.on('response', note);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200,
     { timeout: 15_000 },
   );
   await submitVisitorName(page, name);
-  await session;
+  try {
+    await session;
+  } catch (e) {
+    const detail = seen.length > 0 ? ` — backend answered ${seen.join(',')}` : ' — no response at all';
+    throw new Error(`enterCodeSession(${code}): no 200 from /api/v1/sessions${detail}`, { cause: e });
+  } finally {
+    page.off('response', note);
+  }
 }
 
 // submitVisitorName —— 名字选择器:有名字就填+提交,没名字就 skip。

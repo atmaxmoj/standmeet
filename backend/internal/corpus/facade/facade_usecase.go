@@ -5,6 +5,7 @@ import "github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 // 类型（实现:usecase）.
 type (
 	AssetsDeps                      = usecase.AssetsDeps
+	NoteAssetsDeps                  = usecase.NoteAssetsDeps
 	CreateOutputReq                 = usecase.CreateOutputReq
 	CreateWikiReq                   = usecase.CreateWikiReq
 	CrossLinkQueryDeps              = usecase.CrossLinkQueryDeps

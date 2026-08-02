@@ -47,6 +47,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "subjectivity", Ops: corpus.SubjectivityOps(d.Corpus)},
 		{Name: "corpus", Ops: append(
 			corpus.CorpusReadOps(d.Corpus), corpus.CorpusWriteOps(d.Corpus)...)},
+		{Name: "assets", Ops: corpus.AssetOps(d.Corpus)},
 		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},
 		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
 		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS)},

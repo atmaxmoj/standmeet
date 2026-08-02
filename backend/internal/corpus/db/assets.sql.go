@@ -12,9 +12,9 @@ import (
 )
 
 const createAsset = `-- name: CreateAsset :one
-INSERT INTO assets (id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
+INSERT INTO assets (id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, kind)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at
 `
 
 type CreateAssetParams struct {
@@ -25,6 +25,7 @@ type CreateAssetParams struct {
 	SizeBytes        int64
 	Sha256           string
 	OriginalFilename string
+	Kind             string
 }
 
 func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset, error) {
@@ -36,11 +37,13 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 		arg.SizeBytes,
 		arg.Sha256,
 		arg.OriginalFilename,
+		arg.Kind,
 	)
 	var i Asset
 	err := row.Scan(
 		&i.ID,
 		&i.HolderID,
+		&i.Kind,
 		&i.StorageKey,
 		&i.ContentType,
 		&i.SizeBytes,
@@ -107,8 +110,7 @@ func (q *Queries) DeleteAssetsByIDs(ctx context.Context, dollar_1 []pgtype.UUID)
 }
 
 const getAssetByID = `-- name: GetAssetByID :one
-SELECT id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
-FROM assets
+SELECT id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
 WHERE id = $1
 `
 
@@ -118,6 +120,7 @@ func (q *Queries) GetAssetByID(ctx context.Context, id pgtype.UUID) (Asset, erro
 	err := row.Scan(
 		&i.ID,
 		&i.HolderID,
+		&i.Kind,
 		&i.StorageKey,
 		&i.ContentType,
 		&i.SizeBytes,
@@ -129,9 +132,9 @@ func (q *Queries) GetAssetByID(ctx context.Context, id pgtype.UUID) (Asset, erro
 }
 
 const listAssetsByHolder = `-- name: ListAssetsByHolder :many
-SELECT id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
-FROM assets
+SELECT id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
 WHERE holder_id = $1
+ORDER BY created_at
 `
 
 func (q *Queries) ListAssetsByHolder(ctx context.Context, holderID pgtype.UUID) ([]Asset, error) {
@@ -146,6 +149,7 @@ func (q *Queries) ListAssetsByHolder(ctx context.Context, holderID pgtype.UUID) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.HolderID,
+			&i.Kind,
 			&i.StorageKey,
 			&i.ContentType,
 			&i.SizeBytes,

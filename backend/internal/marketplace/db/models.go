@@ -81,6 +81,7 @@ type Application struct {
 type Asset struct {
 	ID               pgtype.UUID
 	HolderID         pgtype.UUID
+	Kind             string
 	StorageKey       string
 	ContentType      string
 	SizeBytes        int64
@@ -293,20 +294,6 @@ type McpServer struct {
 	AuthHeaderValueEnc []byte
 	GrantedDeps        []string
 	CreatedAt          pgtype.Timestamptz
-}
-
-type MediaAsset struct {
-	ID            pgtype.UUID
-	OwnerID       pgtype.UUID
-	Kind          string
-	Filename      string
-	MimeType      string
-	SizeBytes     int64
-	StorageKey    string
-	RawEntryID    pgtype.UUID
-	WikiEntryID   pgtype.UUID
-	OutputEntryID pgtype.UUID
-	CreatedAt     pgtype.Timestamptz
 }
 
 type Message struct {

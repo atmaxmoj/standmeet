@@ -187,22 +187,9 @@ CREATE TABLE note_refs (
 CREATE INDEX note_refs_dst_idx ON note_refs(dst_id);
 CREATE INDEX note_refs_owner_dst_idx ON note_refs(owner_id, dst_id);
 
-CREATE TABLE media_assets (
-    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    kind            text          NOT NULL,
-    filename        text          NOT NULL,
-    mime_type       text          NOT NULL,
-    size_bytes      bigint        NOT NULL DEFAULT 0,
-    storage_key     text          NOT NULL,
-    -- raw note 现同住 corpus_notes（genre='raw'）；FK 重指统一表（raw_entries 已删）。
-    raw_entry_id    uuid          REFERENCES corpus_notes(id) ON DELETE SET NULL,
-    -- wiki/output note 现同住 corpus_notes（genre 区分），两列都 FK 统一表；哪列有值由
-    -- 上层按 note genre 决定（未来可归一成单 note_id 列）。
-    wiki_entry_id   uuid          REFERENCES corpus_notes(id) ON DELETE SET NULL,
-    output_entry_id uuid          REFERENCES corpus_notes(id) ON DELETE SET NULL,
-    created_at      timestamptz   NOT NULL DEFAULT now()
-);
+-- media_assets 已删除：三个 genre 外键、零个写者。它是"每个 genre 都能挂素材"这件事的
+-- 一份**没接线的意图**——表建了、FK 指好了，但没有任何代码往里写。真正在用的是 assets
+-- （holder_id 无 FK、无 genre 列），素材依附文章、可见性继承文章。
 
 -- Access codes —— owner 发给访客的访问码 (LABEL-XXX 格式)；一码多人共用。
 -- corpus_permissions：path-glob ACL，first-match-wins by order ascending，
@@ -456,6 +443,10 @@ ALTER TABLE access_codes
 CREATE TABLE assets (
     id                 uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     holder_id          uuid          NOT NULL,
+    -- kind —— 'image'（正文配图 / hero）| 'attachment'（可下载的附件，如 PDF）。
+    -- 收什么类型、多大，按 kind 分：一段视频天生比一张图大，拿同一个数卡它等于禁掉视频。
+    -- 默认 image —— 这一列是后加的，既有行都是配图。
+    kind               text          NOT NULL DEFAULT 'image',
     storage_key        text          NOT NULL,
     content_type       text          NOT NULL DEFAULT 'application/octet-stream',
     size_bytes         bigint        NOT NULL DEFAULT 0,

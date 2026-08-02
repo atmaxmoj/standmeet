@@ -132,6 +132,15 @@ func baseBwrapArgv() []string {
 		"--dev", "/dev",
 		"--tmpfs", "/tmp",
 		"--setenv", "HOME", "/tmp",
+		// 宿主的 TLS 信任配置**不许继承**。沙箱自己 bind 了 /etc/ssl + /etc/ca-certificates
+		// (见 netBinds) —— 信任材料是沙箱自己的事。而这两个变量指的是**宿主路径**,沙箱里
+		// 通常不存在:python 的 ssl 层会**急切地**打开它,于是连一个纯 http 请求都会以
+		// `[Errno 2] No such file or directory` 失败,而错误里既不提 TLS 也不提那个路径。
+		// (2026-08-02 实证:宿主为了信任 e2e 图床的自签证书设了 SSL_CERT_FILE,
+		// 沙箱里所有 python 插件当场全灭,表现成"网络被拒",连"断网应当失败"那条用例都
+		// 因此假绿。)
+		"--unsetenv", "SSL_CERT_FILE",
+		"--unsetenv", "SSL_CERT_DIR",
 	}
 }
 

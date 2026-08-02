@@ -759,9 +759,6 @@ deps:
       - corpususecase
       - facadeparity
       - apierr
-      # httpx —— 写长文时按 owner 给的 https 地址取回内联配图。出站 HTTP 一律经 httpx
-      # (retry + timeout + egress 封锁);这条尤其要,因为地址是 owner 递进来的。
-      - httpx
     anyVendorDeps: true
   corpusentity:
     mayDependOn:
@@ -787,6 +784,9 @@ deps:
       - apierr
       - pgstore
       - storage
+      # httpx —— 按 owner 给的 https 地址取回一份素材。出站 HTTP 一律经 httpx
+      # (retry + timeout + egress 封锁);这条尤其要,因为地址是 owner 递进来的。
+      - httpx
     anyVendorDeps: true
 
   # access —— #135 access 域(facade + DDD guts)。facade 只依赖自己的 guts;guts 分层无环。

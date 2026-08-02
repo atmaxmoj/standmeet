@@ -24,13 +24,16 @@ func marshalRows(rows []Row) string {
 // readResultWire —— corpus_read 的 wire 形。id(稳定标识)+ genre + body(markdown) +
 // path(树派生地址)+ title;css_classes = per-note 呈现钩子。
 type readResultWire struct {
-	ID           string   `json:"id"`
-	Genre        string   `json:"genre"`
-	Body         string   `json:"body"`
-	Path         string   `json:"path"`
-	Title        string   `json:"title"`
-	CSSClasses   []string `json:"css_classes"`
-	ShowAsSource bool     `json:"show_as_source"`
+	// 素材 —— 这条语料身上的图 / 附件,以及正文里那些引用解析出的地址。
+	AssetURLs    map[string]string `json:"asset_urls,omitempty"`
+	ID           string            `json:"id"`
+	Genre        string            `json:"genre"`
+	Body         string            `json:"body"`
+	Path         string            `json:"path"`
+	Title        string            `json:"title"`
+	CSSClasses   []string          `json:"css_classes"`
+	Assets       []AssetView       `json:"assets,omitempty"`
+	ShowAsSource bool              `json:"show_as_source"`
 }
 
 func marshalReadResult(r *readResultWire) string {

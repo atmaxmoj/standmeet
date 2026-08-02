@@ -28,10 +28,12 @@ func NewOutputRepo(pool *pgstore.Pool) *OutputRepo { return &OutputRepo{pool: po
 
 // CreateOutputInput —— Create 入参。SourceWikiIDs 记录从哪些 wiki 提炼来。
 type CreateOutputInput struct {
-	OwnerID       string
-	ParentID      *string
-	Title         string
-	Body          string
+	OwnerID  string
+	Title    string
+	Body     string
+	ParentID *string
+	// ShowAsSource —— nil = 可引用(默认)。见 CreateWikiInput 上同名字段的说明。
+	ShowAsSource  *bool
 	Tags          []string
 	SourceWikiIDs []string
 }
@@ -76,7 +78,7 @@ func buildOutputCreateParams(in *CreateOutputInput) (db.CreateNoteParams, error)
 		CssClasses: []string{}, // output create 不带 cssclasses(列 NOT NULL,须非 nil)
 		// output 同 wiki:建出来即可引用的 source;藏是之后 UpdateOutput 的例外路径。
 		// 不显式 true 会写零值 false → 被 readCollector gate 误当隐藏条,citation 全丢。
-		ShowAsSource: true,
+		ShowAsSource: citableUnlessHidden(in.ShowAsSource),
 	}, nil
 }
 

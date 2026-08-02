@@ -45,7 +45,9 @@ type AssetUploadInput struct {
 	ContentType      string
 	OriginalFilename string
 	PendingID        string
-	Body             []byte
+	// Kind —— 'image' | 'attachment'。空 = image(这一列是后加的,既有路径都是配图)。
+	Kind string
+	Body []byte
 }
 
 // PreparedAsset —— InsertAssetRowTx 返回。Body + ContentType 留着等 tx
@@ -98,6 +100,7 @@ func insertAssetRow(ctx context.Context, a *insertAssetArgs) (entity.Asset, erro
 		ID: a.ID, HolderID: a.HolderID, StorageKey: a.Key,
 		ContentType: a.In.ContentType, SizeBytes: int64(len(a.In.Body)),
 		SHA256: sha256Hex(a.In.Body), OriginalFilename: a.In.OriginalFilename,
+		Kind: a.In.Kind,
 	})
 	if cerr != nil {
 		return entity.Asset{}, fmt.Errorf("create asset row: %w", cerr)

@@ -22,7 +22,9 @@ const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const TABLES = [
   'messages', 'conversations', 'code_members',
   'applications', 'access_codes',
-  'corpus_notes', 'media_assets', 'page_content',
+  // assets 按 holder_id 挂,**没有外键** —— 所以 corpus_notes 的 CASCADE 带不走它,
+  // 得自己列一行。(以前这里写的是 media_assets:一张从来没有写入方的表,删了。)
+  'corpus_notes', 'assets', 'page_content',
   'resume_drafts', 'job_fingerprints', 'job_sources',
   'owner_keypairs', 'owners',
 ];

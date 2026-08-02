@@ -23,7 +23,14 @@ type Deps struct {
 	Subjectivity *repo.NoteRepo
 	VaultSync    *repo.VaultSyncRepo // Obsidian vault sync: 跨-genre reconcile(仅 admin 侧装配)
 	Index        Indexer             // Meili 索引传播;nil = 未配 Meili,写路径不索引(best-effort)
+	// Media —— 一条语料身上的素材(图 / 附件 / hero)。**任意 genre 都能有** ——
+	// 底下的 assets 表按 holder_id 挂,没有 genre 列,一直是通用的;缺的只是接线。
+	Media *NoteAssetsDeps
 }
+
+// HasMedia —— 这次装配接了素材没有。没接(某些只读路径)→ 读写素材的那几步跳过,
+// 而不是空指针。
+func (d Deps) HasMedia() bool { return d.Media.ready() }
 
 // RawDumpInput 是 raw_dump 入参。
 type RawDumpInput struct {
@@ -63,9 +70,12 @@ func RawDump(ctx context.Context, deps Deps, in *RawDumpInput) (entity.Raw, erro
 type PromoteInput struct {
 	OwnerID  string
 	RawID    string
-	ParentID *string
 	Title    string
-	Tags     []string
+	ParentID *string
+	// ShowAsSource —— nil = 可引用(默认)。提升出来的条目默认就是能被引用的来源;
+	// 藏(meta/persona 那类)必须由调用方明确要求。
+	ShowAsSource *bool
+	Tags         []string
 }
 
 // PromoteToWiki 把指定 raw 提升为新 wiki entry：读原 raw → create wiki
@@ -87,6 +97,7 @@ func PromoteToWiki(
 		Body:         raw.Body(),
 		Tags:         mergeTags(raw.Tags(), in.Tags),
 		SourceRawIDs: []string{raw.ID()},
+		ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
 		return entity.Wiki{}, fmt.Errorf("wiki create: %w", err)

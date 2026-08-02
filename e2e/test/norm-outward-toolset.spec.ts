@@ -50,6 +50,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'subjectivity_write',
   'corpus.list', 'corpus.get',
   'corpus.create', 'corpus.update', 'corpus.delete', 'corpus.promote',
+  // 素材 —— **任意 genre** 都能挂图 / 附件 / hero。以前挂图只有一条路(写一篇 writing 时
+  // 把内联图地址跟表单一起交上去),于是"素材"不是一件独立的事,一条 raw 想配张图没有说法。
+  // 现在它是独立一步:先 assets.upload 拿 id,再在正文里引 standmeet-asset:<id>,或设成 hero 图。
+  'assets.upload',
   // chat / conversations / prompts / roles
   // 一份逐字稿两个面同一份载荷之后,读它的 op 就叫 conversations.get
   // (原 chat.show_grounding 只是 MCP 那份的名字)。

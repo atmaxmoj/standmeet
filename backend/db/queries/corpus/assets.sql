@@ -1,17 +1,16 @@
 -- name: CreateAsset :one
-INSERT INTO assets (id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at;
+INSERT INTO assets (id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, kind)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *;
 
 -- name: GetAssetByID :one
-SELECT id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
-FROM assets
+SELECT * FROM assets
 WHERE id = $1;
 
 -- name: ListAssetsByHolder :many
-SELECT id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
-FROM assets
-WHERE holder_id = $1;
+SELECT * FROM assets
+WHERE holder_id = $1
+ORDER BY created_at;
 
 -- name: DeleteAssetsByHolder :many
 -- 删一个 holder 的所有 asset 行；返 storage_key 让 caller 后置批删 MinIO blob。

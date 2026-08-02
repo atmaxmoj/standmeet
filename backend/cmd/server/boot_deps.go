@@ -68,6 +68,7 @@ type repoSet struct {
 	prompt         *owner.PromptRepo
 	role           *access.RoleRepo
 	asset          *corpus.AssetRepo
+	noteHero       *corpus.NoteHeroRepo
 	writing        *corpus.WritingRepo
 	writingRef     *corpus.WritingRefRepo
 	mailConnector  *connector.MailRepo
@@ -109,6 +110,7 @@ func newRepos(db *pgstore.Pool) *repoSet {
 		prompt:         owner.NewPromptRepo(db),
 		role:           access.NewRoleRepo(db),
 		asset:          corpus.NewAssetRepo(db),
+		noteHero:       corpus.NewNoteHeroRepo(db),
 		writing:        corpus.NewWritingRepo(db),
 		writingRef:     corpus.NewWritingRefRepo(db),
 		mailConnector:  connector.NewMailRepo(db),
@@ -169,6 +171,7 @@ func assembleRuntimeDeps(
 		WritingRepo:        repos.writing,
 		WritingRefRepo:     repos.writingRef,
 		AssetRepo:          repos.asset,
+		NoteHeroRepo:       repos.noteHero,
 		MailRepo:           repos.mailConnector,
 		CapabilityRepo:     repos.capability,
 		GhostRepo:          repos.ghost,

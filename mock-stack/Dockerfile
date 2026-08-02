@@ -30,12 +30,18 @@ RUN go build -trimpath -ldflags='-s -w' -o /out/mail ./mail
 # ----- runtime: job-board ------------------------------------------------
 FROM alpine:3.21 AS job-board
 WORKDIR /app
-RUN apk add --no-cache wget                                                   \
+# ca-certificates —— 这个 mock 会现签一张证书,并把"系统根 + 它"合并成一份 bundle
+# 给消费方(见 job-board/tls.go)。没有系统根就合并不出来。
+#
+# /mock-tls 在镜像里就建好并 chown —— **命名卷第一次挂载时继承镜像里该路径的属主**。
+# 不建的话卷是 root:root,而这个进程跑 uid 1001,启动即 "permission denied"。
+RUN apk add --no-cache wget ca-certificates                                   \
  && addgroup --system --gid 1001 mock                                         \
- && adduser --system --uid 1001 --ingroup mock mock
+ && adduser --system --uid 1001 --ingroup mock mock                           \
+ && mkdir -p /mock-tls && chown mock:mock /mock-tls
 COPY --from=build-job-board --chown=mock:mock /out/job-board /app/job-board
 USER mock
-EXPOSE 9000
+EXPOSE 9000 9443
 ENV PORT=9000
 ENV FIXTURES_DIR=/fixtures
 ENTRYPOINT ["/app/job-board"]

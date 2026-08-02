@@ -36,6 +36,7 @@ type CreateAssetInput struct {
 	ContentType      string
 	SHA256           string
 	OriginalFilename string
+	Kind             string
 	SizeBytes        int64
 }
 
@@ -69,7 +70,17 @@ func buildCreateAssetParams(in *CreateAssetInput) (*db.CreateAssetParams, error)
 		StorageKey: in.StorageKey, ContentType: in.ContentType,
 		SizeBytes: in.SizeBytes, Sha256: in.SHA256,
 		OriginalFilename: in.OriginalFilename,
+		Kind:             defaultKind(in.Kind),
 	}, nil
+}
+
+// defaultKind —— 没说就是配图。这一列是后加的,既有行都是配图;空串进库会让读的人
+// 看到一个"没有种类"的素材,那不是一种状态。
+func defaultKind(k string) string {
+	if k == "" {
+		return entity.AssetKindImage
+	}
+	return k
 }
 
 // GetByID —— 单条读。caller 不需要 tx 时直接走 pool；tx 进行中也能用。
@@ -164,6 +175,27 @@ func toDomainAsset(row *db.Asset) entity.Asset {
 		StorageKey: row.StorageKey, ContentType: row.ContentType,
 		SizeBytes: row.SizeBytes, SHA256: row.Sha256,
 		OriginalFilename: row.OriginalFilename,
+		Kind:             row.Kind,
 		CreatedAt:        row.CreatedAt.Time,
 	}
+}
+
+// Create —— 走 pool 写一条 assets 行(无 tx 上下文时用)。
+//
+// 素材是**独立挂上去**的一步:先确认条目在、再取字节、再落这一行 —— 不跟条目的写入同事务。
+// writing 那条老路是"正文和图一起 multipart 提交"所以需要同事务;按地址取的这条不是。
+func (r *AssetRepo) Create(
+	ctx context.Context, in *CreateAssetInput,
+) (entity.Asset, error) {
+	return r.CreateTx(ctx, r.pool, in)
+}
+
+// DeleteByHolder —— 走 pool 删一个 holder 的所有 asset 行；返 storage_keys。
+func (r *AssetRepo) DeleteByHolder(ctx context.Context, holderID string) ([]string, error) {
+	return r.DeleteByHolderTx(ctx, r.pool, holderID)
+}
+
+// DeleteByIDs —— 走 pool 删指定 asset id 集合；返 storage_keys。
+func (r *AssetRepo) DeleteByIDs(ctx context.Context, ids []string) ([]string, error) {
+	return r.DeleteByIDsTx(ctx, r.pool, ids)
 }

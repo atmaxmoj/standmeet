@@ -28,13 +28,19 @@ func NewWikiRepo(pool *pgstore.Pool) *WikiRepo { return &WikiRepo{pool: pool} }
 
 // CreateWikiInput 是 Create 入参。
 type CreateWikiInput struct {
-	OwnerID      string
-	ParentID     *string
-	Title        string
-	Body         string
+	OwnerID  string
+	Title    string
+	Body     string
+	ParentID *string
+	// ShowAsSource —— nil = 可引用(默认)。只有调用方**明确**要藏(meta/persona 那类)才给 false。
+	// 指针不是讲究:裸 bool 表达不了"没给",而"没给"和"要藏"必须分得开。
+	ShowAsSource *bool
 	Tags         []string
 	SourceRawIDs []string
 }
+
+// citableUnlessHidden —— 没给就是可引用。见 CreateWikiInput.ShowAsSource。
+func citableUnlessHidden(v *bool) bool { return v == nil || *v }
 
 // Create 写一条新 wiki。pointer 接收避免 hugeParam。
 func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (entity.Wiki, error) {
@@ -60,10 +66,9 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (entity.Wiki
 		Tags:       nilSafeTags(in.Tags),
 		SourceIds:  sourceRaws,
 		CssClasses: []string{}, // wiki create 不带 cssclasses(列 NOT NULL,须非 nil)
-		// wiki 建出来即是可引用的 source;藏(meta/persona)是之后 UpdateWiki 的
-		// 例外路径(applyShowAsSourceIfHidden)。不显式 true 会写零值 false → 被
-		// readCollector gate 误当隐藏条,citation 全丢。
-		ShowAsSource: true,
+		// wiki 建出来即是可引用的 source;藏(meta/persona)是**调用方明确要求**的例外。
+		// 不显式给就是 true —— 写零值 false 会被 readCollector gate 误当隐藏条,citation 全丢。
+		ShowAsSource: citableUnlessHidden(in.ShowAsSource),
 	})
 	if err != nil {
 		return entity.Wiki{}, fmt.Errorf("create wiki: %w", err)

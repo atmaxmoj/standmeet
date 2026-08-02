@@ -22,9 +22,11 @@ import (
 type PromoteToOutputInput struct {
 	OwnerID  string
 	WikiID   string
-	ParentID *string
 	Title    string
-	Tags     []string
+	ParentID *string
+	// ShowAsSource —— nil = 可引用(默认)。见 PromoteInput 上同名字段的说明。
+	ShowAsSource *bool
+	Tags         []string
 }
 
 // PromoteWikiToOutput 把指定 wiki 提炼为新 output entry：读 wiki → create
@@ -46,6 +48,7 @@ func PromoteWikiToOutput(
 		Body:          wiki.Body(),
 		Tags:          mergeTags(wiki.Tags(), in.Tags),
 		SourceWikiIDs: []string{wiki.ID()},
+		ShowAsSource:  in.ShowAsSource,
 	})
 	if err != nil {
 		return entity.Output{}, fmt.Errorf("output create: %w", err)

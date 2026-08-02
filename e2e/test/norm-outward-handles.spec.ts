@@ -34,14 +34,17 @@ interface RegistryListResp { capabilities: Cap[] }
 // 收成一个参数,顺手补上 MCP 原来缺的四个格子)。
 // booking 的策略更进一步:它是 booker 这个外置能力自己的配置,经通用的 capability_config 口走。
 //
-// 只剩 writings 的**写**:面板 multipart / MCP 一串 URL,字节流进不了一个 JSON op。
-// 那笔债还清,这份 golden 就只剩 jobs 插件那三条,然后翻面成边界断言 ——
-// capreg 里**不该有任何** owner_only。
+// writings 也搬走了(ownercore 随之删除)。当初把它留在这儿的理由写着"字节流进不了一个
+// JSON op",而那句话是错的:MCP 那条路径收的从来是一串 https 地址,服务端自己去取。
+// 真正搬不动的是**把两个面并成一个 op**(面板是 multipart),所以 writing_create 现在住在
+// 语料域、Reach = Only(理由, "mcp") —— 差异写在声明里,而不是靠一个包躲在收口外面。
+//
+// 于是这份 golden 只剩 jobs 插件那三条。**它们全部搬走之后**,这个 golden 就翻面成边界
+// 断言:capreg 里**不该有任何** owner_only。
 const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'writings.bundle', shape: 'owner_only', origin: 'builtin' },
 ];
 
 test.describe('能力归一化 · 【对外】自管理 MCP handles 黄金快照(本次不碰)', () => {

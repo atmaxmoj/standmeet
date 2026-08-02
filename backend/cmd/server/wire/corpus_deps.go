@@ -14,5 +14,10 @@ func corpusDepsOf(d *deps.Runtime) corpus.Deps {
 	return corpus.Deps{
 		Raw: d.RawRepo, Wiki: d.WikiRepo, Output: d.OutputRepo, NoteRefs: d.NoteRefRepo,
 		Subjectivity: d.SubjectivityRepo, Index: d.CorpusIndexer,
+		// 素材:任意 genre 的一条语料都能挂图 / 附件 / hero。
+		Media: &corpus.NoteAssetsDeps{
+			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
+			Hero:   d.NoteHeroRepo,
+		},
 	}
 }

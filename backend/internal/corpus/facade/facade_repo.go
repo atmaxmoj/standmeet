@@ -5,6 +5,7 @@ import "github.com/atmaxmoj/standmeet/internal/corpus/repo"
 // 类型（实现:repo）.
 type (
 	AssetRepo           = repo.AssetRepo
+	NoteHeroRepo        = repo.NoteHeroRepo
 	Corpus              = repo.Corpus
 	CreateSyncNoteInput = repo.CreateSyncNoteInput
 	Note                = repo.Note
@@ -33,6 +34,7 @@ type (
 // 构造/函数（实现:repo）.
 var (
 	NewAssetRepo      = repo.NewAssetRepo
+	NewNoteHeroRepo   = repo.NewNoteHeroRepo
 	NewCorpus         = repo.NewCorpus
 	NewNoteRefRepo    = repo.NewNoteRefRepo
 	NewNoteRepo       = repo.NewNoteRepo
