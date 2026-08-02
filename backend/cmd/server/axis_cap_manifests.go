@@ -1,4 +1,4 @@
-// plugin_manifests.go —— 内建能力的声明从哪儿来。
+// axis_cap_manifests.go —— 内建能力的声明从哪儿来。
 //
 // **声明本身不在这儿** —— 它们在 backend/capabilities/<id>/manifest.yaml,跟
 // backend/connectors/ 同形:两根插件轴,一样的地址结构。这个文件只是组装根取它们的口子。

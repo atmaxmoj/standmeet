@@ -1,4 +1,4 @@
-// sandbox_workspaces.go —— per-session 沙箱工作区子系统接线（#148）。
+// axis_cap_workspaces.go —— per-session 沙箱工作区子系统接线（#148）。
 //
 // 建一个 sandboxws.Manager（root 来自 SANDBOX_WORKSPACE_ROOT，默认 /srv/sandbox-
 // workspaces），把它的 Provision 注入给 usecases 的沙箱 dial 路径（manifest

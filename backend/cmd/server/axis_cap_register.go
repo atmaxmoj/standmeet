@@ -1,5 +1,5 @@
-// plugins.go —— composition root: 把所有 MCP-app 能力注册进 capreg.Registry（归一）。
-// 拆出 wireup.go 保持 ≤350 行。
+// axis_cap_register.go —— composition root: 把所有 MCP-app 能力注册进 capreg.Registry（归一）。
+// 从 boot_wireup.go 拆出来保持 ≤350 行。
 
 package main
 

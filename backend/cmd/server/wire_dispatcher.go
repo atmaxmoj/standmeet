@@ -73,7 +73,7 @@ func buildDispatcher(d *runtimeDeps) *dispatcher.Dispatcher {
 		},
 	})
 	// 两根插件轴自己的那两个资源:它们没有域可归(读的是能力注册表和连接器槽),
-	// 所以声明也在这一侧 —— 见 axis_capabilities.go / axis_capability_config.go。
+	// 所以声明也在这一侧 —— 见 axis_cap_ops.go / axis_cap_config.go。
 	return dispatcher.New(append(resources,
 		capabilityResource(d),
 		capabilityConfigResource(d),

@@ -1,4 +1,4 @@
-// role_validators.go —— composition-root 适配器:把 owner/marketplace repo 的 GetByID 按 kind
+// port_role_refs.go —— composition-root 适配器:把 owner/marketplace repo 的 GetByID 按 kind
 // 收窄成 access.RefValidator(存在性校验)。role 写入只需"引用是否存在",不需实体 —— 这层
 // 适配让 access 既不为每种引用持类型化 surface,也不反依赖 owner/marketplace。
 //

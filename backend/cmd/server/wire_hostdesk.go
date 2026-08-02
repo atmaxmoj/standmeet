@@ -85,7 +85,7 @@ func sharedHostDeps(
 // perCapabilityDeps —— 一个能力**自己的**存储和配置。
 //
 // 存储在构造期就绑死到这个能力的命名空间(schema = mcp_<id>),沙箱那侧填不了别人的表。
-// 要不要 provision 由 capabilityStorage 一处判定 —— 见 capability_storage.go。
+// 要不要 provision 由 needsStorage 一处判定 —— 见 axis_cap_storage.go。
 func perCapabilityDeps(d *runtimeDeps, m *mcpplugin.Manifest) *hostdesk.PerCapability {
 	per := &hostdesk.PerCapability{}
 	store := capabilityStorage(d, m)

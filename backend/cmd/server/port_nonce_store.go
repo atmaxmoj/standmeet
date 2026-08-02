@@ -1,4 +1,4 @@
-// sigv1_nonce.go —— owner.NonceStore 的 Redis 实现（Sigv1 一次性 nonce，防重放）。
+// port_nonce_store.go —— owner.NonceStore 的 Redis 实现（Sigv1 一次性 nonce，防重放）。
 // SetNX：key 不存在则设并返 true（首见）；已存在返 false（重放）。TTL 让 nonce 自动回收
 // （ts 早已过窗口，无需永久保留）。
 

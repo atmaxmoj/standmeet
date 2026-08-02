@@ -1,4 +1,4 @@
-// connectors_wire.go —— #155 composition root：把统一连接器机器接进运行系统。拉起时把内置
+// axis_conn_register.go —— #155 composition root：把统一连接器机器接进运行系统。拉起时把内置
 // manifest（builtins）装配进 Hub，用 slot 分派器背书品类 dep；ConnectorRepo 经几个薄适配器
 // 满足 connector 层的 ConnectionStore / SMTPVault / SlotStore（凭据解密留在 connector 层内）。
 

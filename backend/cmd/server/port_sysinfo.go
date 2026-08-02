@@ -1,4 +1,4 @@
-// sysinfo.go —— #101 /admin/system 的真实运行时信息提供者。composition root 持有 db /
+// port_sysinfo.go —— #101 /admin/system 的真实运行时信息提供者。composition root 持有 db /
 // redis / storage 客户端,做真 ping;version/uptime/go runtime 从进程读。adminroutes 只见接口。
 
 package main

@@ -1,4 +1,4 @@
-// runtime_deps.go —— composition-root 的依赖聚合结构。从 main.go 拆出来:main.go 是
+// boot_runtime_deps.go —— composition-root 的依赖聚合结构。从 main.go 拆出来:main.go 是
 // composition root,长期卡在 max-lines(350),每加一个依赖字段就顶破,逼着到处砍无关行。
 // 把这个随功能增长的 god-struct 单独一文件,main.go 保持精简,字段增长不再牵连 main.go。
 

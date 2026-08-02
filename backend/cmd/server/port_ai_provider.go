@@ -1,4 +1,4 @@
-// ai_provider_adapter.go —— composition root 把 inference preset 表适配成 owner 的
+// port_ai_provider.go —— composition root 把 inference preset 表适配成 owner 的
 // ProviderValidator 窄口(owner 不反依赖 inference,避免 inference→owner 成环)。
 
 package main

@@ -1,4 +1,4 @@
-// axis_capability_config.go —— 资源 capability_config:**任意**能力的可设置项,由能力轴自己声明。
+// axis_cap_config.go —— 资源 capability_config:**任意**能力的可设置项,由能力轴自己声明。
 //
 // 这是面板给能力留的那个通用口子。能力在自己的 manifest 里声明有哪些配置项(键/类型/默认值),
 // 这里通用地读回和写入 —— 这一层不认识任何一个字段的含义,更不认识 "booking"、

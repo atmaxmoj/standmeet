@@ -1,5 +1,5 @@
 // capreg_register.go —— Phase B: capreg.Registry 的 builtin 注册口。
-// composition root (cmd/server/wireup.go) 在 buildPublicDeps 之后调
+// composition root (cmd/server/boot_wireup.go) 在 buildPublicDeps 之后调
 // RegisterAgentSkills(reg, &visitor) 一次，把 visitor-side 内建 capability
 // 全部 register 进去。
 //

@@ -1,4 +1,4 @@
-// access_adapters.go —— composition root 把 owner.Repo 适配成 access 模块的窄端口。
+// port_access.go —— composition root 把 owner.Repo 适配成 access 模块的窄端口。
 // access 只需要"sole owner 的 id",不该依赖整个 owner.Repo；这里满足 access.SoleOwnerLookup。
 
 package main

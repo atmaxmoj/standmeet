@@ -240,7 +240,7 @@ func writeFields(mp *multipart.Writer, fields map[string]string) error {
 }
 
 // NoopClient —— Returns ErrNotConfigured on every call. Wired in
-// `wireup.go` until the real Gotenberg endpoint env var lands.
+// `boot_wireup.go` until the real Gotenberg endpoint env var lands.
 type NoopClient struct{}
 
 // RenderURL implements Renderer.

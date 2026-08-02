@@ -1,4 +1,4 @@
-// axis_connectors.go —— 资源 connectors:owner 手上这些"连出去的线",由**连接器轴**自己声明。
+// axis_conn_ops.go —— 资源 connectors:owner 手上这些"连出去的线",由**连接器轴**自己声明。
 //
 // 这一组分两半:
 //

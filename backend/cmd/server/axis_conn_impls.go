@@ -1,4 +1,4 @@
-// axis_connectors_impls.go —— 连接器在 manifest 里声明的 owner 操作,在这一侧的实现。
+// axis_conn_impls.go —— 连接器在 manifest 里声明的 owner 操作,在这一侧的实现。
 //
 // 声明和实现分两处是有意的:声明是**数据**(连接器自己的 manifest 说它出哪个操作、长什么样),
 // 实现按**品类契约**接上(mail.test_send → contract.MailProxy)。通用注册表因此不认识任何

@@ -1,4 +1,4 @@
-// axis_capabilities_table.go —— "访客能用什么"这张表怎么装出来(声明在 axis_capabilities.go)。
+// axis_cap_table.go —— "访客能用什么"这张表怎么装出来(声明在 axis_cap_ops.go)。
 //
 // 这张表要读四处:能力注册表(有哪些能力 + 它们的 origin)、capability_settings
 // (owner 关掉了哪些)、owner 自己的 skill、连接器槽(日历 / 邮件连上没有)。

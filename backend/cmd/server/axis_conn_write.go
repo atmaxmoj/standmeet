@@ -1,5 +1,5 @@
-// axis_connectors_write.go —— 通用注册表的写操作:建 / 改 / 删 / 激活 / 断开 / 验 spec
-// (声明在 axis_connectors.go)。
+// axis_conn_write.go —— 通用注册表的写操作:建 / 改 / 删 / 激活 / 断开 / 验 spec
+// (声明在 axis_conn_ops.go)。
 //
 // 编排本身在 internal/connector 的 Service 里(抓 spec / 装配 / 落库 / OAuth);这里只解参、
 // 转交、翻回执。

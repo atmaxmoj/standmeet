@@ -1,4 +1,4 @@
-// axis_capability_config_store.go —— 任意能力的可设置项怎么读写(声明在 axis_capability_config.go)。
+// axis_cap_config_store.go —— 任意能力的可设置项怎么读写(声明在 axis_cap_config.go)。
 //
 // 这儿把两样东西对上:能力的**声明**(manifest 的 Config)和它**自己的隔离存储**。
 // 除此之外它什么都不知道 —— 没有一个字段名是写死的,加一个可配置项只需要在 manifest 里加一行。

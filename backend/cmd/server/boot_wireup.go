@@ -1,4 +1,4 @@
-// wireup.go —— composition root 的 build*Deps helpers。从 main.go 拆出来
+// boot_wireup.go —— composition root 的 build*Deps helpers。从 main.go 拆出来
 // 保持 main.go ≤ 350 行（lint cap）。所有函数都是 d *runtimeDeps → 一个
 // sub-router 的 Deps struct，没业务逻辑。
 

@@ -1,4 +1,4 @@
-// repos.go —— composition root 的 repo bundle + assemble helpers。
+// boot_deps.go —— composition root 的 repo bundle + assemble helpers。
 // 从 main.go 拆出守 350 行 max-lines。
 
 package main

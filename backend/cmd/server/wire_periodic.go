@@ -1,6 +1,6 @@
 // wire_periodic.go —— 汇齐各处**声明**的周期任务,交给宿主那一份调度起。
 //
-// 这里替代了两段手写的 cron(resume_draft_sweep.go 和 sandbox_workspaces.go 里的清扫循环)
+// 这里替代了两段手写的 cron(resume_draft_sweep.go 和工作区接线里的清扫循环)
 // 加一段**根本没登记过**的循环(corpus 的 Meili reconcile —— 它一直在跑,Monitor 面板上却
 // 从来没有它)。三段各写一遍 ticker、各写一遍 Register/Report、各手写一句 "every 5m"。
 //

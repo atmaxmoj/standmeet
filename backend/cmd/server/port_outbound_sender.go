@@ -1,4 +1,4 @@
-// outbound_sender_adapter.go —— #135 Slice 5: bridges the mail connector's typed CATEGORY proxy
+// port_outbound_sender.go —— #135 Slice 5: bridges the mail connector's typed CATEGORY proxy
 // (contract.MailProxy) to the kernel's neutral owner.OutboundSender. The kernel sends OTP /
 // recovery / booking-confirmation mail through OutboundSender without knowing "mail"/SMTP exists;
 // the concrete transport (the active mail connector) is wired here in the composition root.

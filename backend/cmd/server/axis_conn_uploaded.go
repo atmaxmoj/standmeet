@@ -1,5 +1,5 @@
-// connectors_wire_uploaded.go —— 拉起时把 DB 里 owner 自建（上传）连接器装回 Hub。拆出
-// connectors_wire.go 守 max-lines；故障隔离的边界逻辑（坏连接器跳过不拖垮 boot）独立在此。
+// axis_conn_uploaded.go —— 拉起时把 DB 里 owner 自建（上传）连接器装回 Hub。拆出
+// axis_conn_register.go 守 max-lines；故障隔离的边界逻辑（坏连接器跳过不拖垮 boot）独立在此。
 
 package main
 

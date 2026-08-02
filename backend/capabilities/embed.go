@@ -5,7 +5,7 @@
 // mcpplugin 装载路径装配 —— 宿主不 import 任何插件代码,契约只有这份 manifest + 运行时
 // MCP 协议。内建和第三方走**完全同一条** sandbox_stdio 路径,只是 manifest 的来源不同。
 //
-// 这些声明以前是 cmd/server/plugin_manifests.go 里的 Go 字面量:能力的身份、它点了哪些
+// 这些声明以前是组装根里的 Go 字面量:能力的身份、它点了哪些
 // host op、它在码上占哪个字段,全长在组装根里 —— 而组装根本该只做装配。
 package capabilities
 

@@ -1,4 +1,4 @@
-// httpserver.go —— composition root 的 HTTP 装配(原 internal/infra/server,按
+// boot_http.go —— composition root 的 HTTP 装配(原 internal/infra/server,按
 // routes-not-imported/infra-not-domain 层次移进 cmd)。把各 routes 子包的 Mount 拉到一起,
 // 加跨 sub-router 共享中间件(request id、slog request log、recovery)。不做业务。
 

@@ -1,7 +1,8 @@
-// Package main 是 standmeet backend 的 composition root：组装 config、DB
-// pool、Redis、router，然后启 HTTP server。
+// main.go —— 进程入口:组装 config、DB pool、Redis、router,然后启 HTTP server。
 //
-// 任何业务逻辑都不在这里。这里的工作是 "把依赖塞进去 + 监听端口 + 优雅退出"。
+// 任何业务逻辑都不在这里。这里的工作是"把依赖塞进去 + 监听端口 + 优雅退出"。
+// 整个目录的分工章程在 doc.go。
+
 package main
 
 import (

@@ -1,4 +1,4 @@
-// password_reset.go —— `standmeet password-reset` 子命令实现。
+// cmd_password_reset.go —— `standmeet password-reset` 子命令实现。
 //
 // owner 忘了密码兜底：服务器上 docker exec 跑这个子命令，server 进程
 // 短暂启起来、写 DB 一次性 reset token、stdout 打印 plaintext + URL，
