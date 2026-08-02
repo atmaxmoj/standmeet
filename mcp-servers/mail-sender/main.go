@@ -1,7 +1,7 @@
 // Command mail-sender —— the externalized mail.send capability as a sandboxed stdio MCP server
 // (origin=builtin). Owns NO data/credentials: it reads the trusted session context off each
 // tool-call `_meta` (planted by the host) and forwards the call to the host's "send" op over a
-// bind-mounted unix socket (MAIL_SENDER_SOCKET), staying fully network-isolated. The host runs the
+// bind-mounted unix socket (STANDMEET_HOST_SOCKET), staying fully network-isolated. The host runs the
 // real MailContract.Send through the active mail connector (openapi SaaS or SMTP — the plugin can't
 // tell). Mirrors the booker plugin's shape; the result wire ({ok,...}) is the agent-facing result.
 package main
@@ -18,7 +18,8 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-const socketEnv = "MAIL_SENDER_SOCKET"
+// socketEnv —— 宿主注入的 host socket 路径。名字对所有能力都一样(见 booker 的同名常量)。
+const socketEnv = "STANDMEET_HOST_SOCKET"
 
 const instructions = `You can send an email on the owner's behalf through their configured mail ` +
 	`connector. Use send_email only when the visitor has clearly asked you to email them (or the ` +
@@ -120,7 +121,7 @@ func toolErr(err error) *mcpgo.CallToolResult {
 	return mcpgo.NewToolResultText(fmt.Sprintf(`{"ok":false,"error":%q}`, err.Error()))
 }
 
-// callHost —— one line-JSON request/response over the host unix socket bound at MAIL_SENDER_SOCKET.
+// callHost —— one line-JSON request/response over the socket bound at STANDMEET_HOST_SOCKET.
 func callHost(reqObj map[string]any) ([]byte, error) {
 	path := os.Getenv(socketEnv)
 	if path == "" {

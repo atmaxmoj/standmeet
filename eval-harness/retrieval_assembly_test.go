@@ -1,7 +1,7 @@
 // retrieval_assembly_test.go —— #154 step 2: the eval mini-host assembles the REAL
 // retrieval plugin against the Driver's corpus — no postgres, no bwrap. Build the
 // retrieval binary, start a Driver-backed host-op socket (StartRetrievalSocket), point
-// the plugin's RETRIEVAL_SOCKET at it, and assert the launch (a) assembles corpus_search
+// the plugin's host-socket env at it, and assert the launch (a) assembles corpus_search
 // and (b) when invoked, searches the persona corpus over the socket — returning the
 // GRANTED entry and NOT the private one (the granted-glob ACL applied in the bridge).
 //
@@ -42,7 +42,7 @@ func TestEvalAssemblesRetrievalPlugin(t *testing.T) {
 		plugins: []agentcore.PluginSpec{{
 			ID:      "corpus.retrieval",
 			Command: bin,
-			Env:     map[string]string{"RETRIEVAL_SOCKET": sock},
+			Env:     map[string]string{agentcore.HostSocketEnv: sock},
 			// data plugin (orders host ops by name) → gets the session corpus_uris scope
 			HostOps:      agentcore.CorpusHostOpNames(),
 			RawToolNames: true,

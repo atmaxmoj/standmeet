@@ -43,7 +43,7 @@ func buildRetrievalBinary(outDir string) (string, error) {
 func retrievalPluginSpec(bin, sock string) agentcore.PluginSpec {
 	return agentcore.PluginSpec{
 		ID: "corpus.retrieval", Command: bin,
-		Env:     map[string]string{"RETRIEVAL_SOCKET": sock},
+		Env:     map[string]string{agentcore.HostSocketEnv: sock},
 		HostOps: agentcore.CorpusHostOpNames(), RawToolNames: true, ACLAlways: true,
 	}
 }

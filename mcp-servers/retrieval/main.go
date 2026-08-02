@@ -3,7 +3,7 @@
 // context off each tool-call `_meta` (planted by the host — owner id + the frozen
 // corpus-ACL scope) and forwards the call to the host's narrow "corpus_search" /
 // "corpus_read" / "corpus_list" ops over a bind-mounted unix socket
-// (RETRIEVAL_SOCKET), staying fully network-isolated. The host runs the real
+// (STANDMEET_HOST_SOCKET), staying fully network-isolated. The host runs the real
 // retriever (DB search/read/tree-nav + ACL); this plugin is just the agent-facing
 // tools + their schemas.
 //
@@ -24,7 +24,8 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-const socketEnv = "RETRIEVAL_SOCKET"
+// socketEnv —— 宿主注入的 host socket 路径。名字对所有能力都一样(见 booker 的同名常量)。
+const socketEnv = "STANDMEET_HOST_SOCKET"
 
 func main() {
 	srv := server.NewMCPServer("retrieval", "1.0.0",
@@ -259,7 +260,7 @@ func toolErr(err error) *mcpgo.CallToolResult {
 }
 
 // callHost —— one line-JSON request/response over the host unix socket bound into
-// the sandbox at RETRIEVAL_SOCKET.
+// the sandbox at STANDMEET_HOST_SOCKET.
 func callHost(reqObj map[string]any) ([]byte, error) {
 	path := os.Getenv(socketEnv)
 	if path == "" {

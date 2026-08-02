@@ -2,7 +2,7 @@
 // sandboxed stdio MCP server (origin=builtin). It owns NO data: it reads the
 // trusted session context off the tool-call `_meta` (planted by the host) and
 // calls the host's narrow "summarize" op over a bind-mounted unix socket
-// (SUMMARIZE_SOCKET), staying fully network-isolated. The host runs the actual
+// (STANDMEET_HOST_SOCKET), staying fully network-isolated. The host runs the actual
 // report pipeline (transcript -> LLM -> persist); this plugin is just the
 // agent-facing tool + its return-directly semantics.
 package main
@@ -19,7 +19,8 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-const socketEnv = "SUMMARIZE_SOCKET"
+// socketEnv —— 宿主注入的 host socket 路径。名字对所有能力都一样(见 booker 的同名常量)。
+const socketEnv = "STANDMEET_HOST_SOCKET"
 
 func main() {
 	srv := server.NewMCPServer("summarize", "1.0.0",
@@ -141,7 +142,7 @@ func runSummarize(s session) (string, error) {
 }
 
 // callHost —— one line-JSON request/response over the host unix socket bound into
-// the sandbox at SUMMARIZE_SOCKET.
+// the sandbox at STANDMEET_HOST_SOCKET.
 func callHost(reqObj map[string]any) ([]byte, error) {
 	path := os.Getenv(socketEnv)
 	if path == "" {

@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler axes-declare-in-data
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler boundary-thin no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler axes-declare-in-data boundary-thin no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint secrets
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -67,6 +67,13 @@ hostops-via-desk:
 periodic-via-scheduler:
 	@bash ../infra/scripts/check-periodic-via-scheduler.sh
 	@bash ../infra/scripts/check-periodic-via-scheduler-test.sh
+
+# Both plugin axes declare their built-ins as DATA in their own top-level dir
+# (backend/connectors/, backend/capabilities/), and a declaration never names a
+# socket path — it names WHICH OPS it wants, and the path is derived from the id.
+axes-declare-in-data:
+	@bash ../infra/scripts/check-axes-declare-in-data.sh
+	@bash ../infra/scripts/check-axes-declare-in-data-test.sh
 
 # Boundaries only declare and hand over: a facade re-exports its domain, and the
 # dispatcher aggregates facades. Payload shapes, op schemas and reaching past a

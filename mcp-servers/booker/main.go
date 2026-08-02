@@ -2,7 +2,7 @@
 // stdio MCP server (origin=builtin). It owns NO data: it reads the trusted
 // session context off each tool-call `_meta` (planted by the host) and forwards
 // the call to the host's narrow "book" / "list_slots" ops over a bind-mounted
-// unix socket (BOOKER_SOCKET), staying fully network-isolated. The host runs the
+// unix socket (STANDMEET_HOST_SOCKET), staying fully network-isolated. The host runs the
 // real booking pipeline (policy → freebusy → insert → persist → owner notify);
 // this plugin is just the agent-facing tools + their schemas.
 //
@@ -33,7 +33,12 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-const socketEnv = "BOOKER_SOCKET"
+// socketEnv —— 宿主把这个能力那一根 host socket 的路径放在这里。
+//
+// 名字对所有能力都一样。以前每个插件自己起一个(BOOKER_SOCKET / RETRIEVAL_SOCKET / ...),
+// 于是同一件事有四个名字,而且路径要在宿主的 manifest 里手写一遍。现在路径由 id 派生、
+// 由装载器注入,声明里不出现路径,也不出现这个变量名。
+const socketEnv = "STANDMEET_HOST_SOCKET"
 
 func main() {
 	srv := server.NewMCPServer("booker", "1.0.0",
@@ -299,7 +304,7 @@ func toolErr(err error) *mcpgo.CallToolResult {
 }
 
 // callHost —— one line-JSON request/response over the host unix socket bound into
-// the sandbox at BOOKER_SOCKET.
+// the sandbox at STANDMEET_HOST_SOCKET.
 func callHost(reqObj map[string]any) ([]byte, error) {
 	path := os.Getenv(socketEnv)
 	if path == "" {

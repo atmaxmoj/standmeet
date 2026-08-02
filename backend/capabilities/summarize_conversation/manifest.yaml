@@ -1,0 +1,18 @@
+id: summarize_conversation
+title: Summarize the conversation
+version: "1"
+shape: visitor_only
+acl: always
+raw_tool_names: true
+
+transport:
+  kind: sandbox_stdio
+  command: /plugin/summarize
+  sandbox:
+    plugin_dir: /srv/plugins/summarize
+    # 总结一次对话要：读逐字稿、借 owner 的模型跑一次生成、把报告交回来存。
+    # 凭据永远不出宿主 —— 沙箱拿到的是结果，不是 key。
+    host_ops:
+      - conversation.read
+      - inference.generate
+      - report.store

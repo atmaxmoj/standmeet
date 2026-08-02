@@ -159,6 +159,8 @@ components:
     in: internal/connector/consumer       # #135: 连接器轴消费者契约 leaf (AgentToolConnector/AgentOp/ErrMailNotConfigured)；无 CalendarProxy，内核可依赖
   connectorbuiltins:
     in: connectors                        # built-in connector data (embedded manifest/spec/binding) + Load — own top-level dir, out of internal/
+  capabilitybuiltins:
+    in: capabilities                      # built-in capability data (embedded manifest.yaml) + Load — 跟 connectors 同形，两根轴一样的地址
   cryptobox:
     in: internal/infra/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   capconfig:
@@ -351,6 +353,15 @@ deps:
   connectorbuiltins:
     mayDependOn:
       - connector
+    anyVendorDeps: true
+
+  # capabilitybuiltins —— 内建能力的**声明**（embed 的 manifest.yaml）+ Load。
+  # 只认 mcpplugin（声明的形状）和 hostop（socket 路径由 id 派生这条规则）—— 它不认识
+  # 任何一个域，也不做装配：装配仍在组装根，这里只把磁盘上的写法翻成宿主用的形状。
+  capabilitybuiltins:
+    mayDependOn:
+      - mcpplugin
+      - hostop
     anyVendorDeps: true
 
   retry:
@@ -1045,7 +1056,9 @@ deps:
       - jobsuc
       - gotenberg
       - connector
+      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
       - connectorbuiltins
+      - capabilitybuiltins
       - printsess
       - stats
       - marketplace

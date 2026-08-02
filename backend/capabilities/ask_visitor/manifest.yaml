@@ -1,0 +1,14 @@
+id: ask_visitor
+title: Ask a question
+version: "1"
+shape: visitor_only
+acl: always
+raw_tool_names: true
+
+transport:
+  kind: sandbox_stdio
+  command: /plugin/ask-visitor
+  sandbox:
+    plugin_dir: /srv/plugins/ask-visitor
+    # host_ops 一个都不点 —— 这个能力不要任何后端数据，所以它连一根回头的 socket 都没有，
+    # 完全断网。ui:// 卡按 MCP Apps 挂在 tool 的 _meta.ui_resource 上，不在这儿声明。

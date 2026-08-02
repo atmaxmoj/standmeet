@@ -1,0 +1,20 @@
+id: mail.send
+title: Email the owner
+version: "1"
+shape: visitor_only
+acl: role_granted
+raw_tool_names: true
+# 硬依赖 mail 品类槽：没连 → 经 global 单点闸整个隐藏。
+requires:
+  - smtp
+
+transport:
+  kind: sandbox_stdio
+  command: /plugin/mail-sender
+  sandbox:
+    plugin_dir: /srv/plugins/mail-sender
+    # 发信本身走连接器（品类契约，插件不知道对面是 SMTP 还是某个 SaaS）；
+    # 读 owner 的名字/邮箱走 owner.meta。
+    host_ops:
+      - connector.invoke
+      - owner.meta

@@ -40,13 +40,13 @@ func TestEvalAssemblesProdCapabilitySet(t *testing.T) {
 			{ID: "ask_visitor", Command: askBin, RawToolNames: true, ACLAlways: true},
 			{
 				ID: "corpus.retrieval", Command: retrBin,
-				Env:          map[string]string{"RETRIEVAL_SOCKET": retrSock},
+				Env:          map[string]string{agentcore.HostSocketEnv: retrSock},
 				HostOps:      agentcore.CorpusHostOpNames(),
 				RawToolNames: true, ACLAlways: true,
 			},
 			{
 				ID: "summarize_conversation", Command: sumBin,
-				Env: map[string]string{"SUMMARIZE_SOCKET": sumSock},
+				Env: map[string]string{agentcore.HostSocketEnv: sumSock},
 				HostOps: []string{
 					"conversation.read", "inference.generate", "report.store",
 				},

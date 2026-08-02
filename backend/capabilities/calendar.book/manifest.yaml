@@ -1,0 +1,137 @@
+id: calendar.book
+title: Book a meeting
+version: "1"
+# both —— 同时面向访客(calendar_book / calendar_list_slots)和 owner。owner 侧的工具声明在
+# owner_tools 里，实现仍在沙箱：一份算法，不再 host/沙箱各一份（策略评估 + slot 枚举曾经
+# 重复实现过两遍，而且已经飘了）。
+shape: both
+acl: role_granted
+raw_tool_names: true
+# 硬依赖 calendar 连接器；smtp 不在此 —— 确认信是软依赖，没连也能约，只是那一截不可用。
+requires:
+  - calendar
+
+transport:
+  kind: sandbox_stdio
+  command: /plugin/booker
+  sandbox:
+    plugin_dir: /srv/plugins/booker
+    # 约一场会要：找 owner 的日历连接器、存自己那份预约记录、读自己的配置、读 owner 的时区。
+    host_ops:
+      - connector.invoke
+      - capstore.insert
+      - capstore.query
+      - capstore.count
+      - capstore.delete
+      - capstore.query_records
+      - capstore.delete_by_id
+      - capconfig.get
+      - owner.meta
+
+# owner_tools —— owner 面的声明（数据）。owner MCP 工具表在装配期枚举（facade-parity 照它
+# 对账），所以不能靠启动时 dial 沙箱；真被调用才 dial。入参跟沙箱工具一致。
+#
+# input_schema 是一份 JSON Schema，所以按 JSON 原样写（YAML 块标量）—— 翻成 YAML 映射再编
+# 回去等于把同一份 schema 写成第二种语法，读的人还得在脑子里转。
+owner_tools:
+  - name: calendar.list_slots
+    tool: calendar_list_slots
+    description: >-
+      Enumerate available [start, end] slots that pass booking policy (weekday +
+      working_hours + min_lead_days) AND don't overlap any FreeBusy window. Returns up
+      to 50 slots, RFC3339-formatted in UTC.
+    input_schema: |
+      {
+        "type":"object",
+        "properties":{
+          "from_rfc3339":{"type":"string",
+            "description":"Search window start (RFC3339)."},
+          "until_rfc3339":{"type":"string",
+            "description":"Search window end (RFC3339)."},
+          "duration_min":{"type":"number",
+            "description":"Slot length in minutes (e.g. 30, 60)."},
+          "step_min":{"type":"number",
+            "description":"Slot enumeration step in minutes (default 30)."}
+        },
+        "required":["from_rfc3339","until_rfc3339","duration_min"]
+      }
+  - name: bookings.list
+    tool: bookings_list
+    description: >-
+      List the owner's confirmed bookings, newest first, each with its booking id.
+    input_schema: |
+      {
+        "type":"object",
+        "properties":{
+          "limit":{"type":"integer","description":"Max rows (default 50, max 200)."}
+        }
+      }
+  - name: calendar.cancel_booking
+    tool: calendar_cancel_booking
+    description: >-
+      Cancel one of the owner's bookings by its booking id: removes the calendar event
+      and the stored booking record.
+    input_schema: |
+      {
+        "type":"object",
+        "properties":{
+          "booking_id":{"type":"string","description":"The booking record id."}
+        },
+        "required":["booking_id"]
+      }
+
+# config —— 预约策略的声明。owner 面板按它通用渲染，值存进本能力自己的隔离存储，沙箱经
+# capconfig.get 读回（默认值已兜好）。
+#
+# 这几个字段以前在 host 手写了一整套（实体 + 默认值 + 读写 + 路由 + 表单 + 一个 owner 工具），
+# 沙箱里还有自己的一份 —— 两份已经飘了：host 说到 18:00、缓冲 15，沙箱按 17:00、缓冲 0。
+# 取 host 那份：沙箱那份是退化的那一边，而面板、文档和 e2e 一直说 18:00 / 15。
+# 也就是说访客过去在 17:00–18:00 之间订不上，而面板显示可以。**默认值现在只有这一处。**
+config:
+  - key: working_hours_start
+    label: Working hours start
+    type: time
+    default: '"09:00"'
+    description: Earliest time of day a visitor may book.
+  - key: working_hours_end
+    label: Working hours end
+    type: time
+    default: '"18:00"'
+    description: Latest time of day a visitor may book.
+  - key: allowed_weekdays
+    label: Bookable weekdays
+    type: string_list
+    default: '["mon","tue","wed","thu","fri"]'
+    description: Three-letter lowercase weekdays that accept bookings.
+  - key: min_lead_days
+    label: Minimum lead time (days)
+    type: int
+    default: "2"
+    min: 1
+    description: How far ahead a booking must be made.
+  - key: buffer_min
+    label: Buffer between meetings (minutes)
+    type: int
+    default: "15"
+    min: 0
+    description: Gap kept clear either side of an existing event.
+
+# code_config —— 本能力在**一张邀请码**上占的字段。owner 发码时一起填，列表里一起看。
+# 跟 config 同一套声明，只是挂载点是码而不是 owner。
+code_config:
+  - key: max_bookings
+    label: Booking cap for this code
+    type: int
+    # 没设 = 不限。写出来而不是靠"空的" —— 这一项的"空"是有含义的。
+    default: "null"
+    min: 0
+    description: >-
+      Booking cap for this code; null means no limit. The tool disappears for that
+      visitor once the cap is reached.
+
+# quota —— per-code 用量上限：上限取码上的 max_bookings，用量数自己存储里 bookings 表的
+# code_id。宿主照这三句话通用地闸 + 报余量；它仍然不认识 "booking"。
+quota:
+  config_key: max_bookings
+  collection: bookings
+  code_field: code_id
