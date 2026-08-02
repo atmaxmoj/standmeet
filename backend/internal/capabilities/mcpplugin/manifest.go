@@ -48,11 +48,16 @@ const (
 // AllowNet 仅放给真正要 egress 的（yt-dlp 那类），默认无网。
 type Sandbox struct {
 	PluginDir string
-	// HostSockets —— 宿主 unix socket bind 进沙箱（数据型内建经它够到后端窄 API，
-	// 断网也可达）。非空 = 这是个需要后端数据的内建 → host 会把可信 session 上下文
-	// 经 tool-call `_meta` 递给它；第三方插件（无 HostSockets）拿不到 session 上下文。
-	HostSockets []string
-	AllowNet    bool
+	// HostOps —— 这个插件要宿主开给它的 host op 名字（固定词表见 routes/hostdesk）。
+	//
+	// 声明的是**要哪几件事**,不是"给我挂哪个 socket 文件"——路径由宿主按插件 id 派生。
+	// 这个粒度是要害:声明成文件路径时,文件上放什么机制答不出来,只能由组装根一个个手写,
+	// 于是长出了四个 gateway。声明成 op 名字之后,宿主照着发,点了词表没有的名字启动就炸。
+	//
+	// 非空 = 这是个要后端数据的内建 → host 会把可信 session 上下文经 tool-call `_meta`
+	// 递给它；第三方插件（不声明 HostOps）拿不到 session 上下文,也够不到宿主。
+	HostOps  []string
+	AllowNet bool
 	// Workspace —— true = 这个 server 要一块**持久的 per-visitor-session 工作区**
 	// （写文件那类，如 server-filesystem）。host 按 conversation_id 懒建一个目录、
 	// bwrap --bind 进沙箱的 /workspace（可写）；不写就没目录。这块区有后端可控的 TTL +

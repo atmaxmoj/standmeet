@@ -14,13 +14,28 @@ BASELINE="$BK/.routes-import-baseline"
 # assembly entry points: allowed to import routes
 ALLOWED_ENTRY='^cmd/|^agentcore(/|$)|^internal/routes/'
 
+# goFiles —— NOT `grep --include`: the image lint runs on alpine, whose BusyBox grep does not know
+# that flag. It exits 2 with no output, and "found nothing" reads exactly like "tree is clean" —
+# this gate reported green from inside the image for every build until 2026-08-01. `find` is portable.
+goFiles() {
+	find "$BK/internal" "$BK/cmd" "$BK/agentcore" -type f -name '*.go' 2>/dev/null |
+		grep -v '_test\.go$' | sort
+}
+
+# scanned —— proof the scan can see the tree. A blind gate must go RED, not green.
+scanned="$(goFiles | wc -l | tr -d ' ')"
+if [ "$scanned" -lt 100 ]; then
+	echo "check-routes-not-imported: scanned only $scanned Go files under $BK — the scan is blind, not the tree clean."
+	exit 2
+fi
+
 violations=""
 while IFS= read -r f; do
 	[ -n "$f" ] || continue
 	dir="$(dirname "${f#"$BK"/}")"
 	echo "$dir" | grep -qE "$ALLOWED_ENTRY" && continue
 	case " $violations " in *" $dir "*) ;; *) violations="$violations $dir" ;; esac
-done < <(grep -rlE 'atmaxmoj/standmeet/internal/routes/' "$BK/internal" "$BK/cmd" "$BK/agentcore" --include='*.go' 2>/dev/null | grep -v '_test.go' | sort)
+done < <(goFiles | xargs grep -lE 'atmaxmoj/standmeet/internal/routes/' 2>/dev/null | sort)
 
 if [ "${1:-}" = "seed" ]; then
 	for v in $violations; do echo "$v"; done

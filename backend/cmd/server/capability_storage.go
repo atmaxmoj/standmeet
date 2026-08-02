@@ -1,6 +1,8 @@
-// mail_sender_gateway.go —— #135: mail-sender 从私有 "send" host op 迁到**固定词表** reach-back
-// 网关(跟 booker_gateway 同构)。沙箱 mail-sender 经 connector.invoke("mail","send") 发信;host 侧
-// 不再有 mail-sender 专属 handler(旧 capreg_mailsender.go 已删),只挂通用网关。
+// capability_storage.go —— 一个能力**自己的**存储和配置,绑死在它的命名空间上。
+//
+// 绑死是构造期做的:接口里没有 kind / id,所以沙箱那侧根本没有"填别人的表"这个路径 ——
+// 隔离是构造出来的,不是每次请求校验出来的。schema 名从**宿主信任的 id** 派生
+// (mcp_<id>),永远不从插件的请求里取。
 
 package main
 
@@ -8,18 +10,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capconfig"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
-	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
-	ownerroutes "github.com/atmaxmoj/standmeet/internal/routes/owner"
 )
 
-// boundCapStore —— 把通用 capstore.Store 绑死到某个 cap 的隔离命名空间(reachback.CapStore 接口里
-// 没 kind/id;沙箱填不了别人的)。mail-sender 现在不落存储,但网关提供完整固定词表面 —— 隔离到
-// 自己的 schema,将来要存也够不到别的 cap。
+// boundCapStore —— 通用 capstore.Store 绑到某个能力的命名空间。
 type boundCapStore struct {
 	store *capstore.Store
 	kind  capstore.Kind
@@ -66,35 +64,8 @@ func (b boundCapStore) Delete(
 	return n, nil
 }
 
-const mailSenderCapKind = capstore.KindMCP
-
-var mailSenderCapID = "mail.send"
-
-// wireMailSenderGateway —— provision mail-sender 的隔离 schema + 挂固定词表网关到 mail-sender.sock。
-func wireMailSenderGateway(ctx context.Context, d *runtimeDeps) {
-	store := capstore.New(d.db)
-	if perr := store.Provision(ctx, mailSenderCapKind, mailSenderCapID); perr != nil {
-		d.log.Error("mail-sender capstore provision", "err", perr)
-		return
-	}
-	if mkErr := os.MkdirAll("/run/standmeet", socketDirMode); mkErr != nil {
-		d.log.Error("mail-sender socket dir", "err", mkErr)
-		return
-	}
-	srv, err := capsocket.Listen(ctx, "/run/standmeet/mail-sender.sock", d.log)
-	if err != nil {
-		d.log.Error("mail-sender socket listen", "err", err)
-		return
-	}
-	bound := boundCapStore{store: store, kind: mailSenderCapKind, id: mailSenderCapID}
-	connectorroutes.RegisterInvokeOp(srv, d.connectorSlots)
-	capstoreroutes.RegisterOps(srv, bound)
-	ownerroutes.RegisterOwnerMetaOp(srv, d.ownerRepo)
-	go srv.Serve(ctx)
-}
-
-// QueryRecords / DeleteByID —— 带记录 id 的读写(见 capstoreroutes.BoundStore 的说明:
-// 能力够不到自己记录的 id,就只能在别处长出一份副本)。
+// QueryRecords / DeleteByID —— 带记录 id 的读与按 id 删。能力够不到自己记录的 id,
+// 就必然在别处长出一份副本(见 capstoreroutes.BoundStore 的说明)。
 func (b boundCapStore) QueryRecords(
 	ctx context.Context, collection string, filter json.RawMessage,
 ) ([]capstoreroutes.BoundRecord, error) {
@@ -117,4 +88,24 @@ func (b boundCapStore) DeleteByID(
 		return 0, fmt.Errorf("capstore delete by id: %w", err)
 	}
 	return n, nil
+}
+
+// boundCapConfig —— 绑死 (kind, id, 声明) 的配置读口:沙箱只能问"我的配置"。
+type boundCapConfig struct {
+	cfg  *capconfig.Store
+	decl []mcpplugin.ConfigField
+}
+
+func capConfigFor(store *capstore.Store, capID string) *capconfig.Store {
+	return capconfig.New(store, capstore.KindMCP, capID)
+}
+
+func (b boundCapConfig) Values(
+	ctx context.Context, ownerID string,
+) (map[string]json.RawMessage, error) {
+	values, err := b.cfg.Values(ctx, ownerID, b.decl)
+	if err != nil {
+		return nil, fmt.Errorf("capability config: %w", err)
+	}
+	return values, nil
 }

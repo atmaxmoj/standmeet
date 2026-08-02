@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
 // BoundStore —— 已绑定到某个 cap 的隔离文档存储(无 kind/id)。cmd 用 capstore.Store 绑一个 (kind,id) 后传入。
@@ -35,14 +35,41 @@ type BoundRecord struct {
 	Doc json.RawMessage `json:"doc"`
 }
 
-// RegisterOps —— 把 capstore.insert/query/count/delete 挂到 srv,背后是绑死的 store。
-func RegisterOps(srv *capsocket.Server, store BoundStore) {
-	srv.Handle("capstore.insert", insertHandler(store))
-	srv.Handle("capstore.query", queryHandler(store))
-	srv.Handle("capstore.count", countHandler(store))
-	srv.Handle("capstore.delete", deleteHandler(store))
-	srv.Handle("capstore.query_records", queryRecordsHandler(store))
-	srv.Handle("capstore.delete_by_id", deleteByIDHandler(store))
+// Ops —— 一个能力**自己的**存储:插入 / 查 / 数 / 删。store 在构造期就绑死到这个能力的
+// 命名空间,所以沙箱那侧填不了别人的表 —— 隔离是构造出来的,不是每次请求校验出来的。
+//
+// store 为 nil(这个能力没要存储)→ 一件也不开。这个判断在这儿,不在收口:一个来源给不出
+// 东西的时候该自己说"没有",不该让汇聚方替每个来源记一遍。
+func Ops(store BoundStore) []hostop.Op {
+	if store == nil {
+		return []hostop.Op{}
+	}
+	return []hostop.Op{
+		{
+			Name: "capstore.insert", Description: "Insert a document into your own collection.",
+			Invoke: insertHandler(store),
+		},
+		{
+			Name: "capstore.query", Description: "Query your own collection by JSONB filter.",
+			Invoke: queryHandler(store),
+		},
+		{
+			Name: "capstore.count", Description: "Count documents matching a filter.",
+			Invoke: countHandler(store),
+		},
+		{
+			Name: "capstore.delete", Description: "Delete documents matching a filter.",
+			Invoke: deleteHandler(store),
+		},
+		{
+			Name: "capstore.query_records", Description: "Query, returning records with ids.",
+			Invoke: queryRecordsHandler(store),
+		},
+		{
+			Name: "capstore.delete_by_id", Description: "Delete one record by its id.",
+			Invoke: deleteByIDHandler(store),
+		},
+	}
 }
 
 type writeReq struct {
@@ -55,7 +82,7 @@ type filterReq struct {
 	Filter     json.RawMessage `json:"filter"`
 }
 
-func insertHandler(store BoundStore) capsocket.Handler {
+func insertHandler(store BoundStore) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req writeReq
 		if err := json.Unmarshal(raw, &req); err != nil {
@@ -73,7 +100,7 @@ func insertHandler(store BoundStore) capsocket.Handler {
 	}
 }
 
-func queryHandler(store BoundStore) capsocket.Handler {
+func queryHandler(store BoundStore) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req filterReq
 		if err := json.Unmarshal(raw, &req); err != nil {
@@ -91,7 +118,7 @@ func queryHandler(store BoundStore) capsocket.Handler {
 	}
 }
 
-func queryRecordsHandler(store BoundStore) capsocket.Handler {
+func queryRecordsHandler(store BoundStore) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req filterReq
 		if err := json.Unmarshal(raw, &req); err != nil {
@@ -114,7 +141,7 @@ type byIDReq struct {
 	RecordID   string `json:"record_id"`
 }
 
-func deleteByIDHandler(store BoundStore) capsocket.Handler {
+func deleteByIDHandler(store BoundStore) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req byIDReq
 		if err := json.Unmarshal(raw, &req); err != nil {
@@ -132,7 +159,7 @@ func deleteByIDHandler(store BoundStore) capsocket.Handler {
 	}
 }
 
-func countHandler(store BoundStore) capsocket.Handler {
+func countHandler(store BoundStore) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req filterReq
 		if err := json.Unmarshal(raw, &req); err != nil {
@@ -150,7 +177,7 @@ func countHandler(store BoundStore) capsocket.Handler {
 	}
 }
 
-func deleteHandler(store BoundStore) capsocket.Handler {
+func deleteHandler(store BoundStore) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req filterReq
 		if err := json.Unmarshal(raw, &req); err != nil {

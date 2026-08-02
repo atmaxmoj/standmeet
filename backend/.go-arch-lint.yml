@@ -189,14 +189,10 @@ components:
     in: internal/routes/capstore          # socket 入站 API controller: capstore.* (薄壳→BoundStore)
   capconfigroutes:
     in: internal/routes/capconfig         # socket 入站 API controller: capconfig.get (薄壳→BoundConfig)
-  ownerroutes:
-    in: internal/routes/owner             # socket 入站 API controller: owner.meta (薄壳→OwnerMetaLookup)
-  reportroutes:
-    in: internal/routes/report            # socket 入站 API controller: report.store (sanitize/render/store)
-  conversationroutes:
-    in: internal/routes/conversation      # socket 入站 API controller: conversation.read
-  inferenceroutes:
-    in: internal/routes/inference         # socket 入站 API controller: inference.generate
+  hostdesk:
+    in: internal/routes/hostdesk          # 入站收口：域声明 host op，各能力的 socket 是它的投影
+  hostop:
+    in: internal/infra/hostop             # 入站那套词汇（Op/Invoke/socket 路径规则）；leaf，不认识任何域
   cmd:
     in: cmd/server
 
@@ -271,20 +267,20 @@ deps:
   # 只解 socket 参数 + 转发进 connector 业务域(Invoker,由 connector.Slots 满足)。只依赖 capsocket 那根传输。
   connectorroutes:
     mayDependOn:
-      - capsocket
+      - hostop
     anyVendorDeps: true
 
-  # capstoreroutes / ownerroutes —— 同 connectorroutes,socket 入站 API 的 controller 薄壳。
+  # capstoreroutes —— 同 connectorroutes,入站 API 的 controller 薄壳。
   capstoreroutes:
     mayDependOn:
-      - capsocket
+      - hostop
     anyVendorDeps: true
 
   # capconfigroutes —— 沙箱经它读自己的配置（默认值已由声明兜好）。跟 capstoreroutes 同形：
   # 薄壳，构造期绑死到某个 cap，沙箱填不了别人的。
   capconfigroutes:
     mayDependOn:
-      - capsocket
+      - hostop
     anyVendorDeps: true
 
   # capconfig —— 能力配置的通用读写。只认 capstore（值往哪存）+ mcpplugin（声明长什么样）；
@@ -294,25 +290,26 @@ deps:
       - capstore
       - mcpplugin
     anyVendorDeps: true
-  ownerroutes:
+  # hostop —— 入站那套词汇。leaf：它不认识任何域，域才能用它说话而不 import 路由。
+  hostop:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # hostdesk —— 入站收口，出站 dispatcher 的镜像。它 import 各域的**正门**（facade）+ 两根轴
+  # 自己的 controller 薄壳，把大家声明的 host op 汇起来，再按每个能力 manifest 点的名字发。
+  #
+  # 它以前不存在：每个能力在组装根各有一个手写网关，各自站一个 socket、各自往上挂动词，于是
+  # 「沙箱能问宿主要什么」没有答案。跟 dispatcher 同理，收口自己当然要认识各个域。
+  hostdesk:
     mayDependOn:
+      - hostop
+      - capsocket
+      - conversation
+      - corpus
       - owner
-      - capsocket
-    anyVendorDeps: true
-  reportroutes:
-    mayDependOn:
-      - capsocket
-      - conversation
-    anyVendorDeps: true
-  conversationroutes:
-    mayDependOn:
-      - capsocket
-      - conversation
-    anyVendorDeps: true
-  inferenceroutes:
-    mayDependOn:
-      - capsocket
-      - inference
+      - connectorroutes
+      - capstoreroutes
+      - capconfigroutes
     anyVendorDeps: true
 
   # connectorcontract —— #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)。
@@ -371,6 +368,8 @@ deps:
       - marketplace
       - connectorconsumer
       - cryptobox
+      # hostop —— 装载器按同一条规则派生这个能力的 socket 路径（manifest 只说要哪些 op）。
+      - hostop
     anyVendorDeps: true
   capreg:
     mayDependOn:
@@ -687,6 +686,10 @@ deps:
       - conversationusecase
       - corpus
       - facadeparity
+      # hostop / inference —— 本域也开着入站那半边：沙箱能力经收口读逐字稿、借 owner 的模型
+      # 生成、把报告交回来存。域说得出这几件事，才不必让组装根替它写一个网关。
+      - hostop
+      - inference
     anyVendorDeps: true
   conversationentity:
     mayDependOn:
@@ -749,7 +752,8 @@ deps:
       - corpusrepo
       - search
       - access
-      - capsocket
+      # hostop 取代了 capsocket：本域声明的是"我开了读语料这七件事"，不是"我挂在哪根 socket 上"。
+      - hostop
       - apierr
       - pgstore
       - storage
@@ -797,12 +801,14 @@ deps:
       - ownerops
     anyVendorDeps: true
   # ownerops —— 本域对外的操作声明。只认本域的用例 + 中立词汇,不认识任何面。
+  # 两个方向的词汇都在这儿:facadeparity 是出站的,hostop 是入站的(沙箱读 owner 的白名单字段)。
   ownerops:
     mayDependOn:
       - ownerentity
       - ownerrepo
       - ownerusecase
       - facadeparity
+      - hostop
       - apierr
       # 跨域资源由**能 import 另一边**的那个域声明，都只经对方的正门：
       # access_requests（数据在 access，批准闭环在本域）、seo（条目在 corpus，摘 pin 在本域）。
@@ -998,10 +1004,11 @@ deps:
       - pubapi
       - connectorroutes
       - capstoreroutes
-      - ownerroutes
-      - reportroutes
-      - conversationroutes
-      - inferenceroutes
+      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
+      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
+      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      - hostdesk
+      - hostop
       - mcphandle
       - inference
       - jobcache

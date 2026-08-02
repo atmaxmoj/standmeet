@@ -13,12 +13,26 @@ INFRA="$ROOT/backend/internal/infra"
 BASELINE="$ROOT/backend/.infra-domain-baseline"
 DOMAINS='corpus|conversation|connector|access|owner|security|marketplace|stats'
 
+# goFiles —— NOT `grep --include`: the image lint runs on alpine, whose BusyBox grep does not know
+# that flag. It exits 2 with no output, and "found nothing" reads exactly like "tree is clean" —
+# this gate reported green from inside the image for every build until 2026-08-01. `find` is portable.
+goFiles() {
+	find "$INFRA" -type f -name '*.go' 2>/dev/null | grep -v '_test\.go$' | sort
+}
+
+# scanned —— proof the scan can see the tree. A blind gate must go RED, not green.
+scanned="$(goFiles | wc -l | tr -d ' ')"
+if [ "$scanned" -lt 10 ]; then
+	echo "check-infra-not-domain: scanned only $scanned Go files under $INFRA — the scan is blind, not the tree clean."
+	exit 2
+fi
+
 # Files in infra that currently import a domain (relative to backend/)
 violations=""
 while IFS= read -r f; do
 	[ -n "$f" ] || continue
 	violations="$violations ${f#"$ROOT"/backend/}"
-done < <(grep -rlE "atmaxmoj/standmeet/internal/($DOMAINS)\"" "$INFRA" --include='*.go' 2>/dev/null | grep -v '_test.go' | sort)
+done < <(goFiles | xargs grep -lE "atmaxmoj/standmeet/internal/($DOMAINS)\"" 2>/dev/null | sort)
 
 if [ "${1:-}" = "seed" ]; then
 	for v in $violations; do echo "$v"; done

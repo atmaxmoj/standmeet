@@ -41,8 +41,19 @@ import (
 // scanRoot —— 只管面这一层。不读 os.Args / env（gosec G703：别把路径当 untrusted input）。
 const scanRoot = "./internal/routes"
 
-// convergence —— 出站收口自己。它不是面，是面取能力的那个点，所以不在这条规则里。
-const convergence = "internal/routes/dispatcher/"
+// convergences —— 两个收口自己。它们不是面，是面（或沙箱能力）取能力的那个点，所以不在
+// 这条规则里。
+//
+//	出站  internal/routes/dispatcher —— 面从这儿取能力
+//	入站  internal/routes/hostdesk   —— 沙箱里的能力从这儿回头问宿主要东西
+//
+// 上面那段"我一开始写错过"的教训对两边同样成立：把收口自己也禁掉，调用就只能挪到唯一能
+// 同时看见两边的地方（组装根），于是那儿又长出一份手写搬运。入站那半边正是这么长出四个
+// 手写网关的。
+var convergences = []string{
+	"internal/routes/dispatcher/",
+	"internal/routes/hostdesk/",
+}
 
 // facadeSuffix —— 域对外的唯一入口就叫 facade（check-domain-facade-boundary 保证这点）。
 const facadeSuffix = "/facade"
@@ -55,59 +66,56 @@ const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 // **这份名单只能变短。** 每把一个资源搬进出站收口，删掉对应文件那一行。
 // 不要往里加行：加行意味着又造了一条绕过收口的路。
 var baseline = map[string]bool{
-	"internal/routes/admin/auth.go":                          true,
-	"internal/routes/admin/claim.go":                         true,
+	"internal/routes/admin/auth.go":  true,
+	"internal/routes/admin/claim.go": true,
 	// corpus.go / corpus_crud.go 只剩树和分页那两个面板独有的视图还直连;列表 / 详情 /
 	// 建改删提升都经收口了。corpus_detail.go 和 corpus_output.go 整个消失。
-	"internal/routes/admin/corpus.go":      true,
-	"internal/routes/admin/corpus_page.go": true,
-	"internal/routes/admin/corpus_tree.go":                   true,
-	"internal/routes/admin/corpus_tree_subjectivity.go":      true,
-	"internal/routes/admin/corpus_views.go":                  true,
-	"internal/routes/admin/keypairs.go":                      true,
-	"internal/routes/admin/obsidian.go":                      true,
-	"internal/routes/admin/recovery.go":                      true,
-	"internal/routes/admin/writings.go":                      true,
-	"internal/routes/admin/writings_multipart.go":            true,
-	"internal/routes/admin/writings_tree.go":                 true,
-	"internal/routes/capload/api_key_toolset.go":             true,
-	"internal/routes/capload/capreg_ext_mcp.go":              true,
-	"internal/routes/capload/capreg_ext_mcp_deps.go":         true,
-	"internal/routes/capload/capreg_mcp_app.go":              true,
-	"internal/routes/capload/capreg_register.go":             true,
-	"internal/routes/capload/capreg_skill_runner.go":         true,
-	"internal/routes/conversation/socket.go":                 true,
-	"internal/routes/mcphandle/server.go":                    true,
-	"internal/routes/owner/socket.go":                        true,
-	"internal/routes/pubapi/dispatch.go":                     true,
-	"internal/routes/pubapi/pubapi.go":                       true,
-	"internal/routes/public/access_requests.go":              true,
-	"internal/routes/public/agent_turn.go":                   true,
-	"internal/routes/public/app_state.go":                    true,
-	"internal/routes/public/byoai_envelope.go":               true,
-	"internal/routes/public/chat.go":                         true,
-	"internal/routes/public/custom_pages.go":                 true,
-	"internal/routes/public/ghosts.go":                       true,
-	"internal/routes/public/history.go":                      true,
-	"internal/routes/public/landing.go":                      true,
-	"internal/routes/public/llm_chat_stream.go":              true,
-	"internal/routes/public/page.go":                         true,
-	"internal/routes/public/password_reset.go":               true,
-	"internal/routes/public/prompts.go":                      true,
-	"internal/routes/public/report.go":                       true,
-	"internal/routes/public/report_pdf.go":                   true,
-	"internal/routes/public/seo.go":                          true,
-	"internal/routes/public/sessions.go":                     true,
-	"internal/routes/public/sessions_guard.go":               true,
-	"internal/routes/public/tools.go":                        true,
-	"internal/routes/public/visitor_conversations.go":        true,
-	"internal/routes/public/wiki_tree.go":                    true,
-	"internal/routes/public/writing_tree.go":                 true,
-	"internal/routes/public/writings.go":                     true,
-	"internal/routes/report/socket.go":                       true,
-	"internal/routes/sys/builds.go":                          true,
-	"internal/routes/sys/diag_session.go":                    true,
-	"internal/routes/sys/tls_ask.go":                         true,
+	"internal/routes/admin/corpus.go":                   true,
+	"internal/routes/admin/corpus_page.go":              true,
+	"internal/routes/admin/corpus_tree.go":              true,
+	"internal/routes/admin/corpus_tree_subjectivity.go": true,
+	"internal/routes/admin/corpus_views.go":             true,
+	"internal/routes/admin/keypairs.go":                 true,
+	"internal/routes/admin/obsidian.go":                 true,
+	"internal/routes/admin/recovery.go":                 true,
+	"internal/routes/admin/writings.go":                 true,
+	"internal/routes/admin/writings_multipart.go":       true,
+	"internal/routes/admin/writings_tree.go":            true,
+	"internal/routes/capload/api_key_toolset.go":        true,
+	"internal/routes/capload/capreg_ext_mcp.go":         true,
+	"internal/routes/capload/capreg_ext_mcp_deps.go":    true,
+	"internal/routes/capload/capreg_mcp_app.go":         true,
+	"internal/routes/capload/capreg_register.go":        true,
+	"internal/routes/capload/capreg_skill_runner.go":    true,
+	"internal/routes/mcphandle/server.go":               true,
+	"internal/routes/pubapi/dispatch.go":                true,
+	"internal/routes/pubapi/pubapi.go":                  true,
+	"internal/routes/public/access_requests.go":         true,
+	"internal/routes/public/agent_turn.go":              true,
+	"internal/routes/public/app_state.go":               true,
+	"internal/routes/public/byoai_envelope.go":          true,
+	"internal/routes/public/chat.go":                    true,
+	"internal/routes/public/custom_pages.go":            true,
+	"internal/routes/public/ghosts.go":                  true,
+	"internal/routes/public/history.go":                 true,
+	"internal/routes/public/landing.go":                 true,
+	"internal/routes/public/llm_chat_stream.go":         true,
+	"internal/routes/public/page.go":                    true,
+	"internal/routes/public/password_reset.go":          true,
+	"internal/routes/public/prompts.go":                 true,
+	"internal/routes/public/report.go":                  true,
+	"internal/routes/public/report_pdf.go":              true,
+	"internal/routes/public/seo.go":                     true,
+	"internal/routes/public/sessions.go":                true,
+	"internal/routes/public/sessions_guard.go":          true,
+	"internal/routes/public/tools.go":                   true,
+	"internal/routes/public/visitor_conversations.go":   true,
+	"internal/routes/public/wiki_tree.go":               true,
+	"internal/routes/public/writing_tree.go":            true,
+	"internal/routes/public/writings.go":                true,
+	"internal/routes/sys/builds.go":                     true,
+	"internal/routes/sys/diag_session.go":               true,
+	"internal/routes/sys/tls_ask.go":                    true,
 }
 
 func main() {
@@ -175,12 +183,22 @@ func offenders() ([]string, error) {
 	return out, err
 }
 
-// skipPath —— 目录、非 Go 文件、测试文件不看;收口自己也不看(它不是面)。
+// skipPath —— 目录、非 Go 文件、测试文件不看;两个收口自己也不看(它们不是面)。
 func skipPath(path string, isDir bool) bool {
 	if isDir || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 		return true
 	}
-	return strings.Contains(filepath.ToSlash(path), convergence)
+	return atConvergence(filepath.ToSlash(path))
+}
+
+// atConvergence —— 这个文件是不是某个收口自己的。
+func atConvergence(path string) bool {
+	for _, c := range convergences {
+		if strings.Contains(path, c) {
+			return true
+		}
+	}
+	return false
 }
 
 // isDomainFacade —— internal/<domain>/facade（正好两段，排除 internal/routes/... 这种更深的）。

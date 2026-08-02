@@ -22,12 +22,13 @@ type PluginSpec struct {
 	ID      string
 	Command string
 	Args    []string
-	// HostSockets —— the host-op socket paths this plugin reaches (e.g. RETRIEVAL_SOCKET).
-	// Declaring them marks it a trusted DATA plugin, so the assembly hands it the session
-	// context (corpus_uris scope etc.) via tool-call _meta — same gate prod uses. Empty =
-	// self-contained plugin (ask-visitor), no session context. The plugin still runs over
-	// plain stdio; these are NOT bound into a bwrap (that's prod isolation only).
-	HostSockets  []string
+	// HostOps —— the host ops this plugin reaches back for, BY NAME (same vocabulary prod's
+	// manifests order from: "corpus_search", "conversation.read", …). Declaring any marks it
+	// a trusted DATA plugin, so the assembly hands it the session context (corpus_uris scope
+	// etc.) via tool-call _meta — same gate prod uses. Empty = self-contained plugin
+	// (ask-visitor), no session context. In the mini-host the plugin runs over plain stdio
+	// and finds its socket through Env; nothing is bound into a bwrap (prod isolation only).
+	HostOps      []string
 	RawToolNames bool
 	ACLAlways    bool
 }
@@ -56,11 +57,11 @@ func pluginManifest(p *PluginSpec) mcpplugin.Manifest {
 		Args:    p.Args,
 		Env:     p.Env,
 	}
-	// Declared host sockets → mark it a data plugin so the assembly hands it the session
-	// context (sessionMetaFor gates on Sandbox.HostSockets). Kind stays TransportStdio, so
+	// Declared host ops → mark it a data plugin so the assembly hands it the session
+	// context (sessionMetaFor gates on Sandbox.HostOps). Kind stays TransportStdio, so
 	// the dialer runs it plain — Sandbox here is metadata for the gate, not a bwrap request.
-	if len(p.HostSockets) > 0 {
-		transport.Sandbox = &mcpplugin.Sandbox{HostSockets: p.HostSockets}
+	if len(p.HostOps) > 0 {
+		transport.Sandbox = &mcpplugin.Sandbox{HostOps: p.HostOps}
 	}
 	return mcpplugin.Manifest{
 		ID:           p.ID,

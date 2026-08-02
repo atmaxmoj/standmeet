@@ -15,7 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
 // BoundConfig —— 已绑定到某个 cap 的配置读口(无 kind/id/声明:构造期就定死)。
@@ -23,16 +23,27 @@ type BoundConfig interface {
 	Values(ctx context.Context, ownerID string) (map[string]json.RawMessage, error)
 }
 
-// RegisterOps —— 把 capconfig.get 挂到 srv。只读:owner 改配置走面板,不走沙箱。
-func RegisterOps(srv *capsocket.Server, cfg BoundConfig) {
-	srv.Handle("capconfig.get", getHandler(cfg))
+// Ops —— capconfig.get。只读:owner 改配置走面板,不走沙箱。
+//
+// 有这条,沙箱才不用自己再写一份默认值 —— 声明的默认值宿主已经兜好了。
+//
+// cfg 为 nil(这个能力没声明配置)→ 不开。给不出东西的来源自己说"没有"。
+func Ops(cfg BoundConfig) []hostop.Op {
+	if cfg == nil {
+		return []hostop.Op{}
+	}
+	return []hostop.Op{{
+		Name:        "capconfig.get",
+		Description: "Read your own declared settings (values in effect, defaults filled in).",
+		Invoke:      getHandler(cfg),
+	}}
 }
 
 type getReq struct {
 	OwnerID string `json:"owner_id"`
 }
 
-func getHandler(cfg BoundConfig) capsocket.Handler {
+func getHandler(cfg BoundConfig) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req getReq
 		if err := json.Unmarshal(raw, &req); err != nil {

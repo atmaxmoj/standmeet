@@ -1,35 +1,16 @@
-// retrieval_socket.go —— corpus.retrieval 内建插件的窄 host socket 接线（跟
-// summarize_socket.go / booker_socket.go 同形）。外置的 retrieval 沙箱插件断网，经
-// bind 进沙箱的 /run/standmeet/retrieval.sock 调 corpus_search / corpus_read /
-// corpus_list host ops 跑真活（corpus wiki/output/writing listers 都在 host）。长活；
-// 进程退出随之关。
+// wire_search_index.go —— corpus 词法检索(Meili)的启动接线:建 index、回填、后台 reconcile。
+//
+// 它原来搭在 retrieval_socket.go 里(那个文件因为 retrieval 插件才存在);入站收口把 socket
+// 接线收走以后,这几件事跟"谁在读语料"没关系,自己占一个地址。
 
 package main
 
 import (
 	"context"
-	"os"
 	"time"
 
-	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
-
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
 )
-
-func wireRetrievalSocket(ctx context.Context, d *runtimeDeps, deps *corpus.IndexDeps) {
-	if mkErr := os.MkdirAll("/run/standmeet", socketDirMode); mkErr != nil {
-		d.log.Error("retrieval socket dir", "err", mkErr)
-		return
-	}
-	srv, err := capsocket.Listen(ctx, "/run/standmeet/retrieval.sock", d.log)
-	if err != nil {
-		d.log.Error("retrieval socket listen", "err", err)
-		return
-	}
-	corpus.RegisterCorpusIndexSocket(srv, deps)
-	go srv.Serve(ctx)
-}
 
 // wireSearchIndex —— boot 时建 Meili index(settings)+ 回填 sole owner 的 corpus。best-effort:
 // Meili 挂/未配都不挡启动(D5:boot 时 Meili down 后端照常起),失败只记日志——写路径 + 健康恢复

@@ -46,10 +46,12 @@ type rawTransport struct {
 }
 
 type rawSandbox struct {
-	PluginDir   string   `json:"plugin_dir"`
-	HostSockets []string `json:"host_sockets"`
-	AllowNet    bool     `json:"allow_net"`
-	Workspace   bool     `json:"workspace"`
+	PluginDir string `json:"plugin_dir"`
+	// HostOps —— 第三方插件也按名字点单;宿主只发词表里有的,没有的名字启动就炸。
+	// (原来这里是 host_sockets:一串文件路径。声明成文件,机制就答不出"这文件上有什么"。)
+	HostOps   []string `json:"host_ops"`
+	AllowNet  bool     `json:"allow_net"`
+	Workspace bool     `json:"workspace"`
 }
 
 // Load —— 从配置文件路径读 + 解析。空路径 / 文件不存在 → 空 Result（部署默认无
@@ -185,10 +187,10 @@ func toManifest(r *rawManifest) Manifest {
 	}
 	if r.Transport.Sandbox != nil {
 		m.Transport.Sandbox = &Sandbox{
-			PluginDir:   r.Transport.Sandbox.PluginDir,
-			HostSockets: r.Transport.Sandbox.HostSockets,
-			AllowNet:    r.Transport.Sandbox.AllowNet,
-			Workspace:   r.Transport.Sandbox.Workspace,
+			PluginDir: r.Transport.Sandbox.PluginDir,
+			HostOps:   r.Transport.Sandbox.HostOps,
+			AllowNet:  r.Transport.Sandbox.AllowNet,
+			Workspace: r.Transport.Sandbox.Workspace,
 		}
 	}
 	return m

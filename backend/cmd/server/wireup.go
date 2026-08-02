@@ -155,20 +155,12 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	skills := buildVisitorSkillsDeps(d)
 	skills.DepConnected = depReg
 	capload.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
-	wireSummarizeGateway(ctx, d, &skills)
 	// #135: owner-MCP caps are no longer core-registered here — the ownercore plugin (+ jobs)
 	// register them via RegisterAllCapabilities below, into the same capreg.Registry, no dup IDs.
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
-	// #135: booker 外置到沙箱 —— host 只挂固定词表 reach-back 网关(booker_gateway.go),
-	// 不再跑 booker 业务逻辑,也不再有 quota Gate/State(booker 自己在沙箱按 capstore 计数
-	// 做配额闸;connector-connected 仍由 manifest Requires:["calendar"] 的 global 闸把住)。
-	wireBookerGateway(ctx, d)
-	wireMailSenderGateway(ctx, d)
-	wireRetrievalSocket(ctx, d, &corpus.IndexDeps{
-		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
-		Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
-		NoteRefs: d.noteRefRepo, Searcher: d.searchClient,
-	})
+	// 入站收口:每个能力在自己的 manifest 里按名字点单,这一句照着发。原来这里是四个手写
+	// 网关(summarize / booker / mail-sender / retrieval),各自站一个 socket、各自挂动词。
+	wireHostDesk(ctx, d, &skills)
 	wireSearchIndex(ctx, d)
 	wireSearchReconcile(ctx, d)
 	registerDiscoveredPlugins(d, depReg, map[string]capload.CapHooks{

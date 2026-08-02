@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher boundary-thin no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk boundary-thin no-nil-container no-raw-http arch connector-boundary core-agnostic internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint secrets
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -50,6 +50,14 @@ no-nil-container:
 routes-via-dispatcher:
 	@tool=$$(mktemp) && ( cd ../infra/scripts/check-routes-via-dispatcher && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; \
 		[ $$rc -eq 0 ] && bash ../infra/scripts/check-routes-via-dispatcher-test.sh; rc2=$$?; exit $$((rc + rc2))
+
+# The inbound mirror: a sandboxed capability reaches back only through the inbound
+# convergence point (internal/routes/hostdesk). Only the desk opens a capability
+# socket, and only a domain (or an axis's own mechanism) declares a host op — the
+# assembly root wires deps, it never mints verbs.
+hostops-via-desk:
+	@bash ../infra/scripts/check-hostops-via-desk.sh
+	@bash ../infra/scripts/check-hostops-via-desk-test.sh
 
 # Boundaries only declare and hand over: a facade re-exports its domain, and the
 # dispatcher aggregates facades. Payload shapes, op schemas and reaching past a

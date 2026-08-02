@@ -10,10 +10,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// sessionMetaFor —— 数据型内建(manifest 声明了 HostSockets)才拿到可信 session 上下文。
-// 无 HostSockets(ask_visitor / 第三方)→ nil。
+// sessionMetaFor —— 会回头找宿主(manifest 点了 host op)的能力才拿到可信 session 上下文。
+// 没点过(ask_visitor / 第三方)→ nil。
 func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.SessionContext {
-	if m.Transport.Sandbox == nil || len(m.Transport.Sandbox.HostSockets) == 0 {
+	if m.Transport.Sandbox == nil || len(m.Transport.Sandbox.HostOps) == 0 {
 		return nil
 	}
 	return &mcpclient.SessionContext{

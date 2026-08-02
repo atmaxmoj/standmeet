@@ -11,6 +11,7 @@ type (
 	AIPreset          = ops.AIPreset
 	OpsAccountDeps    = ops.AccountDeps
 	OpsAccessRequests = ops.AccessRequestsDeps
+	OpsHostLookup     = ops.MetaLookup
 	OpsPage           = ops.PageOpsDeps
 	OpsSEO            = ops.SEODeps
 	SettingsDeps      = ops.SettingsDeps
@@ -19,12 +20,14 @@ type (
 // 操作组（实现:ops）.
 var (
 	AccessRequestOps = ops.AccessRequests
-	AccountOps       = ops.Account
-	AppearanceOps    = ops.Appearance
-	CustomPageOps    = ops.CustomPages
-	DomainOps        = ops.Domains
-	PageOps          = ops.Page
-	PromptOps        = ops.Prompts
-	SEOOps           = ops.SEO
-	SettingsOps      = ops.Settings
+	// HostOps —— 开给沙箱能力的:读 owner 的白名单字段。
+	HostOps       = ops.HostOps
+	AccountOps    = ops.Account
+	AppearanceOps = ops.Appearance
+	CustomPageOps = ops.CustomPages
+	DomainOps     = ops.Domains
+	PageOps       = ops.Page
+	PromptOps     = ops.Prompts
+	SEOOps        = ops.SEO
+	SettingsOps   = ops.Settings
 )

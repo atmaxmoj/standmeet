@@ -76,8 +76,8 @@ var (
 	RawDump                        = usecase.RawDump
 	RawTreePaths                   = usecase.RawTreePaths
 	RebuildNoteRefs                = usecase.RebuildNoteRefs
-	RegisterCorpusIndexLister      = usecase.RegisterCorpusIndexLister
-	RegisterCorpusIndexSocket      = usecase.RegisterCorpusIndexSocket
+	CorpusHostOps                  = usecase.CorpusHostOps
+	CorpusHostOpsFor               = usecase.CorpusHostOpsFor
 	ReindexCorpusOwner             = usecase.ReindexCorpusOwner
 	ResolveAssetURLs               = usecase.ResolveAssetURLs
 	ResolveByName                  = usecase.ResolveByName

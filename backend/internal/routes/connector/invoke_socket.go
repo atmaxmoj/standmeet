@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
 // Invoker —— 按名调用连接器(category+verb+args→json)。业务域 connector.Slots 满足它。
@@ -26,10 +26,21 @@ type Invoker interface {
 	)
 }
 
-// RegisterInvokeOp —— 把 "connector.invoke" 挂到 srv:{owner_id,category,verb,args} → Invoke。
-// background=true → 不等结果直接回 {ok:true},调用在 host 后台跑(带重试)。
-func RegisterInvokeOp(srv *capsocket.Server, inv Invoker) {
-	srv.Handle("connector.invoke", func(
+// Ops —— connector.invoke。能力说"替我用日历做这件事",宿主找 owner 当前激活的那个连接器
+// 去做 —— 能力不认识具体连接器,凭据也不出宿主。
+//
+// background=true → 不等结果直接回 {ok:true},调用在宿主后台跑(带重试)。
+func Ops(inv Invoker) []hostop.Op {
+	return []hostop.Op{{
+		Name: "connector.invoke",
+		Description: "Ask the owner's active connector for a category to do one verb. " +
+			"The capability names a category, never a connector; credentials stay host-side.",
+		Invoke: invokeHandler(inv),
+	}}
+}
+
+func invokeHandler(inv Invoker) hostop.Invoke {
+	return func(
 		ctx context.Context, raw json.RawMessage,
 	) (json.RawMessage, error) {
 		var req struct {
@@ -55,5 +66,5 @@ func RegisterInvokeOp(srv *capsocket.Server, inv Invoker) {
 				req.Category, req.Verb, req.OwnerID, err)
 		}
 		return out, nil
-	})
+	}
 }

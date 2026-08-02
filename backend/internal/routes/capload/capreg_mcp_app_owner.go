@@ -52,7 +52,7 @@ func (c *mcpAppCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 func (c *mcpAppCapability) ownerToolHandler(t *mcpplugin.OwnerTool) capreg.MCPHandler {
 	tool, name := t.Tool, t.Name
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) capreg.MCPResult {
-		sess, err := dialMCPApp(ctx, &c.m.Transport, "")
+		sess, err := dialMCPApp(ctx, &c.m, "")
 		if err != nil {
 			return c.ownerToolErr(err, name+" is unavailable right now")
 		}

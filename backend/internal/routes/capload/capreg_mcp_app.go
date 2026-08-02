@@ -170,8 +170,8 @@ func (c *mcpAppCapability) VisitorBinding(
 	if !expose {
 		return nil, capreg.ErrHidden
 	}
-	ds, derr := dialAndList(ctx, &c.m.Transport, provisionWorkspaceFor(&c.m, in.ConversationID),
-		c.m.ID, c.dialErrLog)
+	ds, derr := dialAndList(
+		ctx, &c.m, provisionWorkspaceFor(&c.m, in.ConversationID), c.dialErrLog)
 	if derr != nil {
 		return nil, derr
 	}
@@ -215,10 +215,11 @@ type dialedApp struct {
 // dialAndList —— dial transport + ListTools。dial 失败 / list 失败 / 空 tool 都收成
 // ErrHidden（隐藏，不阻塞 chat）；空 tool 时关掉会话不泄漏。
 func dialAndList(
-	ctx context.Context, t *mcpplugin.Transport, workspaceDir string,
-	id string, dialErrLog func(id string, err error),
+	ctx context.Context, m *mcpplugin.Manifest, workspaceDir string,
+	dialErrLog func(id string, err error),
 ) (*dialedApp, error) {
-	sess, err := dialMCPApp(ctx, t, workspaceDir)
+	id := m.ID
+	sess, err := dialMCPApp(ctx, m, workspaceDir)
 	if err != nil {
 		// Infra failure (sandbox couldn't spawn, transport unreachable). Still hide
 		// so a broken plugin never blocks chat — but log the real cause first (F-A-1:
@@ -275,7 +276,7 @@ func (c *mcpAppCapability) fragmentActive(in *capreg.AssembleInput) bool {
 func (c *mcpAppCapability) cachedInstructions(ctx context.Context) string {
 	c.instrOnce.Do(func() {
 		// instructions 读取是无 session 的一次性拨号 → 不分配工作区（workspaceDir 空）。
-		sess, err := dialMCPApp(ctx, &c.m.Transport, "")
+		sess, err := dialMCPApp(ctx, &c.m, "")
 		if err != nil {
 			return
 		}

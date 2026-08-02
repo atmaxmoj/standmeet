@@ -40,10 +40,11 @@ func TestEvalAssemblesRetrievalPlugin(t *testing.T) {
 			{Genre: "wiki", Path: "vault", Title: "Vault", Body: "private lucerna vault notes", Private: true},
 		},
 		plugins: []agentcore.PluginSpec{{
-			ID:           "corpus.retrieval",
-			Command:      bin,
-			Env:          map[string]string{"RETRIEVAL_SOCKET": sock},
-			HostSockets:  []string{sock}, // data plugin → gets the session corpus_uris scope
+			ID:      "corpus.retrieval",
+			Command: bin,
+			Env:     map[string]string{"RETRIEVAL_SOCKET": sock},
+			// data plugin (orders host ops by name) → gets the session corpus_uris scope
+			HostOps:      agentcore.CorpusHostOpNames(),
 			RawToolNames: true,
 			ACLAlways:    true,
 		}},

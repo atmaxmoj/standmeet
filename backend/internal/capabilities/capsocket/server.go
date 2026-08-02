@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"os"
 )
@@ -49,9 +50,17 @@ type Server struct {
 	path     string
 }
 
-// Listen —— create+bind the socket at path (replacing a stale file), 0600. The
-// caller registers ops, then runs Serve in a goroutine and Close on shutdown.
-func Listen(ctx context.Context, path string, log *slog.Logger) (*Server, error) {
+// ListenWith —— create+bind the socket at path (replacing a stale file), 0600, serving
+// exactly the given ops. The caller runs Serve in a goroutine and Close on shutdown.
+//
+// The handler set is fixed at construction ON PURPOSE. There used to be an incremental
+// Handle(op, h), which meant a capability could stand up its own socket and mint its own
+// verbs — the host obeyed whatever vocabulary the plugin asked for, and nothing could
+// enumerate what a sandbox may call. The vocabulary now lives in one place
+// (internal/routes/hostdesk); this constructor only serves what that place handed over.
+func ListenWith(
+	ctx context.Context, path string, ops map[string]Handler, log *slog.Logger,
+) (*Server, error) {
 	if err := clearStale(path); err != nil {
 		return nil, err
 	}
@@ -63,7 +72,10 @@ func Listen(ctx context.Context, path string, log *slog.Logger) (*Server, error)
 	if cherr := chmodOrClose(ln, path, log); cherr != nil {
 		return nil, cherr
 	}
-	return &Server{ln: ln, log: log, handlers: map[string]Handler{}, path: path}, nil
+	// 拷一份:调用方之后改自己那张表,改不到已经在服务的这一套。
+	handlers := make(map[string]Handler, len(ops))
+	maps.Copy(handlers, ops)
+	return &Server{ln: ln, log: log, handlers: handlers, path: path}, nil
 }
 
 func clearStale(path string) error {
@@ -82,9 +94,6 @@ func chmodOrClose(ln net.Listener, path string, log *slog.Logger) error {
 	}
 	return nil
 }
-
-// Handle —— register an op. Call before Serve.
-func (s *Server) Handle(op string, h Handler) { s.handlers[op] = h }
 
 // Serve —— accept loop; one goroutine per connection. Blocks until Close. ctx is
 // the server-lifetime context (the same one passed to Listen), threaded down to

@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
 // corpusIndexReq —— 插件经 socket 发来的请求。session scope 字段 + 原样转发的 args。
@@ -36,31 +36,46 @@ type corpusIndexReq struct {
 // corpusRunner —— 一个 op 的执行体：解析 args、调 lister、返 wire JSON。
 type corpusRunner func(context.Context, Lister, *corpusIndexReq) (string, error)
 
-// RegisterCorpusIndexSocket —— prod 接线：从 postgres 的 IndexDeps 建 pgCorpusLister，
-// 注册三个 corpus op。
-func RegisterCorpusIndexSocket(srv *capsocket.Server, deps *IndexDeps) {
-	lister := &pgCorpusLister{
+// CorpusHostOpsFor —— prod 那套:从 postgres 的 IndexDeps 装出 pgCorpusLister,再声明这七件事。
+func CorpusHostOpsFor(deps *IndexDeps) []hostop.Op {
+	return CorpusHostOps(&pgCorpusLister{
 		wiki: deps.Wiki, output: deps.Output, writing: deps.Writings,
 		subjectivity: deps.Subjectivity, queryRepo: deps.VaultSync,
 		noteRefs: deps.NoteRefs, searcher: deps.Searcher,
+	})
+}
+
+// CorpusHostOps —— 本域开给沙箱能力的读语料那几件事,背后是任意 Lister。
+//
+// prod 经 CorpusHostOpsFor 注入 pgCorpusLister;agentcore 的 eval mini-host 注入一个
+// Driver-backed 的内存 lister,让消费方不碰 postgres 也能装配。
+//
+// 名字保持 canonical(corpus_search 而不是 corpus.search):它们是 retrieval 插件一直在
+// 用的那几个,搬家不改对外的称呼。
+func CorpusHostOps(lister Lister) []hostop.Op {
+	decl := []struct {
+		run  corpusRunner
+		name string
+		desc string
+	}{
+		{runCorpusSearch, "corpus_search", "Search the corpus under this session's ACL scope."},
+		{runCorpusRead, "corpus_read", "Read one entry by path, under the session's scope."},
+		{runCorpusList, "corpus_list", "List entries under the session's scope."},
+		{runCorpusLinks, "corpus_links", "The links out of / into one entry."},
+		{runCorpusMap, "corpus_map", "The shape of the reachable corpus."},
+		{runCorpusResolve, "corpus_resolve", "Resolve a title / partial address to an entry."},
+		{runCorpusPeek, "corpus_peek", "A cheap look at one entry (no full body)."},
 	}
-	RegisterCorpusIndexLister(srv, lister)
+	out := make([]hostop.Op, 0, len(decl))
+	for _, d := range decl {
+		out = append(out, hostop.Op{
+			Name: d.name, Description: d.desc, Invoke: corpusOp(lister, d.run),
+		})
+	}
+	return out
 }
 
-// RegisterCorpusIndexLister —— 把三个 corpus op 注册到 capsocket server，背后是任意
-// Lister。prod 经 RegisterCorpusIndexSocket 注入 pgCorpusLister；agentcore 的 eval
-// mini-host 注入一个 Driver-backed 内存 lister，让消费方不碰 postgres 也能装配。
-func RegisterCorpusIndexLister(srv *capsocket.Server, lister Lister) {
-	srv.Handle("corpus_search", corpusOp(lister, runCorpusSearch))
-	srv.Handle("corpus_read", corpusOp(lister, runCorpusRead))
-	srv.Handle("corpus_list", corpusOp(lister, runCorpusList))
-	srv.Handle("corpus_links", corpusOp(lister, runCorpusLinks))
-	srv.Handle("corpus_map", corpusOp(lister, runCorpusMap))
-	srv.Handle("corpus_resolve", corpusOp(lister, runCorpusResolve))
-	srv.Handle("corpus_peek", corpusOp(lister, runCorpusPeek))
-}
-
-func corpusOp(lister Lister, run corpusRunner) capsocket.Handler {
+func corpusOp(lister Lister, run corpusRunner) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req corpusIndexReq
 		if err := json.Unmarshal(raw, &req); err != nil {
