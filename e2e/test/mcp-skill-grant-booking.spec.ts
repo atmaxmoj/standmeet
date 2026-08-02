@@ -55,11 +55,14 @@ async function grantViaMCP(
     prompt: 'Offer to book a call when the visitor wants to talk live.',
     allowed_tools: [...allowedTools],
   });
-  const role = await callTool<{ role_id: string }>(seed.request, token, sid, 'role_create', {
+  // 主键叫 `id` —— 两个面同一份载荷之后,MCP 私有的那份 `role_id` 没了。读错键的代价是
+  // 静默的:assumed_role_id 拿到 undefined,码照样建出来,只是没有角色,于是"授了权的工具
+  // 不见了"。这条曾经就是这么红的。
+  const role = await callTool<{ id: string }>(seed.request, token, sid, 'role_create', {
     name: `Booking Role ${seq}`, corpus_uris: ['wiki://**'], skill_ids: [skill.id],
   });
   await callTool(seed.request, token, sid, 'codes.create', {
-    code, label: 'mcp grant', assumed_role_id: role.role_id,
+    code, label: 'mcp grant', assumed_role_id: role.id,
     max_turns_per_session: 50, max_members: 10,
   });
   return code;

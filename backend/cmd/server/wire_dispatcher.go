@@ -166,8 +166,9 @@ func codeDepsOf(d *runtimeDeps) access.OpsCodes {
 		ACL: access.CodeACLDeps{
 			Codes: d.codeRepo, Denials: d.codeDenialRepo, Roles: d.roleRepo,
 		},
-		// booker 在一张码上占一个 max_bookings 字段,见 booker_code_config.go。
-		Extras: newBookerCodeExtras(d),
+		// 各能力在码上占的字段(booker 的 max_bookings 是第一个),按 manifest 的 CodeConfig
+		// 声明合成一个通用面 —— 见 wire_code_config.go。
+		Extras: codeFieldSurface(d),
 	}
 }
 

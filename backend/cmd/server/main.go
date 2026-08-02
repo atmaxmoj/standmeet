@@ -119,6 +119,9 @@ func wireAndServe(
 	})
 	// must precede buildPluginRegistry: owner-MCP caps capture the connector dispatcher there.
 	ensureConnectorSlots(&deps)
+	// 各能力自己的隔离存储先备好:出站收口(码上的字段)、入站收口(沙箱读写)、用量闸
+	// 三条路都从同一份取,provision 只跑这一次。
+	wireCapabilityStorage(ctx, &deps)
 	deps.pluginRegistry = buildPluginRegistry(&deps)
 	// 出站收口只建一个:MCP 面和 admin 面必须投影自**同一份**声明,否则 parity 无从谈起。
 	deps.dispatch = buildDispatcher(&deps)

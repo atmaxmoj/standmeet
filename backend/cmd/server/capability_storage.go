@@ -10,12 +10,58 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capconfig"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 )
+
+// wireCapabilityStorage —— 启动期给每个**需要**存储的能力 provision 一次它自己的 schema
+// (mcp_<id>),之后所有接线从这里取。
+//
+// 一次而不是每个接线点各来一次:provision 是 DDL,重复跑既慢又让"这个能力有没有存储"这个
+// 事实散在四处各判一遍。
+func wireCapabilityStorage(ctx context.Context, d *runtimeDeps) {
+	manifests := builtinManifests()
+	for i := range manifests {
+		m := &manifests[i]
+		if !needsStorage(m) {
+			continue
+		}
+		store := capstore.New(d.db)
+		if err := store.Provision(ctx, capstore.KindMCP, m.ID); err != nil {
+			d.log.Error("capability storage provision", "cap", m.ID, "err", err)
+			continue
+		}
+		d.capStores[m.ID] = store
+	}
+}
+
+// capabilityStorage —— 这个能力自己的隔离存储。没有(不需要 / provision 失败)→ nil。
+//
+// 四件事都落在同一份存储上:沙箱自己读写(capstore.*)、owner 的配置(Config)、码上的字段
+// (CodeConfig)、用量计数(Quota)。判定只有 needsStorage 这一处 —— 散开写的后果是漏记条件
+// 的那一处到运行时才发现:表不存在。
+func capabilityStorage(d *runtimeDeps, m *mcpplugin.Manifest) *capstore.Store {
+	return d.capStores[m.ID]
+}
+
+func needsStorage(m *mcpplugin.Manifest) bool {
+	return wantsAny(m, "capstore.") ||
+		len(m.Config) > 0 || len(m.CodeConfig) > 0 || m.Quota.Usable()
+}
+
+// wantsAny —— 这个能力点过某个前缀下的 host op 没有。
+func wantsAny(m *mcpplugin.Manifest, prefix string) bool {
+	for _, name := range hostOpsOf(m) {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
+}
 
 // boundCapStore —— 通用 capstore.Store 绑到某个能力的命名空间。
 type boundCapStore struct {

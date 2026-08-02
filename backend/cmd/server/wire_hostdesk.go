@@ -11,7 +11,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
@@ -46,11 +45,7 @@ func serveHostOps(
 	if len(want) == 0 {
 		return // 不要后端数据的插件:完全断网,连 socket 都没有。
 	}
-	per, err := perCapabilityDeps(ctx, d, m)
-	if err != nil {
-		d.log.Error("capability storage provision", "cap", m.ID, "err", err)
-		return
-	}
+	per := perCapabilityDeps(d, m)
 	srv, serr := hostdesk.Serve(ctx, d.log, m.ID, want, hostdesk.Collect(shared, per))
 	if serr != nil {
 		// 声明了宿主不提供的 op = manifest 在说谎,启动期就该炸。
@@ -90,34 +85,18 @@ func sharedHostDeps(
 // perCapabilityDeps —— 一个能力**自己的**存储和配置。
 //
 // 存储在构造期就绑死到这个能力的命名空间(schema = mcp_<id>),沙箱那侧填不了别人的表。
-// 声明了 capstore.* 的能力才 provision —— 没声明就没有 schema,不是"有但空着"。
-func perCapabilityDeps(
-	ctx context.Context, d *runtimeDeps, m *mcpplugin.Manifest,
-) (*hostdesk.PerCapability, error) {
+// 要不要 provision 由 capabilityStorage 一处判定 —— 见 capability_storage.go。
+func perCapabilityDeps(d *runtimeDeps, m *mcpplugin.Manifest) *hostdesk.PerCapability {
 	per := &hostdesk.PerCapability{}
-	if !wantsAny(m, "capstore.") && len(m.Config) == 0 {
-		return per, nil
+	store := capabilityStorage(d, m)
+	if store == nil {
+		return per
 	}
-	store := capstore.New(d.db)
-	if err := store.Provision(ctx, capstore.KindMCP, m.ID); err != nil {
-		return nil, fmt.Errorf("capability %q storage: %w", m.ID, err)
+	if wantsAny(m, "capstore.") {
+		per.Store = boundCapStore{store: store, kind: capstore.KindMCP, id: m.ID}
 	}
-	per.Store = boundCapStore{store: store, kind: capstore.KindMCP, id: m.ID}
 	if len(m.Config) > 0 {
-		per.Config = boundCapConfig{
-			cfg:  capConfigFor(store, m.ID),
-			decl: m.Config,
-		}
+		per.Config = boundCapConfig{cfg: capConfigFor(store, m.ID), decl: m.Config}
 	}
-	return per, nil
-}
-
-// wantsAny —— 这个能力点过某个前缀下的 op 没有。
-func wantsAny(m *mcpplugin.Manifest, prefix string) bool {
-	for _, name := range hostOpsOf(m) {
-		if len(name) >= len(prefix) && name[:len(prefix)] == prefix {
-			return true
-		}
-	}
-	return false
+	return per
 }

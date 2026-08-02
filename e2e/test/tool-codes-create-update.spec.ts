@@ -4,7 +4,7 @@
 // E-13 同时修了 CodeRepo.Revoke 的 0-row bug —— 已经在 b6-codes-revoke-mcp
 // 之外用本 spec 也间接覆盖 update_quotas 的同类 not-found 路径。
 
-import type { Playwright } from '@playwright/test';
+import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { test, expect } from '@/fixtures/test';
 
@@ -52,6 +52,50 @@ interface UpdateQuotasResp {
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
+// expectQuotaUpdate —— 内核自己那几个配额（成员数 / 每会话轮次）改一个，另一个不受影响。
+async function expectQuotaUpdate(
+  request: APIRequestContext, apiToken: string, sid: string, roleID: string,
+): Promise<void> {
+  const created = await callTool<CreateResp>(
+    request, apiToken, sid, 'codes.create',
+    {
+      code: 'MCP-QUOTAS-001', label: 'quotas spec',
+      assumed_role_id: roleID, max_members: 3, max_turns_per_session: 10,
+    },
+  );
+  const updated = await callTool<UpdateQuotasResp>(
+    request, apiToken, sid, 'codes.update_quotas',
+    { code_id: created.id, max_turns_per_session: 50 },
+  );
+  expect(updated.id).toBe(created.id);
+  expect(updated.max_turns_per_session).toBe(50);
+  expect(updated.max_members).toBe(3);
+}
+
+// expectCodeFieldRoundTrip —— 能力在码上占的字段（booker 的 max_bookings 是第一个）走
+// CodeConfig 声明：写下去要能原样读回来。
+//
+// 这条**两个方向都没覆盖过** —— 从前只有"配额到了工具消失"那一条；写进去的值有没有回到码上、
+// 入参 schema 里还有没有这个字段，都没人问。而 schema 现在是从声明算出来的，一旦算错，唯一的
+// 症状就是这个字段安静地消失。
+async function expectCodeFieldRoundTrip(
+  request: APIRequestContext, apiToken: string, sid: string, roleID: string,
+): Promise<void> {
+  const created = await callTool<CreateResp>(
+    request, apiToken, sid, 'codes.create',
+    {
+      code: 'MCP-CODEFIELD-001', label: 'code field spec',
+      assumed_role_id: roleID, max_bookings: 7,
+    },
+  );
+  const rows = await callTool<Array<{ id: string; max_bookings: number | null }>>(
+    request, apiToken, sid, 'codes.list', {},
+  );
+  const mine = rows.find((r) => r.id === created.id);
+  expect(mine, 'the created code is listed').toBeTruthy();
+  expect(mine?.max_bookings, 'the capability field came back on the row').toBe(7);
+}
+
 test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
   let sid: string;
   let apiToken: string;
@@ -91,25 +135,14 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
   test('codes.update_quotas changes per-session turn cap; admin list reflects',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const created = await callTool<CreateResp>(
-        request, apiToken, sid, 'codes.create',
-        {
-          code: 'MCP-QUOTAS-001', label: 'quotas spec',
-          assumed_role_id: roleID,
-          max_members: 3,
-          max_turns_per_session: 10,
-        },
-      );
-      const updated = await callTool<UpdateQuotasResp>(
-        request, apiToken, sid, 'codes.update_quotas',
-        {
-          code_id: created.id,
-          max_turns_per_session: 50,
-        },
-      );
-      expect(updated.id).toBe(created.id);
-      expect(updated.max_turns_per_session).toBe(50);
-      expect(updated.max_members).toBe(3);
+      await expectQuotaUpdate(request, apiToken, sid, roleID);
+      await request.dispose();
+    });
+
+  test('a capability field declared on the code round-trips: set → read back',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await expectCodeFieldRoundTrip(request, apiToken, sid, roleID);
       await request.dispose();
     });
 

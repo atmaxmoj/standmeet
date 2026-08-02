@@ -115,7 +115,16 @@ type Manifest struct {
 	OwnerTools []OwnerTool
 	// Config —— 本插件的可配置项声明。owner 面板按它渲染,值存进本插件自己的隔离存储。
 	// 空 = 这个能力没有可调的东西。
-	Config  []ConfigField
+	Config []ConfigField
+	// CodeConfig —— 本插件在**一张邀请码**上占的那几个字段。owner 发码时一起填,列表里一起看。
+	//
+	// 跟 Config 同一套声明,只是挂载点从 owner 换成 code。有这个之前,能力想在码上放一个数字
+	// 只能在组装根手写一整套(自己的存储、自己的读写、自己接进发码入参)—— booker 的
+	// max_bookings 就是那样,三个文件两百多行,全是这份机制的手抄本。
+	CodeConfig []ConfigField
+	// Quota —— 本插件的 per-code 用量上限:允许多少、已经用了多少,都由声明说清。
+	// nil = 这个能力不闸用量。
+	Quota   *QuotaDecl
 	ID      string
 	Version string
 	// Title —— 人类可读显示名（#109/#110 dock 按钮 label 透传它）。跟 MCP tool title 同角色：

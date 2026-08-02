@@ -161,11 +161,12 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	// 网关(summarize / booker / mail-sender / retrieval),各自站一个 socket、各自挂动词。
 	wireHostDesk(ctx, d, &skills)
 	wireSearchIndex(ctx, d)
-	registerDiscoveredPlugins(d, depReg, map[string]capload.CapHooks{
-		// booker quota 闸(host 侧,经 capstore.count 数 booker 隔离预约;concretes 只在此组装根)。
-		"calendar.book":    {Gate: bookerQuotaGate(d), State: bookerQuotaState(d)},
+	hooks := map[string]capload.CapHooks{
 		"corpus.retrieval": {Fragment: capload.CorpusScopeVisible},
-	})
+	}
+	// 用量闸按各能力 manifest 里的 Quota 声明装上(闸 + 余量共用一条计数)。
+	capabilityQuotaHooks(d, hooks)
+	registerDiscoveredPlugins(d, depReg, hooks)
 	wireCapabilityEnableGate(d)
 	// 周期任务:各处声明,一份调度。放最后 —— 插件都注册完了,声明才齐。
 	wirePeriodicJobs(ctx, d)

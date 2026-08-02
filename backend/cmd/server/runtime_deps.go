@@ -13,6 +13,7 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandboxws"
 	"github.com/atmaxmoj/standmeet/internal/connector"
@@ -100,7 +101,10 @@ type runtimeDeps struct {
 	agentSkills        *capreg.Registry
 	// dispatch —— 出站收口。assembleRuntimeDeps 之后由 main 回填(跟 pluginRegistry 同理);
 	// 全进程唯一一个,各个面都从它投影。
-	dispatch       *dispatcher.Dispatcher
+	dispatch *dispatcher.Dispatcher
+	// capStores —— 每个**声明了要存储**的能力自己的隔离存储(schema = mcp_<id>),
+	// wireCapabilityStorage 启动期 provision 一次;之后 host 侧四条路都从这里取同一份。
+	capStores      map[string]*capstore.Store
 	searchClient   *search.Client // corpus 词法检索(Meili);nil = 未配 → 退 Postgres 全文
 	corpusIndexer  corpus.Indexer // 写路径索引传播;nil = 未配 Meili
 	captchaSiteKey string

@@ -163,6 +163,8 @@ components:
     in: internal/infra/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   capconfig:
     in: internal/capabilities/capconfig                # 能力可配置项的通用存取（声明在 manifest，值落 capstore）；host 不认识任何字段含义
+  capquota:
+    in: internal/capabilities/capquota                 # per-code 用量上限：照 manifest 的 QuotaDecl 数，host 不认识任何业务词
   capstore:
     in: internal/capabilities/capstore                 # #135 constrained-reachback: per-plugin 隔离 JSONB 存储（每 connector/mcp 一 schema）；leaf，只依赖 pgx
   retry:
@@ -286,9 +288,18 @@ deps:
     anyVendorDeps: true
 
   # capconfig —— 能力配置的通用读写。只认 capstore（值往哪存）+ mcpplugin（声明长什么样）；
-  # 不认识任何一个业务字段。
+  # 不认识任何一个业务字段。挂载点是参数（owner / code），不是两套代码。
   capconfig:
     mayDependOn:
+      - capstore
+      - mcpplugin
+    anyVendorDeps: true
+
+  # capquota —— per-code 用量上限，照 manifest 的 QuotaDecl 执行：上限读 capconfig 的 code
+  # scope，用量数 capstore 的一个 collection。闸和余量共用同一条计数（分开写过，只补回过一半）。
+  capquota:
+    mayDependOn:
+      - capconfig
       - capstore
       - mcpplugin
     anyVendorDeps: true
@@ -1000,6 +1011,7 @@ deps:
     mayDependOn:
       - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
       - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
+      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
       - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
       - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
       # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。

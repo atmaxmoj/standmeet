@@ -101,6 +101,12 @@ func bookerManifest() mcpplugin.Manifest {
 		RawToolNames: true,
 		OwnerTools:   bookerOwnerTools(),
 		Config:       bookerConfigFields(),
+		CodeConfig:   bookerCodeFields(),
+		// Quota —— 上限取码上的 max_bookings,用量数自己存储里 bookings 表的 code_id。
+		// 宿主照这三句话通用地闸 + 报余量;它仍然不认识 "booking"。
+		Quota: &mcpplugin.QuotaDecl{
+			ConfigKey: "max_bookings", Collection: "bookings", CodeField: "code_id",
+		},
 		// 硬依赖 calendar connector：未连 → 经 global 单点闸隐藏（D-2，取代 booker
 		// SessionGate 里的 Connected() 自查）。smtp 不在此 —— 确认信是软依赖，没连也能
 		// book，只是 send_confirmation 那截不可用（per-tool，不 gate 整 cap）。
@@ -218,6 +224,23 @@ func askVisitorManifest() mcpplugin.Manifest {
 			Sandbox: &mcpplugin.Sandbox{PluginDir: "/srv/plugins/ask-visitor"},
 		},
 	}
+}
+
+// bookerCodeFields —— booker 在**一张邀请码**上占的字段。owner 发码时一起填,列表里一起看。
+//
+// 跟 Config 同一套声明,只是挂载点是码而不是 owner。以前这一个数字要三个文件才落得下来:
+// 一个自己的 capstore 读写、一个接进发码入参的适配器、一段手写的 JSON Schema 片段。
+// 现在类型、说明、下界都从这里长出去,schema 是算出来的,不是另写的。
+func bookerCodeFields() []mcpplugin.ConfigField {
+	return []mcpplugin.ConfigField{{
+		Key: "max_bookings", Label: "Booking cap for this code",
+		Type: mcpplugin.ConfigTypeInt,
+		// 没设 = 不限。写出来而不是靠"空的",因为这一项的"空"是有含义的。
+		Default: "null",
+		Min:     new(0),
+		Description: "Booking cap for this code; null means no limit. " +
+			"The tool disappears for that visitor once the cap is reached.",
+	}}
 }
 
 // bookerConfigFields —— booker 预约策略的**声明**。owner 面板按它通用渲染,值存进 booker

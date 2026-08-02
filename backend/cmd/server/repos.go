@@ -13,6 +13,7 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
@@ -196,7 +197,9 @@ func assembleRuntimeDeps(
 		marketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
-		agentSkills:   capreg.NewRegistry(),
+		agentSkills: capreg.NewRegistry(),
+		// capStores —— wireCapabilityStorage 按各能力的声明填(provision 一次)。
+		capStores:     map[string]*capstore.Store{},
 		searchClient:  searchClient,
 		corpusIndexer: corpusIndexer,
 		// J.5: pluginRegistry 在 assembleRuntimeDeps 返回后由 caller 用全
