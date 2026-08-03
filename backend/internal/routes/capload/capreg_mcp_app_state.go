@@ -15,6 +15,49 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
+// KnownToolNames —— capreg.ToolNameKnower：首拨缓存过 specs 之后,不拨号就说得出
+// 自己暴露哪些 tool。名字走 composeMCPAppToolName —— 跟 wrapMCPAppTools 同一个函数,
+// 不是另抄一份拼法(抄一份的话哪天前缀规则变了,这条能力会被静默跳过)。
+// 第二个返回值 false = 还没拨过,调度那侧只能照拨。
+func (c *mcpAppCapability) KnownToolNames() ([]string, bool) {
+	specs, known := c.knownToolSpecs()
+	if !known {
+		return []string{}, false
+	}
+	return composeMCPAppToolNames(&c.m, specs), true
+}
+
+// composeMCPAppToolNames —— specs → 暴露出去的 tool 名(空的丢掉,跟 wrapMCPAppTools
+// 一致)。
+func composeMCPAppToolNames(m *mcpplugin.Manifest, specs []mcpclient.Tool) []string {
+	names := make([]string, 0, len(specs))
+	for i := range specs {
+		if name := composeMCPAppToolName(m, specs[i].Name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// VisitorStateOnly —— capreg.StateReporter：不起沙箱就报 state。
+//
+// 闸走的是**同一个** exposable(role 授权 + SessionGate 的 connector/quota),所以
+// "订完最后一次名额按钮当场置灰"这类 cascade 跟拨号那条路一字不差。省掉的只是为了
+// 拿 {id,enabled,quota} 而起一个沙箱再关掉。
+//
+// 跟 VisitorBinding 的唯一差别:沙箱起不来时这里照样报 enabled(拨号那条路会隐藏)。
+// 那是 infra 故障,不是 owner 的配置意图 —— 让按钮消失只会让访客困惑,点下去拿一条
+// 工具失败的回执反而说得清。
+func (c *mcpAppCapability) VisitorStateOnly(
+	ctx context.Context, in *capreg.AssembleInput,
+) (capreg.CapabilityState, bool) {
+	expose, gerr := c.exposable(ctx, in)
+	if gerr != nil || !expose {
+		return capreg.CapabilityState{}, false
+	}
+	return c.stateFor(ctx, in), true
+}
+
 func wrapMCPAppTools(
 	ctx context.Context, m *mcpplugin.Manifest, sess *mcpclient.Session,
 	tools []mcpclient.Tool, sessionMeta *mcpclient.SessionContext,

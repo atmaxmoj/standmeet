@@ -170,17 +170,39 @@ func (c *mcpAppCapability) VisitorBinding(
 	if !expose {
 		return nil, capreg.ErrHidden
 	}
-	ds, derr := dialAndList(
-		ctx, &c.m, provisionWorkspaceFor(&c.m, in.ConversationID), c.dialErrLog)
+	ds, derr := c.dialWithCachedSpecs(ctx, in)
 	if derr != nil {
 		return nil, derr
 	}
-	specs := c.cachedToolSpecs(ds.tools)
 	return &capreg.Binding{
-		Tools: wrapMCPAppTools(ctx, &c.m, ds.sess, specs, sessionMetaFor(&c.m, in)),
+		Tools: wrapMCPAppTools(ctx, &c.m, ds.sess, ds.tools, sessionMetaFor(&c.m, in)),
 		State: c.stateFor(ctx, in),
 		Close: ds.sess.Close,
 	}, nil
+}
+
+// dialWithCachedSpecs —— 拨一次;**tool specs 已经缓存过就不再 ListTools**。
+//
+// 这一步在访客那侧是可见的:每一次工具调用都要走它(卡片点"发确认信"→
+// /sessions/{id}/tools/send_confirmation → 装配 → 这里)。tool 元数据是 server 级
+// 静态的、首拨就缓存了,而 ListTools 那一次往返每次都在付 —— 沙箱刚起来时那次往返
+// 尤其贵,机器压满时整段实测到过 19 秒(见 public/tools.go 的 slowAssembleThreshold)。
+//
+// 缓存**没有**顺带省掉拨号本身:session 是有状态的,而且用完就 Close(沙箱只活一轮,
+// 见 [[sandbox-lives-one-turn]])。省掉的是已经知道答案还要再问一遍的那一次。
+func (c *mcpAppCapability) dialWithCachedSpecs(
+	ctx context.Context, in *capreg.AssembleInput,
+) (*dialedApp, error) {
+	workspace := provisionWorkspaceFor(&c.m, in.ConversationID)
+	if cached, known := c.knownToolSpecs(); known {
+		return dialOnly(ctx, &c.m, workspace, c.dialErrLog, cached)
+	}
+	ds, derr := dialAndList(ctx, &c.m, workspace, c.dialErrLog)
+	if derr != nil {
+		return nil, derr
+	}
+	ds.tools = c.cachedToolSpecs(ds.tools)
+	return ds, nil
 }
 
 // cachedToolSpecs —— 首拨缓存 tool specs（含 _meta），之后恒返缓存：tool 元数据是静态
@@ -189,6 +211,28 @@ func (c *mcpAppCapability) VisitorBinding(
 func (c *mcpAppCapability) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.Tool {
 	c.toolsOnce.Do(func() { *c.tools = dialed })
 	return *c.tools
+}
+
+// knownToolSpecs —— 已经缓存过就返 (specs, true),没缓存过返 false。**只读**,不触发
+// Once —— 触发了的话第一次调用会把一个空切片当成"已知的工具表"缓存住,这个能力从此没有工具。
+func (c *mcpAppCapability) knownToolSpecs() ([]mcpclient.Tool, bool) {
+	if len(*c.tools) == 0 {
+		return []mcpclient.Tool{}, false
+	}
+	return *c.tools, true
+}
+
+// dialOnly —— 拨号,不 ListTools(specs 从缓存来)。失败仍然先把真因喂给 dialErrLog
+// 再折成 ErrHidden —— 沙箱起不来时静默隐藏,日志里查无此事,那是 F-A-1。
+func dialOnly(
+	ctx context.Context, m *mcpplugin.Manifest, workspaceDir string,
+	dialErrLog func(id string, err error), specs []mcpclient.Tool,
+) (*dialedApp, error) {
+	sess, err := dialMCPApp(ctx, m, workspaceDir)
+	if err != nil {
+		return nil, hideWithLog(dialErrLog, m.ID, err)
+	}
+	return &dialedApp{sess: sess, tools: specs}, nil
 }
 
 // stateFor —— 通用 mcpAppState（id/enabled）+ 可选 stateHook overlay（booker:

@@ -144,48 +144,7 @@ func (r *Registry) AssembleVisitor(
 	return out
 }
 
-// VisitorStates —— AssembleVisitor 之后只取 CapabilityState 列表（pi-pivot
-// 前端 zustand 用）。enabled=false 的 capability 仍然出现 —— 让前端能渲
-// "disabled because ..." 提示。
-func (r *Registry) VisitorStates(
-	ctx context.Context, in *AssembleInput,
-) []CapabilityState {
-	caps := r.enabledCaps(ctx, in)
-	out := make([]CapabilityState, 0, len(caps))
-	for _, c := range caps {
-		if state, ok := visitorStateFor(ctx, c, in); ok {
-			out = append(out, state)
-		}
-	}
-	return out
-}
-
-// visitorStateFor —— 返 (state, true) = 该 capability 应出现在前端
-// capability map；返 (_, false) = 该 capability 完全不暴露 (ErrHidden 或
-// nil binding)。其他 error = 暴露但 enabled=false (让前端能渲降级提示)。
-func visitorStateFor(
-	ctx context.Context, c Capability, in *AssembleInput,
-) (CapabilityState, bool) {
-	b, err := c.VisitorBinding(ctx, in)
-	if errors.Is(err, ErrHidden) || b == nil && err == nil {
-		return CapabilityState{}, false
-	}
-	if err != nil {
-		state := CapabilityState{ID: c.ID(), Enabled: false}
-		setCapTitle(&state, c)
-		return state, true
-	}
-	state := finalizeBindingState(b, c.ID())
-	setCapTitle(&state, c)
-	return state, true
-}
-
-// setCapTitle —— 能力实现 Titled 就把 title 透进 state（disabled 的也带，让 dock 按钮有 label）。
-func setCapTitle(state *CapabilityState, c Capability) {
-	if t, ok := c.(Titled); ok {
-		state.Title = t.Title()
-	}
-}
+// VisitorStates / visitorStateFor / setCapTitle 见 registry_visitor_state.go。
 
 // VisitorCapabilityIDs —— 非 owner-only 的已注册能力 id 集（访客侧能力）。#109/#110 dock 按钮
 // 只能挂这些；admin 路由 + owner MCP 工具都据此校验 owner 别配个不存在 / owner-only 的能力。
@@ -198,17 +157,6 @@ func (r *Registry) VisitorCapabilityIDs() []string {
 		}
 	}
 	return out
-}
-
-func finalizeBindingState(b *Binding, capID string) CapabilityState {
-	state := b.State
-	if state.ID == "" {
-		state.ID = capID
-	}
-	if b.Close != nil {
-		b.Close()
-	}
-	return state
 }
 
 // VisitorHeaderFragmentID —— 永远是 system prompt 第一段 (visitor-header.md)。

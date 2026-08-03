@@ -93,14 +93,18 @@ func runToolDispatch(
 	ctx context.Context, h *Handlers, w http.ResponseWriter, args *toolDispatchArgs,
 ) {
 	in := assembleInputFromSession(args.Data, args.ConvID)
-	// 装配这一步要把每个能力起起来(沙箱容器 / bwrap namespace)。**它是这条路上最贵的一段**,
+	// 装配这一步要把能力起起来(沙箱容器 / bwrap namespace)。**它是这条路上最贵的一段**,
 	// 而且贵的程度跟机器当时的负载有关:空闲时 ~1s,压满时见过 19s —— 那时访客点了
 	// "发确认信",界面十几秒没有任何反馈,他会以为没成功再点一次。
+	//
+	// ForTool:这条路只用得上一个 tool,所以只拨可能提供它的那个能力(见 capreg 的
+	// registry_tool_dispatch.go)。原来是把每个能力都拨一遍,执行完回 state 时再拨
+	// 一遍 —— 一次点击 2N 次沙箱。
 	//
 	// 分段计时留在这儿,是因为上一次查这件事时只有一个 HTTP 总耗时,分不出是装配慢还是
 	// 工具本身慢 —— 结论只能停在"负载下会慢"。
 	assembleStart := time.Now()
-	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
+	bindings := h.Visitor.AgentSkills.AssembleVisitorForTool(ctx, in, args.ToolName)
 	defer closeBindings(bindings)
 	logSlowAssemble(h.Log, args.ToolName, time.Since(assembleStart))
 	tool, found := findBindingTool(bindings, args.ToolName)
