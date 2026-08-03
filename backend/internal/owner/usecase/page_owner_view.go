@@ -1,4 +1,4 @@
-// uc_page_owner_view.go —— owner 看到的主页。
+// page_owner_view.go —— owner 看到的主页。
 //
 // 跟访客那份(PageContentView)的区别只有一处,但很要紧:栏目里既给 **id 列表**、也给
 // join 好的**卡片**。

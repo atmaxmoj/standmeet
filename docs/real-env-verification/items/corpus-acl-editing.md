@@ -106,9 +106,10 @@ person. So, for any control:
   Globs the tree cannot express are kept verbatim and shown; `raw` gets no checkbox (it is
   hardcoded-denied, so a tick would be a lie). Guard: `role-corpus-picker` (3).
 - **F-A-15** ✅ **CLOSED** (5fe116d3 + 67b3999c; `GET /corpus/subjectivity/tree` live on prod,
-  returning real notes with server-slugged paths, and the picker browses it). A standalone
-  admin *section* for subjectivity is still not built — the genre is now reachable through the ACL
-  picker, not through the corpus nav.  Original finding: The tree route dispatches
+  returning real notes with server-slugged paths, and the picker browses it). The remaining half —
+  a standalone admin *section* — is built now too: `/admin/subjectivity` lists, creates, edits and
+  carries files through the same form and files panel as every other genre. Verify it under
+  [[corpus-subjectivity-admin]].  Original finding: The tree route dispatches
   `raw|wiki|output` only (`corpus.go:38`); `writing` has its own `/writings/tree`; **subjectivity has
   neither**, and `postgres.NoteRepo` has `ListChildren` but no `ListChildrenTree`. So the genre that
   holds the CV — the one this whole ACL exists to protect — cannot be listed, browsed, or picked from

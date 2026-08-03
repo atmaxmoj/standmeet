@@ -114,18 +114,7 @@ function AssetRow(
       <span className="text-(--color-faint)">{formatBytes(asset.size_bytes)}</span>
       <span className="text-(--color-faint)">{asset.kind}</span>
       {isCover ? <span className="text-(--color-accent)">{t('isCover')}</span> : null}
-      <RowBtn
-        label={t('insert')}
-        testid={`${props.testidPrefix}-asset-insert-${asset.asset_id}`}
-        onClick={() => {
-          props.insertIntoBody(assetMarkdown(asset));
-        }}
-      />
-      <RowBtn
-        label={t('setCover')}
-        testid={`${props.testidPrefix}-asset-cover-${asset.asset_id}`}
-        onClick={() => { props.onSetCover(asset.asset_id); }}
-      />
+      <BodyBoundBtns asset={asset} props={props} />
       <RowBtn
         label={t('remove')}
         testid={`${props.testidPrefix}-asset-remove-${asset.asset_id}`}
@@ -134,6 +123,27 @@ function AssetRow(
         }}
       />
     </li>
+  );
+}
+
+// BodyBoundBtns —— 那两个**改的是正文/表单状态**的动作。
+function BodyBoundBtns(
+  { asset, props }: { asset: CorpusAsset; props: CorpusAssetsPanelProps },
+) {
+  const t = useTranslations('adminCorpus.assets');
+  return (
+    <>
+      <RowBtn
+        label={t('insert')}
+        testid={`${props.testidPrefix}-asset-insert-${asset.asset_id}`}
+        onClick={() => { props.insertIntoBody(assetMarkdown(asset)); }}
+      />
+      <RowBtn
+        label={t('setCover')}
+        testid={`${props.testidPrefix}-asset-cover-${asset.asset_id}`}
+        onClick={() => { props.onSetCover(asset.asset_id); }}
+      />
+    </>
   );
 }
 

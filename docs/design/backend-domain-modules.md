@@ -232,8 +232,8 @@ Two defects fell out of it immediately, and both are the reason this matters:
 - The two copies had different error conventions (MCP `isError` vs a `{ok:false,error,detail}`
   payload), so externalizing one changed the owner-facing contract.
 
-**Still owed (the cancel cluster).** `owner/usecase/uc_booking_cancel.go` and
-`uc_booking_cancel_own.go` still duplicate `mcp-servers/booker/cancel.go`'s `deleteBooking`
+**Still owed (the cancel cluster).** `owner/usecase/booking_cancel.go` and
+`booking_cancel_own.go` still duplicate `mcp-servers/booker/cancel.go`'s `deleteBooking`
 (delete the calendar event, then delete the capstore record). Only the *lookup* differs — owner
 resolves by `booking_id`, the sandbox by conversation + `event_id`. The externalization is:
 

@@ -26,7 +26,7 @@ import { markdownComponents, markdownStyles } from '@/components/writings/Writin
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
-import { expandURIsToURLs } from '@/lib/writings/asset-transforms';
+import { expandBody } from '@/lib/corpus/media';
 import { escapeCurrencyDollars, promoteDisplayMath } from '@/components/page/markdown-helpers';
 
 interface Props {
@@ -169,7 +169,9 @@ function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string,
   // render 是 view-only 变换。
   // promoteDisplayMath:单行 `$$…$$`(Obsidian/真 vault 写法)提成 fenced 形式 → display(F-R-3)。
   // escapeCurrencyDollars:$100/$200 等金额按字面渲,不被 remark-math 当公式吃掉。
-  const rendered = escapeCurrencyDollars(promoteDisplayMath(expandURIsToURLs(bodyMD, assetURLs)));
+  // expandBody 是 corpus 那套共用的那一步(URI → 可访问地址)。外面那两层是 writings
+  // 独有的数学排版处理,留着。
+  const rendered = escapeCurrencyDollars(promoteDisplayMath(expandBody(bodyMD, assetURLs)));
   return (
     <article
       className={`max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink) ${markdownStyles.body}`}

@@ -1,4 +1,4 @@
-// uc_claim.go —— first-run「claim this instance」编排:建 owner + 密码 + setup-token
+// claim.go —— first-run「claim this instance」编排:建 owner + 密码 + setup-token
 // 校验 + 种 public role/prompt。跨 owner/access/marketplace/session,是 owner 域的入驻用例。
 
 package usecase

@@ -2,8 +2,8 @@
 
 - **Module:** an ingested asset (pasted image / `assets.upload` / vault attachment) lands as a media object in the real bucket, the body rewrites to the object URL, the public page renders it through a presigned/public URL built on the prod storage origin, and export round-trips the bytes. **Media belongs to EVERY genre** — raw / wiki / output carry attachments, inline images and a hero area (image + headline + hue) exactly as writing does; an asset's visibility is purely inherited from its holder entry, it has no ACL of its own.
 - **Surface:** Tiptap editor (paste image) + `/writings` (cover render) + **`/admin/corpus` entry editor (hero + attachments on raw/wiki/output)** + **the wiki/output reader (hero render + attachment download)** + public page.
-- **Real dep:** real MinIO / S3-compatible store in a prod posture (`STORAGE_USE_SSL`, `STORAGE_PUBLIC_URL`), optionally real S3/R2. For the per-genre checks: a real image host serving over **https** (the server fetches the URL itself; plain http is refused by design) and a real PDF to attach.
-- **Backing e2e:** `writings` (presigned cover) · `obsidian-sync` (attachment → MinIO → export round-trip) · `sync-g-hidden` (attachment-not-note) · `genre-assets` (per-genre upload / hero / attachment / delete-cascade / fetch guards / per-kind size caps) · `genre-assets-inherit` (visibility inherits from the holder entry).
+- **Real dep:** real MinIO / S3-compatible store in a prod posture (`STORAGE_USE_SSL`, `STORAGE_PUBLIC_URL`), optionally real S3/R2. **Both arrival paths get exercised:** the panel takes a **local file** (the browser hands over the bytes — no image host needed); MCP `assets.upload` takes an **https URL** the server fetches itself (plain http refused by design). Attachments need a **real multi-MB PDF**, not a placeholder.
+- **Backing e2e:** `writings` (presigned cover) · `obsidian-sync` (attachment → MinIO → export round-trip) · `sync-g-hidden` (attachment-not-note) · `genre-assets` (per-genre upload / hero / attachment / delete-cascade / fetch guards / per-kind size caps) · `genre-assets-inherit` (visibility inherits from the holder entry) · `genre-assets-reader` (what the visitor's page actually renders: body image, hero, download row) · `genre-assets-admin` + `genre-assets-admin-raw-subj` (the panel's files panel across all four genres).
 
 > **Naming note:** `upload_media` appears in older audit prose and design notes but **was never implemented**. The real tool is `assets.upload {genre, id, url, kind, filename}` — the server fetches the https URL itself; no bytes are posted through MCP.
 
@@ -29,13 +29,13 @@
 ### 4 — A hero on a NON-writing entry: owner sets it, visitor sees it
 - **Steps:** in `/admin/corpus`, open a **wiki** entry (repeat for **output** and **raw**) → set its hero: pick/attach an image, type the headline that sits over it, choose the hue → save → open that entry in the **public/invited reader** and look at the top of the page.
 - **Expected:** the entry editor offers all **three** hero fields together (image + headline + hue — the design's Cover is one unit, not "a picture"); after save they persist across a reload; the reader renders the hero image with the headline over it in the chosen hue, the same way a writing's cover renders. An entry with no hero renders no empty hero shell (hide-the-whole-section, the F-A-21 family).
-- **⚠️ mock gap:** `genre-assets` drives hero through **MCP only** and asserts the three fields read back over the API. Nothing drives the admin editor, and nothing renders a hero for wiki/output/raw — so a missing affordance or an unrendered hero is invisible to CI.
+- **⚠️ mock gap:** the admin editor and the wiki/output readers ARE driven now (`genre-assets-admin`, `genre-assets-reader`) — what CI still can't see is the **image itself**: whether the presigned URL is built on the owner's `STORAGE_PUBLIC_URL` (not the container-internal `minio:9000`, which a browser cannot resolve), whether it is still inside its TTL when the page loads, and whether `cover_headline` stays legible over a real photograph — CI's fixture is a 1×1 pixel, so any text "passes" over it. An entry with **no** hero set must not render an empty hero shell either.
 - **Backing test:** `genre-assets.spec.ts` (`${genre}:hero 区(图 + 标题句 + 色调)挂得上、读得回`)
 
 ### 5 — An attachment on a NON-writing entry: the download button
 - **Steps:** attach a real PDF to a wiki entry from `/admin/corpus` → save → open that entry in the reader → find the download affordance → click it and confirm the file downloads and opens.
 - **Expected:** the reader shows a download control carrying **the filename and the size** (the design's `DOWNLOAD PDF · 0.2 MB` — so the size must be the real byte count, not a placeholder); clicking it fetches the real bytes from the real bucket. The editor accepts a non-image attachment without an image-only guard rejecting it.
-- **⚠️ mock gap:** CI asserts `kind`/`original_filename`/`size_bytes` come back over the API and that the presigned URL fetches — it never renders a button, so "the size renders as `NaN MB`" or "no button at all" passes CI.
+- **⚠️ mock gap:** CI now renders the download row and asserts filename + `size_bytes` + the `download` attribute (`genre-assets-reader`). What it can't do is **download**: whether the click lands a file on disk or opens the PDF as a page, and whether a real 4 MB PDF reads as `4.1 MB` rather than `NaN MB` / `4194304 B` — every CI fixture is tens of bytes, so the formatting branches never run.
 - **Backing test:** `genre-assets.spec.ts` (`${genre}:附件(PDF)传得上,带着文件名和大小读得回`)
 
 ### 6 — Deleting the entry takes its media with it (real bucket)
@@ -49,6 +49,27 @@
 - **Expected:** the permitted visitor sees the image; the excluded visitor gets neither the entry nor any trace of its media (no filename, no thumbnail, no broken-image slot hinting something is there). An asset is reachable **only** by way of an entry the viewer may read — knowing its id buys nothing.
 - **⚠️ mock gap:** `genre-assets-inherit` proves the API shape; it can't see a UI that leaks a filename or a placeholder box on a denied entry. Note that a **presigned URL already handed out stays valid until it expires** — that is the store's contract, not a leak, but confirm the TTL on the real store is short enough to be acceptable.
 - **Backing test:** `genre-assets-inherit.spec.ts`
+
+### 8 — The output reader is the same product as the wiki reader
+- **Steps:** on an output entry, attach an image and `insert into body`, set a cover plus a `cover_headline`, attach a real PDF → save → open `/output/<path>` as a visitor whose code grants `output://**` and read top to bottom: hero → inline image → download area. Then open the same URL with a code that does **not** grant output.
+- **Expected:** all three render, and they look like the same设置 on a wiki entry — same component, same hero proportions, same download row with a real filename and a real size. The excluded visitor sees neither the entry nor any trace of its media.
+- **⚠️ mock gap:** the output landing used to return only `path/title/body/excerpt/updated_at`, so a `standmeet-asset:<id>` in the body was **silently stripped** by react-markdown's urlTransform — an empty image slot, a clean console, and a body-text assertion that still passed. That class of failure (a hole with no exception) only shows up when you put the two genres side by side. This view is also the **SDK's public contract** (`sdk/packages/core/src/types.ts`), so a field added on one side and not the other surfaces first in an SDK consumer → glance at [[sdk-embed]].
+- **Backing test:** `genre-assets-reader.spec.ts` (`output 的 reader 也渲素材`)
+- **Result:** ⬜
+
+### 9 — The files panel is in all four editors, and it takes a LOCAL file ⭐
+- **Steps:** open, in turn, the `/admin/wiki` edit form, the `/admin/output` edit form, the `/admin/raw` **inline** edit form, and the `/admin/subjectivity` edit form. In each, ask the same run of questions: can you find the files panel → does "choose file" open a real picker and take a real file from this machine (a multi-MB photo, and a real PDF) → does the row that appears carry the **real filename and the real size** → does "insert in body" actually drop a line into the textarea → does "use as cover" show you anything → does "remove" make the row go away. Then feed it a file that **should** be refused (too large, or a type not accepted) and read what the UI says. Also upload a writings cover this way — writings now travels the same channel.
+- **Expected:** the same control, the same buttons, in the same order in all four places (they are literally one `CorpusAssetsPanel` — if they look different on screen, one of them is mis-wired). Sizes read as human units (`0.2 MB`), never a byte count and never `NaN`. A refusal names the reason, not "something went wrong".
+- **⚠️ mock gap:** the e2e feeds a few dozen bytes through `setInputFiles` — same JS path, but **no real file ever travels from a real picker through a real browser to real object storage**. Upload duration on a large file, the absence of any progress feedback, and the per-kind size caps against real files are all outside CI's reach.
+- **Backing test:** `genre-assets-admin.spec.ts` · `genre-assets-admin-raw-subj.spec.ts`
+- **Result:** ⬜
+
+### 10 — Setting a cover must not wipe the entry's other fields ⭐
+- **Steps:** find a **real** entry with a long body, tags, and (on raw) the private flag set → do exactly one thing: click "use as cover" in the files panel → save → reload and read the body, the tags and the flag back. Repeat on each genre.
+- **Expected:** only the cover changed.
+- **⚠️ why this is worth a human:** `corpus.update` replaces every non-hero field wholesale, so the cover has to be submitted **together with the body**. The day someone sends a cover-only update, the body is wiped — **and the save succeeds, with a green toast**. Same family as [[corpus-acl-editing]] check 5 / F-A-18 ("an edit form must not zero the fields it doesn't show"), one field over. The damage is silent and there is no undo on a real 223-note corpus.
+- **Backing test:** none (gap) — step-3 owes one: a cover-only update asserting body/tags survive.
+- **Result:** ⬜
 
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 Pasted/cover images actually **render** on the public page and `/writings` (not a broken-image icon or a dead `standmeet-asset:` URI).

@@ -1,4 +1,4 @@
-// uc_code_acl.go —— 一张码的权限收窄:三类拒绝 + 引导目的地。
+// code_acl.go —— 一张码的权限收窄:三类拒绝 + 引导目的地。
 //
 // 拒绝有三种(capability / skill / corpus URI),它们是同一件事的三个维度:在 role 给的
 // 范围上再减一层。三种落在两个仓储方法族上(离散 id 一族、整份 glob 列表一族),按 kind

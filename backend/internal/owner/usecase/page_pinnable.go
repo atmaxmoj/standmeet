@@ -1,4 +1,4 @@
-// uc_page_pinnable.go —— 哪些语料条目可以被 pin 到主页。
+// page_pinnable.go —— 哪些语料条目可以被 pin 到主页。
 //
 // 规则是 pinned ⊆ published:只有已公开的 wiki 条目能上主页。这条规则本来长在面板那个
 // 候选列表的 handler 里(它自己过滤 published、自己算树路径),于是 owner 从 Claude Code

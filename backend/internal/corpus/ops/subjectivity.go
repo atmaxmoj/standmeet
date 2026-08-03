@@ -31,9 +31,17 @@ func Subjectivity(deps usecase.Deps) []fp.Op {
 			"title and the tree. Private unless show_as_source says otherwise.",
 		InputSchema: subjectivitySchema,
 		Kind:        fp.Action,
+		// **这是个历史别名,不是一条能力上的限制。**
+		//
+		// 它以前的理由写着"自我模型是边想边写出来的,不是填出来的" —— 那是一句被写进代码的
+		// 偏好,据此把 subjectivity 挡在面板外面。那个限制没了:subjectivity 跟其余三个
+		// genre 一样走 corpus.create / corpus.update,面板上建得了也改得了。
+		//
+		// 这个 id 留着,是因为 owner 的 AI 一直按这个名字调它(CLAUDE.md 里也写着)。
+		// 面板不需要第二条路,所以它只投影到 mcp —— 差别在**名字**上,不在能力上。
 		Reach: fp.Only(
-			"the owner's self-model is written by thinking out loud with their own AI, "+
-				"not filled into a form", "mcp"),
+			"a historical tool name the owner's AI already calls; the panel writes this genre "+
+				"through corpus.create / corpus.update like every other genre", "mcp"),
 		Invoke: writeSubjectivity(deps),
 	}}
 }

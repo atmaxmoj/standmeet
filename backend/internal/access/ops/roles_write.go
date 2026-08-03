@@ -87,7 +87,7 @@ func toRoleWriteInput(d RolesDeps, ownerID string, in *roleWriteArgs) *usecase.R
 
 // roleErr —— 域的哨兵 → 协议无关的类别。
 //
-// 挂载引用那三条走的是本域端口自己的哨兵(见 usecase/uc_role_ports.go):owner 和
+// 挂载引用那三条走的是本域端口自己的哨兵(见 usecase/role_ports.go):owner 和
 // marketplace 已经依赖 access,access 再认它们的错误名字就成了反向依赖。
 func roleErr(err error) error {
 	for _, c := range roleErrClasses {

@@ -1,10 +1,13 @@
 // writings_multipart.go —— admin POST/PATCH /writings 接的 multipart 解析。
-// 拆出来守 350-line cap。
 //
 // 形态：
-//   field "data"            —— JSON writing fields (writingSaveRequest)
+//   field "data"            —— JSON writing fields（原样往下传,不在这一层解形状）
 //   field "file:<pending>"  —— 每张内联 image 一个 form field，pending-id
 //                              对应 body_md / cover_image_ref 里的占位
+//
+// 这一层**只拆信封**:JSON 段原样交给 op(schema 是 op 的事,不是路由的),字节段变成
+// 随行文件(dispatcher.File)。以前它解成域的 corpus.FileInput、再自己调 SaveWriting ——
+// 那是绕过收口的那条路,原因是收口当时没有携带字节的通道。
 
 package admin
 
@@ -14,18 +17,23 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 	"strings"
 
-	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-const maxWritingMultipartSize = 50 << 20 // 50MB
+const maxWritingMultipartSize = 50 << 20
 
-// parsedMultipart —— parseWritingMultipart 多返回打包（避开 funcresult-limit 2）。
-// fieldalignment: slice 24B 先，struct 后。
+// filePendingPrefix —— 内联图片的 form field 前缀。op 那边按同一个前缀取 pending-id
+// (见 corpus/ops/writings_create.go 的 carriedFilePrefix) —— **两处必须一致**,
+// 不一致的表现是:图传上去了、正文里的占位没被替换,页面上一个空图位。
+const filePendingPrefix = "file:"
+
+// parsedMultipart —— 拆开的信封:JSON 段 + 随行字节。
 type parsedMultipart struct {
-	Files []corpus.FileInput
-	Req   writingSaveRequest
+	Data  json.RawMessage
+	Files []dispatcher.File
 }
 
 func parseWritingMultipart(w http.ResponseWriter, r *http.Request) (parsedMultipart, error) {
@@ -42,7 +50,7 @@ func parseWritingMultipart(w http.ResponseWriter, r *http.Request) (parsedMultip
 }
 
 func decodeWritingFromForm(r *http.Request) (parsedMultipart, error) {
-	req, perr := decodeWritingJSON(r)
+	data, perr := writingDataField(r)
 	if perr != nil {
 		return parsedMultipart{}, perr
 	}
@@ -50,36 +58,78 @@ func decodeWritingFromForm(r *http.Request) (parsedMultipart, error) {
 	if ferr != nil {
 		return parsedMultipart{}, ferr
 	}
-	return parsedMultipart{Req: req, Files: files}, nil
+	return parsedMultipart{Data: data, Files: files}, nil
 }
 
 func parseMultipartErr(err error) error {
 	return errors.New("parse multipart: " + err.Error())
 }
 
-func decodeWritingJSON(r *http.Request) (writingSaveRequest, error) {
+// writingDataField —— 取出 JSON 段。**只验它是不是合法 JSON**,字段对不对是 op 的事:
+// 在这儿再验一遍就是第二份 schema,而两份 schema 迟早说不到一块儿去。
+func writingDataField(r *http.Request) (json.RawMessage, error) {
 	raw := r.FormValue("data")
 	if raw == "" {
-		return writingSaveRequest{}, errors.New("missing 'data' field")
+		return nil, errors.New("missing 'data' field")
 	}
-	var req writingSaveRequest
-	if err := json.Unmarshal([]byte(raw), &req); err != nil {
-		return writingSaveRequest{}, errors.New("data: invalid JSON")
+	if !json.Valid([]byte(raw)) {
+		return nil, errors.New("data: invalid JSON")
 	}
-	return req, nil
+	return json.RawMessage(raw), nil
 }
 
-func readUploadedFiles(r *http.Request) ([]corpus.FileInput, error) {
+// writingSaveArgs —— 面板递上来的 JSON → op 的入参。
+//
+// 只做两件事:补上 URL 上的 writing_id,和把 `cover_image_ref` 改名成 op 的
+// `cover_image_asset_id`。**其余字段原样透传** —— 逐字段抄一遍就是在这一层再造一份形状,
+// 而那正是同一个能力在两个面长成两个样子的开头。
+//
+// 那个改名本身是一笔小债:面板的字段叫 ref(它可以是 `pending-<id>` 占位),op 的叫
+// asset_id。同一个东西两个名字,先在这里对上,别让它继续往下传。
+func writingSaveArgs(data json.RawMessage, writingID string) (json.RawMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return nil, errors.New("data: expected a JSON object")
+	}
+	renameCoverRef(fields)
+	putWritingID(fields, writingID)
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return nil, errors.New("data: " + err.Error())
+	}
+	return out, nil
+}
+
+// renameCoverRef —— 面板叫 cover_image_ref(可以是 `pending-<id>` 占位),op 叫
+// cover_image_asset_id。同一个东西两个名字,在这里对上,别让它继续往下传。
+func renameCoverRef(fields map[string]json.RawMessage) {
+	ref, ok := fields["cover_image_ref"]
+	if !ok {
+		return
+	}
+	delete(fields, "cover_image_ref")
+	fields["cover_image_asset_id"] = ref
+}
+
+// putWritingID —— 改的时候 id 在 URL 上,不在 body 里;建的时候没有。
+func putWritingID(fields map[string]json.RawMessage, writingID string) {
+	if writingID == "" {
+		return
+	}
+	fields["writing_id"] = json.RawMessage(strconv.Quote(writingID))
+}
+
+func readUploadedFiles(r *http.Request) ([]dispatcher.File, error) {
 	if r.MultipartForm == nil {
-		return []corpus.FileInput{}, nil
+		return []dispatcher.File{}, nil
 	}
 	return collectFileFields(r.MultipartForm.File)
 }
 
 func collectFileFields(
 	files map[string][]*multipart.FileHeader,
-) ([]corpus.FileInput, error) {
-	out := make([]corpus.FileInput, 0)
+) ([]dispatcher.File, error) {
+	out := make([]dispatcher.File, 0)
 	for name, fhs := range files {
 		next, err := appendOneFile(out, name, fhs)
 		if err != nil {
@@ -95,8 +145,8 @@ func collectFileFields(
 var errSkipFile = errors.New("skip-non-file-field")
 
 func appendOneFile(
-	out []corpus.FileInput, name string, fhs []*multipart.FileHeader,
-) ([]corpus.FileInput, error) {
+	out []dispatcher.File, name string, fhs []*multipart.FileHeader,
+) ([]dispatcher.File, error) {
 	fi, err := readUploadedFileEntry(name, fhs)
 	if errors.Is(err, errSkipFile) {
 		return out, nil
@@ -109,30 +159,32 @@ func appendOneFile(
 
 func readUploadedFileEntry(
 	name string, fhs []*multipart.FileHeader,
-) (corpus.FileInput, error) {
+) (dispatcher.File, error) {
 	if !filePendingFieldMatch(name, fhs) {
-		return corpus.FileInput{}, errSkipFile
+		return dispatcher.File{}, errSkipFile
 	}
-	return readOneFile(strings.TrimPrefix(name, "file:"), fhs[0])
+	return readOneFile(name, fhs[0])
 }
 
 func filePendingFieldMatch(name string, fhs []*multipart.FileHeader) bool {
-	return strings.HasPrefix(name, "file:") && len(fhs) > 0
+	return strings.HasPrefix(name, filePendingPrefix) && len(fhs) > 0
 }
 
-func readOneFile(pendingID string, fh *multipart.FileHeader) (corpus.FileInput, error) {
+// readOneFile —— field 名**原样**带过去(`file:<pending-id>`)。这一层不拆它:
+// pending-id 怎么跟正文里的占位对上,是 op 的知识。
+func readOneFile(field string, fh *multipart.FileHeader) (dispatcher.File, error) {
 	f, oerr := fh.Open()
 	if oerr != nil {
-		return corpus.FileInput{}, errors.New("open file: " + oerr.Error())
+		return dispatcher.File{}, errors.New("open file: " + oerr.Error())
 	}
 	body, rerr := io.ReadAll(f)
 	closeFileBestEffort(f)
 	if rerr != nil {
-		return corpus.FileInput{}, errors.New("read file: " + rerr.Error())
+		return dispatcher.File{}, errors.New("read file: " + rerr.Error())
 	}
-	return corpus.FileInput{
-		PendingID: pendingID, ContentType: fh.Header.Get("Content-Type"),
-		OriginalFilename: fh.Filename, Body: body,
+	return dispatcher.File{
+		Field: field, ContentType: fh.Header.Get("Content-Type"),
+		Filename: fh.Filename, Body: body,
 	}, nil
 }
 

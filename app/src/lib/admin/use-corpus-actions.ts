@@ -15,12 +15,15 @@ import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
 
 import { outputStore, OutputSummarySchema } from '@/lib/admin/use-output';
 import { rawStore } from '@/lib/admin/use-raw';
+import { subjectivityStore, SubjectivitySummarySchema } from '@/lib/admin/use-subjectivity';
 import { wikiStore, WikiSummarySchema } from '@/lib/admin/use-wiki';
 
 export interface RawUpdateInput {
   body: string;
   tags?: string[];
   flagged_private?: boolean;
+  // cover_image_asset_id —— hero 图。后端是指针字段:不发 = 不动,发空串 = 清掉。
+  cover_image_asset_id?: string;
 }
 
 export interface CorpusEntryInput {
@@ -52,6 +55,16 @@ const WikiDetailSchema = z.object({
 });
 export type WikiDetail = z.infer<typeof WikiDetailSchema>;
 
+// subjectivity 的详情。它没有 excerpt / published(那是对外发布才有的概念),
+// 其余跟 wiki 一致 —— 不适用的字段不该硬凑一个出来。
+const SubjectivityDetailSchema = z.object({
+  id: z.string(), title: z.string(), body: z.string(), tags: z.array(z.string()),
+  parent_id: z.string().nullable().optional(),
+  show_as_source: z.boolean(),
+  cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
+});
+export type SubjectivityDetail = z.infer<typeof SubjectivityDetailSchema>;
+
 const OutputDetailSchema = z.object({
   id: z.string(), title: z.string(), body: z.string(), tags: z.array(z.string()),
   source_wiki_ids: z.array(z.string()),
@@ -76,6 +89,10 @@ export interface CorpusActionsHook {
   updateRaw: (id: string, input: RawUpdateInput) => Promise<boolean>;
   deleteRaw: (id: string) => Promise<boolean>;
   promoteRaw: (id: string, input: PromoteInput) => Promise<boolean>;
+  // subjectivity —— 跟 wiki / output 同形(它不是特例,只是第四个 genre)
+  createSubjectivity: (input: CorpusEntryInput) => Promise<boolean>;
+  updateSubjectivity: (id: string, input: CorpusEntryInput) => Promise<boolean>;
+  fetchSubjectivityDetail: (id: string) => Promise<SubjectivityDetail | null>;
   // wiki
   createWiki: (input: CorpusEntryInput) => Promise<boolean>;
   updateWiki: (id: string, input: CorpusEntryInput) => Promise<boolean>;
@@ -104,6 +121,13 @@ export function useCorpusActions(): CorpusActionsHook {
       (id) => run(() => doDeleteRaw(id)), [run]),
     promoteRaw: useCallback(
       (id, input) => run(() => doPromoteRaw(id, input)), [run]),
+    createSubjectivity: useCallback(
+      (input) => run(() => doCreateSubjectivity(input)), [run]),
+    updateSubjectivity: useCallback(
+      (id, input) => run(() => doUpdateSubjectivity(id, input)), [run]),
+    fetchSubjectivityDetail: useCallback(
+      (id: string) => fetchDetail(
+        `/corpus/subjectivity/${id}`, SubjectivityDetailSchema, setError, setPending), []),
     createWiki: useCallback(
       (input) => run(() => doCreateWiki(input)), [run]),
     updateWiki: useCallback(
@@ -175,6 +199,11 @@ async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
   const updated = await adminAPI.patch(`/corpus/raw/${id}`, {
     body: input.body, tags: input.tags ?? [],
     flagged_private: input.flagged_private ?? false,
+    // hero 是**指针字段**:不发 = 不动。owner 这次没点封面就别发 —— 发空串等于
+    // "明确清空",会把他上次设的封面抹掉。
+    ...(input.cover_image_asset_id === undefined
+      ? {}
+      : { cover_image_asset_id: input.cover_image_asset_id }),
   }, RawAdminViewSchema);
   rawStore.getState().mutate(
     (prev) => (prev ?? []).map((r) => r.id === id ? updated : r),
@@ -196,6 +225,25 @@ async function doPromoteRaw(id: string, input: PromoteInput): Promise<void> {
 }
 
 // ─── wiki ───────────────────────────────────────────────────
+
+// ─── subjectivity ───────────────────────────────────────────
+//
+// 跟 wiki / output 逐字同形 —— 同一条 `/corpus/{genre}` 路由、同一份入参。
+// **这里没有一处 genre 特判**:它不是特例,只是第四个 genre。
+
+async function doCreateSubjectivity(input: CorpusEntryInput): Promise<void> {
+  const created = await adminAPI.post(
+    '/corpus/subjectivity', input, SubjectivitySummarySchema);
+  subjectivityStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+}
+
+async function doUpdateSubjectivity(id: string, input: CorpusEntryInput): Promise<void> {
+  const updated = await adminAPI.patch(
+    `/corpus/subjectivity/${id}`, input, SubjectivitySummarySchema);
+  subjectivityStore.getState().mutate(
+    (prev) => (prev ?? []).map((n) => n.id === id ? updated : n),
+  );
+}
 
 async function doCreateWiki(input: CorpusEntryInput): Promise<void> {
   const created = await adminAPI.post('/corpus/wiki', input, WikiSummarySchema);

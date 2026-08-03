@@ -190,7 +190,15 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    };
    function send(recipient,btns){
      btns.forEach(function(b){b.disabled=true;});
+     // 进行中要**说出来**。这一步后端要起沙箱,空闲时 ~1s,机器压满时见过 19 秒 ——
+     // 而在这行之前,访客看到的只有"按钮变灰",十几秒毫无动静。他会以为没点上、
+     // 再点一次(幂等 marker 挡住了重复发信,但他看见的仍然是一个死掉的按钮)。
+     var busy=el("div","label muted","sending…");
+     busy.setAttribute("data-testid","booking-email-sending");
+     p.appendChild(busy);
+     function clearBusy(){ if(busy&&busy.parentNode) busy.parentNode.removeChild(busy); }
      callTool("send_confirmation",{recipient:recipient,tz:tz()},function(res){
+       clearBusy();
        if(res&&res.ok){
          p.setAttribute("data-sent","true");
          p.innerHTML=""; p.appendChild(el("div","label muted","confirmation sent"));

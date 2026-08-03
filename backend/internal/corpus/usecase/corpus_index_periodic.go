@@ -1,4 +1,4 @@
-// uc_corpus_index_periodic.go —— 本域的周期任务:Meili 恢复后补齐 down 期间漏索引的写。
+// corpus_index_periodic.go —— 本域的周期任务:Meili 恢复后补齐 down 期间漏索引的写。
 //
 // 这个循环一直在跑,但**从来没有出现在 Monitor 的后台任务面板上** —— 它是手写的 ticker,
 // 而登记那一句只有记得写的人才会写。现在它跟别的周期任务同一条路:域声明,宿主调度并簿记,

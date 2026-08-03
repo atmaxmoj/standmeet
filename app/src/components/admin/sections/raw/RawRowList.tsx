@@ -8,6 +8,7 @@ import { useState } from 'react';
 
 import { Chip } from '@/components/admin/atoms/Chip';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
+import { CorpusAssetsPanel } from '@/components/admin/sections/corpus/CorpusAssetsPanel';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { useCorpusView } from '@/lib/admin/corpus-view';
@@ -17,7 +18,7 @@ import {
   type CorpusActionsHook,
   type PromoteInput,
 } from '@/lib/admin/use-corpus-actions';
-import { runWith } from '@/lib/admin/use-corpus-form';
+import { appendBlock, runWith } from '@/lib/admin/use-corpus-form';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 import type { RawAdminView } from '@/lib/api/admin';
@@ -236,12 +237,16 @@ function EditRow(props: EditRowProps) {
   const [body, setBody] = useState(props.row.body);
   const [tagsRaw, setTagsRaw] = useState(props.row.tags.join(', '));
   const [flagged, setFlagged] = useState(props.row.flagged_private);
+  // 封面跟正文一起存 —— corpus.update 对 hero 之外的字段是整份替换,单发一个 cover
+  // 会把正文清空(跟 wiki/output 那边同一个道理)。
+  const [cover, setCover] = useState('');
   const toast = useToast();
   const onSave = () => void runWith(
     () => props.actions.updateRaw(props.row.id, {
       body,
       tags: tagsRaw.split(',').map((t) => t.trim()).filter((t) => t !== ''),
       flagged_private: flagged,
+      cover_image_asset_id: cover === '' ? undefined : cover,
     }),
     () => { toast.success('Raw updated'); props.onDone(); },
   );
@@ -251,6 +256,16 @@ function EditRow(props: EditRowProps) {
       data-testid={`raw-edit-form-${props.row.id}`}
     >
       <EditBodyField value={body} onChange={setBody} testid={`raw-edit-body-${props.row.id}`} />
+      {/* 素材区 —— raw 也能挂图和附件(assets 表按 holder_id 挂,一直是 genre 无关的)。
+          倾倒框那边没有它:那时条目还不存在,没有东西可挂。 */}
+      <CorpusAssetsPanel
+        genre="raw"
+        entryID={props.row.id}
+        testidPrefix={`raw-edit-form-${props.row.id}`}
+        insertIntoBody={(md) => setBody(appendBlock(body, md))}
+        onSetCover={setCover}
+        coverAssetID={cover}
+      />
       <EditTagsField value={tagsRaw} onChange={setTagsRaw} testid={`raw-edit-tags-${props.row.id}`} />
       <EditPrivateField on={flagged} onChange={setFlagged} testid={`raw-edit-private-${props.row.id}`} />
       <EditActions

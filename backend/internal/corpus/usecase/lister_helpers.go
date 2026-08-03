@@ -1,4 +1,4 @@
-// uc_lister_helpers.go —— corpus-data 塑形 helper：搜索摘要截断 + 一页上限。
+// lister_helpers.go —— corpus-data 塑形 helper：搜索摘要截断 + 一页上限。
 // 原先散在 visitor_chat_tools*，本是 pgCorpusLister 的支撑，随 lister 归 corpus。
 
 package usecase

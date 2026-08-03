@@ -1,4 +1,4 @@
-// repo_note_hero.go —— 一条 corpus note 的 hero 区,以及正文(里面的素材引用)。
+// note_hero.go —— 一条 corpus note 的 hero 区,以及正文(里面的素材引用)。
 //
 // **跨 genre**:素材这件事对 genre 是无差别的 —— 一条 raw 和一篇 writing 挂图的方式一样。
 // cover_image_asset_id / cover_headline / cover_hue 三列本来就在共享的 corpus_notes 表上,

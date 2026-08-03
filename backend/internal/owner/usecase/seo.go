@@ -232,18 +232,36 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	return out
 }
 
-// GetOutputLanding —— 公开 output landing 查询（同 wiki 的树派生口径）。
+// OutputLanding —— 一条 output 的落地页。**跟 WikiLanding 一样带素材** ——
+// 以前它只回一个 corpus.Output,于是访客那边正文里的 standmeet-asset 渲不出来、
+// owner 设的封面到不了前端、附件连字段都没有。底下的机制一直是 genre 无关的,
+// 缺的只是这里没把 media 带出去。
+type OutputLanding struct {
+	AssetURLs map[string]string
+	Assets    []corpus.AssetView
+	Hero      corpus.NoteHero
+	Output    corpus.Output
+}
+
+// GetOutputLanding —— 公开 output landing 查询(同 wiki 的树派生口径),连同它身上的素材。
 func GetOutputLanding(
 	ctx context.Context, deps SEODeps, path string,
-) (corpus.Output, error) {
+) (OutputLanding, error) {
 	if path == "" {
-		return corpus.Output{}, corpus.ErrOutputNotFound
+		return OutputLanding{}, corpus.ErrOutputNotFound
 	}
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return corpus.Output{}, entity.ErrOwnerNotFound
+		return OutputLanding{}, entity.ErrOwnerNotFound
 	}
-	return resolveOutputLanding(ctx, deps, soleOwner.ID, path)
+	out, err := resolveOutputLanding(ctx, deps, soleOwner.ID, path)
+	if err != nil {
+		return OutputLanding{}, err
+	}
+	media := landingMedia(ctx, deps, soleOwner.ID, out.ID())
+	return OutputLanding{
+		Output: out, AssetURLs: media.URLs, Assets: media.Assets, Hero: media.Hero,
+	}, nil
 }
 
 // resolveOutputLanding —— 全量 meta 定位 indexed + path 命中那条,正文 GetByID 拉。

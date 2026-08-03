@@ -9,7 +9,7 @@
 // 得先有"上传素材"这一步。
 //
 // 地址是 owner 给的 https 地址,服务端自己去取(跟他真实的用法一样:图在图床上,他给
-// AI 一个链接)。取回那一路的全部守卫在 usecase/uc_media_guard.go。
+// AI 一个链接)。取回那一路的全部守卫在 usecase/media_guard.go。
 
 package ops
 

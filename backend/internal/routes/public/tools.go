@@ -23,6 +23,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -65,6 +66,20 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 	}
 }
 
+// slowAssembleThreshold —— 超过这个数就记一条。**不是随手挑的**:访客那一侧的卡片
+// 等结果只等 5 秒,超过就显示"发送失败"(而后端往往已经做完了)。所以 2s 是"还没坏但
+// 正在往那儿走"的位置 —— 记下来才有机会在它变成故障之前看见。
+const slowAssembleThreshold = 2 * time.Second
+
+func logSlowAssemble(log *slog.Logger, tool string, took time.Duration) {
+	if took < slowAssembleThreshold {
+		return
+	}
+	log.Warn("visitor tool assemble slow",
+		"tool", tool, "ms", took.Milliseconds(),
+		"note", "capability assembly (sandbox start) — the visitor is staring at a dead button")
+}
+
 type toolDispatchArgs struct {
 	Data     *access.VisitorSessionData
 	ToolName string
@@ -78,8 +93,16 @@ func runToolDispatch(
 	ctx context.Context, h *Handlers, w http.ResponseWriter, args *toolDispatchArgs,
 ) {
 	in := assembleInputFromSession(args.Data, args.ConvID)
+	// 装配这一步要把每个能力起起来(沙箱容器 / bwrap namespace)。**它是这条路上最贵的一段**,
+	// 而且贵的程度跟机器当时的负载有关:空闲时 ~1s,压满时见过 19s —— 那时访客点了
+	// "发确认信",界面十几秒没有任何反馈,他会以为没成功再点一次。
+	//
+	// 分段计时留在这儿,是因为上一次查这件事时只有一个 HTTP 总耗时,分不出是装配慢还是
+	// 工具本身慢 —— 结论只能停在"负载下会慢"。
+	assembleStart := time.Now()
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
 	defer closeBindings(bindings)
+	logSlowAssemble(h.Log, args.ToolName, time.Since(assembleStart))
 	tool, found := findBindingTool(bindings, args.ToolName)
 	if !found {
 		writeToolErr(h.Log, w, toolErr{

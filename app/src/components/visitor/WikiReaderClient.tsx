@@ -11,14 +11,13 @@
 
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
 import { ChatMarkdown } from '@/components/page/markdown';
-import { formatBytes } from '@/lib/format/bytes';
-import { expandURIsToURLs } from '@/lib/writings/asset-transforms';
+import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
+import { coverURL, expandBody } from '@/lib/corpus/media';
 import { CorpusContent } from '@/components/page/CorpusContent';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
@@ -102,7 +101,7 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
             <WikiBody
               body={wiki.body} assetURLs={wiki.assetURLs} cssClasses={wiki.css_classes}
             />
-            <WikiAttachments assets={wiki.assets} />
+            <Attachments assets={wiki.assets} testid="wiki-attachments" />
           </article>
           <div className="max-w-[760px] mx-auto">
             <WikiScopedSubEntries slug={slug} initial={ctx.children} />
@@ -125,7 +124,9 @@ function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
   const { head, sub } = splitTitle(entry.title);
   return (
     <div className={`${styles['cover']} ${pickHue(seed)}`} data-testid="wiki-cover">
-      <CoverImageMaybe url={coverImageURL(entry)} />
+      <CoverImage
+        url={coverURL(entry.coverAssetID, entry.assetURLs)} testid="wiki-cover-image"
+      />
       <span className={styles['tag']}>{coverTag(entry.tags)}</span>
       <span className={styles['no']}>{formatDate(entry.updated_at)}</span>
       <span className={styles['head']}>{entry.coverHeadline || head}</span>
@@ -137,26 +138,6 @@ function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
 // coverTag —— 封面左上角那行小标。没有 tag 就只写 genre。
 function coverTag(tags: readonly string[]): string {
   return tags[0] ? `wiki · ${tags[0]}` : 'wiki';
-}
-
-// coverImageURL —— 封面那份素材的可访问地址。owner 没设封面 / 地址取不到 → undefined,
-// 退回程序生成的色板。
-function coverImageURL(entry: WikiEntry): string | undefined {
-  return entry.coverAssetID ? entry.assetURLs?.[entry.coverAssetID] : undefined;
-}
-
-// CoverImageMaybe —— `unoptimized`:地址是 owner 自己存储上的预签名 URL(每个部署不同、
-// 带过期签名)。Next 的图片优化器对不在 images.remotePatterns 里的 host 回 400,
-// 走 /_next/image 就渲成破图(writings 那边踩过,见 Cover.tsx 的 F-I-1)。
-//
-// 外面套一层 span 挂 testid:testid 是测试的关注点,只能落在真实 DOM 元素上,
-// 不能作为 prop 传给组件。
-function CoverImageMaybe({ url }: { url?: string }) {
-  return url ? (
-    <span data-testid="wiki-cover-image">
-      <Image src={url} alt="" fill unoptimized className="object-cover" />
-    </span>
-  ) : null;
 }
 
 function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }) {
@@ -253,43 +234,6 @@ function RelatedRail(
   ) : null;
 }
 
-// WikiAttachments —— 正文底下的下载区。只列 attachment,图片属于正文。
-//
-// 每一行说**文件名 + 真实大小**:那是访客决定点不点的依据。一个只写"下载"的按钮把
-// 「一份 40 页的 PDF」和「一张截图」显示成同一个东西。
-//
-// 一个附件都没有时整块不渲染 —— 空标题下面一片空白比没有更糟。
-function WikiAttachments({ assets }: { assets?: readonly WikiAsset[] }) {
-  const t = useTranslations('reader');
-  const files = (assets ?? []).filter((a) => a.kind === 'attachment');
-  return files.length > 0 ? (
-    <section className="mt-10 pt-5 border-t border-(--color-rule)" data-testid="wiki-attachments">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-2">
-        {t('wiki.attachments')}
-      </span>
-      <ul className="space-y-1">
-        {files.map((a) => <AttachmentRow key={a.asset_id} asset={a} />)}
-      </ul>
-    </section>
-  ) : null;
-}
-
-function AttachmentRow({ asset }: { asset: WikiAsset }) {
-  return (
-    <li className="flex items-baseline gap-3 mono text-[11.5px]">
-      <a
-        href={asset.url}
-        download={asset.original_filename}
-        data-testid={`wiki-attachment-${asset.asset_id}`}
-        className="text-(--color-ink) hover:text-(--color-accent)"
-      >
-        {asset.original_filename}
-      </a>
-      <span className="text-(--color-faint)">{formatBytes(asset.size_bytes)}</span>
-    </li>
-  );
-}
-
 function WikiBody(
   { body, assetURLs, cssClasses }:
   { body: string; assetURLs?: Readonly<Record<string, string>>; cssClasses?: readonly string[] },
@@ -297,7 +241,7 @@ function WikiBody(
   // 正文存的是稳定的 `standmeet-asset:<id>` URI（不会过期），渲染前才换成预签名地址。
   // 不换的话 react-markdown 的 urlTransform 会把这个非标准 scheme 剥掉 —— 图位是空的，
   // 而且不报错，所以这一步漏了没人看得出来。
-  const rendered = expandURIsToURLs(body, { ...(assetURLs ?? {}) });
+  const rendered = expandBody(body, assetURLs);
   return (
     <div className="reading" data-testid="wiki-body">
       <CorpusContent classes={cssClasses}>

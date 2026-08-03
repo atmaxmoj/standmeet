@@ -21,7 +21,7 @@ One doc per **module** (a functional unit + the surface it owns). Grouped by pro
 
 **Connectors** — [connector-assembly](items/connector-assembly.md) · [connector-security](items/connector-security.md)
 
-**Corpus / vault** — [vault-sync](items/vault-sync.md) · [vault-links](items/vault-links.md) · [corpus-render](items/corpus-render.md) · [corpus-media](items/corpus-media.md) · [corpus-raw](items/corpus-raw.md) · [corpus-search](items/corpus-search.md)
+**Corpus / vault** — [vault-sync](items/vault-sync.md) · [vault-links](items/vault-links.md) · [corpus-render](items/corpus-render.md) · [corpus-media](items/corpus-media.md) · [corpus-raw](items/corpus-raw.md) · [corpus-subjectivity-admin](items/corpus-subjectivity-admin.md) · [corpus-search](items/corpus-search.md)
 
 **MCP** — [ext-mcp](items/ext-mcp.md) · [owner-mcp](items/owner-mcp.md)
 

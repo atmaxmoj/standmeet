@@ -87,14 +87,26 @@ export interface WikiAssetView {
   readonly size_bytes: number;
 }
 
-// OutputLandingView —— /output/<path> SEO landing。结构跟 WikiLandingView
-// 一致；output 是 raw → wiki → output 三层中最精炼那层。
+// OutputLandingView —— /output/<path> SEO landing。output 是 raw → wiki → output
+// 三层中最精炼那层。
+//
+// 素材那几个字段以前**不在这里**,而上面那句注释写着"结构跟 WikiLandingView 一致" ——
+// 它描述的是意图,不是结果。于是访客读一条 output 时:正文里的 standmeet-asset 渲不出来
+// (空图位,不报错)、owner 设的封面到不了前端、附件连字段都没有。
 export interface OutputLandingView {
   readonly path: string;
   readonly title: string;
   readonly body: string;
   readonly excerpt: string;
   readonly updated_at: string;
+  // 正文引用 + hero 图 → 可访问地址。渲染前照它把 URI 换成 URL。
+  readonly asset_urls?: Readonly<Record<string, string>>;
+  // 挂在这条上的文件(文件名 + 真实字节数 + 地址)。kind='attachment' 的渲成下载区。
+  readonly assets?: readonly WikiAssetView[];
+  // hero 三件套。cover_image_asset_id 为空 = owner 没设封面。
+  readonly cover_image_asset_id?: string;
+  readonly cover_headline?: string;
+  readonly cover_hue?: string;
 }
 
 // PublicSessionQuota —— session 颁发时 server 给的 turn 配额。max_turns=0

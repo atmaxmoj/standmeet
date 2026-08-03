@@ -85,7 +85,7 @@ owner 删一个内置连接器，产品告诉他「服务器错误」，真相�
 **根因（证）**：
 1. 播种（`e2e/fixtures/corpus.ts:51`）把 `show_as_source: false` 传给 **`corpus.promote`**。
 2. `ops/corpus_write.go` 的 `promoteByGenre` 组 `usecase.PromoteInput` 时**没有这个字段**
-   （`uc_corpus.go:70` 的 `PromoteInput` 只有 OwnerID/RawID/ParentID/Title/Tags），
+   （`corpus.go:70` 的 `PromoteInput` 只有 OwnerID/RawID/ParentID/Title/Tags），
    `corpusPromoteSchema` 里也没有 → **参数被静默丢弃** → meta/persona 建出来是 `show_as_source=true`
    → 进 cited → 断言炸。
 3. 同族第二个洞：genre 参数化之前（`ownercore/cap_corpus_mutations.go:141`）语义是

@@ -9,6 +9,11 @@
     "isCover": "cover",
     "remove": "remove"
   },
+  "subjectivity": {
+    "intro": "Your self-model — taste, judgment, what you care about. Private unless you mark a note citable. Write here or by talking to your AI; both land in the same place.",
+    "empty": "nothing here yet",
+    "new": "+ new note"
+  },
   "citable": {
     "label": "citable — appears in the answer's references",
     "help": "With this off, the AI still reads this note and still uses it to shape its answer — it just isn't listed under REFERENCES. This is the attribution switch, not the secrecy switch: to stop the AI reading it at all, take its corpus URI back on /admin/roles or on the code."

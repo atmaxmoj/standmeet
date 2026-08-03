@@ -1,4 +1,4 @@
-// uc_access_approval.go —— 批准一条 gate 访问请求:发一张 AccessCode,并把它**送到**申请人手上。
+// access_approval.go —— 批准一条 gate 访问请求:发一张 AccessCode,并把它**送到**申请人手上。
 //
 // 发码是核心的事(AccessCode 是产品自己的东西);**怎么送出去不是**。送走这一步只经
 // `OutboundSender` —— 一个收件人、一句标题、一段正文。这个包因此不知道对面是邮件、是 IM、
@@ -27,7 +27,7 @@ const (
 	inviteMaxMembers   = 1
 )
 
-// 送不出去时用 ErrOutboundNotConfigured(见 uc_outbound.go) —— 内核自己的哨兵。
+// 送不出去时用 ErrOutboundNotConfigured(见 outbound.go) —— 内核自己的哨兵。
 
 // OutboundStatusDeps —— 只读出站通道的可用性(给公共 gate 配置用)。
 type OutboundStatusDeps struct {

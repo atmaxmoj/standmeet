@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react';
 
 import type {
-  CorpusActionsHook, OutputDetail, WikiDetail,
+  CorpusActionsHook, OutputDetail, SubjectivityDetail, WikiDetail,
 } from '@/lib/admin/use-corpus-actions';
 import { useReportError } from '@/lib/ui/use-report-error';
 
@@ -25,6 +25,22 @@ export function useWikiDetail(id: string, actions: CorpusActionsHook): WikiDetai
   const [detail, setDetail] = useState<WikiDetail | null>(null);
   const report = useReportError();
   const fetchDetail = actions.fetchWikiDetail; // stable (useCallback []); the object around it is not
+  useEffect(() => {
+    let alive = true;
+    void fetchDetail(id)
+      .then((d) => { alive && setDetail(d); })
+      .catch((e: unknown) => { alive && report(e); });
+    return () => { alive = false; };
+  }, [id, fetchDetail, report]);
+  return detail;
+}
+
+export function useSubjectivityDetail(
+  id: string, actions: CorpusActionsHook,
+): SubjectivityDetail | null {
+  const [detail, setDetail] = useState<SubjectivityDetail | null>(null);
+  const report = useReportError();
+  const fetchDetail = actions.fetchSubjectivityDetail;
   useEffect(() => {
     let alive = true;
     void fetchDetail(id)

@@ -9,7 +9,7 @@ import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
 import { sidebarBadgeFor } from '@/lib/admin/sidebar-badge-for';
 
 export type AdminSlug =
-  | 'raw' | 'wiki' | 'output' | 'conversations' | 'codes' | 'requests'
+  | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
   | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account'
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
@@ -37,6 +37,9 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { slug: 'raw', label: 'raw', badgeTestId: 'badge-raw' },
       { slug: 'wiki', label: 'wiki' },
+      // subjectivity 只读:它的写口是 MCP(自我模型是边想边写出来的,不是填出来的)。
+      // 有这一条是为了"看得见 + 挂得上文件" —— 在它之前面板上一个界面都没有。
+      { slug: 'subjectivity', label: 'subjectivity' },
       { slug: 'writings', label: 'writings' },
       { slug: 'output', label: 'outputs' },
       { slug: 'custom-pages', label: 'custom pages' },

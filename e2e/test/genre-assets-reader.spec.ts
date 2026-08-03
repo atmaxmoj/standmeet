@@ -38,8 +38,13 @@ let entryPath: string;
 let assetID: string;
 let coverAssetID: string;
 let attachmentID: string;
+let outputPath = '';
+let outputInlineID = '';
+let outputCoverID = '';
+let outputDocID = '';
 
 const COVER_LINE = 'the line laid over the hero';
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 test.describe('访客在页面上看得见素材（可见性纯继承文章）', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -51,6 +56,7 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
     s = { request, token, sid: await initMCP(request, token) };
 
     await seedIllustratedNote();
+    await seedIllustratedOutput();
 
     // 两张码:一张授这条 wiki,一张不授。
     await issueCode(request, IN_CODE, ['wiki://**'], 'inscope');
@@ -91,7 +97,9 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
 
     const box = page.getByTestId('wiki-attachments');
     await expect(box, '有附件就该有下载区').toBeVisible({ timeout: 8_000 });
-    const link = page.getByTestId(`wiki-attachment-${attachmentID}`);
+    // 附件行的 testid 是 `corpus-attachment-<id>` —— 那一行由 CorpusMedia 渲,
+    // wiki 和 output 共用同一份组件,所以 testid 里不带 genre。
+    const link = page.getByTestId(`corpus-attachment-${attachmentID}`);
     await expect(link, '文件名').toHaveText('paper.pdf');
     await expect(link, 'href 指向那份素材').toHaveAttribute('href', new RegExp(attachmentID));
     await expect(link, '点了是下载,不是在页面里打开').toHaveAttribute('download', 'paper.pdf');
@@ -111,14 +119,44 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
     // 元素同样不存在,那条断言照样绿 —— 一条在功能坏掉时也会通过的断言不提供信息。
     await expect(page.getByTestId('wiki-locked'), '访客确实被拦在门外')
       .toBeVisible({ timeout: 8_000 });
-    await expect(
-      page.locator('img'),
-      '整页一张图都不该有',
-    ).toHaveCount(0);
+    await expect(page.locator('img'), '整页一张图都不该有').toHaveCount(0);
     const html = await page.content();
     expect(html, '连素材 id 都不该出现在页面里').not.toContain(assetID);
     expect(html, '也不该漏出文件名').not.toContain('pixel.png');
   });
+});
+
+// output 那条 reader 一度**一行素材都没接**:landing 只回 5 个字段,连 asset_urls 都没有。
+// 而 SDK 里那句注释写着"结构跟 WikiLandingView 一致" —— 描述的是意图,不是结果。
+// 于是访客读一条 output:正文里的图是空位、owner 设的封面到不了前端、附件没有下载区,
+// 而且**一个报错都没有**。
+//
+// output 的落地页是**公开**的(published 的 SEO 页),所以这一组不需要码。
+test.describe('output 的 reader 也渲素材', () => {
+  test('正文图 + 封面 + 附件', async ({ page }) => {
+    await goto(page, `/output/${outputPath}`);
+    await expect(page.getByTestId('output-landing')).toBeVisible({ timeout: 8_000 });
+
+    const img = page.getByTestId('output-body').locator('img').first();
+    await expect(img, '正文里的图渲在页面上').toBeVisible({ timeout: 8_000 });
+    const src = await img.getAttribute('src');
+    expect(src ?? '', 'src 不是渲不出来的 URI').not.toContain('standmeet-asset:');
+    expect(src ?? '', 'src 指向那份素材').toContain(outputInlineID);
+
+    // 封面:owner 设的那张图,不是原来那块纯底色。
+    const cover = page.getByTestId('output-cover-image').locator('img');
+    await expect(cover, '封面图挂上去了').toBeVisible({ timeout: 8_000 });
+    expect(await cover.getAttribute('src') ?? '').toContain(outputCoverID);
+    await expect(page.getByTestId('output-cover-headline')).toHaveText(COVER_LINE);
+
+    // 附件:文件名 + 真实字节数 + 可下载。
+    const link = page.getByTestId(`corpus-attachment-${outputDocID}`);
+    await expect(link).toHaveText('spec.pdf');
+    await expect(link).toHaveAttribute('download', 'spec.pdf');
+    await expect(page.getByTestId('output-attachments'))
+      .toContainText(/\d+(\.\d+)?\s?(B|KB|MB)/);
+  });
+
 });
 
 // seedIllustratedNote —— 一条 wiki,身上挂三份素材:正文里的配图、hero 封面、一份 PDF 附件。
@@ -144,6 +182,35 @@ async function seedIllustratedNote(): Promise<void> {
     cover_headline: COVER_LINE,
   });
   entryPath = (await getEntry(s, 'wiki', id)).path ?? '';
+}
+
+// seedIllustratedOutput —— 一条**已发布**的 output,同样挂三份素材。
+// 发布是必须的:output 的落地页是公开的 SEO 页,没发布的读不到。
+async function seedIllustratedOutput(): Promise<void> {
+  const id = await createEntry(s, 'output', 'Illustrated output', 'before the image');
+  const inline = await uploadAsset(s, 'output', id, MEDIA.pixel, { filename: 'shot.png' });
+  outputInlineID = inline.asset_id;
+  const cover = await uploadAsset(s, 'output', id, MEDIA.webp, { filename: 'ocover.webp' });
+  outputCoverID = cover.asset_id;
+  const doc = await uploadAsset(s, 'output', id, MEDIA.pdf, {
+    filename: 'spec.pdf', kind: 'attachment',
+  });
+  outputDocID = doc.asset_id;
+
+  await callTool(s.request, s.token, s.sid, 'corpus.update', {
+    genre: 'output', id, title: 'Illustrated output',
+    body: `here: ![shot](standmeet-asset:${inline.asset_id})`,
+    cover_image_asset_id: cover.asset_id,
+    cover_headline: COVER_LINE,
+  });
+  // 发布 —— output 的落地页是**公开**的,没发布读不到。发布没有 MCP op(它是面板
+  // SEO 面上的开关),所以这一步走 admin 路由。
+  const res = await s.request.patch(
+    `${BACKEND}/api/admin/corpus/output/${id}/seo`,
+    { headers: { 'X-Csrftoken': csrf }, data: { excerpt: '', published: true } },
+  );
+  expect(res.status(), '发布成功了才谈得上读').toBe(200);
+  outputPath = (await getEntry(s, 'output', id)).path ?? '';
 }
 
 async function issueCode(

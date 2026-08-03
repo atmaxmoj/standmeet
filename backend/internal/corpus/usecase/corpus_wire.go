@@ -1,5 +1,5 @@
-// uc_corpus_wire.go —— corpus 检索 op 的 wire 形与 marshal 兜底(#157)。socket handler
-// (uc_corpus_index_socket.go)返回都是 JSON string;集中 marshal + 失败兜底。
+// corpus_wire.go —— corpus 检索 op 的 wire 形与 marshal 兜底(#157)。socket handler
+// (corpus_index_socket.go)返回都是 JSON string;集中 marshal + 失败兜底。
 
 package usecase
 

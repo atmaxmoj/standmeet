@@ -1,4 +1,4 @@
-// uc_public_url_validate.go —— owner public_url 的校验/规范化(claim + 设置公用)。
+// public_url_validate.go —— owner public_url 的校验/规范化(claim + 设置公用)。
 
 package usecase
 

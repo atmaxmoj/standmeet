@@ -20,8 +20,16 @@
 - **Expected:** the raw dump persists, lists, and promotes; visibility tiers correct (raw is owner-only until promoted).
 - **Backing test:** `integration-corpus-pipeline.spec.ts` · `owner-mcp-parity-mutations.spec.ts`
 - **Result:** ✅ — raw ingest→promote is the mechanism the whole 223-wiki corpus landed through (MCP raw_dump→promote_to_wiki at scale).
+### 3 — Delete means delete: the button says what it does ⭐
+- **Steps:** on a real raw row, first **attach an image** to it (see [[corpus-media]] check 9) → note the section count and the sidebar `badge-raw` → click the row's delete button → **read the confirm dialog before accepting** → accept → then check: (a) is the row gone from the list; (b) did the section count and the sidebar badge both drop by one; (c) is there still an `archived` tab in the filter row; (d) reload the whole page — does it come back; (e) open that image's object URL again.
+- **Expected:** the button reads **delete** (not archive); the confirm says **"This cannot be undone"**; the entry is gone and stays gone across a reload; both counts move together; **no `archived` tab exists** — it never had a second half (nothing listed archived rows, nothing restored them), so it promised something the product could not do; the image is gone from the real bucket too (= [[corpus-media]] check 6 on raw).
+- **⚠️ what this fixes — a name that lied:** the button used to read `archive` while posting DELETE (`RawRowList.tsx`). The owner pressed it believing the entry was recoverable. **The e2e was green throughout, because it asserted the DELETE fired and the row disappeared — and both halves were correct.** The lie was in the word, and no assertion covers a word.
+- **⚠️ mock gap:** `admin-raw-crud.spec.ts` has no delete case at all; `tool-corpus-mutations.spec.ts` covers the API layer. The GUI half — button wording, confirm copy, the tab being gone — has no spec.
+- **Backing test:** `tool-corpus-mutations.spec.ts` (raw really deletes, API level) · GUI half = gap
+- **Result:** ⬜
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The admin/raw **list is non-empty** when raw exists; each **excerpt is clean rendered text** (F-R-1); the raw **count agrees with the list length** (F-L-4 family); import/export/promote affordances fire.
+The admin/raw **list is non-empty** when raw exists; each **excerpt is clean rendered text** (F-R-1); the raw **count agrees with the list length** (F-L-4 family); import/export/promote affordances fire. The delete button's **verb matches what it does** (delete deletes; nothing labelled archive); the filter row holds **no tab whose backing query does not exist**; deleting one row moves the **list, the section count and the sidebar badge together** (F-L-4 family).
 
 ## Findings
 (record here; also log `../findings.md`, ID `F-R-1` historical anchor)

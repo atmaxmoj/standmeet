@@ -78,9 +78,10 @@ var baseline = map[string]bool{
 	"internal/routes/admin/keypairs.go":                 true,
 	"internal/routes/admin/obsidian.go":                 true,
 	"internal/routes/admin/recovery.go":                 true,
-	"internal/routes/admin/writings.go":                 true,
-	"internal/routes/admin/writings_multipart.go":       true,
-	"internal/routes/admin/writings_tree.go":            true,
+	// writings.go / writings_multipart.go 迁完了 —— 收口有了携带字节的通道之后,保存
+	// 那条经 Face.OpFiles 取,跟 MCP 那条是同一个 op。剩下的 writings_tree.go:树和分页
+	// 是面板独有的视图(懒加载一层 / keyset 一页),还没有对应的 op。
+	"internal/routes/admin/writings_tree.go": true,
 	"internal/routes/capload/api_key_toolset.go":        true,
 	"internal/routes/capload/capreg_ext_mcp.go":         true,
 	"internal/routes/capload/capreg_ext_mcp_deps.go":    true,

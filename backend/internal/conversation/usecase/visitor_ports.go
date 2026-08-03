@@ -1,4 +1,4 @@
-// uc_visitor_ports.go —— visitor agent-loop 消费的 capability-assembly 窄口(consumer-side)。
+// visitor_ports.go —— visitor agent-loop 消费的 capability-assembly 窄口(consumer-side)。
 // 结构上由 capreg glue 的具体实现满足;composition root 注入。跟 usecases/capreg_* 里的同名
 // 口是结构对偶,conversation 因此不反依赖 capreg glue。
 

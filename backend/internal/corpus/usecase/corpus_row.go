@@ -1,4 +1,4 @@
-// uc_corpus_row.go —— corpus_search / corpus_list 的 wire 行(corpus 拥有,socket 序列化用)。
+// corpus_row.go —— corpus_search / corpus_list 的 wire 行(corpus 拥有,socket 序列化用)。
 
 package usecase
 

@@ -194,26 +194,40 @@ func (h *SEOHandlers) getOutputLanding() http.HandlerFunc {
 
 // outputLandingView —— 跟 wikiLandingView 字段对齐，前端 SDK 可复用渲染。
 type outputLandingView struct {
-	Path      string `json:"path"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	Excerpt   string `json:"excerpt"`
-	UpdatedAt string `json:"updated_at"`
+	// AssetURLs —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
+	// 没有它,访客看到的是一个空图位(urlTransform 把非标准 scheme 静默剥掉,还不报错)。
+	AssetURLs map[string]string `json:"asset_urls"`
+	Path      string            `json:"path"`
+	Title     string            `json:"title"`
+	Body      string            `json:"body"`
+	Excerpt   string            `json:"excerpt"`
+	UpdatedAt string            `json:"updated_at"`
+	// hero 区 —— 封面图 + 压在图上那句话 + 色调。空 = owner 没设。
+	CoverImageAssetID string          `json:"cover_image_asset_id"`
+	CoverHeadline     string          `json:"cover_headline"`
+	CoverHue          string          `json:"cover_hue"`
+	Assets            []wikiAssetView `json:"assets"`
 }
 
 func loadOutputLandingView(
 	ctx context.Context, deps owner.SEODeps, slug string,
 ) (outputLandingView, error) {
-	out, err := owner.GetOutputLanding(ctx, deps, slug)
+	res, err := owner.GetOutputLanding(ctx, deps, slug)
 	if err != nil {
 		return outputLandingView{}, err
 	}
+	out := res.Output
 	return outputLandingView{
-		Path:      slug,
-		Title:     out.Title(),
-		Body:      out.Body(),
-		Excerpt:   out.Excerpt(),
-		UpdatedAt: out.UpdatedAt().UTC().Format(time.RFC3339),
+		Path:              slug,
+		Title:             out.Title(),
+		Body:              out.Body(),
+		Excerpt:           out.Excerpt(),
+		UpdatedAt:         out.UpdatedAt().UTC().Format(time.RFC3339),
+		AssetURLs:         nonNilURLs(res.AssetURLs),
+		Assets:            toWikiAssetViews(res.Assets),
+		CoverImageAssetID: res.Hero.CoverAssetID,
+		CoverHeadline:     res.Hero.CoverHeadline,
+		CoverHue:          res.Hero.CoverHue,
 	}, nil
 }
 

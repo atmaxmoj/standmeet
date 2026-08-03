@@ -1,6 +1,6 @@
 // codes_write.go —— 发码 / 撤码 / 改配额 / 改证据开关的解参与转交(声明在 codes.go)。
 //
-// 规则本身在 usecase/uc_codes.go:不指定 role 用 public role、撤码连着清 session、
+// 规则本身在 usecase/codes.go:不指定 role 用 public role、撤码连着清 session、
 // 没提到的配额保持原值。这里只把线上的 JSON 翻成域的入参,再把结果翻回去。
 
 package ops

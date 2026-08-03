@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 )
 
@@ -158,6 +159,32 @@ func getOutputItem(
 	return item, nil
 }
 
+// subjectivityItem —— 一条自我模型的那份统一形状。它没有 published / excerpt / 来源边:
+// 那是它跟别的 genre 真实的差别,不适用的留零值。
+func subjectivityItem(row *repo.Note) corpusItemOut {
+	return corpusItemOut{
+		Genre: genreSubjectivity, ID: row.ID, Title: row.Title, Body: row.Body,
+		Preview: usecase.LeadLine(row.Body, previewMaxLen),
+		Tags:    nonNilStrings(row.Tags), ShowAsSource: row.ShowAsSource,
+		SourceRawIDs: []string{}, SourceWikiIDs: []string{},
+		ParentID: row.ParentID,
+	}
+}
+
+func listSubjectivityItems(
+	ctx context.Context, deps usecase.Deps, ownerID string, limit int32,
+) ([]corpusItemOut, error) {
+	rows, err := deps.Subjectivity.ListByOwner(ctx, ownerID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list subjectivity: %w", err)
+	}
+	out := make([]corpusItemOut, 0, len(rows))
+	for i := range rows {
+		out = append(out, subjectivityItem(&rows[i]))
+	}
+	return out, nil
+}
+
 // getSubjectivityItem —— 读回一条自我模型。
 //
 // 它以前读不回来:corpus.get 的 genre 白名单只有 raw/wiki/output,错误信息还写着
@@ -171,13 +198,7 @@ func getSubjectivityItem(
 	if err != nil {
 		return corpusItemOut{}, fmt.Errorf("get subjectivity: %w", err)
 	}
-	return corpusItemOut{
-		Genre: genreSubjectivity, ID: row.ID, Title: row.Title, Body: row.Body,
-		Preview: usecase.LeadLine(row.Body, previewMaxLen),
-		Tags:    nonNilStrings(row.Tags), ShowAsSource: row.ShowAsSource,
-		SourceRawIDs: []string{}, SourceWikiIDs: []string{},
-		ParentID: row.ParentID,
-	}, nil
+	return subjectivityItem(&row), nil
 }
 
 // entryPath —— 单条的树派生地址。算不出就空:地址是展示用的一半,不该让详情打不开。

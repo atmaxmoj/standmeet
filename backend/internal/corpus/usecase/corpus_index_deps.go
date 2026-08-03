@@ -1,4 +1,4 @@
-// uc_corpus_index_deps.go —— corpus 检索/导航 host 侧窄依赖(四类 lister)。
+// corpus_index_deps.go —— corpus 检索/导航 host 侧窄依赖(四类 lister)。
 
 package usecase
 

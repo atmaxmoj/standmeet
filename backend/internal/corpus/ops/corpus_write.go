@@ -65,8 +65,9 @@ var (
 	corpusCreateSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"genre":{"type":"string","description":"'raw' | 'wiki' | 'output'."},
-			"title":{"type":"string","description":"Title (wiki / output; raw has none)."},
+			"genre":{"type":"string",
+				"description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
+			"title":{"type":"string","description":"Title (raw has none)."},
 			"body":{"type":"string","description":"Markdown body."},
 			"parent_id":{"type":"string","description":"Parent entry id; root if empty."},
 			"tags":{"type":"array","items":{"type":"string"},"description":"Tags."},
@@ -80,7 +81,8 @@ var (
 	corpusUpdateSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"genre":{"type":"string","description":"'raw' | 'wiki' | 'output'."},
+			"genre":{"type":"string",
+				"description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
 			"id":{"type":"string","description":"Entry id."},
 			"title":{"type":"string","description":"Title (wiki / output)."},
 			"body":{"type":"string","description":"Markdown body."},
@@ -196,6 +198,8 @@ func createByGenre(
 			Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
 		})
 		return rawItem(&row, ""), err
+	case genreSubjectivity:
+		return writeSubjectivityEntry(ctx, deps, ownerID, in)
 	case genreWiki:
 		row, err := usecase.CreateWiki(ctx, deps, &usecase.CreateWikiReq{
 			OwnerID: ownerID, ParentID: parentOrNil(in.ParentID),
@@ -229,6 +233,29 @@ func updateCorpus(deps usecase.Deps) fp.Invoke {
 	}
 }
 
+// writeSubjectivityEntry —— corpus.create / corpus.update 上的第四个 genre。
+//
+// 建和改是**同一条**(WriteSubjectivity:给了 id 就是改),所以两处分派都进这里。
+//
+// 为什么不让面板去打 subjectivity_write:面板发的是 `/corpus/{genre}`,genre 是参数。
+// 让它对 subjectivity 换一个 endpoint,等于每个 corpus 组件都要认一个特例 —— 而这个
+// genre 加进来的时候就写明了"它不是特例,只是第五个 genre"。subjectivity_write 那个名字
+// 留着:owner 的 AI 一直在用它(CLAUDE.md 里也写着),两条打的是同一个 usecase。
+func writeSubjectivityEntry(
+	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
+) (corpusItemOut, error) {
+	res, err := usecase.WriteSubjectivity(ctx, deps, &usecase.WriteSubjectivityInput{
+		OwnerID: ownerID, ID: in.ID, Title: in.Title, Body: in.Body,
+		Tags: in.Tags, CSSClasses: in.CSSClasses,
+		ParentID:     parentOrNil(in.ParentID),
+		ShowAsSource: in.showAsSource(),
+	})
+	if err != nil {
+		return corpusItemOut{}, err
+	}
+	return getSubjectivityItem(ctx, deps, ownerID, res.ID)
+}
+
 func updateByGenre(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
 ) (corpusItemOut, error) {
@@ -239,6 +266,8 @@ func updateByGenre(
 			Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
 		})
 		return rawItem(&row, ""), err
+	case genreSubjectivity:
+		return writeSubjectivityEntry(ctx, deps, ownerID, in)
 	case genreWiki:
 		row, err := usecase.UpdateWiki(ctx, deps, &usecase.UpdateWikiReq{
 			OwnerID: ownerID, ID: in.ID, ParentID: parentOrNil(in.ParentID),
@@ -286,7 +315,7 @@ func decodeCorpusDelete(raw json.RawMessage) (corpusGetArgs, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return in, fp.BadInput("invalid arguments: " + err.Error())
 	}
-	if err := requireReadableGenre(in.Genre); err != nil {
+	if err := requireGenre(in.Genre); err != nil {
 		return in, err
 	}
 	return in, fp.RequireArgs([2]string{"id", in.ID})

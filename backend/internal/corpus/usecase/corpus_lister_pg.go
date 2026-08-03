@@ -36,7 +36,7 @@ type pgCorpusLister struct {
 	queryRepo    *repo.VaultSyncRepo // standmeet-query 跨-genre 过滤 + corpus_links 取邻居 genre/path
 	noteRefs     *repo.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks 邻居
 	searcher     *search.Client      // Meili 词法后端;nil(未配)→ Search 退 Postgres 全文
-	media        *NoteAssetsDeps     // 读到一条语料时顺带给出它的素材(见 uc_corpus_assets_read.go)
+	media        *NoteAssetsDeps     // 读到一条语料时顺带给出它的素材(见 corpus_assets_read.go)
 }
 
 // allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?

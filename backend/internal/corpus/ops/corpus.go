@@ -132,6 +132,8 @@ func decodeCorpusList(raw json.RawMessage) (corpusListArgs, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return in, fp.BadInput("invalid arguments: " + err.Error())
 	}
+	// 读的口认四个 —— 列表跟 get 是同一件事的两个粒度,一个认 subjectivity、
+	// 另一个不认的话,面板能读到单条却列不出来。
 	if err := requireGenre(in.Genre); err != nil {
 		return in, err
 	}
@@ -172,6 +174,8 @@ func listByGenre(
 		return listRawItems(ctx, deps, ownerID, in.Limit)
 	case genreWiki:
 		return listWikiItems(ctx, deps, ownerID, in.Limit)
+	case genreSubjectivity:
+		return listSubjectivityItems(ctx, deps, ownerID, in.Limit)
 	default:
 		return listOutputItems(ctx, deps, ownerID, in.Limit)
 	}
@@ -187,7 +191,7 @@ func decodeCorpusGet(raw json.RawMessage) (corpusGetArgs, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return in, fp.BadInput("invalid arguments: " + err.Error())
 	}
-	if err := requireReadableGenre(in.Genre); err != nil {
+	if err := requireGenre(in.Genre); err != nil {
 		return in, err
 	}
 	return in, fp.RequireArgs([2]string{"id", in.ID})

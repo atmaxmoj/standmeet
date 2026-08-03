@@ -1,7 +1,7 @@
 // codes_acl.go —— codes 资源的 ACL 面:per-code 的拒绝清单 + 引导目的地。
 //
 // 拒绝有**三种**(capability / skill / corpus URI),它们是同一件事的三个维度:
-// 这张码在 role 给的范围上再收窄一层。规则在 usecase/uc_code_acl.go,这里只声明和转交。
+// 这张码在 role 给的范围上再收窄一层。规则在 usecase/code_acl.go,这里只声明和转交。
 //
 // 归一化前它们被拆在两处:MCP 的 codes.list_denials 只给前两种,corpus 那一种由一条单独的
 // admin 路由伺候,而且那条路由在台账里没有一行。于是 owner 从 Claude Code 看一张码的 ACL,

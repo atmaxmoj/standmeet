@@ -1,4 +1,4 @@
-// uc_access_requests_ports.go —— 访客留言绑定到 sole owner 只需 ownerID 的窄口。
+// access_requests_ports.go —— 访客留言绑定到 sole owner 只需 ownerID 的窄口。
 
 package usecase
 

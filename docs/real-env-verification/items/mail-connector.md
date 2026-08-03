@@ -14,6 +14,9 @@
 ### 1 — Access-request approve → real code email lands → code works  (was §C1)
 - **Steps:** visitor hits `/gate` → submits request-access with the inbox address → admin/requests approves → backend emails the `LABEL-XXX` access code through real Gmail SMTP → open the inbox, read the code → redeem it → a session opens.
 - **Expected:** the email actually arrives in the real inbox (not a mailpit catcher), the code redeems, and a coded session starts.
+- **Steps (also, before connecting anything):** with the mail connector **disconnected**, go to `/admin/requests` and press approve on a request → copy the sentence that comes back → then **do what it says**: go to `/admin/connectors` and see whether that noun exists on the page.
+- **Expected (that half):** the message reads `connect and verify a mail connector first` — and the noun in it (**mail**) must be a label the owner can actually see on the connectors page. It used to say `an outbound channel`, a term that appears nowhere in the product: the owner finished reading and still didn't know where to go or what to look for. Connect and verify, press approve again — the block lifts (the regression face of F-C-7).
+- **⚠️ mock gap:** an e2e can assert the string; it cannot assert that **the noun is findable**, which requires opening a different page and comparing. The channel name is supplied by the composition root (`ChannelName()`), so an instance that binds outbound to a different category should say a different word — only a real instance shows which one it bound.
 - **Backing test:** `mail-connector.spec.ts:29` · `admin-requests.spec.ts` · `gate-request-access.spec.ts:40`
 - **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — mail 'not connected'; no SMTP/SaaS creds entered this round. Backing e2e green; not manually driven (no live disproof, no manual proof).
 ### 2 — Recovery-phrase email  (was §C2)
@@ -32,10 +35,20 @@
 - **⚠️ mock gap:** the SMTP mock advertises a bare single-line `250 mail-mock` on EHLO — **no `STARTTLS`, no `AUTH`** (`mock-stack/mail/smtp.go:54`) — and every command answers `250 OK`, so the real reply-code / error-classification path is never exercised. The SendGrid mock puts the id in the **body** not the `X-Message-Id` header and checks no API key.
 - **Backing test:** `connector-protocol-smtp.spec.ts:63` · `connector-openapi-mail.spec.ts:376` · `connector-err-smtp-fail.spec.ts:36`
 - **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — mail 'not connected'; no SMTP/SaaS creds entered this round. Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 5 — Real SMTP / SaaS auth failure → friendly, no crash  (was §C6)
-- **Steps:** configure a wrong app-password (or a not-verified SendGrid sender) → attempt a send → observe the surfaced error.
-- **Expected:** a human-readable failure (bad-auth / not-verified), no stack trace, no exit code; a booking is kept, not rolled back, when only the confirmation send fails.
-- **Backing test:** `connector-err-smtp-fail.spec.ts:36` · `connector-protocol-smtp.spec.ts:99`
+### 5 — Real SMTP / SaaS failure → one sentence that names the next step ⭐  (was §C6)
+- **Steps:** on the mail connector in `/admin/connectors`, press "send a test mail" three times, each against a **real** failure, and copy down the sentence the UI shows:
+  (a) **rejected** — a recipient at a real domain that does not exist (real Gmail answers 550/553);
+  (b) **unreachable** — point the port at something not listening, or cut egress, then send;
+  (c) **not set up** — disconnect the connector, then send.
+  Then take sentence (a) and ask yourself: following this, do I know what to change?
+- **Expected:**
+  (a) `the mail provider rejected this message — check the recipient address`
+  (b) `couldn't reach the mail provider — please try again later`
+  (c) `no mail connector is set up yet — connect one first`
+  All three **render in the UI** (not just sit in a `{ok:false}` payload); none carries a status code, a hostname or a stack — that sentence travels all the way to a browser. The success path still reports which kind delivered it. A booking is kept, not rolled back, when only the confirmation send fails.
+- **⚠️ mock gap (this is the whole point of the check):** the mock SMTP answers a single-line `250 mail-mock` at EHLO — no STARTTLS, no AUTH, `250 OK` to everything (`mock-stack/mail/smtp.go`). **It cannot produce any of the three failures**, so "each class lands in its own bucket" is not even expressible in CI. The classification's input is a real provider's reply code.
+- **⚠️ what this fixes:** a failed send used to return bare `{ok:false}`. The panel could only say "failed" — the owner pressed a *diagnostic* button and got back the thing he already knew. The test is not "is there a reason field", it is "after reading it, do I know what to change".
+- **Backing test:** `connector-err-smtp-fail.spec.ts` · `connector-protocol-smtp.spec.ts`. The three-way classification itself → no Go unit test, no e2e (gap); step-3 owes a table-driven unit test over the sentinels.
 - **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — mail 'not connected'; no SMTP/SaaS creds entered this round. Backing e2e green; not manually driven (no live disproof, no manual proof).
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The mail connector card shows connected/verified truthfully; admin/requests **list shows pending requests** (and the count badge matches the list); the approve button is enabled only with a verified connector.

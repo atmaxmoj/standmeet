@@ -8,8 +8,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
+import type { OutputLandingView } from '@standmeet/sdk-core';
+
 import { ChatMarkdown } from '@/components/page/markdown';
 import { CorpusContent } from '@/components/page/CorpusContent';
+import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
+import { coverURL, expandBody } from '@/lib/corpus/media';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
@@ -47,7 +51,7 @@ export default async function OutputLandingPage({ params }: { params: Promise<Pa
 }
 
 function OutputLandingContent({ out, handle, slug }: {
-  out: { title: string; body: string; excerpt: string; updated_at: string };
+  out: OutputLandingView;
   handle: string;
   slug: string;
 }) {
@@ -55,12 +59,17 @@ function OutputLandingContent({ out, handle, slug }: {
     <>
       <SessionStrip />
       <main className="pb-24">
-        <OutputCoverHero title={out.title} handle={handle} updatedAt={out.updated_at} />
+        <OutputCoverHero
+          title={out.title} handle={handle} updatedAt={out.updated_at}
+          coverURL={coverURL(out.cover_image_asset_id, out.asset_urls)}
+          headline={out.cover_headline ?? ''}
+        />
         <article className="mx-auto max-w-2xl px-6 py-16" data-testid="output-landing">
           <PageHeader />
           <Breadcrumb slug={slug} />
           <PDFPreviewCard />
-          <OutputBody body={out.body} />
+          <OutputBody body={expandBody(out.body, out.asset_urls)} />
+          <Attachments assets={out.assets} testid="output-attachments" />
           <TrustBox handle={handle} />
         </article>
         <AskAboutThis title={out.title} kind="output" />
@@ -70,19 +79,26 @@ function OutputLandingContent({ out, handle, slug }: {
   );
 }
 
-async function OutputCoverHero({ title, handle, updatedAt }: {
+// OutputCoverHero —— owner 设了封面图就铺那张图,没设就是原来那块底色。
+// headline 优先用 owner 写的那句(压在图上的那行),没写才回落到标题。
+async function OutputCoverHero({ title, handle, updatedAt, coverURL: cover, headline }: {
   title: string; handle: string; updatedAt: string;
+  coverURL?: string; headline: string;
 }) {
   const t = await getTranslations('reader');
   return (
-    <div className="border-b border-(--color-rule) bg-(--color-surface)/40 py-16 px-6">
-      <div className="mx-auto max-w-2xl">
+    <div className="relative border-b border-(--color-rule) bg-(--color-surface)/40 py-16 px-6 overflow-hidden">
+      <CoverImage url={cover} testid="output-cover-image" />
+      <div className="relative mx-auto max-w-2xl">
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-4 flex items-baseline gap-2">
           <span>{t('output.kicker', { handle })}</span>
           <span className="border border-(--color-rule) px-1.5 py-0.5 text-[9px]">{t('output.polished')}</span>
         </div>
-        <h1 className="font-serif text-[clamp(36px,5vw,56px)] text-(--color-ink) font-normal tracking-[-0.02em] leading-[1.05] mb-4">
-          {title}
+        <h1
+          className="font-serif text-[clamp(36px,5vw,56px)] text-(--color-ink) font-normal tracking-[-0.02em] leading-[1.05] mb-4"
+          data-testid="output-cover-headline"
+        >
+          {headline || title}
         </h1>
         <p className="mono text-[10px] tracking-[0.12em] text-(--color-faint) mt-2">
           {t('output.updated', { date: updatedAt.slice(0, 10) })}

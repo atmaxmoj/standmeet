@@ -67,11 +67,22 @@ async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await expect(prompt).toBeVisible({ timeout: 10_000 });
   await frame.getByTestId('booking-email-use-profile').click();
 
+  // 点下去先看见"进行中" —— 这一步后端要起沙箱,不是瞬时的。以前这里只有"按钮变灰",
+  // 访客在慢的时候看不出有没有点上(见下面那个 30s 的说明)。
+  await expect(frame.getByTestId('booking-email-sending')).toBeVisible({ timeout: 10_000 });
+
   // 可观察:tool 经 mail connector proxy 发了一封到 session-email;一笔一发。
   const mail = await waitForMailEnvelopeTo(seed.request, 'dana.session@example.com');
   expect(mail.from).toBe(MAIL_FROM);
   expect(mail.text).toContain(TOPIC);
-  await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 5_000 });
+  // 30s 不是随手放宽的:这条链路里最贵的一段是**能力装配(起沙箱)**,空闲时约 1s,
+  // 全量跑到后半程机器压满时实测到过 19s(证据在 test-results-archive 的 backend.log:
+  // 同一个 endpoint 全部 200,dur_ms 从 1260 一路到 19082)。5s 在隔离下永远够,
+  // 在全量下必挂 —— 一个只在负载下红的断言。
+  //
+  // **根因没修完**(见 task #17:沙箱预热 / 复用),这里放宽只是别让它假装成功能故障;
+  // 后端那侧加了 >2s 的告警日志,产品那侧加了"sending…" —— 阈值是最后一步,不是第一步。
+  await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 30_000 });
   expect(await countMailpitMessages(seed.request)).toBe(1);
   await ctx.close();
 }
@@ -92,7 +103,7 @@ async function passthroughFlow(browser: Browser, seed: CodedSeed): Promise<void>
 
   const mail = await waitForMailEnvelopeTo(seed.request, 'eli.typed@example.com');
   expect(mail.from).toBe(MAIL_FROM);
-  await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 5_000 });
+  await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 30_000 });
   expect(await countMailpitMessages(seed.request)).toBe(1);
   await ctx.close();
 }
@@ -132,7 +143,7 @@ async function skipFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await expect(prompt).toBeVisible({ timeout: 10_000 });
   await frame.getByTestId('booking-email-skip').click();
 
-  await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 5_000 });
+  await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 30_000 });
   expect(await countMailpitMessages(seed.request)).toBe(0);
   await ctx.close();
 }

@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 
 import type { WritingView } from '@/lib/api/public';
+import { coverURL } from '@/lib/corpus/media';
 
 import styles from '@/components/writings/Cover.module.css';
 
@@ -20,7 +21,9 @@ interface Props {
 }
 
 export function Cover({ cover, locked, no, assetURLs }: Props) {
-  const imgURL = resolveCoverImageURL(cover.cover_image_asset_id, assetURLs);
+  // coverURL 是 corpus 那套共用的那一个 —— 这里以前有一份自己的 resolveCoverImageURL,
+  // 一模一样。同一件事两份实现,改一处就会漏另一处。
+  const imgURL = coverURL(cover.cover_image_asset_id, assetURLs);
   return (
     <div
       className={styles.cover}
@@ -37,12 +40,6 @@ export function Cover({ cover, locked, no, assetURLs }: Props) {
       <CoverLockOverlayMaybe locked={locked} />
     </div>
   );
-}
-
-function resolveCoverImageURL(
-  assetID: string | undefined, assetURLs?: Record<string, string>,
-): string | undefined {
-  return assetID && assetURLs ? assetURLs[assetID] : undefined;
 }
 
 function CoverImageMaybe({ url }: { url?: string }) {
