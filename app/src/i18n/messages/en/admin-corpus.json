@@ -9,6 +9,12 @@
     "isCover": "cover",
     "remove": "remove"
   },
+  "hero": {
+    "headline": "cover line",
+    "headlinePlaceholder": "the line laid over the cover image",
+    "hue": "hue",
+    "hueDefault": "— default —"
+  },
   "subjectivity": {
     "intro": "Your self-model — taste, judgment, what you care about. Private unless you mark a note citable. Write here or by talking to your AI; both land in the same place.",
     "empty": "nothing here yet",

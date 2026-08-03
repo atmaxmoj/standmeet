@@ -96,8 +96,70 @@ function BodySlot(
     <>
       <BodyField form={form} testid={testid} />
       {renderAssets ? renderAssets(api) : null}
+      <HeroFields
+        headline={form.coverHeadline} hue={form.coverHue}
+        onHeadline={form.setCoverHeadline} onHue={form.setCoverHue}
+        testid={testid}
+      />
     </>
   ) : null;
+}
+
+// HeroFields —— hero 的另外两样。图在素材区里选(那儿才看得见有哪些图),
+// **这句话和这个色调必须在旁边** —— 只做图那一样的话,owner 设完封面看到的是标题被
+// 顶上去当 headline,而他没有任何办法改它。访客那侧三样都渲。
+//
+// 导出是给 raw 用的:raw 的行内编辑表单不走 CorpusEntryForm(它没有 title,字段也不同),
+// 但 hero 是同一件事 —— 在那边手抄一份的话,两处迟早长得不一样。
+// 所以入参收窄成这四个值,而不是整个表单 hook。
+// COVER_HUES —— 后端认的三个字面量(entity/cover.go)。**不翻译** —— 它们是存进
+// 数据库的值,不是给人看的文案;翻了就存不回去。
+const COVER_HUES = ['amber', 'violet', 'acid'] as const;
+
+export interface HeroFieldsProps {
+  headline: string;
+  hue: string;
+  onHeadline: (v: string) => void;
+  onHue: (v: string) => void;
+  testid: string;
+}
+
+export function HeroFields(
+  { headline, hue, onHeadline, onHue, testid }: HeroFieldsProps,
+) {
+  const t = useTranslations('adminCorpus.hero');
+  return (
+    <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+      <label className="block">
+        <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
+          {t('headline')}
+        </span>
+        <input
+          type="text"
+          value={headline}
+          onChange={(e) => onHeadline(e.target.value)}
+          spellCheck={false}
+          placeholder={t('headlinePlaceholder')}
+          data-testid={`${testid}-cover-headline`}
+          className="w-full bg-transparent border-b border-(--color-rule) py-1.5 reading-tight text-[15px]"
+        />
+      </label>
+      <label className="block">
+        <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
+          {t('hue')}
+        </span>
+        <select
+          value={hue}
+          onChange={(e) => onHue(e.target.value)}
+          data-testid={`${testid}-cover-hue`}
+          className="bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
+        >
+          <option value="">{t('hueDefault')}</option>
+          {COVER_HUES.map((h) => <option key={h} value={h}>{h}</option>)}
+        </select>
+      </label>
+    </div>
+  );
 }
 
 function ParentSlot(

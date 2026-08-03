@@ -44,6 +44,8 @@ export function WikiEditForm({
               // flip the note's citation on save (the Go request decodes a missing field as false).
               show_as_source: detail.show_as_source,
               cover_image_asset_id: detail.cover_image_asset_id,
+              cover_headline: detail.cover_headline,
+              cover_hue: detail.cover_hue,
             }}
             busy={actions.pending}
             submitLabel="save"

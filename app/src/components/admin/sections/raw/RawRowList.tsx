@@ -10,7 +10,7 @@ import { Chip } from '@/components/admin/atoms/Chip';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusAssetsPanel } from '@/components/admin/sections/corpus/CorpusAssetsPanel';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
-import { PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import { HeroFields, PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { useCorpusView } from '@/lib/admin/corpus-view';
 import { loadRawTreeChildren } from '@/lib/admin/use-raw';
 import {
@@ -18,6 +18,7 @@ import {
   type CorpusActionsHook,
   type PromoteInput,
 } from '@/lib/admin/use-corpus-actions';
+import { heroInput, useRawHeroForm } from '@/lib/admin/use-corpus-detail';
 import { appendBlock, runWith } from '@/lib/admin/use-corpus-form';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
@@ -239,14 +240,17 @@ function EditRow(props: EditRowProps) {
   const [flagged, setFlagged] = useState(props.row.flagged_private);
   // 封面跟正文一起存 —— corpus.update 对 hero 之外的字段是整份替换,单发一个 cover
   // 会把正文清空(跟 wiki/output 那边同一个道理)。
-  const [cover, setCover] = useState('');
+  // hero 三件套从详情拉 —— 列表行不带它们。**不拉的话表单会把已有的值显示成空**,
+  // owner 看到一个空的 "cover line" 会以为没设过。
+  const heroForm = useRawHeroForm(props.row.id, props.actions);
+  const { cover, setCover, coverHeadline, coverHue } = heroForm;
   const toast = useToast();
   const onSave = () => void runWith(
     () => props.actions.updateRaw(props.row.id, {
       body,
       tags: tagsRaw.split(',').map((t) => t.trim()).filter((t) => t !== ''),
       flagged_private: flagged,
-      cover_image_asset_id: cover === '' ? undefined : cover,
+      ...heroInput(heroForm),
     }),
     () => { toast.success('Raw updated'); props.onDone(); },
   );
@@ -265,6 +269,12 @@ function EditRow(props: EditRowProps) {
         insertIntoBody={(md) => setBody(appendBlock(body, md))}
         onSetCover={setCover}
         coverAssetID={cover}
+      />
+      {/* hero 的另外两样 —— 跟 wiki/output 用的是同一个组件,不是这儿手抄一份。 */}
+      <HeroFields
+        headline={coverHeadline} hue={coverHue}
+        onHeadline={heroForm.setCoverHeadline} onHue={heroForm.setCoverHue}
+        testid={`raw-edit-form-${props.row.id}`}
       />
       <EditTagsField value={tagsRaw} onChange={setTagsRaw} testid={`raw-edit-tags-${props.row.id}`} />
       <EditPrivateField on={flagged} onChange={setFlagged} testid={`raw-edit-private-${props.row.id}`} />

@@ -22,8 +22,10 @@ export interface RawUpdateInput {
   body: string;
   tags?: string[];
   flagged_private?: boolean;
-  // cover_image_asset_id —— hero 图。后端是指针字段:不发 = 不动,发空串 = 清掉。
+  // hero 三件套 —— 图 + 压在图上那句话 + 色调。后端是指针字段:不发 = 不动,发空串 = 清掉。
   cover_image_asset_id?: string;
+  cover_headline?: string;
+  cover_hue?: string;
 }
 
 export interface CorpusEntryInput {
@@ -32,8 +34,10 @@ export interface CorpusEntryInput {
   tags?: string[];
   parent_id?: string;
   show_as_source?: boolean;
-  // cover_image_asset_id —— hero 图用哪份素材。后端是指针字段:不发 = 不动。
+  // hero 三件套 —— 图用哪份素材 + 压在图上那句话 + 色调。后端是指针字段:不发 = 不动。
   cover_image_asset_id?: string;
+  cover_headline?: string;
+  cover_hue?: string;
 }
 
 export interface PromoteInput {
@@ -52,8 +56,19 @@ const WikiDetailSchema = z.object({
   show_as_source: z.boolean(), excerpt: z.string(), published: z.boolean(),
   // hero 图。omitempty:没设过封面时字段不在 —— 那是"没有",不是坏了。
   cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
+  cover_headline: z.string().nullish().transform((v) => v ?? ''),
+  cover_hue: z.string().nullish().transform((v) => v ?? ''),
 });
 export type WikiDetail = z.infer<typeof WikiDetailSchema>;
+
+// raw 的详情 —— 只为 hero 三件套。raw 的行内编辑框其余字段直接用列表行(它带 body),
+// 但 hero 不在列表里(每行算一次素材太贵)。
+const RawDetailSchema = z.object({
+  cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
+  cover_headline: z.string().nullish().transform((v) => v ?? ''),
+  cover_hue: z.string().nullish().transform((v) => v ?? ''),
+});
+export type RawDetail = z.infer<typeof RawDetailSchema>;
 
 // subjectivity 的详情。它没有 excerpt / published(那是对外发布才有的概念),
 // 其余跟 wiki 一致 —— 不适用的字段不该硬凑一个出来。
@@ -62,6 +77,8 @@ const SubjectivityDetailSchema = z.object({
   parent_id: z.string().nullable().optional(),
   show_as_source: z.boolean(),
   cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
+  cover_headline: z.string().nullish().transform((v) => v ?? ''),
+  cover_hue: z.string().nullish().transform((v) => v ?? ''),
 });
 export type SubjectivityDetail = z.infer<typeof SubjectivityDetailSchema>;
 
@@ -72,6 +89,8 @@ const OutputDetailSchema = z.object({
   show_as_source: z.boolean(), excerpt: z.string(), published: z.boolean(),
   // hero 图。omitempty:没设过封面时字段不在 —— 那是"没有",不是坏了。
   cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
+  cover_headline: z.string().nullish().transform((v) => v ?? ''),
+  cover_hue: z.string().nullish().transform((v) => v ?? ''),
 });
 export type OutputDetail = z.infer<typeof OutputDetailSchema>;
 
@@ -89,6 +108,9 @@ export interface CorpusActionsHook {
   updateRaw: (id: string, input: RawUpdateInput) => Promise<boolean>;
   deleteRaw: (id: string) => Promise<boolean>;
   promoteRaw: (id: string, input: PromoteInput) => Promise<boolean>;
+  // fetchRawDetail —— raw 的行内编辑框展开时拉 hero 三件套。列表行不带它们
+  // (每行算一次素材太贵),而**表单不显示一个已经存在的值,等于告诉 owner "没设过"**。
+  fetchRawDetail: (id: string) => Promise<RawDetail | null>;
   // subjectivity —— 跟 wiki / output 同形(它不是特例,只是第四个 genre)
   createSubjectivity: (input: CorpusEntryInput) => Promise<boolean>;
   updateSubjectivity: (id: string, input: CorpusEntryInput) => Promise<boolean>;
@@ -121,6 +143,9 @@ export function useCorpusActions(): CorpusActionsHook {
       (id) => run(() => doDeleteRaw(id)), [run]),
     promoteRaw: useCallback(
       (id, input) => run(() => doPromoteRaw(id, input)), [run]),
+    fetchRawDetail: useCallback(
+      (id: string) => fetchDetail(
+        `/corpus/raw/${id}`, RawDetailSchema, setError, setPending), []),
     createSubjectivity: useCallback(
       (input) => run(() => doCreateSubjectivity(input)), [run]),
     updateSubjectivity: useCallback(
@@ -195,15 +220,25 @@ function makeRun(
 
 // ─── raw ────────────────────────────────────────────────────
 
+// heroPatch —— hero 三项在后端是**指针字段**:不发 = 不动。owner 这次没碰的那几项
+// 就别发 —— 发空串等于"明确清空",会把他上次设的抹掉。
+function heroPatch(input: RawUpdateInput): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (input.cover_image_asset_id !== undefined) {
+    out['cover_image_asset_id'] = input.cover_image_asset_id;
+  }
+  if (input.cover_headline !== undefined) out['cover_headline'] = input.cover_headline;
+  if (input.cover_hue !== undefined) out['cover_hue'] = input.cover_hue;
+  return out;
+}
+
 async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
   const updated = await adminAPI.patch(`/corpus/raw/${id}`, {
     body: input.body, tags: input.tags ?? [],
     flagged_private: input.flagged_private ?? false,
     // hero 是**指针字段**:不发 = 不动。owner 这次没点封面就别发 —— 发空串等于
     // "明确清空",会把他上次设的封面抹掉。
-    ...(input.cover_image_asset_id === undefined
-      ? {}
-      : { cover_image_asset_id: input.cover_image_asset_id }),
+    ...heroPatch(input),
   }, RawAdminViewSchema);
   rawStore.getState().mutate(
     (prev) => (prev ?? []).map((r) => r.id === id ? updated : r),

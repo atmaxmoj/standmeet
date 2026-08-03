@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react';
 
 import type {
-  CorpusActionsHook, OutputDetail, SubjectivityDetail, WikiDetail,
+  CorpusActionsHook, OutputDetail, RawDetail, SubjectivityDetail, WikiDetail,
 } from '@/lib/admin/use-corpus-actions';
 import { useReportError } from '@/lib/ui/use-report-error';
 
@@ -33,6 +33,59 @@ export function useWikiDetail(id: string, actions: CorpusActionsHook): WikiDetai
     return () => { alive = false; };
   }, [id, fetchDetail, report]);
   return detail;
+}
+
+// RawHeroForm —— raw 行内编辑框里 hero 那三样的可编辑状态。
+export interface RawHeroForm {
+  cover: string;
+  coverHeadline: string;
+  coverHue: string;
+  setCover: (v: string) => void;
+  setCoverHeadline: (v: string) => void;
+  setCoverHue: (v: string) => void;
+}
+
+// useRawHeroForm —— 拉一次详情(列表行不带 hero),回填成可编辑状态。
+//
+// 回填这一步放在 hook 里而不是组件里:渲染层不写控制流。而且**必须回填** ——
+// 不回填的话表单把已有的值显示成空,owner 看到一个空的 "cover line" 会以为没设过。
+export function useRawHeroForm(id: string, actions: CorpusActionsHook): RawHeroForm {
+  const [cover, setCover] = useState('');
+  const [coverHeadline, setCoverHeadline] = useState('');
+  const [coverHue, setCoverHue] = useState('');
+  const report = useReportError();
+  const fetchDetail = actions.fetchRawDetail;
+  useEffect(() => {
+    let alive = true;
+    void fetchDetail(id)
+      .then((d) => { alive && d && seedHero(d, setCover, setCoverHeadline, setCoverHue); })
+      .catch((e: unknown) => { alive && report(e); });
+    return () => { alive = false; };
+  }, [id, fetchDetail, report]);
+  return { cover, coverHeadline, coverHue, setCover, setCoverHeadline, setCoverHue };
+}
+
+// heroInput —— 表单状态 → 更新入参。**空串不发** —— hero 在后端是指针字段,
+// 不发 = 不动;发空串 = 明确清空。owner 这次没碰的那几项不该被抹掉。
+export function heroInput(f: RawHeroForm): {
+  cover_image_asset_id?: string; cover_headline?: string; cover_hue?: string;
+} {
+  const out: Record<string, string> = {};
+  if (f.cover !== '') out['cover_image_asset_id'] = f.cover;
+  if (f.coverHeadline !== '') out['cover_headline'] = f.coverHeadline;
+  if (f.coverHue !== '') out['cover_hue'] = f.coverHue;
+  return out;
+}
+
+function seedHero(
+  d: RawDetail,
+  setCover: (v: string) => void,
+  setHeadline: (v: string) => void,
+  setHue: (v: string) => void,
+): void {
+  setCover(d.cover_image_asset_id);
+  setHeadline(d.cover_headline);
+  setHue(d.cover_hue);
 }
 
 export function useSubjectivityDetail(

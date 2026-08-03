@@ -95,6 +95,39 @@ test.describe('owner 在面板上挂文件', () => {
       .toHaveCount(0, { timeout: 15_000 });
     await expect(page.getByTestId(`${prefix}-assets-empty`)).toBeVisible();
   });
+});
+
+// hero 是**三样**:图 + 压在图上那句话 + 色调。面板上只做图那一样的话,owner 设完封面
+// 看到的是标题被顶上去当 headline,而他没有任何办法改它 —— 除非去 AI 客户端调 MCP。
+// 访客那侧三样都渲(genre-assets-reader 断的就是那句话渲出来了)。
+test.describe('hero 三样都在面板上', () => {
+  test('图 + 那句话 + 色调,存得下来也回填得回来', async ({ adminPage: page }) => {
+    await gotoAdminSection(page, 'wiki');
+    const id = await createWikiEntry(page, 'Panel hero note');
+    const prefix = `wiki-edit-form-${id}`;
+    await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId(`${prefix}-asset-input`).setInputFiles({
+      name: 'cover.png', mimeType: 'image/png', buffer: PNG_BYTES,
+    });
+    const assetID = await firstAssetID(page, prefix);
+    await page.getByTestId(`${prefix}-asset-cover-${assetID}`).click();
+    await page.getByTestId(`${prefix}-cover-headline`).fill('a line over the cover');
+    await page.getByTestId(`${prefix}-cover-hue`).selectOption('violet');
+    await page.getByTestId(`${prefix}-submit`).click();
+
+    // 重开:三样都回填了 —— **不回填等于告诉 owner"没设过"**,他再存一次就以为没变,
+    // 实际上什么也没发生(空串不发),或者更糟:哪天改成发空串就把它抹了。
+    await page.getByTestId(`wiki-edit-${id}`).click();
+    await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId(`${prefix}-cover-headline`))
+      .toHaveValue('a line over the cover', { timeout: 15_000 });
+    await expect(page.getByTestId(`${prefix}-cover-hue`)).toHaveValue('violet');
+    await expect(
+      page.getByTestId(new RegExp(`^${prefix}-asset-row-`)),
+      '那份素材仍标着是封面',
+    ).toContainText('cover');
+  });
 
   test('不收的文件:界面上说清楚为什么,不是一句"出错了"', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');

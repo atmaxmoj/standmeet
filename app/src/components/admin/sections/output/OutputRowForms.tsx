@@ -51,6 +51,8 @@ interface OutputEditDetail {
   published: boolean;
   show_as_source: boolean;
   cover_image_asset_id: string;
+  cover_headline: string;
+  cover_hue: string;
 }
 
 function EditFormBody({
@@ -73,6 +75,8 @@ function EditFormBody({
           // 读来的。
           show_as_source: detail.show_as_source,
           cover_image_asset_id: detail.cover_image_asset_id,
+          cover_headline: detail.cover_headline,
+          cover_hue: detail.cover_hue,
         }}
         busy={actions.pending}
         submitLabel="save"

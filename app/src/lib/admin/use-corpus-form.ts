@@ -19,15 +19,23 @@ export interface CorpusFormHook {
   tagsRaw: string;
   parentID: string;
   citable: boolean;
-  // coverAssetID —— 封面用哪份素材。跟正文一起存,**不单独 PATCH**:corpus.update 对
-  // 除 hero 之外的字段是整份替换,只发一个 cover 会把标题和正文清成空的。
+  // hero 三件套 —— 图 + 压在图上那句话 + 色调。**三样都要能在面板上写**:
+  // 只做图那一样的话,owner 设完封面看到的是标题被顶上去当 headline,而他没有任何
+  // 办法改它(除非去 AI 客户端调 MCP)。访客那侧三样都渲。
+  //
+  // 跟正文一起存,**不单独 PATCH**:corpus.update 对除 hero 之外的字段是整份替换,
+  // 只发一个 cover 会把标题和正文清成空的。
   coverAssetID: string;
+  coverHeadline: string;
+  coverHue: string;
   setTitle: (v: string) => void;
   setBody: (v: string) => void;
   setTagsRaw: (v: string) => void;
   setParentID: (v: string) => void;
   setCitable: (b: boolean) => void;
   setCoverAssetID: (v: string) => void;
+  setCoverHeadline: (v: string) => void;
+  setCoverHue: (v: string) => void;
   // 派生：当前不能 submit 的原因 ('' = 可以)
   submitDisabledReason: (busy: boolean, bodyVisible: boolean) => boolean;
   toEntryInput: (bodyVisible: boolean) => CorpusEntryInput;
@@ -42,6 +50,8 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
   const [parentID, setParentID] = useState(seed.parentID);
   const [citable, setCitable] = useState(seed.citable);
   const [coverAssetID, setCoverAssetID] = useState(seed.coverAssetID);
+  const [coverHeadline, setCoverHeadline] = useState(seed.coverHeadline);
+  const [coverHue, setCoverHue] = useState(seed.coverHue);
   const key = JSON.stringify(initial ?? {});
   useEffect(() => {
     const next = seedFromInitial(initial);
@@ -51,11 +61,14 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
     setParentID(next.parentID);
     setCitable(next.citable);
     setCoverAssetID(next.coverAssetID);
+    setCoverHeadline(next.coverHeadline);
+    setCoverHue(next.coverHue);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   return {
-    title, body, tagsRaw, parentID, citable, coverAssetID,
+    title, body, tagsRaw, parentID, citable, coverAssetID, coverHeadline, coverHue,
     setTitle, setBody, setTagsRaw, setParentID, setCitable, setCoverAssetID,
+    setCoverHeadline, setCoverHue,
     submitDisabledReason: useCallback(
       (busy: boolean, bodyVisible: boolean) =>
         submitDisabled(busy, bodyVisible, title, body),
@@ -75,8 +88,10 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
         // 真的载到过一个值,或 owner 刚点了封面)才发它 —— 新建表单发空串会把
         // "没设过封面"写成"明确清空",两者在后端不是同一件事。
         cover_image_asset_id: coverAssetID === '' ? undefined : coverAssetID,
+        cover_headline: coverHeadline === '' ? undefined : coverHeadline,
+        cover_hue: coverHue === '' ? undefined : coverHue,
       }),
-      [title, body, tagsRaw, parentID, citable, coverAssetID],
+      [title, body, tagsRaw, parentID, citable, coverAssetID, coverHeadline, coverHue],
     ),
     toPromoteInput: useCallback(
       () => ({ title: title.trim(), tags: parseTags(tagsRaw) }),
@@ -92,6 +107,8 @@ interface Seed {
   parentID: string;
   citable: boolean;
   coverAssetID: string;
+  coverHeadline: string;
+  coverHue: string;
 }
 
 function seedFromInitial(initial?: Partial<CorpusEntryInput>): Seed {
@@ -103,6 +120,8 @@ function seedFromInitial(initial?: Partial<CorpusEntryInput>): Seed {
     // 缺省 true = 跟 DB 的 `show_as_source NOT NULL DEFAULT true` 一致：新条目默认可引用。
     citable: initial?.show_as_source ?? true,
     coverAssetID: initial?.cover_image_asset_id ?? '',
+    coverHeadline: initial?.cover_headline ?? '',
+    coverHue: initial?.cover_hue ?? '',
   };
 }
 
