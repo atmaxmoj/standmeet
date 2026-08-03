@@ -41,8 +41,8 @@ func CorpusWrites(deps usecase.Deps) []fp.Op {
 		},
 		{
 			ID: "corpus.delete",
-			Description: "Delete a corpus entry. A raw entry is archived (it is the record of " +
-				"what was dumped); wiki, output and subjectivity entries are deleted.",
+			Description: "Delete a corpus entry of any genre (raw / wiki / output / " +
+				"subjectivity), along with the files attached to it. This cannot be undone.",
 			InputSchema: corpusGetSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -286,20 +286,26 @@ func decodeCorpusDelete(raw json.RawMessage) (corpusGetArgs, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return in, fp.BadInput("invalid arguments: " + err.Error())
 	}
-	if in.Genre != genreSubjectivity {
-		if err := requireGenre(in.Genre); err != nil {
-			return in, err
-		}
+	if err := requireReadableGenre(in.Genre); err != nil {
+		return in, err
 	}
 	return in, fp.RequireArgs([2]string{"id", in.ID})
 }
 
+// deleteByGenre —— 删就是删,**三个 genre 一个样**。
+//
+// raw 以前走的是"归档":行留着,archived 置 true。那不是另一种语义,是同一件事换了个名字 ——
+// 没有任何列表会再显示它(ListRaw 永远过滤 archived=false),没有恢复的入口,面板上那个
+// 写着 archive 的按钮打的就是 DELETE。于是 `corpus.delete` 这个名字在 raw 上是假的:
+// owner 的 AI 说"删掉这条",拿到 deleted:true,而库里留着一行谁也读不到的墓碑。
+//
+// 一个删除动作在不同 genre 上意味着不同的事,调用方就得记住哪个是哪个 —— 而它记不住。
 func deleteByGenre(
 	ctx context.Context, deps usecase.Deps, ownerID, genre, id string,
 ) error {
 	switch genre {
 	case genreRaw:
-		return usecase.ArchiveRaw(ctx, deps, ownerID, id)
+		return usecase.DeleteRaw(ctx, deps, ownerID, id)
 	case genreWiki:
 		return usecase.DeleteWiki(ctx, deps, ownerID, id)
 	case genreSubjectivity:

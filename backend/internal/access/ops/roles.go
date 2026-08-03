@@ -145,7 +145,7 @@ func roleWriteSchema(required string) json.RawMessage {
 			"dock_buttons":{"type":"array","maxItems":2,"items":{"type":"object"},
 				"description":"Up to two chat dock buttons {capability_id, trigger}."},
 			"notify_owner_on_booking":{"type":"boolean",
-				"description":"Email the owner when a visitor on this role books."},
+				"description":"Notify the owner when a visitor on this role books."},
 			"require_ghost_evidence":{"type":"boolean",
 				"description":"Require cited evidence before the AI answers on this role."}
 		},

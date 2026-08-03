@@ -1,4 +1,7 @@
-// corpus_rows.go —— 三个 genre 的行 → 那一份统一形状(声明在 corpus.go)。
+// corpus_rows.go —— 各 genre 的行 → 那一份统一形状(声明在 corpus.go)。
+//
+// 四个 genre:raw / wiki / output / subjectivity。subjectivity 的写口另有一条
+// (subjectivity_write),但读、删、挂素材都跟其余三个走同一条路。
 //
 // 地址(path)是**树派生**的:列表一次算全窗口的路径表,详情单条算。owner 不能自设地址,
 // 所以这儿没有"path 字段",只有算出来的那个。
@@ -153,6 +156,28 @@ func getOutputItem(
 	item := outputItem(&row, entryPath(ctx, deps, genreOutput, ownerID, id))
 	item.Body = row.Body()
 	return item, nil
+}
+
+// getSubjectivityItem —— 读回一条自我模型。
+//
+// 它以前读不回来:corpus.get 的 genre 白名单只有 raw/wiki/output,错误信息还写着
+// "genre must be 'raw', 'wiki' or 'output'" —— 一句否认这个 genre 存在的话。
+// 于是它能写(subjectivity_write)、能删(corpus.delete),就是**读不回来**,
+// 也因此挂不了素材(挂完没有任何路能看见)。
+func getSubjectivityItem(
+	ctx context.Context, deps usecase.Deps, ownerID, id string,
+) (corpusItemOut, error) {
+	row, err := deps.Subjectivity.GetByID(ctx, ownerID, id)
+	if err != nil {
+		return corpusItemOut{}, fmt.Errorf("get subjectivity: %w", err)
+	}
+	return corpusItemOut{
+		Genre: genreSubjectivity, ID: row.ID, Title: row.Title, Body: row.Body,
+		Preview: usecase.LeadLine(row.Body, previewMaxLen),
+		Tags:    nonNilStrings(row.Tags), ShowAsSource: row.ShowAsSource,
+		SourceRawIDs: []string{}, SourceWikiIDs: []string{},
+		ParentID: row.ParentID,
+	}, nil
 }
 
 // entryPath —— 单条的树派生地址。算不出就空:地址是展示用的一半,不该让详情打不开。

@@ -64,9 +64,9 @@ type createSessionResponse struct {
 	// 解析出 title）。前端渲染成两个位的按钮；点击把 trigger 当访客消息发出。
 	DockButtons []dockButtonResp `json:"dock_buttons"`
 	Quota       sessionQuotaResp `json:"quota"`
-	// OwnerCanEmail —— owner 已配通 mail connector。前端据此决定约成卡片要不要
+	// OwnerCanDeliver —— owner 有可用的出站通道。前端据此决定约成卡片要不要
 	// 显"发确认邮件"那块(#122:没配就根本不渲染那张卡)。
-	OwnerCanEmail bool `json:"owner_can_email"`
+	OwnerCanDeliver bool `json:"owner_can_deliver"`
 }
 
 // dockButtonResp —— 一个可渲染的 dock 按钮：能力 id + 显示名（透传 MCP title）+ 触发词。
@@ -222,8 +222,8 @@ func writeCreateSession(
 	w http.ResponseWriter, res *conversation.IssueCodeSessionResult,
 ) {
 	log, deps := h.Log, &h.Visitor
-	canEmail := owner.CanEmailCodes(ctx,
-		owner.MailStatusDeps{Proxy: h.MailStatus}, res.Session.Data.OwnerID)
+	canEmail := owner.CanDeliverCodes(ctx,
+		owner.OutboundStatusDeps{Proxy: h.Outbound}, res.Session.Data.OwnerID)
 	in := assembleInputFromSession(&res.Session.Data, res.Chat.ID)
 	// 一次 walk 出三样(States/ToolSpecs/PromptPartIDs):分别调会把每个外置插件
 	// 冷拨两遍,两个网络沙箱插件能把 /sessions 顶到 ~16s(超 e2e 15s 等待)。
@@ -245,8 +245,8 @@ func writeCreateSession(
 			UsedTurns:  res.Quota.UsedTurns,
 			MaxMembers: res.Quota.MaxMembers,
 		},
-		Members:       toMemberResps(res.Members),
-		OwnerCanEmail: canEmail,
+		Members:         toMemberResps(res.Members),
+		OwnerCanDeliver: canEmail,
 		DockButtons: resolveDockButtons(
 			res.Session.Data.RoleSnapshot.DockButtons(), bundle.States,
 		),

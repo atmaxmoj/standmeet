@@ -324,7 +324,9 @@ async function expectMailSent(
 ): Promise<void> {
   const cap = await findCapability(request, csrf, 'mail.send');
   expect(cap?.dependency?.connected, 'mail category slot connected').toBe(true);
-  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/test-send`, {
+  // 地址从连接器自己的声明派生(smtp 的 manifest.yaml → connectors.mail_test_send),
+  // 不再是写死在通用注册表上的 `/connectors/mail/test-send`。
+  const res = await request.post(`${BACKEND}/api/admin/connectors/ops/mail_test_send`, {
     headers: { 'X-Csrftoken': csrf }, data: { to, subject, text: 'hello from matrix' },
   });
   expect(res.status(), 'MailContract.Send 200').toBe(200);

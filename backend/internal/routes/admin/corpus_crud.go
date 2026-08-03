@@ -26,9 +26,10 @@ func (h *Handlers) MountCorpusCRUD(r chi.Router) {
 		h.dispatchOp(face, "corpus.delete", corpusIDArgs, noContent))
 	r.Post("/corpus/{genre}/{id}/promote",
 		h.dispatchOp(face, "corpus.promote", corpusEntryArgs, jsonOK))
-	// 素材挂在一条语料下面,所以地址也挂在它下面。收的是一个 https 地址(服务端自己去取),
-	// 不是 multipart —— 面板那条 multipart 的老路还在 writing 上,那笔债写在
-	// writings_create.go 的 fp.Only 里。
-	r.Post("/corpus/{genre}/{id}/assets",
-		h.dispatchOp(face, "assets.upload", corpusEntryArgs, jsonCreated))
+	// 素材挂在一条语料下面,所以地址也挂在它下面。两条来路同一个地址:JSON 交一个 https
+	// 地址(服务端自己去取,owner 通过 AI 的用法),multipart 交字节(面板上的文件挑选框)。
+	// 分流在 corpus_assets.go。
+	r.Post("/corpus/{genre}/{id}/assets", h.attachCorpusAsset())
+	r.Delete("/corpus/{genre}/{id}/assets/{asset_id}",
+		h.dispatchOp(face, "assets.delete", corpusAssetArgs, noContent))
 }

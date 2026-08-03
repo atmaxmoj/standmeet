@@ -98,6 +98,45 @@ func FetchMedia(ctx context.Context, in *FetchMediaInput) (FetchedMedia, error) 
 	return readGuarded(resp, in, allowed)
 }
 
+// AcceptMediaInput —— owner 从自己机器上选的一份文件。**没有地址**,字节已经在手里。
+type AcceptMediaInput struct {
+	Filename   string
+	Kind       string
+	DeclaredCT string
+	Body       []byte
+}
+
+// AcceptMedia —— 收一份直接递进来的字节,过**回来那一半**守卫。
+//
+// 出去那一半(https / BlockInternalEgress)在这里没有对应物:没有地址,服务端不发请求,
+// SSRF 这个口子根本不存在。回来那一半一条都不能少 —— 一份 owner 亲手选的文件同样会由
+// 我们的地址发出去,声明 image/png 实际是 SVG,照样是自家域上的存储型 XSS。owner
+// 不是攻击者,但递给他的那个文件挑选框是。
+//
+// 两条路(按地址取 / 直接收字节)最后汇到同一处:白名单按 kind 查、上限按 kind 分、
+// 真实字节跟声明对得上。分成两份实现,就等于给其中一条留了一条没人守的路。
+func AcceptMedia(in *AcceptMediaInput) (FetchedMedia, error) {
+	allowed, kerr := allowedTypes(in.Kind)
+	if kerr != nil {
+		return FetchedMedia{}, kerr
+	}
+	declared := baseType(in.DeclaredCT)
+	limit, ok := allowed[declared]
+	if !ok {
+		return FetchedMedia{}, fmt.Errorf("%w: content-type %s is not accepted for %s",
+			entity.ErrMediaRejected, declared, kindOrImage(in.Kind))
+	}
+	// 上限同样按**手里这些字节**算 —— 浏览器报的大小跟远端报的 Content-Length 一样不算证据。
+	if int64(len(in.Body)) > limit {
+		return FetchedMedia{}, fmt.Errorf(
+			"%w: body exceeds the %d byte limit", entity.ErrMediaRejected, limit)
+	}
+	if serr := bytesAgree(in.Body, declared); serr != nil {
+		return FetchedMedia{}, serr
+	}
+	return FetchedMedia{Body: in.Body, ContentType: declared, Filename: in.Filename}, nil
+}
+
 func allowedTypes(kind string) (map[string]int64, error) {
 	if kind == "" {
 		kind = entity.AssetKindImage

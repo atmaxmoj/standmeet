@@ -63,6 +63,28 @@ export interface WikiLandingView {
   readonly cited_by: readonly { readonly path: string; readonly title: string }[];
   // 这条 wiki 是从几条 raw 提炼来的(N corpus sources)。
   readonly sources_count: number;
+  // asset_urls —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
+  // reader 渲染前照它把 URI 换成 URL;不换的话 react-markdown 会把非标准 scheme 剥掉,
+  // 图位是空的而且不报错。
+  readonly asset_urls?: Readonly<Record<string, string>>;
+  // assets —— 挂在这条上的文件(文件名 + 真实字节数 + 地址)。图片走正文里的 asset URI,
+  // kind='attachment' 的渲成下载区 —— 大小要显示真实字节数,那是访客决定点不点的依据。
+  readonly assets?: readonly WikiAssetView[];
+  // hero 三件套。cover_image_asset_id 为空 = owner 没设封面,reader 退回程序生成的色板。
+  readonly cover_image_asset_id?: string;
+  readonly cover_headline?: string;
+  readonly cover_hue?: string;
+}
+
+// WikiAssetView —— 一份挂在语料上的文件,访客那一侧看到的样子。
+// **不含 storage key、不含 holder id**:访客要的是"叫什么、多大、从哪儿下"。
+export interface WikiAssetView {
+  readonly asset_id: string;
+  readonly kind: string;
+  readonly content_type: string;
+  readonly original_filename: string;
+  readonly url: string;
+  readonly size_bytes: number;
 }
 
 // OutputLandingView —— /output/<path> SEO landing。结构跟 WikiLandingView
@@ -146,7 +168,7 @@ export interface PublicSessionResponse {
   readonly dock_buttons?: readonly PublicSessionDockButton[];
   // #122: owner 已配通 mail connector。前端据此决定约成卡要不要显
   // "发确认邮件" 那块(没配 → 整张确认卡不渲染,owner 根本发不了信)。
-  readonly owner_can_email?: boolean;
+  readonly owner_can_deliver?: boolean;
 }
 
 export type SSETokenEvent = { readonly kind: 'token'; readonly text: string };

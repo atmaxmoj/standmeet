@@ -89,7 +89,7 @@ func accountCredentialOps(deps AccountDeps) []fp.Op {
 		{
 			ID: "account.generate_recovery",
 			Description: "Mint a new account-recovery phrase. Only its hash is stored; the " +
-				"phrase itself is mailed to the owner.",
+				"phrase itself is sent to the owner.",
 			InputSchema: noArgs,
 			Kind:        fp.Action,
 			Reach:       credentialed("mints a recovery secret"),

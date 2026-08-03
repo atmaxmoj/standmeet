@@ -2,10 +2,10 @@
 // 「mail 断联 · 两 turn 间 · 依赖 smtp 的能力隐藏」补(mid-session,补 mail-connector
 // 只测 fresh 的缺口)。
 //
-// 依赖 smtp connector 的能力这里取 owner.can_email_codes(gate 的 request-access
+// 依赖 smtp connector 的能力这里取 owner.can_deliver_codes(gate 的 request-access
 // 邮件回路靠它),它在每次 /api/v1/instance 请求重算 —— 跟 booking tool 走单点闸
-// 同一个「Requires 未连即隐藏」的道理。流程:配 + verify mail → can_email_codes
-// true(能力可用)→ owner 在两回合之间 disconnect mail → 下一回合 can_email_codes
+// 同一个「Requires 未连即隐藏」的道理。流程:配 + verify mail → can_deliver_codes
+// true(能力可用)→ owner 在两回合之间 disconnect mail → 下一回合 can_deliver_codes
 // **翻 false**(能力消失),gate 的 request-access 块随之收起。
 //
 // RED:重构落地前 smtp-依赖能力若不经 global 单点闸 per-call 重算,disconnect 后
@@ -26,12 +26,12 @@ const OWNER = {
   fullName: 'Mail Dep Owner',
 };
 
-interface InstanceView { can_email_codes: boolean }
+interface InstanceView { can_deliver_codes: boolean }
 
-async function canEmailCodes(request: APIRequestContext): Promise<boolean> {
+async function canDeliverCodes(request: APIRequestContext): Promise<boolean> {
   const res = await request.get(`${BACKEND}/api/v1/instance`);
   if (res.status() !== 200) throw new Error(`instance: ${res.status()}`);
-  return (await res.json() as InstanceView).can_email_codes;
+  return (await res.json() as InstanceView).can_deliver_codes;
 }
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -39,12 +39,12 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 test.describe('connector dep · mail disconnect between turns hides smtp-dependent capability', () => {
   test.beforeAll(async ({ playwright }) => { await setup(playwright); });
 
-  test('connected → can_email_codes true; owner disconnects mail → next turn it flips false',
+  test('connected → can_deliver_codes true; owner disconnects mail → next turn it flips false',
     async ({ playwright, page }) => {
       const request = await playwright.request.newContext();
 
       // turn 1 (smtp 已连): 依赖 smtp 的能力可用。
-      expect(await canEmailCodes(request), 'smtp connected → capability available').toBe(true);
+      expect(await canDeliverCodes(request), 'smtp connected → capability available').toBe(true);
 
       // owner 在两回合之间断开 mail connector。
       const { csrf } = await login(request, OWNER.email, OWNER.password);
@@ -54,7 +54,7 @@ test.describe('connector dep · mail disconnect between turns hides smtp-depende
       expect(dis.status()).toBe(200);
 
       // 下一回合(重新查实例): Requires:[smtp] 不再满足 → 能力消失。
-      expect(await canEmailCodes(request), 'smtp disconnected → capability hidden').toBe(false);
+      expect(await canDeliverCodes(request), 'smtp disconnected → capability hidden').toBe(false);
       await request.dispose();
 
       // 能力一消失,gate 的 request-access 块也应收起(用户可见面同步)。

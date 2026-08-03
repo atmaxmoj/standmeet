@@ -57,9 +57,9 @@ test.describe('mail connector access-code loop', () => {
       await request.dispose();
     });
 
-  // Runs last: disconnect removes the connector, so can_email_codes flips back
+  // Runs last: disconnect removes the connector, so can_deliver_codes flips back
   // to false and the gate hides its request-access block again.
-  test('disconnect → can_email_codes false → gate hides request-access',
+  test('disconnect → can_deliver_codes false → gate hides request-access',
     async ({ playwright, page }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
@@ -68,7 +68,7 @@ test.describe('mail connector access-code loop', () => {
       });
       expect(dis.status()).toBe(200);
       const inst = await request.get(`${BACKEND}/api/v1/instance`);
-      expect((await inst.json() as { can_email_codes: boolean }).can_email_codes).toBe(false);
+      expect((await inst.json() as { can_deliver_codes: boolean }).can_deliver_codes).toBe(false);
       await request.dispose();
       await page.getByRole('link', { name: 'request access ↗' }).click();
       await page.waitForURL('**/gate', { timeout: 10_000 });

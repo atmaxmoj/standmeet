@@ -48,6 +48,25 @@ func (s *Service) Manifest(id string) *Manifest {
 	return nil
 }
 
+// DeclaredOwnerOpIDs —— 各连接器**自己在 manifest 里声明**的 owner 操作 id
+// (如 "connectors.mail_test_send")。
+//
+// admin 路由从这份清单派生自己的路由,所以那一层不写死任何品类名:加一个连接器、
+// 它声明一个操作,路由自动就有。清单归连接器轴 —— 谁声明的谁知道。
+//
+// 只扫内置 manifest,**不是遗漏**:owner-op 唯一的来源是 `connectors/<id>/manifest.yaml`
+// 的 `owner_ops:`(见 connectors/loader.go)。owner **上传**的连接器是 spec + 绑定,
+// 它暴露的是 agent 工具,没有声明 owner-op 的机制 —— 所以这里没有它要漏的东西。
+func (s *Service) DeclaredOwnerOpIDs() []string {
+	out := make([]string, 0, len(s.d.Manifests))
+	for i := range s.d.Manifests {
+		for _, op := range s.d.Manifests[i].OwnerOps {
+			out = append(out, op.Name)
+		}
+	}
+	return out
+}
+
 // Catalog —— 所有内置连接器（拉起时外置装配进来的 manifest），供 admin UI 渲染可连接的内置卡。
 // 各卡状态/凭据表单各自再取 /{id}/{status,credential-form}。不进 List（List 只列 owner 已建；内置
 // 混进去会被 reuse-by-category 的调用方误抓）。复用 Connection，不新增公开类型。

@@ -28,7 +28,7 @@ const (
 )
 
 // RecoveryDeps —— recovery 依赖。Owners=读写 recovery_hash + creds;Sessions=recover 后发 session;
-// Proxy=走 owner SMTP 把 phrase 邮出去。
+// Proxy=把 phrase 送出去。
 type RecoveryDeps struct {
 	Owners   *repo.Repo
 	Sessions *session.OwnerSessionStore
@@ -49,7 +49,7 @@ type RecoverOutput struct {
 	OwnerHandle  string
 }
 
-// GenerateRecovery —— 生成 phrase、存 hash、把明文邮给 owner。要求已配 mail connector(否则 Send 报错)。
+// GenerateRecovery —— 生成 phrase、存 hash、把明文邮给 owner。要求出站通道可用(否则 Send 报错)。
 func GenerateRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) error {
 	ownerRow, err := deps.Owners.GetByID(ctx, ownerID)
 	if err != nil {
@@ -59,17 +59,17 @@ func GenerateRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) e
 	if serr != nil {
 		return serr
 	}
-	if merr := deps.Proxy.Send(ctx, ownerID, OutboundMessage{
-		To:      ownerRow.Email,
-		Subject: "Your StandMeet recovery phrase",
-		Body:    recoveryEmailBody(phrase),
+	if merr := deps.Proxy.Send(ctx, ownerID, OutboundNotice{
+		To:    ownerRow.Email,
+		Title: "Your StandMeet recovery phrase",
+		Body:  recoveryNoticeBody(phrase),
 	}); merr != nil {
 		return fmt.Errorf("send recovery phrase: %w", merr)
 	}
 	return nil
 }
 
-// storeNewRecovery —— 生成 phrase + hash + 存,返明文 phrase(给邮件)。
+// storeNewRecovery —— 生成 phrase + hash + 存,返明文 phrase(给通知正文)。
 func storeNewRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) (string, error) {
 	phrase, perr := newRecoveryPhrase()
 	if perr != nil {
@@ -147,7 +147,7 @@ func newRecoveryPhrase() (string, error) {
 	return strings.Join(groups, "-"), nil
 }
 
-func recoveryEmailBody(phrase string) string {
+func recoveryNoticeBody(phrase string) string {
 	return strings.Join([]string{
 		"Someone (hopefully you) generated an account recovery phrase for your StandMeet instance.",
 		"",

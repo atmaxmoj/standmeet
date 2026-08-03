@@ -29,6 +29,8 @@ export interface CorpusEntryInput {
   tags?: string[];
   parent_id?: string;
   show_as_source?: boolean;
+  // cover_image_asset_id —— hero 图用哪份素材。后端是指针字段:不发 = 不动。
+  cover_image_asset_id?: string;
 }
 
 export interface PromoteInput {
@@ -45,6 +47,8 @@ const WikiDetailSchema = z.object({
   source_raw_ids: z.array(z.string()),
   parent_id: z.string().nullable().optional(),
   show_as_source: z.boolean(), excerpt: z.string(), published: z.boolean(),
+  // hero 图。omitempty:没设过封面时字段不在 —— 那是"没有",不是坏了。
+  cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
 });
 export type WikiDetail = z.infer<typeof WikiDetailSchema>;
 
@@ -53,6 +57,8 @@ const OutputDetailSchema = z.object({
   source_wiki_ids: z.array(z.string()),
   parent_id: z.string().nullable().optional(),
   show_as_source: z.boolean(), excerpt: z.string(), published: z.boolean(),
+  // hero 图。omitempty:没设过封面时字段不在 —— 那是"没有",不是坏了。
+  cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
 });
 export type OutputDetail = z.infer<typeof OutputDetailSchema>;
 
@@ -68,7 +74,7 @@ export interface CorpusActionsHook {
   error: string | null;
   // raw
   updateRaw: (id: string, input: RawUpdateInput) => Promise<boolean>;
-  archiveRaw: (id: string) => Promise<boolean>;
+  deleteRaw: (id: string) => Promise<boolean>;
   promoteRaw: (id: string, input: PromoteInput) => Promise<boolean>;
   // wiki
   createWiki: (input: CorpusEntryInput) => Promise<boolean>;
@@ -94,8 +100,8 @@ export function useCorpusActions(): CorpusActionsHook {
     pending, error,
     updateRaw: useCallback(
       (id, input) => run(() => doUpdateRaw(id, input)), [run]),
-    archiveRaw: useCallback(
-      (id) => run(() => doArchiveRaw(id)), [run]),
+    deleteRaw: useCallback(
+      (id) => run(() => doDeleteRaw(id)), [run]),
     promoteRaw: useCallback(
       (id, input) => run(() => doPromoteRaw(id, input)), [run]),
     createWiki: useCallback(
@@ -175,11 +181,11 @@ async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
   );
 }
 
-async function doArchiveRaw(id: string): Promise<void> {
+// doDeleteRaw —— 删一条 raw。**从列表里拿掉**,不是打个已归档的标记留在那儿:
+// 后端现在是真删(跟 wiki / output 一样),再刷新它也不会回来。
+async function doDeleteRaw(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/corpus/raw/${id}`);
-  rawStore.getState().mutate(
-    (prev) => (prev ?? []).map((r) => r.id === id ? { ...r, archived: true } : r),
-  );
+  rawStore.getState().mutate((prev) => (prev ?? []).filter((r) => r.id !== id));
 }
 
 async function doPromoteRaw(id: string, input: PromoteInput): Promise<void> {

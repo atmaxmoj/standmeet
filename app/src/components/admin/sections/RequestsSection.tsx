@@ -18,15 +18,15 @@ import {
   type RequestStatusFilter,
   type RequestsHook,
 } from '@/lib/admin/use-requests';
-import { useMail } from '@/lib/admin/use-mail';
+import { useOutbound } from '@/lib/admin/use-outbound';
 import { useAction } from '@/lib/ui/use-action';
 
 const FILTERS: RequestStatusFilter[] = ['open', 'replied', 'closed', 'all'];
 
 export function RequestsSection() {
   const hook = useRequests();
-  const mail = useMail();
-  const mailConnected = mail.status?.connected ?? false;
+  const outbound = useOutbound();
+  const canDeliver = outbound.status?.connected ?? false;
   return (
     <>
       <SectionHeader
@@ -35,25 +35,25 @@ export function RequestsSection() {
         count={requestCount(hook)}
       />
       <Intro />
-      <MailHint mailConnected={mailConnected} />
+      <DeliveryHint canDeliver={canDeliver} />
       <FilterRow hook={hook} />
-      <RequestBody hook={hook} mailConnected={mailConnected} />
+      <RequestBody hook={hook} canDeliver={canDeliver} />
     </>
   );
 }
 
-function MailHint({ mailConnected }: { mailConnected: boolean }) {
-  return mailConnected ? null : <MailHintText />;
+function DeliveryHint({ canDeliver }: { canDeliver: boolean }) {
+  return canDeliver ? null : <DeliveryHintText />;
 }
 
-function MailHintText() {
+function DeliveryHintText() {
   const t = useTranslations('adminAccess');
   return (
     <p
       className="mono text-[11.5px] text-(--color-accent) mb-5"
       data-testid="requests-mail-hint"
     >
-      {t('requests.mailHint')}
+      {t('requests.deliveryHint')}
     </p>
   );
 }
@@ -79,12 +79,12 @@ function FilterRow({ hook }: { hook: RequestsHook }) {
   );
 }
 
-function RequestBody({ hook, mailConnected }: { hook: RequestsHook; mailConnected: boolean }) {
+function RequestBody({ hook, canDeliver }: { hook: RequestsHook; canDeliver: boolean }) {
   const map = {
     loading: <ListSkeleton count={4} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState filter={hook.filter} />,
-    list: <RequestList hook={hook} mailConnected={mailConnected} />,
+    list: <RequestList hook={hook} canDeliver={canDeliver} />,
   } as const;
   return map[pickBodyState(hook)];
 }
@@ -120,12 +120,12 @@ function EmptyState({ filter }: { filter: RequestStatusFilter }) {
   );
 }
 
-function RequestList({ hook, mailConnected }: { hook: RequestsHook; mailConnected: boolean }) {
+function RequestList({ hook, canDeliver }: { hook: RequestsHook; canDeliver: boolean }) {
   return (
     <ul className="space-y-5" data-testid="requests-list">
       {hook.rows.map((r) => (
         <li key={r.id} data-testid={`request-row-${r.id}`}>
-          <RequestCard req={r} hook={hook} mailConnected={mailConnected} />
+          <RequestCard req={r} hook={hook} canDeliver={canDeliver} />
         </li>
       ))}
     </ul>
@@ -133,8 +133,8 @@ function RequestList({ hook, mailConnected }: { hook: RequestsHook; mailConnecte
 }
 
 function RequestCard({
-  req, hook, mailConnected,
-}: { req: AccessRequestView; hook: RequestsHook; mailConnected: boolean }) {
+  req, hook, canDeliver,
+}: { req: AccessRequestView; hook: RequestsHook; canDeliver: boolean }) {
   const [outcome, setOutcome] = useState<ApproveOutcome | null>(null);
   return (
     <article className="border border-(--color-rule) p-5 rounded-sm bg-(--color-surface)/30">
@@ -143,7 +143,7 @@ function RequestCard({
         &ldquo;{req.message}&rdquo;
       </blockquote>
       <RequestActions
-        req={req} hook={hook} mailConnected={mailConnected} onApproved={setOutcome}
+        req={req} hook={hook} canDeliver={canDeliver} onApproved={setOutcome}
       />
       <ApproveOutcomeView outcome={outcome} />
     </article>
@@ -202,7 +202,7 @@ function RequestHead({ req }: { req: AccessRequestView }) {
 interface ActionsProps {
   req: AccessRequestView;
   hook: RequestsHook;
-  mailConnected: boolean;
+  canDeliver: boolean;
   onApproved: (o: ApproveOutcome) => void;
 }
 
@@ -211,14 +211,14 @@ function RequestActions(props: ActionsProps) {
   return closed ? null : <ActiveActions {...props} />;
 }
 
-function ActiveActions({ req, hook, mailConnected, onApproved }: ActionsProps) {
+function ActiveActions({ req, hook, canDeliver, onApproved }: ActionsProps) {
   const t = useTranslations('adminAccess');
   const run = useAction();
   // decline 是状态变更 → 成功/失败都用 toast 收尾（失败不再静默：没标上 owner 必须知道）。
   const onDecline = () => run(() => hook.mark(req.id, 'closed'), { success: 'Request declined' });
   return (
     <div className="flex items-baseline gap-2 mt-4 flex-wrap" data-testid={`request-approve-${req.id}`}>
-      <ApproveControl id={req.id} hook={hook} mailConnected={mailConnected} onApproved={onApproved} />
+      <ApproveControl id={req.id} hook={hook} canDeliver={canDeliver} onApproved={onApproved} />
       <Btn kind="outline" size="sm" onClick={() => { void onDecline(); }}>
         {t('requests.decline')}
       </Btn>
@@ -227,10 +227,10 @@ function ActiveActions({ req, hook, mailConnected, onApproved }: ActionsProps) {
 }
 
 function ApproveControl({
-  id, hook, mailConnected, onApproved,
-}: { id: string; hook: RequestsHook; mailConnected: boolean; onApproved: (o: ApproveOutcome) => void }) {
+  id, hook, canDeliver, onApproved,
+}: { id: string; hook: RequestsHook; canDeliver: boolean; onApproved: (o: ApproveOutcome) => void }) {
   const t = useTranslations('adminAccess');
-  return mailConnected
+  return canDeliver
     ? (
       <Btn
         kind="primary" size="sm"

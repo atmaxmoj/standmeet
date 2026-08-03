@@ -106,7 +106,9 @@ type Facade struct {
 // Conform 里的 missing/leak 两个方向问的是同一件事,所以同一份判断在这儿导出一次。
 func (f Facade) Owes(op *Op) bool { return f.mustExpose(op) }
 
-func (f Facade) carries(c FacadeClass) bool { return slices.Contains(f.CanCarry, c) }
+// Carries —— 这个面载不载得动某一类东西(浏览器流程 / 明文密钥 / multipart / 要 LLM 在场)。
+// 导出是给收口用:一个面想给 op 递随行字节,得先在档案里说得出自己载得动。
+func (f Facade) Carries(c FacadeClass) bool { return slices.Contains(f.CanCarry, c) }
 
 // mustExpose —— does op belong on this facade, per the op's Reach and the facade's profile? First
 // the planes must match (a cross-plane op never belongs here — see the leak check for exposing one
@@ -133,7 +135,7 @@ func (f Facade) servesSide(side reachSide) bool {
 
 func (f Facade) carriesAll(classes []FacadeClass) bool {
 	for _, c := range classes {
-		if !f.carries(c) {
+		if !f.Carries(c) {
 			return false
 		}
 	}

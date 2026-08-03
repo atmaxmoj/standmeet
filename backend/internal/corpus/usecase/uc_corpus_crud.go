@@ -45,14 +45,20 @@ func UpdateRaw(
 	return raw, nil
 }
 
-// ArchiveRaw 软删一条 raw。
-func ArchiveRaw(ctx context.Context, deps Deps, ownerID, rawID string) error {
+// DeleteRaw 删一条 raw。**真删,跟 wiki / output 一样。**
+//
+// 这里以前是 ArchiveRaw:置一个 archived 标志、把行留着。那个"软删"没有第二半 ——
+// 没有列表显示归档的行(ListRaw 永远 archived=false),没有恢复的入口,面板上那个写着
+// archive 的按钮打的就是 DELETE。所以它不是一种更温和的删,是同一件事换了个名字,
+// 外加一行谁也读不到的墓碑。
+func DeleteRaw(ctx context.Context, deps Deps, ownerID, rawID string) error {
 	if ownerID == "" || rawID == "" {
 		return apierr.ErrEmptyField
 	}
-	if err := deps.Raw.Archive(ctx, ownerID, rawID); err != nil {
-		return fmt.Errorf("archive raw: %w", err)
+	if err := deps.Raw.Delete(ctx, ownerID, rawID); err != nil {
+		return fmt.Errorf("delete raw: %w", err)
 	}
+	deleteNoteHook(ctx, deps, rawID)
 	return nil
 }
 

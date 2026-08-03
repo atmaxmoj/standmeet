@@ -57,8 +57,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.AgentSkills, Log: d.Log},
 		DiagSession:  buildDiagSessionDeps(d),
 		DiagConnector: sysroutes.DiagConnectorDeps{
-			Calendar:  d.ConnectorSlots.ConnectorCalendar,
-			Mail:      d.ConnectorSlots.ConnectorMail,
+			Invoke:    diagCategoryInvoke(d),
 			AgentCall: d.ConnectorSlots.AgentCall,
 			Log:       d.Log,
 		},
@@ -230,7 +229,7 @@ func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 	return publicroutes.Handlers{
 		Visitor:      newVisitorSessionDeps(d),
 		SecureCookie: d.SecureCookie,
-		MailStatus:   port.OutboundSender(d),
+		Outbound:     port.OutboundSender(d),
 		Resolver:     d.ProviderResolver,
 		Reports:      d.ChatReportRepo,
 		Sessions:     d.VisitorStore,
@@ -254,7 +253,7 @@ func buildPublicPageDeps(d *deps.Runtime) publicroutes.PageHandlers {
 			log: d.Log, repo: d.InstanceRepo, holder: d.SetupTokenHolder,
 		},
 		CaptchaSiteKey: d.CaptchaSiteKey,
-		MailStatus:     owner.MailStatusDeps{Proxy: port.OutboundSender(d)},
+		Outbound:       owner.OutboundStatusDeps{Proxy: port.OutboundSender(d)},
 	}
 }
 
@@ -264,6 +263,11 @@ func buildPublicSEODeps(d *deps.Runtime) publicroutes.SEOHandlers {
 			Owners: d.OwnerRepo, SEO: d.SEORepo,
 			Wiki: d.WikiRepo, Output: d.OutputRepo,
 			NoteRefs: d.NoteRefRepo,
+			// 素材:reader 要把正文里的 standmeet-asset 引用解析成可访问地址。
+			Media: &corpus.NoteAssetsDeps{
+				Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
+				Hero:   d.NoteHeroRepo,
+			},
 		},
 		Sessions: d.VisitorStore,
 		Log:      d.Log,

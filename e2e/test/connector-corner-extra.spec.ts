@@ -223,9 +223,22 @@ async function armMockStatus(request: APIRequestContext, op: string, status: num
 async function diagListBusy(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<{ status: number; body: unknown }> {
-  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { timeMin: '2030-01-01T00:00:00Z', timeMax: '2030-01-02T00:00:00Z' },
-  });
-  return { status: res.status(), body: await res.json() };
+  const r = await diagInvoke(request, csrf, id, 'calendar', 'free_busy',
+    { time_min: '2030-01-01T00:00:00Z', time_max: '2030-01-02T00:00:00Z' });
+  return { status: r.status, body: JSON.parse(r.text || '{}') as unknown };
+}
+
+// diagInvoke —— 打 owner-authed 的连接器 diag 口。**这是一条绕过真实链路的后门**
+// (真实路径是 访客 chat → agent → booker 沙箱 → connector.invoke)，所以它**故意**
+// 内联在这里、不抽成共用 fixture:抽出去等于给"绕过"发许可证,下一个人就更容易用它。
+// 这条后门本身的去留见 task「diag 后门」。
+async function diagInvoke(
+  request: APIRequestContext, csrf: string, id: string,
+  category: string, op: string, args: Record<string, unknown>,
+): Promise<{ status: number; text: string }> {
+  const res = await request.post(
+    `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/invoke`,
+    { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },
+  );
+  return { status: res.status(), text: await res.text() };
 }

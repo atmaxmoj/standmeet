@@ -194,16 +194,21 @@ async function disconnectConnector(
   if (res.status() !== 200) throw new Error(`disconnect ${id}: ${res.status()}`);
 }
 
-// diagSend —— 经 MailContract.Send 发一封（diag 端直触发 mailer，归一 via_kind/ok）。
-// 证明 mailer 走品类契约、底下是 openapi HTTP 一概不知。
+// diagSend —— 发一封测试信,走 owner **真的会按的那个按钮**:面板上的 "send a test mail"。
+//
+// 它以前走 diag 的通用 invoke 口。那条口是 owner-authed 的诊断后门,故意把**原始原因**
+// 透出去("我这份绑定为什么不通"是它存在的全部理由)。于是这几条断言"消息友好、不泄状态码"
+// 的用例,量的是 diag 的措辞,不是产品的 —— 而产品那一句根本没被测到。
+//
+// 换成真实那条口之后,它们量的才是 owner 会看见的东西:归类后的一句话 + via_kind。
 async function diagSend(
-  request: APIRequestContext, csrf: string, id: string,
+  request: APIRequestContext, csrf: string, _id: string,
   mail: { to: string; subject: string; text: string },
 ): Promise<MailSendDiag> {
-  const res = await request.post(
-    `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/send`,
-    { headers: { 'X-Csrftoken': csrf }, data: mail },
-  );
+  const res = await request.post(`${BACKEND}/api/admin/connectors/ops/mail_test_send`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: { to: mail.to, subject: mail.subject, text: mail.text },
+  });
   const json = await res.json().catch(() => ({})) as
     { ok?: boolean; via_kind?: string; reason?: string };
   return {
@@ -408,3 +413,7 @@ test.describe('connector · openapi mail (SendGrid-style, kind=openapi fills the
   test('disconnect the openapi mail connector → mail.send re-gates',
     async () => { await runDepGating(request, csrf); });
 });
+
+// 这个文件里以前有一个内联的 diagInvoke —— 打 owner-authed 的连接器诊断口,绕过真实链路。
+// 它没了:这几条用例问的是"owner 按下发测试信之后看见什么",而那是面板上的按钮,
+// 不是诊断口。诊断口故意透出原始原因,拿它量"消息够不够友好"量的是另一个东西。

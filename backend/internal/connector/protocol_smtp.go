@@ -116,7 +116,9 @@ func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg contract.M
 		b = b.HTML(msg.HTML)
 	}
 	if serr := b.Send(); serr != nil {
-		return fmt.Errorf("send mail: %w", serr)
+		// SMTP 分不出"服务器暂时不行"和"这封被拒"(两者都可能是一个 5xx 回码),所以统一
+		// 归到"暂时不可用"。原始错误留在 %w 链里给日志 —— 面那一侧只读哨兵。
+		return fmt.Errorf("%w: %w", contract.ErrMailUnavailable, serr)
 	}
 	return nil
 }

@@ -17,7 +17,6 @@ import (
 	"time"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
@@ -51,9 +50,9 @@ func AccessRequests(d AccessRequestsDeps) []fp.Op {
 		},
 		{
 			ID: "access_requests.approve",
-			Description: "Approve a gate access request: issue an access code, email " +
+			Description: "Approve a gate access request: issue an access code, send " +
 				"it (code + link) to the requester, and mark the request replied. " +
-				"The mail connector must be connected first.",
+				"A connector able to deliver it must be set up first.",
 			InputSchema: accessRequestIDSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -185,7 +184,9 @@ func approveAccessRequest(deps usecase.ApproveRequestDeps) fp.Invoke {
 		}
 		out, err := usecase.ApproveAccessRequest(ctx, deps, ownerID, in.ID)
 		if err != nil {
-			return nil, accessRequestErr(err)
+			// 送不出去时要说清楚该去连**什么** —— 名字由装配根经 Proxy 转述,
+			// 这一层不知道那是邮件还是别的。
+			return nil, approveErr(err, deps.Proxy.ChannelName())
 		}
 		return json.Marshal(approvedOut{Code: out.Code, Link: out.Link})
 	}
@@ -215,7 +216,13 @@ var accessRequestErrClasses = []struct {
 	{access.ErrAccessRequestStatusInvalid, func() error {
 		return fp.BadInput("invalid status value (want open, replied, or closed)")
 	}},
-	{consumer.ErrMailNotConfigured, func() error {
-		return fp.BadInput("configure and test your mail connector first")
-	}},
+}
+
+// approveErr —— approve 独有的那一类:送不出去。消息里要出现 owner 在**连接器页面上
+// 找得到的那个名字**;"an outbound channel" 是个界面上不存在的词,他拿着它找不到东西。
+func approveErr(err error, channel string) error {
+	if errors.Is(err, usecase.ErrOutboundNotConfigured) {
+		return fp.BadInput("connect and verify a " + channel + " connector first")
+	}
+	return accessRequestErr(err)
 }

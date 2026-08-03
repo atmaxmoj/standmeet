@@ -16,5 +16,5 @@ import { GateClient } from '@/app/gate/gate-client';
 
 export default async function GatePage() {
   const instance = await fetchInstance();
-  return <GateClient handle={instance.handle} canEmailCodes={instance.can_email_codes} />;
+  return <GateClient handle={instance.handle} canDeliverCodes={instance.can_deliver_codes} />;
 }

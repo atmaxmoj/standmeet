@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -40,12 +41,29 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 		r.Get("/catalog",
 			h.dispatchOp(face, "connectors.catalog", emptyArgs, jsonListOK("connectors")))
 		r.Post("/", h.dispatchOp(face, "connectors.create", connectorWriteArgs, jsonCreated))
-		r.Post("/mail/test-send",
-			h.dispatchOp(face, "connectors.mail_test_send", bodyArgs, jsonOK))
+		h.mountDeclaredOps(r, face)
 		r.Post("/validate-spec", h.dispatchOp(face, "connectors.validate_spec", bodyArgs, jsonOK))
 		h.mountConnectorItem(r, face)
 	})
 }
+
+// mountDeclaredOps —— 把各连接器声明的 owner 操作挂成路由:`POST /connectors/ops/<后缀>`。
+//
+// 以前这里是一条写死的 `POST /mail/test-send` → `connectors.mail_test_send`。发一封测试信是
+// **邮件连接器**的事,不是"连接器注册表"的事;它长在通用注册表上,注册表就得认识 mail ——
+// 于是通用的那一层里出现了一个品类的名字。现在名字从声明来,这一层一个都不写。
+func (h *Handlers) mountDeclaredOps(r chi.Router, face *dispatcher.Face) {
+	for _, opID := range h.ConnectorsAdmin.Svc.DeclaredOwnerOpIDs() {
+		seg, ok := strings.CutPrefix(opID, declaredOpPrefix)
+		if !ok {
+			continue // 不是这条命名规范下的,不挂
+		}
+		r.Post("/ops/"+seg, h.dispatchOp(face, opID, bodyArgs, jsonOK))
+	}
+}
+
+// declaredOpPrefix —— 连接器声明的 owner 操作统一以此开头(见 connector.OwnerOp.Name)。
+const declaredOpPrefix = "connectors."
 
 // mountConnectorItem —— /{id} 那一组。前四条经收口;后四条是浏览器专属的(OAuth 跳转、
 // 明文凭据),只在这个面上,所以照常直连编排服务。

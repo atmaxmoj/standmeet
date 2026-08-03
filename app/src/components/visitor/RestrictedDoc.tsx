@@ -62,10 +62,13 @@ function DocContent({ genre, slug, title, body }: {
   );
 }
 
+// Locked —— 这条读不到。**testid 挂在这一支上**:没有它,"访客看不到这条"只能靠
+// "某个元素不存在"来断,而元素不存在在页面 404、组件改名、路由挂掉时同样成立 ——
+// 一条在功能坏掉时也会绿的断言。要断的是"访客确实被拦在门外",那得有个正向的标记。
 function Locked({ genre, slug }: { genre: string; slug: string }) {
   const t = useTranslations('visitor.restrictedDoc');
   return (
-    <div className="mx-auto max-w-2xl px-6 py-24 text-center">
+    <div className="mx-auto max-w-2xl px-6 py-24 text-center" data-testid={`${genre}-locked`}>
       <Home />
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-4">
         {genre} · {slug}

@@ -311,7 +311,20 @@ func (a mailAdapter) Send(ctx context.Context, ownerID string, msg contract.Mail
 	}
 	in := sendInput{To: msg.To, Subject: msg.Subject, Body: msg.Body, HTML: msg.HTML}
 	if cerr := a.runtime.Call(ctx, "send", in, nil, inj); cerr != nil {
-		return fmt.Errorf("mail: %w", cerr)
+		return classifyMailSendErr(cerr)
 	}
 	return nil
+}
+
+// classifyMailSendErr —— 把运行时的错误归到两个 mail 哨兵之一(暂时不可用 / 这封被拒)。
+//
+// **原始错误留在 %w 链里**给日志,面那一侧只读哨兵。归类放在这儿而不是面上:
+// "429/5xx 算瞬时"是这个运行时的知识,面不该去认状态码 —— 认了就等于每加一种 kind
+// 都要在面上再抄一遍判断。
+func classifyMailSendErr(err error) error {
+	var se *openapi.StatusError
+	if errors.As(err, &se) && !se.Transient {
+		return fmt.Errorf("%w: %w", contract.ErrMailRejected, err)
+	}
+	return fmt.Errorf("%w: %w", contract.ErrMailUnavailable, err)
 }

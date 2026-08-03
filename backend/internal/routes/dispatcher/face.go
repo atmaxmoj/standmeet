@@ -73,6 +73,31 @@ func (f *Face) Op(id string) (Op, bool) {
 	return op, ok
 }
 
+// OpFiles —— 取一个操作,并声明这个面会给它**随行的字节**(multipart 之类)。
+//
+// 跟 Op 的区别只有一条守卫:这个面的档案得真的载得动 fp.Multipart。挡的是"MCP 面也来
+// 递字节"——那条路上没有文件挑选框,owner 递的是地址;能递字节的面就那么几个,让档案说了算,
+// 而不是让每个 handler 自己记得。
+//
+// 拿到的仍然是同一个 Op、同一条装饰器链:字节走 ctx(见 fp.WithFiles),不是第二个执行入口。
+// 开第二个入口就意味着鉴权/配额/审计要记得也包那一个。
+func (f *Face) OpFiles(id string) (Op, bool) {
+	if !f.profile.Carries(fp.Multipart) {
+		return Op{}, false
+	}
+	return f.Op(id)
+}
+
+// MustOpFiles —— OpFiles 的断言版,给组装期用。面载不动字节 = 启动就炸,
+// 而不是运行时悄悄回一个 404。
+func (f *Face) MustOpFiles(id string) Op {
+	op, ok := f.OpFiles(id)
+	if !ok {
+		panic("dispatcher: face " + f.profile.Name + " cannot carry files for op " + id)
+	}
+	return op
+}
+
 // MustOp —— Op 的断言版,给组装期用:id 拼错 = 启动就炸,而不是悄悄少一条路由。
 func (f *Face) MustOp(id string) Op {
 	op, ok := f.Op(id)

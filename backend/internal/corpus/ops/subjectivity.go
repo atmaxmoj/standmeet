@@ -50,35 +50,67 @@ var subjectivitySchema = json.RawMessage(`{
 		"tags":{"type":"array","items":{"type":"string"}},
 		"css_classes":{"type":"array","items":{"type":"string"}},
 		"show_as_source":{"type":"boolean",
-			"description":"Cite this note to visitors. Defaults to false — this genre is private."}
+			"description":"Cite this note to visitors. Defaults to false — this genre is private."},
+		"cover_image_asset_id":{"type":"string",
+			"description":"Hero image: an asset_id from assets.upload; '' clears it."},
+		"cover_headline":{"type":"string","description":"The line laid over the hero image."},
+		"cover_hue":{"type":"string","description":"Hero hue: 'amber' | 'violet' | 'acid'."}
 	},
 	"required":["title","body"]
 }`)
 
 // subjectivityArgs —— 线上的入参。show_as_source 用指针,因为这个 genre 的默认是
 // **私有**,跟 wiki / output 相反 —— 靠 bool 零值表达不了"没提到"。
+// hero 三项是**指针**:没给 = 不动,不是"清空"。跟 corpus.update 那边同一个规矩 ——
+// 既有调用方一个 hero 字段都不带,那样每次改正文都会把 owner 设好的封面抹掉。
 type subjectivityArgs struct {
-	ShowAsSource *bool    `json:"show_as_source"`
-	Title        string   `json:"title"`
-	Body         string   `json:"body"`
-	ID           string   `json:"subjectivity_id"`
-	ParentID     string   `json:"parent_id"`
-	Tags         []string `json:"tags"`
-	CSSClasses   []string `json:"css_classes"`
+	ShowAsSource      *bool    `json:"show_as_source"`
+	CoverImageAssetID *string  `json:"cover_image_asset_id"`
+	CoverHeadline     *string  `json:"cover_headline"`
+	CoverHue          *string  `json:"cover_hue"`
+	Title             string   `json:"title"`
+	Body              string   `json:"body"`
+	ID                string   `json:"subjectivity_id"`
+	ParentID          string   `json:"parent_id"`
+	Tags              []string `json:"tags"`
+	CSSClasses        []string `json:"css_classes"`
+}
+
+// hero —— 这次要改的 hero 项。全 nil = 没提到 hero,一步数据库都不碰。
+func (in *subjectivityArgs) hero() usecase.HeroPatch {
+	return usecase.HeroPatch{
+		CoverAssetID: in.CoverImageAssetID, CoverHeadline: in.CoverHeadline,
+		CoverHue: in.CoverHue,
+	}
 }
 
 func writeSubjectivity(deps usecase.Deps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, perr := decodeSubjectivity(raw, ownerID)
+		args, perr := decodeSubjectivityArgs(raw)
 		if perr != nil {
 			return nil, perr
 		}
-		res, err := usecase.WriteSubjectivity(ctx, deps, in)
+		res, err := usecase.WriteSubjectivity(ctx, deps, args.toInput(ownerID))
 		if err != nil {
 			return nil, subjectivityErr(err)
 		}
+		if herr := applySubjectivityHero(ctx, deps, ownerID, res.ID, &args); herr != nil {
+			return nil, herr
+		}
 		return json.Marshal(subjectivityOut{ID: res.ID, Path: res.Path})
 	}
+}
+
+// applySubjectivityHero —— hero 在语料落库**之后**写:它挂在这条笔记身上,
+// 笔记还没有 id 时无处可挂。一个 hero 字段都没带就一步数据库都不碰。
+func applySubjectivityHero(
+	ctx context.Context, deps usecase.Deps, ownerID, id string, args *subjectivityArgs,
+) error {
+	hero := args.hero()
+	if !hero.Touched() {
+		return nil
+	}
+	return writeHero(ctx, deps, ownerID, id, &hero)
 }
 
 // subjectivityOut —— 写完给调用方的:这条笔记的 id 和它的地址。
@@ -87,19 +119,17 @@ type subjectivityOut struct {
 	Path string `json:"path"`
 }
 
-func decodeSubjectivity(
-	raw json.RawMessage, ownerID string,
-) (*usecase.WriteSubjectivityInput, error) {
+func decodeSubjectivityArgs(raw json.RawMessage) (subjectivityArgs, error) {
 	var in subjectivityArgs
 	if err := json.Unmarshal(raw, &in); err != nil {
-		return nil, fp.BadInput("invalid arguments: " + err.Error())
+		return in, fp.BadInput("invalid arguments: " + err.Error())
 	}
 	if err := fp.RequireArgs(
 		[2]string{"title", in.Title}, [2]string{"body", in.Body},
 	); err != nil {
-		return nil, err
+		return in, err
 	}
-	return in.toInput(ownerID), nil
+	return in, nil
 }
 
 func (in *subjectivityArgs) toInput(ownerID string) *usecase.WriteSubjectivityInput {

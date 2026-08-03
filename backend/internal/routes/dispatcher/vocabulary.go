@@ -16,6 +16,18 @@ type (
 	Op = fp.Op
 	// Invoke —— 操作真正做的事。入参出参是不透明 JSON:协议无关。
 	Invoke = fp.Invoke
+	// File —— 随调用一起递过来的一份字节(面板挑的文件之类)。不塞进 args:
+	// base64 进 JSON 要多占三分之一内存,还会长进 InputSchema,让生成型的面
+	// 多出一个它永远不该填的参数。
+	File = fp.File
+)
+
+// 随行字节 —— 面把字节挂到这次调用上(WithFiles),op 那边取(FilesFrom)。
+// 走 ctx 而不是给 Invoke 加参数,是为了装饰器链只有一条:鉴权/配额/审计包的还是
+// 同一个 Invoke。开第二个执行入口就意味着这些策略要**记得**也包那一个。
+var (
+	WithFiles = fp.WithFiles
+	FilesFrom = fp.FilesFrom
 )
 
 // 错误类别 —— 协议无关的几类,面各自翻成自己的形态(HTTP 状态码 / MCP isError)。

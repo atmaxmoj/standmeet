@@ -34,7 +34,7 @@ import (
 // Handlers —— public routes deps.
 type Handlers struct {
 	Visitor      conversation.VisitorSessionDeps
-	MailStatus   owner.OutboundSender // can-email gate in /sessions response (widget enable)
+	Outbound     owner.OutboundSender // 送得出去吗 —— /sessions 回参里那个开关
 	Usage        UsageRecorder
 	Reports      conversation.ReportStore
 	Corpus       conversation.DialogCorpusLookup

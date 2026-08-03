@@ -1,7 +1,15 @@
-// diag_connector.go —— POST /internal/diag/connector/{id}/{list-busy,create-event,send}
+// diag_connector.go —— POST /internal/diag/connector/{id}/{invoke,agent-call}
 //
-// Owner-authed diag：直接打某个连接器（按 id，不经 active 槽）跑一个品类契约 op，吐归一后的
-// 结果。验上传连接器的 JSONata 绑定（response 抽取 / request 构造）端到端对不对——不经访客会话。
+// Owner-authed diag：直接打某个连接器（按 id，不经 active 槽）跑一件事，吐它原样的结果。
+// 验 owner 刚传上来的那份绑定（response 抽取 / request 构造）端到端对不对——不经访客会话。
+//
+// **这一层不认识任何品类。** 它收三个字符串加一段不透明 JSON（品类、动词、入参），转交，
+// 把回参原样吐回去。以前这里是三条路由 `/list-busy` `/create-event` `/send`，各自持一个
+// typed 代理、各自把友好入参翻译成品类 DTO —— 于是**面**（路由层）知道了一次约会由
+// summary/起止/时区/与会者构成、一封信由 to/subject/body 构成。名字删掉，形状还在。
+//
+// 正确的形状本来就摆在同一个文件里：`/agent-call` 一直是通用的（按 op + args 调）。
+// 现在两条都是。品类知识搬去了调用方——它在内核外面。
 
 package sys
 
@@ -11,32 +19,40 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 )
+
+// ErrConnectorNotFound —— 这个 id 没注册,或者它不是所点品类的连接器。
+//
+// **这一层自己的 sentinel**,不是从连接器层借来的:借一个就得 import 那个包,而这条路由
+// 唯一该知道的事就是"地址错了"还是"事没成"。组装根负责把连接器侧的对应错误翻成它
+// (见 cmd/server/boot_wireup.go)。
+var ErrConnectorNotFound = errors.New("connector not found")
 
 // AgentCallFn —— 按 id 跑一个 agent-tool op（注入 auth 调 SaaS），回原始响应或错（diag 直验通路）。
 type AgentCallFn func(
 	ctx context.Context, id, ownerID, op string, args json.RawMessage,
 ) (json.RawMessage, error)
 
-// DiagConnectorDeps —— 按 id 解析某连接器的品类契约（composition root 接 Slots）+ agent-tool 直调。
+// CategoryInvokeFn —— 按 id 跑一个**品类动词**，回归一后的原始 JSON。品类和动词都是字符串：
+// 这一层因此写不出任何品类专属的类型。
+type CategoryInvokeFn func(
+	ctx context.Context, ownerID, id, category, verb string, args json.RawMessage,
+) (json.RawMessage, error)
+
+// DiagConnectorDeps —— 直打某个连接器要的两条通路（组装根接上具体实现）。
 type DiagConnectorDeps struct {
-	Calendar  func(id string) (contract.CalendarProxy, bool)
-	Mail      func(id string) (contract.MailProxy, bool)
+	Invoke    CategoryInvokeFn
 	AgentCall AgentCallFn
 	Log       *slog.Logger
 }
 
 // MountDiagConnector —— 挂连接器 diag（caller 已套 owner-session 中间件）。
 func MountDiagConnector(r chi.Router, deps DiagConnectorDeps) {
-	r.Post("/diag/connector/{id}/list-busy", diagListBusy(deps))
-	r.Post("/diag/connector/{id}/create-event", diagCreateEvent(deps))
-	r.Post("/diag/connector/{id}/send", diagSend(deps))
+	r.Post("/diag/connector/{id}/invoke", diagInvoke(deps))
 	r.Post("/diag/connector/{id}/agent-call", diagAgentCall(deps))
 }
 
@@ -64,234 +80,104 @@ func diagAgentCall(deps DiagConnectorDeps) http.HandlerFunc {
 	}
 }
 
-type diagRangeReq struct {
-	TimeMin string `json:"timeMin"`
-	TimeMax string `json:"timeMax"`
+// diagInvokeReq —— 打哪个品类的哪个动词，入参原样透传。
+type diagInvokeReq struct {
+	Category string          `json:"category"`
+	Op       string          `json:"op"`
+	Args     json.RawMessage `json:"args"`
 }
 
-type diagInterval struct {
-	Start string `json:"start"`
-	End   string `json:"end"`
-}
-
-type diagEventReq struct {
-	Title    string `json:"title"`
-	Start    string `json:"start"`
-	End      string `json:"end"`
-	Attendee string `json:"attendee"`
-}
-
-type diagSendReq struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Body    string `json:"text"` // 契约 body 的 plaintext（§8 mail 契约用 "text" 字段名）
-}
-
-func diagListBusy(deps DiagConnectorDeps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cal, ok := deps.Calendar(chi.URLParam(r, "id"))
-		if !ok {
-			diagNotFound(deps.Log, w)
-			return
-		}
-		var req diagRangeReq
-		if !diagDecode(deps.Log, w, r, &req) {
-			return
-		}
-		diagRunListBusy(r.Context(), deps.Log, w, cal, &req)
-	}
-}
-
-func diagRunListBusy(
-	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
-	cal contract.CalendarProxy, req *diagRangeReq,
-) {
-	applyDefaultRange(req)
-	tp, perr := parseTimePair(req.TimeMin, req.TimeMax)
-	if perr != nil {
-		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": "bad time range"})
-		return
-	}
-	busy, ferr := cal.FreeBusy(ctx, middleware.OwnerIDFrom(ctx),
-		contract.FreeBusyReq{TimeMin: tp.start, TimeMax: tp.end})
-	if ferr != nil {
-		diagCalErr(log, w, ferr)
-		return
-	}
-	diagStatus(log, w, http.StatusOK, map[string][]diagInterval{"busy": toDiagIntervals(busy)})
-}
-
-// applyDefaultRange —— 时间窗都空则填 now..now+7d（诊断 list-busy 不强制传时间，让 SSRF /
-// 连通性探测能不带 body 直接触发 FreeBusy）。
-func applyDefaultRange(req *diagRangeReq) {
-	if req.TimeMin != "" || req.TimeMax != "" {
-		return
-	}
-	now := time.Now().UTC()
-	req.TimeMin = now.Format(time.RFC3339)
-	req.TimeMax = now.Add(7 * 24 * time.Hour).Format(time.RFC3339)
-}
-
-// timePair —— 一对解析好的时间（function-result-limit ≤2，用结构体承载）。
-type timePair struct {
-	start time.Time
-	end   time.Time
-}
-
-func parseTimePair(a, b string) (timePair, error) {
-	start, serr := time.Parse(time.RFC3339, a)
-	if serr != nil {
-		return timePair{}, serr
-	}
-	end, eerr := time.Parse(time.RFC3339, b)
-	if eerr != nil {
-		return timePair{}, eerr
-	}
-	return timePair{start: start, end: end}, nil
-}
-
-// diagNotFound —— 连接器 id 未注册（未建 / 不是该品类）。
-func diagNotFound(log *slog.Logger, w http.ResponseWriter) {
-	diagStatus(log, w, http.StatusNotFound, map[string]string{"error": "connector not found"})
-}
-
-// rfc3339Millis —— 带毫秒（Go RFC3339 裁 .000 尾零；显式毫秒让忙时段忠实 round-trip）。
-const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
-
-func toDiagIntervals(busy []contract.BusyInterval) []diagInterval {
-	out := make([]diagInterval, 0, len(busy))
-	for i := range busy {
-		out = append(out, diagInterval{
-			Start: busy[i].Start.Format(rfc3339Millis),
-			End:   busy[i].End.Format(rfc3339Millis),
-		})
-	}
-	return out
-}
-
-func diagCreateEvent(deps DiagConnectorDeps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cal, ok := deps.Calendar(chi.URLParam(r, "id"))
-		if !ok {
-			diagNotFound(deps.Log, w)
-			return
-		}
-		var req diagEventReq
-		if !diagDecode(deps.Log, w, r, &req) {
-			return
-		}
-		diagRunCreateEvent(r.Context(), deps.Log, w, cal, &req)
-	}
-}
-
-func diagRunCreateEvent(
-	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
-	cal contract.CalendarProxy, req *diagEventReq,
-) {
-	tp, perr := parseTimePair(req.Start, req.End)
-	if perr != nil {
-		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": "bad time"})
-		return
-	}
-	ev, cerr := cal.InsertEvent(ctx, middleware.OwnerIDFrom(ctx), &contract.InsertEventReq{
-		Summary: req.Title, Start: tp.start, End: tp.end, VisitorEmail: req.Attendee,
-	})
-	if cerr != nil {
-		diagCalErr(log, w, cerr)
-		return
-	}
-	diagStatus(log, w, http.StatusOK, map[string]string{"id": ev.EventID, "url": ev.HTMLLink})
-}
-
-func diagSend(deps DiagConnectorDeps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		mail, ok := deps.Mail(chi.URLParam(r, "id"))
-		if !ok {
-			diagNotFound(deps.Log, w)
-			return
-		}
-		var req diagSendReq
-		if !diagDecode(deps.Log, w, r, &req) {
-			return
-		}
-		diagRunSend(r.Context(), deps.Log, w, mail, &req)
-	}
-}
-
-type diagSendResp struct {
-	ViaKind string `json:"via_kind,omitempty"`
-	Reason  string `json:"reason,omitempty"`
-	Ok      bool   `json:"ok"`
-}
-
-// mailFailReason —— 发信失败的友好措辞（不泄 provider 原始错/状态码/stack；§8 mail 降级）。
-const mailFailReason = "the mail could not be sent — the provider rejected it or is unavailable"
-
-func diagRunSend(
-	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
-	mail contract.MailProxy, req *diagSendReq,
-) {
-	serr := mail.Send(ctx, middleware.OwnerIDFrom(ctx),
-		contract.MailMessage{To: req.To, Subject: req.Subject, Body: req.Body})
-	if serr != nil { // provider 拒/挂 → 友好降级（200 + ok:false），真错进日志
-		log.Warn("diag mail send failed", "err", serr)
-		diagStatus(log, w, http.StatusOK, diagSendResp{Ok: false, Reason: mailFailReason})
-		return
-	}
-	diagStatus(log, w, http.StatusOK, diagSendResp{Ok: true, ViaKind: mailKind(mail)})
-}
-
-// mailKind —— 报连接器 kind（openapi / protocol）；消费者经契约发信，diag 借此证「mailer 不知 kind」。
-func mailKind(m contract.MailProxy) string {
-	if k, ok := m.(interface{ Kind() string }); ok {
-		return k.Kind()
-	}
-	return ""
-}
-
-// diagDecode —— 解 JSON body；坏 → 400 + false。
+// diagInvokeResp —— 回参**原样**吐回（result 是连接器那一侧归一后的 JSON）。
+// 这一层不重排、不改名、不格式化 —— 它看不懂里面是什么，也不该看懂。
 //
-//nolint:forbidigo // 解任意 diag body，集中放行 interface{}
-func diagDecode(log *slog.Logger, w http.ResponseWriter, r *http.Request, dst any) bool {
+// 失败时 Error 带上**真实原因**。diag 是 owner-authed 的诊断口，它存在的全部意义就是
+// "告诉我为什么我这份绑定不通" —— 把原因藏进服务端日志，等于废掉这个端点。
+// (对访客面的"不泄底层"要求不适用于这里:这一条只有 owner 打得到。)
+//
+// 字段序按指针宽度排 —— govet fieldalignment 管着。
+type diagInvokeResp struct {
+	Error  string          `json:"error,omitempty"`
+	Result json.RawMessage `json:"result,omitempty"`
+	OK     bool            `json:"ok"`
+}
+
+// diagInvoke —— 直打某个连接器的一个品类动词。
+//
+// 连接器不存在 / 不是这个品类 → 404；跑失败 → 友好 200 {ok:false}（底层错进日志，
+// 不泄给调用方 —— diag 也是一个面）。
+func diagInvoke(deps DiagConnectorDeps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req diagInvokeReq
+		if !diagDecode(deps.Log, w, r, &req) {
+			return
+		}
+		if !req.complete() {
+			diagStatus(deps.Log, w, http.StatusBadRequest,
+				map[string]string{"error": "category and op are required"})
+			return
+		}
+		runDiagInvoke(r.Context(), deps, w, chi.URLParam(r, "id"), &req)
+	}
+}
+
+// complete —— 品类和动词都得给:这一层不认识任何品类,自然也补不出默认值。
+func (q *diagInvokeReq) complete() bool { return q.Category != "" && q.Op != "" }
+
+// runDiagInvoke —— 转交 + 翻回执。分支留在这儿,handler 只做解码和分派。
+func runDiagInvoke(
+	ctx context.Context, deps DiagConnectorDeps, w http.ResponseWriter,
+	id string, req *diagInvokeReq,
+) {
+	out, err := deps.Invoke(ctx, middleware.OwnerIDFrom(ctx),
+		id, req.Category, req.Op, argsOrEmpty(req.Args))
+	if err != nil {
+		diagInvokeErr(deps.Log, w, req.Category, req.Op, err)
+		return
+	}
+	diagStatus(deps.Log, w, http.StatusOK, diagInvokeResp{OK: true, Result: out})
+}
+
+// argsOrEmpty —— 没带 args 就当空对象。有些动词（connected / 默认区间的探测）本来就不需要入参。
+func argsOrEmpty(a json.RawMessage) json.RawMessage {
+	if len(a) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	return a
+}
+
+// diagInvokeErr —— 分两种:"这个连接器不是这个品类"是地址错了(404);"跑失败了"是这次
+// 调用没成(400 + 原因)。**原因照实回** —— 见 diagInvokeResp 的说明。
+func diagInvokeErr(
+	log *slog.Logger, w http.ResponseWriter, category, op string, err error,
+) {
+	if errors.Is(err, ErrConnectorNotFound) {
+		diagStatus(log, w, http.StatusNotFound, map[string]string{"error": "connector not found"})
+		return
+	}
+	log.Warn("diag invoke failed", "category", category, "op", op, "err", err)
+	diagStatus(log, w, http.StatusBadRequest, diagInvokeResp{OK: false, Error: err.Error()})
+}
+
+// diagBody —— 这一层能解的两种请求体。`any` 在业务代码里是禁的:一个不透明的解码目标
+// 等于放弃了"这条路由收什么"这件事的可读性。
+type diagBody interface {
+	*diagInvokeReq | *diagAgentCallReq
+}
+
+func diagDecode[T diagBody](log *slog.Logger, w http.ResponseWriter, r *http.Request, dst T) bool {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return false
 	}
 	return true
 }
 
-// calErrCase —— 日历契约错 → 友好 HTTP 状态（都 <500，不暴露 5xx/stack）。sentinel 都带干净
-// 消息（BlockedEgress 不回显内网 URL；Unavailable 限流/瞬时；BadRequest 缺必填等）。
-type calErrCase struct {
-	match  error
-	status int
+// diagPayload —— 这一层会吐的几种回参。同样不用 `any`。
+type diagPayload interface {
+	diagInvokeResp | map[string]string | map[string]bool
 }
 
-var calErrCases = []calErrCase{
-	{contract.ErrCalendarBlockedEgress, http.StatusBadRequest},
-	{contract.ErrCalendarUnavailable, http.StatusOK}, // 限流/瞬时 → 友好降级（可退避，不崩）
-	{contract.ErrCalendarBadRequest, http.StatusBadRequest},
-}
-
-// diagCalErr —— 日历契约调用失败：已知 sentinel → 友好 <500 带干净原因；其余上游故障 → 502。
-func diagCalErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	for i := range calErrCases {
-		if errors.Is(err, calErrCases[i].match) {
-			diagStatus(log, w, calErrCases[i].status, map[string]string{"error": err.Error()})
-			return
-		}
-	}
-	diagFail(log, w, err)
-}
-
-// diagFail —— 契约调用失败 → 友好 502（diag 不暴露栈）。
-func diagFail(log *slog.Logger, w http.ResponseWriter, err error) {
-	log.Warn("diag connector op failed", "err", err)
-	diagStatus(log, w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-}
-
-//nolint:forbidigo // diag JSON 写出，集中放行 interface{}
-func diagStatus(log *slog.Logger, w http.ResponseWriter, status int, v any) {
+func diagStatus[T diagPayload](log *slog.Logger, w http.ResponseWriter, status int, v T) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {

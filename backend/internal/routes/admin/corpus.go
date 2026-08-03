@@ -33,6 +33,7 @@ const (
 	maxCorpusLimit     = 200
 	paramGenre         = "genre"
 	paramEntryID       = "id"
+	paramAssetID       = "asset_id"
 )
 
 // MountCorpus 挂 corpus 的列表 + 新建:genre 作路径参数(合并了原 /raw · /wiki · /output
@@ -96,6 +97,15 @@ func corpusEntryArgs(r *http.Request) (json.RawMessage, error) {
 	fields[paramGenre] = quoteJSON(chi.URLParam(r, paramGenre))
 	fields[paramEntryID] = quoteJSON(chi.URLParam(r, paramEntryID))
 	return marshalArgs(fields)
+}
+
+// corpusAssetArgs —— 路径上的 genre + 条目 id + 素材 id(删一份素材)。
+func corpusAssetArgs(r *http.Request) (json.RawMessage, error) {
+	return marshalArgs(map[string]json.RawMessage{
+		paramGenre:   quoteJSON(chi.URLParam(r, paramGenre)),
+		paramEntryID: quoteJSON(chi.URLParam(r, paramEntryID)),
+		paramAssetID: quoteJSON(chi.URLParam(r, paramAssetID)),
+	})
 }
 
 // corpusIDArgs —— 只要路径上的 genre 和 id(读 / 删)。

@@ -47,8 +47,11 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 // 用 HKDF(session_token) 派生的 AES-GCM 解封即用即丢。
 // 集中存储：browser 一处，session 不分摊。
 type VisitorSessionData struct {
+	// 这里**不放任何能力自己的配额**。曾经有一个 `MaxBookings *int32` ——
+	// booker 的 per-code 上限,写进访客会话的载荷里。它最后无写无读地留在这儿:
+	// 码上的那一列早就没了(见 access/ops/extras.go 的通用 CodeExtras),字段却留下了。
+	// 一个能力要在码上占字段,走 manifest 的 CodeConfig 声明,不长在这个结构体上。
 	ExpiresAt    time.Time            `json:"expires_at"`
-	MaxBookings  *int32               `json:"max_bookings,omitempty"`
 	RoleSnapshot *entity.RoleSnapshot `json:"role_snapshot"`
 	OwnerID      string               `json:"owner_id"`
 	Mode         string               `json:"mode"`

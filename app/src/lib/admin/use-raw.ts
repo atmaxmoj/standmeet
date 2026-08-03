@@ -12,7 +12,11 @@ import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-export type RawFilter = 'all' | 'unprocessed' | 'promoted' | 'archived' | 'flagged-private';
+// RawFilter —— raw 收件箱的页签。以前还有一个 'archived' —— 它**永远是空的**:
+// 后端的列表查询一直过滤掉归档行,没有任何请求会把它们取回来。一个取不到数据的页签
+// 比没有更糟:owner 点进去看见空的,会以为"我没有归档过的东西",而不是"这里坏了"。
+// 现在 raw 的删就是真删,归档这个状态不再存在。
+export type RawFilter = 'all' | 'unprocessed' | 'promoted' | 'flagged-private';
 
 export interface RawHook {
   status: ResourceStatus;
@@ -66,9 +70,7 @@ export function useRaw(): RawHook {
 }
 
 export function statusOf(row: RawAdminView): RawFilter {
-  return row.flagged_private ? 'flagged-private'
-    : row.archived ? 'archived'
-    : 'unprocessed';
+  return row.flagged_private ? 'flagged-private' : 'unprocessed';
 }
 
 function applyFilter(rows: readonly RawAdminView[], filter: RawFilter): readonly RawAdminView[] {
@@ -78,7 +80,7 @@ function applyFilter(rows: readonly RawAdminView[], filter: RawFilter): readonly
 function computeCounts(rows: readonly RawAdminView[]): Record<RawFilter, number> {
   const c: Record<RawFilter, number> = {
     all: rows.length,
-    unprocessed: 0, promoted: 0, archived: 0, 'flagged-private': 0,
+    unprocessed: 0, promoted: 0, 'flagged-private': 0,
   };
   rows.forEach((r) => { c[statusOf(r)]++; });
   return c;

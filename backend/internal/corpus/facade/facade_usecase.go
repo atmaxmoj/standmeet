@@ -6,6 +6,8 @@ import "github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 type (
 	AssetsDeps                      = usecase.AssetsDeps
 	NoteAssetsDeps                  = usecase.NoteAssetsDeps
+	NoteMediaView                   = usecase.NoteMediaView
+	AssetView                       = usecase.AssetView
 	CreateOutputReq                 = usecase.CreateOutputReq
 	CreateWikiReq                   = usecase.CreateWikiReq
 	CrossLinkQueryDeps              = usecase.CrossLinkQueryDeps
@@ -45,7 +47,8 @@ type (
 
 // 构造/函数（实现:usecase）.
 var (
-	ArchiveRaw                     = usecase.ArchiveRaw
+	LoadNoteMedia                  = usecase.LoadNoteMedia
+	DeleteRaw                      = usecase.DeleteRaw
 	CreateOutput                   = usecase.CreateOutput
 	CreateWiki                     = usecase.CreateWiki
 	DBParentOf                     = usecase.DBParentOf

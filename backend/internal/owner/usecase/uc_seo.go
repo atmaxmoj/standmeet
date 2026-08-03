@@ -21,6 +21,11 @@ type SEODeps struct {
 	Wiki     *corpus.WikiRepo
 	Output   *corpus.OutputRepo
 	NoteRefs *corpus.NoteRefRepo
+	// Media —— 这条语料身上的素材。**任意 genre 都能挂**,所以 reader 也得能渲:
+	// 正文里那些 `standmeet-asset:<id>` 引用要解析成可访问地址,否则访客看到的是一段
+	// 渲不出来的 URI。以前只有 writing 那条路带这份数据,于是"每个 genre 都能配图"
+	// 在后端成立、在访客眼里不成立。
+	Media *corpus.NoteAssetsDeps
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
@@ -65,10 +70,17 @@ func PublicReady(ctx context.Context, deps SEODeps) (entity.Owner, bool) {
 // WikiLanding —— landing 查询结果:wiki 实体 + 渲染好的 body(Obsidian `[[Title]]`
 // 已 rewrite 成 /wiki/<path> 链接)+ 出链(Related)/入链(CitedBy)。
 type WikiLanding struct {
-	Body    string
-	Related []corpus.WikiPathTitle
-	CitedBy []corpus.WikiPathTitle
-	Wiki    corpus.Wiki
+	// AssetURLs —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
+	// 渲染那一侧照这张表把 URI 换成 URL。
+	AssetURLs map[string]string
+	Body      string
+	Related   []corpus.WikiPathTitle
+	CitedBy   []corpus.WikiPathTitle
+	// Assets —— 挂在这条上的文件清单(文件名 + 真实字节数 + 地址)。下载按钮要的就是这几项。
+	Assets []corpus.AssetView
+	// Hero —— 封面图 / 压在图上那句话 / 色调。**任意 genre 都能有**,住在共享的 hero 表上。
+	Hero corpus.NoteHero
+	Wiki corpus.Wiki
 }
 
 // wikiRefSides —— 一条 wiki 的出链 + 入链(给 landing 返回用)。
@@ -130,7 +142,28 @@ func assembleWikiLanding(
 	if serr != nil {
 		return WikiLanding{}, serr
 	}
-	return WikiLanding{Body: body, Related: sides.Related, CitedBy: sides.CitedBy, Wiki: w}, nil
+	media := landingMedia(ctx, deps, ownerID, id)
+	return WikiLanding{
+		Body: body, Related: sides.Related, CitedBy: sides.CitedBy, Wiki: w,
+		AssetURLs: media.URLs, Hero: media.Hero, Assets: media.Assets,
+	}, nil
+}
+
+// landingMedia —— 这条语料身上跟素材有关的全部:引用解析出的地址、hero 三件套、附件清单。
+//
+// 以前这里只取 URLs,把 hero 和附件扔了 —— 于是 owner 设的封面图到不了访客页面(那边永远
+// 是按 slug hash 生成的色块),附件更是连字段都没有。**读的时候三样一起取,是因为它们本来
+// 就是一次查询的结果**;只带走一样,另外两样就得再开一条路。
+//
+// 取不到只当没有:一份素材出问题不该让整个页面打不开。没接素材存储(某些只读装配)同理。
+func landingMedia(
+	ctx context.Context, deps SEODeps, ownerID, noteID string,
+) corpus.NoteMediaView {
+	media, ok := corpus.LoadNoteMedia(ctx, deps.Media, ownerID, noteID)
+	if !ok {
+		return corpus.NoteMediaView{URLs: map[string]string{}, Assets: []corpus.AssetView{}}
+	}
+	return media
 }
 
 // indexedWikiIDAtPath —— 全量 meta + 派生 path 里挑 path 命中且**这个查看者能看到**的那条 id。

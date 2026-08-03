@@ -17,7 +17,10 @@ package port
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
@@ -41,11 +44,16 @@ type categoryInvoker interface {
 // OutboundSenderAdapter —— 把注册器的通用 Invoke 包成内核中立的 OutboundSender。
 type OutboundSenderAdapter struct{ inv categoryInvoker }
 
+// ChannelName —— 送不出去时让 owner 去连哪一种连接器。**这台实例把出站绑到了哪个品类,
+// 只有这一层知道**;内核转述这个名字,而不是自己编一个("outbound channel" 那个词
+// 在界面上不存在,owner 拿着它找不到任何东西)。
+func (OutboundSenderAdapter) ChannelName() string { return outboundCategory }
+
 // Connected —— owner 配没配好可用的出站通道。
 func (a OutboundSenderAdapter) Connected(ctx context.Context, ownerID string) (bool, error) {
 	raw, err := a.inv.Invoke(ctx, ownerID, outboundCategory, opConnected, json.RawMessage(`{}`))
 	if err != nil {
-		return false, fmt.Errorf("outbound connected: %w", err)
+		return false, outboundErr("connected", err)
 	}
 	// 回参形状由**这一侧的动词**定义(`{"connected":bool}`),组装根照着解。
 	var out struct {
@@ -59,29 +67,38 @@ func (a OutboundSenderAdapter) Connected(ctx context.Context, ownerID string) (b
 
 // Send —— 发一封信。内核不知道对面是 SMTP 还是某个 SaaS,也不知道它叫 mail。
 func (a OutboundSenderAdapter) Send(
-	ctx context.Context, ownerID string, msg owner.OutboundMessage,
+	ctx context.Context, ownerID string, n owner.OutboundNotice,
 ) error {
 	// 线上字段名在这里定死。内核那个 OutboundMessage 是**内核自己的**词汇,没有 json tag;
 	// 组装根负责把它翻成对面认得的形状 —— 这正是"翻译归组装根"的意思。
-	args, merr := json.Marshal(outboundWire{
-		To: msg.To, Subject: msg.Subject, Body: msg.Body, HTML: msg.HTML,
-	})
+	args, merr := json.Marshal(outboundWire{To: n.To, Subject: n.Title, Body: n.Body})
 	if merr != nil {
 		return fmt.Errorf("outbound send: encode: %w", merr)
 	}
 	if _, err := a.inv.Invoke(ctx, ownerID, outboundCategory, opSend, args); err != nil {
-		return fmt.Errorf("outbound send: %w", err)
+		return outboundErr("send", err)
 	}
 	return nil
 }
 
-// outboundWire —— 发一封信在**线上**长什么样。它是组装根跟连接器之间的约定,
-// 不是内核的类型 —— 内核只有 owner.OutboundMessage,那是它自己的词。
+// outboundWire —— 一条通知在**线上**长什么样。它是组装根跟渠道之间的约定,不是内核的类型:
+// 内核只有 `owner.OutboundNotice{To,Title,Body}`,那是它自己的词。**Title → subject 这一步
+// 翻译就发生在这儿** —— "标题"是通知的概念,"主题行"是邮件的概念,内核只说得出前者。
 type outboundWire struct {
 	To      string `json:"to"`
 	Subject string `json:"subject"`
 	Body    string `json:"body"`
-	HTML    string `json:"html"`
+}
+
+// outboundErr —— 把渠道侧的"没配好"翻成**内核自己的**哨兵。
+//
+// 内核 errors.Is 的必须是它自己的错误:借一个名字里带 mail 的哨兵,就等于承认它知道对面是邮件。
+// 翻译在这儿,是因为这里是组装根 —— 它本来就该同时认识两边。
+func outboundErr(what string, err error) error {
+	if errors.Is(err, consumer.ErrMailNotConfigured) {
+		return fmt.Errorf("outbound %s: %w", what, owner.ErrOutboundNotConfigured)
+	}
+	return fmt.Errorf("outbound %s: %w", what, err)
 }
 
 // OutboundSender —— 内核中立的发信口,背后是注册器按名字解出来的那个连接器。

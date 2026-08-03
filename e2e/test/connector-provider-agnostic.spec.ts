@@ -272,7 +272,11 @@ async function sendViaMailContract(
   request: APIRequestContext, csrf: string,
   mail: { to: string; subject: string; text: string },
 ): Promise<MailSendResp> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/test-send`, {
+  // 地址是**从声明派生**的:`/connectors/ops/<opID 去掉 connectors. 前缀>`。
+  // 以前这里写死 `/connectors/mail/test-send` —— 那条路由长在通用的连接器注册表上,
+  // 于是通用那一层里出现了一个品类的名字。现在注册表一个品类名都不写,名字来自
+  // backend/connectors/smtp/manifest.yaml 的 owner_ops。
+  const res = await request.post(`${BACKEND}/api/admin/connectors/ops/mail_test_send`, {
     headers: { 'X-Csrftoken': csrf }, data: mail,
   });
   if (res.status() !== 200) throw new Error(`mail test-send: ${res.status()}`);

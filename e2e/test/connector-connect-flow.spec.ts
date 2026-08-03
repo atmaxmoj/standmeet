@@ -437,13 +437,13 @@ function expireUploadedAccessToken(id: string): void {
     { stdio: 'pipe' });
 }
 
-// diagListBusy —— §8 接口草图的运行时直验：POST /api/admin/diag/connector/{id}/list-busy。
-// 在 fresh request context 上发（非 page.request，eslint 允许）。返回 HTTP 状态。
+// diagListBusy —— §8 接口草图的运行时直验。后端那三条按品类写死的 diag 路由收成了一条
+// 通用 `/invoke`（见 fixtures/connector-diag.ts）；这里只保留"返 HTTP 状态"这个签名。
 async function diagListBusy(request: APIRequestContext, csrf: string, id: string): Promise<number> {
-  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, {
-    headers: { 'X-Csrftoken': csrf }, data: {},
-  });
-  return res.status();
+  const now = new Date();
+  const week = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+  return (await diagInvoke(request, csrf, id, 'calendar', 'free_busy',
+    { time_min: now.toISOString(), time_max: week.toISOString() })).status;
 }
 
 // UPLOADED_OAUTH2_SPEC —— 一个 generic（非 gcal 内置）openapi oauth2 calendar 连接器：servers/token
@@ -500,4 +500,19 @@ async function initOwner(playwright: Playwright): Promise<void> {
   // 清掉上个 describe 编程的 dance 结局（mock OAuth 是进程级全局，否则会泄漏到下个 describe）。
   await request.get(`${MOCK}/__mock/oauth/reset`);
   await request.dispose();
+}
+
+// diagInvoke —— 打 owner-authed 的连接器 diag 口。**这是一条绕过真实链路的后门**
+// (真实路径是 访客 chat → agent → booker 沙箱 → connector.invoke)，所以它**故意**
+// 内联在这里、不抽成共用 fixture:抽出去等于给"绕过"发许可证,下一个人就更容易用它。
+// 这条后门本身的去留见 task「diag 后门」。
+async function diagInvoke(
+  request: APIRequestContext, csrf: string, id: string,
+  category: string, op: string, args: Record<string, unknown>,
+): Promise<{ status: number; text: string }> {
+  const res = await request.post(
+    `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/invoke`,
+    { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },
+  );
+  return { status: res.status(), text: await res.text() };
 }

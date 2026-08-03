@@ -5,6 +5,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { CorpusAssetsPanel } from '@/components/admin/sections/corpus/CorpusAssetsPanel';
 import { CorpusEntryForm, PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
 import { useWikiDetail } from '@/lib/admin/use-corpus-detail';
@@ -42,12 +43,23 @@ export function WikiEditForm({
               // seed the real value: the form now SENDS show_as_source, so seeding it wrong would
               // flip the note's citation on save (the Go request decodes a missing field as false).
               show_as_source: detail.show_as_source,
+              cover_image_asset_id: detail.cover_image_asset_id,
             }}
             busy={actions.pending}
             submitLabel="save"
             testidPrefix={`wiki-edit-form-${entry.id}`}
             onSubmit={onSubmit}
             onCancel={onDone}
+            renderAssets={(api) => (
+              <CorpusAssetsPanel
+                genre="wiki"
+                entryID={entry.id}
+                testidPrefix={`wiki-edit-form-${entry.id}`}
+                insertIntoBody={api.insertIntoBody}
+                onSetCover={api.setCover}
+                coverAssetID={api.coverAssetID}
+              />
+            )}
           />
           <SEOEditor
             testidPrefix={`wiki-${entry.id}`}

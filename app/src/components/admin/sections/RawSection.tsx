@@ -4,7 +4,7 @@
 //
 // 设计源 docs/design/project/admin.js RawSection。
 // 删了 ListFilterBar (search + sort) —— inbox 是流式排空场景，filter chips
-// + 行级 archive 就够；search 在数量真大时再加。
+// + 行级 delete 就够；search 在数量真大时再加。
 
 'use client';
 
@@ -18,7 +18,7 @@ import { useRaw, type RawHook, type RawFilter } from '@/lib/admin/use-raw';
 
 // rawTrueCounts —— ALL + UNPROCESSED reflect the real COUNT(*) (growth), not the loaded first
 // page. The header did this already (F-L-4); the filter TABS did not (F-L-5) — they showed the
-// loaded 50 while the header showed 170. flagged/promoted/archived have no growth breakdown, so
+// loaded 50 while the header showed 170. flagged/promoted have no growth breakdown, so
 // they stay from the loaded page (they don't exceed a page today; per-status COUNT(*) is the
 // follow-up if that changes). Growth may be undefined mid-load → fall back to the loaded count.
 function rawTrueCounts(

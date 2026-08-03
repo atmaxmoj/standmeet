@@ -3,7 +3,7 @@
 import type { RawFilter } from '@/lib/admin/use-raw';
 
 const ORDER: readonly RawFilter[] = [
-  'all', 'unprocessed', 'flagged-private', 'promoted', 'archived',
+  'all', 'unprocessed', 'flagged-private', 'promoted',
 ];
 
 type Props = {

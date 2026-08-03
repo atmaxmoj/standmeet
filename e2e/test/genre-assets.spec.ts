@@ -17,7 +17,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import {
-  MEDIA, bulk, createEntry, uploadAsset, getEntry, setHero, assetReachable,
+  MEDIA, bulk, createEntry, uploadAsset, getEntry, setBody, setHero, assetReachable,
 } from '@/fixtures/genre-assets';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
@@ -27,8 +27,18 @@ const OWNER = {
   handle: 'genre-assets', fullName: 'Genre Assets Owner',
 };
 
-// 三个 genre 一起测 —— 这条特性的全部意思就是"不挑 genre"。writing 单独有自己的套件。
-const GENRES = ['raw', 'wiki', 'output'] as const;
+// **四个** genre 一起测 —— 这条特性的全部意思就是"不挑 genre",漏一个就等于这句话是假的。
+//
+// subjectivity 曾经不在这份名单里,而且不是漏写测试:`assets.upload` 的 genre 白名单
+// 主动拒绝它,`corpus.get` 也拒绝(错误信息还写着 "genre must be 'raw', 'wiki' or
+// 'output'" —— 一句否认它存在的话)。于是它写得进、删得掉,读不回来,更挂不了素材。
+// 底下的机制一直是 genre 无关的(assets 按 holder_id 挂;hero 就在共享的 corpus_notes 上),
+// 缺的只是三处白名单各自漏了同一个名字。
+//
+// 它的**写口**确实是另一条(subjectivity_write:owner 跟自己的 AI 写出来的自我模型,
+// 不走 corpus.create) —— 那是设计,不是缺口。读 / 删 / 挂素材都跟其余三个同一条路。
+// writing 单独有自己的套件。
+const GENRES = ['raw', 'wiki', 'output', 'subjectivity'] as const;
 
 interface MCPSession { request: APIRequestContext; token: string; sid: string }
 let s: MCPSession;
@@ -59,10 +69,8 @@ test.describe('每个 genre 都能挂素材', () => {
       expect(asset.size_bytes).toBeGreaterThan(0);
 
       // 正文引用它 —— 用真 id,不是 pending 占位:上传是独立一步,写正文时 id 已经有了。
-      await callTool(s.request, s.token, s.sid, 'corpus.update', {
-        genre, id, title: `${genre} with an image`,
-        body: `here it is: ![pixel](standmeet-asset:${asset.asset_id})`,
-      });
+      await setBody(s, genre, id, `${genre} with an image`,
+        `here it is: ![pixel](standmeet-asset:${asset.asset_id})`);
 
       const entry = await getEntry(s, genre, id);
       expect(entry.body, '正文存的是稳定 URI,不是会过期的地址')
@@ -123,7 +131,17 @@ test.describe('每个 genre 都能挂素材', () => {
 
       await callTool(s.request, s.token, s.sid, 'corpus.delete', { genre, id });
 
-      // 不变量:blob 的寿命 ⊆ 条目的寿命。条目没了还留着图 = 谁也不认识的孤儿字节。
+      // 先断**产品面**:这条语料读不出来了,自然也没有素材可漏。这一句才是访客那侧
+      // 真正会看见的事;下面那句摸的是存储的字节,产品面不暴露它。
+      //
+      // 三个 genre 同一句 —— 删就是删。raw 以前走的是"归档"(行留着、置个标志),
+      // 而那个归档没有第二半:没有列表显示它,没有恢复的路,面板上那个按钮打的就是 DELETE。
+      // 一个删除动作在不同 genre 上意味着不同的事,调用方就得记住哪个是哪个。
+      await expect(getEntry(s, genre, id)).rejects.toThrow(/not found|不存在/i);
+
+      // 再断**字节**:不变量说的是 blob 的寿命 ⊆ 条目的寿命,而"字节还在不在"没有任何
+      // 产品面能问 —— 只有直接打对象存储的地址才证得了。两句都要:只断上面那句,
+      // 留下的孤儿字节谁也发现不了;只断这句,"产品面还漏不漏这张图"其实没测。
       expect(await assetReachable(s.request, url), '删之后取不到').toBe(false);
     });
   }

@@ -98,7 +98,6 @@ export const RawAdminViewSchema = z.object({
   preview: z.string().optional().default(''),
   created_at: z.string(),
   flagged_private: z.boolean().optional().default(false),
-  archived: z.boolean().optional().default(false),
   media: RawMediaMetaSchema,
   // tree view only: this node can be drilled into (lazy layer).
   has_children: z.boolean().optional(),

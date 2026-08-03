@@ -24,9 +24,9 @@ type PageHandlers struct {
 	Page        owner.PageDeps
 	Log         *slog.Logger
 	TokenIssuer owner.SetupTokenIssuer // 仅 unclaimed 时调；handler 通过它取 / self-heal plaintext
-	// MailStatus —— 读 owner mail connector 是否 connected，决定 gate 是否
+	// Outbound —— owner 有没有可用的出站通道,决定 gate 是否
 	// 展示「request access」整块(发不出码就别展示)。
-	MailStatus owner.MailStatusDeps
+	Outbound owner.OutboundStatusDeps
 	// CaptchaSiteKey —— /api/v1/instance 把这个 echo 给前端；前端非空就渲染
 	// Turnstile widget。composition root 已经从 env 决定了"开/关"，这里
 	// 只读结果。空字符串表示 captcha 关闭。
@@ -82,7 +82,7 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 			owner:          &soleOwner,
 			setupToken:     h.unclaimedSetupToken(r.Context(), &soleOwner),
 			captchaSiteKey: h.CaptchaSiteKey,
-			canEmailCodes:  owner.CanEmailCodes(r.Context(), h.MailStatus, soleOwner.ID),
+			canEmailCodes:  owner.CanDeliverCodes(r.Context(), h.Outbound, soleOwner.ID),
 		})
 	}
 }
@@ -130,12 +130,12 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	view := instanceInfoView{
-		Claimed:        in.owner.ID != "",
-		Handle:         in.owner.Handle,
-		Name:           in.owner.FullName,
-		SetupToken:     in.setupToken,
-		CaptchaSiteKey: in.captchaSiteKey,
-		CanEmailCodes:  in.canEmailCodes,
+		Claimed:         in.owner.ID != "",
+		Handle:          in.owner.Handle,
+		Name:            in.owner.FullName,
+		SetupToken:      in.setupToken,
+		CaptchaSiteKey:  in.captchaSiteKey,
+		CanDeliverCodes: in.canEmailCodes,
 	}
 	if err := json.NewEncoder(w).Encode(view); err != nil {
 		log.Error("encode instance info", logErrKey, err)
@@ -143,12 +143,12 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 }
 
 type instanceInfoView struct {
-	Handle         string `json:"handle"`
-	Name           string `json:"name"`
-	SetupToken     string `json:"setup_token,omitempty"`
-	CaptchaSiteKey string `json:"captcha_site_key,omitempty"`
-	Claimed        bool   `json:"claimed"`
-	CanEmailCodes  bool   `json:"can_email_codes"`
+	Handle          string `json:"handle"`
+	Name            string `json:"name"`
+	SetupToken      string `json:"setup_token,omitempty"`
+	CaptchaSiteKey  string `json:"captcha_site_key,omitempty"`
+	Claimed         bool   `json:"claimed"`
+	CanDeliverCodes bool   `json:"can_deliver_codes"`
 }
 
 func (h *PageHandlers) getPage() http.HandlerFunc {

@@ -10,6 +10,9 @@ VALUES ($1, 'raw', $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: ListRawByOwner :many
+-- archived 这一列不再有写者:raw 的删跟 wiki / output 一样是真删(见 RawRepo.Delete)。
+-- 过滤留着,是因为老库里可能还有当年归档下来的行 —— 它们当时就已经从每个列表消失了,
+-- 现在也不该突然冒出来。
 SELECT * FROM corpus_notes
 WHERE owner_id = $1 AND genre = 'raw' AND archived = false
 ORDER BY created_at DESC
@@ -17,9 +20,6 @@ LIMIT $2;
 
 -- name: GetRawByID :one
 SELECT * FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = 'raw';
-
--- name: ArchiveRaw :exec
-UPDATE corpus_notes SET archived = true WHERE id = $1 AND owner_id = $2 AND genre = 'raw';
 
 -- name: SetRawTags :exec
 UPDATE corpus_notes SET tags = $3 WHERE id = $1 AND owner_id = $2 AND genre = 'raw';

@@ -12,6 +12,18 @@ import { loadStoredSession } from '@/lib/gate/use-gate';
 import type { TreeContext } from '@/lib/corpus/tree';
 
 const WikiRefViewSchema = z.object({ path: z.string(), title: z.string() });
+
+// WikiAssetSchema —— 一份挂在这条语料上的文件。**要真实字节数**:下载按钮上写"3.4 MB"
+// 是访客决定点不点的依据,写"下载"等于什么都没说。
+const WikiAssetSchema = z.object({
+  asset_id: z.string(),
+  kind: z.string(),
+  content_type: z.string(),
+  original_filename: z.string(),
+  url: z.string(),
+  size_bytes: z.number(),
+});
+export type WikiAsset = z.infer<typeof WikiAssetSchema>;
 const WikiLandingEntrySchema = z.object({
   path: z.string(),
   title: z.string(),
@@ -23,6 +35,16 @@ const WikiLandingEntrySchema = z.object({
   related: z.array(WikiRefViewSchema).nullish().transform((v) => v ?? []),
   cited_by: z.array(WikiRefViewSchema).nullish().transform((v) => v ?? []),
   sources_count: z.number(),
+  // asset_urls —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
+  // 没有它，正文里那条 URI 渲不出来（react-markdown 的 urlTransform 会把非标准
+  // scheme 直接剥掉），访客看到的是一个空的图位。
+  asset_urls: z.record(z.string(), z.string()).nullish().transform((v) => v ?? {}),
+  // assets —— 挂在这条上的文件。图片进正文,附件渲成下载区。
+  assets: z.array(WikiAssetSchema).nullish().transform((v) => v ?? []),
+  // hero 三件套。cover_image_asset_id 为空 = owner 没设封面 → 退回程序生成的色板。
+  cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
+  cover_headline: z.string().nullish().transform((v) => v ?? ''),
+  cover_hue: z.string().nullish().transform((v) => v ?? ''),
 });
 export type WikiLandingEntry = z.infer<typeof WikiLandingEntrySchema>;
 

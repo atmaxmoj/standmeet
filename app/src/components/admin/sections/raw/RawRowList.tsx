@@ -1,5 +1,5 @@
 // RawRowList —— Raw section 列表。空时显示 "no raw entries yet" 提示。
-// row actions: promote → wiki / archive，都已接 backend PATCH/DELETE/POST 端点。
+// row actions: promote → wiki / edit / delete，都已接 backend PATCH/DELETE/POST 端点。
 
 'use client';
 
@@ -163,10 +163,13 @@ interface RowActionsProps {
 function RawRowActions(props: RowActionsProps) {
   const t = useTranslations('adminCorpus.raw');
   const toast = useToast();
-  const onArchive = () => confirm('Archive this raw entry?')
+  // 这个按钮以前写着 archive,打的却是 DELETE,而后端的"归档"没有第二半:没有列表
+  // 显示归档的行,也没有恢复的入口。既然做的就是删,名字就得是删 —— 而且确认框要说实话
+  // (owner 按 "archive" 时以为还找得回来)。
+  const onDelete = () => confirm('Delete this raw entry? This cannot be undone.')
     ? void runWith(
-      () => props.actions.archiveRaw(props.row.id),
-      () => toast.success('Raw archived'),
+      () => props.actions.deleteRaw(props.row.id),
+      () => toast.success('Raw deleted'),
     )
     : null;
   return (
@@ -174,7 +177,6 @@ function RawRowActions(props: RowActionsProps) {
       <button
         type="button"
         onClick={() => props.setMode(props.mode === 'promote' ? 'view' : 'promote')}
-        disabled={props.row.archived}
         data-testid={`raw-promote-${props.row.id}`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) disabled:opacity-40"
       >
@@ -183,7 +185,6 @@ function RawRowActions(props: RowActionsProps) {
       <button
         type="button"
         onClick={() => props.setMode(props.mode === 'edit' ? 'view' : 'edit')}
-        disabled={props.row.archived}
         data-testid={`raw-edit-${props.row.id}`}
         className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:opacity-40"
       >
@@ -191,12 +192,11 @@ function RawRowActions(props: RowActionsProps) {
       </button>
       <button
         type="button"
-        onClick={onArchive}
-        disabled={props.row.archived}
-        data-testid={`raw-archive-${props.row.id}`}
-        className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent) disabled:opacity-40"
+        onClick={onDelete}
+        data-testid={`raw-delete-${props.row.id}`}
+        className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)"
       >
-        {props.row.archived ? t('archived') : t('archive')}
+        {t('delete')}
       </button>
     </div>
   );

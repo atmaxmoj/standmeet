@@ -7,6 +7,6 @@
 //   - 实体(entity): Owner / InstanceSettings / CustomPage / PageContent / Prompt / Keypair /
 //     Err* 域错误 + prompt fragment 加载
 //   - 仓储(repo): Repo / InstanceRepo / CustomPageRepo / KeypairRepo / PromptRepo + 写入入参
-//   - 用例(usecase): account / login / claim / handle / domains / recovery / mail(+otp) /
+//   - 用例(usecase): account / login / claim / handle / domains / recovery / 出站通知 /
 //     ai-provider / byoai / prompts / custom-page / page(+pins) / seo / css / wiki-tree 等应用流
 package owner

@@ -5,6 +5,7 @@ import "github.com/atmaxmoj/standmeet/internal/corpus/entity"
 // 类型（实现:entity）.
 type (
 	Asset         = entity.Asset
+	NoteHero      = entity.NoteHero
 	Document      = entity.Document
 	DocumentGenre = entity.DocumentGenre
 	Output        = entity.Output

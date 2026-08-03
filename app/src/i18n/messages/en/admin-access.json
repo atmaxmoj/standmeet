@@ -73,7 +73,7 @@
     "bodyLabel": "body"
   },
   "requests": {
-    "mailHint": "No verified mail connector — configure and test SMTP under Connectors to issue + email access codes. Until then you can only mark requests replied/closed by hand.",
+    "deliveryHint": "No verified outbound channel — set one up under Connectors so approving a request can issue a code and send it. Until then you can only mark requests replied/closed by hand.",
     "intro": "Submissions from the gate's “no code” path. Mark replied once you've issued a code or written back; close to archive. Owner reads every one personally — that's the point.",
     "empty": "No {filter}requests.",
     "issued": "issued {code} — emailed to the requester",

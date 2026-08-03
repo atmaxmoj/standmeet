@@ -53,10 +53,10 @@ interface BusyInterval { start: string; end: string }
 async function diagListBusy(
   request: APIRequestContext, csrf: string, id: string, timeMin: string, timeMax: string,
 ): Promise<{ status: number; busy: BusyInterval[] }> {
-  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/list-busy`,
-    { headers: { 'X-Csrftoken': csrf }, data: { timeMin, timeMax } });
-  const json = await res.json().catch(() => ({ busy: [] })) as { busy?: BusyInterval[] };
-  return { status: res.status(), busy: json.busy ?? [] };
+  const r = await diagInvoke(request, csrf, id, 'calendar', 'free_busy',
+    { time_min: timeMin, time_max: timeMax });
+  const json = JSON.parse(r.text || '{}') as { result?: BusyInterval[] };
+  return { status: r.status, busy: json.result ?? [] };
 }
 
 // ─── inlined mock-shape control (assumed §8-C mock extensions; NOT in fixtures) ───
@@ -86,10 +86,18 @@ async function diagCreateEventResult(
   request: APIRequestContext, csrf: string, id: string,
   input: { title?: string; start: string; end: string; attendee: string },
 ): Promise<{ status: number; ref: EventRef; error?: string }> {
-  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/create-event`,
-    { headers: { 'X-Csrftoken': csrf }, data: input });
-  const json = await res.json().catch(() => ({})) as { id?: string; url?: string; error?: string };
-  return { status: res.status(), ref: { id: json.id, url: json.url }, error: json.error };
+  const r = await diagInvoke(request, csrf, id, 'calendar', 'insert_event', {
+    summary: input.title ?? '', description: '',
+    start: input.start, end: input.end,
+    time_zone: 'UTC', visitor_email: input.attendee,
+  });
+  const json = JSON.parse(r.text || '{}') as
+    { result?: { event_id?: string; html_link?: string }; error?: string };
+  return {
+    status: r.status,
+    ref: { id: json.result?.event_id, url: json.result?.html_link },
+    error: json.error,
+  };
 }
 
 // createOK —— POST 一份 binding，断言 201，返回连接器 id。装配本身不是被测点的
@@ -152,7 +160,15 @@ async function assertResponseNormalizes(
   await setMockBusy(request, [b0, b1]);
   const out = await diagListBusy(request, csrf, id, future(1, 0), future(4, 0));
   expect(out.status).toBe(200);
-  expect(out.busy).toEqual([{ start: b0.start, end: b0.end }, { start: b1.start, end: b1.end }]);
+  // 比**时刻**,不比那串字符。契约把时间解成 time.Time 再发出来,毫秒就没了
+  // (`…:00.000Z` → `…:00Z`) —— 那是序列化的细节,不是这条要验的东西。
+  // 这条验的是 JSONata 把 SaaS 的 freeBusy 形状归一成了契约的 []{start,end}。
+  expect(instants(out.busy)).toEqual(instants([b0, b1]));
+}
+
+// instants —— 忽略时间串的写法,只看它指的那一刻。
+function instants(rows: readonly BusyInterval[]): { start: number; end: number }[] {
+  return rows.map((r) => ({ start: Date.parse(r.start), end: Date.parse(r.end) }));
 }
 
 // assertRequestConstructs —— 跑 create_event，断言 mock 录到的 body 是 request
@@ -225,7 +241,9 @@ async function assertNestedArrayMaps(request: APIRequestContext, csrf: string): 
   await setMockFreeBusyRaw(request, { calendars: { primary: { periods: [{ interval: i0 }, { interval: i1 }] } } });
   const out = await diagListBusy(request, csrf, id, future(1, 0), future(4, 0));
   expect(out.status).toBe(200);
-  expect(out.busy).toEqual([{ start: i0.from, end: i0.to }, { start: i1.from, end: i1.to }]);
+  // 同上:比时刻,不比时间串的写法。
+  expect(instants(out.busy)).toEqual(
+    instants([{ start: i0.from, end: i0.to }, { start: i1.from, end: i1.to }]));
 }
 
 // assertExtraOpTolerated —— binding 多绑一个 consumer 不要的 op（cancel_event）；断言
@@ -368,3 +386,18 @@ test.describe('connector binding · JSONata binding (§8 area C)', () => {
       await assertExtraOpTolerated(request, csrf);
     });
 });
+
+// diagInvoke —— 打 owner-authed 的连接器 diag 口。**这是一条绕过真实链路的后门**
+// (真实路径是 访客 chat → agent → booker 沙箱 → connector.invoke)，所以它**故意**
+// 内联在这里、不抽成共用 fixture:抽出去等于给"绕过"发许可证,下一个人就更容易用它。
+// 这条后门本身的去留见 task「diag 后门」。
+async function diagInvoke(
+  request: APIRequestContext, csrf: string, id: string,
+  category: string, op: string, args: Record<string, unknown>,
+): Promise<{ status: number; text: string }> {
+  const res = await request.post(
+    `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/invoke`,
+    { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },
+  );
+  return { status: res.status(), text: await res.text() };
+}

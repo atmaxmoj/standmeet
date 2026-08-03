@@ -56,7 +56,7 @@ async function plantDeadSession(page: Page): Promise<void> {
     localStorage.setItem('standmeet-session', JSON.stringify({
       code: 'DEAD-01', visitor: null, byoai: false, byoaiProvider: '', label: 'invited',
       used: 0, max: 10, startedAt: 1_700_000_000_000, maxMembers: 0, memberCount: 0,
-      email: '', ownerCanEmail: false,
+      email: '', ownerCanDeliver: false,
     }));
   }, [DEAD_TOKEN]);
 }

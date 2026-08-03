@@ -11,20 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const archiveRaw = `-- name: ArchiveRaw :exec
-UPDATE corpus_notes SET archived = true WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
-`
-
-type ArchiveRawParams struct {
-	ID      pgtype.UUID
-	OwnerID pgtype.UUID
-}
-
-func (q *Queries) ArchiveRaw(ctx context.Context, arg ArchiveRawParams) error {
-	_, err := q.db.Exec(ctx, archiveRaw, arg.ID, arg.OwnerID)
-	return err
-}
-
 const createRawEntry = `-- name: CreateRawEntry :one
 
 INSERT INTO corpus_notes (owner_id, genre, title, body, inbox_source, inbox_meta, tags, flagged_private)
@@ -152,6 +138,9 @@ type ListRawByOwnerParams struct {
 	Limit   int32
 }
 
+// archived 这一列不再有写者:raw 的删跟 wiki / output 一样是真删(见 RawRepo.Delete)。
+// 过滤留着,是因为老库里可能还有当年归档下来的行 —— 它们当时就已经从每个列表消失了,
+// 现在也不该突然冒出来。
 func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, listRawByOwner, arg.OwnerID, arg.Limit)
 	if err != nil {

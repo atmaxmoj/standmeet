@@ -1,7 +1,7 @@
 // mail.ts —— mail-connector setup + Mailpit assertions for the access-code loop.
 //
 // configureMailConnector points the owner's SMTP at the in-network Mailpit
-// catcher and verifies it (POST credentials + /test) so owner.can_email_codes
+// catcher and verifies it (POST credentials + /test) so owner.can_deliver_codes
 // flips true — a precondition for the gate's request-access block to show and
 // for admin approve→issue→email to work. The waitForMailTo / clearMailpit
 // helpers read captured mail off Mailpit's HTTP API for assertions.
@@ -98,7 +98,7 @@ async function activateMail(request: APIRequestContext, csrf: string): Promise<v
 }
 
 // configureMailConnector —— save creds → connect(test) → activate, leaving the
-// mail connector connected + owning the mail slot (so can_email_codes flips true).
+// mail connector connected + owning the mail slot (so can_deliver_codes flips true).
 export async function configureMailConnector(
   request: APIRequestContext, email: string, password?: string,
 ): Promise<void> {

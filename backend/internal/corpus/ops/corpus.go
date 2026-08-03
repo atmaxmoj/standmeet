@@ -25,15 +25,7 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// 三个 genre —— 每个面用同一套词。
-const (
-	genreRaw    = "raw"
-	genreWiki   = "wiki"
-	genreOutput = "output"
-	// genreSubjectivity —— 自我模型。它只能读和删(写在 subjectivity.go:那是 owner 跟自己的
-	// AI 边想边写的,不填表单),所以不在 requireGenre 的三个里,只在删那条上认。
-	genreSubjectivity = "subjectivity"
-)
+// genre 常量 + 每条口收哪几个,都在 genres.go —— 那件事被三处各自答过一遍,现在只有一处。
 
 const (
 	// defaultCorpusLimit / maxCorpusLimit —— 列表窗口。面板和 MCP 用同一套上下限。
@@ -59,7 +51,8 @@ func CorpusReads(deps usecase.Deps) []fp.Op {
 		{
 			ID: "corpus.get",
 			Description: "Read one corpus entry in full by genre + id: body, tags, its place " +
-				"in the tree, and the notes it links to / is linked from.",
+				"in the tree, the notes it links to / is linked from, and its files. " +
+				"Works for every genre including 'subjectivity'.",
 			InputSchema: corpusGetSchema,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
@@ -81,7 +74,8 @@ var (
 	corpusGetSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"genre":{"type":"string","description":"'raw' | 'wiki' | 'output'."},
+			"genre":{"type":"string",
+				"description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
 			"id":{"type":"string","description":"Entry id."}
 		},
 		"required":["genre","id"]
@@ -156,16 +150,6 @@ func clampCorpusLimit(n int32) int32 {
 	return n
 }
 
-func requireGenre(genre string) error {
-	switch genre {
-	case genreRaw, genreWiki, genreOutput:
-		return nil
-	default:
-		return fp.Coded(
-			fp.NotFound("genre must be 'raw', 'wiki' or 'output'"), "unknown_genre")
-	}
-}
-
 func listCorpus(deps usecase.Deps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodeCorpusList(raw)
@@ -203,7 +187,7 @@ func decodeCorpusGet(raw json.RawMessage) (corpusGetArgs, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return in, fp.BadInput("invalid arguments: " + err.Error())
 	}
-	if err := requireGenre(in.Genre); err != nil {
+	if err := requireReadableGenre(in.Genre); err != nil {
 		return in, err
 	}
 	return in, fp.RequireArgs([2]string{"id", in.ID})
@@ -253,6 +237,8 @@ func getByGenre(
 		return getRawItem(ctx, deps, ownerID, in.ID)
 	case genreWiki:
 		return getWikiItem(ctx, deps, ownerID, in.ID)
+	case genreSubjectivity:
+		return getSubjectivityItem(ctx, deps, ownerID, in.ID)
 	default:
 		return getOutputItem(ctx, deps, ownerID, in.ID)
 	}

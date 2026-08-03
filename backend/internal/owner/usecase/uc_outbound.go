@@ -10,20 +10,42 @@
 
 package usecase
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
-// OutboundSender —— 发一封确定性邮件的中性口。未配/未连 → 实现侧的 not-configured 错。
+// ErrOutboundNotConfigured —— owner 还没配好可用的出站通道,送不出去。
+//
+// **内核自己的哨兵**。以前这里用的是连接器轴导出的 `consumer.ErrMailNotConfigured` ——
+// 一个跨界的、名字里带 mail 的错误:内核只要 errors.Is 它一次,就等于承认自己知道对面是邮件。
+// 组装根负责把渠道侧的对应错误翻成这个(见 cmd/server/port/outbound_sender.go)。
+var ErrOutboundNotConfigured = errors.New("no outbound channel configured")
+
+// OutboundSender —— 送一条确定性通知的中性口。未配/未连 → ErrOutboundNotConfigured。
 type OutboundSender interface {
-	// Connected —— 出站通道是否可用(owner 配了并验过发信连接器)。
+	// Connected —— 出站通道是否可用(owner 配了并验过)。
 	Connected(ctx context.Context, ownerID string) (bool, error)
-	// Send —— 给 owner 的收件人发一封信。
-	Send(ctx context.Context, ownerID string, msg OutboundMessage) error
+	// Send —— 把一条通知送到某个收件人手上。
+	Send(ctx context.Context, ownerID string, n OutboundNotice) error
+	// ChannelName —— 送不出去时,让 owner 去连**哪一种**连接器。
+	//
+	// 这个字符串由**装配根**给(它才知道这台实例把出站绑到了哪个品类),内核只是转述。
+	// 有它之前,消息里写的是"an outbound channel" —— 一个界面上根本不存在的词:
+	// owner 读完不知道去哪儿、找什么。**错误消息里的名词必须是他在屏幕上找得到的那个。**
+	ChannelName() string
 }
 
-// OutboundMessage —— 一封待发的信(无任何传输层凭据)。
-type OutboundMessage struct {
-	To      string
-	Subject string
-	Body    string
-	HTML    string // 空 = 纯文本
+// OutboundNotice —— 一条待送的通知。**这是内核能表达的全部**:送给谁、一句标题、一段正文。
+//
+// 三个字段都是**渠道无关**的:邮件把 Title 当主题行,IM 当首行,推送当通知标题。原来这里还有
+// 一个 `HTML` 字段(邮件的 text/html alternative),那是**只有邮件才有的概念** —— 而且从来
+// 没有任何调用方填过它。它留在这儿的唯一作用,就是让内核仍然写得出"一封信"。
+type OutboundNotice struct {
+	// To —— 收件人在那条渠道上的地址。内核不解析它,也不知道它是邮箱还是别的什么。
+	To string
+	// Title —— 一句话的标题。
+	Title string
+	// Body —— 正文纯文本。
+	Body string
 }

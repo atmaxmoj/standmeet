@@ -25,9 +25,9 @@ type (
 	LoginDeps                  = usecase.LoginDeps
 	LoginInput                 = usecase.LoginInput
 	LoginOutput                = usecase.LoginOutput
-	MailStatusDeps             = usecase.MailStatusDeps
+	OutboundStatusDeps         = usecase.OutboundStatusDeps
 	NonceStore                 = usecase.NonceStore
-	OutboundMessage            = usecase.OutboundMessage
+	OutboundNotice             = usecase.OutboundNotice
 	OutboundSender             = usecase.OutboundSender
 	PageDeps                   = usecase.PageDeps
 	PagePinDeps                = usecase.PagePinDeps
@@ -56,11 +56,12 @@ type (
 
 // 构造/函数（实现:usecase）.
 var (
+	ErrOutboundNotConfigured  = usecase.ErrOutboundNotConfigured
 	AddAllowedDomain          = usecase.AddAllowedDomain
 	ApproveAccessRequest      = usecase.ApproveAccessRequest
 	Build                     = usecase.Build
 	BuildPageContentView      = usecase.BuildPageContentView
-	CanEmailCodes             = usecase.CanEmailCodes
+	CanDeliverCodes           = usecase.CanDeliverCodes
 	ClaimInstance             = usecase.ClaimInstance
 	ConsumePasswordResetToken = usecase.ConsumePasswordResetToken
 	CreateKeypair             = usecase.CreateKeypair

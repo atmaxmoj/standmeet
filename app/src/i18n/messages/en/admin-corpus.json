@@ -1,4 +1,14 @@
 {
+  "assets": {
+    "heading": "files",
+    "empty": "no files attached yet",
+    "kindImage": "image",
+    "kindAttachment": "attachment",
+    "insert": "insert in body",
+    "setCover": "use as cover",
+    "isCover": "cover",
+    "remove": "remove"
+  },
   "citable": {
     "label": "citable — appears in the answer's references",
     "help": "With this off, the AI still reads this note and still uses it to shape its answer — it just isn't listed under REFERENCES. This is the attribution switch, not the secrecy switch: to stop the AI reading it at all, take its corpus URI back on /admin/roles or on the code."
@@ -54,7 +64,6 @@
     "quickDump": "quick dump",
     "dumpHint": "paste a thought · then promote",
     "dumpOrigin": "admin · or mcp",
-    "attachMedia": "attach media",
     "dumping": "dumping…",
     "dump": "dump ↵",
     "unindexedHint": "raw stays unindexed until promoted",
@@ -62,8 +71,7 @@
     "flaggedPrivateBadge": "· flagged private",
     "promoteToWiki": "promote → wiki ↗",
     "edit": "edit",
-    "archived": "archived",
-    "archive": "archive",
+    "delete": "delete",
     "flaggedPrivateField": "flagged private (excluded from public chat)"
   },
   "writings": {

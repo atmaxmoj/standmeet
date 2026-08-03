@@ -5,9 +5,11 @@
 
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { useTranslations } from 'next-intl';
 
-import { useCorpusForm, type CorpusFormHook } from '@/lib/admin/use-corpus-form';
+import { appendBlock, useCorpusForm, type CorpusFormHook } from '@/lib/admin/use-corpus-form';
 import type { CorpusEntryInput, PromoteInput } from '@/lib/admin/use-corpus-actions';
 
 // CorpusParentOption —— 「挂在哪个节点下」下拉的一项(某条已有 entry)。
@@ -32,6 +34,21 @@ export interface CorpusEntryFormProps {
   testidPrefix: string;
   bodyVisible?: boolean;
   parentOptions?: readonly CorpusParentOption[];
+  // renderAssets —— 素材区。写成回调而不是一个 ReactNode,是因为"插进正文"要改 body,
+  // 而 body 的状态在这个表单里 —— 把写入口递出去,比让素材区自己拿一份 body 的副本安全。
+  // 新建时没有 id,挂不了素材,所以这个 prop 是可选的:调用方只在编辑态传。
+  renderAssets?: (api: CorpusFormAssetsAPI) => ReactNode;
+}
+
+// CorpusFormAssetsAPI —— 素材区能对这张表单做的事。
+//
+// 封面走表单而不是单发一个请求:corpus.update 对 hero 之外的字段是**整份替换**,
+// 只发一个 cover_image_asset_id 会把标题和正文一起清空。所以这里只改表单状态,
+// owner 点 save 时跟正文一起提交。
+export interface CorpusFormAssetsAPI {
+  insertIntoBody: (markdown: string) => void;
+  setCover: (assetID: string) => void;
+  coverAssetID: string;
 }
 
 export function CorpusEntryForm(props: CorpusEntryFormProps) {
@@ -43,12 +60,13 @@ export function CorpusEntryForm(props: CorpusEntryFormProps) {
       data-testid={`${props.testidPrefix}-form`}
     >
       <TitleField form={form} testid={props.testidPrefix} />
-      {bodyVisible ? <BodyField form={form} testid={props.testidPrefix} /> : null}
+      <BodySlot
+        form={form} testid={props.testidPrefix}
+        visible={bodyVisible} renderAssets={props.renderAssets}
+      />
       <TagsField form={form} testid={props.testidPrefix} />
       <CitableField form={form} testid={props.testidPrefix} />
-      {props.parentOptions
-        ? <ParentField form={form} testid={props.testidPrefix} options={props.parentOptions} />
-        : null}
+      <ParentSlot form={form} testid={props.testidPrefix} options={props.parentOptions} />
       <FormActions
         form={form} busy={props.busy} bodyVisible={bodyVisible}
         submitLabel={props.submitLabel} testid={props.testidPrefix}
@@ -57,6 +75,39 @@ export function CorpusEntryForm(props: CorpusEntryFormProps) {
       />
     </div>
   );
+}
+
+// BodySlot —— 正文 + 紧跟着的素材区。两者绑在一起:素材区的"插进正文"要写 body,
+// 而 promote 那条路根本没有正文,也就没有可挂素材的地方。
+function BodySlot(
+  { form, testid, visible, renderAssets }: {
+    form: CorpusFormHook;
+    testid: string;
+    visible: boolean;
+    renderAssets?: (api: CorpusFormAssetsAPI) => ReactNode;
+  },
+) {
+  const api: CorpusFormAssetsAPI = {
+    insertIntoBody: (markdown) => { form.setBody(appendBlock(form.body, markdown)); },
+    setCover: (assetID) => { form.setCoverAssetID(assetID); },
+    coverAssetID: form.coverAssetID,
+  };
+  return visible ? (
+    <>
+      <BodyField form={form} testid={testid} />
+      {renderAssets ? renderAssets(api) : null}
+    </>
+  ) : null;
+}
+
+function ParentSlot(
+  { form, testid, options }: {
+    form: CorpusFormHook;
+    testid: string;
+    options?: readonly CorpusParentOption[];
+  },
+) {
+  return options ? <ParentField form={form} testid={testid} options={options} /> : null;
 }
 
 export interface PromoteFormProps {

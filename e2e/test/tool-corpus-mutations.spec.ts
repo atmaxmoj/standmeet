@@ -190,17 +190,23 @@ async function testUpdateRaw(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-async function testArchiveRaw(playwright: Playwright): Promise<void> {
+async function testDeleteRaw(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
-  const raw = await createEntry(request, { genre: 'raw', body: 'to be archived' });
+  const raw = await createEntry(request, { genre: 'raw', body: 'to be deleted' });
 
   const resp = await callTool<DeleteResp>(
     request, apiToken, sid, 'corpus.delete', { genre: 'raw', id: raw.id },
   );
   expect(resp.deleted).toBe(true);
-  // raw 是**归档**不是硬删,但归档后不再出现在列表里(它已经不是待收拾的东西了)。
+  // 从列表里没了 —— 而且是**真的没了**:raw 以前走"归档"(行留着、置个标志),
+  // 那个归档没有第二半(没有列表显示它、没有恢复的路),于是 corpus.delete 这个名字
+  // 在 raw 上是假的。所以这里两句都要:列表里没有,按 id 也读不出来。
   const list = await listGenre(request, 'raw');
   expect(list.find((it) => it.id === raw.id)).toBeUndefined();
+  await expect(
+    callTool(request, apiToken, sid, 'corpus.get', { genre: 'raw', id: raw.id }),
+    '按 id 也读不出来 —— 只断"列表里没有"的话,软删也能过',
+  ).rejects.toThrow(/not found|不存在/i);
   await request.dispose();
 }
 
@@ -240,8 +246,8 @@ test.describe('corpus mutations via MCP · genre 矩阵', () => {
   test('补上的格子:corpus.update edits a raw entry in place',
     async ({ playwright }) => { await testUpdateRaw(playwright); });
 
-  test('补上的格子:corpus.delete archives a raw entry',
-    async ({ playwright }) => { await testArchiveRaw(playwright); });
+  test('补上的格子:corpus.delete really deletes a raw entry',
+    async ({ playwright }) => { await testDeleteRaw(playwright); });
 
   test('an unknown genre is refused, naming the three that exist',
     async ({ playwright }) => { await testUnknownGenre(playwright); });

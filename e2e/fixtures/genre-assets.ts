@@ -60,16 +60,31 @@ export interface EntryAssets {
   cover_image_asset_id?: string | null;
   cover_headline?: string;
   cover_hue?: string;
+  title?: string;
   asset_urls?: Record<string, string>;
   assets?: EntryAsset[];
 }
 
 interface MCPSession { request: APIRequestContext; token: string; sid: string }
 
-/** 建一条指定 genre 的语料,返它的 id。 */
+/**
+ * 建一条指定 genre 的语料,返它的 id。
+ *
+ * subjectivity 的**写口是另一条**(subjectivity_write:那是 owner 跟自己的 AI 写出来的
+ * 自我模型,不走 corpus.create)。读、删、挂素材才是同一条 —— 所以这里分流,
+ * 调用方不必知道。
+ */
 export async function createEntry(
   s: MCPSession, genre: string, title: string, body: string,
 ): Promise<string> {
+  if (genre === 'subjectivity') {
+    // 回参的键是 subjectivity_id,不是 id —— 那个 op 的名字和形状都是 owner 的 AI
+    // 一直在用的,搬家时没改对外的称呼。
+    const made = await callTool<{ subjectivity_id: string }>(
+      s.request, s.token, s.sid, 'subjectivity_write', { title, body },
+    );
+    return made.subjectivity_id;
+  }
   const item = await callTool<{ id: string }>(s.request, s.token, s.sid, 'corpus.create', {
     genre, title, body,
   });
@@ -88,14 +103,56 @@ export async function uploadAsset(
 /** kind —— 'image'(正文配图 / hero)还是 'attachment'(可下载的附件,如 PDF)。 */
 export interface UploadOpts { kind?: string; filename?: string }
 
-/** 设 hero 区:图 + 压在图上的那句话 + 色调。 */
+/** hero 区:图 + 压在图上的那句话 + 色调。 */
+export interface HeroPatch {
+  cover_image_asset_id?: string;
+  cover_headline?: string;
+  cover_hue?: string;
+}
+
+/** 设 hero 区。subjectivity 的写口是它自己那条(见 createEntry 的说明)。 */
 export async function setHero(
-  s: MCPSession, genre: string, id: string,
-  hero: { cover_image_asset_id?: string; cover_headline?: string; cover_hue?: string },
-): Promise<EntryAssets> {
+  s: MCPSession, genre: string, id: string, hero: HeroPatch,
+): Promise<unknown> {
+  if (genre === 'subjectivity') {
+    return editSubjectivity(s, id, hero);
+  }
   return callTool<EntryAssets>(s.request, s.token, s.sid, 'corpus.update', {
     genre, id, ...hero,
   });
+}
+
+/** 改一条语料的正文。跟 setHero 同理,subjectivity 走它自己那条写口。 */
+export async function setBody(
+  s: MCPSession, genre: string, id: string, title: string, body: string,
+): Promise<unknown> {
+  if (genre === 'subjectivity') {
+    return editSubjectivity(s, id, { title, body });
+  }
+  return callTool(s.request, s.token, s.sid, 'corpus.update', { genre, id, title, body });
+}
+
+// editSubjectivity —— subjectivity_write 的改法:带上 subjectivity_id。**title 和 body 是必填**
+// (那条 op 的 required),所以改 hero 时也得把它们带上 —— 先读回来再原样交回去,
+// 不然就把正文清空了。
+async function editSubjectivity(
+  s: MCPSession, id: string, patch: HeroPatch & { title?: string; body?: string },
+): Promise<unknown> {
+  const cur = await getEntry(s, 'subjectivity', id);
+  return callTool(s.request, s.token, s.sid, 'subjectivity_write', {
+    subjectivity_id: id,
+    title: patch.title ?? cur.title ?? '',
+    body: patch.body ?? cur.body ?? '',
+    ...heroOnly(patch),
+  });
+}
+
+function heroOnly(p: HeroPatch): HeroPatch {
+  return {
+    ...(p.cover_image_asset_id === undefined ? {} : { cover_image_asset_id: p.cover_image_asset_id }),
+    ...(p.cover_headline === undefined ? {} : { cover_headline: p.cover_headline }),
+    ...(p.cover_hue === undefined ? {} : { cover_hue: p.cover_hue }),
+  };
 }
 
 /** 读回一条语料(带素材字段)。 */
@@ -119,27 +176,13 @@ export async function assetReachable(
   return res !== null && res.ok();
 }
 
-/** 访客读回一条语料时看到的一份素材。 */
-export interface VisitorAsset {
-  asset_id: string;
-  original_filename: string;
-  url: string;
-}
-
-/** visitorRead —— 访客按 path 读一条语料(corpus_read)。读不到时 error 说明原因。 */
-export async function visitorRead(
-  request: APIRequestContext, sess: { session_token: string; conversation_id: string },
-  path: string,
-): Promise<{ assets?: VisitorAsset[]; error?: string; body?: string }> {
-  const res = await request.post(
-    `${BACKEND_URL}/api/v1/sessions/${sess.conversation_id}/tools/corpus_read`,
-    { headers: { Authorization: `Bearer ${sess.session_token}` }, data: { path } },
-  );
-  const body = await res.json() as {
-    result?: { assets?: VisitorAsset[]; error?: string; body?: string };
-  };
-  return body.result ?? {};
-}
+// 这里以前有 visitorRead / VisitorAsset —— 直接 POST
+// `/api/v1/sessions/{cid}/tools/corpus_read`,从回参的 JSON 里数素材。
+//
+// **访客不会发那个 POST**,发它的是页面里的 JS。而素材的泄漏发生在**渲染层**:
+// 文件名、缩略图、渲不出来的破图位 —— 从 JSON 断"数组长度 0"一个都看不见。
+// 那几条断言现在在浏览器里做(genre-assets-reader.spec.ts),这两个就没有调用方了。
+// 留着的话,下一个人会先看见它、照着用,那条后门就又活了。
 
 /** assetByID —— 按 asset id 直取的那条路。素材不该有它 —— 有就绕开了文章的 ACL。 */
 export async function assetByID(

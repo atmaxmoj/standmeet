@@ -55,9 +55,13 @@ func (r *RawRepo) UpdateBody(
 	return toDomainRaw(&row), nil
 }
 
-// Archive 把 raw(corpus_notes genre='raw').archived 置 true（delete 走 archive，soft-delete
-// 让 retention / audit 仍可见）。
-func (r *RawRepo) Archive(ctx context.Context, ownerID, rawID string) error {
+// Delete 删一条 raw。走跟 wiki / output 同一条 DeleteNote —— 底下本来就是同一张
+// corpus_notes,genre 只是一列。
+//
+// 这里以前是 Archive:置 archived=true 把行留着,注释写着"soft-delete 让 retention / audit
+// 仍可见"。**那个"仍可见"从来不存在** —— ListRawByOwner 永远 archived=false,没有第二个
+// 读者,也没有恢复的路。一句解释性的注释让这个设计看起来是有意的,持续了很久。
+func (r *RawRepo) Delete(ctx context.Context, ownerID, rawID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
@@ -67,9 +71,11 @@ func (r *RawRepo) Archive(ctx context.Context, ownerID, rawID string) error {
 		return fmt.Errorf("parse raw id: %w", err)
 	}
 	q := db.New(r.pool)
-	aerr := q.ArchiveRaw(ctx, db.ArchiveRawParams{ID: rawUUID, OwnerID: ownerUUID})
-	if aerr != nil {
-		return fmt.Errorf("archive raw: %w", aerr)
+	derr := q.DeleteNote(ctx, db.DeleteNoteParams{
+		ID: rawUUID, OwnerID: ownerUUID, Genre: genreRaw,
+	})
+	if derr != nil {
+		return fmt.Errorf("delete raw: %w", derr)
 	}
 	return nil
 }

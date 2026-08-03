@@ -190,12 +190,10 @@ async function ssrfConsumeTimeRejected(playwright: Playwright): Promise<void> {
   // runtime consume: the upstream 302s toward 169.254.169.254 → the HTTP runtime
   // must refuse to follow the internal redirect, surfacing a policy refusal (not a
   // 200 with metadata, not a 5xx stack).
-  const diag = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, {
-    headers: { 'X-Csrftoken': csrf }, data: {},
-  });
-  expect(diag.status(), 'runtime refuses internal redirect').toBeGreaterThanOrEqual(400);
-  expect(diag.status(), 'runtime refusal is not a crash').toBeLessThan(500);
-  const text = await diag.text();
+  const diag = await diagInvoke(request, csrf, id, 'calendar', 'free_busy', {});
+  expect(diag.status, 'runtime refuses internal redirect').toBeGreaterThanOrEqual(400);
+  expect(diag.status, 'runtime refusal is not a crash').toBeLessThan(500);
+  const text = diag.text;
   expect(text, 'refusal names the address policy').toMatch(SSRF_REJECT_RE);
   expect(text, 'no metadata exfiltrated').not.toContain('meta-data');
   expect(text, 'no raw go panic / stack').not.toContain('goroutine');
@@ -321,4 +319,19 @@ async function initOwner(playwright: Playwright): Promise<void> {
   });
   await login(request, OWNER.email, OWNER.password);
   await request.dispose();
+}
+
+// diagInvoke —— 打 owner-authed 的连接器 diag 口。**这是一条绕过真实链路的后门**
+// (真实路径是 访客 chat → agent → booker 沙箱 → connector.invoke)，所以它**故意**
+// 内联在这里、不抽成共用 fixture:抽出去等于给"绕过"发许可证,下一个人就更容易用它。
+// 这条后门本身的去留见 task「diag 后门」。
+async function diagInvoke(
+  request: APIRequestContext, csrf: string, id: string,
+  category: string, op: string, args: Record<string, unknown>,
+): Promise<{ status: number; text: string }> {
+  const res = await request.post(
+    `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/invoke`,
+    { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },
+  );
+  return { status: res.status(), text: await res.text() };
 }

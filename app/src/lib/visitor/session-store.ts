@@ -41,10 +41,10 @@ const VisitorSessionSchema = z.object({
   maxMembers: z.number(),
   memberCount: z.number(),
   // #122: email 是进入时填的访客邮箱(可空);约成卡「引用」按钮据此显隐(空 → 不
-  // 给引用,只给透传)。ownerCanEmail = owner 已配通 mail connector(否则整张确认卡
+  // 给引用,只给透传)。ownerCanDeliver = owner 已配通 mail connector(否则整张确认卡
   // 不渲染)。老 localStorage blob 没这俩字段 → default 兜底。
   email: z.string().default(''),
-  ownerCanEmail: z.boolean().default(false),
+  ownerCanDeliver: z.boolean().default(false),
 });
 export type VisitorSession = z.infer<typeof VisitorSessionSchema>;
 

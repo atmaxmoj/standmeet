@@ -1,8 +1,8 @@
-// mail.go —— 出站 mail connector 的业务逻辑:approve 闭环(批准 gate 请求 →
-// issue AccessCode → 邮件发 requester)。
+// uc_access_approval.go —— 批准一条 gate 访问请求:发一张 AccessCode,并把它**送到**申请人手上。
 //
-// 发信走 OutboundSender(连接器代调，SMTP 凭据不出 vault)。approve 复用 codes /
-// roles / owners repo,跟 job-loop 的 applications.commit 自动发码同范式。
+// 发码是核心的事(AccessCode 是产品自己的东西);**怎么送出去不是**。送走这一步只经
+// `OutboundSender` —— 一个收件人、一句标题、一段正文。这个包因此不知道对面是邮件、是 IM、
+// 还是别的什么,也不知道 owner 配的是哪个连接器。
 
 package usecase
 
@@ -15,7 +15,6 @@ import (
 	"time"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
@@ -28,18 +27,17 @@ const (
 	inviteMaxMembers   = 1
 )
 
-// ErrMailNotConfigured —— owner 还没配 / 没 test 通 mail connector,发不出信。
+// 送不出去时用 ErrOutboundNotConfigured(见 uc_outbound.go) —— 内核自己的哨兵。
 
-// MailStatusDeps —— 只读 mail connector 状态(给公共 gate 配置用)。#155：经品类槽
-// (OutboundSender.Connected = active mail 连接器连没连)，不再读旧 mail 连接器存储。
-type MailStatusDeps struct {
+// OutboundStatusDeps —— 只读出站通道的可用性(给公共 gate 配置用)。
+type OutboundStatusDeps struct {
 	Proxy OutboundSender
 }
 
-// CanEmailCodes —— owner 是否有 connected(test 通过)的 active mail connector。
-// gate 用它决定要不要展示「request access」整块:发不出码就别让访客白填。
-// 读失败按"不能发"处理(保守 + 不暴露错误到公共端点)。
-func CanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string) bool {
+// CanDeliverCodes —— owner 有没有一条可用的出站通道,能把发出的码送到申请人手上。
+// gate 用它决定要不要展示「request access」整块:送不出去就别让访客白填。
+// 读失败按"送不了"处理(保守 + 不暴露错误到公共端点)。
+func CanDeliverCodes(ctx context.Context, deps OutboundStatusDeps, ownerID string) bool {
 	if ownerID == "" {
 		return false
 	}
@@ -50,8 +48,8 @@ func CanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string) boo
 	return ok
 }
 
-// ApproveRequestDeps —— approve 闭环依赖(跨 mail / requests / codes / roles / owners)。
-// Proxy = 出站发信(连接器代调，凭据不出 vault)；Mail = 连接器状态读(Connected 预检)。
+// ApproveRequestDeps —— approve 闭环依赖(跨 requests / codes / roles / owners + 出站口)。
+// Proxy 一个口管两件事:预检"送不送得出去"(Connected),和真正把通知送走(Send)。
 type ApproveRequestDeps struct {
 	Reqs   *access.RequestRepo
 	Codes  *access.CodeRepo
@@ -66,9 +64,9 @@ type ApproveResult struct {
 	Link string
 }
 
-// ApproveAccessRequest —— 批准一条 gate 请求:issue AccessCode + 邮件发 requester
-// (含码 + /<page>?code= 链接)+ 状态置 replied。mail connector 必须先 connected,
-// 否则 ErrMailNotConfigured(发不出去就不发码,避免发了码没人知道)。
+// ApproveAccessRequest —— 批准一条 gate 请求:issue AccessCode + 把它送给申请人
+// (含码 + /<page>?code= 链接)+ 状态置 replied。出站通道必须先可用,否则
+// ErrOutboundNotConfigured(送不出去就不发码,避免发了码没人知道)。
 func ApproveAccessRequest(
 	ctx context.Context, deps ApproveRequestDeps, ownerID, requestID string,
 ) (ApproveResult, error) {
@@ -77,7 +75,7 @@ func ApproveAccessRequest(
 		return ApproveResult{}, err
 	}
 	if serr := deps.Proxy.Send(ctx, ownerID, prep.msg); serr != nil {
-		return ApproveResult{}, fmt.Errorf("send approval email: %w", serr)
+		return ApproveResult{}, fmt.Errorf("send approval notice: %w", serr)
 	}
 	if _, uerr := deps.Reqs.UpdateStatus(ctx, ownerID, requestID, "replied"); uerr != nil {
 		return ApproveResult{}, fmt.Errorf("mark request replied: %w", uerr)
@@ -86,7 +84,7 @@ func ApproveAccessRequest(
 }
 
 type approvalPrep struct {
-	msg  OutboundMessage
+	msg  OutboundNotice
 	code string
 	link string
 }
@@ -105,7 +103,7 @@ func prepareApproval(
 	link := buildCodeLink(c.owner.PublicURL, code)
 	return approvalPrep{
 		code: code, link: link,
-		msg: buildApprovalEmail(&c.req, code, link),
+		msg: buildApprovalNotice(&c.req, code, link),
 	}, nil
 }
 
@@ -119,10 +117,10 @@ func loadApprovalContext(
 ) (approvalContext, error) {
 	ok, err := deps.Proxy.Connected(ctx, ownerID)
 	if err != nil {
-		return approvalContext{}, fmt.Errorf("mail connector status: %w", err)
+		return approvalContext{}, fmt.Errorf("outbound channel status: %w", err)
 	}
 	if !ok {
-		return approvalContext{}, consumer.ErrMailNotConfigured
+		return approvalContext{}, ErrOutboundNotConfigured
 	}
 	req, rerr := deps.Reqs.GetByID(ctx, ownerID, requestID)
 	if rerr != nil {
@@ -171,7 +169,9 @@ func buildCodeLink(publicURL, code string) string {
 	return strings.TrimRight(publicURL, "/") + "?code=" + code
 }
 
-func buildApprovalEmail(req *access.Request, code, link string) OutboundMessage {
+// buildApprovalNotice —— 通知的**内容**是产品自己的(是 StandMeet 在告诉申请人他拿到了码),
+// 所以它属于内核。属于渠道的是"怎么送",那一步在 OutboundSender 后面。
+func buildApprovalNotice(req *access.Request, code, link string) OutboundNotice {
 	greeting := "Hi there,"
 	if req.Name != "" {
 		greeting = "Hi " + req.Name + ","
@@ -182,9 +182,9 @@ func buildApprovalEmail(req *access.Request, code, link string) OutboundMessage 
 		"Open this link to start the conversation (the code is already filled in):\n\n" +
 		"    " + link + "\n\n" +
 		"Sent via StandMeet."
-	return OutboundMessage{
-		To:      req.Email,
-		Subject: "Your access request has been approved",
-		Body:    body,
+	return OutboundNotice{
+		To:    req.Email,
+		Title: "Your access request has been approved",
+		Body:  body,
 	}
 }

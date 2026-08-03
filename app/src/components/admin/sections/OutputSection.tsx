@@ -15,19 +15,17 @@ import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { useCorpusView } from '@/lib/admin/corpus-view';
 import { CorpusEntryForm, corpusParentOptions } from '@/components/admin/sections/corpus/CorpusEntryForm';
-import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
+import { OutputEditForm } from '@/components/admin/sections/output/OutputRowForms';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   useCorpusActions,
   type CorpusActionsHook,
   type CorpusEntryInput,
-  type SEOUpdateInput,
 } from '@/lib/admin/use-corpus-actions';
 import {
   pickOutputBodyState, useOutput, loadOutputTreeChildren, OutputSummarySchema,
   type OutputHook, type OutputSummary,
 } from '@/lib/admin/use-output';
-import { useOutputDetail } from '@/lib/admin/use-corpus-detail';
 import { runWith } from '@/lib/admin/use-corpus-form';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
@@ -223,7 +221,7 @@ function CardBody({
       <Tags tags={entry.tags} />
       <StatsRow />
       <CardFoot entry={entry} actions={actions} editing={editing} setEditing={setEditing} />
-      {editing ? <EditForm entry={entry} actions={actions} onDone={() => setEditing(false)} /> : null}
+      {editing ? <OutputEditForm entry={entry} actions={actions} onDone={() => setEditing(false)} /> : null}
     </div>
   );
 }
@@ -320,63 +318,3 @@ function DeleteBtn({ entry, actions }: { entry: OutputSummary; actions: CorpusAc
   );
 }
 
-function EditForm({
-  entry, actions, onDone,
-}: { entry: OutputSummary; actions: CorpusActionsHook; onDone: () => void }) {
-  const t = useTranslations('adminCorpus.common');
-  const toast = useToast();
-  const detail = useOutputDetail(entry.id, actions);
-  const onSubmit = (input: CorpusEntryInput) => void runWith(
-    () => actions.updateOutput(entry.id, input),
-    () => { toast.success('Output updated'); onDone(); },
-  );
-  return (
-    <div className="mt-4" data-testid={`output-edit-loaded-${entry.id}`}>
-      {detail ? (
-        <EditFormBody entry={entry} detail={detail} actions={actions} onSubmit={onSubmit} onDone={onDone} />
-      ) : (
-        <p className="mono text-[10.5px] text-(--color-muted)">{t('loading')}</p>
-      )}
-    </div>
-  );
-}
-
-function EditFormBody({
-  entry, detail, actions, onSubmit, onDone,
-}: {
-  entry: OutputSummary;
-  detail: { title: string; body: string; tags: string[]; path?: string | null; excerpt: string; published: boolean };
-  actions: CorpusActionsHook;
-  onSubmit: (input: CorpusEntryInput) => void;
-  onDone: () => void;
-}) {
-  const toast = useToast();
-  return (
-    <>
-      <CorpusEntryForm
-        initial={{ title: detail.title, body: detail.body, tags: detail.tags }}
-        busy={actions.pending}
-        submitLabel="save"
-        testidPrefix={`output-edit-form-${entry.id}`}
-        onSubmit={onSubmit}
-        onCancel={onDone}
-      />
-      <SEOEditor
-        testidPrefix={`output-${entry.id}`}
-        initial={{ excerpt: detail.excerpt, published: detail.published }}
-        busy={actions.pending}
-        onSave={(input: SEOUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input)}
-      />
-    </>
-  );
-}
-
-async function saveOutputSEO(
-  id: string, actions: CorpusActionsHook,
-  toast: { success: (m: string) => void }, input: SEOUpdateInput,
-): Promise<void> {
-  await runWith(
-    () => actions.updateOutputSEO(id, input),
-    () => toast.success('Output SEO saved'),
-  );
-}

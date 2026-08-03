@@ -16,6 +16,7 @@
     "backToWiki": "← wiki",
     "crumbMeta": "{date} · {count} sources cited",
     "subEntries": "sub-entries",
+    "attachments": "attachments",
     "aboutHeading": "about this entry",
     "aboutBody": "One of {handle}'s wiki entries. The AI on this site is grounded in the same corpus, so you can ask follow-ups below and get answers in his voice with citations back to entries like this one.",
     "indexKicker": "wiki",

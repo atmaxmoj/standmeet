@@ -17,7 +17,7 @@ import {
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useAccount, type AccountHook } from '@/lib/admin/use-account';
 import { adminAPI } from '@/lib/api/admin';
-import { useMail } from '@/lib/admin/use-mail';
+import { useOutbound } from '@/lib/admin/use-outbound';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function AccountSection() {
@@ -74,13 +74,13 @@ function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType
 
 function SecurityCard({ hook }: { hook: AccountHook }) {
   const t = useTranslations('adminShell.account');
-  const mailConnected = useMail().status?.connected ?? false;
+  const canDeliver = useOutbound().status?.connected ?? false;
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <div className="sm-smallcaps mb-3">{t('security')}</div>
       <PasswordBlock hook={hook} />
       <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-(--color-rule)/60">
-        <RecoveryRow mailConnected={mailConnected} />
+        <RecoveryRow canDeliver={canDeliver} />
       </div>
     </div>
   );
@@ -88,17 +88,17 @@ function SecurityCard({ hook }: { hook: AccountHook }) {
 
 // RecoveryRow —— generate a recovery phrase (emailed to the owner). Enabled only once a mail
 // connector is verified (recoveryRowView owns that copy/gating); the button POSTs and toasts.
-function RecoveryRow({ mailConnected }: { mailConnected: boolean }) {
-  const view = recoveryRowView(mailConnected);
+function RecoveryRow({ canDeliver }: { canDeliver: boolean }) {
+  const view = recoveryRowView(canDeliver);
   const toast = useToast();
   const [sending, setSending] = useState(false);
   const generate = useCallback(async () => {
     setSending(true);
     try {
       await adminAPI.postVoid('/account/recovery', {});
-      toast.success('Recovery phrase sent to your email');
+      toast.success('Recovery phrase sent');
     } catch {
-      toast.error("Couldn't send the recovery phrase — verify your mail connector first");
+      toast.error("Couldn't send the recovery phrase — set up and verify an outbound channel first");
     } finally {
       setSending(false);
     }
@@ -106,8 +106,8 @@ function RecoveryRow({ mailConnected }: { mailConnected: boolean }) {
   return (
     <SecurityRow
       label="Recovery phrase" detail={view.detail} actionLabel="generate" note={view.note}
-      onAction={mailConnected ? generate : undefined}
-      disabled={!mailConnected || sending}
+      onAction={canDeliver ? generate : undefined}
+      disabled={!canDeliver || sending}
     />
   );
 }

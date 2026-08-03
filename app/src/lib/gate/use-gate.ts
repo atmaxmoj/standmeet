@@ -96,7 +96,7 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
 
 // storeDisplaySession —— 把 issue 响应折进 SessionStrip 展示 store。code/byoai
 // 两条路径共用:role-specific 字段(code/visitor/byoai/provider)由 caller 传,其余
-// quota/members/startedAt + #122 的 email/ownerCanEmail 在这里统一映射。
+// quota/members/startedAt + #122 的 email/ownerCanDeliver 在这里统一映射。
 function storeDisplaySession(
   sess: PublicSessionResponse,
   fields: { code: string | null; visitor: string | null; byoai: boolean; byoaiProvider: string },
@@ -110,7 +110,7 @@ function storeDisplaySession(
     memberCount: sess.members.length,
     startedAt: Date.now(),
     email: '',
-    ownerCanEmail: sess.owner_can_email ?? false,
+    ownerCanDeliver: sess.owner_can_deliver ?? false,
   });
 }
 

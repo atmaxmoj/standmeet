@@ -96,8 +96,10 @@ func changePassword(deps usecase.AccountDeps) fp.Invoke {
 func generateRecovery(deps usecase.RecoveryDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
 		if err := usecase.GenerateRecovery(ctx, &deps, ownerID); err != nil {
+			// 名字由装配根经 Proxy 转述:界面上那个连接器叫什么,这句就说什么。
 			return nil, fp.Coded(fp.Upstream(
-				"couldn't email the recovery phrase — verify your mail connector first"),
+				"couldn't send the recovery phrase — connect and verify a "+
+					deps.Proxy.ChannelName()+" connector first"),
 				"recovery_send_failed")
 		}
 		return json.Marshal(map[string]bool{"sent": true})
