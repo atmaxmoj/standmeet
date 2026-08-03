@@ -4,7 +4,6 @@ import "github.com/atmaxmoj/standmeet/internal/owner/entity"
 
 // 类型（实现:entity）.
 type (
-	AICredential    = entity.AICredential
 	CustomPage      = entity.CustomPage
 	CustomPageBuild = entity.CustomPageBuild
 	KeypairMetadata = entity.KeypairMetadata

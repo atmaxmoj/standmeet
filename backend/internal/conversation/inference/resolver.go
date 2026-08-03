@@ -1,12 +1,13 @@
 // resolver.go —— per-owner / per-byoai-visitor credential resolution.
 // visitor chat can't import postgres directly (cycle), so resolver takes
-// a narrow `OwnerLookup` interface; caller injects it. AICredential
-// (provider+key+endpoint+model) is the shared shape between visitor
-// BYOAI envelopes and owner DB rows; resolver returns a *Cred (the
-// "ready to call /v1/messages" form).
+// a narrow `OwnerLookup` interface; caller injects it. The two sources have
+// two TYPES — exported `VisitorCred` (visitor-supplied, untrusted by
+// construction) and unexported `ownerCred` (never leaves this package); see
+// visitor_cred.go. Resolver returns a *Cred (the "ready to call /v1/messages"
+// form), whose Untrusted flag is set by WHICH path built it, not by its caller.
 //
 // Policy:
-//  1. mode='byoai' + non-empty BYOAI cred → use that
+//  1. mode='byoai' + non-empty visitor cred → use that
 //  2. otherwise → look up owner row, decrypt key
 //  3. owner.ai_provider_key_enc empty → ErrOwnerProviderUnconfigured
 
@@ -16,8 +17,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // Cred —— resolved upstream credential. all four fields non-empty after
@@ -39,10 +38,11 @@ type Resolver interface {
 	Resolve(ctx context.Context, in *ResolveInput) (*Cred, error)
 }
 
-// ResolveInput —— per-request input. BYOAI non-nil only in mode='byoai'.
+// ResolveInput —— per-request input. Visitor non-nil only in mode='byoai'.
 // fieldalignment: pointer first.
 type ResolveInput struct {
-	BYOAI   *owner.AICredential
+	// Visitor —— 访客自带的凭据(BYOAI)。类型本身就说明它不可信,见 visitor_cred.go。
+	Visitor *VisitorCred
 	OwnerID string
 	Mode    string
 }
@@ -57,36 +57,38 @@ type OwnerKeyResolver struct {
 func (r *OwnerKeyResolver) Resolve(
 	ctx context.Context, in *ResolveInput,
 ) (*Cred, error) {
-	if in.Mode == "byoai" && in.BYOAI.HasKey() {
-		cred, verr := validateCred(in.BYOAI)
-		if verr != nil {
-			return nil, verr
-		}
-		cred.Untrusted = true // visitor-controlled endpoint → guard egress + pre-validate
-		return cred, nil
+	if in.Mode == "byoai" && in.Visitor.HasKey() {
+		// Untrusted 由**这条路径**决定,不由调用方传 —— 访客给的 endpoint 必须过 SSRF 闸。
+		return validateCred(credFields{
+			Provider: in.Visitor.Provider, Key: in.Visitor.Key,
+			Endpoint: in.Visitor.Endpoint, Model: in.Visitor.Model, Untrusted: true,
+		})
 	}
 	cred, err := r.loadOwnerCred(ctx, in.OwnerID)
 	if err != nil {
 		return nil, err
 	}
-	return validateCred(&cred)
+	return validateCred(credFields{
+		Provider: cred.Provider, Key: cred.Key,
+		Endpoint: cred.Endpoint, Model: cred.Model,
+	})
 }
 
 func (r *OwnerKeyResolver) loadOwnerCred(
 	ctx context.Context, ownerID string,
-) (owner.AICredential, error) {
+) (ownerCred, error) {
 	view, err := r.Lookup.LookupForResolver(ctx, ownerID)
 	if err != nil {
-		return owner.AICredential{}, fmt.Errorf("resolve owner provider: %w", err)
+		return ownerCred{}, fmt.Errorf("resolve owner provider: %w", err)
 	}
 	if len(view.KeyEnc) == 0 {
-		return owner.AICredential{}, ErrOwnerProviderUnconfigured
+		return ownerCred{}, ErrOwnerProviderUnconfigured
 	}
 	keyBytes, derr := r.Decrypter(ownerID, view.KeyEnc)
 	if derr != nil {
-		return owner.AICredential{}, fmt.Errorf("decrypt owner ai key: %w", derr)
+		return ownerCred{}, fmt.Errorf("decrypt owner ai key: %w", derr)
 	}
-	return owner.AICredential{
+	return ownerCred{
 		Provider: view.Provider, Key: string(keyBytes),
 		Endpoint: view.Endpoint, Model: view.Model,
 	}, nil
@@ -95,15 +97,25 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 // validateCred —— enforce that all four fields are populated before
 // returning a Cred. preset table only fills UI defaults; server doesn't
 // fall back at request time.
-func validateCred(cred *owner.AICredential) (*Cred, error) {
-	if cred.Provider == "" {
+// credFields —— 两条来路共用的校验入参。Untrusted 是**来路的属性**,由调用处按自己
+// 是哪条路填,不从外面传进来。
+type credFields struct {
+	Provider  string
+	Key       string
+	Endpoint  string
+	Model     string
+	Untrusted bool
+}
+
+func validateCred(in credFields) (*Cred, error) {
+	if in.Provider == "" {
 		return nil, errors.New("cred missing provider")
 	}
-	if cred.Endpoint == "" || cred.Model == "" {
-		return nil, fmt.Errorf("provider %q requires endpoint + model", cred.Provider)
+	if in.Endpoint == "" || in.Model == "" {
+		return nil, fmt.Errorf("provider %q requires endpoint + model", in.Provider)
 	}
 	return &Cred{
-		Provider: cred.Provider, Key: cred.Key,
-		Endpoint: cred.Endpoint, Model: cred.Model,
+		Provider: in.Provider, Key: in.Key,
+		Endpoint: in.Endpoint, Model: in.Model, Untrusted: in.Untrusted,
 	}, nil
 }

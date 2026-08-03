@@ -371,24 +371,6 @@ type OwnerKeypair struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
-type OwnerMailConnector struct {
-	ID           pgtype.UUID
-	OwnerID      pgtype.UUID
-	Provider     string
-	Host         string
-	Port         int32
-	UsernameEnc  []byte
-	PasswordEnc  []byte
-	FromAddress  string
-	FromName     string
-	ConnectedAt  pgtype.Timestamptz
-	OtpHash      []byte
-	OtpExpiresAt pgtype.Timestamptz
-	OtpAttempts  int32
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
-}
-
 type PageContent struct {
 	OwnerID      pgtype.UUID
 	HeroProse    string

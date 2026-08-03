@@ -708,37 +708,11 @@ CREATE INDEX applications_access_code_idx ON applications(access_code_id);
 -- superseded by the generic owner_connectors table below; its repo (CalendarRepo) is deleted.
 -- Kept out of fresh installs; existing volumes keep the empty table (harmless).
 
--- owner_mail_connectors —— per-(owner, provider) outbound SMTP credentials so
--- the owner can send mail (today: the access-code email when a gate request is
--- approved). provider is 'smtp' in v1; the row holds the owner's own SMTP server
--- (Gmail app-password / Postmark / Fastmail / …) — self-hosted, no third-party
--- SaaS binding. username + password are encrypted at rest (cryptobox, like the
--- calendar client_secret); host/port/from are not secret. connected_at is set
--- once a test send succeeds (proves the creds work) — NULL = saved-but-untested.
-CREATE TABLE owner_mail_connectors (
-    id            uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id      uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    provider      text          NOT NULL DEFAULT 'smtp',
-    host          text          NOT NULL,
-    port          integer       NOT NULL,
-    username_enc  bytea         NOT NULL DEFAULT '\x'::bytea,
-    password_enc  bytea         NOT NULL DEFAULT '\x'::bytea,
-    from_address  text          NOT NULL,
-    from_name     text          NOT NULL DEFAULT '',
-    connected_at  timestamptz,
-    -- email-OTP verification: a 6-digit code is emailed to from_address; the
-    -- owner must echo it back to prove they actually receive mail (not just that
-    -- the SMTP creds accept a send). otp_hash is sha256(code); cleared on success
-    -- or after otp_attempts hits the cap. connected_at is set only on a match.
-    otp_hash      bytea,
-    otp_expires_at timestamptz,
-    otp_attempts  integer       NOT NULL DEFAULT 0,
-    created_at    timestamptz   NOT NULL DEFAULT now(),
-    updated_at    timestamptz   NOT NULL DEFAULT now()
-);
-
-CREATE UNIQUE INDEX owner_mail_connectors_owner_provider_uniq
-    ON owner_mail_connectors(owner_id, provider);
+-- owner_mail_connectors RETIRED (#190) —— 它是 #155 之前 mail 专属的凭据表,已被下面通用的
+-- owner_connectors 取代。它的 repo (MailRepo) 和那套邮箱 OTP 验证在本轮删除:
+-- **发信早就走通用连接器**(组装根把内核的中性 OutboundSender 接到注册器的
+-- Invoke("mail","send",json) 上),这张表和它的 OTP 列**零读写方**,是死存储。
+-- 不进新装;既有 volume 里留着空表(无害)。
 
 -- owner_connectors —— #155 统一连接器**连接状态**表（替代 owner_calendar_connectors +
 -- owner_mail_connectors；归一化：任意 kind / 任意品类的连接器一张表）。这里只存「这个 owner

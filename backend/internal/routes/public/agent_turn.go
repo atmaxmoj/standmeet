@@ -15,7 +15,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 func (h *Handlers) agentTurn() http.HandlerFunc {
@@ -312,13 +311,13 @@ func resolveAgentTurnCred(
 ) (*inference.Cred, error) {
 	byoai := pickAgentTurnBYOAICred(h, auth, r)
 	return h.Resolver.Resolve(r.Context(), &inference.ResolveInput{
-		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, BYOAI: byoai,
+		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, Visitor: byoai,
 	})
 }
 
 func pickAgentTurnBYOAICred(
 	h *Handlers, auth authedVisitor, r *http.Request,
-) *owner.AICredential {
+) *inference.VisitorCred {
 	if auth.Data.Mode != "byoai" {
 		return nil
 	}

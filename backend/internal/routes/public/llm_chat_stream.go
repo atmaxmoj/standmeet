@@ -20,7 +20,6 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 func (h *Handlers) llmChatStream() http.HandlerFunc {
@@ -57,13 +56,13 @@ func resolveLLMCred(
 ) (*inference.Cred, error) {
 	byoai := pickLLMBYOAICred(h, auth, r)
 	return h.Resolver.Resolve(r.Context(), &inference.ResolveInput{
-		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, BYOAI: byoai,
+		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, Visitor: byoai,
 	})
 }
 
 func pickLLMBYOAICred(
 	h *Handlers, auth authedVisitor, r *http.Request,
-) *owner.AICredential {
+) *inference.VisitorCred {
 	if auth.Data.Mode != "byoai" {
 		return nil
 	}

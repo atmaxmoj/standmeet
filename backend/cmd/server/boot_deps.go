@@ -71,7 +71,6 @@ type repoSet struct {
 	noteHero       *corpus.NoteHeroRepo
 	writing        *corpus.WritingRepo
 	writingRef     *corpus.WritingRefRepo
-	mailConnector  *connector.MailRepo
 	capability     *access.CapabilityRepo
 	ghost          *conversation.GhostRepo
 	chatReport     *conversation.ChatReportRepo
@@ -113,7 +112,6 @@ func newRepos(db *pgstore.Pool) *repoSet {
 		noteHero:       corpus.NewNoteHeroRepo(db),
 		writing:        corpus.NewWritingRepo(db),
 		writingRef:     corpus.NewWritingRefRepo(db),
-		mailConnector:  connector.NewMailRepo(db),
 		capability:     access.NewCapabilityRepo(db),
 		ghost:          conversation.NewGhostRepo(db),
 		chatReport:     conversation.NewChatReportRepo(db),
@@ -172,7 +170,6 @@ func assembleRuntimeDeps(
 		WritingRefRepo:     repos.writingRef,
 		AssetRepo:          repos.asset,
 		NoteHeroRepo:       repos.noteHero,
-		MailRepo:           repos.mailConnector,
 		CapabilityRepo:     repos.capability,
 		GhostRepo:          repos.ghost,
 		ChatReportRepo:     repos.chatReport,

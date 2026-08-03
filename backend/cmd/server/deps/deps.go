@@ -70,7 +70,6 @@ type Runtime struct {
 	NoteHeroRepo       *corpus.NoteHeroRepo
 	WritingRepo        *corpus.WritingRepo
 	WritingRefRepo     *corpus.WritingRefRepo
-	MailRepo           *connector.MailRepo
 	CapabilityRepo     *access.CapabilityRepo
 	GhostRepo          *conversation.GhostRepo
 	ChatReportRepo     *conversation.ChatReportRepo

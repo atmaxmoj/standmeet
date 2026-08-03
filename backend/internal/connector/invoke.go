@@ -25,6 +25,12 @@ type mailVerb func(
 	ctx context.Context, m contract.MailProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error)
 
+// 品类名在**连接器轴内部**各出现一次。轴外(内核 / 路由 / 组装根)只传字符串。
+const (
+	categoryCalendar = "calendar"
+	categoryMail     = "mail"
+)
+
 var calendarVerbs = map[string]calVerb{
 	"connected":    calConnected,
 	"free_busy":    calFreeBusy,
@@ -43,13 +49,61 @@ func (s *Slots) Invoke(
 	ctx context.Context, ownerID, category, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
 	switch category {
-	case "calendar":
+	case categoryCalendar:
 		return dispatchCalendar(ctx, s.Calendar(), ownerID, verb, args)
-	case "mail":
+	case categoryMail:
 		return dispatchMail(ctx, s.Mail(), ownerID, verb, args)
 	default:
 		return nil, fmt.Errorf("connector invoke: unknown category %q", category)
 	}
+}
+
+// InvokeByIDInput —— 按 id 直打一个连接器要的东西(打包:参数超过 argument-limit)。
+type InvokeByIDInput struct {
+	OwnerID  string
+	ID       string
+	Category string
+	Verb     string
+	Args     json.RawMessage
+}
+
+// InvokeByID —— 按**连接器 id**跑一次品类动词(不经 active 槽)。
+//
+// 跟 Invoke 的差别只有"打谁":Invoke 打品类的 active 槽,这条直接打指定的那一个。
+// diag 要的是后者 —— owner 刚传上来一份绑定,要验它本身对不对,不该被"哪个是 active"干扰。
+//
+// 出参跟 Invoke 完全一样(那份归一 JSON),所以调用方一个品类类型都不必认识。
+func (s *Slots) InvokeByID(
+	ctx context.Context, in *InvokeByIDInput,
+) (json.RawMessage, error) {
+	switch in.Category {
+	case categoryCalendar:
+		return s.byIDCalendar(ctx, in)
+	case categoryMail:
+		return s.byIDMail(ctx, in)
+	default:
+		return nil, fmt.Errorf("connector invoke: unknown category %q", in.Category)
+	}
+}
+
+func (s *Slots) byIDCalendar(
+	ctx context.Context, in *InvokeByIDInput,
+) (json.RawMessage, error) {
+	cal, ok := s.ConnectorCalendar(in.ID)
+	if !ok {
+		return nil, fmt.Errorf("%w: %q is not a %s connector", ErrNotFound, in.ID, in.Category)
+	}
+	return dispatchCalendar(ctx, cal, in.OwnerID, in.Verb, in.Args)
+}
+
+func (s *Slots) byIDMail(
+	ctx context.Context, in *InvokeByIDInput,
+) (json.RawMessage, error) {
+	m, ok := s.ConnectorMail(in.ID)
+	if !ok {
+		return nil, fmt.Errorf("%w: %q is not a %s connector", ErrNotFound, in.ID, in.Category)
+	}
+	return dispatchMail(ctx, m, in.OwnerID, in.Verb, in.Args)
 }
 
 func dispatchCalendar(
