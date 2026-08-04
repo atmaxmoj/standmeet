@@ -8,9 +8,7 @@ capload (*mcpAppCapability).VisitorBinding
 capload (*mcpAppCapability).ownerToolHandler
 capload (*openapiAgentToolsCapability).VisitorBinding
 capload RegisterDiscoveredPluginsHooked
-capload buildAuthHeaders
 capload dialAndList
-capload dialOne
 capload extToolDepsAllowed
 capload loadMCPServersForRole
 capload loadSkillsForBinding
