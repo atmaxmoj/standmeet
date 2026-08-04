@@ -1,74 +1,101 @@
 #!/usr/bin/env bash
-# check-core-seals-only.sh —— §1.5: the kernel seals, it never unseals.
+# check-core-seals-only.sh —— §1.5: the inward side seals; it has no way to unseal.
 #
-# A sealed credential is unsealed by the layer that **owns the sealed column and immediately
-# spends it** —— the connector layer does exactly that (internal/connector/connection_repo.go
-# decrypts a token right where the row is read, and the plaintext never leaves). The kernel is
-# not such a layer: it holds no credential storage, so any decryption there means a ciphertext
-# plus the key to open it were both handed to code whose job is neither.
+# The shape of the rule (owner's words): the AI provider reaches half-way out. On the inward
+# side the owner fills the form, it gets sealed and stored, and **the inward side has no way to
+# open it at all**. Opening happens on the outbound side, which opens and hands the plaintext to
+# whoever spends it. That seal/open pair is not a kind of connector —— it is the base mechanism
+# both sit on.
 #
-# go-arch-lint cannot see this. A kernel file that takes a `func([]byte) ([]byte, error)` from
-# the composition root imports nothing illegal —— every arrow is green while the kernel is doing
-# the one thing it must not do. So this is a string ratchet over the kernel packages, same shape
-# as check-core-agnostic.sh.
+# Two scopes, because the invariant has two escapes and only one of them is visible:
+#
+#   KERNEL_DIRS —— no unsealing *vocabulary* at all. The kernel does not get to open, and it does
+#     not get to hold something that opens: a struct field of type `func([]byte)([]byte,error)`
+#     handed in from outside imports nothing illegal, so go-arch-lint sees an all-green graph
+#     while the kernel opens whatever it is given. That was the real leak (a cryptobox.Decrypt
+#     closure injected as inference.KeyDecrypter), and a guard that only looked for the crypto
+#     package would have missed it.
+#
+#   INWARD_DIRS —— no at-rest opener (cryptobox.Decrypt). Sealing is fine and expected here:
+#     the owner's form writes through it. Excluded from this scope: internal/connector (that IS
+#     the outbound side —— it opens a token right where it spends it) and the crypto box itself.
+#
+# Out of scope on purpose: DecryptWithKey / DeriveSessionKey. That is the per-request BYOAI
+# envelope keyed by the visitor's session token —— a different mechanism from the owner's at-rest
+# vault, and folding the two under one word would be exactly the vocabulary drift this repo
+# keeps paying for.
 #
 # The baseline backend/.core-seals-only-baseline records the **currently declared** exceptions
 # (each line "file<TAB>text", sorted):
-#   - a new hit outside the baseline      → red (the kernel grew a new way to unseal)
+#   - a new hit outside the baseline      → red (a new way to unseal grew on the inward side)
 #   - a baseline entry no longer scanned  → red (delete it; the baseline can only shrink)
 # Shrink it to empty → delete the baseline file → the guard enters pure-red mode.
-#
-# The single exception today is the AI provider key: cmd/server injects a cryptobox.Decrypt
-# closure as inference.KeyDecrypter, and the resolver opens owners.ai_provider_key_enc itself.
-# Draining it means deciding where that unsealing belongs (making the AI provider a connector,
-# or unsealing in the owner repo that owns the column) —— that decision is the point of the
-# baseline: it names the exception instead of letting it pass unnamed.
-#
-# Excluded: _test.go, and comment lines starting with `//` or `*`.
 #
 # Usage:
 #   check-core-seals-only.sh          check (default). Exit 0=clean, 1=violations.
 #   check-core-seals-only.sh seed     print the current hit set (use it to write the baseline).
 #
-# Self-test in check-core-seals-only-test.sh: plant a decrypting kernel file → assert red.
+# Self-test in check-core-seals-only-test.sh: plants both escapes, asserts both go red.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 BASELINE="backend/.core-seals-only-baseline"
 
-# The kernel packages —— same set as check-core-agnostic.sh. Everything else (the connector
-# layer, the repos that own the sealed columns, the composition root) may unseal.
-CORE_DIRS="backend/internal/conversation/inference backend/internal/capabilities"
+# The kernel —— same set as check-core-agnostic.sh.
+KERNEL_DIRS="backend/internal/conversation/inference backend/internal/capabilities"
+KERNEL_PATTERN='[Dd]ecrypt|[Uu]nseal'
 
-# What unsealing looks like. Catches the direct call (cryptobox.Decrypt / Unseal) **and** the
-# indirect form (a decrypter function injected from outside and invoked here) —— the indirect
-# form is the one that got past every import-arrow check.
-PATTERN='[Dd]ecrypt|[Uu]nseal'
+# The inward side —— everything under internal/ except the outbound layer and the box itself.
+INWARD_ROOT="backend/internal"
+INWARD_SKIP='backend/internal/connector/|backend/internal/infra/cryptobox/'
+# 左括号是必须的:没有它 `cryptobox.DecryptWithKey(` 也会命中 —— 那是会话信封,
+# 按上面说的本来就不在这条规则里。(前缀误伤,跟 market-skill- 那次同一种。)
+INWARD_PATTERN='cryptobox\.Decrypt\('
 
-# current_hits —— file<TAB>trimmed source, for every non-comment kernel line that unseals.
-# **No line number in the key**: an unrelated edit higher up the file would shift it and go red,
+# scan_dirs <pattern> <files...> —— file<TAB>trimmed source for every non-comment matching line.
+#
+# **No line number in the key**: an unrelated edit higher in the file would shift it and go red,
 # and a guard that cries wolf teaches you to re-seed without reading. The file is in the key, so
-# moving the exception to another kernel file still has to be re-declared.
-current_hits() {
-  find $CORE_DIRS -name '*.go' ! -name '*_test.go' 2>/dev/null | sort | while IFS= read -r f; do
+# moving an exception to another file still has to be re-declared.
+scan_files() {
+  local pattern="$1"; shift
+  local f
+  for f in "$@"; do
     [ -f "$f" ] || continue
     # `|| true` on both greps: "no match" is exit 1, and under `set -e` + pipefail that would
-    # kill the scan on the first clean file —— i.e. a clean kernel would look like a crash.
-    { grep -E "$PATTERN" "$f" 2>/dev/null || true; } \
+    # kill the scan on the first clean file —— i.e. a clean tree would look like a crash.
+    { grep -E "$pattern" "$f" 2>/dev/null || true; } \
       | { grep -vE '^[[:space:]]*(//|\*)' || true; } \
       | while IFS= read -r hit; do
-          text=$(printf '%s' "$hit" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-          printf '%s\t%s\n' "$f" "$text"
+          printf '%s\t%s\n' "$f" "$(printf '%s' "$hit" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
         done
-  done | sort -u
+  done
 }
 
-# guard against a blind scanner —— an empty CORE_DIRS or a broken find would report "clean"
-# forever. Assert the kernel is actually being read before trusting a green.
-scanned=$(find $CORE_DIRS -name '*.go' ! -name '*_test.go' 2>/dev/null | wc -l | tr -d ' ')
-if [ "$scanned" -eq 0 ]; then
-  echo "check-core-seals-only: scanned 0 kernel files — the scanner is blind, not the kernel clean." >&2
+kernel_files() {
+  find $KERNEL_DIRS -name '*.go' ! -name '*_test.go' 2>/dev/null | sort
+}
+
+inward_files() {
+  find "$INWARD_ROOT" -name '*.go' ! -name '*_test.go' 2>/dev/null | grep -vE "$INWARD_SKIP" | sort
+}
+
+current_hits() {
+  {
+    # shellcheck disable=SC2046 # word splitting is the point: one arg per file
+    scan_files "$KERNEL_PATTERN" $(kernel_files)
+    # shellcheck disable=SC2046
+    scan_files "$INWARD_PATTERN" $(inward_files)
+  } | sort -u
+}
+
+# Guard against a blind scanner —— an empty dir list or a broken find would report "clean"
+# forever. Assert both scopes are actually being read before trusting a green.
+k=$(kernel_files | wc -l | tr -d ' ')
+i=$(inward_files | wc -l | tr -d ' ')
+if [ "$k" -eq 0 ] || [ "$i" -eq 0 ]; then
+  echo "check-core-seals-only: scanned $k kernel / $i inward files — the scanner is blind, not the tree clean." >&2
   exit 1
 fi
 
@@ -90,9 +117,9 @@ stale=$(comm -13 "$hits_f" "$base_f")
 
 rc=0
 if [ -n "$new" ]; then
-  echo "check-core-seals-only: the kernel unseals something new (outside the baseline)." >&2
-  echo "The kernel seals; it never unseals. Unseal where the sealed column lives and is spent" >&2
-  echo "(the connector layer / the owning repo), and hand the kernel what it can use, not the key:" >&2
+  echo "check-core-seals-only: the inward side grew a way to unseal (outside the baseline)." >&2
+  echo "The inward side seals; it never opens. Open on the outbound side and hand over what can" >&2
+  echo "be spent, not the key that opens it:" >&2
   printf '%s\n' "$new" | sed 's/^/  + /' >&2
   rc=1
 fi
@@ -105,6 +132,6 @@ fi
 
 if [ "$rc" -eq 0 ]; then
   n=$(wc -l < "$hits_f" | tr -d ' ')
-  echo "check-core-seals-only: $scanned kernel files scanned; the kernel unseals nothing beyond the $n declared exception line(s)."
+  echo "check-core-seals-only: $k kernel + $i inward files scanned; $n declared exception line(s) left to drain."
 fi
 exit "$rc"

@@ -15,8 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 )
 
 // Pool —— pgx pool 别名(便于 mock 替换)。
@@ -75,29 +73,9 @@ func FormatUUID(u pgtype.UUID) string {
 	return strings.ToLower(string(buf))
 }
 
-// MaybeEncrypt —— 非空 plaintext 用 cryptobox(AES-256-GCM)加密;空 → 空 blob。
-func MaybeEncrypt(plain string, aad []byte) ([]byte, error) {
-	if plain == "" {
-		return []byte{}, nil
-	}
-	out, err := cryptobox.Encrypt([]byte(plain), aad)
-	if err != nil {
-		return []byte{}, fmt.Errorf("encrypt: %w", err)
-	}
-	return out, nil
-}
-
-// DecryptOrEmpty —— 非空 blob 解密回 plaintext;空 blob → ""。
-func DecryptOrEmpty(blob, aad []byte) (string, error) {
-	if len(blob) == 0 {
-		return "", nil
-	}
-	out, err := cryptobox.Decrypt(blob, aad)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: %w", err)
-	}
-	return string(out), nil
-}
+// 这里以前有 MaybeEncrypt / DecryptOrEmpty 一对通用 helper —— **零调用方**,
+// 从建好起就没人用过。删掉不只是清理:DecryptOrEmpty 让 internal/infra 这个
+// 谁都能 import 的底座上挂着一个开封口,而底座恰恰是最不该有开封口的地方。
 
 // OptTime —— pgtype.Timestamptz → *time.Time(invalid → nil)。
 func OptTime(t pgtype.Timestamptz) *time.Time {

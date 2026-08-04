@@ -47,10 +47,10 @@ type ResolveInput struct {
 	Mode    string
 }
 
-// OwnerKeyResolver —— Resolver impl that loads owner row + decrypts key.
+// OwnerKeyResolver —— Resolver impl:读 owner 行,拿到一份已经开好的凭据。
+// **不解封** —— 见 owner_lookup.go 的 OwnerKeyView.Key。
 type OwnerKeyResolver struct {
-	Lookup    OwnerLookup
-	Decrypter KeyDecrypter
+	Lookup OwnerLookup
 }
 
 // Resolve —— implement Resolver interface.
@@ -81,15 +81,11 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 	if err != nil {
 		return ownerCred{}, fmt.Errorf("resolve owner provider: %w", err)
 	}
-	if len(view.KeyEnc) == 0 {
+	if view.Key == "" {
 		return ownerCred{}, ErrOwnerProviderUnconfigured
 	}
-	keyBytes, derr := r.Decrypter(ownerID, view.KeyEnc)
-	if derr != nil {
-		return ownerCred{}, fmt.Errorf("decrypt owner ai key: %w", derr)
-	}
 	return ownerCred{
-		Provider: view.Provider, Key: string(keyBytes),
+		Provider: view.Provider, Key: view.Key,
 		Endpoint: view.Endpoint, Model: view.Model,
 	}, nil
 }

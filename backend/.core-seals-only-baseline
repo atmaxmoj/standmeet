@@ -1,4 +1,1 @@
-backend/internal/conversation/inference/owner_lookup.go	type KeyDecrypter func(ownerID string, enc []byte) ([]byte, error)
-backend/internal/conversation/inference/resolver.go	Decrypter KeyDecrypter
-backend/internal/conversation/inference/resolver.go	keyBytes, derr := r.Decrypter(ownerID, view.KeyEnc)
-backend/internal/conversation/inference/resolver.go	return ownerCred{}, fmt.Errorf("decrypt owner ai key: %w", derr)
+backend/internal/routes/capload/capreg_ext_mcp.go	plain, err := cryptobox.Decrypt(cfg.AuthHeaderValueEnc, []byte(cfg.OwnerID))

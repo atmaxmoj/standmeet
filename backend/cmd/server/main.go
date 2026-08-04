@@ -103,12 +103,10 @@ func wireAndServe(
 	// resolver always builds from owner.ai_provider + decrypted key. In
 	// dev/e2e the owner's endpoint is seeded to the mock llm-gateway
 	// service (see e2e/fixtures/admin.ts seedDevAIProvider).
+	// 开封在 ownerLookupAdapter 里做(openAIProviderKey)。这里**不再**往 resolver 注一个
+	// 解封闭包 —— 那是一把对任意 owner 都好使的万能钥匙,内核不该拿着它。
 	providerResolver := &inference.OwnerKeyResolver{
 		Lookup: &ownerLookupAdapter{repo: repos.owner},
-		// owner LLM key 密文绑到 owner_id(AAD):被搬到别的 owner 行时解密 tamper-fail。
-		Decrypter: func(ownerID string, enc []byte) ([]byte, error) {
-			return cryptobox.Decrypt(enc, []byte(ownerID))
-		},
 	}
 	setupTokenHolder := session.NewSetupTokenHolder()
 	if terr := ensureSetupToken(ctx, log, repos.instance, setupTokenHolder); terr != nil {
@@ -230,10 +228,31 @@ func (a *ownerLookupAdapter) LookupForResolver(
 	if err != nil {
 		return inference.OwnerKeyView{}, fmt.Errorf("owner lookup adapter: %w", err)
 	}
+	key, kerr := openAIProviderKey(ownerID, view.KeyEnc)
+	if kerr != nil {
+		return inference.OwnerKeyView{}, kerr
+	}
 	return inference.OwnerKeyView{
 		Provider: view.Provider, Endpoint: view.Endpoint, Model: view.Model,
-		KeyEnc: view.KeyEnc,
+		Key: key,
 	}, nil
+}
+
+// openAIProviderKey —— 开封 owner 的 AI provider key。**这一步只在这里发生**:
+// 内侧(owner 域 / 内核)只封不解,拿到的是一份能用的凭据,不是打开它的钥匙。
+//
+// ownerID 作 AAD:密文绑到该 owner,被搬到别的 owner 行时开封 tamper-fail。
+// 空密文 = owner 没配,返空串让 resolver 走 ErrOwnerProviderUnconfigured ——
+// "没配"跟"开不开"是两件事,不能都报成开封失败。
+func openAIProviderKey(ownerID string, enc []byte) (string, error) {
+	if len(enc) == 0 {
+		return "", nil
+	}
+	plain, err := cryptobox.Decrypt(enc, []byte(ownerID))
+	if err != nil {
+		return "", fmt.Errorf("open owner ai key: %w", err)
+	}
+	return string(plain), nil
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {

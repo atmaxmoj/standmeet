@@ -1,32 +1,48 @@
 #!/usr/bin/env bash
 # check-core-seals-only-test.sh —— self-test for check-core-seals-only (the ratchet must bite).
 #
-# Plants two probes, because the invariant has two escapes and only one of them is obvious:
-#   1. the direct one —— a kernel file calling cryptobox.Decrypt;
-#   2. the indirect one —— a kernel file taking a decrypter **from outside** and invoking it.
-# (2) is the one that got past every import-arrow check for real: a `func([]byte) ([]byte, error)`
-# field imports nothing illegal. A guard that only catches (1) would have missed the actual leak.
+# Plants three probes, one per escape the guard has to cover:
+#   1. the kernel calls the crypto box directly;
+#   2. the kernel takes an unsealer **from outside** and invokes it —— this one imports nothing
+#      illegal, so every import-arrow check stays green while the kernel opens what it is given.
+#      It is the escape that was actually in the tree, and a guard looking only for the crypto
+#      package would have missed it;
+#   3. an inward-but-not-kernel package (an owner-side repo, say) opens the at-rest vault.
 #
-# Also asserts the scanner is not blind: it must report having read kernel files.
+# Also asserts the scanner is not blind: a green from a scan that read nothing proves nothing.
 
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 CHECK=infra/scripts/check-core-seals-only.sh
-# Derive the probe location from the checker's own CORE_DIRS —— a hardcoded path silently rots
-# when a package moves, and the probe would then sit outside the scanned set forever (green,
-# proving nothing).
-PROBE_DIR="$(grep -m1 '^CORE_DIRS=' "$CHECK" | sed 's/^CORE_DIRS="//; s/".*//' | tr ' ' '\n' | head -1)"
-PROBE="$PROBE_DIR/zz_probe_seals.go"
-PROBE_PKG="$(sed -n 's/^package \([a-z0-9_]*\).*/\1/p' "$(find "$PROBE_DIR" -maxdepth 1 -name '*.go' ! -name '*_test.go' | head -1)" | head -1)"
-fail=0
 
-cleanup() { rm -f "$PROBE"; }
+# Derive both probe locations from the checker's own variables —— a hardcoded path silently rots
+# when a package moves, and the probe would then sit outside the scanned set forever (green,
+# proving nothing). This self-test caught exactly that when KERNEL_DIRS was renamed.
+KERNEL_DIR="$(grep -m1 '^KERNEL_DIRS=' "$CHECK" | sed 's/^KERNEL_DIRS="//; s/".*//' | tr ' ' '\n' | head -1)"
+INWARD_ROOT="$(grep -m1 '^INWARD_ROOT=' "$CHECK" | sed 's/^INWARD_ROOT="//; s/".*//')"
+
+pkg_of() {
+  sed -n 's/^package \([a-z0-9_]*\).*/\1/p' \
+    "$(find "$1" -maxdepth 1 -name '*.go' ! -name '*_test.go' | head -1)" | head -1
+}
+
+KERNEL_PROBE="$KERNEL_DIR/zz_probe_seals.go"
+KERNEL_PKG="$(pkg_of "$KERNEL_DIR")"
+
+# An inward dir that is NOT the kernel and NOT skipped by the checker —— pick the owner repo the
+# real tree seals through, so probe 3 lands where sealing is legal but opening is not.
+INWARD_DIR="$INWARD_ROOT/owner/repo"
+INWARD_PROBE="$INWARD_DIR/zz_probe_seals.go"
+INWARD_PKG="$(pkg_of "$INWARD_DIR")"
+
+fail=0
+cleanup() { rm -f "$KERNEL_PROBE" "$INWARD_PROBE"; }
 trap cleanup EXIT
 
-# 0) the scanner must say how many kernel files it read —— a green from a blind scan is worthless.
-if ! "$CHECK" 2>/dev/null | grep -qE '[1-9][0-9]* kernel files scanned'; then
-  echo "❌ check-core-seals-only reported no scanned kernel files (blind scanner)"
+# 0) the scanner must say how many files it read, in BOTH scopes.
+if ! "$CHECK" 2>/dev/null | grep -qE '[1-9][0-9]* kernel \+ [1-9][0-9]* inward files scanned'; then
+  echo "❌ check-core-seals-only reported an empty scan in one of its scopes (blind scanner)"
   fail=1
 fi
 
@@ -37,8 +53,8 @@ if ! "$CHECK" >/dev/null 2>&1; then
 fi
 
 # 2) escape A —— the kernel calls the crypto box directly.
-cat > "$PROBE" <<EOF
-package $PROBE_PKG
+cat > "$KERNEL_PROBE" <<EOF
+package $KERNEL_PKG
 
 func probeDirectUnseal(b []byte) []byte {
 	out, _ := cryptobox.Decrypt(b, nil)
@@ -46,15 +62,16 @@ func probeDirectUnseal(b []byte) []byte {
 }
 EOF
 if "$CHECK" >/dev/null 2>&1; then
-  echo "❌ MISSED a direct cryptobox.Decrypt planted in $PROBE_DIR"
+  echo "❌ MISSED a direct cryptobox.Decrypt planted in $KERNEL_DIR"
   fail=1
 else
   echo "✓ caught the planted direct unseal"
 fi
+rm -f "$KERNEL_PROBE"
 
-# 3) escape B —— the kernel takes a decrypter from outside and invokes it. Every import legal.
-cat > "$PROBE" <<EOF
-package $PROBE_PKG
+# 3) escape B —— the kernel takes an unsealer from outside and invokes it. Every import legal.
+cat > "$KERNEL_PROBE" <<EOF
+package $KERNEL_PKG
 
 type probeOpener struct {
 	Unsealer func([]byte) ([]byte, error)
@@ -66,13 +83,30 @@ func (p *probeOpener) open(b []byte) []byte {
 }
 EOF
 if "$CHECK" >/dev/null 2>&1; then
-  echo "❌ MISSED an injected unsealer invoked inside $PROBE_DIR (the escape with all-green imports)"
+  echo "❌ MISSED an injected unsealer invoked inside $KERNEL_DIR (the escape with all-green imports)"
   fail=1
 else
   echo "✓ caught the planted injected unsealer"
 fi
+rm -f "$KERNEL_PROBE"
 
-# 4) remove the probe → back to exactly the declared exceptions.
+# 4) escape C —— an inward package outside the kernel opens the at-rest vault.
+cat > "$INWARD_PROBE" <<EOF
+package $INWARD_PKG
+
+func probeInwardUnseal(b, aad []byte) []byte {
+	out, _ := cryptobox.Decrypt(b, aad)
+	return out
+}
+EOF
+if "$CHECK" >/dev/null 2>&1; then
+  echo "❌ MISSED an at-rest unseal planted in $INWARD_DIR (inward side, outside the kernel)"
+  fail=1
+else
+  echo "✓ caught the planted inward-side unseal"
+fi
+
+# 5) remove the probes → back to exactly the declared exceptions.
 cleanup
 trap - EXIT
 if ! "$CHECK" >/dev/null 2>&1; then

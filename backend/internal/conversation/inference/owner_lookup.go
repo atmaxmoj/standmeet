@@ -10,11 +10,16 @@ import "context"
 // Endpoint / Model 仅 provider='custom' 必填（自托管 OpenAI-compat
 // server）或 owner 显式覆盖了 preset 默认时非空；其它情况留空，resolver
 // 用 preset 默认。
+//
+// Key 是**已经开好的**明文,不是密文。§1.5:内侧只封,不解 —— 所以这里既不收密文,
+// 也不收一个"能解封的东西"。开封发生在组装那一侧,内核拿到的是一份能用的凭据,
+// 不是打开它的钥匙。(以前这里是 `KeyEnc []byte` + 一个注进来的 KeyDecrypter:
+// 那等于把密文和万能开封器一起交给了一段两样都不该管的代码。).
 type OwnerKeyView struct {
 	Provider string // 'anthropic' / 'openai' / 'deepseek' / ... / 'custom'
 	Endpoint string // openai-compat base URL；空 = 用 preset 默认
 	Model    string // 默认 model；空 = 用 preset 默认
-	KeyEnc   []byte // AES-GCM 加密；空 byte slice = 未设
+	Key      string // 明文 API key；空 = owner 没配
 }
 
 // OwnerLookup —— resolver 注入的窄接口，避免 import postgres。
@@ -22,18 +27,10 @@ type OwnerLookup interface {
 	LookupForResolver(ctx context.Context, ownerID string) (OwnerKeyView, error)
 }
 
-// KeyDecrypter —— 抽掉 cryptobox 依赖，让测试可以注 stub。dev/prod 默认包一层 cryptobox.Decrypt。
-// ownerID 作 AAD:owner LLM key 密文绑到该 owner，被搬到别的 owner 行时解密 tamper-fail。
+// 这里以前有一个 `KeyDecrypter func(ownerID string, enc []byte) ([]byte, error)` ——
+// 组装根注一个 cryptobox.Decrypt 闭包进来,内核自己开 owners.ai_provider_key_enc。
+// 它已经删了:内核持有的不该是"能开封的东西",而 KeyDecrypter 是一把对**任意 owner**
+// 都好使的万能钥匙。开封现在只发生在组装那一侧(见 cmd/server 的 ownerLookupAdapter),
+// 内核收到的是 OwnerKeyView.Key —— 一份能用的凭据。
 //
-// **这是内核唯一一处解封,而且它是一条已声明的例外,不是既成事实。**
-//
-// §1.5 是"内核只封、永不解封" —— 解封归持有那份密文列并且当场花掉它的那一层(连接器那边
-// 就是这么做的:密文在读到行的地方解开,明文不出那一层)。内核不是这样的一层:它没有凭据存储,
-// 所以这里等于把"密文 + 打开它的东西"一起交给了一段两样都不该管的代码。
-//
-// 例外由 infra/scripts/check-core-seals-only.sh 看着,四行都记在
-// backend/.core-seals-only-baseline 里,那个基线只能缩。排掉它要先定一件事:AI provider
-// 到底做成一个连接器(内核连 key 都不该看见,拿到的是一个能调的东西),还是就让拥有
-// owners.ai_provider_key_enc 那张表的 repo 去解。**这个决定还没做**,所以它现在是被点了名的
-// 例外 —— 而不是一处没人看见的解封。
-type KeyDecrypter func(ownerID string, enc []byte) ([]byte, error)
+// 这条不变量由 infra/scripts/check-core-seals-only.sh 看着。

@@ -192,8 +192,9 @@ type UpdateAIProviderInput struct {
 	Model        string
 }
 
-// AIProviderView —— inference resolver 需要的最小信息。明文 key 由 caller
-// 走 cryptobox.Decrypt 解。Endpoint + Model 仅 custom 或 owner 显式覆盖
+// AIProviderView —— inference resolver 需要的最小信息。KeyEnc 是密文,**本域不开封**:
+// owner 域只封(写路径 cryptobox.Encrypt)不解,开封在组装那一侧
+// (cmd/server 的 openAIProviderKey)。Endpoint + Model 仅 custom 或 owner 显式覆盖
 // preset 默认时非空。
 type AIProviderView struct {
 	Provider string
