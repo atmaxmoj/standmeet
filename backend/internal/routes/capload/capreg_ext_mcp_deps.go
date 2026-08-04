@@ -28,7 +28,7 @@ type DepConnected interface {
 // extToolDepsAllowed —— 该 ext-mcp 工具的 connector-dep 是否放行（最低信任，默认拒）：
 // requires 必须 owner 全部显式 grant + 连接器已连。无 requires 的工具不受闸。
 func extToolDepsAllowed(
-	ctx context.Context, cfg *marketplace.MCPServerConfig, connected DepConnected,
+	ctx context.Context, cfg *marketplace.DialableMCPServer, connected DepConnected,
 	t *mcpclient.Tool,
 ) bool {
 	requires := toolRequires(t)

@@ -177,3 +177,21 @@ Why: the e2e suite drives the **MCP/usecase/API layer** (well-covered → works 
 - Attribution: **incomplete** — subjectivity was added as an ACL/retrieval partition without an owner
   surface; the ACL work then reached for a tree that was never built.
 - Fix: <pending>
+
+### F-D-2 · the ext-MCP auth header had a form field, storage, and a wire — and no test
+- Status: **fixed + covered** (2026-08-04).
+- Expected: what an owner types into "auth header name/value" reaches the external MCP server.
+- Actual: it did — but nothing checked it. Every ext-MCP spec pointed at a mock endpoint that
+  requires no auth, so the header could have been dropped at the form, at the seal, at the
+  unseal, or at the dial, and the whole suite would have stayed green.
+- Attribution: **incomplete** — the field, the encrypted column and the dial-time decrypt all
+  landed together; the fixture that would exercise them did not. The ledger then recorded the
+  gap twice (check 1 "no auth-token field", check 4 "mock has no Authorization") and *still*
+  marked check 4 ✅, citing a guard about malformed InputSchema — a different subject entirely.
+- Fix: `mcp-server-mock` grew `/mcp-auth`, which 401s unless the configured header matches;
+  `external-mcp-auth-header.spec.ts` drives the **panel** (not the API) for both directions —
+  right header → the server's tool result reaches the visitor's answer; wrong header → it never
+  does. Proven to bite: stop unsealing in `cmd/server/unseal.go` and the positive case goes red.
+- Left open: SSE transport and a deep nested `inputSchema` against a real third-party server —
+  recorded as manual steps in `items/ext-mcp.md` check 4, because e2e cannot hold a real
+  provider's credential.

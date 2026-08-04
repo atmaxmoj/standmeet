@@ -185,7 +185,7 @@ func buildVisitorSkillsDeps(d *deps.Runtime) conversation.VisitorSkillsDeps {
 		Wiki: d.WikiRepo, Output: d.OutputRepo, Writings: d.WritingRepo,
 		Skills:          d.SkillRepo,
 		Sandbox:         d.SandboxRunner,
-		MCPServers:      d.MCPServerRepo,
+		MCPServers:      &dialableMCPServers{repo: d.MCPServerRepo},
 		Reports:         d.ChatReportRepo,
 		Resolver:        d.ProviderResolver,
 		AgentConnectors: axisconn.NewAgentConnectorSource(d),

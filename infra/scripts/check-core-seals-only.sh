@@ -25,11 +25,13 @@
 # vault, and folding the two under one word would be exactly the vocabulary drift this repo
 # keeps paying for.
 #
-# The baseline backend/.core-seals-only-baseline records the **currently declared** exceptions
-# (each line "file<TAB>text", sorted):
+# **The baseline is drained and deleted —— this guard is in pure-red mode**: any unsealing on
+# the inward side is red, full stop. The ratchet machinery below stays because it is what got us
+# here (declare the exceptions, then drain them one at a time); re-seeding
+# backend/.core-seals-only-baseline would put it back into ratchet mode:
 #   - a new hit outside the baseline      → red (a new way to unseal grew on the inward side)
 #   - a baseline entry no longer scanned  → red (delete it; the baseline can only shrink)
-# Shrink it to empty → delete the baseline file → the guard enters pure-red mode.
+# Don't re-seed to make a red go away. The two openers that exist both live in cmd/server/unseal.go.
 #
 # Usage:
 #   check-core-seals-only.sh          check (default). Exit 0=clean, 1=violations.

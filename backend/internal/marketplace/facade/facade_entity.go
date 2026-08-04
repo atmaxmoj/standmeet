@@ -4,11 +4,13 @@ import "github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 
 // 类型（实现:entity）.
 type (
-	MCPServerConfig  = entity.MCPServerConfig
-	MarketSkill      = entity.MarketSkill
-	Skill            = entity.Skill
-	SkillScript      = entity.SkillScript
-	SkillScriptParam = entity.SkillScriptParam
+	DialableMCPServer = entity.DialableMCPServer
+	MCPAuthHeader     = entity.MCPAuthHeader
+	MCPServerConfig   = entity.MCPServerConfig
+	MarketSkill       = entity.MarketSkill
+	Skill             = entity.Skill
+	SkillScript       = entity.SkillScript
+	SkillScriptParam  = entity.SkillScriptParam
 )
 
 // 错误/变量（实现:entity）.

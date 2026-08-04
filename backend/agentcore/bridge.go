@@ -44,10 +44,14 @@ func (g driverSkillGetter) ListSkillsForRole(
 }
 
 // driverMCPGetter —— MCPServerGetter returning the Driver's one ext-mcp server config.
-type driverMCPGetter struct{ cfg *marketplace.MCPServerConfig }
+// eval 侧的认证头本来就是明文(Driver 自己配的),所以这里直接给 DialableMCPServer ——
+// 跟 prod 一样:装配那侧只接"能拨的样子",开封发生在实现这个端口的地方。
+type driverMCPGetter struct {
+	cfg *marketplace.DialableMCPServer
+}
 
 func (g driverMCPGetter) GetByID(
-	_ context.Context, _, _ string) (marketplace.MCPServerConfig, error,
+	_ context.Context, _, _ string) (marketplace.DialableMCPServer, error,
 ) {
 	return *g.cfg, nil
 }

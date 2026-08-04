@@ -166,7 +166,7 @@ func buildDriverDeps(
 		deps.Sandbox = driverSandbox{driver: d}
 	}
 	if mcpURL != "" {
-		cfg := marketplace.MCPServerConfig{
+		cfg := marketplace.DialableMCPServer{
 			ID: evalMCPID, OwnerID: ownerID, Name: "eval-mcp", URL: mcpURL,
 		}
 		deps.MCPServers = driverMCPGetter{cfg: &cfg}

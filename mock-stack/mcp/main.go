@@ -86,6 +86,14 @@ func serveHTTP(srv *server.MCPServer) {
 	httpSrv := server.NewStreamableHTTPServer(srv, server.WithEndpointPath("/mcp"))
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", httpSrv)
+	// /mcp-auth —— 同一个 server,但**必须**带对 owner 配的认证头才让进。
+	//
+	// 它是一条独立路径而不是一个环境变量:mock 是所有 spec 共用的一个容器,用环境变量
+	// 开全局校验会把别的 spec 一起挡在门外。走这条路的 spec 自己把 server URL 指过来。
+	//
+	// 有了它,"owner 填的认证头到底有没有真的发到对面"才第一次成为**可观察的**事情 ——
+	// 头掉了 → 401 → 拉不到工具 → 那台 server 的工具从访客那边消失。
+	mux.Handle("/mcp-auth", requireAuth(httpSrv))
 	mux.HandleFunc("/healthz", healthz)
 	fmt.Fprintln(os.Stderr, "mcp-server-mock listening on :"+port+"/mcp")
 	httpServer := &http.Server{
@@ -97,6 +105,28 @@ func serveHTTP(srv *server.MCPServer) {
 	if err := httpServer.ListenAndServe(); err != nil {
 		log.Fatalf("listen: %v", err)
 	}
+}
+
+// 走 /mcp-auth 必须带的那一对头。owner 在面板上填的就是这两个值。
+const (
+	authHeaderName  = "X-Mock-Auth"
+	authHeaderValue = "mock-secret-token"
+)
+
+// requireAuth —— 头不对就 401,连 MCP 握手都不给。
+//
+// 故意在**传输层**就拒:这样"头没发出去"表现成拉不到工具,而不是某个工具调用失败 ——
+// 前者是访客那边看得见的(那台 server 的工具整个消失),后者要一路点到底才发现。
+func requireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(authHeaderName) != authHeaderValue {
+			fmt.Fprintf(os.Stderr, "mcp-server-mock: /mcp-auth rejected: %q\n",
+				r.Header.Get(authHeaderName))
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

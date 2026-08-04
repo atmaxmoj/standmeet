@@ -32,7 +32,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
-	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
@@ -238,22 +237,7 @@ func (a *ownerLookupAdapter) LookupForResolver(
 	}, nil
 }
 
-// openAIProviderKey —— 开封 owner 的 AI provider key。**这一步只在这里发生**:
-// 内侧(owner 域 / 内核)只封不解,拿到的是一份能用的凭据,不是打开它的钥匙。
-//
-// ownerID 作 AAD:密文绑到该 owner,被搬到别的 owner 行时开封 tamper-fail。
-// 空密文 = owner 没配,返空串让 resolver 走 ErrOwnerProviderUnconfigured ——
-// "没配"跟"开不开"是两件事,不能都报成开封失败。
-func openAIProviderKey(ownerID string, enc []byte) (string, error) {
-	if len(enc) == 0 {
-		return "", nil
-	}
-	plain, err := cryptobox.Decrypt(enc, []byte(ownerID))
-	if err != nil {
-		return "", fmt.Errorf("open owner ai key: %w", err)
-	}
-	return string(plain), nil
-}
+// openAIProviderKey 在 unseal.go —— 开封只在那一个文件里发生。
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
 	opts, err := redis.ParseURL(redisURL)

@@ -1,1 +1,0 @@
-backend/internal/routes/capload/capreg_ext_mcp.go	plain, err := cryptobox.Decrypt(cfg.AuthHeaderValueEnc, []byte(cfg.OwnerID))

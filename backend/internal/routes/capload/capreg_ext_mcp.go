@@ -11,7 +11,6 @@ package capload
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
-	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
@@ -86,12 +84,12 @@ func (c *extMCPCapability) VisitorBinding(
 
 func loadMCPServersForRole(
 	ctx context.Context, servers conversation.MCPServerGetter, in *capreg.AssembleInput,
-) []marketplace.MCPServerConfig {
+) []marketplace.DialableMCPServer {
 	if servers == nil || in.RoleSnapshot == nil {
-		return []marketplace.MCPServerConfig{}
+		return []marketplace.DialableMCPServer{}
 	}
 	ids := in.RoleSnapshot.MCPServerIDs()
-	out := make([]marketplace.MCPServerConfig, 0, len(ids))
+	out := make([]marketplace.DialableMCPServer, 0, len(ids))
 	for _, id := range ids {
 		cfg, err := servers.GetByID(ctx, in.OwnerID, id)
 		if err != nil {
@@ -118,7 +116,7 @@ func (b *extMCPBundle) closeAll() {
 }
 
 func dialExternalMCPs(
-	ctx context.Context, servers []marketplace.MCPServerConfig, connected DepConnected,
+	ctx context.Context, servers []marketplace.DialableMCPServer, connected DepConnected,
 ) *extMCPBundle {
 	bundle := &extMCPBundle{}
 	results := dialAllInParallel(ctx, servers)
@@ -135,7 +133,7 @@ type dialResult struct {
 }
 
 func dialAllInParallel(
-	ctx context.Context, servers []marketplace.MCPServerConfig,
+	ctx context.Context, servers []marketplace.DialableMCPServer,
 ) []dialResult {
 	out := make([]dialResult, len(servers))
 	var wg sync.WaitGroup
@@ -148,12 +146,10 @@ func dialAllInParallel(
 	return out
 }
 
-func dialOne(ctx context.Context, cfg *marketplace.MCPServerConfig) dialResult {
-	headers, herr := buildAuthHeaders(cfg)
-	if herr != nil {
-		return dialResult{err: herr}
-	}
-	sess, derr := mcpclient.Dial(ctx, cfg.URL, headers)
+func dialOne(ctx context.Context, cfg *marketplace.DialableMCPServer) dialResult {
+	// 认证头在这里已经是明文了 —— 开封发生在实现 MCPServerGetter 的那一侧(组装根)。
+	// 这里以前有一个 buildAuthHeaders,自己 cryptobox.Decrypt:装配是内侧,内侧不解封。
+	sess, derr := mcpclient.Dial(ctx, cfg.URL, cfg.AuthHeader.Headers())
 	if derr != nil {
 		return dialResult{err: derr}
 	}
@@ -166,19 +162,8 @@ func dialOne(ctx context.Context, cfg *marketplace.MCPServerConfig) dialResult {
 	return dialResult{session: sess, tools: tools}
 }
 
-func buildAuthHeaders(cfg *marketplace.MCPServerConfig) (map[string]string, error) {
-	if cfg.AuthHeaderName == "" || len(cfg.AuthHeaderValueEnc) == 0 {
-		return map[string]string{}, nil
-	}
-	plain, err := cryptobox.Decrypt(cfg.AuthHeaderValueEnc, []byte(cfg.OwnerID))
-	if err != nil {
-		return nil, fmt.Errorf("decrypt mcp auth: %w", err)
-	}
-	return map[string]string{cfg.AuthHeaderName: string(plain)}, nil
-}
-
 func (b *extMCPBundle) absorb(
-	ctx context.Context, cfg *marketplace.MCPServerConfig, connected DepConnected, r *dialResult,
+	ctx context.Context, cfg *marketplace.DialableMCPServer, connected DepConnected, r *dialResult,
 ) {
 	if r.err != nil || r.session == nil {
 		return
@@ -192,7 +177,7 @@ func (b *extMCPBundle) absorb(
 // addTool —— 暴露一个 ext-mcp 工具，先过 connector-dep 闸（ext-mcp 最低信任，见 _deps.go）：
 // 工具声明的 requires 必须 owner 显式 grant + 已连，否则隐藏。
 func (b *extMCPBundle) addTool(
-	ctx context.Context, cfg *marketplace.MCPServerConfig, connected DepConnected,
+	ctx context.Context, cfg *marketplace.DialableMCPServer, connected DepConnected,
 	session *mcpclient.Session, t *mcpclient.Tool,
 ) {
 	if !extToolDepsAllowed(ctx, cfg, connected, t) {

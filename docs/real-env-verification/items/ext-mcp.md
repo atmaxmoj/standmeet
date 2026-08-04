@@ -13,8 +13,8 @@
 ### 1 — Register a real remote server  (was §D1)
 - **Steps:** admin/api·mcp → add MCP server → paste the reference server's real URL → save. Backend performs a real `initialize` + `tools/list` handshake over HTTP against a server it didn't write.
 - **Expected:** the server appears connected; its real advertised tools are enumerated (not the fixed `echo`/`ping`/`boom` set the mock hands back).
-- **⚠️ mock gap:** the register form takes a **URL only** — no auth-token field is captured (`admin-mcp-servers.spec.ts:32`), because the mock requires none. A real bearer-gated server has nowhere to store its token today. **See check 4.**
-- **Backing test:** `admin-mcp-servers.spec.ts`
+- **~~⚠️ mock gap~~ (stale, corrected 2026-08-04):** the note read "the register form takes a **URL only** — no auth-token field is captured". That is **no longer true**: the panel has `mcp-server-auth-name` + `mcp-server-auth-value` (the value field is `type=password`), and the value is sealed at rest. The token *does* have somewhere to live. What was genuinely missing was **coverage** — no spec filled those fields, so the header could have been dropped anywhere between the form and the wire without a single test going red. Closed by `external-mcp-auth-header.spec.ts`.
+- **Backing test:** `admin-mcp-servers.spec.ts` · `external-mcp-auth-header.spec.ts`
 - **Result:** ✅ — ext.mcp capability enabled; role ext-mcp-verify + code VERIFY-D0 registered a real remote server (prior round).
 ### 2 — Expose the server's tools to a role  (was §D2)
 - **Steps:** attach the registered server to a visitor role → issue an access code scoped to it → enter chat as that visitor.
@@ -30,16 +30,25 @@
 - **Steps (D4a, self-serve):** point at a **bearer-gated** server → a call without/with-wrong token refused upstream, with the correct token succeeds. Then run one over an **SSE-transport** server, and round-trip a tool with a **large/nested `inputSchema`** (arrays, nested objects, enums).
 - **Steps (D4b, `manual-only`):** an **OAuth-gated** MCP server (authorization-server metadata + token grant) — document the walkthrough, don't self-serve a full OAuth AS.
 - **Expected:** wrong bearer → friendly upstream-auth error (no raw 401 body); SSE stream frames parse; complex schema round-trips.
-- **⚠️ mock gap:** `mcp-server-mock` has **no `Authorization`, streamable-HTTP only (no SSE), trivial single-string schemas**. `mcp-auth.spec.ts` covers the backend's **own** inward `/mcp` Bearer — **not** the upstream external server's auth (wrong surface).
-- **Backing test:** `mcp-auth.spec.ts` (inward `/mcp` only); no backing spec for upstream bearer/SSE/large-schema (gap).
-- **Result:** ✅ e2e-covered — real auth + SSE + large schema (mcp-schema-valid-json guard: one bad InputSchema empties tools/list).
+- **⚠️ mock gap (narrowed 2026-08-04):** `mcp-server-mock` now serves a second endpoint `/mcp-auth` that **401s unless the owner-configured header matches**, so the *header-reaches-the-wire* half is machine-checked. Still mock-shaped: it is a fixed header name/value, **streamable-HTTP only (no SSE)**, and **trivial single-string schemas**. `mcp-auth.spec.ts` remains the backend's **own inward** `/mcp` Bearer — a different surface; don't count it here.
+- **Backing test:** `external-mcp-auth-header.spec.ts` (upstream header, both directions). No backing spec for **SSE transport** or a **large/nested schema** against a real server — still a gap, see the manual steps below.
+- **Result:** ⚠️ **partly covered — the earlier ✅ was wrong.** It cited the `mcp-schema-valid-json` guard, which is about a *malformed InputSchema emptying tools/list* — it says nothing about upstream auth, SSE, or nested schemas. Corrected on 2026-08-04. What is now covered: the owner-entered auth header is really sent, and a wrong one really fails closed. What is **not**: a real third-party bearer, SSE framing, and a deep schema round-trip — those need a real server (steps below).
+- **Manual steps (D4a-real, `needs-real-server`):**
+  1. Stand up a real third-party MCP server that requires a bearer — `@modelcontextprotocol/server-everything` behind a token-checking reverse proxy is enough; the token goes in `[MCP]` of `~/.config/standmeet/verify-creds.env`.
+  2. On **admin → api · mcp**, register it: URL + `Authorization` / `Bearer <token>`. Save.
+  3. Attach to a role, issue a code, enter chat as that visitor → the server's **real** tools appear as `ext_<server>_<tool>` and one dispatches end-to-end.
+  4. Now edit the same server's token to a wrong value (or revoke it upstream) → re-enter chat. **Expected:** those tools are simply gone, and what the visitor sees is an ordinary "I can't do that" — *not* a raw `401`, not a stack trace, not a stall.
+  5. Repeat step 3 against an **SSE-transport** server, and against a tool whose `inputSchema` has nested objects/arrays/enums; confirm the arguments the AI sends round-trip intact.
+- **Why manual:** e2e cannot supply a credential to a server StandMeet did not write. The mock proves *the header we hold gets sent*; only a real server proves *a real provider accepts it* — and step 4's judgement ("does this read as a normal refusal to a visitor?") is a human read, not an assertion.
 ### 5 — Real tool invocation from visitor chat  (was §D5)
 - **Steps:** visitor asks something that routes to the real server's tool → backend MCP client dials the real upstream → real `tool_result` renders. Also exercise the per-tool HTTP endpoint (`ext_<server>_<tool>`) directly.
 - **Expected:** the visitor sees the real server's real output (not a mock echo); chat-path and direct-endpoint results match.
 - **Backing test:** `external-mcp-tools.spec.ts` · `tool-endpoint-ext-mcp.spec.ts`
 - **Result:** ✅ — real tool invocation from visitor chat (ext-mcp round).
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The registered-servers **list renders** (name/URL/attached role); add-server fires and the new server appears; a bearer-gated server has a **place to store its token** (F: register form is URL-only).
+The registered-servers **list renders** (name/URL/attached role); add-server fires and the new server appears; a bearer-gated server has a **place to store its token** (it does: auth header name + value, value masked).
+
+Look at what the list tells the owner about a server that is **currently failing to authenticate**. Today the row looks identical whether the token is good or stale — the tools just quietly stop appearing for visitors, and nothing on this page says so. An owner whose token expired has no way to find that out from here.
 
 ## Findings
 (record here; also log `../findings.md`, ID `F-D-n` historical anchor)
