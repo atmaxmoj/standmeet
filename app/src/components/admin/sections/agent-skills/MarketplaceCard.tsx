@@ -64,7 +64,10 @@ function CardFoot({
   const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <footer className={styles.foot}>
-      <span className={styles.author} data-testid="market-skill-author">
+      {/* market-author,不是 market-skill-author:`market-skill-` 是**卡片**的命名空间
+          (`market-skill-<id>`),卡片里面的字段再叫这个前缀,数卡片的选择器就会连字段一起数进去
+          —— 每张卡片算两个。那正是 F-F-2 当年被记成"后端结果重复"的原因。 */}
+      <span className={styles.author} data-testid="market-author">
         {skill.version
           ? t('author', { author: skill.author, version: skill.version })
           : t('authorOnly', { author: skill.author })}

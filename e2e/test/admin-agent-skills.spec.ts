@@ -12,6 +12,7 @@ import type { Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { gotoAdminSection } from '@/fixtures/navigate';
+import { expectFamilyCount } from '@/fixtures/testid-family';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -38,15 +39,16 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
       expect(count).toBeGreaterThanOrEqual(5);
     });
 
-  // F-F-2: skillsmp results are duplicated (3 fixture skills → 6); fix is backend + a rebuild
-  // (blocked this round). Restore to test(...) once the dedup/pagination is fixed.
-  test.fixme('marketplace tab: real search; skillsmp filter trims to 3',
+  // SkillsMP 会把同一个技能的多语言变体各列一行,所以后端按 name+author 去重
+  // (dedupePreferEnglish)。这条断的是**去重之后的条数** —— 不去重的话 owner 看到的
+  // 每个技能都出现两遍。
+  test('marketplace tab: real search; skillsmp filter trims to 3',
     async ({ adminPage }) => {
       await openAgentSkills(adminPage);
       await adminPage.getByTestId('skills-tab-marketplace').click();
       await expect(adminPage.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
       await adminPage.getByTestId('marketplace-source-skillsmp').click();
-      await expect(adminPage.locator(MARKET)).toHaveCount(3);
+      await expectFamilyCount(adminPage, 'market-skill-', 3);
     });
 
   // UX-13 residual: SkillsMP skills carry no version → the footer renders author alone,
@@ -54,16 +56,16 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
   test('marketplace: a versionless skill shows author, not a bare "· v"',
     async ({ adminPage }) => { await assertNoBareVersion(adminPage); });
 
-  // F-F-2: 'all' = 17 github + 6 (duplicated skillsmp) = 23, not 20. See above.
-  test.fixme('marketplace paginates: first page caps the grid, load more appends',
+  // 'all' = 17 github + 3 skillsmp = 20(两边 name+author 不撞,跨源不会被去重掉)。
+  test('marketplace paginates: first page caps the grid, load more appends',
     async ({ adminPage }) => {
       await openAgentSkills(adminPage);
       await adminPage.getByTestId('skills-tab-marketplace').click();
       await expect(adminPage.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
       // PAGE_LIMIT = 12; 'all' returns 17 github + 3 skillsmp = 20 → page 1 is 12.
-      await expect(adminPage.locator(MARKET)).toHaveCount(12);
+      await expectFamilyCount(adminPage, 'market-skill-', 12);
       await adminPage.getByTestId('marketplace-load-more').click();
-      await expect(adminPage.locator(MARKET)).toHaveCount(20);
+      await expectFamilyCount(adminPage, 'market-skill-', 20);
       await expect(adminPage.getByTestId('marketplace-load-more')).toHaveCount(0);
     });
 
@@ -119,7 +121,7 @@ async function assertNoBareVersion(page: Page): Promise<void> {
   await page.getByTestId('skills-tab-marketplace').click();
   await page.getByTestId('marketplace-source-skillsmp').click();
   await expect(page.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
-  const authors = await page.getByTestId('market-skill-author').allInnerTexts();
+  const authors = await page.getByTestId('market-author').allInnerTexts();
   expect(authors.length).toBeGreaterThan(0);
   for (const a of authors) {
     expect(a, `versionless card author must not dangle "· v": ${a}`).not.toMatch(/·\s*v\s*$/);
