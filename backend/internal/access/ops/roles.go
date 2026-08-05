@@ -3,9 +3,12 @@
 // 邀请码是发给 role 的;会话开始时冻结一份 RoleSnapshot,之后改 role 只影响新会话。
 //
 // 归一化前两个面差得最多的就是这个资源:admin 的 role 一直带 waypoints、dock_buttons、
-// notify_owner_on_booking、require_ghost_evidence 和活跃码计数;MCP 的 role_list 只给计数,
-// role_update 连那几个开关都收不了 —— 也就是说 owner 从 Claude Code **改不了、也看不见**
-// require_ghost_evidence 这种安全相关的 per-role 开关。现在只有一份形状。
+// require_ghost_evidence 和活跃码计数;MCP 的 role_list 只给计数,role_update 连那几个开关
+// 都收不了 —— 也就是说 owner 从 Claude Code **改不了、也看不见** require_ghost_evidence
+// 这种安全相关的 per-role 开关。现在只有一份形状。
+//
+// 各能力自己的 per-role 设置(calendar.book 的 notify_owner)不在本域的形状里,经 Extras
+// 那个口子并进来 —— 本域连它们叫什么都不知道。
 //
 // op 的 id 保持历史名字(role_create 而不是 roles.create)。
 

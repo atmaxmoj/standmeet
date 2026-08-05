@@ -327,18 +327,6 @@ CREATE TABLE roles (
     greeting     text          NOT NULL DEFAULT '',
     prompt_id    uuid          REFERENCES prompts(id) ON DELETE SET NULL,
     is_builtin   boolean       NOT NULL DEFAULT false,
-    -- roles.notify_owner_on_booking RETIRED (#13) —— 它曾经是这张表上的一列:"这个 role 下的
-    -- 访客约成后给 owner 发通知邮件"。一个**能力的**开关长在内核表上,一路长到 entity、
-    -- role snapshot、MCP 的 role schema、和每次 tool-call 的 `_meta`;而 mcpclient 那侧的
-    -- 注释同时写着"host 既不发也不知道 booking notify 是什么"。
-    --
-    -- 现在它是 calendar.book 在自己 manifest 里声明的 role_config(键名 notify_owner),存进
-    -- capconfig 的 role scope(collection capconfig_role)。roles 表不再知道 booking 是什么。
-    --
-    -- 已有实例(列还在库里、值还在行上)非破坏性退役:
-    --     ALTER TABLE roles DROP COLUMN IF EXISTS notify_owner_on_booking;
-    -- 先跑新代码确认无恙再删列 —— 代码已经不读它了,留着只占空间不产生行为。
-    -- 之前开着这个开关的 role,要在面板/MCP 上重新设一次 notify_owner。
     -- dock_buttons —— #109/#110 这个 role 的 ≤2 个 chat dock 按钮：[{capability_id, trigger}]。
     -- 访客点按钮 = 发触发词（快捷方式）。冻进 RoleSnapshot；title 解析 + code-deny 过滤在会话装配层。
     dock_buttons jsonb         NOT NULL DEFAULT '[]'::jsonb,

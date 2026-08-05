@@ -5,8 +5,8 @@
 //
 // 出站载荷跟 MCP 面是同一份。迁移前这是差得最多的一个资源：MCP 的 role_list 只给
 // skill/mcp 的**计数**，role_update 连 waypoints / dock_buttons /
-// notify_owner_on_booking / require_ghost_evidence 都收不了 —— 也就是说 owner 从
-// Claude Code 既看不见也改不了 require_ghost_evidence 这种安全相关的 per-role 开关。
+// require_ghost_evidence 都收不了 —— 也就是说 owner 从 Claude Code 既看不见也改不了
+// require_ghost_evidence 这种安全相关的 per-role 开关。
 
 package admin
 

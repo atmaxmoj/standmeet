@@ -30,13 +30,12 @@ func NewRoleRepo(pool *pgstore.Pool) *RoleRepo { return &RoleRepo{pool: pool} }
 // CreateRoleInput —— Create 入参。PromptID nil = NULL；caller 已校验 prompt
 // 属于同 owner。
 type CreateRoleInput struct {
-	PromptID             *string
-	OwnerID              string
-	Name                 string
-	Description          string
-	Greeting             string
-	DockButtons          []entity.DockButtonConfig
-	NotifyOwnerOnBooking bool
+	PromptID    *string
+	OwnerID     string
+	Name        string
+	Description string
+	Greeting    string
+	DockButtons []entity.DockButtonConfig
 }
 
 // Create 新建 role 主表行（不挂任何 join 项；attach 在 caller usecase 内单独调）。
