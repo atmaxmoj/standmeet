@@ -69,6 +69,10 @@ test.describe('raw 和 subjectivity 的面板素材入口', () => {
     await expect(body).toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
 
     await page.getByTestId(`${prefix}-submit`).click();
+    // 存完等表单**自己关上**再重开。`raw-edit-{id}` 是个开合钮:存请求还在飞的时候点它,
+    // 关掉的是那张还开着的表单 —— 于是下面找不到 body,超时。表单消失是这一行存好了的信号
+    // (onDone 只在保存回程里调),而且它认得出是**哪一行**,比等一个通用 toast 可靠。
+    await expect(page.getByTestId(prefix)).toBeHidden({ timeout: 15_000 });
     await page.getByTestId(`raw-edit-${id}`).click();
     await expect(page.getByTestId(`raw-edit-body-${id}`))
       .toHaveValue(new RegExp(`standmeet-asset:${assetID}`), { timeout: 15_000 });

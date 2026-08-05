@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -262,6 +262,13 @@ meili-stop:
 meili-start:
 	@docker compose -f docker-compose.dev.yml up -d --wait meilisearch
 
+# dev-stop-svc —— 停掉栈里的**一个** service(故障注入用)。用法：make dev-stop-svc SVC=mailpit
+# 例：验证 e2e 的 ensureStackUp 在某个容器倒下时真的会把它拉回来 —— 一个只会说"好"的检查等于没有。
+# 停完用 make dev-up(或任意一条 spec 的 resetInstance)拉回来。
+dev-stop-svc:
+	@test -n "$(SVC)" || (echo "usage: make dev-stop-svc SVC=<service>"; exit 2)
+	@docker compose -f docker-compose.dev.yml -p standmeet-dev stop $(SVC)
+
 # dev-logs —— tail 某个 service 的日志(诊断用)。用法：make dev-logs SVC=backend N=80
 dev-logs:
 	@test -n "$(SVC)" || (echo "usage: make dev-logs SVC=<service> [N=<lines>]"; exit 2)
@@ -319,6 +326,23 @@ test-fresh: clean test
 # 只有 `make test` 归档是不够的:批次验证同样会产出必须留证的失败。
 test-only: dev-up
 	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
+	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
+		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
+
+# test-red —— run one spec against the images that are ALREADY RUNNING. No dev-up, no rebuild.
+#
+# This exists for one step of the fix SOP: proving a new test actually fails on the buggy code.
+# `test-only` depends on dev-up, so by the time it runs, the fix sitting in the working tree has
+# been built into the images — a test written and run after the fix can only ever be seen green,
+# and a test that cannot go red says nothing. Run this BEFORE rebuilding to watch it fail, then
+# `make test-only` to watch the same test pass.
+#
+# The stack must already be up (this target deliberately does not bring it up: bringing it up is
+# what would rebuild it). usage: make test-red SPEC=test/foo.spec.ts [GREP=...] [REPEAT=N]
+test-red:
+	@test -n "$(SPEC)" || (echo "usage: make test-red SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
+	@docker compose -f docker-compose.dev.yml -p standmeet-dev ps --status running --quiet backend \
+		| grep -q . || (echo "test-red: dev stack is not running — start it with 'make dev-up' (that rebuilds)"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
