@@ -343,11 +343,20 @@ services:
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
       - "5432:5432"
+    # -h 127.0.0.1 是必须的,不是啰嗦:不带它 pg_isready 走 unix socket,而 postgres
+    # 官方 entrypoint 在 initdb 阶段会先起一个**只监听 socket** 的临时服务器来跑
+    # /docker-entrypoint-initdb.d(也就是我们的 schema.sql),那时候 TCP 还没开。
+    # 于是健康检查在库还不接受 TCP 连接的时候就报 healthy —— compose 据此放行
+    # backend,backend 拨 TCP 被拒、当场 fatal 退出,`up --wait` 把这次退出记成
+    # "依赖启动失败",整个 dev-up 废掉。
+    #
+    # 热卷时没有 initdb 这一段,所以这个洞**只在 make test-fresh 才现形**,
+    # 平时永远看不见。加 -h 之后这条检查说的才是它声称的那件事:库接受 TCP 连接了。
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
+      test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet", "-h", "127.0.0.1"]
       interval: 3s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   redis:
     image: redis:7-alpine

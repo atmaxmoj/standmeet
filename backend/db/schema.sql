@@ -113,6 +113,13 @@ CREATE TABLE corpus_notes (
     title            text          NOT NULL,
     body             text          NOT NULL,
     tags             text[]        NOT NULL DEFAULT '{}',
+    -- aliases —— Obsidian frontmatter 的 `aliases:`(扁平并集;多语言笔记里它是各
+    -- `aliases-<lang>` 的并集)。**这条笔记的别名池**,`[[别名]]` 靠它解析到本条。
+    -- 跟 title 一起进 ListAllOwnerNoteTitles 的候选表,消歧仍走同一套 pickByProximity ——
+    -- 别名不带第二套排序规则。
+    -- 在此之前它被解析出来就丢了(frontmatter.go 读进结构体,全仓没人用),于是 owner 在
+    -- vault 里靠 Obsidian 别名写的链接,同步进来就断成一段字面量。
+    aliases          text[]        NOT NULL DEFAULT '{}',
     source_ids       uuid[]        NOT NULL DEFAULT '{}',
     show_as_source   bool          NOT NULL DEFAULT true,
     excerpt          text          NOT NULL DEFAULT '',

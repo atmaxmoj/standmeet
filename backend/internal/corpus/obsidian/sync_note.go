@@ -14,7 +14,11 @@ type corpFM struct {
 	Visibility string
 	Tags       []string
 	CSSClasses []string
-	Publish    bool
+	// Aliases —— Obsidian 的扁平别名池(多语言笔记里它是各 `aliases-<lang>` 的并集)。
+	// `[[别名]]` 靠它解析到本条。跟 tags 同一种值形态(内联数组 / 逗号串 / 单值 / 缩进 list),
+	// 所以复用 parseTags —— 不为它另写一个解析器。
+	Aliases []string
+	Publish bool
 }
 
 // parsedNote —— parseCorpNote 的结果(避免多返回名/无名之争)。
@@ -44,12 +48,8 @@ func parseFMLines(fm string) corpFM {
 		if !kv.ok {
 			continue
 		}
-		if kv.key == "tags" { // list-form tags 需向后看,单独处理
-			out.Tags = parseTags(kv.val, lines, i)
-			continue
-		}
-		if kv.key == "cssclasses" { // 同 list 解析(Obsidian cssclasses)
-			out.CSSClasses = parseTags(kv.val, lines, i)
+		if into := listFieldOf(&out, kv.key); into != nil {
+			*into = parseTags(kv.val, lines, i) // list-form 值需向后看(缩进 `- x`)
 			continue
 		}
 		applyScalarFM(&out, kv.key, kv.val)
@@ -101,6 +101,24 @@ func splitKV(line string) kvLine {
 var reBareKey = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 func isBareKey(k string) bool { return reBareKey.MatchString(k) }
+
+// listFieldOf —— 走 list 解析的那几个 key → 该写进哪个字段。不认识的 key 返 nil(交给标量那条)。
+//
+// 三个 key(tags / cssclasses / aliases)的值形态**完全一样**(内联数组 / 逗号串 / 单值 /
+// 缩进 list),所以它们共用 parseTags;一人一个 if 分支只是把同一件事写了三遍,而且每加一个
+// list 型 frontmatter key 就把这个函数的复杂度再推高一格。
+func listFieldOf(fm *corpFM, key string) *[]string {
+	switch key {
+	case "tags":
+		return &fm.Tags
+	case "cssclasses":
+		return &fm.CSSClasses
+	case "aliases":
+		return &fm.Aliases
+	default:
+		return nil
+	}
+}
 
 // parseTags —— tags 值:内联数组 `[a, b]` / 逗号串 `a, b` / 单值 `a` / 空(→ 跟随的缩进 `- x` list)。
 // i 只向后看 list item(主循环随后遇到缩进行会因非 kv 而跳过,不重复处理)。

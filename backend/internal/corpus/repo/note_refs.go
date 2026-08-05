@@ -152,6 +152,9 @@ type OwnerNoteTitleRow struct {
 	ID    string
 	Title string
 	Genre string
+	// Aliases —— 这条笔记的别名池(frontmatter `aliases:`)。`[[别名]]` 跟 `[[标题]]` 一样
+	// 解析到本条,**候选同一批、消歧同一套**(pickByProximity)。别名不带第二套排序规则。
+	Aliases []string
 }
 
 // OwnerNoteTitles —— owner 语料全量（跨 genre）的 title/id，供 note refs 解析 `[[Title]]`。
@@ -170,6 +173,7 @@ func (r *NoteRefRepo) OwnerNoteTitles(
 	for i := range rows {
 		out = append(out, OwnerNoteTitleRow{
 			ID: pgstore.FormatUUID(rows[i].ID), Title: rows[i].Title, Genre: rows[i].Genre,
+			Aliases: rows[i].Aliases,
 		})
 	}
 	return out, nil

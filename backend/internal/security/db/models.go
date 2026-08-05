@@ -181,6 +181,7 @@ type CorpusNote struct {
 	Title              string
 	Body               string
 	Tags               []string
+	Aliases            []string
 	SourceIds          []pgtype.UUID
 	ShowAsSource       bool
 	Excerpt            string

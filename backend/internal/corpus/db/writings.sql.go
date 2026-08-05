@@ -24,7 +24,7 @@ INSERT INTO corpus_notes (
     $9, $10, $11, $12, $13,
     $14, $15, $16
 )
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type CreateWritingParams struct {
@@ -79,6 +79,7 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (C
 		&i.Title,
 		&i.Body,
 		&i.Tags,
+		&i.Aliases,
 		&i.SourceIds,
 		&i.ShowAsSource,
 		&i.Excerpt,
@@ -121,7 +122,7 @@ func (q *Queries) DeleteWriting(ctx context.Context, arg DeleteWritingParams) er
 }
 
 const getPublishedWritingBySlug = `-- name: GetPublishedWritingBySlug :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND slug = $2 AND genre = 'writing' AND published_at IS NOT NULL
 `
 
@@ -143,6 +144,7 @@ func (q *Queries) GetPublishedWritingBySlug(ctx context.Context, arg GetPublishe
 		&i.Title,
 		&i.Body,
 		&i.Tags,
+		&i.Aliases,
 		&i.SourceIds,
 		&i.ShowAsSource,
 		&i.Excerpt,
@@ -171,7 +173,7 @@ func (q *Queries) GetPublishedWritingBySlug(ctx context.Context, arg GetPublishe
 }
 
 const getWritingByID = `-- name: GetWritingByID :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
 `
 
 type GetWritingByIDParams struct {
@@ -190,6 +192,7 @@ func (q *Queries) GetWritingByID(ctx context.Context, arg GetWritingByIDParams) 
 		&i.Title,
 		&i.Body,
 		&i.Tags,
+		&i.Aliases,
 		&i.SourceIds,
 		&i.ShowAsSource,
 		&i.Excerpt,
@@ -218,7 +221,7 @@ func (q *Queries) GetWritingByID(ctx context.Context, arg GetWritingByIDParams) 
 }
 
 const getWritingByObsidianSourcePath = `-- name: GetWritingByObsidianSourcePath :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND obsidian_source_path = $2 AND genre = 'writing'
 `
 
@@ -238,6 +241,7 @@ func (q *Queries) GetWritingByObsidianSourcePath(ctx context.Context, arg GetWri
 		&i.Title,
 		&i.Body,
 		&i.Tags,
+		&i.Aliases,
 		&i.SourceIds,
 		&i.ShowAsSource,
 		&i.Excerpt,
@@ -266,7 +270,7 @@ func (q *Queries) GetWritingByObsidianSourcePath(ctx context.Context, arg GetWri
 }
 
 const getWritingBySlug = `-- name: GetWritingBySlug :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE owner_id = $1 AND slug = $2 AND genre = 'writing'
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE owner_id = $1 AND slug = $2 AND genre = 'writing'
 `
 
 type GetWritingBySlugParams struct {
@@ -285,6 +289,7 @@ func (q *Queries) GetWritingBySlug(ctx context.Context, arg GetWritingBySlugPara
 		&i.Title,
 		&i.Body,
 		&i.Tags,
+		&i.Aliases,
 		&i.SourceIds,
 		&i.ShowAsSource,
 		&i.Excerpt,
@@ -347,7 +352,7 @@ func (q *Queries) ListPublishedWritingSlugAndTitle(ctx context.Context, ownerID 
 }
 
 const listPublishedWritingsByOwner = `-- name: ListPublishedWritingsByOwner :many
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND genre = 'writing' AND published_at IS NOT NULL
 ORDER BY published_at DESC
 `
@@ -369,6 +374,7 @@ func (q *Queries) ListPublishedWritingsByOwner(ctx context.Context, ownerID pgty
 			&i.Title,
 			&i.Body,
 			&i.Tags,
+			&i.Aliases,
 			&i.SourceIds,
 			&i.ShowAsSource,
 			&i.Excerpt,
@@ -404,7 +410,7 @@ func (q *Queries) ListPublishedWritingsByOwner(ctx context.Context, ownerID pgty
 }
 
 const listPublishedWritingsByOwnerPage = `-- name: ListPublishedWritingsByOwnerPage :many
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND genre = 'writing'
   AND published_at IS NOT NULL
   AND ($2::timestamptz IS NULL OR published_at < $2::timestamptz)
@@ -437,6 +443,7 @@ func (q *Queries) ListPublishedWritingsByOwnerPage(ctx context.Context, arg List
 			&i.Title,
 			&i.Body,
 			&i.Tags,
+			&i.Aliases,
 			&i.SourceIds,
 			&i.ShowAsSource,
 			&i.Excerpt,
@@ -472,7 +479,7 @@ func (q *Queries) ListPublishedWritingsByOwnerPage(ctx context.Context, arg List
 }
 
 const listWritingsByOwner = `-- name: ListWritingsByOwner :many
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND genre = 'writing'
 ORDER BY COALESCE(published_at, created_at) DESC
 `
@@ -494,6 +501,7 @@ func (q *Queries) ListWritingsByOwner(ctx context.Context, ownerID pgtype.UUID) 
 			&i.Title,
 			&i.Body,
 			&i.Tags,
+			&i.Aliases,
 			&i.SourceIds,
 			&i.ShowAsSource,
 			&i.Excerpt,
@@ -531,7 +539,7 @@ func (q *Queries) ListWritingsByOwner(ctx context.Context, ownerID pgtype.UUID) 
 const publishWriting = `-- name: PublishWriting :one
 UPDATE corpus_notes SET published_at = now(), published = true, updated_at = now()
 WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type PublishWritingParams struct {
@@ -550,6 +558,7 @@ func (q *Queries) PublishWriting(ctx context.Context, arg PublishWritingParams) 
 		&i.Title,
 		&i.Body,
 		&i.Tags,
+		&i.Aliases,
 		&i.SourceIds,
 		&i.ShowAsSource,
 		&i.Excerpt,
@@ -578,7 +587,7 @@ func (q *Queries) PublishWriting(ctx context.Context, arg PublishWritingParams) 
 }
 
 const searchPublishedWritings = `-- name: SearchPublishedWritings :many
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND genre = 'writing' AND published_at IS NOT NULL
   AND to_tsvector('english', title || ' ' || body || ' ' || array_to_string(tags, ' '))
       @@ replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
@@ -620,6 +629,7 @@ func (q *Queries) SearchPublishedWritings(ctx context.Context, arg SearchPublish
 			&i.Title,
 			&i.Body,
 			&i.Tags,
+			&i.Aliases,
 			&i.SourceIds,
 			&i.ShowAsSource,
 			&i.Excerpt,
@@ -679,7 +689,7 @@ func (q *Queries) SetWritingObsidianMeta(ctx context.Context, arg SetWritingObsi
 const unpublishWriting = `-- name: UnpublishWriting :one
 UPDATE corpus_notes SET published_at = NULL, published = false, updated_at = now()
 WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type UnpublishWritingParams struct {
@@ -698,6 +708,7 @@ func (q *Queries) UnpublishWriting(ctx context.Context, arg UnpublishWritingPara
 		&i.Title,
 		&i.Body,
 		&i.Tags,
+		&i.Aliases,
 		&i.SourceIds,
 		&i.ShowAsSource,
 		&i.Excerpt,
@@ -733,7 +744,7 @@ UPDATE corpus_notes SET
     read_minutes = $12, locked_body = $13, parent_id = $14,
     updated_at = now()
 WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type UpdateWritingParams struct {
@@ -779,6 +790,7 @@ func (q *Queries) UpdateWriting(ctx context.Context, arg UpdateWritingParams) (C
 		&i.Title,
 		&i.Body,
 		&i.Tags,
+		&i.Aliases,
 		&i.SourceIds,
 		&i.ShowAsSource,
 		&i.Excerpt,

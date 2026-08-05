@@ -137,7 +137,9 @@ type nodeContent struct {
 	srcPath    string
 	tags       []string
 	cssClasses []string
-	published  bool
+	// aliases —— 这条笔记的别名池,`[[别名]]` 靠它解到本条(见 wiki_crosslink 的候选表)。
+	aliases   []string
+	published bool
 }
 
 func contentOf(n *desiredNode) nodeContent {
@@ -146,7 +148,8 @@ func contentOf(n *desiredNode) nodeContent {
 	}
 	return nodeContent{
 		body: n.file.body, excerpt: n.file.fm.Excerpt, srcPath: n.file.sourcePath,
-		tags: n.file.fm.Tags, cssClasses: n.file.fm.CSSClasses, published: n.file.fm.Publish,
+		tags: n.file.fm.Tags, cssClasses: n.file.fm.CSSClasses,
+		aliases: n.file.fm.Aliases, published: n.file.fm.Publish,
 	}
 }
 
@@ -216,7 +219,7 @@ func createNode(ctx context.Context, op *nodeOp) {
 	id, err := op.deps.Notes.Create(ctx, &corpus.CreateSyncNoteInput{
 		OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent, Title: op.node.title,
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
-		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses,
+		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses, Aliases: op.c.aliases,
 		InboxSource: inboxSourceFor(op.node.genre, op.c),
 	})
 	if err != nil {
@@ -236,7 +239,7 @@ func updateNode(ctx context.Context, op *nodeOp, existing *corpus.SyncNote) {
 	if err := op.deps.Notes.Update(ctx, &corpus.UpdateSyncNoteInput{
 		ID: existing.ID, OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent,
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
-		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses,
+		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses, Aliases: op.c.aliases,
 		InboxSource: inboxSourceFor(op.node.genre, op.c),
 	}); err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())

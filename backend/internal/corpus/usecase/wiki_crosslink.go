@@ -160,18 +160,40 @@ func (cr *crossResolver) add(out []string, seen map[string]struct{}, target stri
 	return append(out, id)
 }
 
-// noteTitleToCandidates —— title(lower)→ 所有同名候选(跨 genre)。真 vault 的同名碰撞都是跨
-// genre(wiki/ 与 raw/ 镜像同一主题树),所以一个 title 可能对多条,解析要按 proximity 消歧
-// (F-L-10:旧版是 map[title]id 的 last-write-wins,任意落到 raw 草稿,hub 笔记 backlinks 全空)。
+// noteTitleToCandidates —— name(lower)→ 所有同名候选(跨 genre)。name 既是 title 也是
+// **frontmatter 别名** —— owner 在 vault 里靠 Obsidian 的别名解析写链接,`[[旧名字]]` /
+// `[[流向不动点的动力学]]` 都得解到本条。别名以前解出来就被丢了(frontmatter.go 读进结构体,
+// 没有任何人用),于是这类链接同步进来就断成一段字面量。
+//
+// 真 vault 的同名碰撞都是跨 genre(wiki/ 与 raw/ 镜像同一主题树),所以一个 name 可能对多条,
+// 解析按 proximity 消歧(F-L-10:旧版是 map[title]id 的 last-write-wins,任意落到 raw 草稿,
+// hub 笔记 backlinks 全空)。
+//
+// **别名走同一张候选表、同一套消歧** —— 不给它第二套排序规则,否则就是在重犯 F-L-10。
+// 同一条笔记的多个别名都指向它自己,resolveNoteDstIDs 的 seen 集合负责去重成一条边。
 func noteTitleToCandidates(
 	titles []repo.OwnerNoteTitleRow,
 ) map[string][]repo.OwnerNoteTitleRow {
 	m := make(map[string][]repo.OwnerNoteTitleRow, len(titles))
 	for i := range titles {
-		k := strings.ToLower(titles[i].Title)
-		m[k] = append(m[k], titles[i])
+		for _, name := range namesOf(&titles[i]) {
+			m[name] = append(m[name], titles[i])
+		}
 	}
 	return m
+}
+
+// namesOf —— 一条笔记可以被哪些名字指到:标题 + 全部别名(都小写)。空别名跳过 ——
+// 一个空字符串会变成"所有 `[[]]` 都指向这条"。
+func namesOf(row *repo.OwnerNoteTitleRow) []string {
+	out := make([]string, 0, 1+len(row.Aliases))
+	out = append(out, strings.ToLower(row.Title))
+	for _, a := range row.Aliases {
+		if trimmed := strings.ToLower(strings.TrimSpace(a)); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func genreOfID(titles []repo.OwnerNoteTitleRow, id string) string {

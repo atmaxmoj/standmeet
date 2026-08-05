@@ -117,6 +117,7 @@ type CreateSyncNoteInput struct {
 	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
 	Tags        []string
 	CSSClasses  []string
+	Aliases     []string
 	Published   bool
 }
 
@@ -134,6 +135,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 		OwnerID: owner, Genre: in.Genre, ParentID: parent, Title: in.Title,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
+		Aliases:     nilSafeTags(in.Aliases),
 		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
 	})
 	if qerr != nil {
@@ -154,6 +156,7 @@ type UpdateSyncNoteInput struct {
 	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
 	Tags        []string
 	CSSClasses  []string
+	Aliases     []string
 	Published   bool
 }
 
@@ -171,6 +174,7 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 		ID: ids.Src, OwnerID: ids.Owner, Genre: in.Genre, ParentID: parent,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
+		Aliases:     nilSafeTags(in.Aliases),
 		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
 	}); qerr != nil {
 		return fmt.Errorf("update sync note: %w", qerr)

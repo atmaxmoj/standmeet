@@ -136,7 +136,8 @@ ORDER BY created_at DESC;
 -- name: ListAllOwnerNoteTitles :many
 -- 跨-genre 的 title→id 索引：`[[Title]]` 可指向 owner 语料里任一 genre 的任一条。给 note refs
 -- 解析用（wiki body 里 [[Output Title]] 也要解析得到边）。全量、无 cap —— 漏一条就是断链。
-SELECT id, title, genre FROM corpus_notes WHERE owner_id = $1;
+-- aliases 一起取：`[[别名]]` 也要解析得到边，别名跟 title 是同一批候选（消歧同一套规则）。
+SELECT id, title, genre, aliases FROM corpus_notes WHERE owner_id = $1;
 
 -- name: QueryCorpusNotes :many
 -- 原生 standmeet-query 用:按 genre/tag 过滤(空串 = 不筛),并沿 parent 链在 SQL 里算出 path_titles
@@ -189,8 +190,8 @@ LIMIT 1;
 -- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
 -- inbox_source is the vault-source tag for genre='raw' ("obsidian:<path>"); empty for other genres.
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, aliases, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
 RETURNING *;
 
 -- name: UpdateNoteSync :one
@@ -199,7 +200,7 @@ RETURNING *;
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
     obsidian_source_path = $8, css_classes = $9, inbox_source = $10, excerpt = $11,
-    obsidian_imported_at = now(), updated_at = now()
+    aliases = $12, obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
