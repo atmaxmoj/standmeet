@@ -32,27 +32,64 @@ import (
 //
 //nolint:ireturn // access 那边收的就是这个接口
 func CodeFieldSurface(d *deps.Runtime) access.CodeExtras {
-	caps := []capconfig.CodeCap{}
-	manifests := BuiltinManifests()
-	for i := range manifests {
-		m := &manifests[i]
-		if len(m.CodeConfig) == 0 {
-			continue
-		}
-		store := CapabilityStorage(d, m)
-		if store == nil {
-			d.Log.Error("capability declares code fields but has no storage", "cap", m.ID)
-			continue
-		}
-		caps = append(caps, capconfig.CodeCap{
-			Store: CapConfigFor(store, m.ID), Decl: m.CodeConfig, CapID: m.ID,
-		})
-	}
-	fields, err := capconfig.NewCodeFields(d.Log, caps)
+	fields, err := capconfig.NewCodeFields(d.Log, subjectCaps(d, "code", codeDecl))
 	if err != nil {
 		panic(err)
 	}
 	return fields
+}
+
+// RoleFieldSurface —— 所有能力在一个 role 上占的字段,合成 access 收的那一个口子。
+//
+// 跟 CodeFieldSurface 差的只有"取哪份声明"。calendar.book 的 notify_owner 是第一个;
+// 在它之前,一个 per-role 的开关只能长成内核 roles 表上的一列。
+//
+//nolint:ireturn // access 那边收的就是这个接口
+func RoleFieldSurface(d *deps.Runtime) access.RoleExtras {
+	fields, err := capconfig.NewRoleFields(d.Log, subjectCaps(d, "role", roleDecl))
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
+// RoleCapConfig —— 冻结 role snapshot 时按能力读配置的那个读口(conversation 侧的窄端口)。
+// 跟 RoleFieldSurface 同一份声明、同一个存储:两个形状,一份事实。
+func RoleCapConfig(d *deps.Runtime) *capconfig.SubjectFields {
+	fields, err := capconfig.NewRoleFields(d.Log, subjectCaps(d, "role", roleDecl))
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
+func codeDecl(m *mcpplugin.Manifest) []mcpplugin.ConfigField { return m.CodeConfig }
+func roleDecl(m *mcpplugin.Manifest) []mcpplugin.ConfigField { return m.RoleConfig }
+
+// subjectCaps —— 声明了这类字段的能力 + 它们各自的存储。声明了却没有存储 → 记一条并跳过:
+// 那是启动期的配置错误,静默跳过的话 owner 只会看到设置存不下去。
+func subjectCaps(
+	d *deps.Runtime, subject string, decl func(*mcpplugin.Manifest) []mcpplugin.ConfigField,
+) []capconfig.SubjectCap {
+	caps := []capconfig.SubjectCap{}
+	manifests := BuiltinManifests()
+	for i := range manifests {
+		m := &manifests[i]
+		fields := decl(m)
+		if len(fields) == 0 {
+			continue
+		}
+		store := CapabilityStorage(d, m)
+		if store == nil {
+			d.Log.Error("capability declares subject fields but has no storage",
+				"subject", subject, "cap", m.ID)
+			continue
+		}
+		caps = append(caps, capconfig.SubjectCap{
+			Store: CapConfigFor(store, m.ID), Decl: fields, CapID: m.ID,
+		})
+	}
+	return caps
 }
 
 // CapabilityQuotaHooks —— 声明了 Quota 的能力各拿一对钩子:闸(露不露这个工具)和余量

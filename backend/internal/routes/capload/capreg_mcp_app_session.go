@@ -5,6 +5,8 @@
 package capload
 
 import (
+	"encoding/json"
+
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
@@ -26,17 +28,21 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		RoleID:         roleIDOf(in),
 		CorpusURIs:     corpusURIsOf(in),
 		CorpusDenials:  corpusDenialsOf(in),
-		//nolint:lll // #130: role 的约成通知开关,随 snapshot 冻结。
-		NotifyOwnerOnBooking: notifyOwnerOf(in),
+		// 这个能力自己那份 per-role 配置(冻在 snapshot 里)。只给它自己的 ——
+		// 一个插件不该看见别的能力的设置。
+		CapConfig: capConfigOf(in, m.ID),
 	}
 }
 
-// notifyOwnerOf —— 这个 session 的 role 是否要求约成后通知 owner。无 role → false。
-func notifyOwnerOf(in *capreg.AssembleInput) bool {
+// capConfigOf —— 这个 session 的 role 上,**这一个能力**的配置。没有 role / 这个能力没有
+// per-role 配置 → nil(沙箱那侧读到"没设过",走它自己的默认值)。
+//
+// 按能力挑出来而不是整张表递过去:递整张表的话,一个第三方插件能读到 owner 给别的能力配的东西。
+func capConfigOf(in *capreg.AssembleInput, capID string) json.RawMessage {
 	if in.RoleSnapshot == nil {
-		return false
+		return nil
 	}
-	return in.RoleSnapshot.NotifyOwnerOnBooking()
+	return in.RoleSnapshot.CapConfig()[capID]
 }
 
 // roleIDOf —— 当前 session 的 role id。无 role(public/byoai)→ 空串。

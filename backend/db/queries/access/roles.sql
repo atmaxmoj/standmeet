@@ -4,9 +4,8 @@
 -- role_skills / role_mcp_servers）。这里只 CRUD 主表行 + join 表的 attach/clear。
 
 -- name: CreateRole :one
-INSERT INTO roles (owner_id, name, description, greeting, prompt_id,
-    notify_owner_on_booking, dock_buttons)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO roles (owner_id, name, description, greeting, prompt_id, dock_buttons)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: UpsertBuiltinRole :one
@@ -31,18 +30,14 @@ SELECT * FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC;
 -- name: UpdateRole :one
 UPDATE roles
 SET name = $3, description = $4, greeting = $5, prompt_id = $6,
-    notify_owner_on_booking = $7, dock_buttons = $8,
-    require_ghost_evidence = $9, updated_at = now()
+    dock_buttons = $7, require_ghost_evidence = $8, updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
--- name: RoleNotifiesOwnerOnBooking :one
--- #130: 约成时**实时**读这个 role 的通知开关(不冻进 session — 通知偏好是 owner 的
--- 当前设置,不是 ACL/一致性约束)。EXISTS 恒返一行 bool:role 不存在 / 开关关 → false
--- (省掉 no-rows 特判)。
-SELECT EXISTS(
-    SELECT 1 FROM roles WHERE id = $1 AND notify_owner_on_booking
-);
+-- 这里以前有 RoleNotifiesOwnerOnBooking —— 一条专门为"约成时要不要通知 owner"写的 query。
+-- 它有两个问题:一是 roles 表不该知道 booking 是什么(那个开关现在是 calendar.book 自己在
+-- capconfig 的 role scope 上声明的);二是它**零调用方** —— 仓储上那个方法从来没有人调过,
+-- 真正在用的一直是冻进 role snapshot 的那一份。
 
 -- name: DeleteRole :exec
 DELETE FROM roles WHERE id = $1 AND owner_id = $2 AND is_builtin = false;

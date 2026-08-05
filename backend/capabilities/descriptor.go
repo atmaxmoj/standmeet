@@ -20,6 +20,7 @@ type descriptor struct {
 	OwnerTools   []ownerToolDesc `yaml:"owner_tools"`
 	Config       []fieldDesc     `yaml:"config"`
 	CodeConfig   []fieldDesc     `yaml:"code_config"`
+	RoleConfig   []fieldDesc     `yaml:"role_config"`
 	RawToolNames bool            `yaml:"raw_tool_names"`
 }
 

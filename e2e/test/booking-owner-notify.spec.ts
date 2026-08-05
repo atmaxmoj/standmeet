@@ -44,7 +44,7 @@ test.describe('booking · per-role owner notification (#130)', () => {
     async ({ browser }) => {
       await clearMailpit(seed.request);
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
-        granted_skills: ['calendar.book'], notify_owner_on_booking: true,
+        granted_skills: ['calendar.book'], notify_owner: true,
       });
       const page = await enterAndBook(browser, code.code, 'Dana', 14);
 
@@ -59,7 +59,7 @@ test.describe('booking · per-role owner notification (#130)', () => {
     async ({ browser }) => {
       await clearMailpit(seed.request);
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
-        granted_skills: ['calendar.book'], // notify_owner_on_booking 默认 false
+        granted_skills: ['calendar.book'], // notify_owner 默认 false
       });
       const page = await enterAndBook(browser, code.code, 'Eli', 15);
 
@@ -88,7 +88,7 @@ test.describe('booking · owner notify on but no mail connector (#130 best-effor
     async ({ browser }) => {
       await clearMailpit(seed.request);
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
-        granted_skills: ['calendar.book'], notify_owner_on_booking: true,
+        granted_skills: ['calendar.book'], notify_owner: true,
       });
       const page = await enterAndBook(browser, code.code, 'Dana', 14);
 

@@ -160,6 +160,9 @@ func roleDepsOf(d *deps.Runtime) access.OpsRoles {
 			Refs:  port.NewRoleRefValidator(d),
 		},
 		ValidCapabilityIDs: func() []string { return d.AgentSkills.VisitorCapabilityIDs() },
+		// 各能力在一个 role 上占的字段(calendar.book 的 notify_owner 是第一个),按 manifest
+		// 的 RoleConfig 声明合成一个通用面 —— 跟码那份同一个机制,只换挂载点。
+		Extras: axiscap.RoleFieldSurface(d),
 	}
 }
 

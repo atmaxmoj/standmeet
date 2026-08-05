@@ -54,9 +54,8 @@ func SetRoleDockButtons(
 		OwnerID: in.OwnerID, RoleID: in.RoleID,
 		Name: role.Name(), Description: role.Description(), Greeting: role.Greeting(),
 		CorpusURIs: role.CorpusURIs(), SkillIDs: role.SkillIDs(), MCPServerIDs: role.MCPServerIDs(),
-		NotifyOwnerOnBooking: role.NotifyOwnerOnBooking(),
-		DockButtons:          in.Buttons,
-		ValidCapabilityIDs:   in.ValidCapabilityIDs,
+		DockButtons:        in.Buttons,
+		ValidCapabilityIDs: in.ValidCapabilityIDs,
 	}
 	if pid, ok := role.PromptID(); ok {
 		w.PromptID = &pid

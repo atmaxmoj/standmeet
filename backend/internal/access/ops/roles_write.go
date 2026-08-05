@@ -27,7 +27,6 @@ type roleWriteArgs struct {
 	MCPServerIDs         []string                  `json:"mcp_server_ids"`
 	Waypoints            []entity.Waypoint         `json:"waypoints"`
 	DockButtons          []entity.DockButtonConfig `json:"dock_buttons"`
-	NotifyOwnerOnBooking bool                      `json:"notify_owner_on_booking"`
 	RequireGhostEvidence bool                      `json:"require_ghost_evidence"`
 }
 
@@ -54,7 +53,8 @@ type roleWriteApply func(
 ) (entity.Role, error)
 
 func writeRole(
-	d RolesDeps, apply roleWriteApply, decode func(json.RawMessage) (roleWriteArgs, error),
+	d RolesDeps, extras RoleExtras, apply roleWriteApply,
+	decode func(json.RawMessage) (roleWriteArgs, error),
 ) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decode(raw)
@@ -65,7 +65,10 @@ func writeRole(
 		if err != nil {
 			return nil, roleErr(err)
 		}
-		return json.Marshal(toRoleOut(ctx, d.Roles, &rl))
+		// 各能力自己那几个字段:整份原始入参递过去让它们自己挑。写失败不回滚 role ——
+		// role 已经建好了,设置可以再改(失败在那一层留日志)。
+		extras.Write(ctx, rl.ID(), raw)
+		return marshalRole(ctx, d.Roles, extras, &rl)
 	}
 }
 
@@ -80,7 +83,6 @@ func toRoleWriteInput(d RolesDeps, ownerID string, in *roleWriteArgs) *usecase.R
 		DockButtons:  nonNilDockButtons(in.DockButtons),
 		// dock 按钮上能挂哪些能力,由能力注册表回答 —— 每次写都现问一次。
 		ValidCapabilityIDs:   d.ValidCapabilityIDs(),
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
 		RequireGhostEvidence: in.RequireGhostEvidence,
 	}
 }

@@ -63,8 +63,9 @@ func loadOne(dir string) (mcpplugin.Manifest, error) {
 		RawToolNames: d.RawToolNames, Requires: d.Requires,
 		OwnerTools: tools,
 		Config:     fields(d.Config), CodeConfig: fields(d.CodeConfig),
-		Quota:     d.Quota.manifest(),
-		Transport: transport(d.ID, &d.Transport),
+		RoleConfig: fields(d.RoleConfig),
+		Quota:      d.Quota.manifest(),
+		Transport:  transport(d.ID, &d.Transport),
 	}, nil
 }
 

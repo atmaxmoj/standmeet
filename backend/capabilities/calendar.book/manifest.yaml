@@ -129,6 +129,21 @@ code_config:
       Booking cap for this code; null means no limit. The tool disappears for that
       visitor once the cap is reached.
 
+# role_config —— 本能力在**一个 role**上占的字段。owner 建 role 时一起填，随 session 冻结。
+#
+# notify_owner 以前是内核 roles 表上的一列 notify_owner_on_booking：一列贯穿 9 份生成的
+# models.go、一条专用 query、entity、role snapshot、MCP 的 role schema，和每次 tool-call 的
+# `_meta`。内核那侧的注释还写着"host 既不发也不知道 booking notify 是什么"，而列名在说反话。
+# 现在它在这里声明，host 只知道"calendar.book 这个能力在 role 上要一个键"。
+role_config:
+  - key: notify_owner
+    label: Email me when someone books
+    type: bool
+    default: "false"
+    description: >-
+      Send the owner a notification email when a visitor of this role books a
+      meeting. Frozen with the rest of the role config when a session starts.
+
 # quota —— per-code 用量上限：上限取码上的 max_bookings，用量数自己存储里 bookings 表的
 # code_id。宿主照这三句话通用地闸 + 报余量；它仍然不认识 "booking"。
 quota:

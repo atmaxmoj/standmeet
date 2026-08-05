@@ -69,7 +69,7 @@ func buildCreateRoleParams(in *CreateRoleInput) (db.CreateRoleParams, error) {
 	return db.CreateRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description,
 		Greeting: in.Greeting, PromptID: promptUUID,
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: dock,
+		DockButtons: dock,
 	}, nil
 }
 
@@ -183,7 +183,6 @@ type UpdateRoleInput struct {
 	Description          string
 	Greeting             string
 	DockButtons          []entity.DockButtonConfig
-	NotifyOwnerOnBooking bool
 	RequireGhostEvidence bool
 }
 
@@ -205,7 +204,7 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (entity.Role
 	row, err := db.New(r.pool).UpdateRole(ctx, db.UpdateRoleParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
 		Name: in.Name, Description: in.Description, Greeting: in.Greeting, PromptID: promptUUID,
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: dock,
+		DockButtons:          dock,
 		RequireGhostEvidence: in.RequireGhostEvidence,
 	})
 	if err != nil {
@@ -214,19 +213,9 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (entity.Role
 	return toDomainRoleBare(&row), nil
 }
 
-// NotifiesOwnerOnBooking —— #130: 约成时实时读这个 role 的通知开关。EXISTS 查询恒返
-// 一行,role 不存在 / 开关关 → false(无 no-rows 特判)。
-func (r *RoleRepo) NotifiesOwnerOnBooking(ctx context.Context, roleID string) (bool, error) {
-	roleUUID, err := pgstore.ParseUUID(roleID)
-	if err != nil {
-		return false, fmt.Errorf("parse role id: %w", err)
-	}
-	on, qerr := db.New(r.pool).RoleNotifiesOwnerOnBooking(ctx, roleUUID)
-	if qerr != nil {
-		return false, fmt.Errorf("role notifies owner: %w", qerr)
-	}
-	return on, nil
-}
+// 这里以前有 NotifiesOwnerOnBooking —— 约成时实时读 role 的通知开关。**零调用方**:
+// 它从建好起就没有人调过,真正在用的一直是冻进 role snapshot 的那一份。那个开关现在是
+// calendar.book 自己的 role_config,这个方法和它背后那条专用 query 一起删。
 
 // mapRoleUpdateErr —— 单独抽出来降 Update 的 cognitive complexity。
 func mapRoleUpdateErr(err error) error {
@@ -314,7 +303,6 @@ func toDomainRole(j *roleJoins) entity.Role {
 		CorpusURIs: j.corpusURIs, SkillIDs: j.skillIDs, MCPServerIDs: j.mcpServerIDs,
 		Waypoints:            j.waypoints,
 		DockButtons:          decodeDockButtons(row.DockButtons),
-		NotifyOwnerOnBooking: row.NotifyOwnerOnBooking,
 		RequireGhostEvidence: row.RequireGhostEvidence,
 		CreatedAt:            row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	})

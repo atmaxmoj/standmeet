@@ -38,8 +38,9 @@
   2. On **admin → api · mcp**, register it: URL + `Authorization` / `Bearer <token>`. Save.
   3. Attach to a role, issue a code, enter chat as that visitor → the server's **real** tools appear as `ext_<server>_<tool>` and one dispatches end-to-end.
   4. Now edit the same server's token to a wrong value (or revoke it upstream) → re-enter chat. **Expected:** those tools are simply gone, and what the visitor sees is an ordinary "I can't do that" — *not* a raw `401`, not a stack trace, not a stall.
-  5. Repeat step 3 against an **SSE-transport** server, and against a tool whose `inputSchema` has nested objects/arrays/enums; confirm the arguments the AI sends round-trip intact.
+  5. Repeat step 3 against a tool whose `inputSchema` has nested objects/arrays/enums; confirm the arguments the AI sends round-trip intact.
 - **Why manual:** e2e cannot supply a credential to a server StandMeet did not write. The mock proves *the header we hold gets sent*; only a real server proves *a real provider accepts it* — and step 4's judgement ("does this read as a normal refusal to a visitor?") is a human read, not an assertion.
+- **~~SSE transport~~ — not a coverage gap, a missing feature (established 2026-08-04):** `mcpclient` dials HTTP through `NewStreamableHttpClient` and nothing else; there is no SSE client anywhere in the tree. So "verify SSE against a real server" was never a test we were failing to run — it is a transport we do not implement, and an owner who pastes an SSE-only URL gets a dial failure with no explanation. Streamable HTTP superseded HTTP+SSE in the MCP spec, so most current remote servers are fine; the open question is whether back-compat with SSE-only servers is worth building. **Product decision, not a check.**
 ### 5 — Real tool invocation from visitor chat  (was §D5)
 - **Steps:** visitor asks something that routes to the real server's tool → backend MCP client dials the real upstream → real `tool_result` renders. Also exercise the per-tool HTTP endpoint (`ext_<server>_<tool>`) directly.
 - **Expected:** the visitor sees the real server's real output (not a mock echo); chat-path and direct-endpoint results match.

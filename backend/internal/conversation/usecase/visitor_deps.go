@@ -5,6 +5,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
@@ -36,6 +37,21 @@ type VisitorSessionDeps struct {
 	// buildRoleSnapshotForCode 冻结前据此从 role grant 里相减。可空(无 code 的
 	// public + byoai 路径、或老 facade 没接 → 视作零 deny)。
 	CodeDenials CodeDenialReader
+	// RoleCapConfig —— 冻结 role snapshot 时读"各能力在这个 role 上的配置"。
+	// 可空 = 没有能力声明过 per-role 配置(完全正常的一台实例)。
+	RoleCapConfig RoleCapConfigReader
+}
+
+// RoleCapConfigReader —— 按 role 读各能力自己的配置:**能力 id** → 它那份配置(JSON 对象)。
+//
+// 这一层**不解释里面任何一个键**,也不该知道有哪些能力 —— 所以口子只有一个方法,返回的是
+// 不透明的 JSON。实现在组装根(它才认识 capconfig 和 manifest 声明)。
+//
+// 方法叫 ReadByCapability 而不是 Read:同一个实现上还有一个 Read,返回的是**拍平的字段表**
+// (字段名 → 值),Go 类型跟这个一模一样。名字撞上的话,接错了编译器一句话都不会说,
+// 而症状是每个能力都读到一份不属于自己的配置。
+type RoleCapConfigReader interface {
+	ReadByCapability(ctx context.Context, roleID string) map[string]json.RawMessage
 }
 
 // History —— 收窄成会话读模型的窄依赖(HistoryDeps),喂

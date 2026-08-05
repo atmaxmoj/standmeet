@@ -28,10 +28,14 @@ import (
 type RolesDeps struct {
 	Roles              usecase.RolesDeps
 	ValidCapabilityIDs func() []string
+	// Extras —— 各能力在一个 role 上占的字段(calendar.book 的 notify_owner 是第一个)。
+	// access 不认识任何一个能力,只认识这个口子。nil = 没有能力声明过 per-role 配置。
+	Extras RoleExtras
 }
 
 // Roles —— list / get / create / update / delete / set_dock_buttons。
 func Roles(d RolesDeps) []fp.Op {
+	extras := extrasOr(d.Extras)
 	return []fp.Op{
 		{
 			ID: "role_list",
@@ -56,20 +60,20 @@ func Roles(d RolesDeps) []fp.Op {
 				"A role bundles a Prompt (persona) + a positive-list of corpus URI globs " +
 				"+ selected skills + selected MCP servers. Issue access codes against this " +
 				"role; session start freezes a RoleSnapshot — edits only affect future sessions.",
-			InputSchema: roleWriteSchema(roleCreateRequired),
+			InputSchema: withExtraFields(roleWriteSchema(roleCreateRequired), extras.Fields()),
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
-			Invoke:      writeRole(d, usecase.CreateRole, decodeRoleCreate),
+			Invoke:      writeRole(d, extras, usecase.CreateRole, decodeRoleCreate),
 		},
 		{
 			ID: "role_update",
 			Description: "Update an owner-curated Role. Mirrors role_create fields plus " +
 				"role_id. Re-sets the prompt / corpus URIs / skills / mcp servers / " +
 				"per-role switches. Builtin (public) role can be edited but not renamed.",
-			InputSchema: roleWriteSchema(roleUpdateRequired),
+			InputSchema: withExtraFields(roleWriteSchema(roleUpdateRequired), extras.Fields()),
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
-			Invoke:      writeRole(d, usecase.UpdateRole, decodeRoleUpdate),
+			Invoke:      writeRole(d, extras, usecase.UpdateRole, decodeRoleUpdate),
 		},
 		{
 			ID: "role_delete",
@@ -144,8 +148,6 @@ func roleWriteSchema(required string) json.RawMessage {
 				"description":"Ghost-steering destinations for this role."},
 			"dock_buttons":{"type":"array","maxItems":2,"items":{"type":"object"},
 				"description":"Up to two chat dock buttons {capability_id, trigger}."},
-			"notify_owner_on_booking":{"type":"boolean",
-				"description":"Notify the owner when a visitor on this role books."},
 			"require_ghost_evidence":{"type":"boolean",
 				"description":"Require cited evidence before the AI answers on this role."}
 		},
@@ -169,8 +171,22 @@ type roleOut struct {
 	DockButtons          []entity.DockButtonConfig `json:"dock_buttons"`
 	ActiveCodes          int64                     `json:"active_codes"`
 	IsBuiltin            bool                      `json:"is_builtin"`
-	NotifyOwnerOnBooking bool                      `json:"notify_owner_on_booking"`
 	RequireGhostEvidence bool                      `json:"require_ghost_evidence"`
+}
+
+// marshalRole —— 出站载荷 = 本域的形状 + 各能力在这个 role 上那几个字段的值。
+//
+// 跟 marshalCode 是同一件事的另一个主体。能力的值是**并进来**的,不是本结构体的字段 ——
+// access 不认识它们叫什么,所以它们不能出现在 roleOut 上。notify_owner_on_booking 以前
+// 就在那上面,而且一路长到了内核的 roles 表。
+func marshalRole(
+	ctx context.Context, deps usecase.RolesDeps, extras SubjectExtras, rl *entity.Role,
+) (json.RawMessage, error) {
+	row, err := json.Marshal(toRoleOut(ctx, deps, rl))
+	if err != nil {
+		return nil, fp.OpErr("encode role", err)
+	}
+	return withExtraValues(row, extras.Read(ctx, rl.ID())), nil
 }
 
 // toRoleOut —— 域实体 → 出站形状,顺带补上活跃码计数。计数失败不该让整条读操作失败
@@ -185,7 +201,6 @@ func toRoleOut(ctx context.Context, deps usecase.RolesDeps, rl *entity.Role) rol
 		Greeting: rl.Greeting(), CorpusURIs: nonNilStrings(rl.CorpusURIs()),
 		SkillIDs: nonNilStrings(rl.SkillIDs()), MCPServerIDs: nonNilStrings(rl.MCPServerIDs()),
 		ActiveCodes: count, IsBuiltin: rl.IsBuiltin(),
-		NotifyOwnerOnBooking: rl.NotifyOwnerOnBooking(),
 		RequireGhostEvidence: rl.RequireGhostEvidence(),
 		CreatedAt:            rl.CreatedAt().UTC().Format(time.RFC3339),
 		UpdatedAt:            rl.UpdatedAt().UTC().Format(time.RFC3339),
@@ -206,14 +221,19 @@ func nonNilDockButtons(in []entity.DockButtonConfig) []entity.DockButtonConfig {
 }
 
 func listRoles(d RolesDeps) fp.Invoke {
+	extras := extrasOr(d.Extras)
 	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
 		rows, err := usecase.ListRoles(ctx, d.Roles, ownerID)
 		if err != nil {
 			return nil, roleErr(err)
 		}
-		out := make([]roleOut, 0, len(rows))
+		out := make([]json.RawMessage, 0, len(rows))
 		for i := range rows {
-			out = append(out, toRoleOut(ctx, d.Roles, &rows[i]))
+			row, merr := marshalRole(ctx, d.Roles, extras, &rows[i])
+			if merr != nil {
+				return nil, merr
+			}
+			out = append(out, row)
 		}
 		return json.Marshal(out)
 	}
@@ -241,7 +261,7 @@ func getRole(d RolesDeps) fp.Invoke {
 		if err != nil {
 			return nil, roleErr(err)
 		}
-		return json.Marshal(toRoleOut(ctx, d.Roles, &rl))
+		return marshalRole(ctx, d.Roles, extrasOr(d.Extras), &rl)
 	}
 }
 
@@ -279,6 +299,6 @@ func setRoleDockButtons(d RolesDeps) fp.Invoke {
 		if err != nil {
 			return nil, roleErr(err)
 		}
-		return json.Marshal(toRoleOut(ctx, d.Roles, &rl))
+		return marshalRole(ctx, d.Roles, extrasOr(d.Extras), &rl)
 	}
 }

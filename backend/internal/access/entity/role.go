@@ -41,8 +41,6 @@ type Role struct {
 	dockButtons []DockButtonConfig
 	isBuiltin   bool
 	hasPrompt   bool
-	// notifyOnBooking —— #130: 这个 role 下约成后给 owner 自己发通知邮件。
-	notifyOnBooking bool
 	// requireGhostEvidence —— F-A-10: 开则「内容型引导 ghost」只提有 evidence_refs 的 waypoint
 	// (空证据的非终点 waypoint 不当 steering ghost);终点/工具 waypoint 不受影响。code 可覆盖。
 	requireGhostEvidence bool
@@ -64,8 +62,12 @@ type RoleInit struct {
 	Waypoints    []Waypoint
 	DockButtons  []DockButtonConfig
 	IsBuiltin    bool
-	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
-	NotifyOwnerOnBooking bool
+	// 这里以前有 NotifyOwnerOnBooking —— 一个 per-role 的**业务**开关,长在内核实体上,
+	// 一路长到 roles 表的一列。它现在是 calendar.book 在自己 manifest 里声明的 role_config,
+	// 存进 capconfig 的 role scope:access 域连它叫什么都不再知道。
+	//
+	// RequireGhostEvidence 留着 —— 它管的是 ghost 引导要不要有证据,那是本域自己的规则,
+	// 不属于任何一个能力。
 	// RequireGhostEvidence —— F-A-10 per-role 开关。
 	RequireGhostEvidence bool
 }
@@ -86,7 +88,6 @@ func NewRole(i *RoleInit) Role {
 		mcpServerIDs:         cloneStrings(i.MCPServerIDs),
 		waypoints:            cloneWaypoints(i.Waypoints),
 		dockButtons:          cloneDockButtons(i.DockButtons),
-		notifyOnBooking:      i.NotifyOwnerOnBooking,
 		requireGhostEvidence: i.RequireGhostEvidence,
 	}
 	if i.PromptID != nil {
@@ -148,9 +149,6 @@ func (r *Role) Waypoints() []Waypoint { return cloneWaypoints(r.waypoints) }
 
 // IsBuiltin —— 是否种入的 builtin（public 是 true）。
 func (r *Role) IsBuiltin() bool { return r.isBuiltin }
-
-// NotifyOwnerOnBooking —— #130: 约成后是否给 owner 自己发通知邮件。
-func (r *Role) NotifyOwnerOnBooking() bool { return r.notifyOnBooking }
 
 // RequireGhostEvidence —— F-A-10: 是否要求内容型引导 ghost 有语料证据(空证据的非终点 waypoint
 // 不当 steering ghost)。per-role,session freeze 时可被 code 覆盖。

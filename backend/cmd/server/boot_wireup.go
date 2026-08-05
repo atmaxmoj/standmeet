@@ -208,6 +208,9 @@ func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
 		Output:      d.OutputRepo,
 		AgentSkills: d.AgentSkills,
 		CodeDenials: d.CodeDenialRepo,
+		// 冻 role snapshot 时读各能力在这个 role 上的配置。冻结那一步在域里,
+		// 而"有哪些能力、各声明了什么"只有这一层知道。
+		RoleCapConfig: axiscap.RoleCapConfig(d),
 	}
 }
 

@@ -24,6 +24,17 @@ import (
 // RoleSnapshot —— session 起 freeze 的 Role 状态。所有字段不可变；通过
 // NewRoleSnapshot 构造，slice 容器走 defensive clone。
 type RoleSnapshot struct {
+	// capConfig —— 冻下的**各能力自己的 per-role 配置**:能力 id → 它那份配置(JSON 对象)。
+	//
+	// 本域**不认识任何一个键**。这里以前是一个 notifyOwnerOnBooking bool —— 一个业务开关
+	// 长在内核快照上,还一路长到了 roles 表的一列;而 mcpclient 那侧的注释同时写着"host 既不
+	// 发也不知道 booking notify 是什么"。名字和事实互相打架的地方就是这儿。
+	//
+	// 为什么要冻:capconfig 是活存储,owner 随时能改。冻一份下来,访客整场会话按他进来那一刻
+	// 的配置走 —— 跟 corpus 白名单、waypoints 冻结是同一个理由。
+	//
+	// (排在最前是 fieldalignment 的要求,不是重要性排序。)
+	capConfig      map[string]json.RawMessage
 	frozenAt       time.Time
 	roleID         string
 	roleName       string
@@ -51,12 +62,13 @@ type RoleSnapshot struct {
 	// requireGhostEvidence —— F-A-10: 冻下的「内容型引导 ghost 需有证据」开关(role 值经 code 覆盖)。
 	// ghost 选择时据此把空证据的非终点 waypoint 从 steering 候选里剔除;终点/工具 waypoint 不受影响。
 	requireGhostEvidence bool
-	// notifyOwnerOnBooking —— #130 冻下的「约成通知 owner」开关。
-	notifyOwnerOnBooking bool
 }
 
 // RoleSnapshotInit —— NewRoleSnapshot 入参。
 type RoleSnapshotInit struct {
+	// CapConfig —— 各能力在这个 role 上的配置(能力 id → JSON 对象)。冻结那一刻从
+	// capconfig 的 role scope 读一次。本域不解释里面任何一个键。
+	CapConfig            map[string]json.RawMessage
 	FrozenAt             time.Time
 	RoleID               string
 	RoleName             string
@@ -72,9 +84,6 @@ type RoleSnapshotInit struct {
 	DockButtons          []DockButtonConfig
 	Waypoints            []Waypoint
 	RequireGhostEvidence bool
-	// NotifyOwnerOnBooking —— #130: 这个 role 下约成后给 owner 自己发通知邮件。跟其余 role
-	// 配置一样随 session 冻结:访客整场会话按他进来时的 role 行为。
-	NotifyOwnerOnBooking bool
 }
 
 // NewRoleSnapshot —— 从 Init 构造。slice 字段 defensive clone；空 input → 空切片。
@@ -95,15 +104,28 @@ func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 		dockButtons:          cloneDockButtons(i.DockButtons),
 		waypoints:            cloneWaypoints(i.Waypoints),
 		requireGhostEvidence: i.RequireGhostEvidence,
-		notifyOwnerOnBooking: i.NotifyOwnerOnBooking,
+		capConfig:            cloneCapConfig(i.CapConfig),
 	}
+}
+
+// cloneCapConfig —— defensive copy。nil → 空表:"这个 role 没有任何能力配置"跟"配置丢了"
+// 得是同一个安全答案,而不是一个能让调用方崩掉的 nil。
+func cloneCapConfig(in map[string]json.RawMessage) map[string]json.RawMessage {
+	out := make(map[string]json.RawMessage, len(in))
+	for k, v := range in {
+		out[k] = slices.Clone(v)
+	}
+	return out
 }
 
 // RequireGhostEvidence —— F-A-10: 冻下的开关。ghost 选择据此过滤空证据的非终点 waypoint。
 func (s *RoleSnapshot) RequireGhostEvidence() bool { return s.requireGhostEvidence }
 
-// NotifyOwnerOnBooking —— #130: 约成后是否给 owner 发通知信。
-func (s *RoleSnapshot) NotifyOwnerOnBooking() bool { return s.notifyOwnerOnBooking }
+// CapConfig —— 冻下的各能力 per-role 配置(defensive copy)。装配层把它按能力递进 tool-call
+// 的 `_meta`,沙箱插件读自己那一份。本域不解释任何一个键。
+func (s *RoleSnapshot) CapConfig() map[string]json.RawMessage {
+	return cloneCapConfig(s.capConfig)
+}
 
 // Waypoints —— 冻下的引导目的地（defensive copy，evidence_refs 也各自 clone）。
 func (s *RoleSnapshot) Waypoints() []Waypoint { return cloneWaypoints(s.waypoints) }
@@ -201,7 +223,7 @@ func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 		DockButtons:          s.dockButtons,
 		Waypoints:            s.waypoints,
 		RequireGhostEvidence: s.requireGhostEvidence,
-		NotifyOwnerOnBooking: s.notifyOwnerOnBooking,
+		CapConfig:            s.capConfig,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal role snapshot: %w", err)
@@ -231,7 +253,7 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 		DockButtons:          w.DockButtons,
 		Waypoints:            w.Waypoints,
 		RequireGhostEvidence: w.RequireGhostEvidence,
-		NotifyOwnerOnBooking: w.NotifyOwnerOnBooking,
+		CapConfig:            w.CapConfig,
 	})
 	return nil
 }
@@ -239,22 +261,24 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 // roleSnapshotWire —— JSON sidecar。字段顺序按 fieldalignment：time 在前
 // (time.Time = 24B with monotonic clock)、string 中、slice 末。
 type roleSnapshotWire struct {
-	FrozenAt           time.Time          `json:"frozen_at"`
-	RoleID             string             `json:"role_id"`
-	RoleName           string             `json:"role_name"`
-	PromptBody         string             `json:"prompt_body,omitempty"`
-	CodePromptBody     string             `json:"code_prompt_body,omitempty"`
-	CorpusURIs         []string           `json:"corpus_uris,omitempty"`
-	SkillPrompts       []string           `json:"skill_prompts,omitempty"`
-	AllowedTools       []string           `json:"allowed_tools,omitempty"`
-	DeniedCapabilities []string           `json:"denied_capabilities,omitempty"`
-	DeniedCorpusURIs   []string           `json:"denied_corpus_uris,omitempty"`
-	SkillIDs           []string           `json:"skill_ids,omitempty"`
-	MCPServerIDs       []string           `json:"mcp_server_ids,omitempty"`
-	DockButtons        []DockButtonConfig `json:"dock_buttons,omitempty"`
-	Waypoints          []Waypoint         `json:"waypoints,omitempty"`
+	// CapConfig —— 各能力冻下的 per-role 配置。同样必须过江:漏了它,快照走一趟 JSON 往返
+	// 之后能力就拿到空配置,而"空"跟"owner 没开"长得一模一样 —— 开着的开关会静默关掉。
+	CapConfig          map[string]json.RawMessage `json:"capability_config,omitempty"`
+	FrozenAt           time.Time                  `json:"frozen_at"`
+	RoleID             string                     `json:"role_id"`
+	RoleName           string                     `json:"role_name"`
+	PromptBody         string                     `json:"prompt_body,omitempty"`
+	CodePromptBody     string                     `json:"code_prompt_body,omitempty"`
+	CorpusURIs         []string                   `json:"corpus_uris,omitempty"`
+	SkillPrompts       []string                   `json:"skill_prompts,omitempty"`
+	AllowedTools       []string                   `json:"allowed_tools,omitempty"`
+	DeniedCapabilities []string                   `json:"denied_capabilities,omitempty"`
+	DeniedCorpusURIs   []string                   `json:"denied_corpus_uris,omitempty"`
+	SkillIDs           []string                   `json:"skill_ids,omitempty"`
+	MCPServerIDs       []string                   `json:"mcp_server_ids,omitempty"`
+	DockButtons        []DockButtonConfig         `json:"dock_buttons,omitempty"`
+	Waypoints          []Waypoint                 `json:"waypoints,omitempty"`
 	// 布尔型 role 配置也必须过江:之前 wire 漏了它们,快照一旦走 JSON 往返就静默退回 false
 	// —— 冻结的开关"看起来还在",实际已经丢了(F-A-10 的 require_ghost_evidence 同样中招)。
 	RequireGhostEvidence bool `json:"require_ghost_evidence,omitempty"`
-	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking,omitempty"`
 }

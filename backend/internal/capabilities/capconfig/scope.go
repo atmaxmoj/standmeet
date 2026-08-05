@@ -22,6 +22,7 @@ type Scope struct {
 const (
 	ownerCollection = "capconfig"
 	codeCollection  = "capconfig_code"
+	roleCollection  = "capconfig_role"
 )
 
 // OwnerScope —— 某个 owner 对这个能力的配置(面板上填的那些)。
@@ -32,6 +33,18 @@ func OwnerScope(ownerID string) Scope {
 // CodeScope —— 某一张邀请码上这个能力占的那几个字段(发码时一起填)。
 func CodeScope(codeID string) Scope {
 	return Scope{key: "code_id", collection: codeCollection, id: codeID}
+}
+
+// RoleScope —— 某一个 role 上这个能力占的那几个字段(建 role 时一起填)。
+//
+// 第三个挂载点,加它只多了这一个构造函数 —— 上面那句"挂在谁身上是参数"到这里才算兑现:
+// 前两个 scope 是同时长出来的,第三个才证明这个形状真的能加。
+//
+// 它跟前两个有一处不同:role 上的配置会随 session **冻结**(见 RoleSnapshot 的
+// capability_config)。capconfig 本身是活存储,冻结那一步在发码/开会话时读一次、拍下来,
+// 访客整场会话按他进来时的配置走 —— owner 中途改 role,不影响已经在聊的人。
+func RoleScope(roleID string) Scope {
+	return Scope{key: "role_id", collection: roleCollection, id: roleID}
 }
 
 // ok —— 有主体才谈得上配置。空 id(无 code 的会话)→ 读到空,不是错。

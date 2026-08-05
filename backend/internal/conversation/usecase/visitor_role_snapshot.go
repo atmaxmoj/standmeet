@@ -8,6 +8,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -206,10 +207,24 @@ func buildRoleSnapshotByID(
 		RequireGhostEvidence: effectiveGhostEvidence(
 			role.RequireGhostEvidence(), overlay.requireGhostEvidence,
 		),
-		// #130: 约成通知开关随 role 冻下(无 per-code 覆盖)。沙箱 booker 经 session `_meta`
-		// 读它决定发不发通知信 —— 内核不发信,也不认识 "booking notify"。
-		NotifyOwnerOnBooking: role.NotifyOwnerOnBooking(),
+		// 各能力自己的 per-role 配置,随 role 一起冻下。**本层不认识任何一个键** ——
+		// 这里以前是一个 NotifyOwnerOnBooking bool,一个 booking 的业务开关长在内核的
+		// 快照构造里。现在是能力 id → 它那份配置,原样传到沙箱由它自己读。
+		CapConfig: roleCapConfig(ctx, deps, role.ID()),
 	}), nil
+}
+
+// roleCapConfig —— 冻结那一刻,各能力在这个 role 上的配置。没接读口 → 空表(不是错):
+// 一台没有任何能力声明 per-role 配置的实例是完全正常的。
+//
+// 读失败也不该让会话开不起来 —— 那一层自己留日志(见 capconfig 的 SubjectFields)。
+func roleCapConfig(
+	ctx context.Context, deps *VisitorSessionDeps, roleID string,
+) map[string]json.RawMessage {
+	if deps.RoleCapConfig == nil {
+		return map[string]json.RawMessage{}
+	}
+	return deps.RoleCapConfig.ReadByCapability(ctx, roleID)
 }
 
 // effectiveGhostEvidence —— F-A-10 的 role/code 合并:code 显式覆盖(非 nil)则用 code,否则继承 role。

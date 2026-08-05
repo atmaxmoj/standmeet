@@ -122,6 +122,14 @@ type Manifest struct {
 	// 只能在组装根手写一整套(自己的存储、自己的读写、自己接进发码入参)—— booker 的
 	// max_bookings 就是那样,三个文件两百多行,全是这份机制的手抄本。
 	CodeConfig []ConfigField
+	// RoleConfig —— 本插件在**一个 role**上占的那几个字段。owner 建 role 时一起填。
+	//
+	// 跟 Config / CodeConfig 同一套声明,只是挂载点换成 role。它跟前两个有一处不同:role 上的
+	// 值随 session **冻结**(进 RoleSnapshot 的 capability_config),访客整场会话按他进来时的
+	// 配置走。有这个之前,一个 per-role 的开关只能长成内核 roles 表上的一列 ——
+	// notify_owner_on_booking 就是那样:一列贯穿 9 份生成代码、一条专用 query、entity、
+	// snapshot、MCP schema、和每次 tool-call 的 `_meta`,而内核从头到尾不该知道 booking 是什么。
+	RoleConfig []ConfigField
 	// Quota —— 本插件的 per-code 用量上限:允许多少、已经用了多少,都由声明说清。
 	// nil = 这个能力不闸用量。
 	Quota   *QuotaDecl

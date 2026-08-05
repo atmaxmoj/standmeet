@@ -40,7 +40,7 @@ test.describe('connector error stream · owner-notify fails, booking not rolled 
       await clearMailpit(seed.request);
       // role that notifies owner on booking.
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
-        granted_skills: ['calendar.book'], notify_owner_on_booking: true,
+        granted_skills: ['calendar.book'], notify_owner: true,
       });
       // make the (owner-notify) send fail.
       await armSMTPFault(seed.request, { mode: 'connection_refused' });

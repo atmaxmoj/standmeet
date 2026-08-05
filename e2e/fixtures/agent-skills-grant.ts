@@ -15,8 +15,12 @@ export interface IssueCodeInput {
   max_bookings?: number;
   max_members?: number;
   max_turns_per_session?: number;
-  // #130: 这张码的 role 是否在约成后给 owner 自己发通知邮件。
-  notify_owner_on_booking?: boolean;
+  // 这张码的 role 是否在约成后给 owner 自己发通知邮件。
+  //
+  // 字段名就叫 notify_owner —— 它是 **calendar.book 自己**在 manifest 的 role_config 里
+  // 声明的键,不再是内核 roles 表上的一列(那一列叫 notify_owner_on_booking,已退役)。
+  // role 的入参 schema 按各能力的声明长出来,所以这里填的名字必须跟 manifest 对得上。
+  notify_owner?: boolean;
 }
 
 export interface IssuedCode {
@@ -44,7 +48,7 @@ export async function issueCodeWithSkills(
     skillID = skill.id;
   }
   const role = await createRoleAttachingSkill(request, csrf, `role-${tag}`, skillID,
-    input.notify_owner_on_booking ?? false);
+    input.notify_owner ?? false);
   return await postCode(request, csrf, role.id, input);
 }
 
@@ -78,7 +82,7 @@ async function createRoleAttachingSkill(
       corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
       skill_ids: skillID ? [skillID] : [],
       mcp_server_ids: [],
-      notify_owner_on_booking: notifyOwnerOnBooking,
+      notify_owner: notifyOwnerOnBooking,
     },
   });
   if (res.status() !== 201) throw new Error(`create role: ${res.status()}`);

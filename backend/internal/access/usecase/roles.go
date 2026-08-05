@@ -47,8 +47,6 @@ type RoleWriteInput struct {
 	DockButtons []entity.DockButtonConfig
 	// ValidCapabilityIDs —— route 从能力注册表给出的、dock 按钮可挂的能力 id 集（校验 cap 有效性用）。
 	ValidCapabilityIDs []string
-	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
-	NotifyOwnerOnBooking bool
 	// RequireGhostEvidence —— F-A-10 per-role 开关。
 	RequireGhostEvidence bool
 }
@@ -91,7 +89,7 @@ func createRoleRow(
 	role, err := deps.Roles.Create(ctx, &repo.CreateRoleInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,
+		DockButtons: in.DockButtons,
 	})
 	if err != nil {
 		if errors.Is(err, entity.ErrRoleNameTaken) {
@@ -177,7 +175,7 @@ func updateRoleRow(
 	role, err := deps.Roles.Update(ctx, &repo.UpdateRoleInput{
 		OwnerID: in.OwnerID, RoleID: in.RoleID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,
+		DockButtons:          in.DockButtons,
 		RequireGhostEvidence: in.RequireGhostEvidence,
 	})
 	if err != nil {

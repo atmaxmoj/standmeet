@@ -245,12 +245,27 @@ type session struct {
 	VisitorName    string
 	VisitorEmail   string
 	RoleID         string
-	// NotifyOwner —— #130: 这个 session 的 role 要求约成后通知 owner。host 冻在 role snapshot
-	// 里、经 `_meta` 递进来 —— 开关是 owner 的 role 配置,通知信由本能力自己发。
+	// NotifyOwner —— 约成后给 owner 发通知信。**这是本能力自己的配置**:manifest 的
+	// role_config 声明了 notify_owner,owner 在 role 上填,host 冻进 role snapshot,再经
+	// `_meta.capability_config` 原样递给我们。
+	//
+	// 以前它是 `_meta.notify_owner` —— 一个 host 认识的键,背后是内核 roles 表上一列
+	// notify_owner_on_booking。host 那边的注释写着"既不发也不知道 booking notify 是什么",
+	// 而列名在说反话。现在 host 递的是一份不透明的 JSON,键名只有这里认识。
 	NotifyOwner bool
 }
 
-// boolOf —— 从 _meta 取一个布尔(缺失/类型不符 → false)。
+// capConfigOf —— `_meta.capability_config`:本能力自己那份 per-role 配置。
+// 缺失 / 类型不符 → 空表(不是错):没设过就走各字段的默认值。
+func capConfigOf(raw map[string]any) map[string]any {
+	cfg, ok := raw["capability_config"].(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	return cfg
+}
+
+// boolOf —— 从一份配置里取一个布尔(缺失/类型不符 → false)。
 func boolOf(raw map[string]any, key string) bool {
 	v, _ := raw[key].(bool)
 	return v
@@ -272,7 +287,7 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 		VisitorName:    str(raw, "visitor_name"),
 		VisitorEmail:   str(raw, "visitor_email"),
 		RoleID:         str(raw, "role_id"),
-		NotifyOwner:    boolOf(raw, "notify_owner"),
+		NotifyOwner:    boolOf(capConfigOf(raw), "notify_owner"),
 	}
 }
 

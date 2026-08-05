@@ -411,7 +411,6 @@ type Role struct {
 	Greeting             string
 	PromptID             pgtype.UUID
 	IsBuiltin            bool
-	NotifyOwnerOnBooking bool
 	DockButtons          []byte
 	RequireGhostEvidence bool
 	CreatedAt            pgtype.Timestamptz

@@ -74,7 +74,7 @@ async function putRoleWithDock(
       name: role.name, description: role.description, greeting: role.greeting,
       prompt_id: role.prompt_id ?? null, corpus_uris: role.corpus_uris,
       skill_ids: role.skill_ids, mcp_server_ids: role.mcp_server_ids,
-      notify_owner_on_booking: false, dock_buttons: dock,
+      notify_owner: false, dock_buttons: dock,
     },
   });
   return res.status();
@@ -133,7 +133,7 @@ test.describe('dock buttons · A — config storage + validation', () => {
       data: {
         name: role.name, description: '', greeting: '', prompt_id: null,
         corpus_uris: ['wiki://**'], skill_ids: [], mcp_server_ids: [],
-        notify_owner_on_booking: false, dock_buttons: [],
+        notify_owner: false, dock_buttons: [],
       },
     });
     expect(res.status()).toBe(200);
@@ -163,7 +163,7 @@ test.describe('dock buttons · C — freeze into the session snapshot', () => {
         data: {
           name: role.name, description: '', greeting: '', prompt_id: null,
           corpus_uris: ['wiki://**'], skill_ids: [], mcp_server_ids: [],
-          notify_owner_on_booking: false, dock_buttons: [],
+          notify_owner: false, dock_buttons: [],
         },
       });
       // a NEW session reflects the change; the old session's frozen snapshot does not.

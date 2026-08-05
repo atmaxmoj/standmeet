@@ -50,7 +50,7 @@ test.describe('connector retry · owner-notify async, non-blocking, retried in b
     async ({ browser }) => {
       await clearMailpit(seed.request);
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
-        granted_skills: ['calendar.book'], notify_owner_on_booking: true,
+        granted_skills: ['calendar.book'], notify_owner: true,
       });
 
       // arm the transient owner-notify faults BEFORE booking so the first
