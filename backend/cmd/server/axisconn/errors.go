@@ -41,6 +41,7 @@ const (
 	msgBuiltinReadonly = "this connector is built-in and cannot be edited or deleted"
 	msgConnectFailed   = "connection test failed — check host/port/credentials"
 	msgNoCreds         = "connector credentials not set"
+	msgNoConnection    = "fill in this connector's credentials first"
 	msgStaleOAuth      = "this authorization link is expired or already used — start again"
 )
 
@@ -53,5 +54,6 @@ var connCases = []struct {
 	{connector.ErrBuiltinReadonly, fp.Coded(fp.Conflict(msgBuiltinReadonly), "builtin_readonly")},
 	{connector.ErrConnectionFailed, fp.BadInput(msgConnectFailed)},
 	{connector.ErrNoOAuthClient, fp.BadInput(msgNoCreds)},
+	{connector.ErrNoConnection, fp.BadInput(msgNoConnection)},
 	{connector.ErrInvalidOAuthState, fp.BadInput(msgStaleOAuth)},
 }

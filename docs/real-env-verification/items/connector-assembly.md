@@ -39,3 +39,22 @@ Uploaded operations render as a bindable list (not empty); the assemble/connect 
 - **Assessment:** both rejections are CORRECT for the spec as published. But real vendor specs commonly omit `securitySchemes` — hard-rejecting them means the owner cannot assemble a working connector from the vendor's own spec without hand-editing it. **Friction / design gap (not a crash):** consider a manual-auth fallback (let the owner pick bearer/apiKey in the UI when the spec omits `securitySchemes`) instead of a hard block.
 - **Workaround (to finish the proxied-call check):** added `servers:[{url:api.cal.com}]` + a `bearerAuth` http/bearer scheme to the spec, then assembled + connected with the real `CALCOM_API_KEY`.
 - **FIXED + ⑤ re-verified 2026-07-24** (commit `b956105b`): `DeriveAuthForms` now offers a manual-auth fallback (`manual:bearer|apikey|basic`) when a spec omits `securitySchemes`, and `pickScheme` builds the injector from the chosen `manual:*` synthetic scheme. Guard `authform_test` RED→GREEN. **Manual re-verify on prod GUI:** uploaded the REAL Cal.com spec (servers added, `securitySchemes:{}`) → no longer hard-rejects; the panel derives "Cal.com API v2" + shows "this spec declares no authentication — if the API needs a key, pick one below" + a `manual:bearer/apikey/basic` selector + token field. The owner can now assemble from the vendor's own spec. (Remaining, separate: checks #2 real proxied call needs the JSONata→calendar binding — the "non-obvious" assemble step — and #3 CalDAV needs a stood-up Radicale.)
+
+### F-B-3 — connecting a non-OAuth connector reported success while writing nothing  (2026-08-05, e2e-reproduced)
+- **Observed:** on a fresh instance, Connect on a bearer/apiKey/basic connector returns
+  `connected: true` and the card flips to `connected` + Disconnect, while
+  `GET /connectors/{id}/status` says `connected: false`. Reload → the connector "disconnected
+  itself". The backend's `MarkConnectorConnected` was a bare `UPDATE … WHERE owner_id AND
+  connector_id` declared `:exec`; that row is created by the *save-credentials* step, so before it
+  exists the update matches nothing, postgres reports no error, and the row count is discarded.
+- **Blast radius:** exactly the openapi connectors with a **non-OAuth** scheme — the OAuth path
+  checks the precondition (`ErrNoOAuthClient`) and protocol connectors (smtp/caldav) are covered by
+  their `Verify`. That is the whole "upload your own API and connect it with a key" story.
+- **Why it looked like flake:** the panel saves credentials fire-and-forget, so the owner's click
+  races the write it depends on. A dev volume that had run the spec before already had the row, so
+  ordering stopped mattering — red only on a fresh volume, i.e. only the way a real owner meets it.
+- **Fixed + covered:** `:execrows` → 0 rows = `ErrNoConnection` → 200 with `connected:false` and
+  "fill in this connector's credentials first"; the panel awaits its own save; `SetActiveConnector`
+  got a name-based receipt (`RETURNING connector_id`) because its row count proves nothing (it
+  updates the whole category). Backing e2e `connector-connect-receipt.spec.ts`, RED-proven against
+  the pre-fix images. Full write-up in `../findings.md` · F-B-3.

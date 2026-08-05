@@ -30,8 +30,11 @@ SET token_enc = sqlc.arg(token_enc)::bytea,
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id)
 RETURNING *;
 
--- name: MarkConnectorConnected :exec
+-- name: MarkConnectorConnected :execrows
 -- protocol 连接器验证通过（无 oauth dance）→ 标记 connected。
+-- **:execrows,不是 :exec** —— 这一行是"存凭据"那步建的。owner 还没有它的时候,这条 UPDATE
+-- 命中 0 行、不报错,调用方照样回 connected:true —— 一句谎话,而且每一次全新安装都踩得到。
+-- 行数是这笔写入唯一的回执,调用方必须看它。
 UPDATE owner_connectors
 SET connected_at = COALESCE(connected_at, now()), updated_at = now()
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
@@ -43,11 +46,15 @@ SET token_enc = '\x'::bytea, token_expires_at = NULL,
     connected_at = NULL, active = false, updated_at = now()
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 
--- name: SetActiveConnector :exec
+-- name: SetActiveConnector :many
 -- 一个品类槽同时只一个 active：把目标置 active、同品类其余置非 active（§9 槽位规则）。
+-- **RETURNING 是回执。** 行数在这里证明不了什么：更新的是整个品类，目标行不在其中时其余全被
+-- 置成非 active，行数照样大于 0 —— "激活"的结果是**这个品类一个 active 都没有**。所以回执
+-- 必须是名字：调用方要看目标 connector_id 在不在里面。
 UPDATE owner_connectors
 SET active = (connector_id = sqlc.arg(connector_id)::text), updated_at = now()
-WHERE owner_id = sqlc.arg(owner_id) AND category = sqlc.arg(category);
+WHERE owner_id = sqlc.arg(owner_id) AND category = sqlc.arg(category)
+RETURNING connector_id;
 
 -- name: GetConnector :one
 SELECT * FROM owner_connectors

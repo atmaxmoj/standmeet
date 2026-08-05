@@ -341,7 +341,7 @@ func (q *Queries) ListUploadedConnectors(ctx context.Context) ([]ListUploadedCon
 	return items, nil
 }
 
-const markConnectorConnected = `-- name: MarkConnectorConnected :exec
+const markConnectorConnected = `-- name: MarkConnectorConnected :execrows
 UPDATE owner_connectors
 SET connected_at = COALESCE(connected_at, now()), updated_at = now()
 WHERE owner_id = $1 AND connector_id = $2
@@ -353,15 +353,22 @@ type MarkConnectorConnectedParams struct {
 }
 
 // protocol 连接器验证通过（无 oauth dance）→ 标记 connected。
-func (q *Queries) MarkConnectorConnected(ctx context.Context, arg MarkConnectorConnectedParams) error {
-	_, err := q.db.Exec(ctx, markConnectorConnected, arg.OwnerID, arg.ConnectorID)
-	return err
+// **:execrows,不是 :exec** —— 这一行是"存凭据"那步建的。owner 还没有它的时候,这条 UPDATE
+// 命中 0 行、不报错,调用方照样回 connected:true —— 一句谎话,而且每一次全新安装都踩得到。
+// 行数是这笔写入唯一的回执,调用方必须看它。
+func (q *Queries) MarkConnectorConnected(ctx context.Context, arg MarkConnectorConnectedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markConnectorConnected, arg.OwnerID, arg.ConnectorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const setActiveConnector = `-- name: SetActiveConnector :exec
+const setActiveConnector = `-- name: SetActiveConnector :many
 UPDATE owner_connectors
 SET active = (connector_id = $1::text), updated_at = now()
 WHERE owner_id = $2 AND category = $3
+RETURNING connector_id
 `
 
 type SetActiveConnectorParams struct {
@@ -371,9 +378,27 @@ type SetActiveConnectorParams struct {
 }
 
 // 一个品类槽同时只一个 active：把目标置 active、同品类其余置非 active（§9 槽位规则）。
-func (q *Queries) SetActiveConnector(ctx context.Context, arg SetActiveConnectorParams) error {
-	_, err := q.db.Exec(ctx, setActiveConnector, arg.ConnectorID, arg.OwnerID, arg.Category)
-	return err
+// **RETURNING 是回执。** 行数在这里证明不了什么：更新的是整个品类，目标行不在其中时其余全被
+// 置成非 active，行数照样大于 0 —— "激活"的结果是**这个品类一个 active 都没有**。所以回执
+// 必须是名字：调用方要看目标 connector_id 在不在里面。
+func (q *Queries) SetActiveConnector(ctx context.Context, arg SetActiveConnectorParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setActiveConnector, arg.ConnectorID, arg.OwnerID, arg.Category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var connector_id string
+		if err := rows.Scan(&connector_id); err != nil {
+			return nil, err
+		}
+		items = append(items, connector_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateConnectorTokens = `-- name: UpdateConnectorTokens :one

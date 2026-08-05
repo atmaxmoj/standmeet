@@ -50,6 +50,8 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   const [error, setError] = useState('');
   const values = useRef<Record<string, string>>({});
   const chosen = useRef<Set<string>>(new Set());
+  // pendingSave —— 最近一笔存凭据。Connect 等它（见 saveCreds）；一次都没填过时是已完成的空 promise。
+  const pendingSave = useRef<Promise<void>>(Promise.resolve());
 
   const loadStatus = useCallback(() => {
     void adminAPI.get(`/connectors/${id}/status`, StatusSchema)
@@ -85,10 +87,11 @@ export function useConnectorCard(id: string): ConnectorCardHook {
     }
   }, [id]);
 
-  // saveCreds —— 字段改动即存（带勾选 scope）。oauth2 的 Connect 是同步导航到 GET /authorize，
-  // 没机会先 await 存凭据，故凭据必须在此提前存好；非 dance 同样复用已存凭据。
+  // saveCreds —— 字段改动即存（带勾选 scope）。**留住这个 promise**：连接器在库里的那一行就是
+  // 这一笔建的，Connect 必须等它落地。以前这里是 fire-and-forget，owner 填完立刻点的话
+  // connect 跑在它前面 —— 后端对着一张还不存在的行标 connected，卡片翻绿而库里什么都没有。
   const saveCreds = useCallback(() => {
-    void adminAPI.postVoid(`/connectors/${id}/credentials`, {
+    pendingSave.current = adminAPI.postVoid(`/connectors/${id}/credentials`, {
       ...values.current, scopes: [...chosen.current],
     }).catch(() => setError('Couldn’t save credentials — check your connection and retry.'));
     // 存失败必须吵闹：否则 owner 以为凭据存好了，点 Connect 却用着未保存的凭据连接失败，一头雾水。
@@ -97,12 +100,15 @@ export function useConnectorCard(id: string): ConnectorCardHook {
 
   const connect = useCallback(() => {
     setError('');
-    // oauth2 → 同步先翻「connecting…」（让 waitForURL 后的 expectConnected 真等到 dance 回程，
-    // 因为 "connecting" 不匹配 /connected/）→ 起 dance（前端 window.location 跳 auth_url，回程
-    // callback 重定向回 connectors 区，整页刷新后卡变 connected）。非 dance → XHR 存+连，无跳转。
-    authType === 'oauth2'
-      ? startDance(id, { setConnecting, setError })
-      : runNonDanceConnect(id, { setConnecting, setConnected, setError });
+    // 同步翻「connecting…」：点下去立刻有反馈，且状态当场离开 "not connected"（"connecting"
+    // 不匹配 /^connected$/，所以断言仍会真等到回程）。
+    setConnecting(true);
+    // 先等自己那笔存凭据落地，再起连接 —— 两条路都要等：非 dance 的 connect 要有行可标，
+    // oauth2 的 dance 要在服务端读得到 client_id/secret。
+    const go = authType === 'oauth2'
+      ? () => startDance(id, { setConnecting, setError })
+      : () => runNonDanceConnect(id, { setConnecting, setConnected, setError });
+    void pendingSave.current.then(go);
   }, [id, authType]);
 
   const disconnect = useCallback(() => {
@@ -127,12 +133,12 @@ function clearConnecting(id: string): void {
   }
 }
 
-// startDance —— oauth2：同步翻 connecting + 记「正在连本 id」→ POST connect 取 auth_url → 整页跳过去
-// 走 dance。auth_url 缺失 → 复位 connecting + 报错。
+// startDance —— oauth2：记「正在连本 id」→ POST connect 取 auth_url → 整页跳过去走 dance。
+// auth_url 缺失 → 复位 connecting + 报错。（connecting 由 connect() 在点击当刻同步翻好，
+// 这里不重复翻：翻它的时机得早于「等存凭据落地」，否则点下去有一段没反馈。）
 function startDance(
   id: string, set: { setConnecting: (b: boolean) => void; setError: (s: string) => void },
 ): void {
-  set.setConnecting(true);
   window.sessionStorage.setItem(SESSION_KEY, id);
   void adminAPI.post(`/connectors/${id}/connect`, {}, ConnectSchema)
     .then((r) => {
@@ -142,8 +148,8 @@ function startDance(
     .catch(() => { set.setConnecting(false); set.setError('The connection could not be completed.'); });
 }
 
-// runNonDanceConnect —— 非 oauth2（bearer/apikey）：凭据已即时存好 → 直接起连接，无跳转，原地翻
-// 状态。先翻 connecting…（让 expectConnected 真等 POST 落定，而非被 "not connected" 宽松命中）。
+// runNonDanceConnect —— 非 oauth2（bearer/apikey）：凭据已落地（connect() 等过）→ 直接起连接，
+// 无跳转，原地翻状态。connected:false 时后端一定给了理由（连接测试失败 / 还没存凭据），照原样显示。
 function runNonDanceConnect(
   id: string,
   set: {
@@ -152,7 +158,6 @@ function runNonDanceConnect(
     setError: (s: string) => void;
   },
 ): void {
-  set.setConnecting(true);
   void adminAPI.post(`/connectors/${id}/connect`, {}, ConnectSchema)
     .then((r) => {
       set.setConnecting(false);

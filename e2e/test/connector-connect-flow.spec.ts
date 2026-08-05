@@ -303,8 +303,11 @@ async function runOAuth2Dance(
   return card;
 }
 
+// expectConnected —— 锚定成**整串** 'connected'。原来写的是 /connected|已连接/i，而
+// toHaveText 的正则不加锚点就是子串匹配 —— "not connected" 同样命中。那是一条不会红的断言：
+// 未连接的卡片照样让它通过。
 async function expectConnected(card: Locator): Promise<void> {
-  await expect(card.getByTestId('connector-status')).toHaveText(/connected|已连接/i);
+  await expect(card.getByTestId('connector-status')).toHaveText(/^(connected|已连接)$/i);
 }
 
 async function expectNotConnected(card: Locator): Promise<void> {

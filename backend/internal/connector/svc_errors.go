@@ -11,6 +11,14 @@ var ErrNotFound = errors.New("connector not found")
 // ErrNoOAuthClient —— oauth 连接器还没存 client_id（connect 前必须先存凭据）。
 var ErrNoOAuthClient = errors.New("connector oauth client_id not set")
 
+// ErrNoConnection —— 这个 owner 名下还没有这个连接器的行（凭据一次都没存过），所以没有东西可标
+// connected / active。跟 ErrNotFound 分开：那条说的是「没有这么个连接器」，这条说的是「连接器有，
+// 你还没往里填过东西」—— owner 的下一步不同（前者无从补救，后者去填表单）。
+//
+// 它是 dance 那条早就有的 ErrNoOAuthClient 在非 dance 侧的对应物：那边一直在连接前查前置，
+// 这边没查，于是「标 connected」对着一张不存在的行执行，还回了成功。
+var ErrNoConnection = errors.New("connector has no stored connection for this owner")
+
 // ErrConnectionFailed —— protocol 连接器的连接测试失败（host/port/auth/TLS 错）。
 var ErrConnectionFailed = errors.New("connector connection test failed")
 

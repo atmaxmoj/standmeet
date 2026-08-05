@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -96,15 +97,23 @@ func (r *Repo) SaveTokens(ctx context.Context, in *SaveConnectorTokensInput) err
 }
 
 // MarkConnected —— protocol 连接器验证通过（无 oauth dance）→ 标 connected。
+//
+// **看行数。** 底下是一条 UPDATE:owner 还没有这一行(凭据一次都没存)时它命中 0 行且不报错。
+// 不看行数的话,这个函数会对一次什么都没写的调用回 nil,上面就回 `connected: true` —— 卡片
+// 当场翻绿,下一次 GET /status 说没连上。行数是这笔写入唯一的回执。
 func (r *Repo) MarkConnected(ctx context.Context, ownerID, connectorID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if derr := db.New(r.pool).MarkConnectorConnected(ctx, db.MarkConnectorConnectedParams{
+	rows, derr := db.New(r.pool).MarkConnectorConnected(ctx, db.MarkConnectorConnectedParams{
 		OwnerID: ownerUUID, ConnectorID: connectorID,
-	}); derr != nil {
+	})
+	if derr != nil {
 		return fmt.Errorf("mark connector connected: %w", derr)
+	}
+	if rows == 0 {
+		return fmt.Errorf("mark connector connected %q: %w", connectorID, ErrNoConnection)
 	}
 	return nil
 }
@@ -123,6 +132,10 @@ func (r *Repo) ClearTokens(ctx context.Context, ownerID, connectorID string) err
 }
 
 // SetActive —— 把目标置 active、同品类其余置非 active（§9 槽位规则）。
+//
+// **回执是名字,不是行数。** 这条 UPDATE 扫的是整个品类:目标行不存在时,同品类其余仍然被置成
+// 非 active —— 行数大于 0,而"激活"的实际结果是这个品类**一个 active 都没有**。所以看返回的
+// connector_id 里有没有目标;没有就是 ErrNoConnection,别把"全灭"报成成功。
 func (r *Repo) SetActive(
 	ctx context.Context, ownerID, connectorID, category string,
 ) error {
@@ -130,10 +143,14 @@ func (r *Repo) SetActive(
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if derr := db.New(r.pool).SetActiveConnector(ctx, db.SetActiveConnectorParams{
+	touched, derr := db.New(r.pool).SetActiveConnector(ctx, db.SetActiveConnectorParams{
 		ConnectorID: connectorID, OwnerID: ownerUUID, Category: category,
-	}); derr != nil {
+	})
+	if derr != nil {
 		return fmt.Errorf("set active connector: %w", derr)
+	}
+	if !slices.Contains(touched, connectorID) {
+		return fmt.Errorf("set active connector %q: %w", connectorID, ErrNoConnection)
 	}
 	return nil
 }

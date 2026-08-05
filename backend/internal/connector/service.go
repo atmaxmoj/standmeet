@@ -226,6 +226,10 @@ func (s *Service) verifyAndConnect(ctx context.Context, ownerID, id string) (Con
 	return s.markConnected(ctx, ownerID, id)
 }
 
+// noCredentialsReason —— 还没存过凭据就点 Connect 时给 owner 的理由。说的是下一步该干什么,
+// 不是内部为什么(没有那一行)。
+const noCredentialsReason = "fill in this connector's credentials above, then connect"
+
 // verifyReason —— 连接测试失败的 owner 友好理由（分类 connect/tls/auth；非已知 → 通用）。
 func verifyReason(err error) string {
 	if r := FriendlyVerifyError(err); r != "" {
@@ -234,8 +238,17 @@ func verifyReason(err error) string {
 	return "the connection test failed — check the host, port, and credentials"
 }
 
+// markConnected —— 标 connected。**写不下就说写不下。**
+//
+// 底下那条 UPDATE 只更新已有的行,而行是"存凭据"那一步建的。owner 一个字都没填就点 Connect
+// 时没有行 —— 以前这里照样回 connected:true,卡片翻绿、库里没有,刷新一下"自己就断了"。
+// 现在 repo 把 0 行报成 ErrNoConnection,这里翻成 owner 看得懂的下一步(去填表单),
+// 跟连接测试失败同一个形状:200 + connected:false + 一句人话。
 func (s *Service) markConnected(ctx context.Context, ownerID, id string) (ConnectResult, error) {
 	if err := s.d.Repo.MarkConnected(ctx, ownerID, id); err != nil {
+		if errors.Is(err, ErrNoConnection) {
+			return ConnectResult{Connected: false, Error: noCredentialsReason}, nil
+		}
 		return ConnectResult{}, fmt.Errorf("mark connected: %w", err)
 	}
 	if err := s.ensureActive(ctx, ownerID, id); err != nil {

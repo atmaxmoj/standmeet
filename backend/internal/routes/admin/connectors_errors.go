@@ -21,6 +21,11 @@ var connErrCases = []apierr.Case{
 		Code:    "bad_request",
 		Message: "connector credentials not set",
 	}},
+	{Match: connector.ErrNoConnection, Envelope: apierr.Envelope{
+		Status:  http.StatusBadRequest,
+		Code:    "bad_request",
+		Message: "fill in this connector's credentials first",
+	}},
 	{Match: connector.ErrConnectionFailed, Envelope: apierr.Envelope{
 		Status:  http.StatusBadRequest,
 		Code:    "bad_request",
