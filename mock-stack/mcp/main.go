@@ -94,6 +94,17 @@ func serveHTTP(srv *server.MCPServer) {
 	// 有了它,"owner 填的认证头到底有没有真的发到对面"才第一次成为**可观察的**事情 ——
 	// 头掉了 → 401 → 拉不到工具 → 那台 server 的工具从访客那边消失。
 	mux.Handle("/mcp-auth", requireAuth(httpSrv))
+	// /sse + /message —— **老的 HTTP+SSE 传输**(MCP 2024-11-05),同一个 server 的另一张脸。
+	//
+	// streamable HTTP 在 2025-03-26 取代了它,但不少远程 server 还挂着 /sse 老端点没迁。
+	// owner 粘一个这样的地址过来,我们必须连得上 —— 这个 fixture 就是那种 server。
+	//
+	// 同样是**独立路径**,不是环境变量开关:mock 是所有 spec 共用一个容器,全局开关会把别的
+	// spec 一起挡在门外(上午 /mcp-auth 那次就是这么定的)。
+	sseSrv := server.NewSSEServer(srv,
+		server.WithSSEEndpoint("/sse"), server.WithMessageEndpoint("/message"))
+	mux.Handle("/sse", sseSrv)
+	mux.Handle("/message", sseSrv)
 	mux.HandleFunc("/healthz", healthz)
 	fmt.Fprintln(os.Stderr, "mcp-server-mock listening on :"+port+"/mcp")
 	httpServer := &http.Server{

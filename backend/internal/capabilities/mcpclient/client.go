@@ -13,13 +13,11 @@ package mcpclient
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	mcpgoclient "github.com/mark3labs/mcp-go/client"
-	mcpgotransport "github.com/mark3labs/mcp-go/client/transport"
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -29,6 +27,16 @@ import (
 // 成 ErrHidden（卡片/工具消失，间歇 flake）。真·死插件在 connect 阶段就快速失败，不
 // 吃这个超时，所以放宽只惩罚「慢但活着」的罕见情形。
 const dialTimeout = 20 * time.Second
+
+// httpDialTimeout —— **远程 HTTP** 拨号(owner 注册的 ext-MCP server)的总预算。
+//
+// 比 dialTimeout 短得多,因为上面那 20s 的理由是**沙箱冷启动**(bwrap 命名空间 + 解释器冷启),
+// 远程 HTTP 没有这一段:要么对面在,要么不在。而 owner 填错一个地址是**常见**的,那条路上挂着
+// 会话装配 —— 让每个访客为一个打错的 URL 等 20 秒是不能接受的(e2e 当场红:访客侧 15s 就
+// 放弃了,整场装配跟着黄)。
+//
+// 这一份预算由 streamable + SSE 两次尝试**共用**(见 dial.go),所以加降级不会让等待变长。
+const httpDialTimeout = 6 * time.Second
 
 // callTimeout —— 单次 CallTool 默认上限；外部 server 卡死不能拖垮 visitor chat。够快连接器调用用。
 const callTimeout = 15 * time.Second
@@ -83,40 +91,6 @@ func (s *Session) Instructions() string {
 		return ""
 	}
 	return s.instructions
-}
-
-// ErrUnreachable —— Initialize 失败（网络 / TLS / 协议）。
-var ErrUnreachable = errors.New("mcp server unreachable")
-
-// Dial 建立连接 + Initialize。headers 里可放 Authorization 等 owner 配的
-// 鉴权头；nil = 无 auth。
-func Dial(ctx context.Context, url string, headers map[string]string) (*Session, error) {
-	opts := []mcpgotransport.StreamableHTTPCOption{}
-	if len(headers) > 0 {
-		opts = append(opts, mcpgotransport.WithHTTPHeaders(headers))
-	}
-	cli, err := mcpgoclient.NewStreamableHttpClient(url, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("%w: new client: %w", ErrUnreachable, err)
-	}
-	ictx, cancel := context.WithTimeout(ctx, dialTimeout)
-	defer cancel()
-	res, ierr := cli.Initialize(ictx, initRequest())
-	if ierr != nil {
-		return nil, fmt.Errorf("%w: initialize: %w", ErrUnreachable, ierr)
-	}
-	return &Session{
-		c: cli, url: url, instructions: initInstructions(res),
-		closeFn: func() { closeQuietly(cli) },
-	}, nil
-}
-
-// initInstructions —— 从 initialize 响应取 server instructions；nil-safe。
-func initInstructions(res *mcpgo.InitializeResult) string {
-	if res == nil {
-		return ""
-	}
-	return res.Instructions
 }
 
 // Close —— 释放 transport。multiple Close 安全。
