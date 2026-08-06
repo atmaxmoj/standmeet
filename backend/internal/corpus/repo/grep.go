@@ -7,6 +7,7 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
@@ -46,4 +47,30 @@ func (r *VaultSyncRepo) NotesWithBodies(
 		})
 	}
 	return out, nil
+}
+
+// NoteLang —— 一条笔记的身份语言 + 切换器标签。两者都可以没有(绝大多数笔记就是单语的)。
+type NoteLang struct {
+	Labels map[string]string
+	Lang   string
+}
+
+// GetLang —— 读那两个 frontmatter 字段。best-effort:读不到就当没写(单语渲染),
+// 一条笔记的语言标签值不了把一次阅读变成 500。
+func (r *VaultSyncRepo) GetLang(ctx context.Context, ownerID, id string) NoteLang {
+	ids, err := parseSrcAndOwner(id, ownerID)
+	if err != nil {
+		return NoteLang{}
+	}
+	row, qerr := db.New(r.pool).GetNoteLang(ctx, db.GetNoteLangParams{
+		ID: ids.Src, OwnerID: ids.Owner,
+	})
+	if qerr != nil {
+		return NoteLang{}
+	}
+	labels := map[string]string{}
+	if uerr := json.Unmarshal(row.LangLabels, &labels); uerr != nil {
+		labels = map[string]string{}
+	}
+	return NoteLang{Lang: row.Lang, Labels: labels}
 }

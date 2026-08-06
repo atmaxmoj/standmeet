@@ -383,6 +383,10 @@ linters:
       # 上界,不是业务常量),已经具名的部分具了名。
       - path: internal/corpus/usecase/corpus_grep_test.go
         linters: [testpackage]
+      # corpus/i18n 的容错表测试:被测的 Parse / Validate / Render 全在包内(解析器的
+      # 内部形状就是被测对象),必须 in-package。
+      - path: internal/corpus/i18n/
+        linters: [testpackage]
       - path: cmd/server/
         linters: [testpackage, paralleltest]
       # hnFirstLine / readOK are unexported job-fetch helpers with pure-logic white-box repros.

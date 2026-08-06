@@ -10,15 +10,14 @@ import (
 
 // corpFM —— 一条 corp note 的 frontmatter 精华(sync 只关心这几项;其余 key 忽略,不报错)。
 type corpFM struct {
+	LangLabels map[string]string
 	Excerpt    string
 	Visibility string
+	Lang       string
 	Tags       []string
 	CSSClasses []string
-	// Aliases —— Obsidian 的扁平别名池(多语言笔记里它是各 `aliases-<lang>` 的并集)。
-	// `[[别名]]` 靠它解析到本条。跟 tags 同一种值形态(内联数组 / 逗号串 / 单值 / 缩进 list),
-	// 所以复用 parseTags —— 不为它另写一个解析器。
-	Aliases []string
-	Publish bool
+	Aliases    []string
+	Publish    bool
 }
 
 // parsedNote —— parseCorpNote 的结果(避免多返回名/无名之争)。
@@ -50,6 +49,10 @@ func parseFMLines(fm string) corpFM {
 		}
 		if into := listFieldOf(&out, kv.key); into != nil {
 			*into = parseTags(kv.val, lines, i) // list-form 值需向后看(缩进 `- x`)
+			continue
+		}
+		if isLangKey(kv.key) {
+			applyLangFM(&out, kv.key, kv.val)
 			continue
 		}
 		applyScalarFM(&out, kv.key, kv.val)
@@ -175,4 +178,62 @@ func unquote(v string) string {
 		return v[1 : len(v)-1]
 	}
 	return v
+}
+
+// parseInlineMap —— `{en: EN, zh: 中文}` 或 `en: EN, zh: 中文` → map。
+//
+// 只认行内那一种:vault 的模板就是这么写的,而缩进式 map 在这份行式解析器里要另开一套
+// 前瞻逻辑 —— 为一个"没人写过的写法"付那个复杂度不值。认不出来 → 空表,按码生成标签。
+func parseInlineMap(val string) map[string]string {
+	trimmed := strings.TrimSpace(val)
+	trimmed = strings.TrimSuffix(strings.TrimPrefix(trimmed, "{"), "}")
+	if strings.TrimSpace(trimmed) == "" {
+		return map[string]string{}
+	}
+	out := map[string]string{}
+	for pair := range strings.SplitSeq(trimmed, ",") {
+		if got := labelPair(pair); got.ok {
+			out[got.code] = got.label
+		}
+	}
+	return out
+}
+
+// langLabel —— lang-labels 里的一项。ok=false = 这一项没写全(码或字缺一个),当没写。
+type langLabel struct {
+	code  string
+	label string
+	ok    bool
+}
+
+// labelPair —— `en: EN` → 一项。
+func labelPair(pair string) langLabel {
+	k, v, cut := strings.Cut(pair, ":")
+	if !cut {
+		return langLabel{}
+	}
+	code := strings.ToLower(strings.Trim(strings.TrimSpace(k), `"'`))
+	label := strings.Trim(strings.TrimSpace(v), `"'`)
+	return langLabel{code: code, label: label, ok: code != "" && label != ""}
+}
+
+// isLangKey —— 这个键归不归多语那一支管。跟 listFieldOf 同一个套路:分派写在外面,
+// 免得那个 switch 每加一个键就再长一格。
+func isLangKey(key string) bool {
+	return key == "lang" || key == "lang-labels"
+}
+
+// applyLangFM —— 多语那两个 frontmatter 键。单拎出来是为了让隔壁那个 switch 不再长 ——
+// 它已经是"每加一个标量键就多一格复杂度"的形状了。
+func applyLangFM(out *corpFM, key, val string) bool {
+	switch key {
+	case "lang":
+		out.Lang = strings.ToLower(strings.TrimSpace(val))
+		return true
+	case "lang-labels":
+		out.LangLabels = parseInlineMap(val)
+		return true
+	default:
+		return false
+	}
 }

@@ -151,6 +151,14 @@ CREATE TABLE corpus_notes (
     -- css_classes —— Obsidian `cssclasses` frontmatter:渲染时加到 note 容器的 CSS class(per-note
     -- 呈现钩子,配合 owner CSS snippet)。sync/admin/MCP 三面可写。
     css_classes      text[]        NOT NULL DEFAULT '{}',
+    -- lang —— Obsidian frontmatter 的 `lang:`:这条笔记的**身份语言**,也是退不下去时的落点
+    -- (`?lang=de` 落在一条没有德语的笔记上 → 按它渲染)。空 = 没写,那时落点是第一个语言面。
+    -- 语言集本身不存:它由正文里的 `> [!lang]` 面推出来,每一面自己声明自己的码。存一份会
+    -- 立刻跟正文漂移,而漂移了信谁是个不该存在的问题。
+    lang             text          NOT NULL DEFAULT '',
+    -- lang_labels —— frontmatter 的 `lang-labels:`:语言码 → 切换器上显示的字。
+    -- 没写就按码生成(zh→中文 / fr→FR)。
+    lang_labels      jsonb         NOT NULL DEFAULT '{}'::jsonb,
     -- Obsidian vault sync 元数据(镜像 writings)。source_path = 来自的 vault 内相对路径
     -- (wiki/x.md);imported_at = 那次 sync 的时刻。reconcile 靠 source_path 认同一条,
     -- web-wins 靠 updated_at > imported_at 判断(owner 在 web 改过 → sync 不覆盖)。

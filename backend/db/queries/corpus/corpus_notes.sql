@@ -210,8 +210,8 @@ LIMIT 1;
 -- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
 -- inbox_source is the vault-source tag for genre='raw' ("obsidian:<path>"); empty for other genres.
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, aliases, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, aliases, lang, lang_labels, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now())
 RETURNING *;
 
 -- name: UpdateNoteSync :one
@@ -220,7 +220,7 @@ RETURNING *;
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
     obsidian_source_path = $8, css_classes = $9, inbox_source = $10, excerpt = $11,
-    aliases = $12, obsidian_imported_at = now(), updated_at = now()
+    aliases = $12, lang = $13, lang_labels = $14, obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
@@ -243,6 +243,11 @@ LIMIT $4 OFFSET $5;
 -- name: GetNoteCssClasses :one
 -- cssclasses(per-note 呈现钩子)。corpus_read 时补到 CorpusEntry;跨 genre 按 id。
 SELECT css_classes FROM corpus_notes WHERE id = $1 AND owner_id = $2;
+
+-- name: GetNoteLang :one
+-- 多语渲染要的那两个 frontmatter 字段:身份语言 + 切换器标签。语言**集**不在这儿 ——
+-- 它由正文里的语言面推,存一份就会跟正文漂移。跟 cssclasses 同一个形态:读的时候补一次。
+SELECT lang, lang_labels FROM corpus_notes WHERE id = $1 AND owner_id = $2;
 
 -- name: PruneAbsentVaultNotes :execrows
 -- F-L-6: an AUTHORITATIVE (whole-vault) sync makes the corpus EQUAL the vault — a note deleted from

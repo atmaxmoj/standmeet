@@ -271,6 +271,8 @@ func buildPublicSEODeps(d *deps.Runtime) publicroutes.SEOHandlers {
 				Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
 				Hero:   d.NoteHeroRepo,
 			},
+			// 多语:身份语言 + 切换器标签(读时补一次,跟 cssclasses 同一个形态)。
+			Vault: d.VaultSyncRepo,
 		},
 		Sessions: d.VisitorStore,
 		Log:      d.Log,

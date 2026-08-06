@@ -118,7 +118,11 @@ type CreateSyncNoteInput struct {
 	Tags        []string
 	CSSClasses  []string
 	Aliases     []string
-	Published   bool
+	// Lang / LangLabels —— frontmatter 的 `lang:` / `lang-labels:`(见 schema 上的注释:
+	// 语言**集**不存,它从正文的语言面推)。
+	Lang       string
+	LangLabels []byte
+	Published  bool
 }
 
 // Create —— 建一条 sync note，返 id。
@@ -137,6 +141,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
 		Aliases:     nilSafeTags(in.Aliases),
 		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
+		Lang: in.Lang, LangLabels: jsonOrEmpty(in.LangLabels),
 	})
 	if qerr != nil {
 		return "", fmt.Errorf("create sync note: %w", qerr)
@@ -157,6 +162,8 @@ type UpdateSyncNoteInput struct {
 	Tags        []string
 	CSSClasses  []string
 	Aliases     []string
+	Lang        string
+	LangLabels  []byte
 	Published   bool
 }
 
@@ -176,10 +183,19 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
 		Aliases:     nilSafeTags(in.Aliases),
 		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
+		Lang: in.Lang, LangLabels: jsonOrEmpty(in.LangLabels),
 	}); qerr != nil {
 		return fmt.Errorf("update sync note: %w", qerr)
 	}
 	return nil
+}
+
+// jsonOrEmpty —— nil → `{}`。jsonb 列不收 NULL,而"没写 lang-labels"是**空表**,不是坏值。
+func jsonOrEmpty(b []byte) []byte {
+	if len(b) == 0 {
+		return []byte("{}")
+	}
+	return b
 }
 
 // PruneAbsentVaultNotes —— F-L-6: an AUTHORITATIVE (whole-vault) sync removes the vault-imported

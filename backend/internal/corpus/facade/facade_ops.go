@@ -14,6 +14,7 @@ var (
 	AssetOps        = ops.AssetOps
 	CorpusReadOps   = ops.CorpusReads
 	CorpusWriteOps  = ops.CorpusWrites
+	CorpusI18nOps   = ops.I18nOps
 	SubjectivityOps = ops.Subjectivity
 	WritingOps      = ops.Writings
 )

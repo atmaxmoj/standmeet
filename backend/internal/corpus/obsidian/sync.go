@@ -17,11 +17,13 @@ package obsidian
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/corpus/i18n"
 )
 
 const (
@@ -132,14 +134,15 @@ func collidingTitles(tree []*desiredNode) map[string]bool {
 
 // nodeContent —— 一个节点的落库内容;file==nil(自动补的中间节点)= 空结构节点。
 type nodeContent struct {
+	langLabels map[string]string
 	body       string
 	excerpt    string
 	srcPath    string
+	lang       string
 	tags       []string
 	cssClasses []string
-	// aliases —— 这条笔记的别名池,`[[别名]]` 靠它解到本条(见 wiki_crosslink 的候选表)。
-	aliases   []string
-	published bool
+	aliases    []string
+	published  bool
 }
 
 func contentOf(n *desiredNode) nodeContent {
@@ -150,6 +153,7 @@ func contentOf(n *desiredNode) nodeContent {
 		body: n.file.body, excerpt: n.file.fm.Excerpt, srcPath: n.file.sourcePath,
 		tags: n.file.fm.Tags, cssClasses: n.file.fm.CSSClasses,
 		aliases: n.file.fm.Aliases, published: n.file.fm.Publish,
+		lang: n.file.fm.Lang, langLabels: n.file.fm.LangLabels,
 	}
 }
 
@@ -202,6 +206,7 @@ func reconcileNode(
 ) {
 	existing, err := claimExisting(ctx, deps, node, st)
 	c := contentOf(node)
+	noteI18nNotices(result, node.title, &c)
 	op := &nodeOp{
 		deps: deps, node: node, st: st, result: result, c: &c, parent: parentIDOf(st, node),
 	}
@@ -220,6 +225,7 @@ func createNode(ctx context.Context, op *nodeOp) {
 		OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent, Title: op.node.title,
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
 		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses, Aliases: op.c.aliases,
+		Lang: op.c.lang, LangLabels: marshalLabels(op.c.langLabels),
 		InboxSource: inboxSourceFor(op.node.genre, op.c),
 	})
 	if err != nil {
@@ -240,6 +246,7 @@ func updateNode(ctx context.Context, op *nodeOp, existing *corpus.SyncNote) {
 		ID: existing.ID, OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent,
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
 		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses, Aliases: op.c.aliases,
+		Lang: op.c.lang, LangLabels: marshalLabels(op.c.langLabels),
 		InboxSource: inboxSourceFor(op.node.genre, op.c),
 	}); err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
@@ -312,5 +319,29 @@ func resolveNoteLinks(ctx context.Context, deps *SyncDeps, st *syncState, node *
 	// best-effort:链接解析失败不该让整批 sync 失败。
 	if err := deps.Refs.RebuildForNote(ctx, st.ownerID, id, node.file.body); err != nil {
 		return
+	}
+}
+
+// marshalLabels —— lang-labels → jsonb 字节。空表 / 编不动 → nil(仓储那侧落成 `{}`)。
+// 编不动就当没写:一份切换器标签值不了让整条笔记同步失败。
+func marshalLabels(labels map[string]string) []byte {
+	if len(labels) == 0 {
+		return []byte{}
+	}
+	b, err := json.Marshal(labels)
+	if err != nil {
+		return []byte{}
+	}
+	return b
+}
+
+// noteI18nNotices —— 这条笔记的多语结构有没有话要说。
+//
+// **同步照收**:它是镜像,拒收等于 owner 在 vault 里写的东西进不来。但一条只渲染得出半篇的
+// 笔记不能悄悄进来 —— 诊断挂在结果上,面板会印出来,owner 才知道去改哪一条。
+func noteI18nNotices(result *ImportResult, title string, c *nodeContent) {
+	ds := i18n.Validate(&i18n.Frontmatter{Lang: c.lang}, c.body)
+	for i := range ds {
+		result.Notices = append(result.Notices, title+": "+ds[i].Message)
 	}
 }

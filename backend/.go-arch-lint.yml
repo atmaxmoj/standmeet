@@ -103,6 +103,8 @@ components:
     in: internal/corpus/facade       # #135: corpus 域 facade（对外协议）；域外只 import 这里
   corpusentity:
     in: internal/corpus/entity       # corpus guts: 各 genre 值对象/实体 + 域错误
+  corpusi18n:
+    in: internal/corpus/i18n         # corpus guts: 多语结构(解析 / 诊断 / 选一面)。纯文本,无依赖
   corpusrepo:
     in: internal/corpus/repo         # corpus guts: 仓储（over db + pgstore）
   corpususecase:
@@ -751,6 +753,7 @@ deps:
       - corpusrepo
       - corpususecase
       - corpusops
+      - corpusi18n
     anyVendorDeps: true
   # corpusops —— 本域对外的操作声明。它在域里(而不是在收口里)，所以域说得出自己会什么；
   # 它只认本域的用例 + 中立词汇，不认识任何面。
@@ -761,10 +764,16 @@ deps:
       - corpususecase
       - facadeparity
       - apierr
+      - corpusi18n
     anyVendorDeps: true
   corpusentity:
     mayDependOn:
       - connector
+    anyVendorDeps: true
+  # corpusi18n —— 纯文本函数(一条笔记的多语结构),不认识仓储、面、也不认识别的域。
+  # 四个消费方(MCP 写入 / check 工具 / vault 同步 / 读者页)都只调它,所以它谁都不能依赖。
+  corpusi18n:
+    mayDependOn: []
     anyVendorDeps: true
   corpusrepo:
     mayDependOn:
@@ -779,6 +788,7 @@ deps:
       - corpusrepo
       - search
       - access
+      - corpusi18n
       # hostop 取代了 capsocket：本域声明的是"我开了读语料这七件事"，不是"我挂在哪根 socket 上"。
       - hostop
       # periodic —— Meili 恢复后的 reconcile 是本域的周期任务；调度和簿记归宿主。
@@ -831,6 +841,7 @@ deps:
       - ownerrepo
       - ownerusecase
       - ownerops
+      - corpusi18n
     anyVendorDeps: true
   # ownerops —— 本域对外的操作声明。只认本域的用例 + 中立词汇,不认识任何面。
   # 两个方向的词汇都在这儿:facadeparity 是出站的,hostop 是入站的(沙箱读 owner 的白名单字段)。
@@ -982,6 +993,7 @@ deps:
     mayDependOn:
       - corpus
       - storage
+      - corpusi18n
     anyVendorDeps: true
 
   # public routes (/api/v1/*) —— SDK + visitor 落地点；走 visitor session

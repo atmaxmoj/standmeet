@@ -110,6 +110,8 @@ func runCorpusSearch(ctx context.Context, l Lister, req *corpusIndexReq) (string
 func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, error) {
 	var args struct {
 		Path string `json:"path"`
+		// Lang —— 想读哪一种语言(多语笔记)。不给 = 这条笔记的身份语言。
+		Lang string `json:"lang"`
 	}
 	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
 		return "", fmt.Errorf("invalid arguments: %w", uerr)
@@ -121,7 +123,7 @@ func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, 
 	if err != nil {
 		return corpusReadErrWire(err, args.Path)
 	}
-	return marshalReadResult(readWire(ctx, l, req, &entry)), nil
+	return marshalReadResult(readWire(ctx, l, req, &entry, args.Lang)), nil
 }
 
 // readWire —— 装配 corpus_read 的回参:正文里的原生查询就地解析,素材跟着条目一起给。
@@ -129,21 +131,34 @@ func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, 
 // 素材那一步在这里,是因为**走到这里 ACL 已经放行了** —— 可见性继承是结构保证的,
 // 不是又判一次。
 func readWire(
-	ctx context.Context, l Lister, req *corpusIndexReq, entry *Entry,
+	ctx context.Context, l Lister, req *corpusIndexReq, entry *Entry, want string,
 ) *readResultWire {
 	body := entry.Body
 	if qr, ok := l.(queryResolver); ok { // 服务端解析 standmeet-query 块(ACL-scoped)
 		body = ResolveQueryBlocks(ctx, qr, req.OwnerID, corpusScopeOf(req), body)
 	}
+	// 多语:一次一种。两种都灌进上下文 = 同一件事付两遍 token,而且自相矛盾。
+	view := ViewFor(body, want, identityLangOf(ctx, l, req.OwnerID, entry.ID))
 	wire := &readResultWire{
-		ID: entry.ID, Genre: entry.Genre, Body: body,
+		ID: entry.ID, Genre: entry.Genre, Body: view.Body,
 		Path: entry.Path, Title: entry.Title, CSSClasses: entry.CSSClasses,
 		ShowAsSource: entry.ShowAsSource,
+		Lang:         view.Lang, Languages: view.Languages,
 	}
 	if ar, ok := l.(assetReader); ok {
 		wire.Assets, wire.AssetURLs = ar.NoteMedia(ctx, req.OwnerID, entry.ID)
 	}
 	return wire
+}
+
+// identityLangOf —— 这条笔记的身份语言(读不到 → 空,那时落点是第一面)。
+func identityLangOf(ctx context.Context, l Lister, ownerID, noteID string) string {
+	lr, ok := l.(langReader)
+	if !ok {
+		return ""
+	}
+	lang, _ := lr.NoteLang(ctx, ownerID, noteID)
+	return lang
 }
 
 // corpusReadErrWire —— map Get's failure to the wire: denied/not-found are friendly tool

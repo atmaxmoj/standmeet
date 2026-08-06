@@ -25,15 +25,20 @@ func marshalRows(rows []Row) string {
 // path(树派生地址)+ title;css_classes = per-note 呈现钩子。
 type readResultWire struct {
 	// 素材 —— 这条语料身上的图 / 附件,以及正文里那些引用解析出的地址。
-	AssetURLs    map[string]string `json:"asset_urls,omitempty"`
-	ID           string            `json:"id"`
-	Genre        string            `json:"genre"`
-	Body         string            `json:"body"`
-	Path         string            `json:"path"`
-	Title        string            `json:"title"`
-	CSSClasses   []string          `json:"css_classes"`
-	Assets       []AssetView       `json:"assets,omitempty"`
-	ShowAsSource bool              `json:"show_as_source"`
+	AssetURLs map[string]string `json:"asset_urls,omitempty"`
+	ID        string            `json:"id"`
+	Genre     string            `json:"genre"`
+	Body      string            `json:"body"`
+	Path      string            `json:"path"`
+	Title     string            `json:"title"`
+	// Lang / Languages —— 这份正文是哪一种语言,以及这条笔记还有哪些语言可读。
+	// 后者一定要给:不然 agent 连"有别的语言"都不知道,也就谈不上自己决定读哪种。
+	// 单语笔记:Lang 空、Languages 空数组。
+	Lang         string      `json:"lang,omitempty"`
+	Languages    []string    `json:"languages"`
+	CSSClasses   []string    `json:"css_classes"`
+	Assets       []AssetView `json:"assets,omitempty"`
+	ShowAsSource bool        `json:"show_as_source"`
 }
 
 func marshalReadResult(r *readResultWire) string {

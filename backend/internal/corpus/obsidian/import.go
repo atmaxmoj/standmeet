@@ -36,7 +36,11 @@ type VaultFile struct {
 // ImportResult —— 一批 import 的统计。
 // fieldalignment: slice (24B) 先，int 后。
 type ImportResult struct {
-	Errors  []string
+	Errors []string
+	// Notices —— 收下了,但有话要说。多语结构坏掉的笔记走这条路:同步是**镜像**,拒收等于
+	// owner 丢内容;可是一条读者只看得到半篇的笔记必须在面板上说出来 —— 不然它跟一个
+	// 起不来又不打日志的沙箱是同一种沉默。
+	Notices []string
 	Created int
 	Updated int
 	Skipped int

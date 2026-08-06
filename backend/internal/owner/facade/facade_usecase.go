@@ -52,6 +52,7 @@ type (
 	WikiSEOUpdate              = usecase.WikiSEOUpdate
 	WikiTreeNode               = usecase.WikiTreeNode
 	WikiTreeScope              = usecase.WikiTreeScope
+	LandingI18n                = usecase.LandingI18n
 	WriteFileInput             = usecase.WriteFileInput
 )
 
@@ -68,6 +69,7 @@ var (
 	CreateKeypair             = usecase.CreateKeypair
 	CreatePage                = usecase.CreatePage
 	CreatePrompt              = usecase.CreatePrompt
+	GetWikiLandingInLang      = usecase.GetWikiLandingInLang
 	GasRemaining              = usecase.GasRemaining
 	DefaultPageContent        = usecase.DefaultPageContent
 	DeleteKeypair             = usecase.DeleteKeypair

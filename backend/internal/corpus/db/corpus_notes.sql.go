@@ -68,7 +68,7 @@ const createNote = `-- name: CreateNote :one
 
 INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids, css_classes, show_as_source)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type CreateNoteParams struct {
@@ -113,6 +113,8 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (CorpusN
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,
@@ -137,9 +139,9 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (CorpusN
 
 const createNoteSync = `-- name: CreateNoteSync :one
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, aliases, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
-RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, aliases, lang, lang_labels, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now())
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type CreateNoteSyncParams struct {
@@ -155,6 +157,8 @@ type CreateNoteSyncParams struct {
 	InboxSource        string
 	Excerpt            string
 	Aliases            []string
+	Lang               string
+	LangLabels         []byte
 }
 
 // Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
@@ -173,6 +177,8 @@ func (q *Queries) CreateNoteSync(ctx context.Context, arg CreateNoteSyncParams) 
 		arg.InboxSource,
 		arg.Excerpt,
 		arg.Aliases,
+		arg.Lang,
+		arg.LangLabels,
 	)
 	var i CorpusNote
 	err := row.Scan(
@@ -189,6 +195,8 @@ func (q *Queries) CreateNoteSync(ctx context.Context, arg CreateNoteSyncParams) 
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,
@@ -227,7 +235,7 @@ func (q *Queries) DeleteNote(ctx context.Context, arg DeleteNoteParams) error {
 }
 
 const getNoteByID = `-- name: GetNoteByID :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = $3
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = $3
 `
 
 type GetNoteByIDParams struct {
@@ -253,6 +261,8 @@ func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (Corpu
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,
@@ -276,7 +286,7 @@ func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (Corpu
 }
 
 const getNoteByIDAnyGenre = `-- name: GetNoteByIDAnyGenre :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE owner_id = $1 AND id = $2 LIMIT 1
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE owner_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetNoteByIDAnyGenreParams struct {
@@ -302,6 +312,8 @@ func (q *Queries) GetNoteByIDAnyGenre(ctx context.Context, arg GetNoteByIDAnyGen
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,
@@ -325,7 +337,7 @@ func (q *Queries) GetNoteByIDAnyGenre(ctx context.Context, arg GetNoteByIDAnyGen
 }
 
 const getNoteBySourcePath = `-- name: GetNoteBySourcePath :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND obsidian_source_path = $2
 ORDER BY created_at ASC
 LIMIT 1
@@ -357,6 +369,8 @@ func (q *Queries) GetNoteBySourcePath(ctx context.Context, arg GetNoteBySourcePa
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,
@@ -380,7 +394,7 @@ func (q *Queries) GetNoteBySourcePath(ctx context.Context, arg GetNoteBySourcePa
 }
 
 const getNoteByTitleAnyGenre = `-- name: GetNoteByTitleAnyGenre :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND title = $2
 ORDER BY created_at ASC
 LIMIT 1
@@ -412,6 +426,8 @@ func (q *Queries) GetNoteByTitleAnyGenre(ctx context.Context, arg GetNoteByTitle
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,
@@ -479,6 +495,29 @@ func (q *Queries) GetNoteHero(ctx context.Context, arg GetNoteHeroParams) (GetNo
 		&i.CoverHeadline,
 		&i.CoverHue,
 	)
+	return i, err
+}
+
+const getNoteLang = `-- name: GetNoteLang :one
+SELECT lang, lang_labels FROM corpus_notes WHERE id = $1 AND owner_id = $2
+`
+
+type GetNoteLangParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+type GetNoteLangRow struct {
+	Lang       string
+	LangLabels []byte
+}
+
+// 多语渲染要的那两个 frontmatter 字段:身份语言 + 切换器标签。语言**集**不在这儿 ——
+// 它由正文里的语言面推,存一份就会跟正文漂移。跟 cssclasses 同一个形态:读的时候补一次。
+func (q *Queries) GetNoteLang(ctx context.Context, arg GetNoteLangParams) (GetNoteLangRow, error) {
+	row := q.db.QueryRow(ctx, getNoteLang, arg.ID, arg.OwnerID)
+	var i GetNoteLangRow
+	err := row.Scan(&i.Lang, &i.LangLabels)
 	return i, err
 }
 
@@ -813,7 +852,7 @@ WITH RECURSIVE up AS (
   SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
   FROM corpus_notes p JOIN up ON p.id = up.parent_id
 )
-SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.aliases, n.source_ids, n.show_as_source, n.excerpt, n.published, n.css_classes, n.obsidian_source_path, n.obsidian_imported_at, n.inbox_source, n.inbox_meta, n.flagged_private, n.archived, n.promoted_to, n.slug, n.visibility, n.locked_body, n.cover_headline, n.cover_hue, n.cover_image_asset_id, n.read_minutes, n.cross_refs, n.published_at, n.created_at, n.updated_at,
+SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.aliases, n.source_ids, n.show_as_source, n.excerpt, n.published, n.css_classes, n.lang, n.lang_labels, n.obsidian_source_path, n.obsidian_imported_at, n.inbox_source, n.inbox_meta, n.flagged_private, n.archived, n.promoted_to, n.slug, n.visibility, n.locked_body, n.cover_headline, n.cover_hue, n.cover_image_asset_id, n.read_minutes, n.cross_refs, n.published_at, n.created_at, n.updated_at,
        EXISTS(SELECT 1 FROM corpus_notes ch WHERE ch.parent_id = n.id AND ch.genre = $2) AS has_children,
        (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
 FROM corpus_notes n
@@ -861,6 +900,8 @@ func (q *Queries) ListNoteChildrenAdmin(ctx context.Context, arg ListNoteChildre
 			&i.CorpusNote.Excerpt,
 			&i.CorpusNote.Published,
 			&i.CorpusNote.CssClasses,
+			&i.CorpusNote.Lang,
+			&i.CorpusNote.LangLabels,
 			&i.CorpusNote.ObsidianSourcePath,
 			&i.CorpusNote.ObsidianImportedAt,
 			&i.CorpusNote.InboxSource,
@@ -893,7 +934,7 @@ func (q *Queries) ListNoteChildrenAdmin(ctx context.Context, arg ListNoteChildre
 }
 
 const listNotesByOwner = `-- name: ListNotesByOwner :many
-SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
 ORDER BY created_at DESC
 LIMIT $3
@@ -928,6 +969,8 @@ func (q *Queries) ListNotesByOwner(ctx context.Context, arg ListNotesByOwnerPara
 			&i.Excerpt,
 			&i.Published,
 			&i.CssClasses,
+			&i.Lang,
+			&i.LangLabels,
 			&i.ObsidianSourcePath,
 			&i.ObsidianImportedAt,
 			&i.InboxSource,
@@ -967,7 +1010,7 @@ WITH RECURSIVE up AS (
   SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
   FROM corpus_notes p JOIN up ON p.id = up.parent_id
 )
-SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.aliases, n.source_ids, n.show_as_source, n.excerpt, n.published, n.css_classes, n.obsidian_source_path, n.obsidian_imported_at, n.inbox_source, n.inbox_meta, n.flagged_private, n.archived, n.promoted_to, n.slug, n.visibility, n.locked_body, n.cover_headline, n.cover_hue, n.cover_image_asset_id, n.read_minutes, n.cross_refs, n.published_at, n.created_at, n.updated_at,
+SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.aliases, n.source_ids, n.show_as_source, n.excerpt, n.published, n.css_classes, n.lang, n.lang_labels, n.obsidian_source_path, n.obsidian_imported_at, n.inbox_source, n.inbox_meta, n.flagged_private, n.archived, n.promoted_to, n.slug, n.visibility, n.locked_body, n.cover_headline, n.cover_hue, n.cover_image_asset_id, n.read_minutes, n.cross_refs, n.published_at, n.created_at, n.updated_at,
        (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
 FROM corpus_notes n
 WHERE n.owner_id = $1 AND n.genre = $2
@@ -1022,6 +1065,8 @@ func (q *Queries) ListNotesByOwnerPage(ctx context.Context, arg ListNotesByOwner
 			&i.CorpusNote.Excerpt,
 			&i.CorpusNote.Published,
 			&i.CorpusNote.CssClasses,
+			&i.CorpusNote.Lang,
+			&i.CorpusNote.LangLabels,
 			&i.CorpusNote.ObsidianSourcePath,
 			&i.CorpusNote.ObsidianImportedAt,
 			&i.CorpusNote.InboxSource,
@@ -1270,7 +1315,7 @@ const updateNoteBody = `-- name: UpdateNoteBody :one
 UPDATE corpus_notes
 SET title = $4, body = $5, tags = $6, parent_id = $7, show_as_source = $8, css_classes = $9, updated_at = now()
 WHERE id = $1 AND owner_id = $2 AND genre = $3
-RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type UpdateNoteBodyParams struct {
@@ -1313,6 +1358,8 @@ func (q *Queries) UpdateNoteBody(ctx context.Context, arg UpdateNoteBodyParams) 
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,
@@ -1339,7 +1386,7 @@ const updateNoteSEO = `-- name: UpdateNoteSEO :one
 UPDATE corpus_notes
 SET excerpt = $2, published = $3, updated_at = now()
 WHERE id = $1 AND genre = $4 AND owner_id = $5
-RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type UpdateNoteSEOParams struct {
@@ -1375,6 +1422,8 @@ func (q *Queries) UpdateNoteSEO(ctx context.Context, arg UpdateNoteSEOParams) (C
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,
@@ -1401,9 +1450,9 @@ const updateNoteSync = `-- name: UpdateNoteSync :one
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
     obsidian_source_path = $8, css_classes = $9, inbox_source = $10, excerpt = $11,
-    aliases = $12, obsidian_imported_at = now(), updated_at = now()
+    aliases = $12, lang = $13, lang_labels = $14, obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type UpdateNoteSyncParams struct {
@@ -1419,6 +1468,8 @@ type UpdateNoteSyncParams struct {
 	InboxSource        string
 	Excerpt            string
 	Aliases            []string
+	Lang               string
+	LangLabels         []byte
 }
 
 // Vault sync update (reconcile): relocate (genre/parent may change on a move), refresh body/tags/publish/excerpt,
@@ -1437,6 +1488,8 @@ func (q *Queries) UpdateNoteSync(ctx context.Context, arg UpdateNoteSyncParams) 
 		arg.InboxSource,
 		arg.Excerpt,
 		arg.Aliases,
+		arg.Lang,
+		arg.LangLabels,
 	)
 	var i CorpusNote
 	err := row.Scan(
@@ -1453,6 +1506,8 @@ func (q *Queries) UpdateNoteSync(ctx context.Context, arg UpdateNoteSyncParams) 
 		&i.Excerpt,
 		&i.Published,
 		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.InboxSource,

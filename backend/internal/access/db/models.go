@@ -188,6 +188,8 @@ type CorpusNote struct {
 	Excerpt            string
 	Published          bool
 	CssClasses         []string
+	Lang               string
+	LangLabels         []byte
 	ObsidianSourcePath string
 	ObsidianImportedAt pgtype.Timestamptz
 	InboxSource        string

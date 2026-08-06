@@ -26,6 +26,9 @@ type SEODeps struct {
 	// 渲不出来的 URI。以前只有 writing 那条路带这份数据,于是"每个 genre 都能配图"
 	// 在后端成立、在访客眼里不成立。
 	Media *corpus.NoteAssetsDeps
+	// Vault —— 多语渲染要的那两个 frontmatter 字段(身份语言 + 切换器标签)。可空:
+	// 没接上就当每条笔记都没写 lang,落点退成第一个语言面。
+	Vault *corpus.VaultSyncRepo
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
@@ -78,9 +81,20 @@ type WikiLanding struct {
 	CitedBy   []corpus.WikiPathTitle
 	// Assets —— 挂在这条上的文件清单(文件名 + 真实字节数 + 地址)。下载按钮要的就是这几项。
 	Assets []corpus.AssetView
+	// I18n —— 这条笔记的多语视图:选中的那一面 + 有哪些语言 + 切换器标签。
+	// 单语笔记 Languages 为空,读者页据此不出切换器。
+	I18n LandingI18n
 	// Hero —— 封面图 / 压在图上那句话 / 色调。**任意 genre 都能有**,住在共享的 hero 表上。
 	Hero corpus.NoteHero
 	Wiki corpus.Wiki
+}
+
+// LandingI18n —— 读者页要的那几项。Body 已经按选中的语言渲染好(在 WikiLanding.Body 里),
+// 这里只带"选了哪个 / 有哪些 / 各自显示成什么"。
+type LandingI18n struct {
+	Labels    map[string]string
+	Lang      string
+	Languages []string
 }
 
 // wikiRefSides —— 一条 wiki 的出链 + 入链(给 landing 返回用)。
@@ -98,6 +112,13 @@ type wikiRefSides struct {
 func GetWikiLanding(
 	ctx context.Context, deps SEODeps, path string, scope WikiTreeScope,
 ) (WikiLanding, error) {
+	return GetWikiLandingInLang(ctx, deps, path, scope, "")
+}
+
+// GetWikiLandingInLang —— 同上,外加访客要的语言(`?lang=`)。
+func GetWikiLandingInLang(
+	ctx context.Context, deps SEODeps, path string, scope WikiTreeScope, lang string,
+) (WikiLanding, error) {
 	if path == "" {
 		return WikiLanding{}, corpus.ErrWikiNotFound
 	}
@@ -112,7 +133,7 @@ func GetWikiLanding(
 		return WikiLanding{}, fmt.Errorf("list wiki meta: %w", err)
 	}
 	return assembleWikiLanding(ctx, deps, soleOwner.ID,
-		&landingLocate{scope: scope, path: path, metas: metas})
+		&landingLocate{scope: scope, path: path, metas: metas, lang: lang})
 }
 
 // landingLocate —— 定位一条 landing 的输入(全量 meta + 目标 path + 查看者 scope)。打包成一个入参
@@ -120,6 +141,8 @@ func GetWikiLanding(
 type landingLocate struct {
 	scope WikiTreeScope
 	path  string
+	// lang —— 访客要的语言(`?lang=`)。空 = 按这条笔记的身份语言。
+	lang  string
 	metas []corpus.WikiMeta
 }
 
@@ -143,9 +166,11 @@ func assembleWikiLanding(
 		return WikiLanding{}, serr
 	}
 	media := landingMedia(ctx, deps, ownerID, id)
+	view := landingI18n(ctx, deps,
+		&landingNote{ownerID: ownerID, id: id, body: body}, loc.lang)
 	return WikiLanding{
-		Body: body, Related: sides.Related, CitedBy: sides.CitedBy, Wiki: w,
-		AssetURLs: media.URLs, Hero: media.Hero, Assets: media.Assets,
+		Body: view.body, Related: sides.Related, CitedBy: sides.CitedBy, Wiki: w,
+		AssetURLs: media.URLs, Hero: media.Hero, Assets: media.Assets, I18n: view.meta,
 	}, nil
 }
 
