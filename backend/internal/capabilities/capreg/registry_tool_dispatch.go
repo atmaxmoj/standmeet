@@ -81,6 +81,79 @@ func (r *Registry) AssembleVisitorForTool(
 	return out
 }
 
+// MCPIDForTool —— 这个 tool 属于哪个能力(= app-state 分格用的 mcp id)。
+//
+// 卡片读写自己那格 app-state 时只需要这一个答案。调用方原来是自己 AssembleVisitor 全量装配
+// 一遍再从 binding 里翻 —— 卡片每动一下,整排外置能力的沙箱冷启一次(实测一次读花了 6 秒,
+// 卡片一直空着)。归属是静态信息:说得出自己 tool 名的能力(ToolNameKnower)不用拨号就答得了,
+// 说不出的才拨(冷启第一次)。
+//
+// 找不到 → ("", false),调用方据此回 tool_not_enabled —— 跟从前从 binding 里翻不到一致。
+func (r *Registry) MCPIDForTool(
+	ctx context.Context, in *AssembleInput, tool string,
+) (string, bool) {
+	for _, c := range r.enabledCaps(ctx, in) {
+		if id, ok := capOwnsTool(ctx, c, in, tool); ok {
+			return id, true
+		}
+	}
+	return "", false
+}
+
+// capOwnsTool —— 这个能力提不提供该 tool。说得出自己 tool 名的直接答,说不出的才拨。
+func capOwnsTool(
+	ctx context.Context, c Capability, in *AssembleInput, tool string,
+) (string, bool) {
+	if names, known := knownToolNames(c); known {
+		if !slices.Contains(names, tool) {
+			return "", false
+		}
+		return c.ID(), true
+	}
+	return dialAndCheckTool(ctx, c, in, tool)
+}
+
+// knownToolNames —— 能力不拨号说得出的 tool 名。第二个返回值才是"知不知道";
+// 名字这一侧永远是个空容器,不是 nil —— "不知道"由 bool 表达,不由 nil 表达
+// (见 ToolNameKnower:拿空切片表示"不知道"会跟"真的零工具"混成一件事)。
+func knownToolNames(c Capability) ([]string, bool) {
+	knower, ok := c.(ToolNameKnower)
+	if !ok {
+		return []string{}, false
+	}
+	return knower.KnownToolNames()
+}
+
+// dialAndCheckTool —— 冷启第一次:拨一下看它到底有没有这个 tool。binding 用完即关 ——
+// 这里只要一个名字,不要一个会话。
+func dialAndCheckTool(
+	ctx context.Context, c Capability, in *AssembleInput, tool string,
+) (string, bool) {
+	b, err := c.VisitorBinding(ctx, in)
+	if err != nil || b == nil {
+		return "", false
+	}
+	defer closeBinding(b)
+	if !bindingHasTool(b, tool) {
+		return "", false
+	}
+	return bindingCapID(b, c), true
+}
+
+// bindingCapID —— binding 自报的 id 优先(跟 app-state 从前取的 b.State.ID 一致),空则用能力 id。
+func bindingCapID(b *Binding, c Capability) string {
+	if b.State.ID != "" {
+		return b.State.ID
+	}
+	return c.ID()
+}
+
+func closeBinding(b *Binding) {
+	if b.Close != nil {
+		b.Close()
+	}
+}
+
 // dialIfMayServe —— 可能提供该 tool 就实例化,返 nil = 跳过(不可能提供,或者拨不起来)。
 func dialIfMayServe(
 	ctx context.Context, c Capability, in *AssembleInput, tool string,

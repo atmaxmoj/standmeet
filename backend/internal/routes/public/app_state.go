@@ -21,7 +21,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
@@ -122,39 +121,26 @@ func (h *Handlers) resolveAppScope(w http.ResponseWriter, r *http.Request) (appS
 	return h.scopeForTool(w, r, auth.Data)
 }
 
-// scopeForTool —— 装配访客 bindings → 从 {tool} 派生 mcp_id + ACL（tool 须已授权）。
+// scopeForTool —— 从 {tool} 派生 mcp_id + ACL（tool 须已授权）。同一 mcp 的多个 tool
+// （calendar_book / calendar_list_slots）映到同一 id → 共享一格 app-state。
+//
+// **问一句,不要全量装配。** 这里原来先 AssembleVisitor 把每个能力都实例化一遍,只为从
+// binding 里把 tool 名翻成 capability id —— 外置能力实例化 = 起一个 bwrap 沙箱,于是卡片每
+// 读写一次自己那格 state,整排沙箱冷启一次。实测一次 app-state 读花了 6 秒,卡片内容一直空着,
+// 断言超时(#17 收工具调用那条、#22 收会话打开那条,这是同一族的第三条)。
+//
+// 归属是静态信息,registry 大多不拨号就答得出(MCPIDForTool)。把问题交给它,这一层也就
+// 没有机会再选错那条贵的路。
 func (h *Handlers) scopeForTool(
 	w http.ResponseWriter, r *http.Request, data *access.VisitorSessionData,
 ) (appScope, bool) {
 	in := assembleInputFromSession(data, chi.URLParam(r, "id"))
-	bindings := h.Visitor.AgentSkills.AssembleVisitor(r.Context(), in)
-	defer closeBindings(bindings)
-	mcpID, found := bindingMCPForTool(bindings, chi.URLParam(r, "tool"))
+	mcpID, found := h.Visitor.AgentSkills.MCPIDForTool(r.Context(), in, chi.URLParam(r, "tool"))
 	if !found {
 		writeAppStateErr(h.Log, w, http.StatusNotFound, "tool_not_enabled")
 		return appScope{}, false
 	}
 	return appScope{memberID: data.MemberID, ownerID: data.OwnerID, mcpID: mcpID}, true
-}
-
-// bindingMCPForTool —— tool → 它所属 binding 的 capability id（= mcp_id）。同一 mcp 的
-// 多个 tool（calendar_book / calendar_list_slots）映到同一 id → 共享一格。
-func bindingMCPForTool(bindings []*capreg.Binding, tool string) (string, bool) {
-	for _, b := range bindings {
-		if id, ok := toolMCPInBinding(b, tool); ok {
-			return id, true
-		}
-	}
-	return "", false
-}
-
-func toolMCPInBinding(b *capreg.Binding, tool string) (string, bool) {
-	for i := range b.Tools {
-		if b.Tools[i].Name == tool {
-			return b.State.ID, true
-		}
-	}
-	return "", false
 }
 
 // readAppStateValue —— 取 body 的 {value:<json>}；缺失/畸形 → 400。value 当 opaque 存。

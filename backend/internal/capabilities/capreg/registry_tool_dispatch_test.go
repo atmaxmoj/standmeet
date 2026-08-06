@@ -91,21 +91,33 @@ func input() *capreg.AssembleInput {
 	return &capreg.AssembleInput{OwnerID: "owner-1", Mode: "code"}
 }
 
+// 假能力与它们的 tool 名。取名字而不是到处写字面量:哪个能力提供哪个 tool 是这些用例的
+// 全部内容,散成字符串就看不出 capA 的 tool 和 capB 的 tool 是两拨。
+const (
+	capA      = "plugin.a"
+	capB      = "plugin.b"
+	capC      = "plugin.c"
+	toolAOne  = "a_one"
+	toolATwo  = "a_two"
+	toolBSend = "b_send"
+	toolCOnly = "c_only"
+)
+
 // 三个能力,访客点的是第二个的按钮 —— 另外两个一次都不该被起起来。
 func TestAssembleVisitorForTool_DialsOnlyTheOwner(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
 	dials, states := 0, 0
-	reg.MustRegister(newCap("plugin.a", &dials, &states, "a_one", "a_two"))
-	reg.MustRegister(newCap("plugin.b", &dials, &states, "b_send"))
-	reg.MustRegister(newCap("plugin.c", &dials, &states, "c_only"))
+	reg.MustRegister(newCap(capA, &dials, &states, toolAOne, toolATwo))
+	reg.MustRegister(newCap(capB, &dials, &states, toolBSend))
+	reg.MustRegister(newCap(capC, &dials, &states, toolCOnly))
 
-	bindings := reg.AssembleVisitorForTool(context.Background(), input(), "b_send")
+	bindings := reg.AssembleVisitorForTool(context.Background(), input(), toolBSend)
 
 	require.Equal(t, 1, dials,
 		"one button press must spawn one sandbox, not one per capability")
 	require.Len(t, bindings, 1)
-	require.Equal(t, "b_send", bindings[0].Tools[0].Name)
+	require.Equal(t, toolBSend, bindings[0].Tools[0].Name)
 }
 
 // 还说不出自己有什么 tool 的能力(冷启第一次)必须照拨 —— 宁可白拨,不能漏掉:
@@ -146,12 +158,65 @@ func TestAssembleVisitorForTool_UnknownToolDialsNobody(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
 	dials, states := 0, 0
-	reg.MustRegister(newCap("plugin.a", &dials, &states, "a_one"))
-	reg.MustRegister(newCap("plugin.b", &dials, &states, "b_send"))
+	reg.MustRegister(newCap(capA, &dials, &states, toolAOne))
+	reg.MustRegister(newCap(capB, &dials, &states, toolBSend))
 
 	bindings := reg.AssembleVisitorForTool(context.Background(), input(), "no_such_tool")
 
 	require.Empty(t, bindings)
+	require.Equal(t, 0, dials, "a tool nobody serves must spawn no sandbox at all")
+}
+
+// MCPIDForTool —— 一张卡读写自己那格 app-state,只是要知道"这个 tool 属于哪个 mcp"。
+//
+// 这是第三条同类的路(前两条:单次工具调用、会话打开)。`GET/PUT /sessions/{id}/app-state/{tool}`
+// 原来先 AssembleVisitor 全量装配一遍,只为从 binding 里把 tool 名映射成 capability id ——
+// 卡片每动一下,整排外置能力的沙箱冷启一次。实测一次 app-state 读花了 6 秒,卡片内容一直空着。
+//
+// 名字→归属是**静态信息**,大多数能力不拨号就说得出(ToolNameKnower);说不出的才拨。
+// 所以这里数的还是拨号次数:一格 app-state 最多拨一次,理想是零。
+func TestMCPIDForTool_DoesNotDialEverybody(t *testing.T) {
+	t.Parallel()
+	reg := capreg.NewRegistry()
+	dials, states := 0, 0
+	reg.MustRegister(newCap(capA, &dials, &states, toolAOne, toolATwo))
+	reg.MustRegister(newCap(capB, &dials, &states, toolBSend))
+	reg.MustRegister(newCap(capC, &dials, &states, toolCOnly))
+
+	id, ok := reg.MCPIDForTool(context.Background(), input(), toolBSend)
+
+	require.True(t, ok, "the tool is served by "+capB)
+	require.Equal(t, capB, id, "app-state buckets by the owning capability id")
+	require.LessOrEqual(t, dials, 1,
+		"reading one card's app-state must not spawn a sandbox per capability")
+}
+
+// 同一个 mcp 的多个 tool 映到同一格(calendar_book / calendar_list_slots 共享)。
+func TestMCPIDForTool_SiblingToolsShareOneBucket(t *testing.T) {
+	t.Parallel()
+	reg := capreg.NewRegistry()
+	dials, states := 0, 0
+	reg.MustRegister(newCap(capA, &dials, &states, toolAOne, toolATwo))
+
+	first, ok1 := reg.MCPIDForTool(context.Background(), input(), toolAOne)
+	second, ok2 := reg.MCPIDForTool(context.Background(), input(), toolATwo)
+
+	require.True(t, ok1)
+	require.True(t, ok2)
+	require.Equal(t, first, second, "two tools of one capability share one app-state bucket")
+}
+
+// 没人提供的 tool → caller 回 tool_not_enabled,而且一个沙箱都不该起。
+func TestMCPIDForTool_UnknownToolDialsNobody(t *testing.T) {
+	t.Parallel()
+	reg := capreg.NewRegistry()
+	dials, states := 0, 0
+	reg.MustRegister(newCap(capA, &dials, &states, toolAOne))
+
+	id, ok := reg.MCPIDForTool(context.Background(), input(), "no_such_tool")
+
+	require.False(t, ok)
+	require.Empty(t, id)
 	require.Equal(t, 0, dials, "a tool nobody serves must spawn no sandbox at all")
 }
 
@@ -161,8 +226,8 @@ func TestVisitorStates_DoesNotDialStateReporters(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
 	dials, states := 0, 0
-	reg.MustRegister(newCap("plugin.a", &dials, &states, "a_one"))
-	reg.MustRegister(newCap("plugin.b", &dials, &states, "b_send"))
+	reg.MustRegister(newCap(capA, &dials, &states, toolAOne))
+	reg.MustRegister(newCap(capB, &dials, &states, toolBSend))
 
 	out := reg.VisitorStates(context.Background(), input())
 
