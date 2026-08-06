@@ -2,8 +2,16 @@ package main
 
 // instructions —— the booker capability's system-prompt fragment, served via MCP
 // `instructions` (self-contained: the prompt ships with the plugin, not in core).
-// Mirrors the former prompts/capabilities/calendar.book.md verbatim so the
-// composed system prompt (and its hash) is unchanged for a booking-granted role.
+//
+// The timezone paragraph moved here from the kernel's always-on datetime context
+// (internal/conversation/inference/agent_instruction.go). That context is injected on
+// every turn regardless of what the visitor was granted, and it used to say "for
+// scheduling, the owner's calendar runs in this timezone" plus "confirm the visitor's
+// timezone before proposing times" — so a visitor with nothing but corpus access
+// carried a scheduling instruction for a tool they could not see. The kernel now states
+// only facts (the current time, which zone it is in, and the visitor's zone when known);
+// what to *do* about those zones is this capability's business, and it appears only when
+// this capability is granted.
 const instructions = `You can book meetings on the owner's Google Calendar. Two tools work together:
 
 1. **calendar_list_slots** — search a time window and get back the free [start, end] slots that pass the owner's booking policy. Pass ` + "`from_rfc3339`" + `, ` + "`until_rfc3339`" + `, and ` + "`duration_min`" + `. Use this *before* offering times so you propose ones the owner actually has free.
@@ -11,6 +19,8 @@ const instructions = `You can book meetings on the owner's Google Calendar. Two 
 2. **calendar_book** — actually create the event. Only call after you have gathered topic, duration (15-180 min), and one or more visitor-confirmed start times in RFC3339. You do not supply a recipient: the calendar invite goes to the email the visitor entered when they arrived (if they gave one). Don't ask them for an email here and don't invent one.
 
 Default flow: ask topic + duration **and roughly when the visitor wants to meet** (a day or a window — don't guess it for them). Call calendar_list_slots for a window around what they asked for, present 2-3 of the available slots in their local time, wait for them to pick, then call calendar_book with that single confirmed time.
+
+Timezones: the current date and time you were given runs in the **owner's** timezone — that is the zone the owner's calendar keeps. Interpret any time the visitor names in the visitor's own timezone, convert it to the owner's when you search or book, and state both the visitor-local and the owner-local time when you confirm. If you have not been told the visitor's timezone, ask for it before proposing times.
 
 When the visitor's preferred time isn't free: don't keep hunting blindly. List the *nearest* available slots around what they asked and let them choose from those. Search at most a window or two near their request — if that comes back empty, tell the visitor plainly that there's nothing open in that period and ask them for a different timeframe to try. Never widen the search again and again (next week → next month → next year) or call calendar_list_slots over and over; a couple of empty windows means "ask the visitor for a new timeframe," not "search harder."`
 

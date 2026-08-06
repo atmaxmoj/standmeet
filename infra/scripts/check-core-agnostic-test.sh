@@ -27,21 +27,31 @@ if ! "$CHECK" >/dev/null 2>&1; then
   fail=1
 fi
 
-# 2) plant a fresh kernel leak: a new file naming "calendar". New filename → the (file,token) pair
-#    is not in the baseline → this is a NEW hit the ratchet must reject.
-cat > "$PROBE" <<EOF
+# 2) plant one fresh kernel leak per leaf capability. A guard only sees the tokens it lists, so
+#    "it caught calendar" says nothing about the rest —— every capability that ships gets its own
+#    probe here, and adding a capability without adding its word to TOKENS shows up as a MISS.
+probe_leak() { # <name> <expression the plant returns>
+  cat > "$PROBE" <<EOF
 package $PROBE_PKG
 
 // a fresh leak the baseline has never seen — the ratchet must reject it.
-func probeCalendarBook() string { return "calendar.book" }
+func probeLeak() string { return "$2" }
 EOF
+  if "$CHECK" >/dev/null 2>&1; then
+    echo "❌ check-core-agnostic MISSED a planted '$1' leak in $PROBE_DIR"
+    fail=1
+  else
+    echo "✓ caught the planted $1 leak"
+  fi
+  rm -f "$PROBE"
+}
 
-if "$CHECK" >/dev/null 2>&1; then
-  echo "❌ check-core-agnostic MISSED a new 'calendar' leak planted in $PROBE_DIR"
-  fail=1
-else
-  echo "✓ caught the planted kernel-capability leak"
-fi
+probe_leak calendar.book         "calendar.book"
+probe_leak corpus.retrieval      "corpus.retrieval"
+probe_leak summarize_conversation "summarize_conversation"
+probe_leak ask_visitor           "ask_visitor"
+probe_leak askVisitor            "askVisitorTool" # camelCase form of the same id
+probe_leak mail.send             "MailSender"
 
 # 3) remove the probe → clean again (back to matching the baseline exactly).
 cleanup

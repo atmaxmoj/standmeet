@@ -6,11 +6,19 @@
 # logic in the same package" (such a file only imports legal packages, all arrows green). This
 # guard covers that blind spot with a string ratchet —— plan Part 0 Layer 4.
 #
-# The ratchet baseline backend/.core-agnostic-baseline records the **currently known** leaks (each
-# line "file<TAB>token", sorted):
+# **The baseline is drained and deleted —— this guard is in pure-red mode**: any concrete
+# capability name in a kernel package is red, with nothing grandfathered. The last entry was
+# `agent_instruction.go<TAB>calendar`: the always-on datetime context told every visitor that
+# "the owner's calendar runs in this timezone" and to confirm their zone "before proposing or
+# scheduling times" —— a scheduling instruction carried by visitors who had no booking tool at
+# all. The kernel now states only facts (the time, its zone, the visitor's zone when known);
+# what to do about those zones lives in the booking capability's own MCP instructions.
+#
+# Re-seeding backend/.core-agnostic-baseline (each line "file<TAB>token", sorted) would put it
+# back into ratchet mode:
 #   - a new hit outside the baseline      → red (no new leaks —— this is "it holds even if the AI forgot the structure")
 #   - a baseline entry no longer scanned  → red (forces you to delete it from the baseline; the baseline can only shrink)
-# Each drain trims the baseline; shrink it to empty → delete the baseline file → the guard enters pure-red mode (any hit is red).
+# Each drain trims the baseline; shrink it to empty → delete the file again → back to pure red.
 #
 # Excluded: _test.go, and comment lines starting with `//` or `*`. CORE_DIRS holds only the three
 # kernel packages; the connector layer (internal/connector*), postgres, mailer, the composition
@@ -35,7 +43,12 @@ CORE_DIRS="backend/internal/conversation/inference backend/internal/capabilities
 # Concrete capability/connector names. All are words with "almost zero legitimate reason" in the kernel. Deliberately excluded:
 #   - bare "mail"/"email"/"google"/"corpus" —— email is identity, corpus is a kernel primitive; catching them would
 #     hurt future legitimate kernel code. mail catches only camelCase Mail[A-Z] and mail. (MailProxy/MailSender/mail.X).
-TOKENS="calendar caldav freebusy booking booker smtp gcal retrieval summarize summarise"
+# ask_visitor / askvisitor —— the leaf capability the list used to miss entirely. Its self-test
+# probe went straight through the guard: a guard only sees the words it lists, and "it caught
+# calendar" says nothing about the other four. Both spellings, because the match is per-token and
+# case-insensitive: `ask_visitor` catches the id, `askvisitor` catches AskVisitor / askVisitor.
+# Every shipped leaf capability now has a probe in the self-test — add a capability, add its word.
+TOKENS="calendar caldav freebusy booking booker smtp gcal retrieval summarize summarise ask_visitor askvisitor"
 
 # Print the current hit set (each line "file<TAB>token", sort -u).
 current_hits() {
@@ -87,6 +100,12 @@ fi
 
 if [ "$rc" -eq 0 ]; then
   n=$(wc -l < "$hits_f" | tr -d ' ')
-  echo "check-core-agnostic: kernel clean against baseline ($n known-leak entries, ratchet holds)."
+  if [ -f "$BASELINE" ]; then
+    echo "check-core-agnostic: kernel clean against baseline ($n known-leak entries, ratchet holds)."
+  else
+    # No baseline file = nothing grandfathered. Say so —— "clean against baseline" would read
+    # as if some leaks were still being tolerated.
+    echo "check-core-agnostic: kernel names no concrete capability (pure-red mode, no baseline)."
+  fi
 fi
 exit "$rc"
