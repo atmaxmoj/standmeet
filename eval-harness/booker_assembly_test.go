@@ -84,7 +84,7 @@ func launchWithBooker(
 	t *testing.T, ctx context.Context, failVerb string,
 ) (*agentcore.VisitorAgent, *memStore) {
 	t.Helper()
-	host, store := bookingWorld("owner-1", "UTC", nil, failVerb)
+	host, store := bookingWorld("owner-1", "UTC", nil, failVerb, "the calendar refused this call")
 	bin := buildHostPlugin(t, "../mcp-servers/booker")
 	// short /tmp path — macOS caps unix socket paths at ~104 bytes.
 	sockDir, derr := os.MkdirTemp("/tmp", "smb")

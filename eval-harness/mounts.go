@@ -75,7 +75,8 @@ func mountCapability(
 func mountBooker(
 	ctx context.Context, driver *EvalDriver, tmp, ownerID string, opts *launchOpts,
 ) (func() error, error) {
-	host, _ := bookingWorld(ownerID, ownerTZOr(opts.ownerTimezone), nil, opts.bookingFail)
+	host, _ := bookingWorld(ownerID, ownerTZOr(opts.ownerTimezone), nil,
+		opts.bookingFail, opts.bookingFailMsg)
 	return mountCapability(ctx, driver, bookerCapabilityID, "../mcp-servers/booker", tmp, host)
 }
 

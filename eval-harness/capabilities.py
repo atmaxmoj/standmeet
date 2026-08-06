@@ -264,13 +264,20 @@ CASES = [
                  "('will this be a video call?') the "
                  "agent can't answer?"},
     {"name": "booking-conflict-no-loop", "dim": "tool · booking failure", "kind": "assert", "env": CONFLICT,
+     # BOOK_DATE, not a literal: this case used to name 2026-06-09, which went into the past on
+     # 2026-06-10. From then on the agent correctly refused ("that Tuesday has come and gone")
+     # WITHOUT ever touching the calendar — and "did not loop list_slots" passed with zero calls.
+     # An assert that passes because the path was never driven cannot fail; the first check below
+     # is what makes the second one mean something.
      "req": {"mode": "code", "booking": True,
-             "question": "Book a 30-min call Tuesday 2026-06-09 at 15:00 UTC, dana@hirefast.io, "
+             "question": f"Book a 30-min call on {BOOK_DATE} at 15:00 UTC, dana@hirefast.io, "
                          "topic 'backend role'."},
-     # Calendar fully busy (injected). The calendar.book fragment now bounds the
-     # search: a window or two near the request, then ask the visitor for a new
-     # timeframe — NOT widen forever. Guards the death-loop fix.
-     "checks": [("did not loop list_slots (<=3 calls)", lambda r: count(r, "calendar_list_slots") <= 3)]},
+     # The insert is injected to conflict. The calendar.book fragment bounds the search: a window
+     # or two near the request, then ask the visitor for a new timeframe — NOT widen forever.
+     # Guards the death-loop fix.
+     "checks": [("attempted the booking (conflict path really driven)",
+                 lambda r: fired(r, "calendar_book")),
+                ("did not loop list_slots (<=3 calls)", lambda r: count(r, "calendar_list_slots") <= 3)]},
 ]
 
 
@@ -346,12 +353,10 @@ def main():
     try:
         for c in cases:
             req = dict(c["req"])
-            # booking —— the booker is a SANDBOXED PLUGIN now (P.13 moved the eval path onto
-            # agentcore.Driver, and LaunchInput carries no booking hook). This harness runs no
-            # plugin host, so `booking: true` in a request has had no effect since 2026-06-26 —
-            # the five booking asserts have been asserting a capability nobody mounts. SKIP them
-            # loudly rather than fail: a red that cannot go green teaches nothing, and deleting
-            # them would hide that the eval lost its booking coverage.
+            # booking runs for real again: the launcher mounts the shipped booker plugin over a
+            # host socket serving the ops its own manifest orders (2026-08-05). `booking: true`
+            # had been a no-op from 2026-06-26, when P.13 moved this path onto agentcore.Driver
+            # without a booking hook — five asserts about a capability nobody mounted.
             if c.get("needs_mcp"):
                 if not mcp_proc:
                     print(f"\n[SKIP] {c['name']} ({c['dim']}) — no MCP server")

@@ -184,12 +184,19 @@ func jsonContains(doc, filter []byte) bool {
 
 // bookingWorld —— the canned world a booking-capable launch runs against: an owner in `tz` whose
 // calendar is free unless `busy` says otherwise, plus its own record table.
-func bookingWorld(ownerID, tz string, busy []BusyWindow, fail string) (
+//
+// failMsg is what the calendar SAYS when it refuses. It is not decoration: "409, that time was
+// just taken" and "the service is down" are different situations, and the agent is supposed to
+// take a different path for each. A generic "refused" leaves it guessing.
+func bookingWorld(ownerID, tz string, busy []BusyWindow, fail, failMsg string) (
 	*agentcore.CapabilityHost, *memStore,
 ) {
 	cal := &cannedCalendar{busy: busy}
 	if fail != "" {
-		cal.fail = map[string]string{fail: "the calendar refused this call"}
+		if failMsg == "" {
+			failMsg = "the calendar refused this call"
+		}
+		cal.fail = map[string]string{fail: failMsg}
 	}
 	store := newMemStore()
 	return &agentcore.CapabilityHost{

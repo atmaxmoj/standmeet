@@ -68,9 +68,11 @@ type launchOpts struct {
 	// booking —— mount the REAL booker plugin over a canned calendar + store. Without it the
 	// booker is structurally absent, which is what a role that granted nothing looks like.
 	booking bool
-	// bookingFail —— make one connector verb fail ("calendar.insert_event"), to drive the
-	// can't-book paths. Empty = the calendar cooperates.
-	bookingFail string
+	// bookingFail / bookingFailMsg —— make one connector verb fail ("calendar.insert_event")
+	// with that message, to drive the can't-book paths. Empty verb = the calendar cooperates.
+	// 话术跟着动词一起给:agent 对"时段被占了"和"服务出错了"该走两条不同的路。
+	bookingFail    string
+	bookingFailMsg string
 	// ownerTimezone —— what owner.meta reports. It MUST be the timezone the turn's instruction
 	// also states: the booking policy (working hours) is evaluated in the owner's zone, so a
 	// mini-host that says UTC while the prompt says New York makes an in-hours slot look closed

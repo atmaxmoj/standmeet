@@ -222,6 +222,7 @@ func askCandidate(
 		mcpURL:   mcpURLFor(req),
 		cred:     cred,
 	}
+	failVerb, failMsg := bookingFailVerb()
 	agent, cleanup, berr := launchCandidateWith(ctx, driver, &agentcore.LaunchInput{
 		OwnerID: evalOwnerID, Mode: mode, ConversationID: evalConvID,
 		CodeID: evalCodeID, SystemPromptOverride: override,
@@ -229,7 +230,7 @@ func askCandidate(
 		// 那正是 deny 用例要测的东西。
 		GrantedCapabilities: grantedCapabilities(req),
 	}, launchOpts{
-		booking: req.Booking, bookingFail: bookingFailVerb(),
+		booking: req.Booking, bookingFail: failVerb, bookingFailMsg: failMsg,
 		// owner.meta 说的时区必须跟 instruction 里那句是同一个 —— 预约策略(工作时间)按
 		// owner 的时区判,两处不一致的话一个本该开着的时段会显示成关的。
 		ownerTimezone: req.OwnerTimezone,
@@ -326,14 +327,18 @@ func grantedCapabilities(req askRequest) []string {
 // bookingFailVerb —— EVAL_BOOKING_FAIL 把某个连接器动词打成失败,用来跑"约不上"那几条路。
 //   - "conflict"     → 插入被日历拒(那一刻被别人占了)
 //   - "notconnected" → owner 根本没连日历,连查空闲都不行
-func bookingFailVerb() string {
+//
+// 连**错误话术**一起给:日历说"409 那个时段刚被占了"和日历说"出错了"是两条不同的路 ——
+// 前者该改约,后者该重试。只说"拒绝了"的话,agent 只能瞎猜,而这条用例判的正是它选哪条。
+func bookingFailVerb() (string, string) {
 	switch os.Getenv("EVAL_BOOKING_FAIL") {
 	case "conflict":
-		return "calendar.insert_event"
+		return "calendar.insert_event",
+			"409 conflict: that time was taken by another event while we were booking it"
 	case "notconnected":
-		return "calendar.free_busy"
+		return "calendar.free_busy", "no calendar is connected for this owner"
 	default:
-		return ""
+		return "", ""
 	}
 }
 
