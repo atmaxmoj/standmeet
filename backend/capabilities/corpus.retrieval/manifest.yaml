@@ -12,7 +12,7 @@ transport:
   command: /plugin/retrieval
   sandbox:
     plugin_dir: /srv/plugins/retrieval
-    # 要后端语料 → 按名字点单这七件事。socket 路径由 id 派生，声明里不写路径。
+    # 要后端语料 → 按名字点单这八件事。socket 路径由 id 派生，声明里不写路径。
     # per-session 的 corpus-ACL scope 经 tool-call _meta 携进来，宿主那侧重建 AllowsCorpus。
     host_ops:
       - corpus_search
@@ -22,3 +22,4 @@ transport:
       - corpus_map
       - corpus_resolve
       - corpus_peek
+      - corpus_grep

@@ -65,6 +65,10 @@ func CorpusHostOps(lister Lister) []hostop.Op {
 		{runCorpusMap, "corpus_map", "The shape of the reachable corpus."},
 		{runCorpusResolve, "corpus_resolve", "Resolve a title / partial address to an entry."},
 		{runCorpusPeek, "corpus_peek", "A cheap look at one entry (no full body)."},
+		{
+			runCorpusGrep, "corpus_grep",
+			"Every place a literal / regex pattern occurs, under the session's scope.",
+		},
 	}
 	out := make([]hostop.Op, 0, len(decl))
 	for _, d := range decl {
@@ -190,6 +194,74 @@ func runCorpusLinks(ctx context.Context, l Lister, req *corpusIndexReq) (string,
 		return corpusReadErrWire(err, args.Path) // denied/not-found → friendly envelope
 	}
 	return marshalLinks(&links), nil
+}
+
+// grepArgs —— corpus_grep 的入参(名字跟插件那侧的 schema 一一对应;对不上不会报错,
+// 只会永远走默认值)。
+type grepArgs struct {
+	Pattern       string `json:"pattern"`
+	Fixed         bool   `json:"fixed"`
+	CaseSensitive bool   `json:"case_sensitive"`
+}
+
+// runCorpusGrep —— corpus_grep:模式 → 每一处命中。模式写坏了是**输入错误**,原样把那句
+// 编译错误往上带(ErrGrepPattern 由面翻成一句人话),不是 500。
+func runCorpusGrep(ctx context.Context, l Lister, req *corpusIndexReq) (string, error) {
+	var args grepArgs
+	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
+		return "", fmt.Errorf("invalid arguments: %w", uerr)
+	}
+	hits, err := l.Grep(ctx, req.OwnerID, corpusScopeOf(req), &GrepRequest{
+		Pattern: strings.TrimSpace(args.Pattern), Fixed: args.Fixed,
+		CaseSensitive: args.CaseSensitive,
+	})
+	if err != nil {
+		// 模式写坏了 → 原样往上带那句话("invalid search pattern: missing closing )")。
+		// 包一层 "corpus grep:" 只会在 agent 读到的那句前面加一个它做不了任何事的词。
+		if errors.Is(err, ErrGrepPattern) {
+			return "", fmt.Errorf("%w", err)
+		}
+		return "", fmt.Errorf("corpus grep: %w", err)
+	}
+	return marshalGrepHits(hits), nil
+}
+
+// grepRowWire —— 一条命中。lines 是原样的行(带行号),因为这个工具的答案就是"在这一行";
+// matches 是这条笔记里的匹配总数(lines 可能只给了前几条)。
+type grepRowWire struct {
+	Path    string         `json:"path"`
+	Title   string         `json:"title"`
+	Genre   string         `json:"genre"`
+	Lines   []grepLineWire `json:"lines"`
+	Matches int            `json:"matches"`
+}
+
+type grepLineWire struct {
+	Text string `json:"text"`
+	Line int    `json:"line"`
+}
+
+func marshalGrepHits(hits []GrepHit) string {
+	rows := make([]grepRowWire, 0, len(hits))
+	for i := range hits {
+		rows = append(rows, grepRowWire{
+			Path: hits[i].Path, Title: hits[i].Title, Genre: hits[i].Genre,
+			Matches: hits[i].Total, Lines: toGrepLines(hits[i].Lines),
+		})
+	}
+	out, err := json.Marshal(rows)
+	if err != nil {
+		return errJSON("marshal grep hits")
+	}
+	return string(out)
+}
+
+func toGrepLines(lines []GrepLine) []grepLineWire {
+	out := make([]grepLineWire, 0, len(lines))
+	for i := range lines {
+		out = append(out, grepLineWire{Line: lines[i].No, Text: lines[i].Text})
+	}
+	return out
 }
 
 // linksWire —— corpus_links wire:分开 outgoing(本条引用的)/ backlinks(引用本条的)。

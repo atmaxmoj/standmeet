@@ -60,6 +60,46 @@ export async function searchTitles(
   return (await search(request, sess, query)).map((h) => h.title);
 }
 
+// GrepHit —— corpus_grep 的一条命中:哪一条笔记 + 命中的行 + 这条里的匹配总数。
+export interface GrepHit {
+  path: string;
+  title: string;
+  genre: string;
+  lines: { line: number; text: string }[];
+  matches: number;
+}
+
+// grep —— corpus_grep。result 有两种形状:命中数组,或者 `{error}`(模式写坏了 —— 那是这个
+// 工具的一种**正常回答**,跟 corpus_read 的 "not found" 走同一条路:agent 读得懂的一句话,
+// 不是 500)。所以返回类型是联合,调用方自己分。
+export type GrepResult = GrepHit[] | { error: string };
+
+export async function grep(
+  request: APIRequestContext, sess: VisitorSession,
+  pattern: string, opts: { fixed?: boolean; case_sensitive?: boolean } = {},
+): Promise<{ status: number; body: ToolResp<GrepResult> }> {
+  return visitorTool<GrepResult>(request, sess, 'corpus_grep', { pattern, ...opts });
+}
+
+// grepHits —— 命中数组(错误回答 → 空数组)。
+export function grepHits(body: ToolResp<GrepResult>): GrepHit[] {
+  return Array.isArray(body.result) ? body.result : [];
+}
+
+// grepError —— 那句错误(不是错误回答 → 空串)。
+export function grepError(body: ToolResp<GrepResult>): string {
+  return Array.isArray(body.result) ? '' : body.result?.error ?? '';
+}
+
+// grepTitles —— 命中的 title 集合(断言用)。
+export async function grepTitles(
+  request: APIRequestContext, sess: VisitorSession,
+  pattern: string, opts: { fixed?: boolean } = {},
+): Promise<string[]> {
+  const { body } = await grep(request, sess, pattern, opts);
+  return grepHits(body).map((h) => h.title);
+}
+
 // links —— corpus_links;返 {status, body}(要断 not-found/denied 时看 status/reason)。
 export async function links(
   request: APIRequestContext, sess: VisitorSession, path: string,

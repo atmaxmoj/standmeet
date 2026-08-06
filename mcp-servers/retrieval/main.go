@@ -41,6 +41,7 @@ func main() {
 	srv.AddTool(readOnly(mapTool()), opHandler("corpus_map"))
 	srv.AddTool(readOnly(resolveTool()), opHandler("corpus_resolve"))
 	srv.AddTool(readOnly(peekTool()), opHandler("corpus_peek"))
+	srv.AddTool(readOnly(grepTool()), opHandler("corpus_grep"))
 	srv.AddResource(searchCardResource(), searchCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "retrieval:", err)
@@ -178,6 +179,36 @@ func peekTool() mcpgo.Tool {
 			},
 			"required": ["paths"]
 		}`)), "peeking nodes")
+}
+
+// grepTool —— the second search path, and the description is the feature.
+//
+// The agent picks between this and corpus_search by reading them, so the two must state DIFFERENT
+// guarantees: corpus_search is a ranked keyword lookup that tolerates typos and misses what its
+// tokenizer cannot cut; this one is exhaustive over exact text and returns the lines themselves.
+// If these two descriptions ever drift toward each other, the agent chooses arbitrarily and
+// never-miss stops being reachable — which is the whole reason this tool exists.
+func grepTool() mcpgo.Tool {
+	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_grep",
+		"Find EVERY place an exact string or regex occurs in the corpus, with the matching "+
+			"lines. Exhaustive, not ranked: if the pattern is in a note you can read, that "+
+			"note is in the result — no typo tolerance, no stemming, no scoring. Use it when "+
+			"the exact words matter (a name, an error string, a phrase you remember "+
+			"verbatim, a mid-word fragment), or when corpus_search returned nothing and you "+
+			"need certainty rather than another guess. Set fixed:true to search for the "+
+			"pattern literally (e.g. \"C++\", \"a.b\").",
+		json.RawMessage(`{
+			"type": "object",
+			"properties": {
+				"pattern": {"type": "string",
+					"description": "RE2 regex, or a literal string with fixed:true."},
+				"fixed": {"type": "boolean",
+					"description": "Treat the pattern as literal text, not a regex."},
+				"case_sensitive": {"type": "boolean",
+					"description": "Default false — matching ignores case."}
+			},
+			"required": ["pattern"]
+		}`)), "grepping corpus")
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`. For retrieval the host

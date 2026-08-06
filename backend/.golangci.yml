@@ -378,6 +378,11 @@ linters:
         linters: [testpackage]
       - path: internal/corpus/usecase/wiki_crosslink_test.go
         linters: [testpackage]
+      # corpus_grep 的 never-miss 性质测：judge 那一步(GrepBody / CompileGrep)是本包内的
+      # 纯逻辑,同上必须 in-package。add-constant 对生成语料的那几个尺寸没有意义(它们是随机
+      # 上界,不是业务常量),已经具名的部分具了名。
+      - path: internal/corpus/usecase/corpus_grep_test.go
+        linters: [testpackage]
       - path: cmd/server/
         linters: [testpackage, paralleltest]
       # hnFirstLine / readOK are unexported job-fetch helpers with pure-logic white-box repros.

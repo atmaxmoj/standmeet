@@ -14,6 +14,9 @@ type (
 	Deps                            = usecase.Deps
 	Entry                           = usecase.Entry
 	FileInput                       = usecase.FileInput
+	GrepHit                         = usecase.GrepHit
+	GrepLine                        = usecase.GrepLine
+	GrepRequest                     = usecase.GrepRequest
 	IndexDeps                       = usecase.IndexDeps
 	Indexer                         = usecase.Indexer
 	Links                           = usecase.Links
@@ -86,6 +89,8 @@ var (
 	IndexPeriodicJobs              = usecase.IndexPeriodicJobs
 	ReindexCorpusOwner             = usecase.ReindexCorpusOwner
 	ResolveAssetURLs               = usecase.ResolveAssetURLs
+	CompileGrep                    = usecase.CompileGrep
+	GrepBody                       = usecase.GrepBody
 	ResolveByName                  = usecase.ResolveByName
 	ResolveWikiNodeID              = usecase.ResolveWikiNodeID
 	RewriteCrossLinksForRender     = usecase.RewriteCrossLinksForRender

@@ -12,7 +12,8 @@ const instructions = `The owner's corpus is a LINKED TREE of notes: every node i
   • corpus_map(under?, budget?) — a birds-eye skeleton: the high-level node tree with a count under each branch. Shows WHERE the material is.
   • corpus_list(path?)          — the direct children of one node (omit path = roots).
   • corpus_resolve(name)        — a [[link]] target or title → its exact path (don't guess a path).
-  • corpus_search(query)        — keyword search across the corpus.
+  • corpus_search(query)        — keyword search across the corpus: ranked, typo-tolerant, and it can MISS text its tokenizer does not cut (a fragment inside a word, a punctuation-glued token).
+  • corpus_grep(pattern)        — every place an exact string / regex occurs, with the matching lines. Exhaustive: if it is there, this finds it. Use when the exact words matter, or when search came back empty and you need certainty.
   • corpus_peek(paths[])        — cheap preview of MANY nodes (title, tags, headings, outlinks, first line) without their full bodies — to triage.
   • corpus_read(path)           — the full body of one node.
   • corpus_links(path)          — a node's outgoing links + backlinks (one hop).

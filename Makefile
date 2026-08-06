@@ -5,7 +5,7 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint backend-lint backend-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
+.PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
@@ -22,8 +22,18 @@ backend-lint:
 	@$(MAKE) -C backend lint
 
 # backend-test —— Go 单元/集成测试（testify，无 DB/docker）。e2e 走 `make test`。
-backend-test:
+# 一并跑 mcp-servers/ 下每个插件模块自己的测试：它们是独立 go module，`go test ./...`
+# 在 backend/ 里够不着，于是 ask-visitor 的那个测试写完之后**从来没有人跑过**。
+backend-test: plugin-test
 	@$(MAKE) -C backend test
+
+# plugin-test —— 每个 mcp-servers/<plugin> 是一个独立 module；各跑各的 go test。
+plugin-test:
+	@for d in mcp-servers/*/; do \
+		[ -f "$$d/go.mod" ] || continue; \
+		echo "[plugin-test] $$d"; \
+		(cd "$$d" && go test ./...) || exit 1; \
+	done
 
 # backend-no-mock —— G-Y 守门：backend/ 里禁止任何 mock-only / test-only
 # 代码 (MockProvider / INFERENCE_MOCK_ env / /__mock URL / routes/sys/test_*)。

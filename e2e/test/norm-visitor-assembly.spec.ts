@@ -38,7 +38,7 @@ const CODE = 'NORM-ASM-1';
 //   ask_visitor / summarize_conversation —— 无授权门,所有 mode 暴露的基础能力
 const CORPUS_RETRIEVAL_TOOLS: readonly string[] = [
   'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
-  'corpus_map', 'corpus_resolve', 'corpus_peek',
+  'corpus_map', 'corpus_resolve', 'corpus_peek', 'corpus_grep',
 ];
 const BASELINE_TOOLS: readonly string[] = ['ask_visitor', 'summarize_conversation'];
 

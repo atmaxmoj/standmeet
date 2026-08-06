@@ -81,6 +81,12 @@ type Lister interface {
 	Resolve(
 		ctx context.Context, ownerID string, scope access.CorpusScope, name string,
 	) ([]Meta, error)
+	// Grep —— every place a pattern occurs, under the same scope. Not a ranking: if the pattern
+	// is in a readable note, that note is in the result. Whoever implements Lister must be able
+	// to answer this, or "never-miss" would hold only on the implementations that felt like it.
+	Grep(
+		ctx context.Context, ownerID string, scope access.CorpusScope, req *GrepRequest,
+	) ([]GrepHit, error)
 }
 
 // Links —— corpus_links 的返回:分开 outgoing(本条引用的)/ backlinks(引用本条的)。

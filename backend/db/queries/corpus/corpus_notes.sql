@@ -156,6 +156,26 @@ WITH RECURSIVE up AS (
 SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.path_titles
 FROM up WHERE up.parent_id IS NULL;
 
+-- name: GrepCorpusNotes :many
+-- corpus_grep 的扫描面:owner 的每一条 note,连正文,path 沿 parent 链在 SQL 里算好。
+--
+-- **没有 LIMIT,也不会有。** never-miss 是这个工具存在的理由:模式在的地方必然被返回。
+-- 一个 cap 会让它退化成"通常能找到",而那正是隔壁 corpus_search 已经提供的东西。
+-- 正文里匹配与否在 Go 那侧判(RE2,跟 owner 写的模式同一套语义),不在 SQL 里 —— postgres 的
+-- POSIX 正则跟 RE2 不是同一门方言,让它先筛一遍就等于让两套方言各漏一点。
+WITH RECURSIVE up AS (
+  SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.body AS leaf_body,
+         n.id, n.parent_id, ARRAY[n.title]::text[] AS path_titles
+  FROM corpus_notes n
+  WHERE n.owner_id = $1
+  UNION ALL
+  SELECT up.leaf_id, up.leaf_genre, up.leaf_body, p.id, p.parent_id,
+         p.title || up.path_titles
+  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+)
+SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.leaf_body AS body, up.path_titles
+FROM up WHERE up.parent_id IS NULL;
+
 -- name: ListAllNotesForExport :many
 -- Vault export: all corp notes(any genre) with body/tree/publish — 反向 render 成 vault .md。
 SELECT id, genre, parent_id, title, body, tags, published

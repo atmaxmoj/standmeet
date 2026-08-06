@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
@@ -110,6 +111,28 @@ func (l driverCorpusLister) Get(
 	return corpus.Entry{
 		ID: doc.ID, Path: doc.Path, Title: doc.Title, Genre: doc.Genre, Body: doc.Body,
 	}, nil
+}
+
+// Grep —— never-miss 在这一侧同样成立:枚举全量(SearchCorpus("")),逐条 ACL,再拿同一个
+// GrepBody 判定。判定那一步跟 prod 是同一个函数,所以 eval 里"找得到"和线上"找得到"是同一件事。
+func (l driverCorpusLister) Grep(
+	ctx context.Context, _ string, scope access.CorpusScope, req *corpus.GrepRequest,
+) ([]corpus.GrepHit, error) {
+	re, cerr := corpus.CompileGrep(req)
+	if cerr != nil {
+		return nil, fmt.Errorf("grep pattern: %w", cerr)
+	}
+	all, err := l.driver.SearchCorpus(ctx, "") // 空查询 = 枚举全量
+	if err != nil {
+		return nil, fmt.Errorf("driver enumerate corpus: %w", err)
+	}
+	out := make([]corpus.GrepHit, 0, len(all))
+	for i := range all {
+		if hit, ok := l.grepOne(ctx, scope, re, &all[i]); ok {
+			out = append(out, hit)
+		}
+	}
+	return out, nil
 }
 
 // Links —— 在 eval Driver 语料上算真链图（不靠 prod 的 note_refs 表）：subject 的 [[X]] 出度
@@ -213,6 +236,27 @@ func hitToMeta(h *CorpusHit) corpus.Meta {
 	return corpus.Meta{
 		ID: h.ID, Path: h.Path, Title: h.Title, Genre: h.Genre, Snippet: h.Snippet,
 	}
+}
+
+// grepOne —— 一条枚举结果:过 ACL、取正文、判定。正文取不到 → 不命中(eval 语料里那是
+// 一条刚被删掉的条目)。
+func (l driverCorpusLister) grepOne(
+	ctx context.Context, scope access.CorpusScope, re *regexp.Regexp, hit *CorpusHit,
+) (corpus.GrepHit, bool) {
+	if !allowsCorpus(scope, hit.Genre, hit.Path) {
+		return corpus.GrepHit{}, false
+	}
+	doc, err := l.driver.GetCorpus(ctx, hit.Path)
+	if err != nil {
+		return corpus.GrepHit{}, false
+	}
+	lines, total := corpus.GrepBody(re, doc.Body)
+	if total == 0 {
+		return corpus.GrepHit{}, false
+	}
+	return corpus.GrepHit{
+		Path: hit.Path, Title: hit.Title, Genre: hit.Genre, Total: total, Lines: lines,
+	}, true
 }
 
 func filterHits(hits []CorpusHit, scope access.CorpusScope) []corpus.Meta {
