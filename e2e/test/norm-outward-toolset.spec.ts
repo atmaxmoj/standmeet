@@ -13,7 +13,7 @@
 // backtick 原始串里误用了 Go 字符串拼接 `"+`)。Go 侧有 schema_valid_test 兜底,这条在
 // e2e 把"真客户端能发现完整工具面"钉死。
 //
-// golden = 全部 owner_only 工具(内建 115 + jobs 插件 10 = 125)。加/删 owner 工具时这条
+// golden = 全部 owner_only 工具(内建 126 + jobs 插件 10 = 136)。加/删 owner 工具时这条
 // 会红 —— 那是**有意**的:逼你同步更新工具面预期。
 
 import { test, expect } from '@/fixtures/test';
@@ -27,7 +27,7 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN —— tools/list 必须逐字返回这 128 个 owner 工具(排序后比,顺序噪声由 mcp-go
+// GOLDEN —— tools/list 必须逐字返回这 136 个 owner 工具(排序后比,顺序噪声由 mcp-go
 // 注册顺序决定、不在本条职责内)。facade-parity 全额付清后(56→0):每个 admin 面的
 // owner 能力都有一个 owner-MCP 孪生工具。新增/删除 owner 工具必须同步更新本 golden。
 const GOLDEN_TOOLSET: readonly string[] = [
@@ -50,6 +50,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'subjectivity_write',
   'corpus.list', 'corpus.get',
   'corpus.create', 'corpus.update', 'corpus.delete', 'corpus.promote',
+  // check_i18n —— 多语结构只看不写。owner 的 AI 在写一条带 `> [!i18n]` 的笔记之前先问一次,
+  // 拿到的诊断跟 corpus.create 拒绝时用的是同一份(两处各判一套的话,"检查过了却写不进去"
+  // 迟早发生,而 agent 只会重试)。
+  'corpus.check_i18n',
   // 素材 —— **任意 genre** 都能挂图 / 附件 / hero。以前挂图只有一条路(写一篇 writing 时
   // 把内联图地址跟表单一起交上去),于是"素材"不是一件独立的事,一条 raw 想配张图没有说法。
   // 现在它是独立一步:先 assets.upload 拿 id,再在正文里引 standmeet-asset:<id>,或设成 hero 图。
@@ -61,6 +65,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // (原 chat.show_grounding 只是 MCP 那份的名字)。
   'conversations.list', 'conversations.get', 'conversations.ghost_telemetry',
   'prompt_create', 'prompt_list', 'prompt_delete', 'prompt_update', 'prompts.get',
+  // providers —— owner 的 provider 本子。**没有 providers.create**:建一条要带原始 API key,
+  // 而 MCP 是纯 JSON 工具面,不承载密钥(跟 ai_provider.set 同一个理由,见 owner/ops)。
+  // 列 / 改 / 标默认 / 删都不碰密钥,所以两个面都给。
+  'providers.list', 'providers.update', 'providers.set_default', 'providers.delete',
   'role_create', 'role_list', 'role_delete', 'role_update', 'roles.get',
   'roles.set_dock_buttons',
   // mcp servers / skills / capabilities
