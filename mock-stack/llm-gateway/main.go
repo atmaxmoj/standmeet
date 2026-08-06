@@ -55,15 +55,17 @@ func envOr(name, def string) string {
 }
 
 type server struct {
-	log    *slog.Logger
-	queue  *scriptQueue
-	reply  string // INFERENCE_MOCK_REPLY fallback
+	log   *slog.Logger
+	queue *scriptQueue
+	rec   *recorder // 每趟请求记一条,e2e 按 tag 查"这轮走的是哪个 provider"
+	reply string    // INFERENCE_MOCK_REPLY fallback
 }
 
 func newServer(log *slog.Logger) *server {
 	return &server{
 		log:   log,
 		queue: newScriptQueue(),
+		rec:   newRecorder(),
 		reply: envOr("INFERENCE_MOCK_REPLY",
 			"Hello, this is alice's AI. I'm running in mock mode for tests."),
 	}
@@ -77,6 +79,7 @@ func (s *server) run(port string) error {
 	mux.HandleFunc("POST /__mock/inference/next_ghost", s.serveSetNextGhost)
 	mux.HandleFunc("POST /__mock/inference/next_error", s.serveSetNextError)
 	mux.HandleFunc("GET /__mock/inference/state", s.serveState)
+	mux.HandleFunc("GET /__mock/inference/last_request", s.serveLastRequest)
 	srv := &http.Server{
 		Addr:              ":" + port,
 		Handler:           mux,

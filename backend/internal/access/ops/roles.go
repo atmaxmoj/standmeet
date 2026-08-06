@@ -152,7 +152,11 @@ func roleWriteSchema(required string) json.RawMessage {
 			"dock_buttons":{"type":"array","maxItems":2,"items":{"type":"object"},
 				"description":"Up to two chat dock buttons {capability_id, trigger}."},
 			"require_ghost_evidence":{"type":"boolean",
-				"description":"Require cited evidence before the AI answers on this role."}
+				"description":"Require cited evidence before the AI answers on this role."},
+			"provider_id":{"type":"string",
+				"description":"Inference provider. Omit for the default; a code outranks it."},
+			"gas_metered":{"type":"boolean",
+				"description":"Charge this role's turns against its provider's gas tank."}
 		},
 		"required":[` + required + `]
 	}`)
@@ -167,6 +171,7 @@ type roleOut struct {
 	Name                 string                    `json:"name"`
 	Description          string                    `json:"description"`
 	Greeting             string                    `json:"greeting"`
+	ProviderID           string                    `json:"provider_id"`
 	CorpusURIs           []string                  `json:"corpus_uris"`
 	SkillIDs             []string                  `json:"skill_ids"`
 	MCPServerIDs         []string                  `json:"mcp_server_ids"`
@@ -175,6 +180,7 @@ type roleOut struct {
 	ActiveCodes          int64                     `json:"active_codes"`
 	IsBuiltin            bool                      `json:"is_builtin"`
 	RequireGhostEvidence bool                      `json:"require_ghost_evidence"`
+	GasMetered           bool                      `json:"gas_metered"`
 }
 
 // marshalRole —— 出站载荷 = 本域的形状 + 各能力在这个 role 上那几个字段的值。
@@ -205,6 +211,8 @@ func toRoleOut(ctx context.Context, deps usecase.RolesDeps, rl *entity.Role) rol
 		SkillIDs: nonNilStrings(rl.SkillIDs()), MCPServerIDs: nonNilStrings(rl.MCPServerIDs()),
 		ActiveCodes: count, IsBuiltin: rl.IsBuiltin(),
 		RequireGhostEvidence: rl.RequireGhostEvidence(),
+		ProviderID:           rl.ProviderID(),
+		GasMetered:           rl.GasMetered(),
 		CreatedAt:            rl.CreatedAt().UTC().Format(time.RFC3339),
 		UpdatedAt:            rl.UpdatedAt().UTC().Format(time.RFC3339),
 		Waypoints:            nonNilWaypoints(rl.Waypoints()),

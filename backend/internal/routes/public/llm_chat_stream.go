@@ -57,6 +57,7 @@ func resolveLLMCred(
 	byoai := pickLLMBYOAICred(h, auth, r)
 	return h.Resolver.Resolve(r.Context(), &inference.ResolveInput{
 		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, Visitor: byoai,
+		ProviderID: auth.Data.ProviderID,
 	})
 }
 

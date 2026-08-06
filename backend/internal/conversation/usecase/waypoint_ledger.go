@@ -46,8 +46,8 @@ func (l *WaypointLedger) Mark(ctx context.Context, in *MarkWaypointsInput) {
 // MarkWaypointsInput —— 一轮的 ledger 输入。Data 传值(本地改 VisitedWaypoints 再存回)。
 type MarkWaypointsInput struct {
 	Token        string
-	Data         access.VisitorSessionData
 	CitedNoteIDs []string
+	Data         access.VisitorSessionData
 	TerminalOK   bool
 }
 

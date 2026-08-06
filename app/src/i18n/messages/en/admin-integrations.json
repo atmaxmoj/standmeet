@@ -122,5 +122,19 @@
   },
   "mySkills": {
     "empty": "No skills yet — install one from the marketplace tab, or add your own under Skills."
+  },
+  "providerBook": {
+    "heading": "provider book",
+    "intro": "Every provider you can send a turn to. One of them is the default — the one used when neither the access code nor the role names another. Deleting an entry is safe: codes and roles pointing at it fall back to the default.",
+    "empty": "no entries yet · the one you configured above is the default",
+    "defaultBadge": "default",
+    "makeDefault": "make default",
+    "delete": "delete ×",
+    "keySet": "● key set",
+    "keyUnset": "○ no key",
+    "addHeading": "add an entry",
+    "label": "label",
+    "labelHint": "your name for this entry",
+    "add": "add"
   }
 }

@@ -51,6 +51,13 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			},
 			Presets: port.AiPresets(),
 		},
+		// Providers —— 同一个 Owners 仓储 + 同一把 provider 名校验尺子(本子里每一条
+		// 都要过它,不只是默认那条)。
+		Providers: owner.OpsProviders{
+			Providers: owner.ProvidersUseDeps{
+				Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
+			},
+		},
 		Account: owner.OpsAccountDeps{
 			Account:  owner.AccountDeps{Owners: d.OwnerRepo},
 			Recovery: port.RecoveryDeps(d),

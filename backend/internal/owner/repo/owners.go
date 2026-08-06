@@ -11,9 +11,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/owner/db"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
@@ -77,22 +75,27 @@ func toDomainOwner(o *db.Owner) entity.Owner {
 	}
 }
 
-// toOwnerSettings —— 把 owners 行的 setting 字段（byoai_* + ai_*）拼成
-// Settings 值对象。明文 key 不出 repo，外层只看 KeyConfigured。
-func toOwnerSettings(o *db.Owner) entity.Settings {
-	return entity.Settings{
-		AI: entity.AISettings{
-			Provider:      o.AiProvider,
-			Endpoint:      o.AiEndpoint,
-			Model:         o.AiModel,
-			KeyConfigured: len(o.AiProviderKeyEnc) > 0,
-		},
+// toOwnerSettings —— owners 行的 byoai_* + **默认那条 provider** 拼成 Settings。
+//
+// AI 那一面以前直接读 owners 行上的四列;provider 变成一本之后,"owner 的 AI 设置"
+// 说的就是**默认那一条**(其余是本子里的别的条目,由 providers.* 那组操作管)。
+// def 为 nil = 这个 owner 还没有任何 provider(claim 之前),AI 那一面出零值。
+// 明文 key 不出 repo,外层只看 KeyConfigured。
+func toOwnerSettings(o *db.Owner, def *ProviderRow) entity.Settings {
+	out := entity.Settings{
 		BYOAI: entity.BYOAISettings{
 			Enabled:     o.ByoaiEnabled,
 			Providers:   decodeProviders(o.ByoaiProviders),
 			PublicBlurb: o.ByoaiPublicBlurb,
 		},
 	}
+	if def != nil {
+		out.AI = entity.AISettings{
+			Provider: def.Provider, Endpoint: def.Endpoint,
+			Model: def.Model, KeyConfigured: def.KeyConfigured,
+		}
+	}
+	return out
 }
 
 // decodeProviders 把 byoai_providers jsonb 解到 []string。空 / 解失败返空 slice；
@@ -134,7 +137,7 @@ func (r *Repo) UpdateBYOAI(
 		}
 		return entity.Settings{}, fmt.Errorf("update byoai: %w", uerr)
 	}
-	return toOwnerSettings(&row), nil
+	return r.settingsFor(ctx, &row), nil
 }
 
 // GetSettings —— 拉 owner 行的 settings 切面（不含 identity）。
@@ -154,7 +157,7 @@ func (r *Repo) GetSettings(
 		}
 		return entity.Settings{}, fmt.Errorf("get owner settings: %w", err)
 	}
-	return toOwnerSettings(&row), nil
+	return r.settingsFor(ctx, &row), nil
 }
 
 // buildBYOAIParams 把入参 normalize + marshal 一气呵成，让 UpdateBYOAI
@@ -180,78 +183,6 @@ func buildBYOAIParams(in *UpdateBYOAIInput) (db.UpdateOwnerBYOAIParams, error) {
 	}, nil
 }
 
-// UpdateAIProviderInput —— admin "AI provider" 表单的 commit 入参。
-// KeyPlaintext == nil 表示不动 key（只改 provider / endpoint / model）；
-// 空 string 显式清掉 key。Endpoint 仅 provider='custom' 必填；Model 留空
-// 时 inference resolver 走 preset 默认。
-type UpdateAIProviderInput struct {
-	KeyPlaintext *string
-	OwnerID      string
-	Provider     string
-	Endpoint     string
-	Model        string
-}
-
-// AIProviderView —— inference resolver 需要的最小信息。KeyEnc 是密文,**本域不开封**:
-// owner 域只封(写路径 cryptobox.Encrypt)不解,开封在组装那一侧
-// (cmd/server 的 openAIProviderKey)。Endpoint + Model 仅 custom 或 owner 显式覆盖
-// preset 默认时非空。
-type AIProviderView struct {
-	Provider string
-	Endpoint string
-	Model    string
-	KeyEnc   []byte
-}
-
-// GetAIProviderView —— 拉 owner 的 AI provider 配置（不返其它字段）。
-// resolver 不该 import postgres，所以这个方法返一个独立的 view 类型；
-// cmd/server 用 adapter 把它包成 inference.OwnerKeyView。
-func (r *Repo) GetAIProviderView(
-	ctx context.Context, ownerID string,
-) (AIProviderView, error) {
-	pgID, perr := pgstore.ParseUUID(ownerID)
-	if perr != nil {
-		return AIProviderView{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
-	}
-	q := db.New(r.pool)
-	row, err := q.GetOwnerByID(ctx, pgID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return AIProviderView{}, entity.ErrOwnerNotFound
-		}
-		return AIProviderView{}, fmt.Errorf("get owner for provider view: %w", err)
-	}
-	return AIProviderView{
-		Provider: row.AiProvider, Endpoint: row.AiEndpoint, Model: row.AiModel,
-		KeyEnc: row.AiProviderKeyEnc,
-	}, nil
-}
-
-// UpdateAIProvider —— commit owner 的 AI provider 选择。当 KeyPlaintext 非
-// nil 时同步换 ai_provider_key_enc；为 nil 时保留原 key（仅切 provider）。
-// 返回新 OwnerSettings（聚合的独立切面）。
-func (r *Repo) UpdateAIProvider(
-	ctx context.Context, in *UpdateAIProviderInput,
-) (entity.Settings, error) {
-	pgID, perr := pgstore.ParseUUID(in.OwnerID)
-	if perr != nil {
-		return entity.Settings{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
-	}
-	encBytes, eerr := r.resolveKeyBytes(ctx, pgID, in.KeyPlaintext)
-	if eerr != nil {
-		return entity.Settings{}, eerr
-	}
-	q := db.New(r.pool)
-	row, qerr := q.UpdateOwnerAIProvider(ctx, db.UpdateOwnerAIProviderParams{
-		ID: pgID, AiProvider: in.Provider, AiProviderKeyEnc: encBytes,
-		AiEndpoint: in.Endpoint, AiModel: in.Model,
-	})
-	if qerr != nil {
-		return entity.Settings{}, fmt.Errorf("update ai provider: %w", qerr)
-	}
-	return toOwnerSettings(&row), nil
-}
-
 // UpdatePublicURL —— owner 改部署的 canonical public URL（claim 后改域名时调）。
 // 没有 alias 表（public_url 不参与 routing；只用作 QR / SEO canonical），
 // 单条 UPDATE 即可。
@@ -272,25 +203,15 @@ func (r *Repo) UpdatePublicURL(
 	return toDomainOwner(&row), nil
 }
 
-// resolveKeyBytes —— KeyPlaintext nil 时复用原 enc bytes；非 nil 时空字符串
-// 清空（[]byte{}），非空字符串用 cryptobox 加密。给 UpdateAIProvider 用。
-func (r *Repo) resolveKeyBytes(
-	ctx context.Context, pgID pgtype.UUID, key *string,
-) ([]byte, error) {
-	if key == nil {
-		row, err := db.New(r.pool).GetOwnerByID(ctx, pgID)
-		if err != nil {
-			return nil, fmt.Errorf("get owner for key carryover: %w", err)
-		}
-		return row.AiProviderKeyEnc, nil
-	}
-	if *key == "" {
-		return []byte{}, nil
-	}
-	// AAD = owner_id: 绑定 LLM key 密文到该 owner；resolver 用同一 owner_id 串解(matched)。
-	encBytes, err := cryptobox.Encrypt([]byte(*key), []byte(pgstore.FormatUUID(pgID)))
+// settingsFor —— 读默认 provider 再拼 Settings。没有默认(还没 claim / 刚删空)不是错:
+// AI 那一面出零值,owner 面板据此显示"还没配"。
+func (r *Repo) settingsFor(ctx context.Context, o *db.Owner) entity.Settings {
+	def, err := r.DefaultProvider(ctx, pgstore.FormatUUID(o.ID))
 	if err != nil {
-		return nil, fmt.Errorf("encrypt ai key: %w", err)
+		return toOwnerSettings(o, nil)
 	}
-	return encBytes, nil
+	return toOwnerSettings(o, &def)
 }
+
+// provider 那一组(view / 解析链 / 写默认那条 / 封 key)都在 providers.go 和
+// provider_view.go —— 这个文件只管 owner 本身:身份、byoai、settings 那一面。

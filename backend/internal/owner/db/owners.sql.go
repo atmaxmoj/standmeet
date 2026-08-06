@@ -45,7 +45,7 @@ func (q *Queries) CountOwners(ctx context.Context) (int64, error) {
 const createOwner = `-- name: CreateOwner :one
 INSERT INTO owners (email, password_hash, handle, full_name, public_url)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
 `
 
 type CreateOwnerParams struct {
@@ -77,10 +77,6 @@ func (q *Queries) CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -123,7 +119,7 @@ func (q *Queries) GetFirstOwnerResetToken(ctx context.Context) (GetFirstOwnerRes
 }
 
 const getOwnerByEmail = `-- name: GetOwnerByEmail :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE email = $1
+SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE email = $1
 `
 
 func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, error) {
@@ -141,10 +137,6 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -155,7 +147,7 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 }
 
 const getOwnerByHandle = `-- name: GetOwnerByHandle :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE handle = $1
+SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE handle = $1
 `
 
 func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, error) {
@@ -173,10 +165,6 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -187,7 +175,7 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 }
 
 const getOwnerByID = `-- name: GetOwnerByID :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE id = $1
+SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE id = $1
 `
 
 func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, error) {
@@ -205,10 +193,6 @@ func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, erro
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -287,65 +271,13 @@ func (q *Queries) SetPasswordResetToken(ctx context.Context, arg SetPasswordRese
 	return err
 }
 
-const updateOwnerAIProvider = `-- name: UpdateOwnerAIProvider :one
-UPDATE owners
-SET ai_provider = $2,
-    ai_provider_key_enc = $3,
-    ai_endpoint = $4,
-    ai_model = $5
-WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
-`
-
-type UpdateOwnerAIProviderParams struct {
-	ID               pgtype.UUID
-	AiProvider       string
-	AiProviderKeyEnc []byte
-	AiEndpoint       string
-	AiModel          string
-}
-
-func (q *Queries) UpdateOwnerAIProvider(ctx context.Context, arg UpdateOwnerAIProviderParams) (Owner, error) {
-	row := q.db.QueryRow(ctx, updateOwnerAIProvider,
-		arg.ID,
-		arg.AiProvider,
-		arg.AiProviderKeyEnc,
-		arg.AiEndpoint,
-		arg.AiModel,
-	)
-	var i Owner
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.RecoveryHash,
-		&i.Handle,
-		&i.FullName,
-		&i.Location,
-		&i.PublicUrl,
-		&i.ByoaiEnabled,
-		&i.ByoaiProviders,
-		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
-		&i.PasswordResetHash,
-		&i.PasswordResetAt,
-		&i.ProfileTimezone,
-		&i.CustomCss,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const updateOwnerBYOAI = `-- name: UpdateOwnerBYOAI :one
 UPDATE owners
 SET byoai_enabled = $2,
     byoai_providers = $3,
     byoai_public_blurb = $4
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
 `
 
 type UpdateOwnerBYOAIParams struct {
@@ -375,10 +307,6 @@ func (q *Queries) UpdateOwnerBYOAI(ctx context.Context, arg UpdateOwnerBYOAIPara
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -392,7 +320,7 @@ const updateOwnerEmail = `-- name: UpdateOwnerEmail :one
 UPDATE owners
 SET email = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
 `
 
 type UpdateOwnerEmailParams struct {
@@ -415,10 +343,6 @@ func (q *Queries) UpdateOwnerEmail(ctx context.Context, arg UpdateOwnerEmailPara
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -432,7 +356,7 @@ const updateOwnerFullName = `-- name: UpdateOwnerFullName :one
 UPDATE owners
 SET full_name = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
 `
 
 type UpdateOwnerFullNameParams struct {
@@ -455,10 +379,6 @@ func (q *Queries) UpdateOwnerFullName(ctx context.Context, arg UpdateOwnerFullNa
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -472,7 +392,7 @@ const updateOwnerPasswordHash = `-- name: UpdateOwnerPasswordHash :one
 UPDATE owners
 SET password_hash = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
 `
 
 type UpdateOwnerPasswordHashParams struct {
@@ -495,10 +415,6 @@ func (q *Queries) UpdateOwnerPasswordHash(ctx context.Context, arg UpdateOwnerPa
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -512,7 +428,7 @@ const updateOwnerProfileTimezone = `-- name: UpdateOwnerProfileTimezone :one
 UPDATE owners
 SET profile_timezone = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
 `
 
 type UpdateOwnerProfileTimezoneParams struct {
@@ -535,10 +451,6 @@ func (q *Queries) UpdateOwnerProfileTimezone(ctx context.Context, arg UpdateOwne
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
@@ -549,10 +461,11 @@ func (q *Queries) UpdateOwnerProfileTimezone(ctx context.Context, arg UpdateOwne
 }
 
 const updateOwnerPublicURL = `-- name: UpdateOwnerPublicURL :one
+
 UPDATE owners
 SET public_url = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, ai_endpoint, ai_model, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
 `
 
 type UpdateOwnerPublicURLParams struct {
@@ -560,6 +473,9 @@ type UpdateOwnerPublicURLParams struct {
 	PublicUrl string
 }
 
+// UpdateOwnerAIProvider was deleted with the four ai_* columns: an owner holds a *book* of
+// providers now (owner_providers.sql), one of them marked default. Writing "the owner's provider"
+// is writing one row of that book.
 func (q *Queries) UpdateOwnerPublicURL(ctx context.Context, arg UpdateOwnerPublicURLParams) (Owner, error) {
 	row := q.db.QueryRow(ctx, updateOwnerPublicURL, arg.ID, arg.PublicUrl)
 	var i Owner
@@ -575,10 +491,6 @@ func (q *Queries) UpdateOwnerPublicURL(ctx context.Context, arg UpdateOwnerPubli
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AiProvider,
-		&i.AiProviderKeyEnc,
-		&i.AiEndpoint,
-		&i.AiModel,
 		&i.PasswordResetHash,
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,

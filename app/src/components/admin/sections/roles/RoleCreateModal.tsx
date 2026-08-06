@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
+import { ProviderSelect } from '@/components/admin/atoms/ProviderSelect';
 import { useMCPServers } from '@/lib/admin/use-mcp-servers';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import type { RoleView, WriteRoleInput } from '@/lib/admin/use-roles';
@@ -45,7 +46,7 @@ function RoleCreateModalShell({
 }) {
   const t = useTranslations('adminAccess');
   const [form, setForm] = useState<WriteRoleInput>({
-    name: '', description: '', greeting: '', prompt_id: null,
+    name: '', description: '', greeting: '', prompt_id: null, provider_id: '',
     corpus_uris: [], skill_ids: [], mcp_server_ids: [],
   });
   return (
@@ -55,28 +56,15 @@ function RoleCreateModalShell({
     >
       <div className="bg-(--color-paper) border border-(--color-rule) max-w-[680px] w-[92vw] p-7 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
         <h2 className="font-serif text-[22px]">{t('roleCreate.title')}</h2>
-        <RoleField
-          label="name"
-          value={form.name}
-          onChange={(v) => setForm((f) => ({ ...f, name: v }))}
-          placeholder="e.g. recruiter-default"
-        />
-        <RoleField
-          label="description"
-          value={form.description}
-          onChange={(v) => setForm((f) => ({ ...f, description: v }))}
-          placeholder="when to use this role"
-        />
-        <RoleField
-          label="greeting"
-          value={form.greeting}
-          onChange={(v) => setForm((f) => ({ ...f, greeting: v }))}
-          placeholder="shown on the visitor name picker — blank uses a default"
-        />
+        <RoleTextFields form={form} setForm={setForm} />
         <RolePromptDropdown
           prompts={prompts}
           value={form.prompt_id}
           onChange={(v) => setForm((f) => ({ ...f, prompt_id: v }))}
+        />
+        <RoleProviderDropdown
+          value={form.provider_id}
+          onChange={(v) => setForm((f) => ({ ...f, provider_id: v }))}
         />
         <RoleCorpusURIsField
           value={form.corpus_uris}
@@ -99,6 +87,37 @@ function RoleCreateModalShell({
         <RoleModalFooter form={form} onClose={onClose} onCreate={onCreate} />
       </div>
     </div>
+  );
+}
+
+// RoleTextFields —— 三个纯文本字段(名字 / 说明 / 招呼语)。拆出来守 shell 的 max-lines。
+function RoleTextFields({
+  form, setForm,
+}: {
+  form: WriteRoleInput;
+  setForm: React.Dispatch<React.SetStateAction<WriteRoleInput>>;
+}) {
+  return (
+    <>
+      <RoleField
+        label="name"
+        value={form.name}
+        onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+        placeholder="e.g. recruiter-default"
+      />
+      <RoleField
+        label="description"
+        value={form.description}
+        onChange={(v) => setForm((f) => ({ ...f, description: v }))}
+        placeholder="when to use this role"
+      />
+      <RoleField
+        label="greeting"
+        value={form.greeting}
+        onChange={(v) => setForm((f) => ({ ...f, greeting: v }))}
+        placeholder="shown on the visitor name picker — blank uses a default"
+      />
+    </>
   );
 }
 
@@ -141,6 +160,26 @@ function RolePromptDropdown({
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
       </select>
+    </label>
+  );
+}
+
+// RoleProviderDropdown —— 这个 role 走哪条 provider(空 = owner 默认那条)。
+// 挂在码上的那条压过它 —— 那句话在码那一面说,这里不重复。
+function RoleProviderDropdown({
+  value, onChange,
+}: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('adminAccess');
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
+        {t('common.provider')}
+      </span>
+      <ProviderSelect
+        value={value} onChange={onChange}
+        inheritLabel={t('roleCreate.providerDefault')}
+        testid="role-field-provider"
+      />
     </label>
   );
 }

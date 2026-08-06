@@ -17,17 +17,22 @@ import (
 )
 
 type roleWriteArgs struct {
-	PromptID             *string                   `json:"prompt_id"`
-	RoleID               string                    `json:"role_id"`
-	Name                 string                    `json:"name"`
-	Description          string                    `json:"description"`
-	Greeting             string                    `json:"greeting"`
-	CorpusURIs           []string                  `json:"corpus_uris"`
-	SkillIDs             []string                  `json:"skill_ids"`
-	MCPServerIDs         []string                  `json:"mcp_server_ids"`
-	Waypoints            []entity.Waypoint         `json:"waypoints"`
-	DockButtons          []entity.DockButtonConfig `json:"dock_buttons"`
-	RequireGhostEvidence bool                      `json:"require_ghost_evidence"`
+	PromptID    *string `json:"prompt_id"`
+	RoleID      string  `json:"role_id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Greeting    string  `json:"greeting"`
+	// ProviderID —— 这个 role 用哪条 provider(空 = owner 默认);挂在码上的那条压过它。
+	ProviderID   string                    `json:"provider_id"`
+	CorpusURIs   []string                  `json:"corpus_uris"`
+	SkillIDs     []string                  `json:"skill_ids"`
+	MCPServerIDs []string                  `json:"mcp_server_ids"`
+	Waypoints    []entity.Waypoint         `json:"waypoints"`
+	DockButtons  []entity.DockButtonConfig `json:"dock_buttons"`
+
+	RequireGhostEvidence bool `json:"require_ghost_evidence"`
+	// GasMetered —— 这个 role 挂不挂油表(false = 一次 gas 查询都不发,跟今天同一条路)。
+	GasMetered bool `json:"gas_metered"`
 }
 
 func decodeRoleCreate(raw json.RawMessage) (roleWriteArgs, error) {
@@ -84,6 +89,8 @@ func toRoleWriteInput(d RolesDeps, ownerID string, in *roleWriteArgs) *usecase.R
 		// dock 按钮上能挂哪些能力,由能力注册表回答 —— 每次写都现问一次。
 		ValidCapabilityIDs:   d.ValidCapabilityIDs(),
 		RequireGhostEvidence: in.RequireGhostEvidence,
+		ProviderID:           in.ProviderID,
+		GasMetered:           in.GasMetered,
 	}
 }
 

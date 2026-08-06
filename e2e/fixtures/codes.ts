@@ -17,6 +17,9 @@ export interface CreateCodeInput {
   max_members?: number | null;
   max_turns_per_session?: number | null;
   max_bookings?: number | null;
+  // provider_id —— this code's inference provider. Unset = inherit (role, then the owner's
+  // default). The code wins over the role: it is the ticket that was handed out.
+  provider_id?: string | null;
 }
 
 export interface CodeView {
@@ -45,6 +48,7 @@ export async function createCode(
       max_bookings: input.max_bookings ?? null,
       assumed_role_id: input.assumed_role_id ?? null,
       prompt_id: input.prompt_id ?? null,
+      provider_id: input.provider_id ?? null,
     },
   });
   if (res.status() !== 201) throw new Error(`create code failed: ${res.status()}`);

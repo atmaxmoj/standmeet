@@ -204,6 +204,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AccountAdmin:     adminroutes.AccountDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Recovery:         deps.Admin.Recovery,
 		AIProviderAdmin:  adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
+		ProvidersAdmin:   adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		CustomPagesAdmin: adminroutes.CustomPagesDeps{Face: wire.AdminFace(deps.Dispatch)},
 		SkillsAdmin:      adminroutes.SkillsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		PromptsAdmin:     adminroutes.PromptsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},

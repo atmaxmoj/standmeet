@@ -24,6 +24,7 @@ type codeCreateArgs struct {
 	Purpose            string   `json:"purpose"`
 	AssumedRoleID      string   `json:"assumed_role_id"`
 	ExpiresAt          string   `json:"expires_at"`
+	ProviderID         string   `json:"provider_id"`
 	Ghosts             []string `json:"ghosts"`
 }
 
@@ -59,6 +60,8 @@ func decodeCodeCreate(raw json.RawMessage, ownerID string) (*repo.CreateCodeInpu
 		AssumedRoleID: in.AssumedRoleID, PromptID: in.PromptID,
 		MaxMembers: in.MaxMembers, MaxTurnsPerSession: in.MaxTurnsPerSession,
 		ExpiresAt: expires,
+		// 空 = 没指:继承 role 的,再退 owner 默认那条。
+		ProviderID: in.ProviderID,
 	}, nil
 }
 

@@ -13,14 +13,12 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
 import { InlineSkeleton } from '@/components/skeletons/InlineSkeleton';
-import {
-  fetchAIProviderPresets, type AIProviderPresetView,
-} from '@/lib/api/admin';
+import { type AIProviderPresetView } from '@/lib/api/admin';
 import {
   useAIProvider, applySaveSuccess,
   type AIProviderHook, type AIProviderName,
@@ -30,6 +28,7 @@ import {
   EMPTY_DEFAULTS, type ProviderFormState,
 } from '@/lib/inference/provider-form';
 import { useModelList, type ModelListHook } from '@/lib/inference/use-model-list';
+import { usePresets } from '@/lib/inference/use-presets';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function AIProviderPanel() {
@@ -62,21 +61,6 @@ function PanelBody({ hook }: { hook: AIProviderHook }) {
   return ready
     ? <PanelForm hook={hook} presets={presets} />
     : <Loading />;
-}
-
-// usePresets —— fetch preset 列表一次。失败弹 toast；返 null 当 "still loading"。
-function usePresets(): readonly AIProviderPresetView[] | null {
-  const [presets, setPresets] = useState<AIProviderPresetView[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => {
-    fetchAIProviderPresets()
-      .then((list) => setPresets(list))
-      .catch((e: unknown) => {
-        setErr(e instanceof Error ? e.message : 'failed to load presets');
-      });
-  }, []);
-  useEffectErrorToast(err);
-  return presets;
 }
 
 function Loading() {

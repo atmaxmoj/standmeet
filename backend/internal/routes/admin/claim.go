@@ -40,6 +40,7 @@ type Handlers struct {
 	PromptsAdmin      PromptsAdminDeps
 	Domains           DomainsDeps
 	AIProviderAdmin   AIProviderDeps
+	ProvidersAdmin    ProvidersAdminDeps
 	PublicURLAdmin    PublicURLDeps
 	SEOAdmin          SEOAdminDeps
 	HandleAdmin       HandleDeps
@@ -91,6 +92,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountPublicURL(r)
 	h.MountAccount(r)
 	h.MountAIProvider(r)
+	h.MountProviders(r)
 	h.MountCustomPages(r)
 	h.MountSkills(r)
 	h.MountPrompts(r)

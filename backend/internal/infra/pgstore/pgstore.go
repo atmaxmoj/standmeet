@@ -164,6 +164,15 @@ func OptUUIDStr(u pgtype.UUID) *string {
 	return &s
 }
 
+// UUIDStrOrEmpty —— 可空 uuid → 字符串,NULL → 空串。
+// 用在"没指 = 空串"的领域字段上(可空外键那一类:NULL 和"指着的那条被删了"是同一件事)。
+func UUIDStrOrEmpty(u pgtype.UUID) string {
+	if !u.Valid {
+		return ""
+	}
+	return FormatUUID(u)
+}
+
 // —— pgx pool 连接管理（从退役的 internal/postgres/conn.go 迁入）——
 
 const (

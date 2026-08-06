@@ -81,4 +81,10 @@ var (
 	// 这里防御漏网（admin 改成空字符串、老数据等）；调用方应引导 owner 去
 	// /admin 填好再重试。
 	ErrPublicURLNotSet = errors.New("public_url not set for owner")
+	// ErrProviderNotFound —— provider 本子里没有这一条（id 不对、或不属于这个 owner）。
+	// 也用于"这个 owner 一个 provider 都没有"：解析链退到默认那一档时没有可退的了。
+	ErrProviderNotFound = errors.New("provider not found")
+	// ErrProviderIsDefault —— 想删的是默认那条。删了就没有可退的了，所以拦住；
+	// owner 要么先把默认挪到别条，要么这条留着。
+	ErrProviderIsDefault = errors.New("provider is the default")
 )

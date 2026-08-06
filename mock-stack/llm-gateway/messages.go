@@ -39,6 +39,9 @@ func (s *server) serveMessages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
+	// 先记账再分派 —— 注入的失败也要记:"这一轮打到了哪个 provider" 跟这一轮成没成功
+	// 是两件事(测 provider 挂了怎么退默认时,要断言的正是那趟失败请求的去向)。
+	s.rec.record(recordFrom(r, &req), req.markerText())
 	// e2e fail-injection:next_error 给某 keyword 打开后,消息里含该 keyword 的
 	// inference 调用 500,模拟 LLM 故障(测"失败/重试的 turn 不消耗配额")。
 	if s.queue.shouldFailFor(req.markerText()) {

@@ -32,23 +32,8 @@ CREATE TABLE owners (
     byoai_enabled        boolean       NOT NULL DEFAULT true,
     byoai_providers      jsonb         NOT NULL DEFAULT '["claude","openai"]'::jsonb,
     byoai_public_blurb   text          NOT NULL DEFAULT '',
-    -- owner 自己的 AI provider（"owner's AI"，给真访客 chat 用，跟上面
-    -- byoai_* "访客自带 key" 路径完全独立）。
-    -- key 走 AES-256-GCM 加密落盘，明文 INSTANCE_SECRET 在 env。
-    -- mock 不在选项里——它是 INFERENCE_PROVIDER=mock env 下的 testing
-    -- fixture，跟 owner 行无关。
-    --
-    -- 列 ai_provider 现在接受 inference.presets 里全部 openai-compat
-    -- provider + 'anthropic'，所以没 CHECK 白名单（presets 表是 source
-    -- of truth；DB CHECK 跟代码漂移更糟）。
-    -- ai_endpoint —— 仅 provider='custom' 必填（owner 自托管 ollama / vllm /
-    -- lm-studio 等 OpenAI-compatible server 的 base URL，不带 /v1/...）；
-    -- 其它 provider 留空走 preset 默认 BaseURL。
-    -- ai_model —— 留空走 preset 默认 model；owner 想换模型时填。
-    ai_provider          text          NOT NULL DEFAULT 'anthropic',
-    ai_provider_key_enc  bytea         NOT NULL DEFAULT ''::bytea,
-    ai_endpoint          text          NOT NULL DEFAULT '',
-    ai_model             text          NOT NULL DEFAULT '',
+    -- owner 自己的 AI provider 搬去了 owner_providers（一份 → 一本，见那张表）。
+    -- byoai_* 那条"访客自带 key"的路跟它完全独立，留在这儿。
     -- password_reset_hash —— 紧急 reset 兜底：CLI 颁发的一次性 token 的
     -- bcrypt-style hash。配合 password_reset_at 做 30min TTL。空 bytea =
     -- 没活跃 reset token；reset 成功后由 ClearPasswordResetToken 清回去。
@@ -63,6 +48,41 @@ CREATE TABLE owners (
     custom_css           text          NOT NULL DEFAULT '',
     created_at           timestamptz   NOT NULL DEFAULT now()
 );
+
+-- owner_providers —— owner 的 provider 本子（"像收货地址簿"）。一份 → 一本，其中一条是默认。
+--
+-- code / role 可以各自指一条（access_codes.provider_id / roles.provider_id）；解析顺序是
+-- byoai > code > role > 默认。**code 压过 role** —— 码是发出去的那张票，是更具体的声明。
+--
+-- key_enc 是封着的：只在 cmd/server/unseal.go 那一处开封（内侧只封不解，§1.5）。
+--
+-- 两条规则直接长在 schema 里，而不是靠代码记得检查：
+--   · ON DELETE SET NULL —— 删掉一条被引用的 provider，引用置空、行还在，读时退默认。
+--     "地址删了订单还在，退默认地址"，所以**不用**先解绑所有引用它的 code/role。
+--   · 部分唯一索引 —— "两个默认"不可能存在，而不是"会被检查出来"。
+--     （删默认那条要拦：没有可退的了。那条在服务层，schema 表达不了"至少一条"。）
+CREATE TABLE owner_providers (
+    id          uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id    uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    -- label —— owner 自己给这条起的名（"工作那把 key"）。同一 owner 内唯一。
+    label       text          NOT NULL,
+    -- provider —— preset 名（presets.go 是真源，所以这里没有 CHECK 白名单：
+    -- DB CHECK 跟代码漂移比没有更糟）。
+    provider    text          NOT NULL,
+    key_enc     bytea         NOT NULL DEFAULT ''::bytea,
+    -- endpoint —— 仅 provider='custom' 必填；其它留空走 preset 默认 BaseURL。
+    endpoint    text          NOT NULL DEFAULT '',
+    -- model —— 留空走 preset 默认；owner 想换模型时填。
+    model       text          NOT NULL DEFAULT '',
+    is_default  boolean       NOT NULL DEFAULT false,
+    -- gas_tokens —— 这箱油还剩多少 token。NULL = 不计量（#7 的默认路径，绝大多数 owner
+    -- 停在这儿）。挂了表的 role 才会去看它。
+    gas_tokens  bigint,
+    created_at  timestamptz   NOT NULL DEFAULT now(),
+    UNIQUE (owner_id, label)
+);
+CREATE INDEX owner_providers_owner_idx ON owner_providers(owner_id);
+CREATE UNIQUE INDEX owner_providers_one_default ON owner_providers(owner_id) WHERE is_default;
 
 -- Instance settings —— singleton（id=1，CHECK 强制）。
 -- fresh volume 初始化时种一行；setup token 跟 claim 状态由 boot 写。
@@ -226,6 +246,9 @@ CREATE TABLE access_codes (
     -- true/false = 这张码显式覆盖。合并在 session 装配层(code 非 NULL 则用 code,否则用 role),
     -- 冻进 RoleSnapshot。语义同 role 列:开 → 空证据的非终点 waypoint 不当 steering ghost。
     require_ghost_evidence     boolean,
+    -- provider_id —— 这张码用哪个 provider。NULL = 继承(role,再默认)。**码压过 role**。
+    -- SET NULL:那条 provider 被删 → 这张码退回默认,码本身照常用(见 owner_providers)。
+    provider_id               uuid          REFERENCES owner_providers(id) ON DELETE SET NULL,
     created_at                timestamptz   NOT NULL DEFAULT now()
 );
 
@@ -341,6 +364,11 @@ CREATE TABLE roles (
     -- 空证据的**非终点** waypoint 不当 steering ghost 提出(prompt 规则6从"写着不强制"变成真强制)。
     -- **终点/工具 waypoint(预约)不受影响,永远可提**(它们本就没语料证据)。per-role,code 可覆盖。
     require_ghost_evidence boolean NOT NULL DEFAULT false,
+    -- provider_id —— 这个 role 用哪个 provider。NULL = owner 默认。挂在码上的那个压过它。
+    provider_id  uuid          REFERENCES owner_providers(id) ON DELETE SET NULL,
+    -- gas_metered —— 这个 role 挂不挂油表。false(默认)= 一次 gas 查询都不发,跟今天完全同一条路;
+    -- true = 每轮先看它指向的那箱油(#7)。
+    gas_metered  boolean       NOT NULL DEFAULT false,
     created_at   timestamptz   NOT NULL DEFAULT now(),
     updated_at   timestamptz   NOT NULL DEFAULT now()
 );
@@ -912,6 +940,16 @@ CREATE TABLE inference_usage (
     model          text          NOT NULL,
     input_tokens   integer       NOT NULL,
     output_tokens  integer       NOT NULL,
+    -- cached_tokens —— prompt 里命中缓存的那部分(上游单独报的唯一一项细分)。
+    -- 上游给不出更细的了:eino 的 claude adapter 在到我们之前就把
+    -- input + cache_read + cache_creation 加成了一个数(claude.go:1046),
+    -- cache_creation 拿不回来。存我们真拿得到的,不假装有全分辨率。
+    cached_tokens  integer       NOT NULL DEFAULT 0,
+    -- provider_id —— 这一趟花的是哪箱油。NULL = 那条 provider 已被删(用量记录仍然是历史事实)。
+    provider_id    uuid          REFERENCES owner_providers(id) ON DELETE SET NULL,
+    -- metered —— 这一行算不算某箱油的账。**它决定这行会不会被 7 天清理带走**:
+    -- 看板只看 7 天,但油量是"从加油那次到现在"的累计,清掉旧行等于油自己长回来。
+    metered        boolean       NOT NULL DEFAULT false,
     created_at     timestamptz   NOT NULL DEFAULT now()
 );
 

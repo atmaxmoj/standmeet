@@ -100,6 +100,35 @@ export async function scriptMockError(
   return postScript(request, 'next_error', {});
 }
 
+/** What the gateway actually received for a turn carrying `tag` — the only way to
+ *  assert WHICH upstream configuration served it. `model` is the request's model
+ *  (give each provider row a distinct one); `auth_prefix` is the first 8 chars of
+ *  the credential (enough to tell two keys apart, not enough to be a leak);
+ *  `path` distinguishes providers configured on different base paths.
+ *
+ *  Looked up BY TAG, not "the last request": under parallel workers a global last
+ *  belongs to whoever ran most recently, and the resulting red looks like your
+ *  feature broke. `found` is false when no recorded request carried the tag. */
+export interface GatewayRequest {
+  path: string;
+  model: string;
+  auth_prefix: string;
+  stream: boolean;
+  found: boolean;
+}
+
+export async function lastGatewayRequest(
+  request: APIRequestContext, tag: string,
+): Promise<GatewayRequest> {
+  // The caller holds `[[s:KEY]]`; the recorder matches on substring, so the raw
+  // tag works as-is.
+  const res = await request.get(
+    `${GATEWAY}/__mock/inference/last_request?tag=${encodeURIComponent(tag.trim())}`,
+  );
+  if (res.status() !== 200) throw new Error(`last_request: ${res.status()}`);
+  return await res.json() as GatewayRequest;
+}
+
 /** Run one visitor turn through the backend agent loop, drain the response. Most
  *  calendar.book specs care about side effects (mock GCal events, tool-spec
  *  assembly) rather than exact reply text, so the drained-loop return shape

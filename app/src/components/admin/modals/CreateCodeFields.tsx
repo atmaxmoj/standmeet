@@ -5,6 +5,7 @@
 import { useTranslations } from 'next-intl';
 
 import { CodePromptPicker } from '@/components/admin/modals/CodePromptPicker';
+import { CodeProviderPicker } from '@/components/admin/modals/CodeProviderPicker';
 import { CodeRolePicker } from '@/components/admin/modals/CodeRolePicker';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
@@ -30,6 +31,7 @@ function NonQuotaSlot({ form, editing }: EditingProps) {
     <>
       <CodeRolePicker form={form} />
       <CodePromptPicker form={form} />
+      <CodeProviderPicker form={form} />
       <QuestionsField form={form} />
     </>
   );

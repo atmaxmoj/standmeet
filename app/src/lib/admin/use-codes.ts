@@ -31,6 +31,8 @@ export const CodeViewSchema = z.object({
   require_ghost_evidence: z.boolean().nullable().optional(),
   assumed_role_id: z.string(),
   prompt_id: z.string().nullable().optional(),
+  // provider_id —— 这张码指定的 provider;'' = 继承 role,再退 owner 默认。
+  provider_id: z.string().nullish().transform((v) => v ?? ''),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
@@ -44,6 +46,7 @@ export interface CreateCodeInput {
   max_bookings?: number | null;
   assumed_role_id?: string | null;
   prompt_id?: string | null;
+  provider_id?: string;
 }
 
 export interface QuotasInput {
@@ -123,6 +126,9 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     max_bookings: input.max_bookings ?? null,
     assumed_role_id: input.assumed_role_id ?? null,
     prompt_id: input.prompt_id ?? null,
+    // 空串 = 不指定(后端把空当"没给")。这里不发 null:那一列是 uuid 引用,
+    // 后端收的是 string 形态的 id。
+    provider_id: input.provider_id ?? '',
   };
 }
 

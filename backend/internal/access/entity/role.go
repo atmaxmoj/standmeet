@@ -23,14 +23,17 @@ import (
 
 // Role —— roles 行的领域值对象 + 关联的 corpus URIs / skill IDs / mcp server IDs。
 type Role struct {
-	createdAt    time.Time
-	updatedAt    time.Time
-	id           string
-	ownerID      string
-	name         string
-	description  string
-	greeting     string // 访客名字选择器看到的「这是什么」介绍(空=用默认)
-	promptID     string // 空 = 没挂 prompt（public 也是挂的，这里是真的 NULL 的情况）
+	createdAt   time.Time
+	updatedAt   time.Time
+	id          string
+	ownerID     string
+	name        string
+	description string
+	greeting    string // 访客名字选择器看到的「这是什么」介绍(空=用默认)
+	promptID    string // 空 = 没挂 prompt（public 也是挂的，这里是真的 NULL 的情况）
+	// providerID —— 这个 role 用 owner 本子里的哪一条 provider。空 = 用默认那条。
+	// 挂在码上的那条压过它(码是发出去的那张票,更具体)。
+	providerID   string
 	corpusURIs   []string
 	skillIDs     []string
 	mcpServerIDs []string
@@ -44,18 +47,22 @@ type Role struct {
 	// requireGhostEvidence —— F-A-10: 开则「内容型引导 ghost」只提有 evidence_refs 的 waypoint
 	// (空证据的非终点 waypoint 不当 steering ghost);终点/工具 waypoint 不受影响。code 可覆盖。
 	requireGhostEvidence bool
+	// gasMetered —— 这个 role 挂不挂油表。false(默认)= 一次 gas 查询都不发,跟今天完全同一条路。
+	gasMetered bool
 }
 
 // RoleInit —— 构造参数。
 type RoleInit struct {
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	PromptID     *string
-	ID           string
-	OwnerID      string
-	Name         string
-	Description  string
-	Greeting     string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	PromptID    *string
+	ID          string
+	OwnerID     string
+	Name        string
+	Description string
+	Greeting    string
+	// ProviderID —— 这个 role 用哪条 provider(空 = owner 默认)。
+	ProviderID   string
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
@@ -70,6 +77,8 @@ type RoleInit struct {
 	// 不属于任何一个能力。
 	// RequireGhostEvidence —— F-A-10 per-role 开关。
 	RequireGhostEvidence bool
+	// GasMetered —— 这个 role 挂不挂油表。
+	GasMetered bool
 }
 
 // NewRole —— 从 Init 构造。容器字段 defensive clone；nil → 空切片。
@@ -89,6 +98,8 @@ func NewRole(i *RoleInit) Role {
 		waypoints:            cloneWaypoints(i.Waypoints),
 		dockButtons:          cloneDockButtons(i.DockButtons),
 		requireGhostEvidence: i.RequireGhostEvidence,
+		providerID:           i.ProviderID,
+		gasMetered:           i.GasMetered,
 	}
 	if i.PromptID != nil {
 		r.promptID = *i.PromptID
@@ -153,6 +164,12 @@ func (r *Role) IsBuiltin() bool { return r.isBuiltin }
 // RequireGhostEvidence —— F-A-10: 是否要求内容型引导 ghost 有语料证据(空证据的非终点 waypoint
 // 不当 steering ghost)。per-role,session freeze 时可被 code 覆盖。
 func (r *Role) RequireGhostEvidence() bool { return r.requireGhostEvidence }
+
+// ProviderID —— 这个 role 指定的 provider(空 = owner 默认那条)。
+func (r *Role) ProviderID() string { return r.providerID }
+
+// GasMetered —— 这个 role 挂没挂油表。
+func (r *Role) GasMetered() bool { return r.gasMetered }
 
 // CreatedAt —— 创建时间。
 func (r *Role) CreatedAt() time.Time { return r.createdAt }

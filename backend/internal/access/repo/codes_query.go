@@ -85,6 +85,8 @@ func CodeFromRow(c *db.AccessCode) entity.Code {
 		AssumedRoleID:        pgstore.FormatUUID(c.AssumedRoleID),
 		PromptID:             pgstore.OptUUIDStr(c.PromptID),
 		InlinePrompt:         c.InlinePrompt,
+		// 空串 = 没指(那一列 NULL,或者指着的那条被删了 —— ON DELETE SET NULL)。
+		ProviderID: pgstore.UUIDStrOrEmpty(c.ProviderID),
 	}
 	if c.ExpiresAt.Valid {
 		t := c.ExpiresAt.Time

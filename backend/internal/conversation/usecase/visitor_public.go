@@ -89,6 +89,9 @@ func finalizePublicSession(
 		Mode:         mode,
 		Visitor:      access.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},
 		RoleSnapshot: &snapshot,
+		// 没有码,所以 public/byoai 就听 public role 的(它没指就是 owner 默认那条)。
+		ProviderID: snapshot.ProviderID(),
+		GasMetered: snapshot.GasMetered(),
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)

@@ -37,6 +37,7 @@ type Deps struct {
 	AllowedDomains owner.AllowedDomainsDeps
 	APIKeys        access.OpsAPIKeys
 	Conversations  conversation.OpsConversations
+	Providers      owner.OpsProviders
 	Prompts        owner.PromptsDeps
 	Settings       owner.SettingsDeps
 }
@@ -53,6 +54,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS)},
 		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},
 		{Name: "settings", Ops: owner.SettingsOps(d.Settings)},
+		{Name: "providers", Ops: owner.ProviderOps(d.Providers)},
 		{Name: "account", Ops: owner.AccountOps(d.Account)},
 		{Name: "custom_pages", Ops: owner.CustomPageOps(d.CustomPages)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},

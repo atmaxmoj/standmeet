@@ -6,6 +6,7 @@
     "systemPill": "[system]",
     "corpus": "corpus",
     "prompt": "prompt",
+    "provider": "provider",
     "saveCorpus": "save corpus",
     "noneDash": "— none —",
     "byHand": "or write them by hand:",
@@ -89,6 +90,7 @@
   "roleCreate": {
     "title": "new role",
     "promptNone": "(none)",
+    "providerDefault": "— instance default —",
     "corpusLabel": "corpus uris · one per line",
     "noneConfigured": "none configured yet"
   },

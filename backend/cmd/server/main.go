@@ -221,9 +221,9 @@ type ownerLookupAdapter struct {
 }
 
 func (a *ownerLookupAdapter) LookupForResolver(
-	ctx context.Context, ownerID string,
+	ctx context.Context, ownerID, providerID string,
 ) (inference.OwnerKeyView, error) {
-	view, err := a.repo.GetAIProviderView(ctx, ownerID)
+	view, err := a.repo.ProviderViewByID(ctx, ownerID, providerID)
 	if err != nil {
 		return inference.OwnerKeyView{}, fmt.Errorf("owner lookup adapter: %w", err)
 	}

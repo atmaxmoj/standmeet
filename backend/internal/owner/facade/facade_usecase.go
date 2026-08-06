@@ -5,6 +5,7 @@ import "github.com/atmaxmoj/standmeet/internal/owner/usecase"
 // 类型（实现:usecase）.
 type (
 	AIProviderDeps             = usecase.AIProviderDeps
+	ProvidersUseDeps           = usecase.ProvidersDeps
 	AccountDeps                = usecase.AccountDeps
 	AllowedDomainsDeps         = usecase.AllowedDomainsDeps
 	ApproveRequestDeps         = usecase.ApproveRequestDeps

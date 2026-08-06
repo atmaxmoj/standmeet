@@ -15,6 +15,7 @@ type (
 	OpsPage           = ops.PageOpsDeps
 	OpsSEO            = ops.SEODeps
 	SettingsDeps      = ops.SettingsDeps
+	OpsProviders      = ops.ProvidersDeps
 )
 
 // 操作组（实现:ops）.
@@ -30,4 +31,5 @@ var (
 	PromptOps     = ops.Prompts
 	SEOOps        = ops.SEO
 	SettingsOps   = ops.Settings
+	ProviderOps   = ops.Providers
 )

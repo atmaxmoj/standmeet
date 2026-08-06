@@ -41,7 +41,18 @@ type CreateCodeInput struct {
 	Purpose            string
 	AssumedRoleID      string
 	InlinePrompt       string
-	Ghosts             []string
+	// ProviderID —— 这张码指定的 provider(空 = 继承 role,再默认)。
+	ProviderID string
+	Ghosts     []string
+}
+
+// optStr —— 空串 → nil(ParseOptionalUUID 的"没给"形态);非空 → 指针。
+// 可选外键在本域是空串,在 sqlc 那侧是 NULL,这一行就是那道翻译。
+func optStr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // Create 写一条 access_code。
@@ -101,28 +112,49 @@ func accessInputToCreate(in *entity.CreateAccessCodeInput) *CreateCodeInput {
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
 		PromptID:           in.PromptID,
 		InlinePrompt:       in.InlinePrompt,
+		ProviderID:         in.ProviderID,
 	}
 }
 
+// codeCreateIDs —— 建码要解的四个 id(两个必填、两个可选)。单拎出来是为了让
+// buildCreateCodeParams 只剩"拼参数"这一件事。
+type codeCreateIDs struct {
+	owner    pgtype.UUID
+	role     pgtype.UUID
+	prompt   pgtype.UUID
+	provider pgtype.UUID
+}
+
+func parseCodeCreateIDs(in *CreateCodeInput) (codeCreateIDs, error) {
+	var out codeCreateIDs
+	var err error
+	if out.owner, err = pgstore.ParseUUID(in.OwnerID); err != nil {
+		return out, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	if out.role, err = pgstore.ParseUUID(in.AssumedRoleID); err != nil {
+		return out, fmt.Errorf("parse assumed_role_id: %w", err)
+	}
+	if out.prompt, err = pgstore.ParseOptionalUUID(in.PromptID); err != nil {
+		return out, fmt.Errorf("parse prompt_id: %w", err)
+	}
+	if out.provider, err = pgstore.ParseOptionalUUID(optStr(in.ProviderID)); err != nil {
+		return out, fmt.Errorf("parse provider_id: %w", err)
+	}
+	return out, nil
+}
+
 func buildCreateCodeParams(in *CreateCodeInput) (*db.CreateAccessCodeParams, error) {
-	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
+	ids, err := parseCodeCreateIDs(in)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
-	}
-	roleUUID, rerr := pgstore.ParseUUID(in.AssumedRoleID)
-	if rerr != nil {
-		return nil, fmt.Errorf("parse assumed_role_id: %w", rerr)
-	}
-	promptUUID, perr := pgstore.ParseOptionalUUID(in.PromptID)
-	if perr != nil {
-		return nil, fmt.Errorf("parse prompt_id: %w", perr)
+		return nil, err
 	}
 	qs, jerr := json.Marshal(in.Ghosts)
 	if jerr != nil {
 		return nil, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
 	return &db.CreateAccessCodeParams{
-		OwnerID:            ownerUUID,
+		ProviderID:         ids.provider,
+		OwnerID:            ids.owner,
 		Code:               in.Code,
 		Label:              in.Label,
 		Purpose:            in.Purpose,
@@ -130,8 +162,8 @@ func buildCreateCodeParams(in *CreateCodeInput) (*db.CreateAccessCodeParams, err
 		ExpiresAt:          ptrToTimestamptz(in.ExpiresAt),
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
-		AssumedRoleID:      roleUUID,
-		PromptID:           promptUUID,
+		AssumedRoleID:      ids.role,
+		PromptID:           ids.prompt,
 		InlinePrompt:       in.InlinePrompt,
 	}, nil
 }

@@ -35,6 +35,9 @@ type CreateRoleInput struct {
 	Name        string
 	Description string
 	Greeting    string
+	// ProviderID —— 空 = 没指(用 owner 默认那条)。gas_metered 建的时候一律 false,
+	// 挂表是建完之后的事(update 那条收它)。
+	ProviderID  string
 	DockButtons []entity.DockButtonConfig
 }
 
@@ -65,10 +68,14 @@ func buildCreateRoleParams(in *CreateRoleInput) (db.CreateRoleParams, error) {
 	if derr != nil {
 		return db.CreateRoleParams{}, derr
 	}
+	providerUUID, pverr := pgstore.ParseOptionalUUID(optStr(in.ProviderID))
+	if pverr != nil {
+		return db.CreateRoleParams{}, fmt.Errorf("parse provider id: %w", pverr)
+	}
 	return db.CreateRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description,
 		Greeting: in.Greeting, PromptID: promptUUID,
-		DockButtons: dock,
+		DockButtons: dock, ProviderID: providerUUID,
 	}, nil
 }
 
@@ -175,41 +182,61 @@ func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (entity.
 
 // UpdateRoleInput —— Update 入参。
 type UpdateRoleInput struct {
-	PromptID             *string
-	OwnerID              string
-	RoleID               string
-	Name                 string
-	Description          string
-	Greeting             string
+	PromptID    *string
+	OwnerID     string
+	RoleID      string
+	Name        string
+	Description string
+	Greeting    string
+	// ProviderID —— 空 = 没指(那一列 NULL)。
+	ProviderID           string
 	DockButtons          []entity.DockButtonConfig
 	RequireGhostEvidence bool
+	// GasMetered —— 挂不挂油表。
+	GasMetered bool
 }
 
 // Update 改 role 主表行（不动 join 表；caller 用 SetCorpusURIs / SetSkills /
 // SetMCPServers 同步 join 表）。builtin rename 由 usecase 拦。
 func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (entity.Role, error) {
-	args, perr := parseRoleIDArgs(in.OwnerID, in.RoleID)
+	params, perr := buildUpdateRoleParams(in)
 	if perr != nil {
 		return entity.Role{}, perr
 	}
-	promptUUID, puerr := pgstore.ParseOptionalUUID(in.PromptID)
-	if puerr != nil {
-		return entity.Role{}, fmt.Errorf("parse prompt id: %w", puerr)
-	}
-	dock, derr := marshalDockButtons(in.DockButtons)
-	if derr != nil {
-		return entity.Role{}, derr
-	}
-	row, err := db.New(r.pool).UpdateRole(ctx, db.UpdateRoleParams{
-		ID: args.roleUUID, OwnerID: args.ownerUUID,
-		Name: in.Name, Description: in.Description, Greeting: in.Greeting, PromptID: promptUUID,
-		DockButtons:          dock,
-		RequireGhostEvidence: in.RequireGhostEvidence,
-	})
+	row, err := db.New(r.pool).UpdateRole(ctx, params)
 	if err != nil {
 		return entity.Role{}, mapRoleUpdateErr(err)
 	}
 	return toDomainRoleBare(&row), nil
+}
+
+// buildUpdateRoleParams —— 解四样(两个 id、prompt、provider)+ 序列化 dock,
+// 让 Update 只剩"发这条 SQL"。跟 buildCreateRoleParams 对称。
+func buildUpdateRoleParams(in *UpdateRoleInput) (db.UpdateRoleParams, error) {
+	args, perr := parseRoleIDArgs(in.OwnerID, in.RoleID)
+	if perr != nil {
+		return db.UpdateRoleParams{}, perr
+	}
+	promptUUID, puerr := pgstore.ParseOptionalUUID(in.PromptID)
+	if puerr != nil {
+		return db.UpdateRoleParams{}, fmt.Errorf("parse prompt id: %w", puerr)
+	}
+	providerUUID, pverr := pgstore.ParseOptionalUUID(optStr(in.ProviderID))
+	if pverr != nil {
+		return db.UpdateRoleParams{}, fmt.Errorf("parse provider id: %w", pverr)
+	}
+	dock, derr := marshalDockButtons(in.DockButtons)
+	if derr != nil {
+		return db.UpdateRoleParams{}, derr
+	}
+	return db.UpdateRoleParams{
+		ID: args.roleUUID, OwnerID: args.ownerUUID,
+		Name: in.Name, Description: in.Description, Greeting: in.Greeting, PromptID: promptUUID,
+		DockButtons:          dock,
+		RequireGhostEvidence: in.RequireGhostEvidence,
+		ProviderID:           providerUUID,
+		GasMetered:           in.GasMetered,
+	}, nil
 }
 
 // 这里以前有 NotifiesOwnerOnBooking —— 约成时实时读 role 的通知开关。**零调用方**:
@@ -303,6 +330,9 @@ func toDomainRole(j *roleJoins) entity.Role {
 		Waypoints:            j.waypoints,
 		DockButtons:          decodeDockButtons(row.DockButtons),
 		RequireGhostEvidence: row.RequireGhostEvidence,
-		CreatedAt:            row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
+		// 空串 = 没指(NULL,或者指着的那条被删了 —— ON DELETE SET NULL)。
+		ProviderID: pgstore.UUIDStrOrEmpty(row.ProviderID),
+		GasMetered: row.GasMetered,
+		CreatedAt:  row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	})
 }

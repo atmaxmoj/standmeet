@@ -111,7 +111,9 @@ var (
 			"prompt_id":{"type":"string","description":"Per-code prompt override."},
 			"max_members":{"type":"integer","description":"How many visitors may claim it."},
 			"max_turns_per_session":{"type":"integer","description":"Turn cap per session."},
-			"expires_at":{"type":"string","description":"RFC3339 expiry; empty = never."}
+			"expires_at":{"type":"string","description":"RFC3339 expiry; empty = never."},
+			"provider_id":{"type":"string",
+				"description":"Inference provider. Omit to inherit the role's, then the default."}
 		},
 		"required":[]
 	}`)
@@ -144,24 +146,28 @@ var (
 // require_ghost_evidence 和 prompt_id 也在:归一化前 MCP 那份少了这两个,
 // owner 从 Claude Code 看不出这张码有没有强制引用证据。
 type codeRow struct {
-	ExpiresAt            *string  `json:"expires_at,omitempty"`
-	MaxMembers           *int32   `json:"max_members,omitempty"`
-	MaxTurnsPerSession   *int32   `json:"max_turns_per_session,omitempty"`
-	RequireGhostEvidence *bool    `json:"require_ghost_evidence"`
-	PromptID             *string  `json:"prompt_id,omitempty"`
-	CreatedAt            string   `json:"created_at"`
-	ID                   string   `json:"id"`
-	Code                 string   `json:"code"`
-	Label                string   `json:"label"`
-	Status               string   `json:"status"`
-	AssumedRoleID        string   `json:"assumed_role_id"`
-	Ghosts               []string `json:"ghosts"`
+	ExpiresAt            *string `json:"expires_at,omitempty"`
+	MaxMembers           *int32  `json:"max_members,omitempty"`
+	MaxTurnsPerSession   *int32  `json:"max_turns_per_session,omitempty"`
+	RequireGhostEvidence *bool   `json:"require_ghost_evidence"`
+	PromptID             *string `json:"prompt_id,omitempty"`
+	CreatedAt            string  `json:"created_at"`
+	ID                   string  `json:"id"`
+	Code                 string  `json:"code"`
+	Label                string  `json:"label"`
+	Status               string  `json:"status"`
+	AssumedRoleID        string  `json:"assumed_role_id"`
+	// ProviderID —— 空 = 这张码没指定,继承 role 再退默认。**出站必须带上**:
+	// owner 能写却看不见的字段,面板下次打开就只能猜。
+	ProviderID string   `json:"provider_id"`
+	Ghosts     []string `json:"ghosts"`
 }
 
 func toCodeRow(c *entity.Code) codeRow {
 	return codeRow{
 		ID: c.ID, Code: c.Code, Label: c.Label, Status: c.Status,
-		AssumedRoleID: c.AssumedRoleID, Ghosts: nonNilStrings(c.Ghosts),
+		AssumedRoleID: c.AssumedRoleID, ProviderID: c.ProviderID,
+		Ghosts:     nonNilStrings(c.Ghosts),
 		MaxMembers: c.MaxMembers, MaxTurnsPerSession: c.MaxTurnsPerSession,
 		RequireGhostEvidence: c.RequireGhostEvidence, PromptID: c.PromptID,
 		CreatedAt: c.CreatedAt.UTC().Format(time.RFC3339),

@@ -32,12 +32,14 @@ type RolesDeps struct {
 // RoleWriteInput —— Create / Update 共用的入参形态。Update 时 RoleID 必填，
 // Create 时 RoleID 空。
 type RoleWriteInput struct {
-	PromptID     *string // 0..1；nil = 不挂 prompt
-	OwnerID      string
-	RoleID       string // Update 才填
-	Name         string
-	Description  string
-	Greeting     string
+	PromptID    *string // 0..1；nil = 不挂 prompt
+	OwnerID     string
+	RoleID      string // Update 才填
+	Name        string
+	Description string
+	Greeting    string
+	// ProviderID —— 这个 role 用哪条 provider(空 = owner 默认)。码上那条压过它。
+	ProviderID   string
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
@@ -49,6 +51,8 @@ type RoleWriteInput struct {
 	ValidCapabilityIDs []string
 	// RequireGhostEvidence —— F-A-10 per-role 开关。
 	RequireGhostEvidence bool
+	// GasMetered —— 挂不挂油表。false = 一次 gas 查询都不发。
+	GasMetered bool
 }
 
 // CreateRole 新建 role + 同步三组 join 表。
@@ -89,7 +93,7 @@ func createRoleRow(
 	role, err := deps.Roles.Create(ctx, &repo.CreateRoleInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
-		DockButtons: in.DockButtons,
+		DockButtons: in.DockButtons, ProviderID: in.ProviderID,
 	})
 	if err != nil {
 		if errors.Is(err, entity.ErrRoleNameTaken) {
@@ -177,6 +181,8 @@ func updateRoleRow(
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		DockButtons:          in.DockButtons,
 		RequireGhostEvidence: in.RequireGhostEvidence,
+		ProviderID:           in.ProviderID,
+		GasMetered:           in.GasMetered,
 	})
 	if err != nil {
 		return entity.Role{}, fmt.Errorf("update role: %w", err)

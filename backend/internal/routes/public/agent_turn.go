@@ -312,6 +312,8 @@ func resolveAgentTurnCred(
 	byoai := pickAgentTurnBYOAICred(h, auth, r)
 	return h.Resolver.Resolve(r.Context(), &inference.ResolveInput{
 		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, Visitor: byoai,
+		// 这一场用本子里的哪一条 —— 发会话时按"码 > role > 默认"定好冻进去的。
+		ProviderID: auth.Data.ProviderID,
 	})
 }
 

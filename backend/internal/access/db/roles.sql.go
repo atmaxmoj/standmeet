@@ -139,9 +139,9 @@ func (q *Queries) CountActiveCodesForRole(ctx context.Context, assumedRoleID pgt
 
 const createRole = `-- name: CreateRole :one
 
-INSERT INTO roles (owner_id, name, description, greeting, prompt_id, dock_buttons)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, created_at, updated_at
+INSERT INTO roles (owner_id, name, description, greeting, prompt_id, dock_buttons, provider_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at
 `
 
 type CreateRoleParams struct {
@@ -151,6 +151,7 @@ type CreateRoleParams struct {
 	Greeting    string
 	PromptID    pgtype.UUID
 	DockButtons []byte
+	ProviderID  pgtype.UUID
 }
 
 // roles —— owner-scoped visitor 身份原型。语义见 schema.sql + [[iam-role-pivot-plan]]。
@@ -165,6 +166,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		arg.Greeting,
 		arg.PromptID,
 		arg.DockButtons,
+		arg.ProviderID,
 	)
 	var i Role
 	err := row.Scan(
@@ -177,6 +179,8 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		&i.IsBuiltin,
 		&i.DockButtons,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.GasMetered,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -203,7 +207,7 @@ func (q *Queries) DeleteRole(ctx context.Context, arg DeleteRoleParams) error {
 }
 
 const getRoleByID = `-- name: GetRoleByID :one
-SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, created_at, updated_at FROM roles WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at FROM roles WHERE id = $1 AND owner_id = $2
 `
 
 type GetRoleByIDParams struct {
@@ -224,6 +228,8 @@ func (q *Queries) GetRoleByID(ctx context.Context, arg GetRoleByIDParams) (Role,
 		&i.IsBuiltin,
 		&i.DockButtons,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.GasMetered,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -231,7 +237,7 @@ func (q *Queries) GetRoleByID(ctx context.Context, arg GetRoleByIDParams) (Role,
 }
 
 const getRoleByName = `-- name: GetRoleByName :one
-SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, created_at, updated_at FROM roles WHERE owner_id = $1 AND name = $2
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at FROM roles WHERE owner_id = $1 AND name = $2
 `
 
 type GetRoleByNameParams struct {
@@ -252,6 +258,8 @@ func (q *Queries) GetRoleByName(ctx context.Context, arg GetRoleByNameParams) (R
 		&i.IsBuiltin,
 		&i.DockButtons,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.GasMetered,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -370,7 +378,7 @@ func (q *Queries) ListRoleWaypoints(ctx context.Context, roleID pgtype.UUID) ([]
 }
 
 const listRolesByOwner = `-- name: ListRolesByOwner :many
-SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, created_at, updated_at FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
 `
 
 func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Role, error) {
@@ -392,6 +400,8 @@ func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 			&i.IsBuiltin,
 			&i.DockButtons,
 			&i.RequireGhostEvidence,
+			&i.ProviderID,
+			&i.GasMetered,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -408,9 +418,10 @@ func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 const updateRole = `-- name: UpdateRole :one
 UPDATE roles
 SET name = $3, description = $4, greeting = $5, prompt_id = $6,
-    dock_buttons = $7, require_ghost_evidence = $8, updated_at = now()
+    dock_buttons = $7, require_ghost_evidence = $8,
+    provider_id = $9, gas_metered = $10, updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, created_at, updated_at
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at
 `
 
 type UpdateRoleParams struct {
@@ -422,6 +433,8 @@ type UpdateRoleParams struct {
 	PromptID             pgtype.UUID
 	DockButtons          []byte
 	RequireGhostEvidence bool
+	ProviderID           pgtype.UUID
+	GasMetered           bool
 }
 
 func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error) {
@@ -434,6 +447,8 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		arg.PromptID,
 		arg.DockButtons,
 		arg.RequireGhostEvidence,
+		arg.ProviderID,
+		arg.GasMetered,
 	)
 	var i Role
 	err := row.Scan(
@@ -446,6 +461,8 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		&i.IsBuiltin,
 		&i.DockButtons,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.GasMetered,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -459,7 +476,7 @@ ON CONFLICT (owner_id, name) DO UPDATE SET
     description = EXCLUDED.description,
     prompt_id   = EXCLUDED.prompt_id,
     updated_at  = now()
-RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, created_at, updated_at
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at
 `
 
 type UpsertBuiltinRoleParams struct {
@@ -488,6 +505,8 @@ func (q *Queries) UpsertBuiltinRole(ctx context.Context, arg UpsertBuiltinRolePa
 		&i.IsBuiltin,
 		&i.DockButtons,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.GasMetered,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

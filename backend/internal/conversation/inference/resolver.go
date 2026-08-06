@@ -45,6 +45,9 @@ type ResolveInput struct {
 	Visitor *VisitorCred
 	OwnerID string
 	Mode    string
+	// ProviderID —— 这场会话用 owner 本子里的**哪一条**。空 = 默认那条。
+	// 发会话时就定好冻进 session 了(码 > role > 默认);这里只是照着取。
+	ProviderID string
 }
 
 // OwnerKeyResolver —— Resolver impl:读 owner 行,拿到一份已经开好的凭据。
@@ -64,7 +67,7 @@ func (r *OwnerKeyResolver) Resolve(
 			Endpoint: in.Visitor.Endpoint, Model: in.Visitor.Model, Untrusted: true,
 		})
 	}
-	cred, err := r.loadOwnerCred(ctx, in.OwnerID)
+	cred, err := r.loadOwnerCred(ctx, in.OwnerID, in.ProviderID)
 	if err != nil {
 		return nil, err
 	}
@@ -75,9 +78,9 @@ func (r *OwnerKeyResolver) Resolve(
 }
 
 func (r *OwnerKeyResolver) loadOwnerCred(
-	ctx context.Context, ownerID string,
+	ctx context.Context, ownerID, providerID string,
 ) (ownerCred, error) {
-	view, err := r.Lookup.LookupForResolver(ctx, ownerID)
+	view, err := r.Lookup.LookupForResolver(ctx, ownerID, providerID)
 	if err != nil {
 		return ownerCred{}, fmt.Errorf("resolve owner provider: %w", err)
 	}

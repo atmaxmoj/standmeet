@@ -27,14 +27,9 @@ SET byoai_enabled = $2,
 WHERE id = $1
 RETURNING *;
 
--- name: UpdateOwnerAIProvider :one
-UPDATE owners
-SET ai_provider = $2,
-    ai_provider_key_enc = $3,
-    ai_endpoint = $4,
-    ai_model = $5
-WHERE id = $1
-RETURNING *;
+-- UpdateOwnerAIProvider was deleted with the four ai_* columns: an owner holds a *book* of
+-- providers now (owner_providers.sql), one of them marked default. Writing "the owner's provider"
+-- is writing one row of that book.
 
 -- name: UpdateOwnerPublicURL :one
 UPDATE owners

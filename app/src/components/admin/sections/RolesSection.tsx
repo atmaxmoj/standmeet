@@ -13,6 +13,7 @@ import { RoleCreateModal } from '@/components/admin/sections/roles/RoleCreateMod
 import { RoleCorpusConfig } from '@/components/admin/sections/roles/RoleCorpusConfig';
 import { RoleDescriptionConfig } from '@/components/admin/sections/roles/RoleDescriptionConfig';
 import { RoleDockConfig } from '@/components/admin/sections/roles/RoleDockConfig';
+import { RoleProviderConfig } from '@/components/admin/sections/roles/RoleProviderConfig';
 import { RoleGhostConfig } from '@/components/admin/sections/roles/RoleGhostConfig';
 import { RoleWaypointsConfig } from '@/components/admin/sections/roles/RoleWaypointsConfig';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
@@ -135,6 +136,7 @@ function RoleCard({
       <RoleDescriptionConfig role={role} />
       <RoleMetaGrid role={role} />
       <RolePromptRow role={role} />
+      <RoleProviderConfig role={role} />
       <RoleCorpusConfig role={role} />
       <RoleDockConfig role={role} />
       <RoleWaypointsConfig role={role} />

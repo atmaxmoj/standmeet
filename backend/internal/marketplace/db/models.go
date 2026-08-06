@@ -20,6 +20,7 @@ type AccessCode struct {
 	MaxTurnsPerSession   *int32
 	MaxMembers           *int32
 	RequireGhostEvidence *bool
+	ProviderID           pgtype.UUID
 	CreatedAt            pgtype.Timestamptz
 	AssumedRoleID        pgtype.UUID
 	PromptID             pgtype.UUID
@@ -249,6 +250,9 @@ type InferenceUsage struct {
 	Model        string
 	InputTokens  int32
 	OutputTokens int32
+	CachedTokens int32
+	ProviderID   pgtype.UUID
+	Metered      bool
 	CreatedAt    pgtype.Timestamptz
 }
 
@@ -330,10 +334,6 @@ type Owner struct {
 	ByoaiEnabled      bool
 	ByoaiProviders    []byte
 	ByoaiPublicBlurb  string
-	AiProvider        string
-	AiProviderKeyEnc  []byte
-	AiEndpoint        string
-	AiModel           string
 	PasswordResetHash []byte
 	PasswordResetAt   pgtype.Timestamptz
 	ProfileTimezone   string
@@ -370,6 +370,19 @@ type OwnerKeypair struct {
 	Label        string
 	LastUsedAt   pgtype.Timestamptz
 	CreatedAt    pgtype.Timestamptz
+}
+
+type OwnerProvider struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Label     string
+	Provider  string
+	KeyEnc    []byte
+	Endpoint  string
+	Model     string
+	IsDefault bool
+	GasTokens *int64
+	CreatedAt pgtype.Timestamptz
 }
 
 type PageContent struct {
@@ -414,6 +427,8 @@ type Role struct {
 	IsBuiltin            bool
 	DockButtons          []byte
 	RequireGhostEvidence bool
+	ProviderID           pgtype.UUID
+	GasMetered           bool
 	CreatedAt            pgtype.Timestamptz
 	UpdatedAt            pgtype.Timestamptz
 }

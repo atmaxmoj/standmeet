@@ -37,7 +37,10 @@ type Code struct {
 	// InlinePrompt —— #104 扩展：随码内联的 per-code prompt。非空时冻进 RoleSnapshot.code_prompt_body
 	// （优先于 PromptID 库引用）。发码方（如 job-loop）随码带一段 persona 上下文用，不污染 prompt 库。
 	InlinePrompt string
-	Ghosts       []string
+	// ProviderID —— 这张码指定的 provider(空 = 继承 role,再默认)。**码压过 role**:
+	// 码是发出去的那张票,是更具体的声明。
+	ProviderID string
+	Ghosts     []string
 }
 
 // CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +
@@ -54,7 +57,9 @@ type CreateAccessCodeInput struct {
 	Purpose            string
 	AssumedRoleID      string
 	InlinePrompt       string
-	Ghosts             []string
+	// ProviderID —— 这张码指定的 provider(空 = 继承 role,再默认)。
+	ProviderID string
+	Ghosts     []string
 }
 
 // CodeMember —— 一个 access code 下的一个具名访客（Code 聚合子实体）。

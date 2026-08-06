@@ -23,8 +23,14 @@ type OwnerKeyView struct {
 }
 
 // OwnerLookup —— resolver 注入的窄接口，避免 import postgres。
+//
+// providerID —— 这一场会话要用**哪一条** provider(owner 手上是一本,不是一份)。空 = 用默认。
+// 谁压过谁(码 > role > 默认)在发会话时就评估完了、冻进 session —— 内核只知道"用这一条",
+// 不知道它是从码上还是 role 上来的,更不知道有"码"这么个东西。
 type OwnerLookup interface {
-	LookupForResolver(ctx context.Context, ownerID string) (OwnerKeyView, error)
+	LookupForResolver(
+		ctx context.Context, ownerID, providerID string,
+	) (OwnerKeyView, error)
 }
 
 // 这里以前有一个 `KeyDecrypter func(ownerID string, enc []byte) ([]byte, error)` ——

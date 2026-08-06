@@ -57,6 +57,11 @@ type VisitorSessionData struct {
 	Mode         string               `json:"mode"`
 	CodeID       string               `json:"code_id"`
 	MemberID     string               `json:"member_id"`
+	// ProviderID —— 这场会话用 owner 本子里的哪一条 provider。空 = 默认那条。
+	// **发会话时解析一次就冻住**(码 > role > 默认),跟 RoleSnapshot 同一个模型:
+	// 会话中途 owner 改了配置,这一场按他进来那一刻的算。
+	// (指着的那条后来被删了 → 取的时候退默认,那是 provider 本子自己的规矩。)
+	ProviderID string `json:"provider_id,omitempty"`
 	// Visitor —— 访客自述身份(name + 可选 email)。挂 session(visitor 身份),
 	// 不挂 chat。booker 拿 Email 当 visitor_email 兜底。
 	Visitor entity.VisitorProfile `json:"visitor"`
@@ -64,6 +69,8 @@ type VisitorSessionData struct {
 	// (引用命中 evidence_refs / booking 命中 terminal → 加入)。ghost policy 只推未访问的;
 	// 全到 = destination reached。机械标记,无 LLM 判官(α≈0)。
 	VisitedWaypoints []string `json:"visited_waypoints,omitempty"`
+	// GasMetered —— 这场会话挂不挂油表(role 上的开关,同样冻住)。false = 一次 gas 查询都不发。
+	GasMetered bool `json:"gas_metered,omitempty"`
 }
 
 // VisitorSessionStore wrap Redis 提供 visitor session CRUD。

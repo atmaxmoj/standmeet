@@ -34,6 +34,8 @@ export const RoleViewSchema = z.object({
   description: z.string(),
   greeting: z.string(),
   prompt_id: z.string().nullable().optional(),
+  // provider_id —— 这个 role 走哪条 provider;'' = owner 默认那条。挂在码上的那条压过它。
+  provider_id: z.string().nullish().transform((v) => v ?? ''),
   corpus_uris: z.array(z.string()),
   skill_ids: z.array(z.string()),
   mcp_server_ids: z.array(z.string()),
@@ -54,6 +56,8 @@ export interface WriteRoleInput {
   description: string;
   greeting: string;
   prompt_id: string | null;
+  // provider_id —— '' = 不指定,走 owner 默认那条。
+  provider_id: string;
   corpus_uris: string[];
   skill_ids: string[];
   mcp_server_ids: string[];
@@ -74,6 +78,7 @@ export function roleUpdatePayload(
     description: role.description,
     greeting: role.greeting,
     prompt_id: role.prompt_id ?? null,
+    provider_id: role.provider_id,
     corpus_uris: role.corpus_uris,
     skill_ids: role.skill_ids,
     mcp_server_ids: role.mcp_server_ids,

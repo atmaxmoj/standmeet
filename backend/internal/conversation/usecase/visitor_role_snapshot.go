@@ -196,6 +196,9 @@ func buildRoleSnapshotByID(
 		MCPServerIDs: role.MCPServerIDs(),
 		// #109/#110: 冻下 role 的 ≤2 个 dock 按钮配置；session payload 层解析 title + 过滤 code-deny。
 		DockButtons: role.DockButtons(),
+		// role 说自己用哪条 provider、挂不挂油表。码上那条压过前者,压制在会话装配层做。
+		ProviderID: role.ProviderID(),
+		GasMetered: role.GasMetered(),
 		// ghost-steering: 冻 waypoints。先按 waypoint_id 把 code 的覆盖层叠在 role 之上
 		// （role = 这个受众的目的地，code = 这一次邀约的），**再**按 role 授权 glob 过滤
 		// （feasibility floor）—— 顺序要紧：过滤在合并之后，code 才不能借覆盖把 role 看不到的

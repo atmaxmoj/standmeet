@@ -92,7 +92,10 @@
     "cancel": "cancel",
     "addQuestion": "＋ add",
     "promptNone": "— none —",
-    "roleDefault": "— default —"
+    "roleDefault": "— default —",
+    "providerTitle": "provider",
+    "providerSubtitle": "beats the role's; blank inherits it",
+    "providerInherit": "— inherit (role, then instance default) —"
   },
   "codeQr": {
     "copyLink": "copy link",

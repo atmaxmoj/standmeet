@@ -21,13 +21,15 @@ export interface CodeFormState {
   assumedRoleID: string;
   // promptID —— #104 per-code prompt；'' = 不挂（persona 只有 role 那份）。引 prompts 库。
   promptID: string;
+  // providerID —— 这张码走哪条 provider；'' = 继承 role，再退 owner 默认。
+  providerID: string;
 }
 
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
   suggested: ['', ''],
   maxMembers: '', maxTurns: '', maxBookings: '',
-  assumedRoleID: '', promptID: '',
+  assumedRoleID: '', promptID: '', providerID: '',
 };
 
 export interface CodeFormHook {
@@ -40,6 +42,7 @@ export interface CodeFormHook {
   setMaxBookings: (v: string) => void;
   setAssumedRoleID: (v: string) => void;
   setPromptID: (v: string) => void;
+  setProviderID: (v: string) => void;
   updateQ: (i: number, v: string) => void;
   addQ: () => void;
   removeQ: (i: number) => void;
@@ -68,6 +71,9 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const setPromptID = useCallback(
     (promptID: string) => setValues((v) => ({ ...v, promptID })), [],
   );
+  const setProviderID = useCallback(
+    (providerID: string) => setValues((v) => ({ ...v, providerID })), [],
+  );
 
   const updateQ = useCallback((i: number, txt: string) => {
     setValues((v) => ({ ...v, suggested: v.suggested.map((q, j) => j === i ? txt : q) }));
@@ -83,7 +89,7 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
 
   return {
     values, setCode, setLabel, setPurpose, setMaxMembers, setMaxTurns,
-    setMaxBookings, setAssumedRoleID, setPromptID,
+    setMaxBookings, setAssumedRoleID, setPromptID, setProviderID,
     updateQ, addQ, removeQ, reset, toInput,
   };
 }
@@ -101,6 +107,7 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     maxBookings:   numOrEmpty(initial?.max_bookings),
     assumedRoleID: initial?.assumed_role_id ?? '',
     promptID:      initial?.prompt_id ?? '',
+    providerID:    initial?.provider_id ?? '',
   };
 }
 
@@ -119,6 +126,7 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     max_bookings: parseQuota(v.maxBookings),
     assumed_role_id: v.assumedRoleID === '' ? null : v.assumedRoleID,
     prompt_id: v.promptID === '' ? null : v.promptID,
+    provider_id: v.providerID,
   };
 }
 

@@ -89,10 +89,10 @@ const createAccessCode = `-- name: CreateAccessCode :one
 INSERT INTO access_codes (
     owner_id, code, label, purpose, ghosts,
     expires_at, max_turns_per_session,
-    assumed_role_id, max_members, prompt_id, inline_prompt
+    assumed_role_id, max_members, prompt_id, inline_prompt, provider_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, created_at, assumed_role_id, prompt_id, inline_prompt
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type CreateAccessCodeParams struct {
@@ -107,6 +107,7 @@ type CreateAccessCodeParams struct {
 	MaxMembers         *int32
 	PromptID           pgtype.UUID
 	InlinePrompt       string
+	ProviderID         pgtype.UUID
 }
 
 // A.3-IAM-5：每张码必挂 assumed_role_id。corpus_permissions / granted_skills
@@ -124,6 +125,7 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		arg.MaxMembers,
 		arg.PromptID,
 		arg.InlinePrompt,
+		arg.ProviderID,
 	)
 	var i AccessCode
 	err := row.Scan(
@@ -138,6 +140,7 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -179,7 +182,7 @@ func (q *Queries) CreateCodeMember(ctx context.Context, arg CreateCodeMemberPara
 }
 
 const getAccessCode = `-- name: GetAccessCode :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
 `
 
 func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, error) {
@@ -197,6 +200,7 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -206,7 +210,7 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 }
 
 const getAccessCodeByID = `-- name: GetAccessCodeByID :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE id = $1
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE id = $1
 `
 
 func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (AccessCode, error) {
@@ -224,6 +228,7 @@ func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (Access
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -314,7 +319,7 @@ func (q *Queries) GetOrCreateCodeMember(ctx context.Context, arg GetOrCreateCode
 }
 
 const listAccessCodesByOwner = `-- name: ListAccessCodesByOwner :many
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]AccessCode, error) {
@@ -338,6 +343,7 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 			&i.MaxTurnsPerSession,
 			&i.MaxMembers,
 			&i.RequireGhostEvidence,
+			&i.ProviderID,
 			&i.CreatedAt,
 			&i.AssumedRoleID,
 			&i.PromptID,
@@ -453,7 +459,7 @@ const setAccessCodeGhostEvidence = `-- name: SetAccessCodeGhostEvidence :one
 UPDATE access_codes
 SET require_ghost_evidence = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type SetAccessCodeGhostEvidenceParams struct {
@@ -478,6 +484,7 @@ func (q *Queries) SetAccessCodeGhostEvidence(ctx context.Context, arg SetAccessC
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -500,7 +507,7 @@ const updateAccessCodeQuotas = `-- name: UpdateAccessCodeQuotas :one
 UPDATE access_codes
 SET max_turns_per_session = $3, max_members = $4
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type UpdateAccessCodeQuotasParams struct {
@@ -534,6 +541,7 @@ func (q *Queries) UpdateAccessCodeQuotas(ctx context.Context, arg UpdateAccessCo
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -546,7 +554,7 @@ const updateAccessCodeRole = `-- name: UpdateAccessCodeRole :one
 UPDATE access_codes
 SET assumed_role_id = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type UpdateAccessCodeRoleParams struct {
@@ -571,6 +579,7 @@ func (q *Queries) UpdateAccessCodeRole(ctx context.Context, arg UpdateAccessCode
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
+		&i.ProviderID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,

@@ -45,22 +45,22 @@ type SessionQuota struct {
 // 字段顺序：重 sub-struct (Conversation / Session) 在前，slice 中，strings
 // 后，int 末 —— 让 fieldalignment 满意。
 type IssueCodeSessionResult struct {
-	Session     access.IssuedVisitor
+	Chat        entity.Chat
 	Code        string
 	CodeLabel   string
 	VisitorName string
 	MemberID    string
-	Chat        entity.Chat
 	Members     []access.CodeMember
 	Ghosts      []string
+	Session     access.IssuedVisitor
 	Quota       SessionQuota
 }
 
 // codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
 type codeSessionArtifacts struct {
-	Issued access.IssuedVisitor
 	Conv   entity.Chat
 	Member access.CodeMember
+	Issued access.IssuedVisitor
 }
 
 // IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
@@ -311,5 +311,16 @@ func buildCodeSessionData(
 		MemberID:     memberID,
 		Visitor:      visitor,
 		RoleSnapshot: snapshot,
+		ProviderID:   pickProviderID(code.ProviderID, snapshot.ProviderID()),
+		GasMetered:   snapshot.GasMetered(),
 	}
+}
+
+// pickProviderID —— **码压过 role**:码是发出去的那张票,是更具体的声明。
+// 两个都没指 → 空串 = 用 owner 默认那条。这一步只在发会话时做一次,结果冻进 session。
+func pickProviderID(codeProviderID, roleProviderID string) string {
+	if codeProviderID != "" {
+		return codeProviderID
+	}
+	return roleProviderID
 }
