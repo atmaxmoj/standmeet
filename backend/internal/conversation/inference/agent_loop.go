@@ -157,7 +157,10 @@ func recordTurnUsage(ctx context.Context, in *AgentTurnInput, state *turnState) 
 	if state.inTokens == 0 && state.outTokens == 0 {
 		return
 	}
-	in.RecordUsage(ctx, in.Cred.Model, state.inTokens, state.outTokens)
+	in.RecordUsage(ctx, &TurnUsage{
+		Model: in.Cred.Model, In: state.inTokens, Out: state.outTokens,
+		Cached: state.cachedTokens,
+	})
 }
 
 // turnState —— consumeAgentEvents 边走边累的转态。stop 是 ADK 给的
@@ -184,6 +187,9 @@ type turnState struct {
 	// (eino ResponseMeta.Usage)。收尾交给 RecordUsage。
 	inTokens  int
 	outTokens int
+	// cachedTokens —— inTokens 里命中缓存的那部分(上游肯单独报的唯一一项细分)。
+	// 它**已经算在** inTokens 里,记下来只是为了让 owner 看得出这笔账贵在哪。
+	cachedTokens int
 }
 
 // endAssistantRound —— a streaming assistant round hit EOF: classify its text (tool-suffixed
@@ -216,6 +222,7 @@ func accumUsage(state *turnState, meta *schema.ResponseMeta) {
 	}
 	state.inTokens += meta.Usage.PromptTokens
 	state.outTokens += meta.Usage.CompletionTokens
+	state.cachedTokens += meta.Usage.PromptTokenDetails.CachedTokens
 }
 
 // consumeAgentEvents —— ADK iter → sink。每条 AgentEvent 看 Output

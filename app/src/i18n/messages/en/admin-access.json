@@ -94,6 +94,9 @@
     "corpusLabel": "corpus uris · one per line",
     "noneConfigured": "none configured yet"
   },
+  "roleGas": {
+    "help": "Meter this role against its provider's tank. Off (the default) means no usage check runs at all; on means a visitor is stopped once that provider's tank is empty. A provider with no fuel in it is never metered either way."
+  },
   "roleCorpus": {
     "help": "The positive list of corpus URIs the agent can read, one per line. Match-any: hitting any one line is enough to read, so the grain can be as fine as you like — wiki://thinking/** grants the whole subtree, subjectivity://standpoint grants that one note only. An empty list = nothing at all. Changes only affect sessions issued from now on (the role is frozen when the code is issued)."
   },

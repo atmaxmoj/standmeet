@@ -26,7 +26,10 @@ SET label      = COALESCE(sqlc.narg(label), label),
     provider   = COALESCE(sqlc.narg(provider), provider),
     endpoint   = COALESCE(sqlc.narg(endpoint), endpoint),
     model      = COALESCE(sqlc.narg(model), model),
-    gas_tokens = CASE WHEN sqlc.arg(set_gas)::boolean THEN sqlc.narg(gas_tokens) ELSE gas_tokens END
+    gas_tokens = CASE WHEN sqlc.arg(set_gas)::boolean THEN sqlc.narg(gas_tokens) ELSE gas_tokens END,
+    -- Filling the tank moves the mark the spend is counted from. Without it a refill would be
+    -- swallowed by everything already spent — there is no counter column to reset.
+    gas_filled_at = CASE WHEN sqlc.arg(set_gas)::boolean THEN now() ELSE gas_filled_at END
 WHERE id = sqlc.arg(id) AND owner_id = sqlc.arg(owner_id)
 RETURNING *;
 

@@ -75,9 +75,13 @@ CREATE TABLE owner_providers (
     -- model —— 留空走 preset 默认；owner 想换模型时填。
     model       text          NOT NULL DEFAULT '',
     is_default  boolean       NOT NULL DEFAULT false,
-    -- gas_tokens —— 这箱油还剩多少 token。NULL = 不计量（#7 的默认路径，绝大多数 owner
-    -- 停在这儿）。挂了表的 role 才会去看它。
+    -- gas_tokens —— 这箱**加了多少**油。NULL = 不计量（#7 的默认路径，绝大多数 owner
+    -- 停在这儿）。挂了表的 role 才会去看它。剩多少不存：跟 turn 配额一样读时派生
+    -- （gas_tokens − 自 gas_filled_at 起记在这条 provider 上的计量用量）。
     gas_tokens  bigint,
+    -- gas_filled_at —— 上次加油的时刻，也就是"从这儿开始算账"。没有它，加满一箱油会被
+    -- 之前花掉的量当场吃掉——没有计数器列可以清零，那个零点必须自己记一处。
+    gas_filled_at timestamptz,
     created_at  timestamptz   NOT NULL DEFAULT now(),
     UNIQUE (owner_id, label)
 );
@@ -955,6 +959,9 @@ CREATE TABLE inference_usage (
 
 CREATE INDEX inference_usage_owner_time_idx
     ON inference_usage(owner_id, created_at DESC);
+-- 油量是按 (provider, 自加油以来) 求和的,它跟看板那条 (owner, 时间) 不是一条路。
+CREATE INDEX inference_usage_gas_idx
+    ON inference_usage(provider_id, created_at) WHERE metered;
 
 -- banned_ips —— owner 封掉的来源 IP。命中的 IP 在公开 /api/v1 面被 403 挡掉
 -- (visitor chat / session / access-request 全拒)。ip 存 text 精确匹配

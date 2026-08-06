@@ -25,6 +25,9 @@ import (
 type ProvidersDeps struct {
 	Owners    *repo.Repo
 	Providers ProviderValidator
+	// Spend —— 用量求和(stats 域实现,组装根接上)。nil = 这个实例不记用量,
+	// 于是每箱油都读作"没挂表" —— 而不是读作"满的"。
+	Spend SpendReader
 }
 
 // CreateProviderInput —— 新建一条。Key 是**明文**,repo 那层封上;出站永远只有 KeyConfigured。
@@ -38,15 +41,41 @@ type CreateProviderInput struct {
 	IsDefault bool
 }
 
-// ListProviders —— owner 的本子(默认那条在最前)。
+// ProviderWithGas —— 本子里的一条 + 这箱油还剩多少(nil = 没挂表)。
+// 剩余不在行上,所以它跟着行一起出去,而不是让每个调用方各自再算一遍。
+type ProviderWithGas struct {
+	Remaining *int64
+	Row       repo.ProviderRow
+}
+
+// ListProviders —— owner 的本子(默认那条在最前),每条带上油表读数。
 func ListProviders(
 	ctx context.Context, d ProvidersDeps, ownerID string,
-) ([]repo.ProviderRow, error) {
+) ([]ProviderWithGas, error) {
 	rows, err := d.Owners.ListProviders(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list providers: %w", err)
 	}
-	return rows, nil
+	out := make([]ProviderWithGas, 0, len(rows))
+	for i := range rows {
+		left, rerr := ProviderRemaining(ctx, d.Spend, &rows[i])
+		if rerr != nil {
+			return nil, rerr
+		}
+		out = append(out, ProviderWithGas{Row: rows[i], Remaining: left})
+	}
+	return out, nil
+}
+
+// GasRemaining —— 某一条 provider 还剩多少(nil = 没挂表)。挡住访客的那道闸走这条。
+func GasRemaining(
+	ctx context.Context, d ProvidersDeps, ownerID, providerID string,
+) (*int64, error) {
+	row, err := d.Owners.GetProvider(ctx, ownerID, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("load provider for gas: %w", err)
+	}
+	return ProviderRemaining(ctx, d.Spend, &row)
 }
 
 // CreateProvider —— 建一条。provider 名要在 preset 表里(跟改默认那条同一把尺子);

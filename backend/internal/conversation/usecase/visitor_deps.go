@@ -40,6 +40,17 @@ type VisitorSessionDeps struct {
 	// RoleCapConfig —— 冻结 role snapshot 时读"各能力在这个 role 上的配置"。
 	// 可空 = 没有能力声明过 per-role 配置(完全正常的一台实例)。
 	RoleCapConfig RoleCapConfigReader
+	// Gas —— 油表(#7)。可空 = 这台实例读不到油量,于是每一场都当作没挂表 ——
+	// 读不到油量就把所有人挡在门外,是拿一个诊断问题去惩罚访客。
+	Gas GasGauge
+}
+
+// GasGauge —— 一箱油还剩多少 token。nil = 这箱油没挂表。
+//
+// 这一层不认识 owner_providers,也不认识用量表:那道算术在 owner 域(它管着油箱),
+// 实现由组装根接上。这里只问一句"还剩多少",因为要拦的是"这一场还能不能发"。
+type GasGauge interface {
+	Remaining(ctx context.Context, ownerID, providerID string) (*int64, error)
 }
 
 // RoleCapConfigReader —— 按 role 读各能力自己的配置:**能力 id** → 它那份配置(JSON 对象)。

@@ -139,8 +139,10 @@ func (q *Queries) CountActiveCodesForRole(ctx context.Context, assumedRoleID pgt
 
 const createRole = `-- name: CreateRole :one
 
-INSERT INTO roles (owner_id, name, description, greeting, prompt_id, dock_buttons, provider_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO roles (
+    owner_id, name, description, greeting, prompt_id, dock_buttons, provider_id, gas_metered
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at
 `
 
@@ -152,6 +154,7 @@ type CreateRoleParams struct {
 	PromptID    pgtype.UUID
 	DockButtons []byte
 	ProviderID  pgtype.UUID
+	GasMetered  bool
 }
 
 // roles —— owner-scoped visitor 身份原型。语义见 schema.sql + [[iam-role-pivot-plan]]。
@@ -167,6 +170,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		arg.PromptID,
 		arg.DockButtons,
 		arg.ProviderID,
+		arg.GasMetered,
 	)
 	var i Role
 	err := row.Scan(

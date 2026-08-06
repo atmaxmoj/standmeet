@@ -34,9 +34,24 @@ type TurnResult struct {
 // 一次。ctx 是 detached 过的(客户端断开也活着),所以即便流没人收也照样 sink。
 type PersistFunc func(ctx context.Context, res *TurnResult) error
 
-// RecordUsageFunc —— #106 计费 port。DriveAgentLoop 在 turn 收尾把本轮跨 react-loop 累计的
-// token 用量交出去(model + input/output tokens)。route handler 注入走 inference_usage 表的闭包。
-type RecordUsageFunc func(ctx context.Context, model string, inputTokens, outputTokens int)
+// TurnUsage —— 一轮跨 react-loop 累计下来的 token 用量。
+//
+// Cached 是 prompt 里命中缓存的那部分,**上游只肯给到这个粒度**:eino 的 claude adapter 在
+// 到我们之前就把 input + cache_read + cache_creation 加成了一个数(claude.go:1046)。
+// 存我们真拿得到的,不假装有全分辨率。
+type TurnUsage struct {
+	Model  string
+	In     int
+	Out    int
+	Cached int
+}
+
+// RecordUsageFunc —— #106 计费 port。DriveAgentLoop 在 turn 收尾把本轮用量交出去;
+// route handler 注入走 inference_usage 表的闭包(它才知道这一趟花的是哪箱油、算不算账)。
+//
+// 入参是结构体不是四个参数:上一版是 (model, in, out) 三个参数,于是"缓存命中多少"没有
+// 地方放,分辨率被签名钉死了。
+type RecordUsageFunc func(ctx context.Context, u *TurnUsage)
 
 // MarkWaypointsFunc —— ghost-steering ledger port。turn 收尾把本轮引用(cited note id)+ 本轮成功工具名
 // 命中交出去,route handler 注入的闭包解析 URI + 标 waypoint visited + 存 session。inference 不碰

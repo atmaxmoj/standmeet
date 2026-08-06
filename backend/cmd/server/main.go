@@ -129,7 +129,6 @@ func wireAndServe(
 	// 出站收口只建一个:MCP 面和 admin 面必须投影自**同一份**声明,否则 parity 无从谈起。
 	rt.Dispatch = wire.BuildDispatcher(&rt)
 	registerAgentSkills(ctx, &rt)
-	runBootMaintenance(ctx, &rt)
 	return serve(ctx, &rt, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }
 

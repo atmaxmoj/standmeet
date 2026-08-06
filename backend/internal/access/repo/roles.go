@@ -35,10 +35,12 @@ type CreateRoleInput struct {
 	Name        string
 	Description string
 	Greeting    string
-	// ProviderID —— 空 = 没指(用 owner 默认那条)。gas_metered 建的时候一律 false,
-	// 挂表是建完之后的事(update 那条收它)。
+	// ProviderID —— 空 = 没指(用 owner 默认那条)。
 	ProviderID  string
 	DockButtons []entity.DockButtonConfig
+	// GasMetered —— 挂不挂油表。**建的时候就收**:这个字段在 role.create 的入参表里写着,
+	// 收下却不落,就是一次"存好了"的空话 —— owner 建完看不出它没生效。
+	GasMetered bool
 }
 
 // Create 新建 role 主表行（不挂任何 join 项；attach 在 caller usecase 内单独调）。
@@ -75,7 +77,7 @@ func buildCreateRoleParams(in *CreateRoleInput) (db.CreateRoleParams, error) {
 	return db.CreateRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description,
 		Greeting: in.Greeting, PromptID: promptUUID,
-		DockButtons: dock, ProviderID: providerUUID,
+		DockButtons: dock, ProviderID: providerUUID, GasMetered: in.GasMetered,
 	}, nil
 }
 

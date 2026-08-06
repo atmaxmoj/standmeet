@@ -44,6 +44,7 @@ var (
 	ErrCodeInvalid                = entity.ErrCodeInvalid
 	ErrCodeTaken                  = entity.ErrCodeTaken
 	ErrDockButtonEmptyTrigger     = entity.ErrDockButtonEmptyTrigger
+	ErrGasExhausted               = entity.ErrGasExhausted
 	ErrMemberNotFound             = entity.ErrMemberNotFound
 	ErrMemberQuotaReached         = entity.ErrMemberQuotaReached
 	ErrRoleBuiltinImmutable       = entity.ErrRoleBuiltinImmutable

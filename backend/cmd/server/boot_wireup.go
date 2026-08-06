@@ -73,13 +73,9 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 	}
 }
 
-// runBootMaintenance —— boot 时一次性维护(best-effort,失败只 warn 不阻断启动)。
-// #106: 清 >7 天的 inference_usage 老行(7 天小表,查询本就只看 7 天)。
-func runBootMaintenance(ctx context.Context, d *deps.Runtime) {
-	if cerr := d.InferenceUsageRepo.Cleanup(ctx); cerr != nil {
-		d.Log.Warn("inference usage cleanup", "err", cerr)
-	}
-}
+// (boot 时那次一次性维护没了:清 inference_usage 老行现在是 stats 域声明的周期任务,
+// 跟别的周期任务同一条路 —— 见 wire/periodic.go。periodic.Start 本来就会在起的时候先跑一遍,
+// 所以"boot 清一次"这件事一点没少,只是不再是**唯一**的一次。)
 
 func buildAdminDeps(d *deps.Runtime) AdminDeps {
 	return AdminDeps{
@@ -211,6 +207,10 @@ func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
 		// 冻 role snapshot 时读各能力在这个 role 上的配置。冻结那一步在域里,
 		// 而"有哪些能力、各声明了什么"只有这一层知道。
 		RoleCapConfig: axiscap.RoleCapConfig(d),
+		// 油表(#7):油箱在 owner 域、用量在 stats 域,这一层只问"还剩多少"。
+		Gas: port.OwnerGas{Providers: owner.ProvidersUseDeps{
+			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo,
+		}},
 	}
 }
 

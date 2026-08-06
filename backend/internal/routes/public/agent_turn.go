@@ -15,6 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 func (h *Handlers) agentTurn() http.HandlerFunc {
@@ -192,64 +193,6 @@ func crossConvDigestOrEmpty(r *http.Request, h *Handlers, memberID, convID strin
 	return digest
 }
 
-// preflightAgentTurnQuota —— #28: 落库挪到 /agent/turn 后,配额也在这查
-// (pre-stream,清晰 4xx,跟原 /dialogs 一致)。检查 conversation 状态 +
-// turns/session。convID 空(无状态 smoke 调用)跳过。返 false = 已写错误响应、
-// caller 收手。
-func preflightAgentTurnQuota(
-	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
-) bool {
-	if convID == "" {
-		return true
-	}
-	if !checkConvOwnership(r, h, auth, w, convID) {
-		return false
-	}
-	return enforceTurnQuotaOrWrite(r, h, auth, w, convID)
-}
-
-func enforceTurnQuotaOrWrite(
-	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
-) bool {
-	qerr := conversation.EnforceTurnQuota(r.Context(), &h.Visitor,
-		&conversation.TurnQuotaInput{OwnerID: auth.Data.OwnerID, ConversationID: convID})
-	if qerr != nil {
-		handleVisitorErr(h.Log, w, qerr)
-		return false
-	}
-	return true
-}
-
-// checkConvOwnership —— 多对话模型:code 访客可有多段对话且 conversation_id 由
-// 客户端传,必须校验这段属于该 member,防借别人的 id 发 turn。无 member(public/
-// byoai)没 member 可比对,沿用既有信任(conversation 由 owner-scoped session 锁)。
-func checkConvOwnership(
-	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
-) bool {
-	if auth.Data.MemberID == "" {
-		return true
-	}
-	return verifyConvMember(r, h, auth, w, convID)
-}
-
-func verifyConvMember(
-	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
-) bool {
-	ok, err := conversation.ChatBelongsToMember(
-		r.Context(), &h.Visitor, auth.Data.OwnerID, convID, auth.Data.MemberID,
-	)
-	if err != nil {
-		h.Log.Error("conv ownership check", "err", err)
-		writeError(h.Log, w, serverErr())
-		return false
-	}
-	if !ok {
-		writeError(h.Log, w, forbiddenEnv("conversation does not belong to this session"))
-		return false
-	}
-	return true
-}
-
 // buildAgentTurnPersist —— 注入给 inference 的落库 port。把后端累计出的
 // TurnResult 走现有 RecordDialog sink 进 conversation 表(cited id → Citation
 // VO、两行 messages 原子)。convID 空 → nil(不落)。ctx 由 inference 传(detached,
@@ -283,11 +226,30 @@ func buildAgentTurnUsage(h *Handlers, auth authedVisitor) inference.RecordUsageF
 	if !usageBillable(h, auth) {
 		return nil
 	}
-	ownerID := auth.Data.OwnerID
-	return func(ctx context.Context, model string, in, out int) {
-		if err := h.Usage.Record(ctx, ownerID, model, in, out); err != nil {
-			h.Log.Warn("record inference usage", "err", err)
-		}
+	rec := turnUsageRecorder{
+		h: h, ownerID: auth.Data.OwnerID, providerID: auth.Data.ProviderID,
+		// metered —— 这一行算不算某箱油的账。两个开关都得在:role 挂了表,而且这一场确实
+		// 指得到一条 provider。它同时决定这行会不会被清理带走 —— 计量行清早了,油自己长回来。
+		metered: auth.Data.GasMetered && auth.Data.ProviderID != "",
+	}
+	return rec.record
+}
+
+// turnUsageRecorder —— 一场会话记账要闭住的那几件事(谁的、哪箱油、算不算油钱)。
+type turnUsageRecorder struct {
+	h          *Handlers
+	ownerID    string
+	providerID string
+	metered    bool
+}
+
+func (u turnUsageRecorder) record(ctx context.Context, usage *inference.TurnUsage) {
+	if err := u.h.Usage.Record(ctx, &stats.UsageRow{
+		OwnerID: u.ownerID, Model: usage.Model, ProviderID: u.providerID,
+		InputTokens: usage.In, OutputTokens: usage.Out, CachedTokens: usage.Cached,
+		Metered: u.metered,
+	}); err != nil {
+		u.h.Log.Warn("record inference usage", "err", err)
 	}
 }
 

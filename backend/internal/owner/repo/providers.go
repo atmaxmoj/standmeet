@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -23,8 +24,12 @@ import (
 )
 
 // ProviderRow —— 本子里的一条。KeyEnc 是密文(本域不开封)。
+//
+// GasTokens 是**加了多少**,不是还剩多少;GasFilledAt 是那次加油的时刻,也就是账期起点。
+// 剩多少不存在这一层 —— 它由用量求和派生(usecase.ProviderRemaining)。
 type ProviderRow struct {
 	GasTokens     *int64
+	GasFilledAt   *time.Time
 	OwnerID       string
 	ID            string
 	Label         string
@@ -73,7 +78,7 @@ func toProviderRow(p *db.OwnerProvider) ProviderRow {
 		Label: p.Label, Provider: p.Provider,
 		Endpoint: p.Endpoint, Model: p.Model, KeyEnc: p.KeyEnc,
 		IsDefault: p.IsDefault, KeyConfigured: len(p.KeyEnc) > 0,
-		GasTokens: p.GasTokens,
+		GasTokens: p.GasTokens, GasFilledAt: pgstore.OptTime(p.GasFilledAt),
 	}
 }
 

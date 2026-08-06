@@ -6,6 +6,9 @@ package repo
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/stats/db"
@@ -22,24 +25,56 @@ func NewInferenceUsageRepo(pool *pgstore.Pool) *InferenceUsageRepo {
 	return &InferenceUsageRepo{pool: pool}
 }
 
+// UsageRow —— 一次 owner-key LLM 调用的用量。ProviderID 空 = 记不到某条 provider 上
+// (旧会话 / 已删的那条);Metered = 这一趟算在那箱油的账上(#7)。
+type UsageRow struct {
+	OwnerID      string
+	Model        string
+	ProviderID   string
+	InputTokens  int
+	OutputTokens int
+	CachedTokens int
+	Metered      bool
+}
+
 // Record —— 记一次 owner-key LLM 调用的用量。
-func (r *InferenceUsageRepo) Record(
-	ctx context.Context, ownerID, model string, inputTokens, outputTokens int,
-) error {
-	ownerUUID, err := pgstore.ParseUUID(ownerID)
+func (r *InferenceUsageRepo) Record(ctx context.Context, in *UsageRow) error {
+	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	qerr := db.New(r.pool).RecordInferenceUsage(ctx, db.RecordInferenceUsageParams{
 		OwnerID:      ownerUUID,
-		Model:        model,
-		InputTokens:  int32(inputTokens),
-		OutputTokens: int32(outputTokens),
+		Model:        in.Model,
+		InputTokens:  int32(in.InputTokens),
+		OutputTokens: int32(in.OutputTokens),
+		CachedTokens: int32(in.CachedTokens),
+		ProviderID:   pgstore.UUIDOrNull(in.ProviderID),
+		Metered:      in.Metered,
 	})
 	if qerr != nil {
 		return fmt.Errorf("record inference usage: %w", qerr)
 	}
 	return nil
+}
+
+// SpentSince —— 一条 provider 自某时刻起花掉的计量 token。**没有计数器列**:跟 turn 配额
+// 一样读时求和,所以"加油"只是挪一下起算点,不需要清零任何东西。
+func (r *InferenceUsageRepo) SpentSince(
+	ctx context.Context, providerID string, since time.Time,
+) (int64, error) {
+	providerUUID, err := pgstore.ParseUUID(providerID)
+	if err != nil {
+		return 0, fmt.Errorf("parse provider id: %w", err)
+	}
+	sum, qerr := db.New(r.pool).SumMeteredUsageSince(ctx, db.SumMeteredUsageSinceParams{
+		ProviderID: providerUUID,
+		CreatedAt:  pgtype.Timestamptz{Time: since, Valid: true},
+	})
+	if qerr != nil {
+		return 0, fmt.Errorf("sum metered usage: %w", qerr)
+	}
+	return sum, nil
 }
 
 // Summarize7Day —— 某 owner 近 7 天按天×model 聚合。

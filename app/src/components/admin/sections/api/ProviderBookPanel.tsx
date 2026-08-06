@@ -58,6 +58,7 @@ function List({ hook }: { hook: ProvidersHook }) {
           <ProviderBookRow
             key={p.id} row={p}
             setDefault={hook.setDefaultProvider} remove={hook.deleteProvider}
+            setGas={hook.setGas}
           />
         ))}
       </ul>

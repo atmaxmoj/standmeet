@@ -7,6 +7,8 @@
 
 import { useTranslations } from 'next-intl';
 
+import { ProviderGasControl } from '@/components/admin/sections/api/ProviderGasControl';
+import { formatTokens } from '@/lib/admin/format-tokens';
 import type { ProviderView } from '@/lib/admin/use-providers';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -16,15 +18,39 @@ interface Props {
   remove: (id: string) => Promise<void>;
 }
 
-export function ProviderBookRow({ row, setDefault, remove }: Props) {
+interface RowProps extends Props {
+  setGas: (id: string, tokens: number | null) => Promise<void>;
+}
+
+// GasGauge —— 这箱油的读数。没挂表就是没挂表:不显示 "0",也不显示进度条 ——
+// 绝大多数 owner 停在这一档,一个空油表会让人以为自己被限着。
+function GasGauge({ row }: { row: ProviderView }) {
+  const t = useTranslations('adminIntegrations.providerBook');
+  return (
+    <span
+      data-testid={`provider-gas-${row.label}`}
+      className="mono text-[10px] text-(--color-faint) whitespace-nowrap tabular-nums"
+    >
+      {row.gas_tokens === null
+        ? t('gasUnmetered')
+        : `${formatTokens(row.gas_remaining ?? 0)} / ${formatTokens(row.gas_tokens)}`}
+    </span>
+  );
+}
+
+export function ProviderBookRow({ row, setDefault, remove, setGas }: RowProps) {
   return (
     <li
       data-testid={`provider-row-${row.label}`}
-      className="flex items-baseline gap-4 py-2 border-b border-(--color-rule)/60"
+      className="py-2 border-b border-(--color-rule)/60"
     >
-      <Identity row={row} />
-      <KeyState configured={row.key_configured} />
-      <Actions row={row} setDefault={setDefault} remove={remove} />
+      <div className="flex items-baseline gap-4">
+        <Identity row={row} />
+        <GasGauge row={row} />
+        <KeyState configured={row.key_configured} />
+        <Actions row={row} setDefault={setDefault} remove={remove} />
+      </div>
+      <ProviderGasControl row={row} setGas={setGas} />
     </li>
   );
 }

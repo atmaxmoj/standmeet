@@ -28,7 +28,34 @@ export interface ProviderView {
   model: string;
   key_configured: boolean; // the key itself is never returned
   is_default: boolean;
+  // gas_tokens —— the tank as last filled; null = unmetered. gas_remaining is what is left of it,
+  // derived from the usage rows since that fill (there is no counter column).
   gas_tokens?: number | null;
+  gas_remaining?: number | null;
+}
+
+/** Fill (or unmeter, with null) a provider's tank. */
+export async function setProviderGas(
+  request: APIRequestContext, csrf: string, id: string, tokens: number | null,
+): Promise<ProviderView> {
+  const res = await request.patch(`${BACKEND}/api/admin/providers/${id}`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: { gas_tokens: tokens },
+  });
+  if (res.status() !== 200) {
+    throw new Error(`set provider gas failed: ${res.status()} ${await res.text()}`);
+  }
+  return await res.json() as ProviderView;
+}
+
+/** One entry by id, straight from the list — the tank reading a spec asserts on. */
+export async function providerByID(
+  request: APIRequestContext, id: string,
+): Promise<ProviderView> {
+  const all = await listProviders(request);
+  const one = all.find((p) => p.id === id);
+  if (!one) throw new Error(`provider ${id} not in the book`);
+  return one;
 }
 
 export async function createProvider(

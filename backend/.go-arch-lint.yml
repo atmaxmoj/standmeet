@@ -663,6 +663,8 @@ deps:
       - statsentity
       - statsdb
       - pgstore
+      # periodic —— 清 inference_usage 老行是本域的周期任务;调度和簿记归宿主。
+      - periodic
     anyVendorDeps: true
 
   # security —— #135 请求级防护域模块(full vertical)：BannedIP entity + repo + captcha verifier。
@@ -997,6 +999,7 @@ deps:
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
       - httpx   # #132 /api/v1 inference-models 列表探测走统一 client
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
+      - stats   # #106/#7 记一次用量:UsageRow(哪箱油、算不算油钱)是 stats 的词汇
     anyVendorDeps: true
 
   # pubapi —— API-key facade. Reuses the visitor assembly (capreg) + usecases; whitelists non-Agentic

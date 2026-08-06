@@ -143,6 +143,27 @@ function runPsql(sql: string): void {
   );
 }
 
+// execSQL —— 跑一条不看结果的语句。用于**制造前置状态**(比如一行 8 天前的用量),
+// 那种状态没有任何 API 造得出来:没有"把时间往前拨"的接口,也不该有。
+export function execSQL(sql: string): void {
+  runPsql(sql.replaceAll('"', '\\"'));
+}
+
+// querySQL —— 跑一条查询,返回裸值(单行单列,-tA)。断言"这一行还在不在"用它。
+export function querySQL(sql: string): string {
+  return execSync(
+    `docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -tA -c ` +
+    `"${sql.replaceAll('"', '\\"')}"`,
+    { encoding: 'utf-8' },
+  ).trim();
+}
+
+// restartBackend —— 让 backend 进程重来一次。周期任务的第一跑就在 boot,所以"起来时
+// 清一次老行"这件事,只有重启才观察得到。走 Makefile(所有 docker 操作的唯一入口)。
+export function restartBackend(): void {
+  execSync('make -C .. dev-restart-svc SVC=backend', { stdio: 'inherit' });
+}
+
 // findSetupToken —— 拿当前 backend 持有的 plaintext setup token。
 // 通过 /api/v1/instance HTTP fetch；backend 在 unclaimed 期 self-heal，
 // 总能返一个跟 DB hash 对得上的 plaintext。

@@ -39,6 +39,9 @@ export interface CreateRoleInput {
   // provider_id —— this role's inference provider. Unset = the owner's default. A code pointing at
   // its own provider outranks this.
   provider_id?: string | null;
+  // gas_metered —— whether a turn on this role checks the provider's tank at all. Default false is
+  // today's path: no gas query is issued.
+  gas_metered?: boolean;
 }
 
 export interface RoleView {
@@ -73,6 +76,7 @@ export async function createRole(
       dock_buttons: input.dock_buttons ?? [],
       waypoints: input.waypoints ?? [],
       provider_id: input.provider_id ?? null,
+      gas_metered: input.gas_metered ?? false,
     },
   });
   if (res.status() !== 201) {

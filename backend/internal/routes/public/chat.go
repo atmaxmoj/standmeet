@@ -29,6 +29,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 // Handlers —— public routes deps.
@@ -59,8 +60,9 @@ type CodeGuard interface {
 }
 
 // UsageRecorder —— #106 计费 port:记一次 owner-key LLM 用量。BYOAI 不经此(访客自付)。
+// 入参是一整行(含 provider + 算不算油钱),不是几个参数 —— 那正是分辨率丢在签名上的地方。
 type UsageRecorder interface {
-	Record(ctx context.Context, ownerID, model string, inputTokens, outputTokens int) error
+	Record(ctx context.Context, row *stats.UsageRow) error
 }
 
 // Mount 挂 /api/v1/* 路由。caller 负责前缀。需要访客 session 的路由统一套
@@ -134,6 +136,13 @@ var visitorErrCases = []apierr.Case{
 		Status:  http.StatusForbidden,
 		Code:    "turn_quota_reached",
 		Message: "this session has reached its turn limit",
+	}},
+	{Match: access.ErrGasExhausted, Envelope: apierr.Envelope{
+		Status: http.StatusForbidden,
+		Code:   "gas_exhausted",
+		// 访客读到的那句。不说 token、不说油箱、不说是谁的钱 —— 他做不了任何事;
+		// 也不许诺"已通知 owner",那是一句没人去实现的承诺。
+		Message: "this conversation has reached its usage limit",
 	}},
 	{Match: owner.ErrOwnerNotFound, Envelope: apierr.Envelope{
 		Status:  http.StatusNotFound,

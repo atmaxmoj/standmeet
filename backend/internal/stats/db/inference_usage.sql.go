@@ -12,18 +12,34 @@ import (
 )
 
 const deleteInferenceUsageOlderThan7Days = `-- name: DeleteInferenceUsageOlderThan7Days :exec
-DELETE FROM inference_usage WHERE created_at < now() - interval '7 days'
+DELETE FROM inference_usage u
+WHERE u.created_at < now() - interval '7 days'
+  AND NOT (
+      u.metered
+      AND EXISTS (
+          SELECT 1 FROM owner_providers p
+          WHERE p.id = u.provider_id
+            AND p.gas_tokens IS NOT NULL
+            AND u.created_at >= COALESCE(p.gas_filled_at, 'epoch'::timestamptz)
+      )
+  )
 `
 
-// 7 天小表:boot 时清老行(查询本就只看 7 天,清理只为不让表无限涨)。
+// 7 天小表:清老行(查询本就只看 7 天,清理只为不让表无限涨)。
+//
+// **但计量行不能一起清**:看板只看 7 天,油量却是"从加油那次到现在"的累计。把过了 7 天的
+// 计量行删掉,等于油自己长回来 —— 一个不用加油的油箱。所以只留还在当前那一箱账期里的:
+// 上次加油之前的计量行已经不参与任何求和,跟普通老行一样删。
 func (q *Queries) DeleteInferenceUsageOlderThan7Days(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteInferenceUsageOlderThan7Days)
 	return err
 }
 
 const recordInferenceUsage = `-- name: RecordInferenceUsage :exec
-INSERT INTO inference_usage (owner_id, model, input_tokens, output_tokens)
-VALUES ($1, $2, $3, $4)
+INSERT INTO inference_usage (
+    owner_id, model, input_tokens, output_tokens, cached_tokens, provider_id, metered
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type RecordInferenceUsageParams struct {
@@ -31,17 +47,43 @@ type RecordInferenceUsageParams struct {
 	Model        string
 	InputTokens  int32
 	OutputTokens int32
+	CachedTokens int32
+	ProviderID   pgtype.UUID
+	Metered      bool
 }
 
-// #106 每次 owner-key LLM 调用记一行。
+// #106 每次 owner-key LLM 调用记一行。metered = 这一趟算在某箱油的账上(#7):
+// 挂了表的 role + 指得到的 provider,两个条件都成立才是 true,由调用方判定。
 func (q *Queries) RecordInferenceUsage(ctx context.Context, arg RecordInferenceUsageParams) error {
 	_, err := q.db.Exec(ctx, recordInferenceUsage,
 		arg.OwnerID,
 		arg.Model,
 		arg.InputTokens,
 		arg.OutputTokens,
+		arg.CachedTokens,
+		arg.ProviderID,
+		arg.Metered,
 	)
 	return err
+}
+
+const sumMeteredUsageSince = `-- name: SumMeteredUsageSince :one
+SELECT COALESCE(sum(input_tokens + output_tokens), 0)::bigint
+FROM inference_usage
+WHERE provider_id = $1 AND metered AND created_at >= $2
+`
+
+type SumMeteredUsageSinceParams struct {
+	ProviderID pgtype.UUID
+	CreatedAt  pgtype.Timestamptz
+}
+
+// 一箱油自加油那一刻起花掉的量。没有计数器列 —— 跟 turn 配额一样读时求和。
+func (q *Queries) SumMeteredUsageSince(ctx context.Context, arg SumMeteredUsageSinceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, sumMeteredUsageSince, arg.ProviderID, arg.CreatedAt)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const summarizeInferenceUsage7Day = `-- name: SummarizeInferenceUsage7Day :many

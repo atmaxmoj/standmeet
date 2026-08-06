@@ -94,3 +94,7 @@ var ErrDenialKindUnknown = errors.New("denial kind must be capability, skill or 
 
 // ErrTurnQuotaReached —— 这个 session 已用满 max_turns_per_session。
 var ErrTurnQuotaReached = errors.New("turn quota reached for session")
+
+// ErrGasExhausted —— 这一场挂的那箱油空了(#7)。跟轮数用满是同一类:不是出错,
+// 是"这次不能发",所以也走 403 + 一句人话,而不是 5xx。
+var ErrGasExhausted = errors.New("provider gas exhausted")

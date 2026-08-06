@@ -135,6 +135,11 @@
     "addHeading": "add an entry",
     "label": "label",
     "labelHint": "your name for this entry",
-    "add": "add"
+    "add": "add",
+    "gasUnmetered": "unmetered",
+    "gasFill": "fill",
+    "gasUnmeter": "remove gauge",
+    "gasFilled": "Tank filled",
+    "gasFillPlaceholder": "tokens"
   }
 }

@@ -117,8 +117,12 @@ var (
 )
 
 // providerOut —— 出站形状。**没有 key**。
+//
+// gas_tokens 是加了多少,gas_remaining 是还剩多少(读时派生)。两个都给:只报剩余,
+// owner 看不出这箱油当初加了多大;只报加了多少,那句"还能聊多久"就得他自己算。
 type providerOut struct {
 	GasTokens     *int64 `json:"gas_tokens"`
+	GasRemaining  *int64 `json:"gas_remaining"`
 	ID            string `json:"id"`
 	Label         string `json:"label"`
 	Provider      string `json:"provider"`
@@ -128,11 +132,11 @@ type providerOut struct {
 	IsDefault     bool   `json:"is_default"`
 }
 
-func providerPayload(p *repo.ProviderRow) providerOut {
+func providerPayload(p *repo.ProviderRow, remaining *int64) providerOut {
 	return providerOut{
 		ID: p.ID, Label: p.Label, Provider: p.Provider, Endpoint: p.Endpoint,
 		Model: p.Model, KeyConfigured: p.KeyConfigured, IsDefault: p.IsDefault,
-		GasTokens: p.GasTokens,
+		GasTokens: p.GasTokens, GasRemaining: remaining,
 	}
 }
 
@@ -144,7 +148,7 @@ func listProviders(d ProvidersDeps) fp.Invoke {
 		}
 		out := make([]providerOut, 0, len(rows))
 		for i := range rows {
-			out = append(out, providerPayload(&rows[i]))
+			out = append(out, providerPayload(&rows[i].Row, rows[i].Remaining))
 		}
 		return json.Marshal(out)
 	}
@@ -172,9 +176,21 @@ func createProvider(d ProvidersDeps) fp.Invoke {
 		if cerr != nil {
 			return nil, providerErr("create provider", cerr)
 		}
-		payload := providerPayload(&row)
-		return json.Marshal(payload)
+		return marshalProvider(ctx, d, &row)
 	}
+}
+
+// marshalProvider —— 一条 + 它的油表读数。写完立刻读一次表:owner 加完油看到的
+// 就是那道闸看到的同一个数,而不是前端自己按加了多少猜一个。
+func marshalProvider(
+	ctx context.Context, d ProvidersDeps, row *repo.ProviderRow,
+) (json.RawMessage, error) {
+	left, err := usecase.ProviderRemaining(ctx, d.Providers.Spend, row)
+	if err != nil {
+		return nil, providerErr("read provider gas", err)
+	}
+	payload := providerPayload(row, left)
+	return json.Marshal(payload)
 }
 
 // providerUpdateArgs —— 部分更新:字段用指针,没给 = 不动。GasTokens 三态:
@@ -202,8 +218,7 @@ func updateProvider(d ProvidersDeps) fp.Invoke {
 		if uerr != nil {
 			return nil, providerErr("update provider", uerr)
 		}
-		payload := providerPayload(&row)
-		return json.Marshal(payload)
+		return marshalProvider(ctx, d, &row)
 	}
 }
 

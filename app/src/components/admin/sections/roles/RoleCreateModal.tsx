@@ -46,7 +46,8 @@ function RoleCreateModalShell({
 }) {
   const t = useTranslations('adminAccess');
   const [form, setForm] = useState<WriteRoleInput>({
-    name: '', description: '', greeting: '', prompt_id: null, provider_id: '',
+    name: '', description: '', greeting: '', prompt_id: null,
+    provider_id: '', gas_metered: false,
     corpus_uris: [], skill_ids: [], mcp_server_ids: [],
   });
   return (

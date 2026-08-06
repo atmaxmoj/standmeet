@@ -22,8 +22,10 @@ export const ProviderViewSchema = z.object({
   model: z.string(),
   key_configured: z.boolean(),
   is_default: z.boolean(),
-  // gas_tokens —— 这条油箱还剩多少 token;null = 不计量(#7)。
+  // gas_tokens —— 这箱**加了多少**;null = 不计量(#7)。
   gas_tokens: z.number().nullable(),
+  // gas_remaining —— 还剩多少(读时派生,没有计数器列)。null = 不计量。
+  gas_remaining: z.number().nullable(),
 });
 export type ProviderView = z.infer<typeof ProviderViewSchema>;
 

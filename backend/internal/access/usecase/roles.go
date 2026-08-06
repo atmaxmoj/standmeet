@@ -94,6 +94,7 @@ func createRoleRow(
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		DockButtons: in.DockButtons, ProviderID: in.ProviderID,
+		GasMetered: in.GasMetered,
 	})
 	if err != nil {
 		if errors.Is(err, entity.ErrRoleNameTaken) {

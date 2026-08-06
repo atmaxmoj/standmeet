@@ -36,6 +36,8 @@ export const RoleViewSchema = z.object({
   prompt_id: z.string().nullable().optional(),
   // provider_id —— 这个 role 走哪条 provider;'' = owner 默认那条。挂在码上的那条压过它。
   provider_id: z.string().nullish().transform((v) => v ?? ''),
+  // gas_metered —— 这个 role 挂不挂油表(#7)。false = 一次 gas 查询都不发。
+  gas_metered: z.boolean().nullish().transform((v) => v ?? false),
   corpus_uris: z.array(z.string()),
   skill_ids: z.array(z.string()),
   mcp_server_ids: z.array(z.string()),
@@ -58,6 +60,8 @@ export interface WriteRoleInput {
   prompt_id: string | null;
   // provider_id —— '' = 不指定,走 owner 默认那条。
   provider_id: string;
+  // gas_metered —— 挂不挂油表。
+  gas_metered: boolean;
   corpus_uris: string[];
   skill_ids: string[];
   mcp_server_ids: string[];
@@ -79,6 +83,7 @@ export function roleUpdatePayload(
     greeting: role.greeting,
     prompt_id: role.prompt_id ?? null,
     provider_id: role.provider_id,
+    gas_metered: role.gas_metered,
     corpus_uris: role.corpus_uris,
     skill_ids: role.skill_ids,
     mcp_server_ids: role.mcp_server_ids,

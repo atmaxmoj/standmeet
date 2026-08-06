@@ -173,6 +173,19 @@ func UUIDStrOrEmpty(u pgtype.UUID) string {
 	return FormatUUID(u)
 }
 
+// UUIDOrNull —— 字符串 → 可空 uuid。空串(或不合法)= NULL,不是错误:调用方给的是
+// "没指着谁"这件事,可空外键收的正是它。
+func UUIDOrNull(s string) pgtype.UUID {
+	if s == "" {
+		return pgtype.UUID{}
+	}
+	u, err := ParseUUID(s)
+	if err != nil {
+		return pgtype.UUID{}
+	}
+	return u
+}
+
 // —— pgx pool 连接管理（从退役的 internal/postgres/conn.go 迁入）——
 
 const (

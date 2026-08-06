@@ -373,16 +373,17 @@ type OwnerKeypair struct {
 }
 
 type OwnerProvider struct {
-	ID        pgtype.UUID
-	OwnerID   pgtype.UUID
-	Label     string
-	Provider  string
-	KeyEnc    []byte
-	Endpoint  string
-	Model     string
-	IsDefault bool
-	GasTokens *int64
-	CreatedAt pgtype.Timestamptz
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	Label       string
+	Provider    string
+	KeyEnc      []byte
+	Endpoint    string
+	Model       string
+	IsDefault   bool
+	GasTokens   *int64
+	GasFilledAt pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
 }
 
 type PageContent struct {

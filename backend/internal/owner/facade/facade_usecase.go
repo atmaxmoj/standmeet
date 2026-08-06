@@ -68,6 +68,7 @@ var (
 	CreateKeypair             = usecase.CreateKeypair
 	CreatePage                = usecase.CreatePage
 	CreatePrompt              = usecase.CreatePrompt
+	GasRemaining              = usecase.GasRemaining
 	DefaultPageContent        = usecase.DefaultPageContent
 	DeleteKeypair             = usecase.DeleteKeypair
 	DeletePage                = usecase.DeletePage

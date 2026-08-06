@@ -52,10 +52,12 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			Presets: port.AiPresets(),
 		},
 		// Providers —— 同一个 Owners 仓储 + 同一把 provider 名校验尺子(本子里每一条
-		// 都要过它,不只是默认那条)。
+		// 都要过它,不只是默认那条)。Spend 是油表那一半:owner 域管油箱,用量表在 stats,
+		// 两边在这里合上(#7)。
 		Providers: owner.OpsProviders{
 			Providers: owner.ProvidersUseDeps{
 				Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
+				Spend: d.InferenceUsageRepo,
 			},
 		},
 		Account: owner.OpsAccountDeps{

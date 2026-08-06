@@ -30,6 +30,8 @@ type (
 	SubjectivityRef         = usecase.SubjectivityRef
 	TitledRef               = usecase.TitledRef
 	TranscriptBundle        = usecase.TranscriptBundle
+	GasGauge                = usecase.GasGauge
+	GasQuotaInput           = usecase.GasQuotaInput
 	TurnQuotaInput          = usecase.TurnQuotaInput
 	VisitorSessionDeps      = usecase.VisitorSessionDeps
 	VisitorSkillsDeps       = usecase.VisitorSkillsDeps
@@ -47,6 +49,7 @@ var (
 	CodeIntro                 = usecase.CodeIntro
 	ComposeBasePersona        = usecase.ComposeBasePersona
 	ComposeDynamicPersona     = usecase.ComposeDynamicPersona
+	EnforceGasQuota           = usecase.EnforceGasQuota
 	EnforceTurnQuota          = usecase.EnforceTurnQuota
 	ForChat                   = usecase.ForChat
 	GetConversationTranscript = usecase.GetConversationTranscript

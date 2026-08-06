@@ -269,6 +269,13 @@ dev-stop-svc:
 	@test -n "$(SVC)" || (echo "usage: make dev-stop-svc SVC=<service>"; exit 2)
 	@docker compose -f docker-compose.dev.yml -p standmeet-dev stop $(SVC)
 
+# dev-restart-svc —— 重启栈里的**一个** service。用法：make dev-restart-svc SVC=backend
+# 例：只在起进程时跑一次的那类任务(周期任务的第一跑就在 boot),测它得让进程重来一次。
+dev-restart-svc:
+	@test -n "$(SVC)" || (echo "usage: make dev-restart-svc SVC=<service>"; exit 2)
+	@docker compose -f docker-compose.dev.yml -p standmeet-dev restart $(SVC)
+	@docker compose -f docker-compose.dev.yml -p standmeet-dev up -d --wait $(SVC)
+
 # dev-logs —— tail 某个 service 的日志(诊断用)。用法：make dev-logs SVC=backend N=80
 dev-logs:
 	@test -n "$(SVC)" || (echo "usage: make dev-logs SVC=<service> [N=<lines>]"; exit 2)
