@@ -544,6 +544,11 @@ deps:
       - connectorroutes
       - ownerentity
       - builtincaps
+      # conversation 的两个 guts 包:宿主端口的形状里带着它们的类型(ChatWithMessages /
+      # UpsertReportInput / ChatReport),所以域外实现那几座桥就得 import 它们 ——
+      # 跟 ownerentity 同一个理由,不是绕过 facade。
+      - conversationentity
+      - conversationrepo
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。

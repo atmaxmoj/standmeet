@@ -197,6 +197,32 @@ func bookingWorld(ownerID, tz string, busy []BusyWindow, fail string) (
 	}, store
 }
 
+// reportBox —— where a stored report lands in the mini-host. Prod puts the row in postgres and
+// hands the id back; here it stays in memory. What matters is that report.store SUCCEEDS: the
+// plugin returns the host-sanitised HTML to the tool result, which is what the eval judges.
+type reportBox struct {
+	mu    sync.Mutex
+	seq   int
+	saved []string
+}
+
+func newReportBox() *reportBox { return &reportBox{} }
+
+func (b *reportBox) store(html string) (string, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.seq++
+	b.saved = append(b.saved, html)
+	return fmt.Sprintf("rep-%d", b.seq), nil
+}
+
+// reports —— every report stored so far (assertions read this).
+func (b *reportBox) reports() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string{}, b.saved...)
+}
+
 // bookableSlot —— a weekday inside the manifest's default working hours, past its minimum lead
 // time. Derived, not hard-coded: a fixed date drifts into the past and the eval starts failing
 // for a reason that has nothing to do with the product.

@@ -11,6 +11,9 @@ import (
 	"errors"
 	"fmt"
 
+	conversationentity "github.com/atmaxmoj/standmeet/internal/conversation/entity"
+	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
+	conversationrepo "github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	ownerentity "github.com/atmaxmoj/standmeet/internal/owner/entity"
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 )
@@ -162,3 +165,82 @@ func (c manifestConfigBridge) Values(
 
 // 接错了在这里红,而不是运行时少一件事。
 var _ capstoreroutes.BoundStore = storeBridge{}
+
+// —— conversation.read / inference.generate / report.store ——
+//
+// summarize 那类能力点这三件。同样只有桥:逐字稿是调用方给的数据,凭据走它已有的
+// Driver 解析,报告交回调用方存 —— 这一层不产生任何内容。
+
+// TranscriptTurn —— 逐字稿里的一句(role: "visitor" / "assistant")。
+type TranscriptTurn struct {
+	Role string
+	Body string
+}
+
+// TranscriptSource —— 到**这一刻**为止说过的话。是个函数不是切片:socket 在开场时就起来了,
+// 而逐字稿每一轮都在长 —— 取一次快照的话,总结那一轮读到的会是开场时的空。
+type TranscriptSource func() []TranscriptTurn
+
+// ReportSink —— 生成好的报告交给谁(调用方实现)。返回一个 id。
+type ReportSink func(html string) (string, error)
+
+type transcriptBridge struct{ src TranscriptSource }
+
+func (b transcriptBridge) GetWithMessages(
+	_ context.Context, _, chatID string,
+) (conversationrepo.ChatWithMessages, error) {
+	if b.src == nil {
+		return conversationrepo.ChatWithMessages{}, errNoTranscript
+	}
+	turns := b.src()
+	msgs := make([]conversationentity.Message, 0, len(turns))
+	for _, t := range turns {
+		msgs = append(msgs, conversationentity.Message{Role: t.Role, Body: t.Body})
+	}
+	return conversationrepo.ChatWithMessages{
+		Chat:     conversationentity.Chat{ID: chatID},
+		Messages: msgs,
+	}, nil
+}
+
+// reportBridge —— report.store 的落点。存哪儿由调用方决定;这里只转形状。
+type reportBridge struct{ sink ReportSink }
+
+func (b reportBridge) Upsert(
+	_ context.Context, in *conversationrepo.UpsertReportInput,
+) (conversationentity.ChatReport, error) {
+	if b.sink == nil {
+		return conversationentity.ChatReport{}, errNoReportSink
+	}
+	id, err := b.sink(in.HTML)
+	if err != nil {
+		return conversationentity.ChatReport{}, fmt.Errorf("report sink: %w", err)
+	}
+	return conversationentity.ChatReport{ID: id, HTML: in.HTML}, nil
+}
+
+func (reportBridge) GetByID(
+	_ context.Context, reportID string,
+) (conversationentity.ChatReport, error) {
+	return conversationentity.ChatReport{ID: reportID}, nil
+}
+
+// —— inference.generate ——
+
+// credBridge —— 宿主按 owner+mode 解凭据那一步。这一侧只有一把(这一场用的那把):
+// 沙箱同样看不见 key,它拿到的还是文本。
+type credBridge struct{ cred *Cred }
+
+func (b credBridge) Resolve(_ context.Context, _ *inference.ResolveInput) (*Cred, error) {
+	if b.cred == nil {
+		return nil, errNoCred
+	}
+	return b.cred, nil
+}
+
+// 能力点了这三件而这一场没接上 —— 一律报出来,理由同 errNoConnector。
+var (
+	errNoReportSink = errors.New("agentcore: this launch wired no report sink")
+	errNoTranscript = errors.New("agentcore: this launch wired no transcript source")
+	errNoCred       = errors.New("agentcore: this launch wired no credential")
+)

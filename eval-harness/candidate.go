@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/atmaxmoj/standmeet/agentcore"
@@ -29,20 +28,14 @@ const retrievalPluginDir = "../mcp-servers/retrieval"
 // so it runs as a plain stdio MCP server on this machine. Non-test core of buildHostPlugin, so
 // the --ask binary can reuse the exact same build.
 func buildRetrievalBinary(outDir string) (string, error) {
-	bin := filepath.Join(outDir, "retrieval-plugin")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	cmd.Dir = retrievalPluginDir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("build retrieval plugin: %w\n%s", err, out)
-	}
-	return bin, nil
+	return buildPluginBinary(retrievalPluginDir, filepath.Join(outDir, "retrieval-plugin"))
 }
 
 // retrievalPluginSpec —— the corpus.retrieval PluginSpec bound to a host socket. One
 // definition, so the six fields can't drift between call sites.
 func retrievalPluginSpec(bin, sock string) agentcore.PluginSpec {
 	return agentcore.PluginSpec{
-		ID: "corpus.retrieval", Command: bin,
+		ID: retrievalCapabilityID, Command: bin,
 		Env:     map[string]string{agentcore.HostSocketEnv: sock},
 		HostOps: agentcore.CorpusHostOpNames(), RawToolNames: true, ACLAlways: true,
 	}
@@ -51,45 +44,6 @@ func retrievalPluginSpec(bin, sock string) agentcore.PluginSpec {
 // bookerCapabilityID —— the shipped capability id. Everything else about the booker
 // (host ops, ACL tier, tool naming) is read from ITS manifest, not restated here.
 const bookerCapabilityID = "calendar.book"
-
-// buildBookerBinary —— compile the booker plugin for this host (prod runs it inside bwrap;
-// the mini-host runs it over plain stdio — isolation is prod's, vocabulary is shared).
-func buildBookerBinary(outDir string) (string, error) {
-	bin := filepath.Join(outDir, "booker-plugin")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	cmd.Dir = "../mcp-servers/booker"
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("build booker plugin: %w\n%s", err, out)
-	}
-	return bin, nil
-}
-
-// mountBooker —— build the booker, start its host socket over a canned calendar/store, and add
-// its manifest-derived PluginSpec to the driver. Returns the host (for assertions) + a stop func.
-//
-// The canned side is the OUTSIDE WORLD only (a calendar that answers, a store that keeps rows).
-// The plugin, its host-op vocabulary and the assembly are the real ones — a canned booking tool
-// would prove nothing about the booker.
-func mountBooker(
-	ctx context.Context, driver *EvalDriver, tmp, ownerID string, opts *launchOpts,
-) (*agentcore.CapabilityHost, func() error, error) {
-	bin, berr := buildBookerBinary(tmp)
-	if berr != nil {
-		return nil, nil, berr
-	}
-	sock := filepath.Join(tmp, "b.sock")
-	spec, serr := agentcore.BuiltinPluginSpec(bookerCapabilityID, bin, sock)
-	if serr != nil {
-		return nil, nil, fmt.Errorf("booker plugin spec: %w", serr)
-	}
-	host, _ := bookingWorld(ownerID, ownerTZOr(opts.ownerTimezone), nil, opts.bookingFail)
-	stop, herr := agentcore.StartCapabilitySocket(ctx, host, bookerCapabilityID, sock)
-	if herr != nil {
-		return nil, nil, fmt.Errorf("start booker socket: %w", herr)
-	}
-	driver.plugins = append(driver.plugins, spec)
-	return host, stop, nil
-}
 
 // launchCandidate —— assemble a candidate visitor agent with corpus tools live. The caller
 // pre-builds `driver` with corpus/roleBody/skill/mcp/cred; this appends the retrieval plugin,
@@ -122,6 +76,10 @@ type launchOpts struct {
 	// mini-host that says UTC while the prompt says New York makes an in-hours slot look closed
 	// — and the eval blames the model for the harness's disagreement with itself.
 	ownerTimezone string
+	// transcript / report —— summarize 那件能力问宿主要的两样:这一场说过的话、洗完的 HTML
+	// 落在哪。给空的话它们各自的桥会报错 —— 而不是悄悄读到一份空逐字稿。
+	transcript agentcore.TranscriptSource
+	report     agentcore.ReportSink
 }
 
 func launchCandidateWith(
@@ -147,14 +105,30 @@ func launchCandidateWith(
 		return nil, nil, fmt.Errorf("start retrieval socket: %w", serr)
 	}
 	stopAll := func() { _ = stop(); cleanup() }
-	if opts.booking {
-		_, stopBooker, merr := mountBooker(ctx, driver, tmp, in.OwnerID, &opts)
+	add := func(stopOne func() error) {
+		inner := stopAll
+		stopAll = func() { _ = stopOne(); inner() }
+	}
+	// 剩下两件 acl:always 的能力。prod 给每个访客都装 —— 这一侧不装的话,断言"它调了
+	// summarize_conversation / ask_visitor"永远不可能绿,而失败读起来像模型不听话。
+	for _, mount := range []func() (func() error, error){
+		func() (func() error, error) { return mountAskVisitor(ctx, driver, tmp) },
+		func() (func() error, error) { return mountSummarize(ctx, driver, tmp, &opts) },
+	} {
+		stopOne, merr := mount()
 		if merr != nil {
 			stopAll()
 			return nil, nil, merr
 		}
-		inner := stopAll
-		stopAll = func() { _ = stopBooker(); inner() }
+		add(stopOne)
+	}
+	if opts.booking {
+		stopBooker, merr := mountBooker(ctx, driver, tmp, in.OwnerID, &opts)
+		if merr != nil {
+			stopAll()
+			return nil, nil, merr
+		}
+		add(stopBooker)
 	}
 	agent, aerr := agentcore.BuildVisitorAgent(ctx, driver, in)
 	if aerr != nil {

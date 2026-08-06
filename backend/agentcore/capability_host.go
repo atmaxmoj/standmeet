@@ -1,6 +1,6 @@
-// booker_host.go —— eval mini-host 给沙箱能力开的那根 socket:**只做适配,不带任何替身**。
+// capability_host.go —— eval mini-host 给沙箱能力开的那根 socket:**只做适配,不带任何替身**。
 //
-// booker 这类能力断了网,只有一根 unix socket 通向宿主,上面挂着它 manifest 里点名的那几件
+// 沙箱能力断了网,只有一根 unix socket 通向宿主,上面挂着它 manifest 里点名的那几件
 // host op。prod 那一份由入站收口(routes/hostdesk)按各域的声明发;这里发的是**同一份声明**
 // (同一个 Collect、同一个 pick),只是背后接的是调用方给的实现。
 //
@@ -19,6 +19,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/routes/hostdesk"
 )
@@ -53,6 +54,12 @@ type CapabilityHost struct {
 	// Config —— 覆盖某几项配置(键 → 原始 JSON)。没给的项走 manifest 声明的默认值 ——
 	// "默认值只有一处"在这一侧同样成立。
 	Config map[string]string
+	// Transcript —— conversation.read 的答案(到调用那一刻为止)。nil = 不点这件事。
+	Transcript TranscriptSource
+	// Cred —— inference.generate 拿哪把凭据去跑。nil = 不点这件事。
+	Cred *Cred
+	// Report —— report.store 洗干净、套好版之后的 HTML 交给谁。nil = 不点这件事。
+	Report ReportSink
 	// OwnerID / Timezone —— owner.meta 回答的那两项。Timezone 必须跟这一轮 instruction 里
 	// 说的那个时区一致:预约策略按 owner 的时区判,两处不一致会让一个开着的时段显示成关的。
 	OwnerID  string
@@ -86,13 +93,20 @@ func StartCapabilitySocket(
 	return srv.Close, nil
 }
 
-// deps —— 域依赖。Conversation / Corpus 这一侧给空:booker 没点它们的 op,而 pick 只发
-// 点过的名字 —— 没点的那些连处理器都不会挂上去。
+// deps —— 域依赖。每一样都由桥填;这一场没接的那样,它自己的桥会报错 —— 而 pick 只发
+// 点过的名字,所以没点的那些连处理器都不会挂上去。
+//
+// Corpus 给空:检索走的是它自己那根 socket(StartRetrievalSocket),不从这儿发。
 func (h *CapabilityHost) deps() *hostdesk.Deps {
 	return &hostdesk.Deps{
 		Corpus:     &corpus.IndexDeps{},
 		Owners:     ownerMetaBridge{tz: h.Timezone},
 		Connectors: connectorBridge{call: h.Connector},
+		Conversation: conversation.OpsHost{
+			Chats:    transcriptBridge{src: h.Transcript},
+			Resolver: credBridge{cred: h.Cred},
+			Reports:  reportBridge{sink: h.Report},
+		},
 	}
 }
 

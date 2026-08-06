@@ -233,6 +233,9 @@ func askCandidate(
 		// owner.meta 说的时区必须跟 instruction 里那句是同一个 —— 预约策略(工作时间)按
 		// owner 的时区判,两处不一致的话一个本该开着的时段会显示成关的。
 		ownerTimezone: req.OwnerTimezone,
+		// summarize 读的逐字稿 = 这一场到此为止说过的话(prod 从库里读同一份)。
+		transcript: func() []agentcore.TranscriptTurn { return askTranscript(req) },
+		report:     newReportBox().store,
 	})
 	if berr != nil {
 		return candidateTurn{}, berr
@@ -368,4 +371,20 @@ func candidateHistory(prior []convTurn) []agentcore.ChatRequestMsg {
 		out = append(out, agentcore.ChatRequestMsg{Role: role, Content: t.Text})
 	}
 	return out
+}
+
+// askTranscript —— conversation.read 的答案:之前那些轮 + **这一轮的问题**。
+//
+// 最后那句必须在里面:让人总结的正是这一轮说的话,少了它总结出来的是上一轮的对话 ——
+// 而那种偏差不报错,只是报告写得莫名其妙。角色用产品的词(visitor / assistant)。
+func askTranscript(req askRequest) []agentcore.TranscriptTurn {
+	out := make([]agentcore.TranscriptTurn, 0, len(req.History)+1)
+	for _, t := range req.History {
+		role := "visitor"
+		if t.Role == "candidate" {
+			role = "assistant"
+		}
+		out = append(out, agentcore.TranscriptTurn{Role: role, Body: t.Text})
+	}
+	return append(out, agentcore.TranscriptTurn{Role: "visitor", Body: req.Question})
 }
