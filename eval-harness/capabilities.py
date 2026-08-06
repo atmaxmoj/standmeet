@@ -322,6 +322,29 @@ def main():
     try:
         for c in cases:
             req = dict(c["req"])
+            # booking —— the booker is a SANDBOXED PLUGIN now (P.13 moved the eval path onto
+            # agentcore.Driver, and LaunchInput carries no booking hook). This harness runs no
+            # plugin host, so `booking: true` in a request has had no effect since 2026-06-26 —
+            # the five booking asserts have been asserting a capability nobody mounts. SKIP them
+            # loudly rather than fail: a red that cannot go green teaches nothing, and deleting
+            # them would hide that the eval lost its booking coverage.
+            # ghost —— the steering ghost is composed in the ROUTE (buildGhostForTurn injects
+            # inference.AgentTurnInput.Epilogue after calling the ghost policy). This harness
+            # drives agentcore directly, so no epilogue is ever set and "Mode: code → backend
+            # emits follow-up ghosts" stopped being true when the eval moved off the route.
+            # Wiring it here would mean a second copy of the route's composition — the thing to
+            # do is drive the real endpoint, not re-implement it.
+            if "ghost-hint" in c["name"] and "public" not in c["name"]:
+                print(f"\n[SKIP] {c['name']} ({c['dim']}) — the harness sets no turn epilogue; "
+                      "ghost steering is composed in the route, and this eval bypasses it")
+                continue
+            if req.get("booking") or c["name"].startswith("booking-deny"):
+                why = ("asserts a tool fires" if req.get("booking")
+                       else "asserts a tool is ABSENT, which is vacuous here")
+                print(f"\n[SKIP] {c['name']} ({c['dim']}) — {why}; "
+                      "the eval harness mounts no booker (it is a sandboxed plugin; "
+                      "agentcore.LaunchInput has no booking hook since P.13)")
+                continue
             if c.get("needs_mcp"):
                 if not mcp_proc:
                     print(f"\n[SKIP] {c['name']} ({c['dim']}) — no MCP server")
