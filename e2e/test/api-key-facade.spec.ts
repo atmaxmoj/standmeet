@@ -11,7 +11,7 @@ import type { Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { callTool, initMCP } from '@/fixtures/mcp';
+import { callTool, callToolOutcome, initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -139,6 +139,35 @@ async function checkRevocation(r: APIRequestContext): Promise<void> {
   expect(revoked.status(), 'revoked key → 401').toBe(401);
 }
 
+// checkRevokeNothingSaysSo —— revoking a key that isn't there must not report success, while
+// revoking one twice must not report failure. The line between the two is what this pins.
+//
+// The underlying UPDATE is `... WHERE id = $1 AND owner_id = $2`. An id that doesn't exist (a stale
+// list, another tab, another owner's key) matches zero rows, postgres reports no error, and the
+// caller used to return nil — so the owner is told a key was revoked while it keeps working. For a
+// revoke that is the worst possible lie. The sibling operation on access codes has read its row
+// count for a long time (`CodeRepo.Revoke` → ErrCodeInvalid); this half never did.
+//
+// Revoking an already-revoked key is a different case and stays a success: the row is there, the
+// write lands, and the end state is exactly what the owner asked for. "Nothing to write" is a
+// failure; "already in the state you asked for" is not. Both halves are here so a later reading of
+// the first one can't turn idempotence into an error.
+async function checkRevokeNothingSaysSo(r: APIRequestContext): Promise<void> {
+  // Well-formed but unknown id — the parse succeeds, so the write is genuinely attempted.
+  const ghost = await callToolOutcome(r, token, sid, 'api_keys.revoke',
+    { id: '00000000-0000-4000-8000-000000000000' });
+  expect(ghost.reachable, 'the call itself must go through (this is not a transport test)').toBe(true);
+  expect(ghost.isError, 'revoking a key that does not exist must not report success').toBe(true);
+
+  const mint = await callTool<MintResp>(r, token, sid, 'api_keys.create',
+    { label: 'twice', assumed_role_id: (await roleOf(r)) });
+  await callTool(r, token, sid, 'api_keys.revoke', { id: mint.id });
+  const again = await callToolOutcome(r, token, sid, 'api_keys.revoke', { id: mint.id });
+  expect(again.isError, 'revoking twice is idempotent — the key is revoked either way').toBe(false);
+  const dead = await facadeDiscover(r, mint.secret);
+  expect(dead.status(), 'and it really is revoked').toBe(401);
+}
+
 // roleOf —— the seeded role id (api_keys.list carries assumed_role_id).
 async function roleOf(r: APIRequestContext): Promise<string> {
   const keys = await callTool<Array<{ id: string; assumed_role_id: string }>>(
@@ -160,4 +189,6 @@ test.describe('API-key facade · /api/pub/v1 行为守护', () => {
   test('per-key capability denial subtracts the tool',
     ({ playwright }) => run(playwright, checkPerKeyDenial));
   test('revoked key → 401', ({ playwright }) => run(playwright, checkRevocation));
+  test('revoking a key that is not there never reports success',
+    ({ playwright }) => run(playwright, checkRevokeNothingSaysSo));
 });

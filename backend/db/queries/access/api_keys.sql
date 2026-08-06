@@ -25,7 +25,11 @@ ORDER BY created_at DESC;
 SELECT * FROM api_keys
 WHERE id = $1 AND owner_id = $2;
 
--- name: RevokeAPIKey :exec
+-- name: RevokeAPIKey :execrows
+-- **:execrows, not :exec** —— an id that isn't there (stale list, another tab, another owner's key)
+-- matches zero rows and postgres reports no error. Telling an owner "revoked" about a key that
+-- still works is the worst lie this table can produce, so the caller has to see the row count.
+-- Same reason CodeRepo.Revoke has checked its CommandTag for a long time.
 UPDATE api_keys
 SET status = 'revoked'
 WHERE id = $1 AND owner_id = $2;

@@ -449,20 +449,6 @@ func (q *Queries) ListCodeWaypoints(ctx context.Context, codeID pgtype.UUID) ([]
 	return items, nil
 }
 
-const revokeAccessCode = `-- name: RevokeAccessCode :exec
-UPDATE access_codes SET status = 'revoked' WHERE id = $1 AND owner_id = $2
-`
-
-type RevokeAccessCodeParams struct {
-	ID      pgtype.UUID
-	OwnerID pgtype.UUID
-}
-
-func (q *Queries) RevokeAccessCode(ctx context.Context, arg RevokeAccessCodeParams) error {
-	_, err := q.db.Exec(ctx, revokeAccessCode, arg.ID, arg.OwnerID)
-	return err
-}
-
 const setAccessCodeGhostEvidence = `-- name: SetAccessCodeGhostEvidence :one
 UPDATE access_codes
 SET require_ghost_evidence = $3
@@ -510,6 +496,7 @@ func (q *Queries) TouchCodeMember(ctx context.Context, id pgtype.UUID) error {
 }
 
 const updateAccessCodeQuotas = `-- name: UpdateAccessCodeQuotas :one
+
 UPDATE access_codes
 SET max_turns_per_session = $3, max_members = $4
 WHERE id = $1 AND owner_id = $2
@@ -523,6 +510,10 @@ type UpdateAccessCodeQuotasParams struct {
 	MaxMembers         *int32
 }
 
+// RevokeAccessCode was deleted: it was `:exec`, which discards the row count, so a revoke that
+// matched nothing came back as success. CodeRepo.Revoke hand-writes the same UPDATE precisely to
+// read the CommandTag, and has been the only caller for a long time — leaving the generated one
+// around is an invitation to call the version that cannot tell you it did nothing.
 func (q *Queries) UpdateAccessCodeQuotas(ctx context.Context, arg UpdateAccessCodeQuotasParams) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, updateAccessCodeQuotas,
 		arg.ID,

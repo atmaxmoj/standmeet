@@ -25,8 +25,10 @@ SELECT * FROM access_codes WHERE id = $1;
 -- name: ListAccessCodesByOwner :many
 SELECT * FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC;
 
--- name: RevokeAccessCode :exec
-UPDATE access_codes SET status = 'revoked' WHERE id = $1 AND owner_id = $2;
+-- RevokeAccessCode was deleted: it was `:exec`, which discards the row count, so a revoke that
+-- matched nothing came back as success. CodeRepo.Revoke hand-writes the same UPDATE precisely to
+-- read the CommandTag, and has been the only caller for a long time — leaving the generated one
+-- around is an invitation to call the version that cannot tell you it did nothing.
 
 -- name: UpdateAccessCodeQuotas :one
 UPDATE access_codes

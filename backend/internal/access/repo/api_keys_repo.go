@@ -106,7 +106,13 @@ func (r *APIKeyRepo) GetByID(
 	return decodeAPIKey(&row), nil
 }
 
-// Revoke —— owner-scoped status flip to 'revoked'. Idempotent.
+// Revoke —— owner-scoped status flip to 'revoked'.
+//
+// **Zero rows is a failure, not a no-op.** The UPDATE is scoped by (id, owner_id); an id that isn't
+// there — a stale list, a second tab that already revoked it, another owner's key — matches nothing
+// and postgres reports no error. Returning nil then tells the owner a key was revoked while it
+// keeps letting callers in, which is the worst thing this table can say. Not-there →
+// ErrAPIKeyNotFound, the shape Get already uses, and the call CodeRepo.Revoke has always made.
 func (r *APIKeyRepo) Revoke(ctx context.Context, id, ownerID string) error {
 	idUUID, err := pgstore.ParseUUID(id)
 	if err != nil {
@@ -116,10 +122,14 @@ func (r *APIKeyRepo) Revoke(ctx context.Context, id, ownerID string) error {
 	if oerr != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	if qerr := db.New(r.pool).RevokeAPIKey(ctx, db.RevokeAPIKeyParams{
+	rows, qerr := db.New(r.pool).RevokeAPIKey(ctx, db.RevokeAPIKeyParams{
 		ID: idUUID, OwnerID: ownerUUID,
-	}); qerr != nil {
+	})
+	if qerr != nil {
 		return fmt.Errorf("revoke api key: %w", qerr)
+	}
+	if rows == 0 {
+		return entity.ErrAPIKeyNotFound
 	}
 	return nil
 }

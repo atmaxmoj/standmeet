@@ -318,7 +318,7 @@ func (q *Queries) OpenAPICapability(ctx context.Context, arg OpenAPICapabilityPa
 	return err
 }
 
-const revokeAPIKey = `-- name: RevokeAPIKey :exec
+const revokeAPIKey = `-- name: RevokeAPIKey :execrows
 UPDATE api_keys
 SET status = 'revoked'
 WHERE id = $1 AND owner_id = $2
@@ -329,9 +329,16 @@ type RevokeAPIKeyParams struct {
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) error {
-	_, err := q.db.Exec(ctx, revokeAPIKey, arg.ID, arg.OwnerID)
-	return err
+// **:execrows, not :exec** —— an id that isn't there (stale list, another tab, another owner's key)
+// matches zero rows and postgres reports no error. Telling an owner "revoked" about a key that
+// still works is the worst lie this table can produce, so the caller has to see the row count.
+// Same reason CodeRepo.Revoke has checked its CommandTag for a long time.
+func (q *Queries) RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeAPIKey, arg.ID, arg.OwnerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const touchAPIKeyLastUsed = `-- name: TouchAPIKeyLastUsed :exec
