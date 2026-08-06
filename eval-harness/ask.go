@@ -222,9 +222,17 @@ func askCandidate(
 		mcpURL:   mcpURLFor(req),
 		cred:     cred,
 	}
-	agent, cleanup, berr := launchCandidate(ctx, driver, &agentcore.LaunchInput{
+	agent, cleanup, berr := launchCandidateWith(ctx, driver, &agentcore.LaunchInput{
 		OwnerID: evalOwnerID, Mode: mode, ConversationID: evalConvID,
 		CodeID: evalCodeID, SystemPromptOverride: override,
+		// booking 是 acl=role_granted:只有**这一场的 role 授了它**才暴露。不授 = 结构性缺席,
+		// 那正是 deny 用例要测的东西。
+		GrantedCapabilities: grantedCapabilities(req),
+	}, launchOpts{
+		booking: req.Booking, bookingFail: bookingFailVerb(),
+		// owner.meta 说的时区必须跟 instruction 里那句是同一个 —— 预约策略(工作时间)按
+		// owner 的时区判,两处不一致的话一个本该开着的时段会显示成关的。
+		ownerTimezone: req.OwnerTimezone,
 	})
 	if berr != nil {
 		return candidateTurn{}, berr
@@ -302,6 +310,28 @@ func ghostTexts(g *agentcore.GhostFrame) []string {
 		return []string{}
 	}
 	return []string{g.Text}
+}
+
+// grantedCapabilities —— 这一场 role 授出去的能力 id。
+func grantedCapabilities(req askRequest) []string {
+	if !req.Booking {
+		return []string{}
+	}
+	return []string{bookerCapabilityID}
+}
+
+// bookingFailVerb —— EVAL_BOOKING_FAIL 把某个连接器动词打成失败,用来跑"约不上"那几条路。
+//   - "conflict"     → 插入被日历拒(那一刻被别人占了)
+//   - "notconnected" → owner 根本没连日历,连查空闲都不行
+func bookingFailVerb() string {
+	switch os.Getenv("EVAL_BOOKING_FAIL") {
+	case "conflict":
+		return "calendar.insert_event"
+	case "notconnected":
+		return "calendar.free_busy"
+	default:
+		return ""
+	}
 }
 
 // skillSpecFor returns the demo owner skill when the request asked for it.

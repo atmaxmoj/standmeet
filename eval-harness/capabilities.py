@@ -352,13 +352,6 @@ def main():
             # the five booking asserts have been asserting a capability nobody mounts. SKIP them
             # loudly rather than fail: a red that cannot go green teaches nothing, and deleting
             # them would hide that the eval lost its booking coverage.
-            if req.get("booking") or c["name"].startswith("booking-deny"):
-                why = ("asserts a tool fires" if req.get("booking")
-                       else "asserts a tool is ABSENT, which is vacuous here")
-                print(f"\n[SKIP] {c['name']} ({c['dim']}) — {why}; "
-                      "the eval harness mounts no booker (it is a sandboxed plugin; "
-                      "agentcore.LaunchInput has no booking hook since P.13)")
-                continue
             if c.get("needs_mcp"):
                 if not mcp_proc:
                     print(f"\n[SKIP] {c['name']} ({c['dim']}) — no MCP server")

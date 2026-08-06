@@ -105,6 +105,8 @@ components:
     in: internal/corpus/entity       # corpus guts: 各 genre 值对象/实体 + 域错误
   corpusi18n:
     in: internal/corpus/i18n         # corpus guts: 多语结构(解析 / 诊断 / 选一面)。纯文本,无依赖
+  builtincaps:
+    in: capabilities                 # 随产品发的内建能力**声明**(manifest.yaml,go:embed);只有数据
   corpusrepo:
     in: internal/corpus/repo         # corpus guts: 仓储（over db + pgstore）
   corpususecase:
@@ -533,6 +535,15 @@ deps:
       - mcpplugin
       - capsocket
       - access
+      # eval mini-host —— 挂**真**插件要的那几样:入站收口(词表和 pick 都用它那一份)、
+      # 能力自己的存储/配置口、owner 实体(罐装 owner.meta 的返回类型)、内建 manifest。
+      # 这是组装根的活:agentcore 是 eval 的组装根,跟 cmd/server 同角色。
+      - hostdesk
+      - capstoreroutes
+      - capconfigroutes
+      - connectorroutes
+      - ownerentity
+      - builtincaps
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
@@ -774,6 +785,11 @@ deps:
   # 四个消费方(MCP 写入 / check 工具 / vault 同步 / 读者页)都只调它,所以它谁都不能依赖。
   corpusi18n:
     mayDependOn: []
+    anyVendorDeps: true
+  # builtincaps —— 只有数据(manifest)+ 一个解析成 mcpplugin.Manifest 的装载器。
+  builtincaps:
+    mayDependOn:
+      - mcpplugin
     anyVendorDeps: true
   corpusrepo:
     mayDependOn:

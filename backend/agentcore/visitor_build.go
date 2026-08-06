@@ -59,9 +59,10 @@ func BuildVisitorAgent(ctx context.Context, d Driver, in *LaunchInput) (*Visitor
 		return nil, eerr
 	}
 
-	snapshot := buildSnapshot(
-		env.persona.RoleBody, buildCorpusGrants(env.persona.Corpus), env.skill, env.mcpURL,
-	)
+	snapshot := buildSnapshot(&snapshotInput{
+		roleBody: env.persona.RoleBody, corpusURIs: buildCorpusGrants(env.persona.Corpus),
+		skill: env.skill, mcpURL: env.mcpURL, granted: in.GrantedCapabilities,
+	})
 	deps := buildDriverDeps(d, in.OwnerID, env.skill, env.mcpURL)
 
 	reg := capreg.NewRegistry()
@@ -130,22 +131,31 @@ func composePrompt(
 // buildSnapshot —— RoleSnapshot framing the run: PromptBody is the owner persona;
 // CorpusURIs are the granted (public) entry URIs (turn retrieval on + gate ACL); a
 // granted skill adds its id + prompt; a non-empty mcpURL adds its server id.
-func buildSnapshot(
-	roleBody string, corpusURIs []string, skill *VisitorSkillSpec, mcpURL string,
-) access.RoleSnapshot {
+// snapshotInput —— buildSnapshot 的入参(打包守 argument-limit)。
+type snapshotInput struct {
+	skill      *VisitorSkillSpec
+	roleBody   string
+	mcpURL     string
+	corpusURIs []string
+	granted    []string
+}
+
+func buildSnapshot(in *snapshotInput) access.RoleSnapshot {
 	init := &access.RoleSnapshotInit{
 		RoleID:     "eval-role",
 		RoleName:   "eval",
-		PromptBody: roleBody,
-		CorpusURIs: corpusURIs,
+		PromptBody: in.roleBody,
+		CorpusURIs: in.corpusURIs,
+		// AllowedTools —— role 授出去的能力 id。acl=role_granted 的插件靠它暴露。
+		AllowedTools: in.granted,
 	}
-	if skill != nil {
+	if in.skill != nil {
 		init.SkillIDs = []string{evalSkillID}
-		if skill.Prompt != "" {
-			init.SkillPrompts = []string{skill.Prompt}
+		if in.skill.Prompt != "" {
+			init.SkillPrompts = []string{in.skill.Prompt}
 		}
 	}
-	if mcpURL != "" {
+	if in.mcpURL != "" {
 		init.MCPServerIDs = []string{evalMCPID}
 	}
 	return access.NewRoleSnapshot(init)

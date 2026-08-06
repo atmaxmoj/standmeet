@@ -77,16 +77,34 @@ func Collect(d *Deps, per *PerCapability) []hostop.Op {
 func Serve(
 	ctx context.Context, log *slog.Logger, pluginID string, want []string, all []hostop.Op,
 ) (*capsocket.Server, error) {
-	handlers, err := pick(pluginID, want, all)
+	return ServeAt(ctx, log, &ServeInput{
+		PluginID: pluginID, Want: want, All: all, SockPath: SocketPath(pluginID),
+	})
+}
+
+// ServeAt —— 同上,但 socket 路径由调用方给。
+//
+// 为 eval 的 mini-host 开的:那边跑在 macOS 上,没有 /run,而**挑哪几件 op** 那一步必须还是
+// 这一份 —— 词汇表和"点了没有的名字就报错"这条,不能因为换了个路径就变成第二套。
+func ServeAt(ctx context.Context, log *slog.Logger, in *ServeInput) (*capsocket.Server, error) {
+	handlers, err := pick(in.PluginID, in.Want, in.All)
 	if err != nil {
 		return nil, err
 	}
-	srv, lerr := capsocket.ListenWith(ctx, SocketPath(pluginID), handlers, log)
+	srv, lerr := capsocket.ListenWith(ctx, in.SockPath, handlers, log)
 	if lerr != nil {
 		return nil, fmt.Errorf("hostdesk: %w", lerr)
 	}
 	go srv.Serve(ctx)
 	return srv, nil
+}
+
+// ServeInput —— ServeAt 的入参:给谁开、开哪几件、词表是什么、socket 落在哪。
+type ServeInput struct {
+	PluginID string
+	SockPath string
+	Want     []string
+	All      []hostop.Op
 }
 
 // SocketPath —— 一个能力的 socket 落在哪儿。宿主派生,manifest 不写。

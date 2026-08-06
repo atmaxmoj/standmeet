@@ -75,9 +75,9 @@ func (s *seqSink) ToolStarted(_, name, _ string, args json.RawMessage) {
 	s.tools = append(s.tools, toolUse{Name: name, Args: string(args)})
 }
 
-func (s *seqSink) ToolCompleted(string, string) {}
+func (s *seqSink) ToolCompleted(string, string)      {}
 func (s *seqSink) Epilogue(*agentcore.EpilogueFrame) {}
-func (*seqSink) Retrying(int)                   {}
+func (*seqSink) Retrying(int)                        {}
 
 func (s *seqSink) Error(err error) {
 	s.mu.Lock()
