@@ -8,6 +8,8 @@ package usecase
 import (
 	"regexp"
 	"strings"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
 
 var (
@@ -66,7 +68,7 @@ func LeadLine(body string, limit int) string {
 		if skip {
 			continue
 		}
-		return truncateRunesUC(cleanLead(line), limit)
+		return textcut.BytesMark(cleanLead(line), limit)
 	}
 	return ""
 }
@@ -107,21 +109,4 @@ func cleanLead(line string) string {
 	line = wikilinkTargetRe.ReplaceAllString(line, "$1") // [[X|a]] → X
 	line = inlineEmphasisRe.ReplaceAllString(line, "")
 	return strings.TrimSpace(line)
-}
-
-// truncateRunesUC —— cut to n bytes without splitting a rune (a usecases-local copy; the
-// inference package has its own).
-func truncateRunesUC(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	cut := s[:n]
-	for cut != "" && !isValidUTF8Tail(cut) {
-		cut = cut[:len(cut)-1]
-	}
-	return cut + "…"
-}
-
-func isValidUTF8Tail(s string) bool {
-	return strings.ToValidUTF8(s, "�") == s
 }

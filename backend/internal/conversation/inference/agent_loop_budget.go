@@ -21,9 +21,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/cloudwego/eino/adk"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
 
 // maxAgentIterations —— tool-calling rounds allowed per turn.
@@ -63,7 +64,7 @@ type gatheredEvidence struct {
 func recordEvidence(state *turnState, tool, result string) {
 	state.evidenceTotal++
 	state.evidence = append(state.evidence, gatheredEvidence{
-		tool: tool, result: truncateRunes(result, evidenceItemCap),
+		tool: tool, result: textcut.BytesMark(result, evidenceItemCap),
 	})
 	if len(state.evidence) <= evidenceCap {
 		return
@@ -72,18 +73,6 @@ func recordEvidence(state *turnState, tool, result string) {
 	kept = append(kept, state.evidence[:evidenceHeadCap]...)
 	kept = append(kept, state.evidence[len(state.evidence)-evidenceTailCap:]...)
 	state.evidence = kept
-}
-
-// truncateRunes —— cut to at most n bytes without splitting a rune.
-func truncateRunes(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	cut := s[:n]
-	for cut != "" && !utf8.ValidString(cut) {
-		cut = cut[:len(cut)-1]
-	}
-	return cut + "…"
 }
 
 // evidenceDigest —— the gathered material, framed for the exhaustion synthesis. When the record

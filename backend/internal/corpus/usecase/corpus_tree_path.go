@@ -15,12 +15,13 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
+	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
 
 // TreeMaxDepth —— 防环路 / 异常深树。
 const TreeMaxDepth = 32
 
-// pathSegmentMaxLen —— 单段截断,够表意又不失控。
+// pathSegmentMaxLen —— 单段截断,够表意又不失控(单位:字符)。
 const pathSegmentMaxLen = 80
 
 // pathNode —— 算 path 只需要 id / title / parent。Wiki 和 Output
@@ -157,9 +158,9 @@ func SlugifyTitle(title string) string { return PathSegment(title) }
 func PathSegment(title string) string {
 	words := strings.FieldsFunc(strings.ToLower(title), isPathSeparator)
 	out := strings.Join(words, "-")
-	if len(out) > pathSegmentMaxLen {
-		out = strings.Trim(out[:pathSegmentMaxLen], "-")
-	}
+	// 按字符切,且**不留省略号** —— 这一段要进地址。按字节切的话,一个中文标题会在第 80
+	// 字节处被劈成半个字,写进 citext 的 path 列时 postgres 整条拒掉。
+	out = strings.Trim(textcut.Runes(out, pathSegmentMaxLen), "-")
 	if out == "" {
 		return "untitled"
 	}

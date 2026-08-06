@@ -24,18 +24,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
 const (
-	hnDefaultBase       = "https://hacker-news.firebaseio.com"
-	hnMaxComments       = 100
-	hnTitlePrefix       = "Ask HN: Who is hiring"
-	hnSubmittedDepth    = 12
-	hnTitleMaxLen       = 120
-	hnTitleEllipsisRune = "…"
+	hnDefaultBase    = "https://hacker-news.firebaseio.com"
+	hnMaxComments    = 100
+	hnTitlePrefix    = "Ask HN: Who is hiring"
+	hnSubmittedDepth = 12
+	hnTitleMaxLen    = 120
 )
 
 type hnHiringFetcher struct {
@@ -170,10 +169,7 @@ func hnFirstLine(text string) string {
 	if i := strings.Index(text, "\n"); i > 0 {
 		first = text[:i]
 	}
-	if utf8.RuneCountInString(first) > hnTitleMaxLen {
-		// truncate on a RUNE boundary — first[:hnTitleMaxLen] slices bytes and can split a
-		// multibyte rune, yielding invalid UTF-8 (the doc says "hnTitleMaxLen runes").
-		first = string([]rune(first)[:hnTitleMaxLen]) + hnTitleEllipsisRune
-	}
-	return first
+	// Cut by CHARACTER, not by byte: first[:hnTitleMaxLen] can split a multibyte rune and
+	// yield invalid UTF-8. One implementation of that, in textcut.
+	return textcut.RunesMark(first, hnTitleMaxLen)
 }

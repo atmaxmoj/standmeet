@@ -25,6 +25,8 @@ components:
     in: tools/archcheck                   # build-time lint tool: internal/'s import-graph gates
   pgstore:
     in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
+  textcut:
+    in: internal/infra/textcut                   # 按字符/字节安全截断文本（唯一实现）；domain-less leaf
   session:
     in: internal/infra/session
   config:
@@ -514,6 +516,8 @@ deps:
       - owner
       - cryptobox
       - httpx
+      # textcut —— 证据摘要按字节预算切,不能切开一个字符(唯一实现在 infra)。
+      - textcut
     anyVendorDeps: true
 
   # agentcore —— public facade：把 internal/inference 的 agentic loop 表面
@@ -640,6 +644,7 @@ deps:
     mayDependOn:
       - jobsmodel
       - httpx
+      - textcut
     anyVendorDeps: true
 
   # gotenberg —— thin HTTP client for the Gotenberg sidecar (headless
@@ -802,6 +807,8 @@ deps:
       - corpusdb
       - connector
       - pgstore
+      # textcut —— raw 的派生 title 按字符截断;按字节切会让 postgres 拒掉整条写入。
+      - textcut
     anyVendorDeps: true
   corpususecase:
     mayDependOn:
@@ -820,6 +827,8 @@ deps:
       # httpx —— 按 owner 给的 https 地址取回一份素材。出站 HTTP 一律经 httpx
       # (retry + timeout + egress 封锁);这条尤其要,因为地址是 owner 递进来的。
       - httpx
+      # textcut —— path 段和 lead line 的截断;同 corpusrepo 的理由。
+      - textcut
     anyVendorDeps: true
 
   # access —— #135 access 域(facade + DDD guts)。facade 只依赖自己的 guts;guts 分层无环。

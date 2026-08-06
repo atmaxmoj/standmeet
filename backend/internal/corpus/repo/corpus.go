@@ -16,11 +16,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
 
 const (
 	maxPathDepth   = 32 // 防 parent 环路或异常深 tree
-	rawTitleMaxLen = 60 // raw 从 body 派生 title 的截断长度
+	rawTitleMaxLen = 60 // raw 从 body 派生 title 的截断长度(单位:字符)
 )
 
 // RawRepo —— corpus_notes(genre='raw')的 inbox CRUD。
@@ -63,17 +64,19 @@ func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (entity.Raw, e
 	return toDomainRaw(&row), nil
 }
 
-// rawTitleFromBody —— raw 无独立 title,从 body 派生:首非空行 trim 到 <=60 char,空则 "untitled"。
+// rawTitleFromBody —— raw 无独立 title,从 body 派生:首非空行 trim 到 <=60 个**字符**,
+// 空则 "untitled"。
+//
+// 按字符切,不是按字节:`line[:60]` 会把第 60 字节处的多字节字符劈开,postgres 收到半个
+// 字符就整条拒掉(invalid byte sequence for encoding "UTF8"),而报错里一个字都没提标题。
+// 中文一行 21 个字就到 63 字节 —— 对中文 vault 这是常态,不是边角。
 func rawTitleFromBody(body string) string {
 	for line := range strings.SplitSeq(body, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		if len(line) > rawTitleMaxLen {
-			return strings.TrimSpace(line[:rawTitleMaxLen])
-		}
-		return line
+		return strings.TrimSpace(textcut.RunesMark(line, rawTitleMaxLen))
 	}
 	return "untitled"
 }
