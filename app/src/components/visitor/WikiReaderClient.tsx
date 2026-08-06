@@ -20,6 +20,8 @@ import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
 import { coverURL, expandBody } from '@/lib/corpus/media';
 import { CorpusContent } from '@/components/page/CorpusContent';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
+import type { LanguageOption } from '@/lib/api/public';
+import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
@@ -49,6 +51,9 @@ export type WikiEntry = {
   related: readonly WikiRef[];
   cited_by: readonly WikiRef[];
   sources_count: number;
+  // 多语:body 已经是选中语言的那一份(服务端选的)。languages 空 = 单语,不出切换器。
+  lang?: string;
+  languages?: readonly LanguageOption[];
 };
 
 // scopedToEntry —— WikiLandingEntry (bearer re-fetch wire) → the reader's WikiEntry shape.
@@ -59,18 +64,23 @@ function scopedToEntry(e: WikiLandingEntry): WikiEntry {
     coverAssetID: e.cover_image_asset_id, coverHeadline: e.cover_headline,
     tags: e.tags, css_classes: e.css_classes,
     related: e.related, cited_by: e.cited_by, sources_count: e.sources_count,
+    lang: e.lang, languages: e.languages,
   };
 }
 
-export function WikiReaderClient({ initialWiki, handle, ownerName, slug, initialCtx, stats }: {
+export function WikiReaderClient({
+  initialWiki, handle, ownerName, slug, initialCtx, stats, lang = '',
+}: {
   initialWiki: WikiEntry | null; handle: string; ownerName: string; slug: string;
-  initialCtx: TreeContext; stats: WikiTreeStats;
+  initialCtx: TreeContext; stats: WikiTreeStats; lang?: string;
 }) {
   const [wiki, setWiki] = useState<WikiEntry | null>(initialWiki);
   const [ctx, setCtx] = useState<TreeContext>(initialCtx);
   useEffect(
-    () => loadScopedLanding(slug, initialWiki !== null, (e) => setWiki(scopedToEntry(e)), setCtx),
-    [initialWiki, slug],
+    () => loadScopedLanding(
+      slug, initialWiki !== null, (e) => setWiki(scopedToEntry(e)), setCtx, lang,
+    ),
+    [initialWiki, slug, lang],
   );
   return wiki
     ? (
@@ -97,6 +107,9 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
           />
           <OgCover entry={wiki} seed={slug} />
           <MetaStrip entry={wiki} ownerName={ownerName} />
+          <div className="max-w-[680px] mx-auto mt-3">
+            <LanguageSwitch languages={wiki.languages ?? []} current={wiki.lang ?? ''} />
+          </div>
           <article className="max-w-[680px] mx-auto mt-2">
             <WikiBody
               body={wiki.body} assetURLs={wiki.assetURLs} cssClasses={wiki.css_classes}

@@ -45,15 +45,20 @@ const WikiLandingEntrySchema = z.object({
   cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
   cover_headline: z.string().nullish().transform((v) => v ?? ''),
   cover_hue: z.string().nullish().transform((v) => v ?? ''),
+  // 多语:body 已经是选中语言的那一份。languages 空 = 单语,不出切换器。
+  lang: z.string().nullish().transform((v) => v ?? ''),
+  languages: z.array(z.object({ code: z.string(), label: z.string() }))
+    .nullish().transform((v) => v ?? []),
 });
 export type WikiLandingEntry = z.infer<typeof WikiLandingEntrySchema>;
 
 export async function fetchWikiLandingScoped(
-  slug: string, token: string,
+  slug: string, token: string, lang = '',
 ): Promise<WikiLandingEntry | null> {
   if (token === '') return null;
   try {
-    const res = await fetch(`${baseURL()}/api/v1/wiki/${slug}`, {
+    const q = lang === '' ? '' : `?lang=${encodeURIComponent(lang)}`;
+    const res = await fetch(`${baseURL()}/api/v1/wiki/${slug}${q}`, {
       headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
     });
     if (!res.ok) return null;
@@ -72,12 +77,13 @@ export function loadScopedLanding(
   alreadyHave: boolean,
   onEntry: (e: WikiLandingEntry) => void,
   onCtx: (c: TreeContext) => void,
+  lang = '',
 ): () => void {
   if (alreadyHave) return () => {};
   const token = loadStoredSession()?.session_token ?? '';
   if (token === '') return () => {};
   let alive = true;
-  void Promise.all([fetchWikiLandingScoped(slug, token), fetchWikiContext(slug, token)])
+  void Promise.all([fetchWikiLandingScoped(slug, token, lang), fetchWikiContext(slug, token)])
     .then(([entry, ctx]) => {
       if (!alive || entry === null) return;
       onEntry(entry);

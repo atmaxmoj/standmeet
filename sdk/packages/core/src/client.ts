@@ -60,7 +60,9 @@ export interface BYOAIHeaders {
 // 满足这个 shape；不直接暴露内部字段。
 export interface StandMeetClient {
   fetchPage(): Promise<PublicPageView>;
-  fetchWikiLanding(slug: string): Promise<WikiLandingView | null>;
+  // fetchWikiLanding —— lang 可选:多语笔记按它选一面;这条笔记没有那一面就退回它的
+  // 身份语言(`lang:`)。**是查询参数不是路径段** —— 不是每条笔记都有同一套语言。
+  fetchWikiLanding(slug: string, lang?: string): Promise<WikiLandingView | null>;
   fetchOutputLanding(slug: string): Promise<OutputLandingView | null>;
   issueSession(input: IssueSessionInput): Promise<PublicSessionResponse>;
   streamMessage(
@@ -76,7 +78,7 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
   const f = opts.fetchImpl ?? fetch;
   return {
     fetchPage: () => fetchPage(f, baseURL),
-    fetchWikiLanding: (slug) => fetchWikiLanding(f, baseURL, slug),
+    fetchWikiLanding: (slug, lang) => fetchWikiLanding(f, baseURL, slug, lang),
     fetchOutputLanding: (slug) => fetchOutputLanding(f, baseURL, slug),
     issueSession: (input) => issueSession(f, baseURL, input),
     streamMessage: (id, token, content, byoai) =>
@@ -91,9 +93,10 @@ async function fetchPage(f: typeof fetch, baseURL: string): Promise<PublicPageVi
 }
 
 async function fetchWikiLanding(
-  f: typeof fetch, baseURL: string, slug: string,
+  f: typeof fetch, baseURL: string, slug: string, lang?: string,
 ): Promise<WikiLandingView | null> {
-  const res = await f(`${baseURL}/api/v1/wiki/${slug}`, { cache: 'no-store' });
+  const q = lang ? `?lang=${encodeURIComponent(lang)}` : '';
+  const res = await f(`${baseURL}/api/v1/wiki/${slug}${q}`, { cache: 'no-store' });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`fetch wiki ${slug}: ${res.status}`);
   return (await res.json()) as WikiLandingView;

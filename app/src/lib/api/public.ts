@@ -27,6 +27,7 @@ export type {
   PublicOwnerView,
   PublicPageView,
   WikiLandingView,
+  LanguageOption,
   OutputLandingView,
   PublicSessionResponse,
   SSEEvent,
@@ -65,7 +66,10 @@ export interface IssueBYOAISessionInput {
 }
 
 export const fetchPublicPage = () => client().fetchPage();
-export const fetchWikiLanding = (slug: string) => client().fetchWikiLanding(slug);
+// fetchWikiLanding —— lang 可选:多语笔记服务端就选好了那一面(SSR 也就有正确的那一份,
+// 爬虫和 agent 抓到的是内容本身,不是一段等 JS 的骨架)。
+export const fetchWikiLanding = (slug: string, lang?: string) =>
+  client().fetchWikiLanding(slug, lang);
 export const fetchOutputLanding = (slug: string) => client().fetchOutputLanding(slug);
 
 // CodeIntro —— 名字选择器 pre-issue 拿的 code 介绍(greeting + 名字上限/已用)。

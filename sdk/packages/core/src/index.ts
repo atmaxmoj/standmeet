@@ -18,6 +18,7 @@ export type {
   PublicOwnerView,
   PublicPageView,
   WikiLandingView,
+  LanguageOption,
   OutputLandingView,
   PublicSessionResponse,
   PublicSessionCapability,

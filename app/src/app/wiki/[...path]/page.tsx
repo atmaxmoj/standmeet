@@ -17,6 +17,9 @@ import { fetchWikiContext, fetchWikiLanding, fetchWikiTreeStats } from '@/lib/ap
 
 // catch-all [...path]：path 可含 `/` (projects/lucerna 这种分组)。
 type Params = { path: string[] };
+// Search —— `?lang=zh`。多语笔记服务端就选好那一面:爬虫和 agent 抓到的是内容,
+// 不是一段等 JS 的骨架。
+type Search = { lang?: string };
 
 export async function generateMetadata(
   { params }: { params: Promise<Params> },
@@ -30,14 +33,22 @@ export async function generateMetadata(
   } : { title: 'not found' };
 }
 
-export default async function WikiLandingPage({ params }: { params: Promise<Params> }) {
+// wantedLang —— `?lang=`;没给 = 按这条笔记的身份语言(后端决定)。
+function wantedLang(search: Search): string {
+  return search.lang ?? '';
+}
+
+export default async function WikiLandingPage(
+  { params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> },
+) {
   const { path } = await params;
   const slug = path.join('/');
+  const want = wantedLang(await searchParams);
   // SSR fetches anonymously (published-only, for crawlers/SEO). WikiReaderClient re-fetches WITH the
   // stored visitor token when this comes back null, so an invited viewer reads in-scope gated entries
   // (F-L-11 bearer-aware reader) while published entries keep their fast SSR path.
   const [wiki, instance, ctx, stats] = await Promise.all([
-    fetchWikiLanding(slug), fetchInstance(), fetchWikiContext(slug), fetchWikiTreeStats(),
+    fetchWikiLanding(slug, want), fetchInstance(), fetchWikiContext(slug), fetchWikiTreeStats(),
   ]);
   return (
     <WikiReaderClient
@@ -47,6 +58,7 @@ export default async function WikiLandingPage({ params }: { params: Promise<Para
       slug={slug}
       initialCtx={ctx}
       stats={stats}
+      lang={want}
     />
   );
 }

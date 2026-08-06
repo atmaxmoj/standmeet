@@ -74,6 +74,17 @@ export interface WikiLandingView {
   readonly cover_image_asset_id?: string;
   readonly cover_headline?: string;
   readonly cover_hue?: string;
+  // 多语:body **已经是**选中语言的那一份(服务端选的),lang 说的是哪一份。
+  // languages 空 = 单语笔记,reader 不出切换器。
+  readonly lang?: string;
+  readonly languages?: readonly LanguageOption[];
+}
+
+// LanguageOption —— 切换器上的一项:码 + 显示的字(owner 的 lang-labels 优先,
+// 没写就按码生成:zh→中文 / fr→FR)。
+export interface LanguageOption {
+  readonly code: string;
+  readonly label: string;
 }
 
 // WikiAssetView —— 一份挂在语料上的文件,访客那一侧看到的样子。

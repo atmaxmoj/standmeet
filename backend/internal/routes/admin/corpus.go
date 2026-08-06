@@ -49,6 +49,9 @@ func (h *Handlers) MountCorpus(r chi.Router) {
 	r.Get("/corpus/{genre}/page", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.pageRaw(), "wiki": h.pageWiki(), "output": h.pageOutput(),
 	}))
+	// check-i18n —— 只看不写(POST 是因为正文进 body,不是因为它改了什么)。
+	// 面板的编辑器在保存之前问一次,拿到的诊断跟 MCP 写入口拒绝时用的是同一份。
+	r.Post("/corpus/check-i18n", h.dispatchOp(face, "corpus.check_i18n", bodyArgs, jsonOK))
 }
 
 // byGenre —— 树/分页那两条还在用的 genre 分派:URL 的 {genre} 选对应 handler。

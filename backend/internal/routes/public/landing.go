@@ -28,7 +28,10 @@ func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 		// (no/dead token) → published-only (SEO). Same scope predicate the wiki-tree/context use.
 		token, _ := bearerToken(r)
 		scope := owner.WikiTreeScopeFor(r.Context(), h.Sessions, token)
-		view, err := loadWikiLandingView(r.Context(), h.Deps, slug, scope)
+		// ?lang= —— 访客要哪一种语言。**是查询参数不是路径段**:不是每条笔记都有同一套
+		// 语言,`/zh/...` 那种形态会在没有中文的条目上碎掉。
+		view, err := loadWikiLandingView(
+			r.Context(), h.Deps, slug, scope, r.URL.Query().Get("lang"))
 		if err != nil {
 			handleLandingErr(h.Log, w, err)
 			return
@@ -65,6 +68,10 @@ type wikiLandingView struct {
 	// Assets —— 挂在这条上的文件(文件名 + 真实字节数 + 地址)。reader 拿它渲下载区。
 	// **永不为 null**:空数组的意思是"没有附件",null 会被读成"这个字段坏了"。
 	Assets []wikiAssetView `json:"assets"`
+	// Lang / Languages —— 这份正文是哪一种语言,以及这条笔记有哪些语言可选(切换器用)。
+	// 单语笔记:lang 空、languages 空数组。
+	Lang      string         `json:"lang"`
+	Languages []languageView `json:"languages"`
 	// SourcesCount —— 这条 wiki 是从几条 raw 提炼来的(N corpus sources)。
 	SourcesCount int `json:"sources_count"`
 }
@@ -101,9 +108,9 @@ func nonNilURLs(m map[string]string) map[string]string {
 }
 
 func loadWikiLandingView(
-	ctx context.Context, deps owner.SEODeps, slug string, scope owner.WikiTreeScope,
+	ctx context.Context, deps owner.SEODeps, slug string, scope owner.WikiTreeScope, lang string,
 ) (wikiLandingView, error) {
-	res, err := owner.GetWikiLanding(ctx, deps, slug, scope)
+	res, err := owner.GetWikiLandingInLang(ctx, deps, slug, scope, lang)
 	if err != nil {
 		return wikiLandingView{}, err
 	}
@@ -123,7 +130,26 @@ func loadWikiLandingView(
 		CoverHeadline:     res.Hero.CoverHeadline,
 		CoverHue:          res.Hero.CoverHue,
 		SourcesCount:      len(res.Wiki.SourceRawIDs()),
+		Lang:              res.I18n.Lang,
+		Languages:         toLanguageViews(&res.I18n),
 	}, nil
+}
+
+// languageView —— 切换器上的一项:码 + 显示的字。标签规则来自 vault 自己的 lang-labels
+// (没写就按码生成),所以 vault 里和站点上看到的是同一套字。
+type languageView struct {
+	Code  string `json:"code"`
+	Label string `json:"label"`
+}
+
+// toLanguageViews —— 语言集 → 切换器项。**永不为 null**:空数组的意思是"这条是单语的",
+// null 会被读成"这个字段坏了"。
+func toLanguageViews(meta *owner.LandingI18n) []languageView {
+	out := make([]languageView, 0, len(meta.Languages))
+	for _, code := range meta.Languages {
+		out = append(out, languageView{Code: code, Label: corpus.I18nLabel(code, meta.Labels)})
+	}
+	return out
 }
 
 func toWikiRefViews(refs []corpus.WikiPathTitle) []wikiRefView {
