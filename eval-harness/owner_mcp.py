@@ -5,12 +5,20 @@
 # product (the visitor eval covers outbound), exercising the canonical owner
 # curate loop end to end:
 #
-#   me  →  raw_dump  →  list_recent_raw  →  promote_to_wiki  →  list_recent_wiki
+#   me  →  corpus.create(raw)  →  corpus.list(raw)  →  corpus.promote(raw→wiki)
+#      →  corpus.list(wiki)  →  corpus.delete (both, so the run leaves nothing behind)
 #
 # Mechanical round-trips ARE asserted (tool listed, body lands in raw, promote
-# returns ok, the entry shows up in wiki). Whether an AI *chooses* the right tool
-# / writes good structure is a separate human-eval — this proves the tools work
+# returns a new id, the entry shows up in wiki). Whether an AI *chooses* the right
+# tool / writes good structure is a separate human-eval — this proves the tools work
 # and are agent-drivable.
+#
+# The tool names above are the ones the server ships. This file used to drive
+# raw_dump / list_recent_raw / promote_to_wiki / list_recent_wiki, which the
+# genre-as-a-parameter consolidation removed; the run then "called" four tools that
+# did not exist, got `{}` back for each, and two of the four checks PASSED anyway
+# because they only asked whether the word "error" appeared in the reply. Every
+# check below reads a value out of the response instead.
 #
 # Setup (one-time, per run): claim/own instance + a keypair, then:
 #   STANDMEET_HOST=http://localhost:8000 \
@@ -106,6 +114,39 @@ def text_of(resp):
     return json.dumps(r)
 
 
+def json_of(resp):
+    """The tool's result as a dict. {} when the call errored or returned nothing parseable."""
+    blob = text_of(resp).strip()
+    try:
+        out = json.loads(blob)
+    except json.JSONDecodeError:
+        return {}
+    return out if isinstance(out, dict) else {"items": out}
+
+
+def entry_id(payload):
+    """The entry id out of a corpus.create / corpus.promote reply, whatever it wraps it in."""
+    for key in ("id", "entry_id", "raw_id", "wiki_id"):
+        if isinstance(payload.get(key), str) and payload[key]:
+            return payload[key]
+    for nest in ("entry", "item", "created", "promoted"):
+        inner = payload.get(nest)
+        if isinstance(inner, dict):
+            got = entry_id(inner)
+            if got:
+                return got
+    return ""
+
+
+def items_of(payload):
+    """The rows out of a corpus.list reply."""
+    for key in ("items", "entries", "results", "rows"):
+        got = payload.get(key)
+        if isinstance(got, list):
+            return got
+    return []
+
+
 def main():
     if not CREDS:
         print("STANDMEET_CREDS_PATH required ({keyId, privateKeyPem}). Use `make eval-owner-mcp`.")
@@ -126,48 +167,60 @@ def main():
         print(f"\ntools/list → {len(names)} owner tools")
         print("  ", ", ".join(names))
         check("owner MCP exposes tools", len(names) > 0)
-        for must in ("me", "raw_dump", "list_recent_raw", "promote_to_wiki", "list_recent_wiki"):
+        for must in ("me", "corpus.create", "corpus.list", "corpus.promote", "corpus.delete"):
             check(f"tool present: {must}", must in names)
 
         print("\ncall: me")
-        me = text_of(b.call("me", {}))
-        print("   →", me[:200])
-        check("me returns owner profile", "alice" in me.lower() or "owner" in me.lower())
+        me = json_of(b.call("me", {}))
+        print("   →", json.dumps(me)[:200])
+        check("me returns this owner's handle", bool(me.get("owner", {}).get("handle")),
+              json.dumps(me)[:160])
 
         body = f"[{STAMP}] Idempotency is a distributed-systems decision, not a convenience. " \
                "A retry is only safe if the operation is keyed and deduplicated."
-        print("\ncall: raw_dump")
-        dump = text_of(b.call("raw_dump", {"body": body, "source": "mcp:claude-agent",
-                                           "tags": ["eval", "idempotency"]}))
-        print("   →", dump[:200])
-        check("raw_dump ok", "error" not in dump.lower() or "id" in dump.lower())
+        print("\ncall: corpus.create (genre=raw)")
+        created = json_of(b.call("corpus.create", {
+            "genre": "raw", "body": body, "source": "mcp:claude-agent",
+            "tags": ["eval", "idempotency"]}))
+        raw_id = entry_id(created)
+        print("   →", json.dumps(created)[:240])
+        check("corpus.create returns the new raw id", bool(raw_id), json.dumps(created)[:160])
 
-        print("\ncall: list_recent_raw")
-        recent = text_of(b.call("list_recent_raw", {"limit": 5}))
-        print("   →", recent[:240])
-        check("dumped raw shows in list_recent_raw", STAMP in recent)
+        print("\ncall: corpus.list (genre=raw)")
+        raw_list = json_of(b.call("corpus.list", {"genre": "raw", "limit": 10}))
+        raw_rows = items_of(raw_list)
+        print(f"   → {len(raw_rows)} rows")
+        check("the dumped raw is in corpus.list",
+              any(r.get("id") == raw_id for r in raw_rows) if raw_id else False,
+              json.dumps(raw_list)[:200])
 
-        # raw id for promotion — pull it from the dump or the recent list.
-        raw_id = ""
-        for blob in (dump, recent):
-            try:
-                for key in ("id", "raw_id"):
-                    j = json.loads(blob) if blob.strip().startswith("{") else {}
-                    if key in j:
-                        raw_id = j[key]
-            except Exception:
-                pass
-        print("\ncall: promote_to_wiki", f"(raw_id={raw_id or '?'})")
-        promo = text_of(b.call("promote_to_wiki", {
-            "raw_id": raw_id, "title": f"{STAMP} — Idempotency",
-            "body": f"# Idempotency\n\n{body}"}))
-        print("   →", promo[:240])
-        check("promote_to_wiki accepted", "error" not in promo.lower() or "id" in promo.lower())
+        print(f"\ncall: corpus.promote (raw {raw_id or '?'} → wiki)")
+        promoted = json_of(b.call("corpus.promote", {
+            "genre": "raw", "id": raw_id, "title": f"{STAMP} — Idempotency"}))
+        wiki_id = entry_id(promoted)
+        print("   →", json.dumps(promoted)[:240])
+        check("corpus.promote returns the new wiki id", bool(wiki_id) and wiki_id != raw_id,
+              json.dumps(promoted)[:160])
 
-        print("\ncall: list_recent_wiki")
-        wiki = text_of(b.call("list_recent_wiki", {"limit": 5}))
-        print("   →", wiki[:240])
-        check("promoted entry shows in list_recent_wiki", STAMP in wiki)
+        print("\ncall: corpus.list (genre=wiki)")
+        wiki_list = json_of(b.call("corpus.list", {"genre": "wiki", "limit": 50}))
+        wiki_rows = items_of(wiki_list)
+        print(f"   → {len(wiki_rows)} rows")
+        check("the promoted entry is in corpus.list(wiki)",
+              any(r.get("id") == wiki_id for r in wiki_rows) if wiki_id else False,
+              json.dumps(wiki_list)[:200])
+
+        # 收尾:这一场写进去的两条自己删掉。留下来的话下一次跑的 list 里就有上一次的残留,
+        # 而"语料要跟 vault 一致"这条在别处是硬要求。
+        print("\ncall: corpus.delete (cleaning up this run's two entries)")
+        for genre, eid in (("wiki", wiki_id), ("raw", raw_id)):
+            if not eid:
+                continue
+            gone = json_of(b.call("corpus.delete", {"genre": genre, "id": eid}))
+            print(f"   → delete {genre} {eid}: {json.dumps(gone)[:120]}")
+        left = items_of(json_of(b.call("corpus.list", {"genre": "raw", "limit": 50})))
+        check("the eval left no raw entry behind",
+              not any(r.get("id") == raw_id for r in left))
     finally:
         b.close()
 

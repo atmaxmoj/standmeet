@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 # seed_persona.py —— load a persona fixture into a LIVE StandMeet instance via the
-# owner MCP bridge, the way an owner's AI client would: raw_dump every corpus
-# entry, promote the public ones to wiki, create a persona Prompt + a Role that
+# owner MCP bridge, the way an owner's AI client would: corpus.create every entry
+# as raw, promote the public ones to wiki, create a persona Prompt + a Role that
 # grants the corpus, and issue an access code. Prints the visitor share link.
+#
+# Every id below is read back from the reply and REQUIRED. This file used to call
+# raw_dump / promote_to_wiki (removed by the genre-as-a-parameter consolidation)
+# and to pull ids out with `.get("prompt_id", "")`. Both failures were silent: the
+# corpus calls wrote nothing while the script printed "corpus: 50 public → wiki"
+# from its loop counter, and a missing id just attached nothing to the role. The
+# dev instance came up looking seeded and empty. Counts now come from receipts.
 #
 # Turns the eval's marcus-chen fixture into a real, chattable instance for manual
 # testing / demo — no clicking 19 corpus forms by hand.
@@ -16,8 +23,9 @@
 import json
 import os
 import pathlib
+import sys
 
-from owner_mcp import Bridge, text_of
+from owner_mcp import Bridge, json_of, text_of
 
 PERSONA = pathlib.Path(os.environ.get("EVAL_PERSONA", "fixtures/personas/marcus-chen"))
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost:38127").rstrip("/")
@@ -64,6 +72,19 @@ def _depth(uri):
     return d
 
 
+def need_id(reply, what, *keys):
+    """The id out of a write reply — or die. A seed that half-worked is worse than one that
+    stopped: the instance comes up looking ready with the persona silently unattached."""
+    payload = json_of(reply)
+    for key in (*keys, "id"):
+        got = payload.get(key)
+        if isinstance(got, str) and got:
+            return got
+    print(f"seed: {what} returned no id — {json.dumps(payload)[:200]} "
+          f"| raw: {json.dumps(reply)[:400]}", file=sys.stderr)
+    sys.exit(1)
+
+
 def seed_corpus(b):
     priv = 0
     public = []  # (uri, title, body, tags)
@@ -74,8 +95,9 @@ def seed_corpus(b):
         title = meta.get("title", md.stem)
         tags = [t.strip(" []") for t in meta.get("tags", "").split(",") if t.strip(" []")]
         if private:
-            b.call("raw_dump", {"body": body, "source": "mcp:seed",
-                                "tags": tags, "private": True})
+            need_id(b.call("corpus.create", {"genre": "raw", "body": body, "source": "mcp:seed",
+                                             "tags": tags, "flagged_private": True}),
+                    f"private raw {md.name}", "raw_id")
             priv += 1
             continue
         public.append((uri, title, body, tags))
@@ -84,16 +106,17 @@ def seed_corpus(b):
     id_by_uri = {}
     nested = 0
     for uri, title, body, tags in sorted(public, key=lambda e: _depth(e[0])):
-        dump = text_of(b.call("raw_dump", {"body": body, "source": "mcp:seed",
-                                           "tags": tags, "private": False}))
-        rid = (json.loads(dump).get("raw_id") if dump.strip().startswith("{") else "")
+        rid = need_id(b.call("corpus.create", {"genre": "raw", "body": body,
+                                               "source": "mcp:seed", "tags": tags}),
+                      f"raw for {uri}", "raw_id")
         parent_id = id_by_uri.get(PARENT_OF.get(uri, ""), "")
         nested += 1 if parent_id else 0
-        promo = text_of(b.call("promote_to_wiki", {
-            "raw_id": rid, "title": title, "body": body, "parent_id": parent_id}))
-        wid = (json.loads(promo).get("wiki_id") if promo.strip().startswith("{") else "")
+        wid = need_id(b.call("corpus.promote", {"genre": "raw", "id": rid, "title": title,
+                                                "parent_id": parent_id, "tags": tags}),
+                      f"wiki for {uri}", "wiki_id")
         id_by_uri[uri] = wid
-    print(f"corpus: {len(public)} public → wiki ({nested} nested), {priv} private (raw only)")
+    # 计数来自**回执**(拿到了 id 的那些),不是循环跑了几圈。
+    print(f"corpus: {len(id_by_uri)} public → wiki ({nested} nested), {priv} private (raw only)")
 
 
 def main():
@@ -102,45 +125,54 @@ def main():
     seed_corpus(b)
 
     persona_body = (PERSONA / "role-body.md").read_text(encoding="utf-8").strip()
-    pr = text_of(b.call("prompt_create", {"name": "Marcus persona",
-                                          "body": persona_body,
-                                          "description": "Marcus answering recruiters in his own voice"}))
-    prompt_id = json.loads(pr).get("prompt_id", "") if pr.strip().startswith("{") else ""
-    print("prompt:", pr[:120])
+    pr = b.call("prompt_create", {"name": "Marcus persona",
+                                  "body": persona_body,
+                                  "description": "Marcus answering recruiters in his own voice"})
+    prompt_id = need_id(pr, "prompt_create", "prompt_id")
+    print("prompt:", text_of(pr)[:120])
 
     # Booking skill —— allowed_tools unlocks the built-in calendar.book capability
     # on any role it's attached to, so the recruiter can schedule a call with Marcus
     # (requires the owner's calendar connector to be connected).
-    sk = text_of(b.call("skill_create", {
+    sk = b.call("skill_create", {
         "name": "Schedule a meeting",
         "prompt": "When the recruiter wants to talk live, or asks about Marcus's "
                   "availability, offer to schedule a short call and book it on his calendar.",
         "description": "Lets the visitor book a meeting on the owner's calendar.",
-        "allowed_tools": ["calendar.book"]}))
-    skill_id = json.loads(sk).get("skill_id", "") if sk.strip().startswith("{") else ""
-    print("skill:", sk[:120])
+        "allowed_tools": ["calendar.book"]})
+    skill_id = need_id(sk, "skill_create", "skill_id")
+    print("skill:", text_of(sk)[:120])
 
-    ro = text_of(b.call("role_create", {"name": "Recruiter",
-                                        "description": "Recruiter visiting Marcus's page",
-                                        "greeting": "This is Marcus's AI — ask it anything about his "
-                                                    "engineering work, and it answers in his voice, "
-                                                    "grounded in his real projects and incident write-ups.",
-                                        "prompt_id": prompt_id,
-                                        "skill_ids": [skill_id] if skill_id else [],
-                                        "corpus_uris": ["wiki://**", "output://**"]}))
-    role_id = json.loads(ro).get("role_id", "") if ro.strip().startswith("{") else ""
-    print("role:", ro[:120])
+    ro = b.call("role_create", {
+        "name": "Recruiter",
+        "description": "Recruiter visiting Marcus's page",
+        "greeting": "This is Marcus's AI — ask it anything about his engineering work, and it "
+                    "answers in his voice, grounded in his real projects and incident write-ups.",
+        "prompt_id": prompt_id,
+        "skill_ids": [skill_id],
+        "corpus_uris": ["wiki://**", "output://**"]})
+    role_id = need_id(ro, "role_create", "role_id")
+    print("role:", text_of(ro)[:120])
 
-    co = text_of(b.call("codes.create", {
+    co = b.call("codes.create", {
         "code": CODE, "label": "Recruiter access", "assumed_role_id": role_id,
         "max_turns_per_session": 50, "max_members": 10,
         "ghosts": [
             "Walk me through your hardest production incident.",
             "How comfortable are you with Kubernetes?",
             "Why are you looking to leave Orbit?",
-        ]}))
-    print("code:", co[:160])
+        ]})
+    need_id(co, "codes.create", "code_id")
+    print("code:", text_of(co)[:160])
+
+    # 收尾对账:面板上真数得出来多少条,才算种上了。
+    wiki_n = len(json_of(b.call("corpus.list", {"genre": "wiki", "limit": 200})).get("items", []))
+    raw_n = len(json_of(b.call("corpus.list", {"genre": "raw", "limit": 200})).get("items", []))
     b.close()
+    print(f"verified on the instance: {wiki_n} wiki + {raw_n} raw")
+    if wiki_n == 0:
+        print("seed: the instance reports an empty corpus — nothing was seeded", file=sys.stderr)
+        sys.exit(1)
 
     print("\n" + "=" * 70)
     print(f"VISITOR LINK:  {PUBLIC_URL}?c={CODE}")

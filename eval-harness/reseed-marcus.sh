@@ -13,8 +13,16 @@ PASS=correct-horse-battery-staple
 HANDLE=marcus
 
 echo ">>> 1. reset (truncate + unclaim + redis flush)"
-docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -c \
-  "TRUNCATE messages, conversations, code_members, applications, access_codes, wiki_entries, raw_entries, media_assets, page_content, resume_drafts, job_fingerprints, job_sources, owner_keypairs, owners RESTART IDENTITY CASCADE" >/dev/null
+# owners CASCADE, not a hand-written table list. The old list named wiki_entries / raw_entries /
+# media_assets, which the corpus_notes consolidation removed — psql then aborted the WHOLE
+# statement ("relation does not exist"), so the reset silently did nothing and the claim below
+# failed on an instance that was still claimed. CASCADE follows the foreign keys instead, so a
+# renamed or added owner-scoped table needs no edit here. instance_settings has no FK to owners
+# and survives — the setup token below depends on that.
+docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c \
+  "TRUNCATE owners RESTART IDENTITY CASCADE" >/dev/null
+docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c \
+  "TRUNCATE job_fingerprints RESTART IDENTITY" >/dev/null
 docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -c \
   "UPDATE instance_settings SET is_claimed = false WHERE id = 1" >/dev/null
 docker exec standmeet-dev-redis-1 redis-cli FLUSHALL >/dev/null
