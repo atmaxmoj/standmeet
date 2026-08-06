@@ -103,11 +103,26 @@ type askRequest struct {
 	// real). Tests whether the agent invokes an owner-registered MCP tool. Needs a
 	// running MCP server (the repo's mcp-server-mock: EVAL_MCP_URL=http://localhost:9100/mcp).
 	MCP bool `json:"mcp"`
+	// Waypoints —— ghost steering: owner 在 role 上写的引导目的地,冻进这一场。
+	// 给了就装 turn epilogue(跟 scenario runner 同一条:agentcore.BuildGhostPolicy);
+	// 不给 = 这一场没有 waypoint,policy 短路成 silence —— 那正是"public 模式不出 ghost"
+	// 该有的样子。
+	Waypoints []askWaypoint `json:"waypoints"`
 	// VisitorTimezone / OwnerTimezone —— #120: 把访客浏览器时区 + owner 日历时区锚进
 	// 通用 instruction(instructionWithDateTime)。让 booking 用例能验"agent 按访客
 	// 时区解释其给的时间、换算到 owner 日历时区"。空 → 退 UTC。
 	VisitorTimezone string `json:"visitor_timezone"`
 	OwnerTimezone   string `json:"owner_timezone"`
+}
+
+// askWaypoint —— 一个引导目的地(跟 scenario 那份同形;两处都翻成 agentcore.Waypoint)。
+type askWaypoint struct {
+	WaypointID   string   `json:"waypoint_id"`
+	Description  string   `json:"description"`
+	EvidenceRefs []string `json:"evidence_refs"`
+	Weight       int      `json:"weight"`
+	IsTerminal   bool     `json:"is_terminal"`
+	Visited      bool     `json:"visited"`
 }
 
 // demoOwnerSkill —— a representative owner-curated skill: a tool the agent has no
@@ -133,7 +148,11 @@ type askResponse struct {
 	// Report —— the summarize_conversation report HTML, when the candidate
 	// summarized this turn (else empty). Lets the eval judge summary quality.
 	Report string `json:"report,omitempty"`
-	Error  string `json:"error,omitempty"`
+	// Ghosts —— 本轮 epilogue 出的 steering ghost 文本(0 或 1 条:policy 一轮最多出一个)。
+	// **不是 harness 自己编的**:它是 turn epilogue 真发出来的那一帧,跟 prod 走同一个
+	// BuildGhostPolicy;没装 epilogue(无 waypoint / 非 code)自然是空。
+	Ghosts []string `json:"ghosts"`
+	Error  string   `json:"error,omitempty"`
 }
 
 // runAsk reads one askRequest from stdin and writes one askResponse. Exit code
@@ -157,6 +176,7 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 	turn, aerr := askCandidate(context.Background(), log, cred, p, req)
 	resp := askResponse{
 		Answer: turn.answer, Tools: turn.tools, Report: turn.report,
+		Ghosts: turn.ghosts,
 	}
 	if aerr != nil {
 		resp.Error = aerr.Error()
@@ -174,6 +194,7 @@ type candidateTurn struct {
 	answer string
 	tools  []toolUse
 	report string
+	ghosts []string
 }
 
 // askCandidate runs one candidate turn: the persona answers req.Question given
@@ -215,7 +236,7 @@ func askCandidate(
 			System: agent.SystemPrompt, UserMessage: req.Question, Model: cred.Model,
 			History: candidateHistory(req.History),
 		},
-		Mode:           mode, // "code" → backend emits follow-up ghosts
+		Mode:           mode,
 		Tools:          agent.Tools,
 		ProgressLabels: agent.Labels,
 		ReturnDirectly: agent.ReturnDirectly,
@@ -223,6 +244,12 @@ func askCandidate(
 		OwnerTimezone:   req.OwnerTimezone,
 		VisitorTimezone: req.VisitorTimezone,
 	}
+	// ghost steering —— 跟 scenario runner 走**同一条**:BuildGhostPolicy(DB-free 的 policy
+	// 闭包)包成通用 epilogue 帧。prod 那侧多的只有"落库 + 拿 ghost_id",跟判断无关。
+	//
+	// mode 不是 code、或者这一场没有 waypoint → 不装:那时 prod 也不装(hasFrozenWaypoints)。
+	// 于是"public 模式不出 ghost"这条断言测的是**结构上没装**,不是 policy 恰好沉默了。
+	attachGhostPolicy(in, cred, mode, req.Waypoints)
 	sink := newCaptureSink()
 	if err := agentcore.RunAgentLoop(ctx, log, in, sink); err != nil {
 		return candidateTurn{}, err
@@ -230,11 +257,51 @@ func askCandidate(
 	answer, used, ok := sink.result()
 	turn := candidateTurn{
 		answer: answer, tools: used, report: sink.reportHTML(),
+		ghosts: ghostTexts(sink.ghost),
 	}
 	if !ok {
 		return turn, fmt.Errorf("candidate turn: %s", sink.errorText())
 	}
 	return turn, nil
+}
+
+// attachGhostPolicy —— code 模式 + 有 waypoint 才装 turn epilogue(prod 的
+// hasFrozenWaypoints 同一个条件)。
+func attachGhostPolicy(
+	in *agentcore.AgentTurnInput, cred agentcore.Cred, mode string, wps []askWaypoint,
+) {
+	if mode != "code" || len(wps) == 0 {
+		return
+	}
+	points, visited := askWaypoints(wps)
+	in.Epilogue = func(ctx context.Context, lastMsg string) *agentcore.EpilogueFrame {
+		return agentcore.GhostEpilogue(agentcore.BuildGhostPolicy(ctx, &cred, points, visited, lastMsg))
+	}
+}
+
+// askWaypoints —— askWaypoint → BuildGhostPolicy 入参(waypoints + 已访问的 id)。
+func askWaypoints(in []askWaypoint) ([]agentcore.Waypoint, []string) {
+	points := make([]agentcore.Waypoint, 0, len(in))
+	visited := make([]string, 0, len(in))
+	for _, w := range in {
+		points = append(points, agentcore.Waypoint{
+			WaypointID: w.WaypointID, Description: w.Description,
+			EvidenceRefs: w.EvidenceRefs, Weight: w.Weight, IsTerminal: w.IsTerminal,
+		})
+		if w.Visited {
+			visited = append(visited, w.WaypointID)
+		}
+	}
+	return points, visited
+}
+
+// ghostTexts —— 出来的那一帧 → 文本列表(nil = silence)。**永不为 nil**:空数组是
+// "这一轮没出 ghost",null 会被读成"这个字段坏了"。
+func ghostTexts(g *agentcore.GhostFrame) []string {
+	if g == nil || g.Text == "" {
+		return []string{}
+	}
+	return []string{g.Text}
 }
 
 // skillSpecFor returns the demo owner skill when the request asked for it.
