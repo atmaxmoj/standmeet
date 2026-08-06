@@ -40,6 +40,34 @@ CREDS = os.environ.get("STANDMEET_CREDS_PATH", "")
 BRIDGE = os.environ.get("STANDMEET_MCP_BIN", "../sdk/packages/mcp-client/bin/standmeet-mcp")
 STAMP = os.environ.get("EVAL_STAMP", "owner-mcp-eval")
 
+# A CJK note, built from code points so this file stays ASCII.
+#
+# Being long and Chinese is NOT enough: 3-byte characters with no ASCII in front line up exactly
+# with a cap of 60, so a byte-slice at 60 lands on a boundary and the bug does not fire. The first
+# version of this fixture passed against the unfixed code. The leading ASCII marker shifts every
+# character off the multiple of three, so bytes 60 and 80 both fall INSIDE one — and straddles()
+# below refuses to run a sample that doesn't, because a fixture that cannot trigger the defect is
+# not a guard. The marker is 4 bytes ("x1a " / slugified "x1a-") because 1, 2 and 3 all leave one
+# of the two caps back on a boundary.
+RAW_TITLE_CAP = 60   # backend: rawTitleFromBody
+PATH_SEG_CAP = 80    # backend: PathSegment
+
+CJK_BODY = "x1a " + "".join(chr(c) for c in (0x5E42, 0x7B49, 0x6027, 0x662F, 0x5206, 0x5E03,
+                                           0x5F0F, 0x7CFB, 0x7EDF, 0x7684)) * 9
+CJK_TITLE = "x1a " + "".join(chr(c) for c in (0x5E42, 0x7B49, 0x6027, 0x4E0E, 0x91CD, 0x8BD5)) * 15
+
+
+def straddles(text, cap):
+    """True when cutting `text` at `cap` BYTES splits a character — i.e. this sample can fire."""
+    raw = text.encode("utf-8")
+    if len(raw) <= cap:
+        return False
+    try:
+        raw[:cap].decode("utf-8")
+    except UnicodeDecodeError:
+        return True
+    return False
+
 
 class Bridge:
     def __init__(self):
@@ -209,6 +237,36 @@ def main():
         check("the promoted entry is in corpus.list(wiki)",
               any(r.get("id") == wiki_id for r in wiki_rows) if wiki_id else False,
               json.dumps(wiki_list)[:200])
+
+        # A note the owner would actually write: a long CJK first line, and a CJK title.
+        #
+        # This is a REGRESSION GUARD, not decoration. The title a raw derives from its first line
+        # was cut at 60 BYTES, and the wiki address at 80 — byte 60 of a Chinese sentence lands
+        # inside a 3-byte character, so postgres rejected the whole INSERT ("invalid byte sequence
+        # for encoding UTF8") and the note was lost. Every fixture in this harness was ASCII, so
+        # nothing here could see it. Both lines below are long enough to be cut.
+        print("\ncall: corpus.create + promote (a CJK note — the UTF-8 truncation guard)")
+        # The sample must be able to fail, or its PASS means nothing.
+        check("the CJK body straddles the raw-title cap", straddles(CJK_BODY, RAW_TITLE_CAP))
+        check("the CJK title straddles the path-segment cap", straddles(CJK_TITLE, PATH_SEG_CAP))
+        cjk_created = json_of(b.call("corpus.create", {
+            "genre": "raw", "source": "mcp:claude-agent", "body": CJK_BODY}))
+        cjk_raw = entry_id(cjk_created)
+        check("a CJK raw note saves", bool(cjk_raw), json.dumps(cjk_created)[:240])
+        cjk_promoted = json_of(b.call("corpus.promote", {
+            "genre": "raw", "id": cjk_raw, "title": CJK_TITLE})) if cjk_raw else {}
+        cjk_wiki = entry_id(cjk_promoted)
+        cjk_path = cjk_promoted.get("path") or ""
+        check("a CJK title promotes to an addressable wiki entry",
+              bool(cjk_wiki) and bool(cjk_path), json.dumps(cjk_promoted)[:240])
+        # The address is derived, not stored, so a byte-cut here is not rejected by postgres —
+        # it comes back with U+FFFD where half a character was. A corrupt address is still a
+        # corrupt address: it is what ACL globs match and what the reader URL is built from.
+        check("the derived address carries no broken character",
+              bool(cjk_path) and "�" not in cjk_path, repr(cjk_path))
+        for genre, eid in (("wiki", cjk_wiki), ("raw", cjk_raw)):
+            if eid:
+                b.call("corpus.delete", {"genre": genre, "id": eid})
 
         # 收尾:这一场写进去的两条自己删掉。留下来的话下一次跑的 list 里就有上一次的残留,
         # 而"语料要跟 vault 一致"这条在别处是硬要求。
