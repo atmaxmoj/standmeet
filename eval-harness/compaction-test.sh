@@ -27,8 +27,10 @@ ANSWER="$(python3 -c "import json;print(json.load(open('$OUT'))['answer'])")"
 echo "─── answer ───"; echo "$ANSWER" | head -6; echo "──────────────"
 
 fail=0
-# (a) compaction 真触发
-if grep -q "context summarized" "$ERR"; then
+# (a) compaction 真触发。marker 从**内核**问出来(--marker compaction),不在这儿抄一份:
+# 这句话 2026-07-25 改过名,而这里的硬编码副本没跟着改 —— 那条断言从此不可能变绿。
+MARKER="$("$BIN" --marker compaction)"
+if grep -q "$MARKER" "$ERR"; then
   echo "✓ compaction fired: $(grep -o 'before_msgs=[0-9]* after_msgs=[0-9]*' "$ERR" | head -1)"
 else
   echo "❌ compaction 未触发 (没真 LLM? 上下文没超阈值?)"; fail=1

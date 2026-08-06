@@ -29,6 +29,17 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
+// printMarker —— 把内核那句日志原样打出来给 shell 断言用。名字不认识 → 报错退出,
+// 而不是打个空串让 grep 匹配一切。
+func printMarker(name string) int {
+	if name != "compaction" {
+		fmt.Fprintf(os.Stderr, "unknown marker %q (have: compaction)\n", name)
+		return 2
+	}
+	fmt.Println(agentcore.CompactionLogMsg)
+	return 0
+}
+
 func main() {
 	loadDotenv() // self-configure from .env before resolving cred
 	dc := resolveCredDefaults()
@@ -46,7 +57,15 @@ func main() {
 	asJSON := flag.Bool("json", false, "batch: emit JSONL (one event per line) instead of human transcript")
 	ask := flag.Bool("ask", false, "ask: one candidate turn — read askRequest JSON on stdin, write askResponse JSON on stdout (needs --persona)")
 	persona := flag.String("persona", "", "ask: persona dir (system.md + corpus/) the candidate answers as")
+	// marker —— print a log marker the kernel emits, so a shell assertion greps for the ONE
+	// string the kernel actually logs. The compaction assertion grepped a hard-coded copy and
+	// went silently unsatisfiable when that line was renamed.
+	marker := flag.String("marker", "", "print a kernel log marker by name (compaction) and exit")
 	flag.Parse()
+
+	if *marker != "" {
+		os.Exit(printMarker(*marker))
+	}
 
 	// Loop diagnostics go to stderr (warn+); the transcript owns stdout so it
 	// stays clean for assertion.

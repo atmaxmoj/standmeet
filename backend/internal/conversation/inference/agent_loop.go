@@ -28,6 +28,14 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+// CompactionLogMsg —— 压缩真触发时打的那一行。
+//
+// **导出成常量**是因为 eval 靠 grep 它断言"压缩发生过":2026-07-25 这句话从
+// "context summarized" 改成了现在这句,而 eval 那侧的 grep 没跟着改 —— 那条断言从此
+// 不可能变绿,而且没有任何东西会提醒你。一个改名就能让测试永久失效,说明那个字符串
+// 不该有第二份。
+const CompactionLogMsg = "agent turn: context compacted"
+
 // contextTokenThreshold —— H.9b: ChatModelAgent 的 summarization
 // middleware 触发阈值。按 [[feedback-no-anthropic-assumption]] 取最
 // 小可行 provider 偏保守的数：DeepSeek-V3 64K / GPT-4o 128K / Claude
@@ -83,7 +91,7 @@ func BuildAgentIterator(
 		// Callback 只在压缩真触发时调（context 超阈值）；打一行 observability。
 		// 短对话不触发，prod 常规流量零噪音。
 		Callback: func(_ context.Context, before, after adk.ChatModelAgentState) error {
-			slog.Default().Info("agent turn: context compacted",
+			slog.Default().Info(CompactionLogMsg,
 				"before_msgs", len(before.Messages), "after_msgs", len(after.Messages))
 			return nil
 		},

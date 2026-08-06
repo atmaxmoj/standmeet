@@ -42,6 +42,10 @@ type (
 	ChatRequestMsg = inference.ChatRequestMsg
 )
 
+// CompactionLogMsg —— 上下文压缩真触发时内核打的那一行。eval 靠它断言压缩发生过,所以
+// 那句话只有一份:改名的时候两边一起变,而不是留下一条永远不会绿的断言。
+const CompactionLogMsg = inference.CompactionLogMsg
+
 // NewAgentDocContext builds the visitor's current-doc context (title/path/genre)
 // for AgentTurnRequest.DocContext. A constructor (not a type alias) so the facade
 // doesn't bump its public-struct count; drivers set it on the request to give the
