@@ -59,7 +59,7 @@ two things ever leave it: a row in `findings.md`, and a row in `ux.md`.
 
 **The run sheet is generated, never hand-copied.** It reads `items/*.md` at open, so a module
 added to the audit appears in the next round's sheet by itself. Do not edit its module list.
-Do fill in its Result / Findings columns as you go.
+Do fill in its Result / Design / Findings columns as you go.
 
 **Trajectory rules — a step with no screenshot did not happen:**
 1. Screenshot the surface the moment it opens, before you touch it.
@@ -91,6 +91,32 @@ The fix is baked into the module re-cut: **every module owns its surface and car
 - **Cold sweep** — open EVERY admin + visitor surface with NO mission and ask only *"would a real user go 'huh?'"*: click every button/affordance (does it do anything?), eyeball every panel (empty? broken? raw markup leaking? placeholder never replaced?). Log anything that fails fresh-eyes.
 - **Cross-view consistency** — for every count / badge / KPI, find the list or table it summarizes and confirm they **AGREE**. (F-L-4 = dashboard count wrong; F-D-1 = list empty while the count says 3 — same family: two views of one dataset disagreeing, which no single-screen check catches.)
 - **Sweep-the-class on every fix** — when you fix a bug, enumerate every other instance of its *shape* before moving on (a count-vs-list fix → check ALL count/list pairs), not just the one reported.
+
+### 1c · DESIGNER PASS — "does it work" and "is it any good" are two verdicts ⚠️
+Everything above answers *does it work*. It cannot answer *is it any good*: a screen can pass
+every check and still be ugly, generic, hard to read, or say the wrong thing about the product.
+So each module carries a **second, independent state** on the run sheet — `Design` — and it is
+closed by a designer, not by the functional pass.
+
+**This is what the trajectory is for.** The chain plus its shots is a complete record of the
+surfaces the functional pass drove, so the designer reviews the same screens **without
+re-driving the GUI**. Run it per module once that module's chain is complete:
+
+1. Read the module's `trajectory/<module>/<module>.md` and its `shots/`.
+2. Run the **`critique`** skill over them — AI-slop detection, visual hierarchy, information
+   architecture, discoverability/affordance, composition, typography, emotional resonance.
+   Add **`audit`** for accessibility, theming and responsive behaviour.
+3. Write the verdict into that trajectory's **🎨 Design review** section, and set the run
+   sheet's `Design` cell: `🎨✅` uiux designer verified · `🎨🟠` issues · `➖` no visual surface.
+4. Every issue also gets a **`ux.md`** row with a severity. Design issues are iron-rule-4b by
+   default — **no test**; say so to the owner rather than freezing a taste call as a contract.
+
+A design issue that is really a *defect* (a dead button, an empty list, a badge that disagrees
+with its list) is NOT a design issue — it belongs to §1b/§2 and gets a `findings.md` row.
+
+For this to work the shots must be worth reviewing: **full page, not a viewport crop**, and both
+themes on any surface that has a dark mode. A cropped screen hides exactly what a designer
+judges — composition and balance.
 
 ### 2 · On a mismatch → RECORD ONLY, do not fix in place ⚠️
 - Record `{symptom, Expected vs Actual, surface, repro}` in the **module's Findings** section, and log one row in `findings.md` — ID stays `F-<letter>-<n>` (the historical anchor for the module's area, e.g. a booking finding → `F-B-n`), and name the module in the Item column.
@@ -127,6 +153,8 @@ Terminal: `⛔ blocked` (missing cred/hardware), `🚫 de-scoped` (decided not t
 4. **The two "no test" exceptions — never silently, always told to the owner:**
    - **4a · CAN'T test** (non-reproducible real branches: real-phone optics, real-provider rate limits, real ACME…) → mark `manual-only`: document why it can't be tested and how to verify it by hand. **Do not fabricate a fake test.**
    - **4b · SHOULDN'T test** (a test here would be *bad*: UI redundancy, cosmetics, copy/wording, layout, subjective judgment calls — a test would be brittle, meaningless, or would freeze a taste decision as if it were a contract) → **do not write one.** Fix it (or propose the fix) and **flag it to the owner as an explicit special note saying this one carries no test and why** — the owner decides. These live in `ux.md`, **not** as a fake RED→GREEN row in `findings.md`.
+5b. **A module carries two verdicts: `Result` (works) and `Design` (uiux designer verified).**
+   The functional pass never closes the design one — a designer does, off the trajectory (§1c).
 5. An item isn't done until `✅ manual re-verify green` — back on the real surface, by hand (§3.4).
 6. **The UX eye is always open — this is a POSTURE, not a step. ⚠️**
    Any time a real surface is in front of you — driving a mechanism check, reproducing a finding, re-verifying a fix, even passing through a screen on the way to something else — **judge what you see, and log it the moment you see it** (`ux.md`, severity 🔴/🟠/🟡/💡). Never defer it to §1b: §1b is the backstop for what this eye *missed*, not the appointment where looking happens.

@@ -39,22 +39,29 @@ done < <(find "$ITEMS" -maxdepth 1 -name '*.md' | sort)
 Work DOWN this table. One row per module in \`docs/real-env-verification/items/\`
 (${#modules[@]} modules, generated at open — do not hand-edit the list).
 
-**Result column**
+**Result — does it work** (the manual chain)
 - \`⬜\` not run yet
 - \`✅\` manual green → **STOP** on this module. No finding, no test, no code change.
 - \`🔴\` mismatch → record a row in \`docs/real-env-verification/findings.md\` as \`F-<letter>-<n>\`, then **keep going**
 - \`⛔\` blocked (missing credential / hardware) · \`🚫\` de-scoped this round
 
-The UX eye stays open on every module, green ones included — log to
-\`docs/real-env-verification/ux.md\` the moment you see it (SOP iron rule 6).
+**Design — is it any good** (the designer pass over this module's trajectory, SOP §1c)
+- \`⬜\` not reviewed yet
+- \`🎨✅\` **uiux designer verified** — a designer read the chain + shots and passed it
+- \`🎨🟠\` issues → \`ux.md\` rows (UX-n). Name them in the Findings column.
+- \`➖\` no visual surface (protocol-only module)
 
-| # | Module | Result | Findings / UX raised | Trajectory |
-|---|--------|--------|----------------------|------------|
+The two are independent: a module can work perfectly and fail design, or look right and be
+broken. The UX eye stays open the whole time as well — log to \`ux.md\` the moment you see
+something, don't wait for the designer pass (SOP iron rule 6).
+
+| # | Module | Result | Design | Findings / UX raised | Trajectory |
+|---|--------|--------|--------|----------------------|------------|
 EOF
   i=0
   for m in "${modules[@]}"; do
     i=$((i + 1))
-    printf '| %d | %s | ⬜ | | [trajectory](trajectory/%s/%s.md) |\n' "$i" "$m" "$m" "$m"
+    printf '| %d | %s | ⬜ | ⬜ | | [trajectory](trajectory/%s/%s.md) |\n' "$i" "$m" "$m" "$m"
   done
   cat <<'EOF'
 
@@ -80,6 +87,9 @@ what you clicked, the shot of what came back, what you expected, what you saw. S
 surface the moment it opens, before touching anything, and shoot again after EVERY operation.
 Shots live in \`shots/NN-<slug>.png\` next to this file — this folder holds the whole module.
 
+Shoot FULL PAGE, not the viewport crop: the designer pass below reads these shots instead of
+re-driving the GUI, and it cannot judge composition from a cropped screen.
+
 ## 00 — opened <where>
 
 ![opened](shots/00-open.png)
@@ -103,6 +113,20 @@ Shots live in \`shots/NN-<slug>.png\` next to this file — this folder holds th
 - Expected:
 - Saw:
 - Verdict:
+
+---
+
+## 🎨 Design review (SOP §1c)
+
+Run the \`critique\` skill (and \`audit\` for accessibility / theming / responsive) over the chain
+and shots ABOVE. This section is why the trajectory exists: the designer judges the same
+surfaces the functional pass drove, without re-driving them.
+
+- Reviewed with: \`critique\` / \`audit\`
+- **Verdict:** 🎨✅ uiux designer verified · 🎨🟠 issues below · ➖ no visual surface
+- Issues raised (each also gets a \`ux.md\` row):
+  - UX-?? · sev 🔴/🟠/🟡/💡 ·
+- Held up well:
 EOF
 done
 
