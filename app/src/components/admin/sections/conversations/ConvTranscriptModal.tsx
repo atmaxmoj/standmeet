@@ -7,6 +7,7 @@
 import { useTranslations } from 'next-intl';
 
 import { ModalShell } from '@/components/admin/modals/ModalShell';
+import { ChatMarkdown } from '@/components/page/markdown';
 import {
   deriveGhostView,
   pickTranscriptState,
@@ -107,12 +108,17 @@ function MessageItem({
   );
 }
 
+// MessageBody —— 访客的问句是一句话,原样排版;AI 的回答是 markdown,**走访客那边同一个
+// 渲染器**。上一版两边都塞进 <p>{body}</p>,于是 owner 读到的是 `## 标题` `**加粗**` 的源码,
+// 而同一段正文在访客聊天和 report 页都渲染得好好的(F-C-8)。这里复用 ChatMarkdown 而不是
+// 再写一个,正是因为"一份正文四个渲染器"就是那个 bug 本身。
 function MessageBody({ role, body }: { role: 'visitor' | 'assistant'; body: string }) {
-  const cls = role === 'visitor' ? 'text-[20px] italic' : 'text-[16.5px] not-italic';
-  return (
-    <p className={`reading text-(--color-ink) mt-2 font-[380] ${cls}`}>
-      {body}
-    </p>
+  return role === 'visitor' ? (
+    <p className="reading text-(--color-ink) mt-2 font-[380] text-[20px] italic">{body}</p>
+  ) : (
+    <div className="reading text-(--color-ink) mt-2 font-[380] text-[16.5px] not-italic">
+      <ChatMarkdown source={body} />
+    </div>
   );
 }
 

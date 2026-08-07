@@ -6,9 +6,9 @@
 //   /admin/conversations 看到 transcript + cited bodies
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { Browser, BrowserContext, Page, Playwright } from '@playwright/test';
 
-import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
+import { scriptMockReplyText, scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
@@ -50,25 +50,66 @@ test.describe('code → chat → transcript integration', () => {
         .toBeVisible({ timeout: 15_000 });
       await visitorCtx.close();
 
-      // Owner context (separate browser session, auto-logs in via adminPage helper)
-      const ownerCtx = await browser.newContext();
-      const owner = await ownerCtx.newPage();
-      await goto(owner, '/admin');
-      await owner.getByTestId('email').fill(OWNER.email);
-      await owner.getByTestId('password').fill(OWNER.password);
-      await owner.getByTestId('submit').click();
-      await owner.waitForURL('**/admin/**', { timeout: 10_000 });
-      await gotoAdminSection(owner, 'conversations');
-      await owner.waitForURL('**/admin/conversations', { timeout: 5_000 });
-      await expect(owner.getByTestId('conv-table')).toBeVisible();
-      const row = owner.getByTestId('conv-table').locator('tbody tr').first();
-      await expect(row).toBeVisible({ timeout: 5_000 });
-      await row.click();
+      const { ctx: ownerCtx, page: owner } = await openLatestTranscript(browser);
       await expect(owner.getByTestId('transcript-body'))
         .toContainText('integration testing', { timeout: 5_000 });
       await ownerCtx.close();
     });
+
+  // F-C-8 —— owner 读到的是 markdown 源码。上面那条只断言"词在"(toContainText),
+  // 而正文是渲染过的还是原样打印,它都过。访客那侧和 report 页都渲染同一个字段;
+  // 只有 transcript 把 body 塞进 <p> 原样输出。产品页脚承诺的正是 owner 会读它。
+  test('the owner reads the answer rendered, not as markdown source',
+    async ({ browser }) => {
+      const visitorCtx = await browser.newContext();
+      const visitor = await visitorCtx.newPage();
+      await enterCodeSession(visitor, CODE);
+      await expect(visitor.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      const replyTag = await scriptMockReplyText(
+        visitor.request,
+        '## Gate theory\n\nIt is **stages-and-gates** in my notes.\n\n- decidable criteria\n- kill or continue',
+      );
+      const input = visitor.locator('[data-testid="chat-input-field"]');
+      await input.fill(`what is gate theory${replyTag}`);
+      await input.press('Enter');
+      await expect(visitor.locator('[data-testid="answer-body"]'))
+        .toBeVisible({ timeout: 15_000 });
+      await visitorCtx.close();
+
+      const { ctx: ownerCtx, page: owner } = await openLatestTranscript(browser);
+      const body = owner.getByTestId('transcript-body');
+      await expect(body).toContainText('Gate theory', { timeout: 5_000 });
+      // 渲染过 = 标题成了标题、加粗成了 <strong>、列表成了 <li>;
+      // 没渲染 = 这些标记原样出现在文字里。
+      await expect(body.locator('h2, h1, h3'), '## 变成了标题').not.toHaveCount(0);
+      await expect(body.locator('strong'), '** 变成了加粗').not.toHaveCount(0);
+      await expect(body.locator('li'), '- 变成了列表项').not.toHaveCount(0);
+      await expect(body, '正文里不该出现 markdown 标记本身')
+        .not.toContainText('**stages-and-gates**');
+      await ownerCtx.close();
+    });
 });
+
+// openLatestTranscript —— owner 单独开一个浏览器上下文登录,打开最近那场对话的 transcript。
+// 两条用例都要走这一段,抽出来免得各写一遍(也让每条用例只剩下它自己要断言的那几行)。
+async function openLatestTranscript(
+  browser: Browser,
+): Promise<{ ctx: BrowserContext; page: Page }> {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await goto(page, '/admin');
+  await page.getByTestId('email').fill(OWNER.email);
+  await page.getByTestId('password').fill(OWNER.password);
+  await page.getByTestId('submit').click();
+  await page.waitForURL('**/admin/**', { timeout: 10_000 });
+  await gotoAdminSection(page, 'conversations');
+  await page.waitForURL('**/admin/conversations', { timeout: 5_000 });
+  await expect(page.getByTestId('conv-table')).toBeVisible();
+  const row = page.getByTestId('conv-table').locator('tbody tr').first();
+  await expect(row).toBeVisible({ timeout: 5_000 });
+  await row.click();
+  return { ctx, page };
+}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
