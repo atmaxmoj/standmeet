@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -57,6 +57,7 @@ backend-no-mock:
 
 # 前端子项目：node_modules 没装就 skip（启用时再 pnpm install）。
 app-lint:
+	@infra/scripts/check-i18n-keys
 	@if [ -d app/node_modules ] && [ -f app/package.json ]; then \
 	  cd app && pnpm lint; \
 	else \
@@ -271,6 +272,14 @@ verify-round:
 #   STACK=dev make schema-drift  # dev
 schema-drift:
 	@infra/scripts/schema-drift
+
+# i18n-keys —— 每个 t('key') 必须能在它的 namespace 里解析。缺一条 message 不是构建错误:
+# 它会把 key 路径直接渲染给 owner 看(F-L-15:/admin/subjectivity 17 行全是
+# ADMINCORPUS.COMMON.EDIT)。仓库原有的 i18n lint 问的是反方向(有没有硬编码字符串),
+# 而点这个按钮的 e2e 也会过——按钮在、能点,只有文字是条 key。
+#   make i18n-keys
+i18n-keys:
+	@infra/scripts/check-i18n-keys
 
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app

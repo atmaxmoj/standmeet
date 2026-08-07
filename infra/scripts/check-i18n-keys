@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""check-i18n-keys —— every t('key') call must resolve in its namespace's message file.
+
+Why this exists: a missing message is not a build error. `useTranslations('adminCorpus.common')`
+followed by `t('edit')` compiles, ships, and renders the KEY PATH to the owner —
+`ADMINCORPUS.COMMON.EDIT` appeared on all 17 rows of /admin/subjectivity in the 2026-08-07 real-env
+round, with 17 console errors nobody was watching. The repo's only i18n lint is
+eslint-plugin-i18next, which asks the OPPOSITE question (is this string hardcoded?), and an e2e
+that clicks the button passes too — the button is there, only its label is wrong.
+
+So this walks the call sites instead: for each component, find `useTranslations('<ns>')` and every
+`t('<key>')` that follows it, and assert `<ns>.<key>` exists in the message files.
+
+    make i18n-keys        # or: infra/scripts/check-i18n-keys
+
+Deliberately conservative: it only judges call sites it can read statically (a literal namespace
+and a literal key). Dynamic keys are skipped and counted, so the report never claims coverage it
+does not have.
+"""
+
+import json
+import os
+import re
+import sys
+
+ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+SRC = os.path.join(ROOT, "app", "src")
+MESSAGES = os.path.join(SRC, "i18n", "messages", "en")
+
+# Bind by VARIABLE NAME, not by proximity. A component routinely holds two of these —
+#   const t  = useTranslations('adminIntegrations.connectorList');
+#   const tc = useTranslations('adminIntegrations.common');
+# — and a nearest-preceding-namespace rule attributes t('delete') to the wrong one. My first
+# version did exactly that and reported a key as missing that resolves fine: one false alarm out
+# of two reports. A gate that cries wolf half the time gets ignored, which is worse than no gate.
+BIND = re.compile(r"""\bconst\s+(\w+)\s*=\s*useTranslations\(\s*['"]([\w.]+)['"]\s*\)""")
+BIND_DYNAMIC = re.compile(r"""\bconst\s+(\w+)\s*=\s*useTranslations\((?!\s*['"])""")
+CALL = re.compile(r"""\b(\w+)\(\s*['"]([\w.]+)['"]""")
+
+
+def namespace_of(filename):
+    """`admin-corpus.json` → `adminCorpus`. The FILE NAME is the namespace root; the file's own
+    top-level keys are the level below it. Merging the files flat (my first version) invents
+    missing keys for every namespace whose file does not repeat its own name — it reported 17
+    false positives on pages I had just watched render correctly."""
+    stem = filename[:-len(".json")]
+    head, *rest = stem.split("-")
+    return head + "".join(part.capitalize() for part in rest)
+
+
+def load_messages():
+    """Every message, as `<namespace>.<dotted path inside the file>`."""
+    keys = set()
+
+    def walk(prefix, node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                walk(f"{prefix}.{k}", v)
+        else:
+            keys.add(prefix)
+
+    for name in sorted(os.listdir(MESSAGES)):
+        if not name.endswith(".json"):
+            continue
+        with open(os.path.join(MESSAGES, name), encoding="utf-8") as fh:
+            walk(namespace_of(name), json.load(fh))
+    return keys
+
+
+def call_sites(path):
+    """[(namespace, key, lineno)] for the statically readable calls in one file.
+
+    Each translator variable carries its own namespace; a call is judged only when its callee
+    name is one we bound to a literal namespace. Everything else (a computed namespace, a
+    translator passed in as a prop, an ordinary function that happens to take a string) is
+    skipped and counted — the report never claims coverage it does not have.
+
+    Rebinding is normal: several components in one file each do `const t = useTranslations(...)`.
+    A later binding wins for the lines after it, which is how the file reads top to bottom.
+    """
+    out, dynamic = [], 0
+    bound = {}
+    with open(path, encoding="utf-8") as fh:
+        for lineno, line in enumerate(fh, 1):
+            for var, ns in BIND.findall(line):
+                bound[var] = ns
+            for var in BIND_DYNAMIC.findall(line):
+                bound.pop(var, None)  # computed namespace — stop judging this variable
+            for var, key in CALL.findall(line):
+                if var in bound:
+                    out.append((bound[var], key, lineno))
+                elif var in ("useTranslations",):
+                    continue
+                elif re.fullmatch(r"t[A-Za-z]*", var):
+                    dynamic += 1  # looks like a translator but was never bound here
+    return out, dynamic
+
+
+def main():
+    known = load_messages()
+    missing, checked, skipped = [], 0, 0
+    for dirpath, _dirs, files in os.walk(SRC):
+        if "node_modules" in dirpath:
+            continue
+        for name in files:
+            if not name.endswith((".tsx", ".ts")):
+                continue
+            path = os.path.join(dirpath, name)
+            sites, dyn = call_sites(path)
+            skipped += dyn
+            for ns, key, lineno in sites:
+                checked += 1
+                if f"{ns}.{key}" not in known:
+                    rel = os.path.relpath(path, ROOT)
+                    missing.append(f"{rel}:{lineno}: {ns}.{key}")
+
+    print(f"check-i18n-keys: {checked} t() call sites resolved against "
+          f"{len(known)} messages ({skipped} dynamic keys skipped).")
+    if missing:
+        print("\nMISSING — these render as the key path to the user:")
+        for m in sorted(missing):
+            print(f"  {m}")
+        return 1
+    print("every statically readable t() call resolves.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
