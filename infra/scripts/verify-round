@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# verify-round —— open one round of the fully-real manual verification.
+#
+# A round gets its OWN directory, named by the time it started. Everything the round produces
+# lives there: the run sheet it works down, and one self-contained trajectory folder per module
+# (its md next to its own shots/). The directory is gitignored — it is evidence of a run, not a
+# document about the product. Only two things ever leave it: a row in
+# docs/real-env-verification/findings.md and a row in ux.md. (SOP iron rule 1: a clean pass
+# produces no artifact.)
+#
+#   make verify-round            # opens e2e/manual-runs/<UTC timestamp>/
+#
+# The run sheet is GENERATED from docs/real-env-verification/items/*.md, never hand-copied:
+# a module added to the audit shows up in the next round's sheet by itself. A hand-maintained
+# copy is the exact thing that rots into "the list looks complete" while a module is missing.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ITEMS="$ROOT/docs/real-env-verification/items"
+STAMP="$(date -u +%Y-%m-%dT%H%M)"
+ROUND="$ROOT/e2e/manual-runs/$STAMP"
+
+[ -d "$ITEMS" ] || { echo "no items dir at $ITEMS" >&2; exit 1; }
+[ -e "$ROUND" ] && { echo "round $STAMP already open at $ROUND" >&2; exit 1; }
+
+mkdir -p "$ROUND/trajectory"
+
+modules=()
+while IFS= read -r f; do
+  modules+=("$(basename "$f" .md)")
+done < <(find "$ITEMS" -maxdepth 1 -name '*.md' | sort)
+
+# ---- run sheet: one row per module, this round's ledger ----
+{
+  cat <<EOF
+# Run sheet — round $STAMP
+
+Work DOWN this table. One row per module in \`docs/real-env-verification/items/\`
+(${#modules[@]} modules, generated at open — do not hand-edit the list).
+
+**Result column**
+- \`⬜\` not run yet
+- \`✅\` manual green → **STOP** on this module. No finding, no test, no code change.
+- \`🔴\` mismatch → record a row in \`docs/real-env-verification/findings.md\` as \`F-<letter>-<n>\`, then **keep going**
+- \`⛔\` blocked (missing credential / hardware) · \`🚫\` de-scoped this round
+
+The UX eye stays open on every module, green ones included — log to
+\`docs/real-env-verification/ux.md\` the moment you see it (SOP iron rule 6).
+
+| # | Module | Result | Findings / UX raised | Trajectory |
+|---|--------|--------|----------------------|------------|
+EOF
+  i=0
+  for m in "${modules[@]}"; do
+    i=$((i + 1))
+    printf '| %d | %s | ⬜ | | [trajectory](trajectory/%s/%s.md) |\n' "$i" "$m" "$m" "$m"
+  done
+  cat <<'EOF'
+
+## Round notes
+
+- Stack: `make prod-up` (zero mocks) · app :38227 · backend :8100 · project `standmeet-prod`
+- Creds: `~/.config/standmeet/verify-creds.env`
+- Driver: headed Playwright MCP against the shipped GUI. **Never verify at the DB / API / log
+  layer during the manual phase** — ground truth is the product's own surfaces.
+EOF
+} > "$ROUND/runsheet.md"
+
+# ---- one self-contained trajectory folder per module: its md + its own shots/ ----
+for m in "${modules[@]}"; do
+  mkdir -p "$ROUND/trajectory/$m/shots"
+  cat > "$ROUND/trajectory/$m/$m.md" <<EOF
+# $m — trajectory · round $STAMP
+
+Guidance: \`docs/real-env-verification/items/$m.md\` (steps, expected, ⚠️ LOOK).
+
+**How to fill this in.** Write the chain as you walk it, in order, one block per operation:
+what you clicked, the shot of what came back, what you expected, what you saw. Shoot the
+surface the moment it opens, before touching anything, and shoot again after EVERY operation.
+Shots live in \`shots/NN-<slug>.png\` next to this file — this folder holds the whole module.
+
+## 00 — opened <where>
+
+![opened](shots/00-open.png)
+
+- Expected:
+- Saw:
+- First impression (task-free, SOP §1b):
+
+## 01 — clicked <what>
+
+![result](shots/01-.png)
+
+- Expected:
+- Saw:
+- Verdict: ✅ / 🔴 F-?-? / 👀 UX-?
+
+## 02 — typed <what> / went to <where>
+
+![result](shots/02-.png)
+
+- Expected:
+- Saw:
+- Verdict:
+EOF
+done
+
+echo "round open: $ROUND"
+echo "  run sheet:  $ROUND/runsheet.md  (${#modules[@]} modules)"
+echo "  per module: $ROUND/trajectory/<module>/{<module>.md, shots/}"

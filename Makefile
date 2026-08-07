@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -254,6 +254,15 @@ eval-capabilities:
 # 写一条 eval 测试 raw+wiki,跑完用 reseed-marcus.sh 清回 50。
 eval-owner-mcp:
 	@OWNER_EMAIL="$${OWNER_EMAIL:-marcus@local.test}" eval-harness/owner-mcp-setup.sh
+
+# verify-round —— 开一轮真实环境手工验证。建一个按开始时间命名的目录:
+# e2e/manual-runs/<UTC 时间戳>/{runsheet.md, trajectory/<模块>.md, shots/}。
+# runsheet 从 docs/real-env-verification/items/ 生成(不手抄,加了模块下一轮自动出现);
+# 整个目录 gitignore —— 它是一次跑动的证据,不是关于产品的文档。SOP 在
+# docs/real-env-verification/sop.md §0。
+#   make verify-round
+verify-round:
+	@infra/scripts/verify-round
 
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app

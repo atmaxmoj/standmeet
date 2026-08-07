@@ -82,6 +82,10 @@ infra/plugins/retrieval/retrieval
 infra/plugins/mail-sender/mail-sender
 render-*.png
 e2e/test-results-archive/
+# One directory per manual real-env verification round (run sheet + trajectories + shots).
+# Evidence of a run, not a document about the product — only findings.md / ux.md rows are
+# committed. See docs/real-env-verification/sop.md §0.
+e2e/manual-runs/
 
 # `go build ./...` in mock-stack drops host binaries next to their package. The images
 # build their own; a committed host binary is churn that flips on every build.

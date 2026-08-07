@@ -37,7 +37,43 @@ The order is the point: **the manual test opens the loop and the manual test clo
 
 ## Flow
 
-### 0 · Set scope
+### 0 · Open the round — one timestamped directory ⚠️
+Run `make verify-round` before you touch a surface. It creates:
+
+```
+e2e/manual-runs/<UTC timestamp>/
+  runsheet.md                      the table you work DOWN — one row per module, generated from items/
+  trajectory/
+    <module>/
+      <module>.md                  the chain: clicked what → shot → expected → saw → verdict
+      shots/00-open.png            this module's shots, next to its own md
+      shots/01-<slug>.png
+    <module>/…
+```
+
+Each module owns one folder: its md and its shots together. Nothing is shared between modules,
+so a trajectory reads on its own and moves on its own.
+
+The directory is gitignored. It is evidence of a run, not a document about the product. Only
+two things ever leave it: a row in `findings.md`, and a row in `ux.md`.
+
+**The run sheet is generated, never hand-copied.** It reads `items/*.md` at open, so a module
+added to the audit appears in the next round's sheet by itself. Do not edit its module list.
+Do fill in its Result / Findings columns as you go.
+
+**Trajectory rules — a step with no screenshot did not happen:**
+1. Screenshot the surface the moment it opens, before you touch it.
+2. Screenshot again after EVERY operation.
+3. Write one block per operation, in order: what you clicked, the shot, expected, saw, verdict.
+   The blocks in sequence ARE the chain a reader walks to reproduce the round.
+4. Name shots `shots/NN-<slug>.png`, NN counting up from 00, inside that module's folder.
+5. Playwright MCP may drop a shot in its own directory. Copy it into that module's `shots/`
+   there and then. A trajectory must reference only paths inside its own folder.
+
+Write the trajectory AS YOU GO, not at the end. A trajectory reconstructed from memory records
+what you believe you did; the round exists to catch the gap between that and what happened.
+
+### 0b · Set scope
 Decide which `items/` to run this round. Pick only what's **credential- / self-serve-reachable** (see each item's `Scope`). Credentials live in `~/.config/standmeet/verify-creds.env`.
 
 ### 1 · Run the real verification by hand
@@ -83,6 +119,8 @@ Terminal: `⛔ blocked` (missing cred/hardware), `🚫 de-scoped` (decided not t
 ---
 
 ## Iron rules
+0. **A round opens with `make verify-round` (§0).** Every screenshot, trajectory and result
+   of that round lives in its timestamped directory. A step with no screenshot did not happen.
 1. **The manual test is the only trigger.** Manual green ⇒ stop (§1). No finding, no test, no code change without a real symptom first.
 2. **No code changes during the manual phase** — record only. Fixes are batched into step 3, TDD-style.
 3. Every Finding must land as a **test change** (RED→GREEN). No "fix the code without touching a test" — otherwise the real env breaks again next time. **Exactly two exceptions, both named below (4a/4b). Everything else gets a test.**
