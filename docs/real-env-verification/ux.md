@@ -37,3 +37,4 @@ Severity: 🔴 broken/blocking · 🟠 friction/confusing · 🟡 polish · 💡
 - what I saw / expected:
 - why it matters:
 -->
+| UX-25 | visitor chat (answer body) | A grounded English answer carries an untranslated Chinese fragment mid-sentence: "it's not just a项目管理 trick" (round 2026-08-07T0027, gate-theory question on the real vault). The vault is bilingual, so the model code-switches on a term it read in Chinese; the visitor reads the owner's voice dropping a word they may not be able to read. Not a defect in the surface — the renderer shows what the model wrote — but it is what a recruiter sees. Worth a line in the visitor system prompt (answer in the language the visitor asked in, translate terms the corpus only has in another language) rather than a test. Iron-rule-4b: no test — freezing model phrasing as a contract would be brittle. | 💡 recorded |
