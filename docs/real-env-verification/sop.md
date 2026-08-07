@@ -67,11 +67,31 @@ Do fill in its Result / Design / Findings columns as you go.
 3. Write one block per operation, in order: what you clicked, the shot, expected, saw, verdict.
    The blocks in sequence ARE the chain a reader walks to reproduce the round.
 4. Name shots `shots/NN-<slug>.png`, NN counting up from 00, inside that module's folder.
-5. Playwright MCP may drop a shot in its own directory. Copy it into that module's `shots/`
-   there and then. A trajectory must reference only paths inside its own folder.
+5. Shoot straight into the module's folder: Playwright MCP resolves `filename` against the
+   REPO ROOT, so pass
+   `e2e/manual-runs/<round>/trajectory/<module>/shots/NN-<slug>.png` and the file lands there
+   (verified 2026-08-07 — a bare filename lands at the repo root instead, and the shot is
+   orphaned). Add `fullPage: true`. A trajectory must reference only paths inside its folder.
 
 Write the trajectory AS YOU GO, not at the end. A trajectory reconstructed from memory records
 what you believe you did; the round exists to catch the gap between that and what happened.
+
+### 0a · Bring the stack up TO DATE, then check the database ⚠️
+The round must drive the code you have, on a database that matches it.
+
+1. `make app-build && make prod-up` — the prod app image COPYs a prebuilt `.next`, so the app
+   build comes first or the image ships the previous frontend.
+2. `make schema-drift` — `schema.sql` is applied by postgres only on a **fresh volume**. A
+   long-lived prod volume keeps the schema it was born with, and every column added since
+   exists only in the file. The backend still starts; it fails later, at the one query that
+   needs the column, on the one surface that uses it — and the round reads that as a product
+   defect. Apply the missing pieces by hand, non-destructively, then re-run until it is clean.
+3. Confirm the instance is in a state worth auditing: owner claimed, an AI provider key set, a
+   corpus that mirrors the real vault, and a live access code for the visitor surfaces.
+4. Start the browser CLEAN — clear localStorage, sessionStorage and cookies for the app origin,
+   then reload and confirm the anonymous surface. A round that opens on the previous round's
+   granted session is not looking at what a new visitor sees. (2026-08-07: the first load
+   carried a stale `ACCESS GRANTED · GHOST-WP1` banner and a pre-filled identity.)
 
 ### 0b · Set scope
 Decide which `items/` to run this round. Pick only what's **credential- / self-serve-reachable** (see each item's `Scope`). Credentials live in `~/.config/standmeet/verify-creds.env`.
