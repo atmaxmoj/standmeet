@@ -35,11 +35,12 @@ import sys
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 ITEMS = os.path.join(ROOT, "docs", "real-env-verification", "items")
-# BASELINE —— the items that already carried status when this gate was written, and how much.
-# A RATCHET, the same shape the kernel guards in this repo use: a file absent from the baseline
-# must be clean, a file in it may never get worse, and getting better is the drain. Without it
-# the gate would have to be either off (and useless) or blocking every commit until 41 rewrites
-# land, which is how gates get switched off for good.
+# BASELINE —— **the drain is finished, so this file no longer exists and the gate is absolute.**
+# It was a ratchet while 41 items still carried status: a file absent from the baseline had to be
+# clean, a file in it could never get worse, and `--bless` recorded a drain. That scaffolding
+# existed because the alternative was a gate that blocked every commit until 41 rewrites landed,
+# which is how gates get switched off for good. If a big backlog ever appears again, `--bless`
+# rebuilds it; with no file present, every item must be clean.
 BASELINE = os.path.join(os.path.dirname(__file__), "verify-items.baseline")
 
 # The only field names an item may use. Anything else is either status or belongs in findings.md.

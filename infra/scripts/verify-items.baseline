@@ -1,8 +1,0 @@
-# check-verify-items ratchet — items that still carry status, and how much.
-# A file here may never get worse. Remove its line once it is clean.
-# Regenerate ONLY to record a drain: infra/scripts/check-verify-items --bless
-connector-assembly.md 30
-corpus-acl-editing.md 28
-corpus-media.md 25
-mail-connector.md 37
-vault-sync.md 35

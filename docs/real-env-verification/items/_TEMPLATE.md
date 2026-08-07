@@ -25,6 +25,9 @@ RULE 6 — describe the check, not its history.
   Write "the excerpt contains no `[[`". Do not write "this used to leak wikilinks".
   History belongs in `../findings.md`, keyed by finding id.
 
+All 52 items satisfy these rules today, and `make verify-items` is an absolute gate — there is no
+baseline file and no exemption. A new item that carries status fails the build.
+
 `make verify-items` enforces rules 1 to 5, and runs inside `make lint`.
 It bans four shapes: a field name outside the whitelist, a verdict glyph, a run's date,
 and round vocabulary. It also fails a check that lacks Steps, Expected or Backing test.

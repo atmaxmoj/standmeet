@@ -1,76 +1,65 @@
 # vault-sync — Vault: classify, tolerant-parse, tree, reconcile, export
 
-- **Status:** 🟠 partial — 223 wiki/184 raw synced (F-L-7 import fixed); NOTE `mcp:verify` is MCP-injected cruft NOT in the vault (F-L-6 family); `latex/mermaid/tikz-test` verified present in the real vault (legit, not cruft)
-- **Module:** import the real Obsidian vault at scale — every folder routes to the right genre, the messy real frontmatter zoo parses without aborting the batch, the nested folder tree + folder-notes reproduce, re-sync/move/rename reconcile idempotently, hidden files bucket correctly, export round-trips, and the importer's view agrees with the vault's own `.scripts`.
-- **Surface:** admin `/writings` → "import from Obsidian".
-- **Real dep:** the **real** vault at `~/Develop/writing/notes` (409 real notes across `wiki/`/`raw/`/`subjectivity/`/`_templates/`, real `.obsidian/`, real `.scripts/`). No external credential.
-- **Inherits (historical finding IDs):** `F-L-2` (source_path reconcile — ✅ fixed, errors 29→0, tree roots 24→5), `F-L-3` (subjectivity ingests without publish — ✅ fixed, rows 1→17).
+- **Module:** Import the real vault at scale. Every folder routes to the right genre, the real frontmatter zoo parses without aborting the batch, the nested tree and folder-notes reproduce, re-sync and moves reconcile idempotently, an authoritative sync prunes what the vault no longer has, hidden files bucket correctly, export round-trips, and the importer's view agrees with the vault's own scripts.
+- **Surface:** `/admin/writings` → the Obsidian import and export bar, and `/admin/obsidian` for vault stats.
+- **Real dep:** The real vault at its real path, with its real hidden directories and its own scripts. No external credential.
 - **Backing e2e:** `sync-a-routing` · `sync-b-tree` · `sync-c-title` · `sync-d-publish` · `sync-f-frontmatter` · `sync-g-hidden` · `sync-h-reconcile` · `sync-i-raw` · `sync-j-export` · `sync-k-raw-tree` · `sync-duplicate-title-collapse` · `corpus-sync-rename` · `corpus-tree-integrity` · `admin-obsidian`.
-
-> CI's fixture vault is 3 in-memory `.md` strings (`makeVaultMD`); a 3-file fixture never exercises the tolerant-parse / reconcile / render paths the way 409 real notes do.
 
 ## Checks
 
-### 1 — Classify at real scale  (was §L1)
-- **Steps:** import the whole real vault → inspect the resulting genres. Every top-level folder must route right (`wiki/`→wiki, `subjectivity/`→subjectivity, `raw/`→raw inbox); `_templates/` and `.obsidian/`/`.scripts/` skipped; nothing under a known folder dropped or mis-routed.
-- **Expected:** counts reconcile against `find wiki subjectivity -name '*.md'` (minus folder-notes/skips), zero silent drops; unknown top-level dirs + bare root files degrade gracefully.
-- **⚠️ mock gap:** `sync-a-routing` only feeds a few synthetic folders; "hundreds of notes, deep real nesting, nothing dropped" is never asserted at scale.
+### 1 — Everything routes, and nothing is silently dropped ⭐
+- **Steps:** Import the whole vault. Count the notes per genre. Compare against what the filesystem holds, minus folder-notes and skipped directories. Look for a note that arrived under the wrong genre.
+- **Expected:** The counts reconcile exactly. Template and script directories contribute no notes. An unknown top-level directory and a bare root file degrade gracefully rather than aborting or vanishing.
+- **Mock gap:** The routing spec feeds a few synthetic folders. "Hundreds of notes, deep real nesting, nothing dropped" is never asserted at scale.
 - **Backing test:** `sync-a-routing.spec.ts` · `admin-obsidian.spec.ts`
-- **Result:** ✅ — classify at real scale: 223 wiki / 184 raw synced from the real vault (F-L-7 import fixed).
-### 2 — Tolerant frontmatter on REAL notes ⭐  (was §L2)
-- **Steps:** import and watch the parser survive the real frontmatter zoo (missing/partial/blank fm, malformed YAML — tabs, unquoted colons, smart quotes, mixed list/scalar; exotic keys; non-boolean `publish`; date strings vs objects; old-vs-new field names). Grep the worst offenders first.
-- **Expected:** **no single bad note aborts the import** — malformed YAML tolerated, non-whitelist keys ignored, non-boolean `publish` coerced, body/frontmatter cleanly separated. Parse entrypoint: `import_parse.go:32 parseVaultMarkdown`. **The path most likely to break first on real data.**
-- **⚠️ mock gap:** `sync-f-frontmatter` hand-authors a *curated* malformed set; real notes contain shapes the fixture never imagined.
+
+### 2 — No single bad note aborts the import ⭐
+- **Steps:** Import with the real frontmatter in place: missing blocks, malformed YAML, tabs, unquoted colons, smart quotes, mixed list and scalar values, exotic keys, non-boolean publish flags, dates as strings and as objects. Grep the worst offenders first and confirm they arrived.
+- **Expected:** Every note lands. Malformed YAML is tolerated, unknown keys are ignored, a non-boolean publish flag is coerced, and body and frontmatter separate cleanly.
+- **Mock gap:** The frontmatter spec hand-authors a curated malformed set. Real notes contain shapes no fixture imagined, which is why this is the path most likely to break first on real data.
 - **Backing test:** `sync-f-frontmatter.spec.ts`
-- **Result:** ✅ — tolerant frontmatter on real notes (sync succeeded across the whole vault incl. messy frontmatter).
-### 3 — Node-tree + folder-note collapse + auto-node tolerance  (was §L3)
-- **Steps:** on the real nested wiki tree confirm parent chains derive correctly; folder-notes (`foo/foo.md`) collapse into node `foo`; intermediate folders without a folder-note get an auto-placeholder; deep paths / collisions tolerated. Confirm `title = filename` and duplicate basenames across genres don't collapse.
-- **Expected:** the real hierarchy reproduces as a clean parent/child tree with stable derived paths; missing-folder tolerance fills placeholders; a duplicate title across genres is **not** merged.
-- **⚠️ mock gap:** the real vault nests far deeper than any fixture; `sync-duplicate-title-collapse` was itself a RED repro (reconcile claims notes BY TITLE across genres — `GetNoteByTitleAnyGenre`).
-- **Backing test:** `sync-b-tree.spec.ts` · `sync-c-title.spec.ts` · `sync-duplicate-title-collapse.spec.ts` · `corpus-tree-integrity.spec.ts` · `sync-k-raw-tree.spec.ts`
-- **Result:** ✅ — node-tree + folder-note collapse works (the reader tree + F-L-13 children rail navigate the synced structure; borrow-through-protocol-translation applied).
-### 4b — Sync means sync: vault deletions must propagate ⭐  (F-L-6)
-- **Steps:** sync the real vault; then delete one note (and one whole folder) from the vault and sync again; then check the corpus tree and `note_refs`.
-- **Expected:** the deleted note/folder is **gone from the corpus** — a sync makes `corpus == vault`. A stray with a `source_path` the vault no longer contains (e.g. `orbit`) must not survive an authoritative sync.
-- **⚠️ finding (F-L-6):** `SyncVault`/`reconcileNode` is **upsert-only — no prune-on-absence anywhere** (`sync.go:62,207`). A vault-deleted note lives forever in the corpus; the corpus only grows. Live proof: `orbit` (a prior-session math-render-test note at `source_path:"orbit"`) is a spurious 5th wiki root, and the corpus never converged from the 2026-07-13 snapshot (50w/170r) to the current real vault (223w/179r). **Distinct from `partial-never-delete`:** a *subset* upload must not delete (safety), but a *full/authoritative* vault sync must. Needs a sync mode that marks the upload authoritative.
-- **Backing test:** `sync-h-reconcile.spec.ts` tests upsert + web-wins only; no spec removes a note from the vault and asserts corpus removal (gap).
-- **Result:** 🟡 — deletion-propagation (F-L-6) is the standing invariant; NOTE `mcp:verify` cruft in raw is MCP-injected (not vault) → a re-sync from the true vault would clear it; not force-run this round (heavy corpus op).
-### 4 — Reconcile + idempotent re-sync + move/rename  (was §L4)
-- **Steps:** import twice back-to-back (idempotency); move/rename a note (new `source_path`, stable slug) and re-import; move across genres; partial re-upload a subset.
-- **Expected:** second import is a no-op/upsert; rename orphans the old node by design (slug-stable move updates in place); cross-genre move edits in place; partial upload is **upsert-only, never deletes** what it didn't include; publish gate applied.
-- **⚠️ mock gap:** `corpus-sync-rename` notes obsidian-sync only ever tested the same-path re-import branch; real moves/renames at scale barely exercised.
-- **Backing test:** `sync-h-reconcile.spec.ts` · `corpus-sync-rename.spec.ts` · `sync-i-raw.spec.ts` · `sync-d-publish.spec.ts` · `obsidian-sync.spec.ts`
-- **Result:** ✅ — reconcile + idempotent re-sync: the F-L-10 note_refs rebuild this round re-ran 221 promotes idempotently (content-preserving, 221/221 200).
-### 5 — Hidden-file harvest (two-layer)  (was §L9)
-- **Steps:** confirm the two-layer hidden handling: **noise skipped** (`.git`/`.DS_Store`/`.trash`/`.claude`/`.scripts`/`_templates`/`workspace.json`/`app.json`), **config harvested** (`.obsidian/snippets/*.css` + `appearance.json`). "Handle hidden" ≠ "blanket-skip hidden".
-- **Expected:** noise dropped, config harvested; the real `.obsidian/` yields owner-CSS config while `.scripts/`/`_templates/` contribute no notes.
-- **⚠️ mock gap:** `sync-g-hidden` synthesizes the hidden set; the real `.obsidian/` has many more files to bucket (`community-plugins.json`, `graph.json`, …).
+
+### 3 — The real hierarchy reproduces as a tree
+- **Steps:** Import and walk the tree. Check parent chains on deeply nested paths. Check that a folder-note collapses into its node. Check an intermediate folder with no folder-note. Check two notes with the same basename in different genres.
+- **Expected:** Parent chains derive correctly with stable paths. Folder-notes collapse. Missing intermediate folders get a placeholder. Same-named notes in different genres stay separate — reconciling by title across genres is how they wrongly merge.
+- **Backing test:** `sync-b-tree.spec.ts` · `sync-c-title.spec.ts` · `sync-duplicate-title-collapse.spec.ts` · `corpus-tree-integrity.spec.ts`
+
+### 4 — A second import changes nothing
+- **Steps:** Import twice back to back. Compare the corpus before and after.
+- **Expected:** The second import is a no-op. Content is preserved, not rewritten.
+- **Backing test:** `sync-h-reconcile.spec.ts`
+
+### 5 — Moves and renames reconcile
+- **Steps:** Move a note to a new path. Rename one. Move one across genres. Re-import after each. Then upload a subset of the vault.
+- **Expected:** A move updates in place rather than duplicating. A cross-genre move edits in place. A partial upload only upserts and never deletes what it did not include.
+- **Backing test:** `corpus-sync-rename.spec.ts` · `sync-h-reconcile.spec.ts` · `sync-i-raw.spec.ts`
+
+### 6 — An authoritative sync prunes what the vault no longer has ⭐
+- **Steps:** Sync the vault. Delete one note and one whole folder from the vault. Sync again as authoritative. Read the corpus tree and the link graph.
+- **Expected:** The deleted note and folder are gone from the corpus, and no edge to them survives. After an authoritative sync the corpus equals the vault.
+- **Note:** This is deliberately different from a partial upload, which must never delete. Only a sync that declares itself authoritative may prune, so the two modes must stay distinguishable.
+- **Backing test:** `sync-h-reconcile.spec.ts` covers upsert only · pruning → `gap`
+
+### 7 — Hidden files are bucketed, not blanket-skipped
+- **Steps:** Import with the real hidden directories present. Check that version-control, OS and script directories contribute no notes. Then check that the editor config directory's stylesheet and its enabled-list were harvested.
+- **Expected:** Noise is dropped and config is harvested. Handling hidden files is not the same as skipping them.
+- **Mock gap:** The hidden-file spec synthesizes its set. The real config directory holds many more files to bucket.
 - **Backing test:** `sync-g-hidden.spec.ts`
-- **Result:** ✅ — hidden-file harvest: `.obsidian/snippets/theorem-callouts.css` IS served at /api/v1/appearance.css (2788B) on prod (harvested, not skipped).
-### 6 — Export round-trip + web-wins conflict  (was §L11, §L12)
-- **Steps:** export the imported corpus back to a vault zip (genre→folder, tree→nested folders, note→`<title>.md`, folder-notes generated, `[[links]]` restored, frontmatter reconstructed) → diff a sample against originals → re-import the export (round-trip idempotent). Separately: edit a note on the web after import, re-sync from the vault → confirm the `web-wins` reconcile rule; partial re-uploads never delete.
-- **Expected:** exported structure mirrors the real vault; links + frontmatter reconstruct; a second round-trip is stable; the web edit is preserved per `web-wins`; no data loss on re-sync.
-- **⚠️ mock gap:** `sync-j-export` round-trips a tiny synthetic tree; `sync-h-reconcile` asserts web-wins only on synthetic single-note fixtures.
-- **Backing test:** `sync-j-export.spec.ts` · `obsidian-sync.spec.ts` · `sync-h-reconcile.spec.ts`
-- **Result:** 🟡 — export round-trip + web-wins conflict: e2e-covered; not manually driven this round.
-### 7 — `.scripts` contract alignment  (was §L14)
-- **Steps:** run the vault's own real `.scripts/` (`check-links.sh`, `check-frontmatter.sh`, `normalize-names.sh`, `backfill-folder-notes.sh`, `check-notation.sh`, `notation-lint.py`) against `~/Develop/writing/notes` and compare their view (link graph, folder-note convention, name normalization, frontmatter validity) with what the importer derived.
-- **Expected:** importer link set == `check-links.sh`; folder-note collapse == `backfill-folder-notes.sh`; name normalization == `normalize-names.sh`; frontmatter gate agrees with `check-frontmatter.sh`. The parser must not drift from the vault's scripts.
-- **⚠️ mock gap:** the sync specs reference these contracts **only in comments**; no spec runs the real scripts and diffs. **No backing spec (gap)** — manual-only this round; candidate to promote into a real alignment test.
-- **Backing test:** no backing spec (gap).
-- **Result:** 🟡 — `.scripts/check-links.sh` contract: F-L-10 verified our note_refs now MATCH the vault's ground truth (wiki/logic 17 = check-links); full contract alignment is prose-asserted + this backlinks match.
+
+### 8 — Export round-trips, and a web edit survives a re-sync
+- **Steps:** Export the corpus back to a vault archive. Diff a sample against the originals. Re-import the export. Separately, edit a note on the web, then re-sync from the vault.
+- **Expected:** The exported structure mirrors the vault — genres as folders, tree as nesting, folder-notes generated, links restored, frontmatter reconstructed. A second round-trip is stable. The web edit survives the re-sync per the conflict rule, and no data is lost.
+- **Mock gap:** The export spec round-trips a tiny synthetic tree, and the conflict rule is asserted on a single synthetic note.
+- **Backing test:** `sync-j-export.spec.ts` · `sync-h-reconcile.spec.ts`
+
+### 9 — The importer's view matches the vault's own scripts
+- **Steps:** Run the vault's own scripts over the vault: the link checker, the frontmatter checker, the name normalizer, the folder-note backfill. Compare each result against what the importer derived.
+- **Expected:** The link sets match. Folder-note collapse matches the backfill's expectation. Name normalization matches. The frontmatter gate agrees.
+- **Mock gap:** The sync specs reference these contracts only in comments. Nothing runs the scripts and diffs, so the parser can drift from the vault's own rules without anything noticing.
+- **Backing test:** `gap`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The admin `/writings` obsidian import/export bar renders and **its buttons fire** (F-L-1 was a dead import/export affordance); vault stats (mode/notes/size/last-sync) render real numbers; the note count on screen reconciles with the imported list (F-L-4 count-vs-list family).
 
-## Findings
-(record here; also log `../findings.md`, ID `F-L-n` historical anchor)
-
-- **F-L-2 ✅fixed** (source_path reconcile — real vault errors 29→0, tree roots 24→5). **F-L-3 ✅fixed** (subjectivity ingests without publish — rows 1→17). **F-L-1 ✅fixed** (page renders the real ObsidianBar import/export; export fires a real .zip). L1 classify ✓.
-- **Cruft check (new round, 2026-07-18), verified against the real vault** (`~/Develop/writing/notes`):
-  `mcp:verify` (raw, tag `verify`, body "Real-env verification test dump") is in the LIVE raw corpus
-  but has **no file in the vault** → it's an MCP-injected verification dump, genuine drift an
-  authoritative sync should prune (F-L-6 is fixed, so a full re-sync would remove it — it persists only
-  because no authoritative sync has run since). **Corrected a near-miss:** `latex-test` / `mermaid-test`
-  / `tikz-test` (marked "验证完可删") were almost logged as cruft too, but `find` confirms all three
-  exist as `raw/*.md` in the real vault — they are legit owner render-test notes, NOT cruft. `orbit`
-  also now has a real vault note (`wiki/math/orbit`), so it is legit (F-L-6/F-L-8 resolved its ghost).
+The import and export bar renders and its buttons actually fire — a dead affordance has lived here before.
+Vault stats show real numbers, and the note count on screen reconciles with the imported list.
+After a sync, ask the sharper question: does the corpus now equal the vault, or only contain it?
