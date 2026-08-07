@@ -57,8 +57,7 @@
     "byoaiWelcome": "Hi. You're running on your own API key — pay for inference, public slice only. Private topics return a “need a code” response.",
     "selectCode": "select a code from the left",
     "codedBannerCode": "code · {code}",
-    "codedWelcomeBefore": "Welcome. You've come in on",
-    "codedWelcomeMiddle": "This code assumes role",
+    "previewGreeting": "Hi",
     "suggestedByYou": "suggested by you"
   },
   "customPages": {

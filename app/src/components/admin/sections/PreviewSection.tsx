@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useCodes, type CodesHook, type CodeView } from '@/lib/admin/use-codes';
 
 export function PreviewSection() {
@@ -134,8 +135,16 @@ function ByoaiPreview() {
   );
 }
 
+// CodedPreview —— 这个面写着 "PREVIEW · VISITOR VIEW",所以它必须渲染**访客那句话**。
+//
+// 上一版是 admin 自己用 adminPages.preview.codedWelcome* 拼的,还把 assumed_role_id 前 8 位
+// 印在句子里 —— 一个访客永远不会看到内部 id,而 owner 也就永远看不到这张码真正呈现什么(F-C-9)。
+// 现在读 visitor.codedWelcome:跟访客同一份文案,handle 和 code label 都是真的。
 function CodedPreview({ code }: { code: CodeView | null }) {
   const t = useTranslations('adminPages.preview');
+  const tv = useTranslations('visitor.chatRoom');
+  const session = useAdminSession();
+  const handle = session.kind === 'ready' ? session.session.handle : '';
   return code === null ? (
     <p className="mono text-[11px] text-(--color-faint)">{t('selectCode')}</p>
   ) : (
@@ -146,8 +155,19 @@ function CodedPreview({ code }: { code: CodeView | null }) {
         <span>{t('codedBannerCode', { code: code.code })}</span>
       </PreviewBanner>
       <p className="font-serif text-[17px] text-(--color-ink) mt-4 leading-[1.55] max-w-[48em]">
-        {t('codedWelcomeBefore')} <span className="text-(--color-accent)">{code.label}</span>.
-        {' '}{t('codedWelcomeMiddle')} <span className="mono text-[14px]">{code.assumed_role_id.slice(0, 8)}…</span>.
+        {tv.rich('codedWelcome', {
+          // greeting —— 访客那边是 "Hi, {名字}";预览里还没有人,所以用 role 的问候语位置
+          // 放一句中性的,其余整句照访客那份走。
+          greeting: t('previewGreeting'),
+          handle,
+          codeLabel: code.label,
+          accent: (chunks) => <span className="text-(--color-accent)">{chunks}</span>,
+        })}
+      </p>
+      {/* 访客读到的是三段:欢迎 + 这一句脱敏说明 + 引导。owner 预览时最该看见的正是第二句 ——
+          这张码到底会不会告诉对方"有些话不给看"。 */}
+      <p className="font-serif text-[15px] text-(--color-muted) mt-2 leading-[1.55] max-w-[48em]">
+        {tv('codedRedaction', { handle })}
       </p>
       <SuggestedBlock questions={code.ghosts} />
     </>

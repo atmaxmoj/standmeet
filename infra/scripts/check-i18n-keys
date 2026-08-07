@@ -35,7 +35,9 @@ MESSAGES = os.path.join(SRC, "i18n", "messages", "en")
 # of two reports. A gate that cries wolf half the time gets ignored, which is worse than no gate.
 BIND = re.compile(r"""\bconst\s+(\w+)\s*=\s*useTranslations\(\s*['"]([\w.]+)['"]\s*\)""")
 BIND_DYNAMIC = re.compile(r"""\bconst\s+(\w+)\s*=\s*useTranslations\((?!\s*['"])""")
-CALL = re.compile(r"""\b(\w+)\(\s*['"]([\w.]+)['"]""")
+# `t('k')` 和 `t.rich('k')` 都要收。第一版只匹配 `变量(`,于是每一条 rich 文案(带 <accent>
+# 之类标签的那些)都从闸下溜过去 —— 一道对整整一类调用瞎掉的闸,比没有更危险,因为它报"全通过"。
+CALL = re.compile(r"""\b(\w+)(?:\.rich)?\(\s*['"]([\w.]+)['"]""")
 
 
 def namespace_of(filename):
