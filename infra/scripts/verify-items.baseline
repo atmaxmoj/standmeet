@@ -1,0 +1,44 @@
+# check-verify-items ratchet — items that still carry status, and how much.
+# A file here may never get worse. Remove its line once it is clean.
+# Regenerate ONLY to record a drain: infra/scripts/check-verify-items --bless
+access-codes.md 12
+admin-shell.md 18
+agent-loop-robustness.md 19
+agent-turn-boundary.md 14
+api-key-facade.md 10
+application-commit.md 17
+application-status-persist.md 8
+booking-book.md 30
+booking-email.md 17
+booking-slots.md 16
+calendar-connect.md 22
+captcha.md 18
+chat-byoai.md 11
+chat-grounding.md 28
+chat-injection-refusal.md 10
+chat-redaction.md 12
+chat-subjectivity.md 13
+chat-voice-persistence.md 12
+connector-assembly.md 30
+connector-security.md 12
+corpus-acl-editing.md 28
+corpus-media.md 25
+corpus-render.md 27
+corpus-search.md 12
+corpus-subjectivity-admin.md 14
+custom-pages.md 9
+dashboard-corpus-pulse.md 13
+deploy-forks.md 13
+dock-buttons.md 31
+ext-mcp.md 27
+gate.md 20
+job-fetch.md 26
+mail-connector.md 37
+owner-mcp.md 16
+page-corpus-pinning.md 8
+resilience.md 12
+resume-draft.md 16
+sandbox.md 12
+sdk-embed.md 12
+vault-links.md 8
+vault-sync.md 35

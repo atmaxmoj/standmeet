@@ -1,21 +1,35 @@
 # chat-summarize — Visitor chat: summarize a conversation/report
 
-- **Status:** ✅ verified (UPDATE 3, 2026-07-22) — F-A-6 CLOSED live (root: 15s CallTool cap → `long_running`/120s): real-DeepSeek summarize rendered a FULL report card ("Subjectivity as a Lossy Signal", screenshot in F-A-6 row); the next ask rendered, counted (2/20), persisted. NEW: F-A-19 — the summarize dialog is absent from the RESTORED transcript (recorded, next cycle).
-- **Module:** the model produces a coherent, faithful summary of a real conversation or report, and it renders in the report artifact / `/report/[id]`.
-- **Surface:** visitor chat → report artifact (`/report/[id]`).
-- **Real dep:** real DeepSeek.
-- **Backing e2e:** `visitor-summarize-conversation.spec.ts:71`
+- **Module:** The model produces a coherent, faithful summary of a real conversation, and the summary renders as a report artifact the visitor can open as a page.
+- **Surface:** Visitor chat → the summarize affordance → the report card → `/report/[id]`.
+- **Real dep:** A real model. The mock answers summarize with a scripted string matched by turn keys, so it never exercises summary quality.
+- **Backing e2e:** `visitor-summarize-conversation.spec.ts`. Summary quality → `gap`.
 
 ## Checks
 
-### 1 — Summarize a real conversation/report  (was §A8)
-- **Steps:** ask the agent to summarize the conversation (or a report) → real model produces the summary → it renders in the report artifact / `/report/[id]`.
-- **Expected:** a coherent, faithful summary of what was actually said; PDF/report renders.
-- **⚠️ mock gap:** summarize is a backend-initiated generate call the mock matches by turn keys (`messages.go:97,160`) and answers with a scripted string; summary quality is never tested.
-- **Backing test:** `visitor-summarize-conversation.spec.ts:71`
-- **Result:** ✅ (2026-07-22, real DeepSeek, SUBJ-V01/LiveVerify) — after a grounded turn (searched 8 · read 18), summarize rendered the full report card (title+lede+chips+quote+Key Topics; "open as page ↗" present); faithful to what was said. Post-summarize ask worked + persisted. Sub-finding F-A-19 (dialog absent after RESTORE) recorded separately.
-## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The report artifact renders the summary (not an empty/placeholder card); the `/report/[id]` view opens and paginates.
+### 1 — A real conversation summarizes faithfully ⭐
+- **Steps:** Take several grounded turns so the conversation has content. Ask the agent to summarize. Wait for the card. Read the summary against what was actually said.
+- **Expected:** The card renders with its title, lede and topics, and every claim in it traces to something said in the conversation. It is not an empty or placeholder card.
+- **Mock gap:** Summarize is a backend-initiated generate call that the mock answers with a scripted string. Quality has no coverage.
+- **Backing test:** `visitor-summarize-conversation.spec.ts`
 
-## Findings
-(record here; also log `../findings.md`, ID `F-A-n` historical anchor)
+### 2 — The report opens as its own page
+- **Steps:** Click "open as page" on the card. Read `/report/[id]`. Page through it.
+- **Expected:** The page renders the same summary and paginates.
+- **Backing test:** `visitor-summarize-conversation.spec.ts`
+
+### 3 — The conversation continues after a summary
+- **Steps:** Ask another question after the summary. Read the reply and the turn counter. Reload the page.
+- **Expected:** The reply renders, the turn count rises, and both the summary and the new turn survive the reload.
+- **Backing test:** `visitor-summarize-conversation.spec.ts`
+
+### 4 — A restored transcript still contains the summarize exchange
+- **Steps:** Summarize. Leave the session. Restore it. Read the transcript from the top.
+- **Expected:** The summarize exchange appears in the restored transcript, in the place it happened.
+- **Backing test:** `gap`
+
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+
+The report card carries real content, never an empty frame with a title.
+`/report/[id]` opens and paginates.
+Anything that happened in the session is still in the transcript after a restore.

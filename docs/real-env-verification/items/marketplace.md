@@ -1,35 +1,41 @@
 # marketplace — Marketplace: real GitHub search + install
 
-- **Status:** ✅ verified 2026-08-07 — real GitHub search loads AND a real skill installs end to end (`source: marketplace`). All three UX-13 residuals fixed and ⑤-re-verified (F-F-1 `|-`, F-F-2 `★ 0`, blank version). Residual cosmetic: UX-30 (installed card shows no provenance).
-- **Module:** `marketplace.search` queries the real GitHub Contents API and lists candidate skill repos; installing fetches + parses a real `SKILL.md`; base64-per-file / pagination / ETag / 403-rate-limit / malformed SKILL.md all degrade gracefully.
-- **Surface:** admin/connectors (or the marketplace surface) → search → install.
-- **Real dep:** real `api.github.com` (Contents API — unauthenticated works; optional `GITHUB_TOKEN` to raise the 60/hr limit).
-- **Backing e2e:** `admin-marketplace-install`.
+- **Module:** `marketplace.search` queries the real GitHub Contents API and lists candidate skills. Installing one fetches its `SKILL.md` and parses it into a local skill the owner owns.
+- **Surface:** `/admin/skills` → MARKETPLACE tab → source filter → INSTALL. A paste-a-SKILL.md path exists on the same tab.
+- **Real dep:** Real `api.github.com` Contents API. Unauthenticated works. `GITHUB_TOKEN` raises the 60/hr limit.
+- **Backing e2e:** `admin-marketplace-install` · `admin-agent-skills`.
 
 ## Checks
 
-### 1 — `marketplace.search` against real GitHub  (was §F1)
-- **Steps:** admin marketplace → search a real term → the backend queries the real GitHub Contents API and lists candidate skill repos.
-- **Expected:** real repos surface; the client handles **base64-per-file content, pagination, ETag-conditional requests, and a 403 rate-limit** gracefully (friendly message, not a crash).
-- **⚠️ mock gap:** the mock is **flat / un-paginated / un-rate-limited**; real GitHub Contents is base64-per-file, paginated, 403-rate-limited, ETag-conditional, and a real `SKILL.md` can be malformed/oversized — none of which the mock reproduces.
+### 1 — Search reaches real GitHub and lists real skills ⭐
+- **Steps:** Open the MARKETPLACE tab. Set the source filter to GITHUB. Read the cards.
+- **Expected:** Real skills from `anthropics/skills` appear, each with its name, author and description. A 403 rate-limit shows a sentence the owner can act on, not a crash and not an empty grid.
+- **Mock gap:** The mock is flat, un-paginated and un-rate-limited. Real GitHub Contents is base64-per-file, paginated, ETag-conditional and 403-rate-limited. A real `SKILL.md` can be malformed or oversized. The mock reproduces none of that.
 - **Backing test:** `admin-marketplace-install.spec.ts` (`searchGitHub` helper)
-- **Result:** ✅ — real GitHub anthropics/skills catalog loads live (this round).
-### 2 — Install a real skill (SKILL.md fetched + parsed)  (was §F2)
-- **Steps:** pick a real GitHub skill from the results → install → the backend fetches its `SKILL.md` → parses it into a real installed skill.
-- **Expected:** `201`; the installed skill carries `source = 'marketplace'`; a malformed/oversized `SKILL.md` yields a friendly error, not a crash.
+
+### 2 — Installing a real skill fetches and parses its SKILL.md ⭐
+- **Steps:** Pick a GitHub skill. Click INSTALL. Return to MY SKILLS. Read the tracked count. Read the new row. Query `GET /api/admin/skills/` for its source.
+- **Expected:** The tracked count rises by one. The installed skill carries `source = marketplace`. Its name, description and prompt come from the fetched `SKILL.md`. A malformed or oversized `SKILL.md` yields a sentence the owner can act on, not a crash.
 - **Backing test:** `admin-marketplace-install.spec.ts`
-- **Result:** ✅ — driven live on prod 2026-08-07: installed `Brand Guidelines` from the real anthropics/skills repo through the GUI. It auto-returned to MY SKILLS, the count went `8 tracked` → `9`, and the list endpoint reports `brand-guidelines | source: marketplace` — so the real `SKILL.md` was fetched and parsed. Deleted it afterwards to leave the instance as found (`delete` exists on non-builtin rows only; count back to 8). The three UX-13 residuals this check kept reconfirming are now gone: the `|-` block-scalar leak is **F-F-1** (fixed ⑤), the `★ 0` is **F-F-2** (fixed ⑤), and the blank version was fixed earlier. One new cosmetic raised: the installed card shows no provenance badge → **UX-30**.
-### 3 — SkillsMP 🚫 de-scoped (permanent fiction)  (was §F3)
-- **Note:** `skillsmp.json` is hand-rolled and **`api.skillsmp.com` does not exist** — this source can never be verified against reality. Flag it, don't chase it.
-- **Result:** 🚫 de-scoped (permanent fiction; SkillsMP hand-rolled) — not a target.
+
+### 3 — A card states what its number counts
+- **Steps:** Read the badge on a GITHUB card. Read the badge on a SKILLSMP card. Compare the SKILLSMP badges of several skills by one author.
+- **Expected:** A source that reports no per-skill figure prints no figure — never a zero. A source that reports repository stars says `repo`, so sibling skills sharing one number reads as a fact about the repository.
+- **Backing test:** `admin-agent-skills.spec.ts` ("an unknown star count is not printed as zero")
+
+### 4 — An installed skill can be removed, and a builtin cannot
+- **Steps:** Read the controls on an installed marketplace skill's row. Read the controls on a builtin skill's row. Delete the installed one. Read the tracked count.
+- **Expected:** The installed row offers `delete`. The builtin row does not. The count falls by one after the delete.
+- **Backing test:** `gap`
+
+### 5 — SkillsMP is out of scope
+- **Steps:** None. Do not drive this source against reality.
+- **Expected:** `api.skillsmp.com` does not exist, and `skillsmp.json` is hand-rolled. This source cannot be verified against reality. Flag it and move on.
+- **Backing test:** `n/a`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-Search **results render** (not silently empty on a real match); the install button fires and the installed skill appears; a 403/malformed case shows a friendly message.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-F-n` historical anchor)
-
-- Note the manual-install path also exists (paste a SKILL.md directly — commit ba54876).
-
-### F-F-2 — marketplace skillsmp results duplicated on the tab  (2026-07-23, full-suite)
-- **Observed:** running the full admin-agent-skills suite, the skillsmp source filter returns **6** cards from a **3**-skill fixture (`e2e/fixtures/marketplace/skillsmp.json`), and "all" is 23 (17 github + 6) not 20. The 3 skills are duplicated → 6. Surfaced by the full suite after the marketplace rework (d635d4e/444ec0a). Likely load-more re-appending the same page without cross-page dedup (there's no real pagination past the fixture). UX-13 residual "· v" blank-version FIXED separately (verified prod). 
-- **Status:** ✅ CLOSED — and **the diagnosis in the paragraph above was wrong**. It was not load-more re-appending a page: `market-skill-` was the CARD's testid prefix AND a field inside the card reused it, so the selector counted every card twice. Fixed in `fd710c41` (the field became `market-author`), both `test.fixme`s removed — `grep fixme e2e/test/admin-agent-skills.spec.ts` is now empty, and the suite asserts skillsmp=3 / all=20 for real. Kept here because the shape recurs: **an integer-multiple count mismatch is a selector over-counting far more often than it is duplicate data**, and the note parked beside a fixme can send the next reader the wrong way (see memory `parked-test-carries-a-wrong-diagnosis`). NOTE: the F-F-2 id was later reused for a different marketplace finding (per-card star count); this older one is the testid collision.
+Search results render whenever a real match exists, so a populated source never shows an empty grid.
+Every badge on a card states what it counts, and prints nothing when the source cannot report it.
+The INSTALL button fires, the skill appears in MY SKILLS, and its card says where it came from.
+A rate-limit or a malformed `SKILL.md` reaches the owner as a sentence, never as a stack trace.

@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""check-verify-items —— an item is a TEST DESCRIPTION. Keep status out of it.
+
+`docs/real-env-verification/items/*.md` describe what to check. They must read the same before a
+round and after it. Status of a run belongs in that round's `runsheet.md`; status of a defect
+belongs in `docs/real-env-verification/findings.md`.
+
+Why this needs a gate and not a rule in a template: status leaked in one field at a time, and
+nothing ever failed. Before this check existed the 52 items carried 54 `Status:` lines, 158
+`Result:` lines and 70-odd invented field names (`✅ PASS (2nd pass)`, `Observed:`, `Root cause:`,
+`⚠️ finding:`), i.e. a whole second ledger that nobody reconciled with the first one. Two ledgers
+drift, and then both are untrustworthy — the "not done" as much as the "done".
+
+The four shapes status takes, and what this checks:
+
+  1. a field that reports an outcome        → only whitelisted field names are allowed
+  2. a verdict glyph                        → no ✅ 🔴 🟠 🟡 🚫 👁 ⬜ 🟩 🙌 ① … anywhere
+  3. a timestamp                            → no ISO date; a description has no dates
+  4. round vocabulary                       → no "verified" / "this round" / "2nd pass" / …
+
+Plus one structural rule, because a check with no Expected cannot be failed by anyone:
+
+  5. every `### n — …` block carries Steps, Expected and Backing test
+
+    make verify-items          # or: infra/scripts/check-verify-items
+    infra/scripts/check-verify-items --self-test
+
+Files whose name starts with `_` are templates and are exempt — a template has to be able to
+quote the words it bans.
+"""
+
+import os
+import re
+import sys
+
+ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+ITEMS = os.path.join(ROOT, "docs", "real-env-verification", "items")
+# BASELINE —— the items that already carried status when this gate was written, and how much.
+# A RATCHET, the same shape the kernel guards in this repo use: a file absent from the baseline
+# must be clean, a file in it may never get worse, and getting better is the drain. Without it
+# the gate would have to be either off (and useless) or blocking every commit until 41 rewrites
+# land, which is how gates get switched off for good.
+BASELINE = os.path.join(os.path.dirname(__file__), "verify-items.baseline")
+
+# The only field names an item may use. Anything else is either status or belongs in findings.md.
+ALLOWED_FIELDS = {
+    "Module", "Surface", "Real dep", "Backing e2e",   # header
+    "Steps", "Expected", "Mock gap", "Backing test",  # per check
+    "Note",                                           # a standing caveat about the check itself
+}
+FIELD = re.compile(r"^\s*-\s+\*\*([^:*]+):\*\*")
+
+# Verdict glyphs. The circled digits are the SOP's ①..⑤ state machine — also status.
+VERDICT_GLYPHS = "✅🔴🟠🟡🚫👁⬜🟩🙌🎯🧪①②③④⑤"
+GLYPH = re.compile(f"[{VERDICT_GLYPHS}]")
+
+ISO_DATE = re.compile(r"\b20\d\d-\d\d-\d\d\b")
+
+# Words that only make sense about a RUN, never about the check itself.
+ROUND_WORDS = re.compile(
+    r"\b(this round|last round|\d(?:st|nd|rd|th) pass|first pass|second pass"
+    r"|re-?verified|verified live|confirmed live|de-?scoped"
+    r"|blocked-by-setup|backend-rebuild-blocked)\b",
+    re.I,
+)
+
+CHECK_HEAD = re.compile(r"^###\s")
+REQUIRED_IN_CHECK = ("Steps", "Expected", "Backing test")
+
+
+def scan(text):
+    """[(lineno, rule, detail)] for one item's text."""
+    out = []
+    for lineno, line in enumerate(text.split("\n"), 1):
+        m = FIELD.match(line)
+        if m and m.group(1).strip() not in ALLOWED_FIELDS:
+            out.append((lineno, "field", f"`{m.group(1).strip()}:` is not an item field"))
+        g = GLYPH.search(line)
+        if g:
+            out.append((lineno, "glyph", f"verdict glyph {g.group(0)!r}"))
+        d = ISO_DATE.search(line)
+        if d:
+            out.append((lineno, "date", f"a run's date ({d.group(0)})"))
+        w = ROUND_WORDS.search(line)
+        if w:
+            out.append((lineno, "round", f"round vocabulary ({w.group(0)!r})"))
+    out.extend(incomplete_checks(text))
+    return out
+
+
+def incomplete_checks(text):
+    """A check with no Expected cannot be failed by anyone reading it."""
+    out, head, seen, head_line = [], None, set(), 0
+    for lineno, line in enumerate(text.split("\n") + ["### <eof>"], 1):
+        if CHECK_HEAD.match(line):
+            if head is not None:
+                missing = [f for f in REQUIRED_IN_CHECK if f not in seen]
+                if missing:
+                    out.append((head_line, "shape", f"{head!r} has no {', '.join(missing)}"))
+            head, seen, head_line = line.strip("# ").strip(), set(), lineno
+            continue
+        m = FIELD.match(line)
+        if m and head is not None:
+            seen.add(m.group(1).strip())
+    return out
+
+
+def item_files():
+    for name in sorted(os.listdir(ITEMS)):
+        # `_TEMPLATE.md` has to quote the words it bans.
+        if name.endswith(".md") and not name.startswith("_"):
+            yield name
+
+
+def load_baseline():
+    """{filename: allowed violation count}. Missing file = everything must be clean."""
+    allowed = {}
+    if not os.path.exists(BASELINE):
+        return allowed
+    with open(BASELINE, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            name, _, count = line.rpartition(" ")
+            allowed[name.strip()] = int(count)
+    return allowed
+
+
+def write_baseline(counts):
+    with open(BASELINE, "w", encoding="utf-8") as fh:
+        fh.write("# check-verify-items ratchet — items that still carry status, and how much.\n")
+        fh.write("# A file here may never get worse. Remove its line once it is clean.\n")
+        fh.write("# Regenerate ONLY to record a drain: infra/scripts/check-verify-items --bless\n")
+        for name in sorted(counts):
+            fh.write(f"{name} {counts[name]}\n")
+
+
+def main(bless=False):
+    found, clean = {}, 0
+    for name in item_files():
+        with open(os.path.join(ITEMS, name), encoding="utf-8") as fh:
+            problems = scan(fh.read())
+        if problems:
+            found[name] = problems
+        else:
+            clean += 1
+    total = clean + len(found)
+    counts = {n: len(p) for n, p in found.items()}
+
+    if bless:
+        write_baseline(counts)
+        print(f"check-verify-items: baseline rewritten — {len(counts)} item(s) still carry status.")
+        return 0
+
+    allowed = load_baseline()
+    regressed = {n: c for n, c in counts.items() if c > allowed.get(n, 0)}
+    drained = sorted(set(allowed) - set(counts))
+
+    print(f"check-verify-items: {total} items scanned, {clean} clean, "
+          f"{len(counts)} still carrying status (baseline allows {len(allowed)}).")
+    if drained:
+        print(f"  drained since the baseline: {', '.join(drained)} "
+              f"— run `--bless` to lock the win in.")
+    if not counts:
+        print("no status in any item — a description reads the same before a round and after.")
+    if not regressed:
+        if counts:
+            print("  ratchet holds: nothing got worse.")
+        return 0
+
+    print(f"\n{len(regressed)} item(s) got WORSE. Status belongs in the round's runsheet, "
+          f"or in findings.md:\n")
+    for name in sorted(regressed):
+        by_rule = {}
+        for _, rule, _ in found[name]:
+            by_rule[rule] = by_rule.get(rule, 0) + 1
+        summary = " ".join(f"{k}×{v}" for k, v in sorted(by_rule.items()))
+        print(f"  {name} — {summary} (baseline allowed {allowed.get(name, 0)})")
+        for lineno, rule, detail in found[name][:4]:
+            print(f"      :{lineno} [{rule}] {detail}")
+        if len(found[name]) > 4:
+            print(f"      … and {len(found[name]) - 4} more")
+    return 1
+
+
+# ─── self-test ────────────────────────────────────────────────────────────────
+# A gate that cannot see is worse than no gate, because it reports "all clean".
+# Each planted sample must trip exactly the rule it is planted for.
+SAMPLES = [
+    ("field", "- **Result:** it worked\n"),
+    ("field", "- **Status:** partial\n"),
+    ("glyph", "- **Expected:** the row is gone ✅\n"),
+    ("date", "- **Expected:** it held on 2026-07-22\n"),
+    ("round", "- **Expected:** the same as last round\n"),
+    ("round", "- **Expected:** re-verified against prod\n"),
+    ("shape", "### 1 — something\n- **Steps:** do it\n"),
+]
+CLEAN = (
+    "# x — y\n\n- **Module:** a thing.\n- **Surface:** /admin/x.\n"
+    "- **Real dep:** none.\n- **Backing e2e:** `x.spec.ts`.\n\n## Checks\n\n"
+    "### 1 — it holds\n- **Steps:** open it.\n- **Expected:** the label reads EDIT.\n"
+    "- **Backing test:** `x.spec.ts`\n"
+)
+
+
+def self_test():
+    failures = 0
+    for rule, sample in SAMPLES:
+        hits = {r for _, r, _ in scan(sample)}
+        if rule not in hits:
+            print(f"✘ planted {rule!r} was NOT caught: {sample.strip()!r}")
+            failures += 1
+        else:
+            print(f"✓ caught planted {rule}")
+    residue = scan(CLEAN)
+    if residue:
+        print(f"✘ a clean item was flagged: {residue}")
+        failures += 1
+    else:
+        print("✓ a clean item passes")
+    print("self-test passed" if not failures else f"self-test FAILED ({failures})")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    if "--self-test" in sys.argv:
+        sys.exit(self_test())
+    sys.exit(main(bless="--bless" in sys.argv))

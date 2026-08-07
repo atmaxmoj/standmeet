@@ -1,21 +1,30 @@
 # chat-ghost — Visitor chat: ghost steering quality
 
-- **Status:** ✅ verified (UPDATE 3, 2026-07-22) — the whole ghost cluster landed + prod-verified: F-A-7 (waypoints editor on /admin/roles — authored `prod-verify-wp` live), F-A-10 (owner ghost-evidence option, role + code override, prod round-trip), F-A-9 (silent turn clears the ghost; e2e test 4 + live: `data-ghost` never stale across 2 sessions). Live model steering quality stays conservative (silence both attempts — rules 2/4) — quality remains a real-model property to observe opportunistically.
-- **Module:** the model proposes a well-judged steering "ghost" toward a reachable, unvisited waypoint, and goes silent once all are visited. Quality (relevance, non-repetition, good stopping) is a real-model property.
-- **Surface:** visitor chat (multi-turn with waypoints).
-- **Real dep:** real DeepSeek. `isGhostPolicy` (`messages.go:89`) fakes the entire GhostPolicy output in the mock.
-- **Backing e2e:** `ghost-policy.spec.ts:89` · `visitor-chat-ghost.spec.ts:77` · `ghost-waypoint-freeze.spec.ts`. Real-LLM lane: `eval-harness/ghost-test.sh` (mock-gateway today).
+- **Module:** The model proposes a steering "ghost" toward a reachable, unvisited waypoint, and goes silent once every waypoint is visited. Relevance, non-repetition and good stopping are real-model properties.
+- **Surface:** Visitor chat, multi-turn, on a code whose role carries waypoints. Author the waypoints on `/admin/roles` first.
+- **Real dep:** A real model. The mock fakes the entire GhostPolicy output (`isGhostPolicy`, `messages.go`), so the mock can never exercise this.
+- **Backing e2e:** `ghost-policy` · `visitor-chat-ghost` · `ghost-waypoint-freeze` · `role-waypoints-admin` · `role-ghost-evidence`. Real-LLM lane: `eval-harness/ghost-test.sh`. Model judgment itself → `gap`.
 
 ## Checks
 
-### 1 — Ghost steering quality (real-LLM) ⭐  (was §A7)
-- **Steps:** run a multi-turn conversation with reachable waypoints → observe the steering ghost the model proposes at each turn; then visit all waypoints and confirm it goes silent.
-- **Expected (likely RED):** a *well-judged* ghost toward a reachable, unvisited waypoint that actually redirects the next turns, and **silence** once all are visited. Quality (relevance, non-repetition, good stopping) is a real-model property.
-- **⚠️ mock gap:** `isGhostPolicy` (`messages.go:89`) fakes the entire GhostPolicy output; `eval-ghost` runs against the mock gateway *by design* ("no real LLM"). Nothing checks the model's actual judgment.
-- **Backing test:** `ghost-policy.spec.ts:89` · `visitor-chat-ghost.spec.ts:77` · `ghost-waypoint-freeze.spec.ts` · `role-waypoints-admin.spec.ts` · `role-ghost-evidence.spec.ts`. Real-LLM lane: `eval-harness/ghost-test.sh` (mock-gateway today).
-- **Result:** 🟠 (2026-07-22, real DeepSeek, 2 fresh SUBJ-V01 members) — the *machinery* is fully live (waypoints authorable F-A-7; evidence rule configurable F-A-10; silent-turn clear F-A-9): across both sessions the input never showed a stale ghost (`data-ghost` empty, "ask…"). But the model emitted NO steering ghost in either attempt (on-waypoint opener, then off-topic opener — silence, defensible under rules 2/4), so live steering *quality* (relevance/non-repetition/stopping) remains unobserved — nondeterministic, observe opportunistically in future real sessions. LOOK's "disappears cleanly" half: ✅ live; "renders as designed affordance" half: e2e-only so far.
-## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The ghost renders as the designed steer affordance (not a raw string); it disappears cleanly once waypoints are exhausted (no lingering empty ghost).
+### 1 — The ghost steers toward a reachable, unvisited waypoint ⭐
+- **Steps:** Attach two or more waypoints to a role. Enter a session on a code with that role. Take several turns, some on-topic and some off. Read the ghost after each turn.
+- **Expected:** The ghost names a waypoint that is reachable and not yet visited. It does not repeat a waypoint already covered. It redirects the turns that follow.
+- **Mock gap:** The mock fabricates the whole policy output, so nothing in CI observes the model's judgment.
+- **Backing test:** `ghost-policy.spec.ts` (machinery) · model judgment → `gap`
 
-## Findings
-(record here; also log `../findings.md`, ID `F-A-n` historical anchor)
+### 2 — The ghost goes silent once every waypoint is visited
+- **Steps:** Continue the session until the turns have covered all the waypoints. Read the ghost. Take one more turn. Read it again.
+- **Expected:** The ghost is empty and the input shows its ordinary placeholder. No stale ghost from an earlier turn survives.
+- **Backing test:** `ghost-waypoint-freeze.spec.ts`
+
+### 3 — A silent turn clears the previous ghost
+- **Steps:** Take a turn where the model proposes no ghost. Read the input's ghost attribute. Open a second session and repeat.
+- **Expected:** The ghost clears on the silent turn. It never carries over from the previous turn or from another session.
+- **Backing test:** `visitor-chat-ghost.spec.ts`
+
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+
+The ghost renders as the designed steer affordance, never as a raw string in the input.
+It disappears cleanly when the waypoints run out, leaving no empty ghost behind.
+A ghost that survives a reload or a new session is stale state, not a steer.

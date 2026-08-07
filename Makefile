@@ -12,7 +12,7 @@
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
 # 各自跑 eslint + tsc + knip。backend-no-mock 是 G-Y 强制的"backend 不
 # 准含 mock-only 代码"约束。
-lint: env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint
+lint: env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint verify-items
 
 env-lint:
 	@LINT_ENV_EXCLUDE="standmeet-client standmeet-server standmeet-e2e" \
@@ -280,6 +280,13 @@ schema-drift:
 #   make i18n-keys
 i18n-keys:
 	@infra/scripts/check-i18n-keys
+
+# verify-items —— 审计的 item 是**测试描述**,不许记状态。跑的状态在那一轮的 runsheet,
+# 缺陷的状态在 findings.md。两个账本一定会互相漂移,而且"没做"和"做了"一样不可信。
+# 闸门本身带自测(planted 违例必须被抓到),因为一个瞎了的扫描器会报"全清"。
+verify-items:
+	@infra/scripts/check-verify-items --self-test >/dev/null
+	@infra/scripts/check-verify-items
 
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app

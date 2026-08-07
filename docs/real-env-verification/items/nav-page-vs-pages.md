@@ -1,38 +1,25 @@
 # nav-page-vs-pages — the sidebar's two "page(s)" entries must be distinguishable
 
-- **Status:** ✅ verified — rot-D2 'landing page'→/admin/page, 'custom pages'→/admin/custom-pages
-- **Fix:** rename to disambiguate. Proposed: **"landing page"** for slug `page` (the single public page)
-  and **"custom pages"** for slug `custom-pages` (the microsites). The distinguishing tokens become
-  `landing` vs `custom` — neither is bare "page"/"pages". Labels are plain strings in
-  `app/src/components/admin/AdminSidebar.tsx` (lines 42 and 78), not i18n keys yet.
-- **Module:** the admin left-nav. Every nav label must name the surface it opens; no two labels may be
-  trivially confusable.
-- **Surface:** `/admin` (the sidebar, present on every admin page).
-- **Backing e2e:** `nav-page-vs-pages.spec.ts` (RED→GREEN: the `page` nav says "landing …", the
-  `custom-pages` nav says "custom …"; RED on today's "public page" / "pages").
+- **Module:** The admin left-nav. Every nav label names the surface it opens. No two labels are trivially confusable.
+- **Surface:** `/admin` — the sidebar, present on every admin page. The labels are plain strings in `AdminSidebar.tsx`, not i18n keys.
+- **Real dep:** none.
+- **Backing e2e:** `nav-page-vs-pages.spec.ts`.
 
 ## Checks
 
-### 1 — the two nav entries have distinct, non-confusable labels ⭐
-- **Steps:** open `/admin`; read the sidebar. Find the entry in `settings` that opens the single public
-  page editor, and the entry in `corpus` that opens the microsites list.
-- **Expected:** their labels are unmistakably different — e.g. "landing page" vs "custom pages". Neither
-  is just "page" or "pages"; a first-time owner can tell which opens the one landing page and which
-  opens the microsite collection without clicking.
-- **⚠️ the bug this came from:** the two labels were "public page" (settings) and "pages" (corpus) —
-  two words apart, semantically the same phrase, for two unrelated surfaces.
-- **Result:** ✅ — rot-D2: 'landing page' vs 'custom pages' labels distinct + non-confusable (re-confirmed on the live sidebar this round).
-### 2 — clicking each entry lands on the right surface
-- **Steps:** click the `settings` entry → confirm it opens the single landing-page editor
-  (`/admin/page`, PageSection). Click the `corpus` entry → confirm it opens the microsites list
-  (`/admin/custom-pages`, CustomPagesSection with `/p/{slug}` items).
-- **Expected:** each label's destination matches the noun it now uses (landing page vs custom pages).
-- **Result:** ✅ — each lands on its right surface (/admin/page vs /admin/custom-pages).
-## ⚠️ LOOK — fresh-eyes UI sanity
-Two sidebar rows whose labels differ only by "public "/nothing and "page"/"pages" are the tell: a label
-that doesn't say which of two similar things it opens is not a label. Read the nav cold, as a first-time
-owner — if you'd have to click both to learn the difference, the names have failed.
+### 1 — The two nav entries carry distinct, non-confusable labels ⭐
+- **Steps:** Open `/admin`. Read the sidebar cold, as a first-time owner. Find the entry under `settings` that opens the single public page editor. Find the entry under `corpus` that opens the microsites list.
+- **Expected:** The two labels differ by a word that names the difference, such as `landing page` against `custom pages`. Neither label is bare `page` or `pages`. A first-time owner tells them apart without clicking either one.
+- **Backing test:** `nav-page-vs-pages.spec.ts`
 
-## Findings
-- **rot-D2** — `page` → "public page" and `custom-pages` → "pages" were two confusable labels for the
-  landing page vs the microsites. Fix: rename to "landing page" / "custom pages".
+### 2 — Each entry lands on the surface its label names
+- **Steps:** Click the `settings` entry. Read the route and the section. Go back. Click the `corpus` entry. Read the route and the section.
+- **Expected:** The `settings` entry opens `/admin/page`, the single landing-page editor. The `corpus` entry opens `/admin/custom-pages`, the microsites list with its `/p/{slug}` items. Each destination matches the noun in its label.
+- **Backing test:** `nav-page-vs-pages.spec.ts`
+
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+
+Read the whole nav cold, before you click anything.
+Any two rows whose labels differ only by a plural or a dropped adjective are the tell.
+A label that does not say which of two similar things it opens is not a label.
+If you would have to click both rows to learn the difference, the names have failed.
