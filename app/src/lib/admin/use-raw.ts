@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { z } from 'zod';
 import { adminAPI, RawAdminViewSchema, type CreateRawInput, type RawAdminView } from '@/lib/api/admin';
-import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
+import { onCorpusChanged } from '@/lib/admin/corpus-changed';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -96,7 +96,10 @@ async function doAddRaw(
   try {
     const created = await adminAPI.post('/corpus/raw', input, RawAdminViewSchema);
     rawStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
-    bumpCorpusEpoch(); // dump bypasses useCorpusActions — bump so the lazy tree refetches
+    // dump 绕开 useCorpusActions,所以它得自己喊一声 —— 但喊的是**同一个**函数,不是再抄一遍。
+    // 上一版这里抄的是当时 run() 里那一行 bumpCorpusEpoch();后来 run() 那边加了计数作废,
+    // 这条路没跟上,于是 quick-dump 之后四个计数原地不动(F-L-16)。
+    onCorpusChanged();
     return true;
   } catch (e) {
     setErr(e instanceof Error ? e.message : 'dump failed');

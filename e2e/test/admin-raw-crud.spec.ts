@@ -39,6 +39,15 @@ test.describe('admin raw CRUD operations', () => {
         .toBeVisible({ timeout: 5_000 });
     });
 
+  // F-L-16 —— 删掉一条之后,列表少了一行,而**四个计数一个都没动**:标题的 "N unprocessed"、
+  // 四个 tab、侧栏 badge、pulse 栏,全都还在报删之前的数,要整页 reload 才对得上。
+  // 它们读的是同一份 growth 资源,而那份资源在 mutation 之后从来没被作废过 —— 收口点
+  // (`run()` 里的 bumpCorpusEpoch)早就在了,后面只挂了树,没挂计数。
+  // 手工发现于 2026-08-07 的 corpus-raw 第 3 项:后端删得干干净净(行 404、素材从 bucket 里也没了),
+  // 屏幕上却四处坚称它还在。
+  test('deleting a raw entry moves the counters, not just the list (F-L-16)',
+    async ({ adminPage }) => { await assertDeleteMovesCounters(adminPage); });
+
   // rot-E4: removed a dead "filter toggle → unprocessed vs all" test — it guarded its only assertion
   // behind `if raw-filter-all visible`, a testid that no longer exists (raw has no unprocessed/all
   // filter, only the view toggle). It was a no-op that could never fail while its name promised a
@@ -107,6 +116,61 @@ test.describe('admin raw CRUD operations', () => {
       await expect(adminPage.getByTestId('raw-list')).toBeVisible();
     });
 });
+
+async function assertDeleteMovesCounters(page: Page): Promise<void> {
+  await gotoAdminSection(page, 'raw');
+  // 两条:删掉一条之后还剩至少一条,badge 才不会因为归零而整个消失(那是另一件事)。
+  // 等的是 **POST 的响应**,不是行出现 —— 行是乐观插入的,它先出现,服务器可能还没落库,
+  // 那样下面那个 reload 读到的基线就是假的(第一版就这么假红过)。
+  for (const body of ['Raw entry one, to be deleted.', 'Raw entry two, the survivor.']) {
+    await page.getByTestId('dump-input').fill(body);
+    const stored = page.waitForResponse(
+      (r) => r.url().includes('/api/admin/corpus/raw')
+        && r.request().method() === 'POST' && r.status() < 400,
+      { timeout: 10_000 },
+    );
+    await page.getByRole('button', { name: /dump/i }).click();
+    await stored;
+  }
+  // 整页重来一次,让基线是**真**的 —— 否则拿一个本来就旧的数去做减法,红绿都说明不了问题。
+  await page.reload();
+  const row = page.locator('[data-testid^="raw-delete-"]').first();
+  await expect(row).toBeVisible({ timeout: 5_000 });
+
+  const header = page.getByTestId('section-header');
+  await expect(header).toContainText(/[1-9]\d* unprocessed/, { timeout: 10_000 });
+  const before = countIn(await header.innerText());
+  expect(before, '基线必须 ≥2,否则删完 badge 归零会盖住真正要测的东西').toBeGreaterThanOrEqual(2);
+
+  // 先测**创建**这条路 —— 它绕开 useCorpusActions 走自己的 doAddRaw,所以第一版修完删除之后
+  // 它还是不动:两条路各抄了一份作废动作,后加的那半只进了其中一份(F-L-16)。
+  await page.getByTestId('dump-input').fill('One more, to watch the counter go up.');
+  await page.getByRole('button', { name: /dump/i }).click();
+  await expect(header, '粘一条进来,标题上的数就得涨').toContainText(`${before + 1} unprocessed`);
+  await expect(
+    page.getByTestId('badge-raw'),
+    '侧栏 badge 也一样,不许等自己的轮询',
+  ).toHaveText(String(before + 1));
+
+  // 上面刚加了一条,所以此刻是 before+1;删掉一条应该正好回到 before。
+  page.once('dialog', (d) => void d.accept());
+  await page.locator('[data-testid^="raw-delete-"]').first().click();
+
+  // 不 reload。删完这一刻标题就得少一个。
+  await expect(header, '标题上的数必须跟着列表一起动').toContainText(`${before} unprocessed`);
+  // 侧栏 badge 说的是同一件事,那它就得报同一个数(而不是等自己 60 秒的轮询)。
+  await expect(
+    page.getByTestId('badge-raw'),
+    '侧栏 badge 跟标题读的必须是同一份数',
+  ).toHaveText(String(before));
+}
+
+// countIn —— 从 "raw · 12 unprocessed" 里取那个数。
+function countIn(text: string): number {
+  const m = /(\d+)\s+unprocessed/.exec(text);
+  if (m === null) throw new Error(`no count in header: ${text}`);
+  return Number(m[1]);
+}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();

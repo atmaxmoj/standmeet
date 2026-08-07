@@ -39,6 +39,15 @@ export function useCorpusGrowth(): CorpusGrowthHook {
   return { growth: data ?? null, loading: status === 'loading' };
 }
 
+// refreshCorpusGrowth —— 语料一有增删就必须重拉这份计数。
+// 这一份**同时**喂着 /admin/raw 的标题数、四个 tab 的数、侧栏 badge 和 pulse 栏,
+// 所以它不刷新的时候,owner 删掉一条之后列表少了一行、而四个地方还一起坚称原来的总数 ——
+// 同一屏之内自相矛盾,而且它们说的那个数已经不成立了(F-L-16)。
+// mutation 收口在 use-corpus-actions 的 run() 里,那里已经在 bumpCorpusEpoch,这条挂在旁边。
+export function refreshCorpusGrowth(): Promise<void> {
+  return growthStore.getState().refresh();
+}
+
 const SPARK_BLOCKS = '▁▂▃▄▅▆▇█';
 
 // sparkline —— 一串计数 → ASCII 方块火花线(按峰值归一)。
