@@ -33,6 +33,9 @@ export const CodeViewSchema = z.object({
   prompt_id: z.string().nullable().optional(),
   // provider_id —— 这张码指定的 provider;'' = 继承 role,再退 owner 默认。
   provider_id: z.string().nullish().transform((v) => v ?? ''),
+  // member_count —— 已经进来几个人。上限单独摆着说明不了任何事:一张满了的码跟一张全新的码
+  // 会长得一模一样,而访客那头已经被挡在门外了(F-D-2)。旧后端不发这个字段,所以 nullish→0。
+  member_count: z.number().nullish().transform((v) => v ?? 0),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 

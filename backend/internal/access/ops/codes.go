@@ -161,29 +161,48 @@ type codeRow struct {
 	// owner 能写却看不见的字段,面板下次打开就只能猜。
 	ProviderID string   `json:"provider_id"`
 	Ghosts     []string `json:"ghosts"`
+	// MemberCount —— 已经进来几个人。**上限单独发是不够的**:只有上限的话,一张满了的码
+	// 跟一张全新的码在面板上长得一模一样,而访客那边已经被 member_quota_reached 挡住了
+	// (F-D-2)。访客顶栏一直渲染 "1 / 5 names",owner 侧却拿不到这个数。
+	MemberCount int32 `json:"member_count"`
 }
 
-func toCodeRow(c *entity.Code) codeRow {
+func toCodeRow(c *entity.Code, memberCount int32) codeRow {
 	return codeRow{
 		ID: c.ID, Code: c.Code, Label: c.Label, Status: c.Status,
 		AssumedRoleID: c.AssumedRoleID, ProviderID: c.ProviderID,
 		Ghosts:     nonNilStrings(c.Ghosts),
 		MaxMembers: c.MaxMembers, MaxTurnsPerSession: c.MaxTurnsPerSession,
 		RequireGhostEvidence: c.RequireGhostEvidence, PromptID: c.PromptID,
-		CreatedAt: c.CreatedAt.UTC().Format(time.RFC3339),
-		ExpiresAt: formatOptionalTime(c.ExpiresAt),
+		CreatedAt:   c.CreatedAt.UTC().Format(time.RFC3339),
+		ExpiresAt:   formatOptionalTime(c.ExpiresAt),
+		MemberCount: memberCount,
 	}
 }
 
-// marshalCode —— 一张码 + 别的能力在它上面那几个字段。
+// marshalCode —— 一张码 + 已用名额 + 别的能力在它上面那几个字段。
+//
+// memberCount 由 caller 数好传进来:写路径(发码/改配额/改 ghost)刚动完这张码,数一次是准的;
+// 列表路径每张码数一次。数不出来不是致命错 —— 见 countMembers 的说明。
 func marshalCode(
-	ctx context.Context, extras CodeExtras, c *entity.Code,
+	ctx context.Context, extras CodeExtras, c *entity.Code, memberCount int32,
 ) (json.RawMessage, error) {
-	row, err := json.Marshal(toCodeRow(c))
+	row, err := json.Marshal(toCodeRow(c, memberCount))
 	if err != nil {
 		return nil, fp.OpErr("encode code", err)
 	}
 	return withExtraValues(row, extras.Read(ctx, c.ID)), nil
+}
+
+// countMembers —— 这张码进来几个人。数不出来时返回 0 而不是让整个请求失败:一张码的用量
+// 读不到,不该让 owner 打不开码列表。0 会显示成 "0 / N",比整页报错好,但也因此**不能**用它
+// 判断"这张码空着" —— 判满与否永远由后端发码那一步说了算(member_quota_reached)。
+func countMembers(ctx context.Context, deps usecase.CodesDeps, codeID string) int32 {
+	n, err := deps.Codes.CountMembers(ctx, codeID)
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 func listCodes(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
@@ -194,7 +213,7 @@ func listCodes(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 		}
 		out := make([]json.RawMessage, 0, len(rows))
 		for i := range rows {
-			one, merr := marshalCode(ctx, extras, &rows[i])
+			one, merr := marshalCode(ctx, extras, &rows[i], countMembers(ctx, deps, rows[i].ID))
 			if merr != nil {
 				return nil, merr
 			}

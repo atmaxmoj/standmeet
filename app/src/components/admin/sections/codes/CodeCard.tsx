@@ -249,14 +249,25 @@ function QRCol({ code }: { code: CodeView }) {
 
 function QuotaBar({ code }: { code: CodeView }) {
   const t = useTranslations('adminAccess');
-  const sessions = quotaSummary(code.max_members, 'names');
+  // 名额说的是 **用了几个 / 共几个**,不是"共几个"。只写上限的话,一张满了的码跟一张全新的码
+  // 在这张卡上完全一样,而访客那头已经被 member_quota_reached 挡住了 —— 两边都看不见,
+  // 谁也没法处理(F-D-2)。访客顶栏一直是这么写的:"1 / 5 names"。
+  const sessions = usageSummary(code.member_count, code.max_members, 'names');
   const turns = quotaSummary(code.max_turns_per_session, 'turns');
+  const filled = fillPercent(code.member_count, code.max_members);
   return (
     <div className="col-span-full" data-testid={`code-quotas-${code.code}`}>
       <div className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) mb-1.5">{t('codeCard.quota')}</div>
       <div className="flex items-center gap-3">
         <div className="flex-1 h-[4px] bg-(--color-rule) rounded-full overflow-hidden">
-          <div className="h-full bg-(--color-ink) rounded-full w-0" />
+          {/* 宽度是这张码的真实用量比例(0–100):每张卡不同、随成员加入而变。Tailwind 的固定
+              档位表达不了它 —— 而"表达不了"正是上一版把它写成 w-0 的原因(F-D-2)。 */}
+          <div
+            className="h-full bg-(--color-ink) rounded-full"
+            // eslint-disable-next-line no-restricted-syntax -- 运行时算出来的比例,见上
+            style={{ width: `${filled}%` }}
+            data-testid={`code-quota-fill-${code.code}`}
+          />
         </div>
         <span className="mono text-[10px] tracking-[0.04em] text-(--color-muted) shrink-0">
           {sessions} · {turns}
@@ -268,6 +279,17 @@ function QuotaBar({ code }: { code: CodeView }) {
 
 function quotaSummary(n: number | null | undefined, label: string): string {
   return n && n > 0 ? `${n} ${label}` : `unlimited ${label}`;
+}
+
+// usageSummary —— 有上限就写 "用了 / 共"; 没上限也要写用了几个:无限的码同样值得知道有多少人进来。
+function usageSummary(used: number, cap: number | null | undefined, label: string): string {
+  return cap && cap > 0 ? `${used} / ${cap} ${label}` : `${used} ${label} · unlimited`;
+}
+
+// fillPercent —— 无上限时不填(填多少都是假的);有上限时封顶 100:11/10 这种情况真实存在过,
+// 让它撑破容器不如让它显示成满。
+function fillPercent(used: number, cap: number | null | undefined): number {
+  return cap && cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0;
 }
 
 // A.3-IAM-5: ScopeBlock / PathPerm / UnrestrictedHint 删 —— ACL 从 role 推断。

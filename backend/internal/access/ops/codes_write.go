@@ -39,7 +39,7 @@ func createCode(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 			return nil, codeErr(err)
 		}
 		extras.Write(ctx, code.ID, raw)
-		return marshalCode(ctx, extras, &code)
+		return marshalCode(ctx, extras, &code, countMembers(ctx, deps, code.ID))
 	}
 }
 
@@ -114,7 +114,7 @@ func updateCodeQuotas(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 			return nil, codeErr(err)
 		}
 		extras.Write(ctx, in.CodeID, raw)
-		return marshalCode(ctx, extras, &code)
+		return marshalCode(ctx, extras, &code, countMembers(ctx, deps, code.ID))
 	}
 }
 
@@ -155,6 +155,6 @@ func setCodeGhostEvidence(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 		if err != nil {
 			return nil, codeErr(err)
 		}
-		return marshalCode(ctx, extras, &code)
+		return marshalCode(ctx, extras, &code, countMembers(ctx, deps, code.ID))
 	}
 }

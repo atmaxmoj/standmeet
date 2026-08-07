@@ -10,7 +10,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
-import { issueSessionStatus } from '@/fixtures/visitor';
+import { issueSession, issueSessionStatus } from '@/fixtures/visitor';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -20,6 +20,7 @@ const OWNER = {
 };
 
 const CODE = 'INTERVIEW-A1';
+const USED_CODE = 'INTERVIEW-A2';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('owner sets quotas on access code and revokes it', () => {
@@ -43,6 +44,24 @@ test.describe('owner sets quotas on access code and revokes it', () => {
       await revokeCode(page, CODE);
       await expectRevokedRow(page, CODE);
       await expectRevokedSessionRejected(request);
+    });
+
+  // F-D-2 —— 配额行只说得出上限，说不出用量，所以满员的码跟全新的码长得一模一样。
+  // 上面那条用例只断言 "N names"（**上限**），带成员的码这条分支从没被驱动过，
+  // 于是 owner 侧看不见任何用量、访客那边却被拒。访客顶栏早就渲染 "1 / 5 names"。
+  test('the quota line reports consumption, not just the cap',
+    async ({ adminPage: page, request }) => {
+      await openCodes(page);
+      await createCodeWithQuotas(page, USED_CODE, 'Used code', '5', '10');
+      await expectQuotaLineVisible(page, USED_CODE, '5', '10');
+
+      // 两个不同的名字进来 —— 这个码现在 2/5。
+      await issueSession(request, { handle: OWNER.handle, code: USED_CODE, visitor_name: 'Dana' });
+      await issueSession(request, { handle: OWNER.handle, code: USED_CODE, visitor_name: 'Sam' });
+
+      await page.reload();
+      const line = page.getByTestId(`code-quotas-${USED_CODE}`);
+      await expect(line, '两个人进来之后，配额行说得出用了几个名额').toContainText('2 / 5');
     });
 });
 
