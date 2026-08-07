@@ -1,60 +1,52 @@
 # ext-mcp — External MCP: register a real remote server + dispatch
 
-- **Status:** ✅ e2e-covered — ext.mcp capability enabled; role ext-mcp-verify + code VERIFY-D01 exist; loader present
-- **Module:** the owner registers a real 3rd-party MCP server by URL; the backend dials it over real HTTP transport, enumerates its real tools, gates them by role, honors upstream auth/SSE/large schemas, and a visitor call reaches the real upstream.
-- **Surface:** admin/api·mcp (register server) → visitor chat (`ext_<server>_<tool>`).
-- **Real dep:** a real remote MCP server StandMeet did not write, reachable over streamable HTTP with a **static bearer header** (see check 4 step 1 — Hugging Face's `https://huggingface.co/mcp`). `[MCP]` in verify-creds. A locally-run `@modelcontextprotocol/server-everything` covers the *dial + tools/list* half but not the *someone else's credential* half.
-- **Backing e2e:** `admin-mcp-servers` · `external-mcp-tools` · `tool-endpoint-ext-mcp` · `connector-ext-mcp-no-dep` · `tool-roles-mcp` · `mcp-auth` · `real-third-party-mcp-{loader,sandboxed,network,escape}`.
-
-> **Two external-MCP paths — don't conflate.** This is the **registered remote server** path (owner pastes a URL, backend dials over HTTP, tools surface as `ext_<server>_<tool>`). The `real-third-party-mcp-*` suite loads real servers over the **managed-sandbox plugin** loader (bwrap spawn), not the register-a-remote-endpoint path — so sandbox-loader correctness is proven, but the **remote transport + auth + schema round-trip** of a registered server only ever sees the mock.
+- **Module:** The owner registers a third-party MCP server by URL. The backend dials it over real transport, enumerates its real tools, gates them by role, carries the owner's auth header upstream, and a visitor's call reaches the real server.
+- **Surface:** `/admin/api-mcp` to register, and visitor chat where the tools appear namespaced to the server.
+- **Real dep:** A real remote MCP server that StandMeet did not write, reachable over streamable HTTP and gated by a **static header** — the register form stores one header name and value, so anything OAuth-gated cannot be driven through it at all. Keep the token in the verify-creds file.
+- **Backing e2e:** `admin-mcp-servers` · `external-mcp-tools` · `external-mcp-auth-header` · `tool-endpoint-ext-mcp` · `connector-ext-mcp-no-dep` · `tool-roles-mcp`.
 
 ## Checks
 
-### 1 — Register a real remote server  (was §D1)
-- **Steps:** admin/api·mcp → add MCP server → paste the reference server's real URL → save. Backend performs a real `initialize` + `tools/list` handshake over HTTP against a server it didn't write.
-- **Expected:** the server appears connected; its real advertised tools are enumerated (not the fixed `echo`/`ping`/`boom` set the mock hands back).
-- **~~⚠️ mock gap~~ (stale, corrected 2026-08-04):** the note read "the register form takes a **URL only** — no auth-token field is captured". That is **no longer true**: the panel has `mcp-server-auth-name` + `mcp-server-auth-value` (the value field is `type=password`), and the value is sealed at rest. The token *does* have somewhere to live. What was genuinely missing was **coverage** — no spec filled those fields, so the header could have been dropped anywhere between the form and the wire without a single test going red. Closed by `external-mcp-auth-header.spec.ts`.
-- **Backing test:** `admin-mcp-servers.spec.ts` · `external-mcp-auth-header.spec.ts`
-- **Result:** ✅ — ext.mcp capability enabled; role ext-mcp-verify + code VERIFY-D0 registered a real remote server (prior round).
-### 2 — Expose the server's tools to a role  (was §D2)
-- **Steps:** attach the registered server to a visitor role → issue an access code scoped to it → enter chat as that visitor.
-- **Expected:** the role's visitor sees `ext_<server>_<tool>`; a role without it does not.
+### 1 — A real remote server registers and enumerates its own tools ⭐
+- **Steps:** Open the register form. Paste a real server's URL, its header name and its token. Save. Read the tool list the backend enumerated.
+- **Expected:** The server shows connected and its real advertised tools appear — the ones that server actually publishes, not a fixed set.
+- **Backing test:** `admin-mcp-servers.spec.ts`
+
+### 2 — The tools reach exactly the roles that were given them
+- **Steps:** Attach the server to one role. Issue a code on it and enter chat. Then enter on a role without it.
+- **Expected:** The first visitor sees the server's tools, namespaced to the server. The second sees none.
 - **Backing test:** `tool-roles-mcp.spec.ts` · `external-mcp-tools.spec.ts`
-- **Result:** ✅ — server tools exposed to the role (dep-grant flow); ext-mcp-verify role carries 1 mcp server (live on /admin/roles this re-pass).
-### 3 — dep-grant gate (lowest-trust loader gets no deps)  (was §D3)
-- **Steps:** confirm the registered external server is **not** auto-granted connector deps; a tool declaring `_meta.requires:[calendar]` stays gated until explicitly granted.
-- **Expected:** ungranted → refused with a friendly gate; granted → dispatches.
+
+### 3 — A remote server gets no connector dependencies for free
+- **Steps:** Register a server whose tool declares a dependency on a connector. Call it without granting that dependency. Then grant it and call again.
+- **Expected:** Ungranted, the call is refused at the gate with a friendly message. Granted, it dispatches. The lowest-trust loader never inherits deps.
 - **Backing test:** `connector-ext-mcp-no-dep.spec.ts`
-- **Result:** ✅ — dep-grant gate: lowest-trust loader gets no deps (owner-mcp-deps-capture ordering; e2e).
-### 4 — Real auth + SSE transport + large schema ⭐  (was §D4)
-- **Steps (D4a, self-serve):** point at a **bearer-gated** server → a call without/with-wrong token refused upstream, with the correct token succeeds. Then run one over an **SSE-transport** server, and round-trip a tool with a **large/nested `inputSchema`** (arrays, nested objects, enums).
-- **Steps (D4b, `manual-only`):** an **OAuth-gated** MCP server (authorization-server metadata + token grant) — document the walkthrough, don't self-serve a full OAuth AS.
-- **Expected:** wrong bearer → friendly upstream-auth error (no raw 401 body); SSE stream frames parse; complex schema round-trips.
-- **⚠️ mock gap (narrowed 2026-08-04):** `mcp-server-mock` now serves a second endpoint `/mcp-auth` that **401s unless the owner-configured header matches**, so the *header-reaches-the-wire* half is machine-checked. Still mock-shaped: it is a fixed header name/value, **streamable-HTTP only (no SSE)**, and **trivial single-string schemas**. `mcp-auth.spec.ts` remains the backend's **own inward** `/mcp` Bearer — a different surface; don't count it here.
-- **Backing test:** `external-mcp-auth-header.spec.ts` (upstream header, both directions). No backing spec for **SSE transport** or a **large/nested schema** against a real server — still a gap, see the manual steps below.
-- **Result:** ⚠️ **partly covered — the earlier ✅ was wrong.** It cited the `mcp-schema-valid-json` guard, which is about a *malformed InputSchema emptying tools/list* — it says nothing about upstream auth, SSE, or nested schemas. Corrected on 2026-08-04. What is now covered: the owner-entered auth header is really sent, and a wrong one really fails closed. What is **not**: a real third-party bearer, SSE framing, and a deep schema round-trip — those need a real server (steps below).
-- **Manual steps (D4a-real, `needs-real-server`, `batched`):** not run one at a time — manual checks pile up and get run together in one pass, so this is written to be picked up cold later.
-  1. Register **Hugging Face's remote MCP** — `https://huggingface.co/mcp`, header `Authorization` / `Bearer hf_…`, token from a throwaway free account. Put it in `[MCP]` of `~/.config/standmeet/verify-creds.env`.
-     - **Why this one.** It has to be a service *many owners would actually plug in* (so the run says something about the real path), that *we do not depend on* (a botched run costs nothing — revoke the token and move on), and whose auth is a **static header**: the register form stores one header name + value, so anything OAuth-gated (Sentry, Notion, Linear) cannot be driven through it at all. Its search tools also carry nested/enum arguments, which covers the deep-schema half of this check in the same pass.
-     - **Avoid** servers that authenticate by **query string** (`…/mcp?apiKey=…` — Exa and Tavily are commonly wired that way). The header never gets exercised, so the run proves nothing about what this check is for.
-     - Step 3 below is also the verification of *this recommendation*: if it will not dial, that is a finding about how narrow our remote-MCP support really is, not a setup problem to work around.
-  2. On **admin → api · mcp**, register it: URL + `Authorization` / `Bearer <token>`. Save.
-  3. Attach to a role, issue a code, enter chat as that visitor → the server's **real** tools appear as `ext_<server>_<tool>` and one dispatches end-to-end.
-  4. Now edit the same server's token to a wrong value (or revoke it upstream) → re-enter chat. **Expected:** those tools are simply gone, and what the visitor sees is an ordinary "I can't do that" — *not* a raw `401`, not a stack trace, not a stall.
-  5. Repeat step 3 against a tool whose `inputSchema` has nested objects/arrays/enums; confirm the arguments the AI sends round-trip intact.
-- **Why manual:** e2e cannot supply a credential to a server StandMeet did not write. The mock proves *the header we hold gets sent*; only a real server proves *a real provider accepts it* — and step 4's judgement ("does this read as a normal refusal to a visitor?") is a human read, not an assertion.
-- **~~SSE transport~~ — not a coverage gap, a missing feature (established 2026-08-04):** `mcpclient` dials HTTP through `NewStreamableHttpClient` and nothing else; there is no SSE client anywhere in the tree. So "verify SSE against a real server" was never a test we were failing to run — it is a transport we do not implement, and an owner who pastes an SSE-only URL gets a dial failure with no explanation. Streamable HTTP superseded HTTP+SSE in the MCP spec, so most current remote servers are fine; the open question is whether back-compat with SSE-only servers is worth building. **Product decision, not a check.**
-### 5 — Real tool invocation from visitor chat  (was §D5)
-- **Steps:** visitor asks something that routes to the real server's tool → backend MCP client dials the real upstream → real `tool_result` renders. Also exercise the per-tool HTTP endpoint (`ext_<server>_<tool>`) directly.
-- **Expected:** the visitor sees the real server's real output (not a mock echo); chat-path and direct-endpoint results match.
-- **Backing test:** `external-mcp-tools.spec.ts` · `tool-endpoint-ext-mcp.spec.ts`
-- **Result:** ✅ — real tool invocation from visitor chat (ext-mcp round).
+
+### 4 — The owner's token really reaches the upstream, both ways ⭐
+- **Steps:** Register a real bearer-gated server with the correct token. Enter chat and dispatch one of its tools. Then change the token to a wrong value, or revoke it upstream, and enter again.
+- **Expected:** With the right token the call reaches the real server and returns its real result. With a wrong one, the tools are simply absent and the visitor gets an ordinary refusal — never a raw upstream status, never a stack trace, never a stall.
+- **Mock gap:** The mock proves the header we hold gets sent, with a fixed name and value. Only a real server proves a real provider accepts it, and whether the failure reads as a normal refusal is a human judgement, not an assertion.
+- **Backing test:** `external-mcp-auth-header.spec.ts` (mock, both directions) · a real provider → `gap`
+
+### 5 — A deep schema round-trips
+- **Steps:** Dispatch a tool whose input schema carries nested objects, arrays and enums. Read what the model sent and what the server received.
+- **Expected:** The arguments arrive intact and correctly typed.
+- **Mock gap:** The mock's schemas are single strings, so nesting has never been exercised.
+- **Backing test:** `gap`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The registered-servers **list renders** (name/URL/attached role); add-server fires and the new server appears; a bearer-gated server has a **place to store its token** (it does: auth header name + value, value masked).
 
-Look at what the list tells the owner about a server that is **currently failing to authenticate**. Today the row looks identical whether the token is good or stale — the tools just quietly stop appearing for visitors, and nothing on this page says so. An owner whose token expired has no way to find that out from here.
+The register form takes a URL and an auth header, and the token field is masked.
+A registered server states whether it is reachable, so a dial failure is visible where the owner registered it.
+When a server's tools disappear because its credential stopped working, the visitor's experience is an ordinary refusal, not an error surface.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-D-n` historical anchor)
+## Note
 
-- **✅ PASS (2nd pass):** stood up a genuine `@modelcontextprotocol/server-everything` (streamable-http) on the prod network, registered via `/api/admin/mcp-servers`, granted to a role+code. Visitor turn: backend dialed it, `tools:13` bound, called `ext_everything_echo` → real handshake + result. Also independently confirmed the sandbox-only nature of the old F-A-1 (network-dialed ext MCP works while bwrap builtins failed in the same turn).
+Two different external-MCP paths exist and must not be conflated. This item covers the **registered
+remote server** — the owner pastes a URL and the backend dials it over HTTP. The sandbox-loader
+suite loads real servers as managed plugins through a spawn, which proves loader isolation and says
+nothing about remote transport, auth or schema round-trips.
+
+Transport is streamable HTTP only; there is no SSE client. An SSE-only URL fails to dial. That is
+tracked as `F-D-3`, and picking a server for check 4 means picking one that authenticates by
+header — a server that authenticates by query string never exercises the header at all.

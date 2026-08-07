@@ -1,54 +1,41 @@
 # chat-grounding — Visitor chat: grounded answer
 
-- **Status:** ✅ verified (UPDATE 2) — searched 8/read 11, real citations, honest about gaps, references·N
-- **Module:** the coded/visitor agent answers a substantive question grounded in the owner's corpus — retrieval fires by the model's own choice, citations match what was read, numbers are honest.
-- **Surface:** visitor chat (index / coded session).
-- **Real dep:** real DeepSeek (`EVAL_KEY`, `deepseek-v4-pro`) as the owner AI provider + a small real corpus (raw→wiki, cross-linked notes). Reference the key by name.
-- **Inherits (historical finding IDs):** `F-A-1` (sandbox tools bind — ✅ fixed), `F-A-2` (thesis-violating corpus-search box removed — ✅ fixed).
-- **Backing e2e:** `visitor-chat-answer-render` · `visitor-chat-cites-writing` · `visitor-chat-cites-output` · `visitor-chat-citation-multi` · `visitor-chat-cited-precise` · `retrieval-search-consistency` · `retrieval-links`
-
-> The mock never runs the model's reasoning: `mock-llm-script.ts` pops a queued `{tool,args}` per turn, auto-emits `corpus_search`/`corpus_read` when offered-and-unresolved (`messages.go:5-8`), and returns a fixed scripted string (`emitFinalReply`, `messages.go:198`). So the *decision to retrieve* and the *voice/grounding* are the mock's, not the model's. This module swaps that for a real model.
+- **Module:** The visitor's agent answers a substantive question from the owner's corpus. Retrieval fires because the model chose it, the citations match what was actually read, and figures are quoted rather than invented.
+- **Surface:** Visitor chat, on the public page or in a coded session.
+- **Real dep:** A real model as the owner's provider, and a real corpus with cross-linked notes.
+- **Backing e2e:** `visitor-chat-answer-render` · `visitor-chat-cites-writing` · `visitor-chat-cites-output` · `visitor-chat-citation-multi` · `visitor-chat-cited-precise` · `retrieval-search-consistency` · `retrieval-links`. Voice fidelity → `gap`.
 
 ## Checks
 
-### 1 — Grounded answer in owner voice  (was §A1)
-- **Steps:** coded visitor asks a substantive question the corpus answers → observe the reply.
-- **Expected:** first-person, in the owner's voice, grounded in the seeded corpus; no fabricated facts, no "as an AI" disclaimer, no generic answer where the corpus has a specific one.
-- **⚠️ mock gap:** the mock returns a fixed scripted string; tone/voice/anti-fabrication are never exercised. No spec asserts *owner voice* at all.
-- **Backing test:** `visitor-chat-answer-render.spec.ts:71` (render only) · `visitor-chat-cites-writing.spec.ts:59` (grounding). Voice fidelity → no backing spec (gap).
-- **Result:** ✅ — three documented passes this round + fresh turns in the re-pass (2026-07-22: subjectivity + engineering questions, in-voice, grounded).
-### 2 — Retrieval actually fires (model *chooses* to search)  (was §A2)
-- **Steps:** ask a question whose answer lives only in the corpus → confirm the model itself calls `corpus_search` then `corpus_read` (not scripted).
-- **Expected:** unprompted `corpus_search` → `corpus_read` → grounded answer.
-- **⚠️ mock gap:** the mock auto-emits `corpus_search`/`corpus_read` whenever offered-and-unresolved (`messages.go:5-8`), so the *decision to retrieve* is the mock's, never the model's.
-- **Backing test:** `retrieval-search-consistency.spec.ts:108` · `visitor-chat-cited-precise.spec.ts:53`
-- **Result:** ✅ — model chose to search unprompted every real turn (re-pass: searched 8 · read 18 on the first question).
-### 3 — `corpus_links` multi-hop  (was §A3)
-- **Steps:** ask something that requires following a wikilink from one note to a linked note → confirm the model uses `corpus_links` and reads the second hop.
-- **Expected:** the answer draws on the linked note, reached via `corpus_links`, not a single read.
-- **Backing test:** `retrieval-links.spec.ts:113`
-- **Result:** ✅ — `corpus_links` multi-hop verified in this round's passes (third pass, live GUI); note_refs graph now proximity-correct (F-L-10) making hops land on curated notes.
-### 4 — Citation footer matches reads  (was §A4)
-- **Steps:** ask a question that reads two distinct entries → inspect the citation footer.
-- **Expected:** the footer lists exactly the entries actually read (title + resolvable ref), no phantom or missing citations.
-- **Backing test:** `visitor-chat-citation-multi.spec.ts:51` · `visitor-chat-cites-output.spec.ts:55` · `visitor-chat-cites-writing.spec.ts:59`
-- **Result:** ✅ — citation footer matched reads in the documented passes (references·N); re-pass answers carried real citations.
-### 5 — Precise-number honesty  (was §A11)
-- **Steps:** ask a question whose exact answer (a figure, a date) is in one corpus entry → check the number.
-- **Expected:** the model quotes the corpus figure exactly and doesn't round/invent; if the corpus lacks it, it declines rather than fabricates.
-- **Backing test:** `visitor-chat-cited-precise.spec.ts:53`
-- **Result:** ✅ — precise-number honesty held (documented pass); re-pass: the model refused to fabricate a summary on an empty conversation — same honesty class.
-## ⚠️ LOOK — fresh-eyes UI sanity for this module's surface (SOP §1b)
-Task-free, while driving visitor chat: the **reply renders as prose** (not raw markdown / JSON / a tool dump), streaming completes with no error card, and **citations resolve to real notes** (not dead links). The stacked near-empty tool cards on a multi-retrieval turn are a known throbber gripe (UX-10).
+### 1 — The answer speaks in the owner's voice, from the corpus ⭐
+- **Steps:** Ask a substantive question the corpus answers. Read the reply against the notes it drew on.
+- **Expected:** First person, in the owner's voice, grounded in real entries. No fabricated fact, no assistant disclaimer, and no generic answer where the corpus holds a specific one.
+- **Mock gap:** The mock returns a fixed scripted string, so tone, voice and anti-fabrication are never exercised. No spec asserts owner voice at all.
+- **Backing test:** `visitor-chat-answer-render.spec.ts` (render only) · voice → `gap`
 
-## Findings
-(record here during the manual phase; also log `../findings.md`, ID `F-A-n` kept as the historical anchor)
+### 2 — The model chooses to retrieve ⭐
+- **Steps:** Ask something whose answer lives only in the corpus. Watch which tools fire and in what order, without prompting for a search.
+- **Expected:** The model calls search, then read, unprompted, and grounds its answer in what came back.
+- **Mock gap:** The mock auto-emits search and read whenever they are offered and unresolved, so the decision to retrieve is always the mock's, never the model's.
+- **Backing test:** `retrieval-search-consistency.spec.ts` · `visitor-chat-cited-precise.spec.ts`
 
-### Second pass (2026-07-14, real DeepSeek on prod, coded visitor VERIFY-A01)
-- **Check 1 voice ✅** — clean first-person, no "as an AI" disclaimer, natural owner tone.
-- **Check 2 retrieval-by-choice ✅** — on an open question the model chose **12** `corpus_search`/`corpus_read` calls unprompted (mock only ever emits 1/turn). Retrieval decision is genuinely the model's.
-- **Check 5 anti-fabrication ✅** — explicitly refused to invent a contrarian take ("rather than a fake one").
-- Still to drive: check 3 (multi-hop links), check 4 (citation-footer accuracy).
+### 3 — A linked note is reached by following the link
+- **Steps:** Ask something answerable only by following a wikilink from one note to another. Watch the tool calls.
+- **Expected:** The model uses the links tool and reads the second hop. The answer draws on the linked note, not on a single read.
+- **Backing test:** `retrieval-links.spec.ts`
 
-### Third pass (2026-07-15, live prod GUI via Playwright, coded VERIFY-A01)
-- **✅ strong.** "What is gate theory, and how does it relate to your work on recursion and convergence?" → **SEARCHED 10 · READ 16**, **REFERENCES · 13**, deeply grounded synthesis in first-person owner voice: recursion-as-phase-transition (primitive vs μ-recursion), Collatz/Conway undecidability, contraction/Bellman-HJB, stages-and-gates, ghost-steering — real vault concepts, no "as an AI", not planning narration. **Also confirms [[agent-turn-boundary]] live**: 26 tool calls and still a clean synthesized answer, no forced-final garble.
+### 4 — The citation footer lists exactly what was read
+- **Steps:** Ask a question that requires two distinct entries. Compare the footer against the reads.
+- **Expected:** Every cited entry was read, every read entry that shaped the answer is cited, and each reference resolves to a real note.
+- **Backing test:** `visitor-chat-citation-multi.spec.ts` · `visitor-chat-cites-output.spec.ts` · `visitor-chat-cites-writing.spec.ts`
+
+### 5 — An exact figure is quoted or declined, never rounded into existence
+- **Steps:** Ask for a figure or a date that appears in exactly one entry. Compare the answer against the entry. Then ask for one the corpus does not hold.
+- **Expected:** The first is quoted exactly. The second is declined rather than invented.
+- **Backing test:** `visitor-chat-cited-precise.spec.ts`
+
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+
+The reply renders as prose, never as raw markup, JSON or a tool dump.
+Streaming completes without an error card, and every citation resolves to a real note.
+Watch the tool cards on a multi-retrieval turn — a stack of near-empty cards is noise between the visitor and the answer.

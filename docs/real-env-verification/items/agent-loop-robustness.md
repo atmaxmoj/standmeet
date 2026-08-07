@@ -1,47 +1,44 @@
 # agent-loop-robustness — Agent loop: real error shapes + parallel + limits
 
-- **Status:** ✅ e2e-covered — F-A-4 (turn boundary) engineered; live turns completed clean this round
-- **Module:** the agent loop survives what only a real provider produces — a mid-turn tool failure, multiple `tool_use` in one message, a `max_tokens` stop, a `429/529 overloaded` with `Retry-After` — without a crash, a retry storm, or silent quota burn.
-- **Surface:** visitor chat (backend agent loop).
-- **Real dep:** real DeepSeek (or a fronting proxy to inject 429/`Retry-After`).
-- **Backing e2e:** `quota-not-consumed-on-failure` · `conversation-failed-turn-reload`. Parallel dispatch / `max_tokens` / 429+backoff / `Retry-After` → no backing spec (gap).
-
-> The mock only fails via a scripted **500** (`script.go:49`), emits exactly **one** `tool_use` per turn (`messages.go:162`), and always stops `end_turn` (`messages.go:136`) — so the real error shapes, parallel dispatch, `max_tokens`, and rate-limit backoff are all undriven.
+- **Module:** The agent loop survives what only a real provider produces — a mid-turn tool failure, several tool calls in one message, a length-limited stop, and a rate-limit carrying a retry hint — with no crash, no retry storm and no silent quota burn.
+- **Surface:** Visitor chat, driven by the backend agent loop.
+- **Real dep:** A real provider, or a proxy in front of one that can inject rate-limit responses and retry hints.
+- **Backing e2e:** `quota-not-consumed-on-failure` · `conversation-failed-turn-reload` · `connector-retry-exhausted-degrades` · `connector-retry-read-transient-recovers`. Parallel dispatch, length-limited stops, and honouring a retry hint → `gap`.
 
 ## Checks
 
-### 1 — Tool-error recovery  (was §A13)
-- **Steps:** induce a real tool failure mid-turn (retrieval/connector error) → observe the model's next move.
-- **Expected:** a friendly, user-readable recovery — retries or explains — no raw stack trace, no crash; the failed turn doesn't silently consume quota.
-- **⚠️ mock gap:** the mock only fails via a scripted **500** on a keyed request; real error shapes (429/5xx/malformed) and the model's recovery reasoning are untested.
+### 1 — A tool failure mid-turn recovers readably
+- **Steps:** Cause a real tool to fail during a turn. Read what the visitor sees. Check whether the failed turn consumed quota.
+- **Expected:** The model retries or explains, in readable prose. No stack trace reaches the visitor. A failed turn does not consume the visitor's quota.
+- **Mock gap:** The mock fails only with a scripted server error on a keyed request. The real error shapes, and the model's own recovery reasoning, are untested.
 - **Backing test:** `quota-not-consumed-on-failure.spec.ts` · `conversation-failed-turn-reload.spec.ts`
-- **Result:** ✅ e2e-covered — tool-error recovery spec green; live turns this round completed clean (no runaway).
-### 2 — Parallel tool calls  (was §A14)
-- **Steps:** ask something that naturally needs two lookups at once → see whether the real model emits multiple `tool_use` blocks in one message, and whether the agent loop dispatches them in parallel.
-- **Expected:** multiple `tool_use` in one assistant message → parallel dispatch → both results folded into the answer.
-- **⚠️ mock gap:** the mock emits exactly **one** `tool_use` per turn; the parallel-dispatch path is never driven.
-- **Backing test:** no backing spec (gap).
-- **Result:** ✅ e2e-covered — parallel tool calls spec green.
-### 3 — `max_tokens` truncation + continuation  (was §A15)
-- **Steps:** provoke a long answer that hits `max_tokens` → observe graceful finish/continuation.
-- **Expected:** a `max_tokens` stop is handled cleanly (continued or finished readably), not a hang or a truncated-mid-tool crash.
-- **⚠️ mock gap:** the mock always stops `end_turn`; `max_tokens` never occurs.
-- **Backing test:** no backing spec (gap).
-- **Result:** ✅ e2e-covered — max_tokens truncation+continuation spec green.
-### 4 — Provider 429/529 overloaded + backoff  (was §A16)
-- **Steps:** front the real provider under load (or simulate) so it returns `429`/`529 overloaded` → observe retry/degrade.
-- **Expected:** the loop backs off and retries or degrades to a friendly message — not a crash, not a tight retry storm.
-- **⚠️ mock gap:** the mock only knows a scripted **500**; no 429/529, no `Retry-After`.
-- **Backing test:** no backing spec (gap).
-- **Result:** ✅ e2e-covered — 429/529 backoff spec green.
-### 5 — `Retry-After` honored ⭐  (was §P1)
-- **Steps:** front a real integration (or a proxy) that returns `429 Retry-After: 30` → drive a call that trips it → observe the retry timing.
-- **Expected:** the client **waits `Retry-After` seconds** before retrying.
-- **⚠️ mock gap / likely RED:** `backend/internal/httpx/retry_transport.go:78` (`retriableStatus`) retries `429`/`5xx` on a **fixed backoff** and **never reads `Retry-After`** — on a real rate-limited provider it retries too early and can *worsen* a ban. No mock ever sends `429`/`Retry-After`. The fix must land as a test that reproduces a `Retry-After` response and asserts the wait.
-- **Backing test:** `connector-retry-exhausted-degrades.spec.ts` + `connector-retry-read-transient-recovers.spec.ts` (retry behavior — but neither drives a `Retry-After` header; that's the incompleteness).
-- **Result:** ✅ e2e-covered — Retry-After honored spec green.
-## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-Every failure mode surfaces a **friendly** message in the transcript (no stack trace, no exit code); a failed turn doesn't leave a half-rendered bubble or a spinning throbber.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-A-n` / `F-P-n` historical anchor)
+### 2 — Several tool calls in one message dispatch together
+- **Steps:** Ask something that naturally needs two lookups at once. Read how many tool calls the message carried and how the loop dispatched them.
+- **Expected:** The loop dispatches them in parallel and folds both results into one answer.
+- **Mock gap:** The mock emits exactly one tool call per turn, so the parallel path is never driven.
+- **Backing test:** `gap`
+
+### 3 — A length-limited stop finishes readably
+- **Steps:** Provoke an answer long enough to hit the output limit. Read what arrives.
+- **Expected:** The turn continues or finishes cleanly. It does not hang and it does not stop in the middle of a tool call.
+- **Mock gap:** The mock always stops normally, so this stop reason never occurs.
+- **Backing test:** `gap`
+
+### 4 — A rate-limited provider backs off instead of hammering
+- **Steps:** Put the provider behind something that returns a rate-limit status. Drive calls into it. Watch the retry timing.
+- **Expected:** The loop backs off and retries, or degrades to a friendly message. It does not retry tightly.
+- **Mock gap:** The mock knows only a scripted server error — no rate-limit status at all.
+- **Backing test:** `gap`
+
+### 5 — A retry hint from the provider is obeyed ⭐
+- **Steps:** Return a rate-limit response carrying an explicit retry-after delay. Drive a call that trips it. Measure how long the client waits before retrying.
+- **Expected:** The client waits at least the delay the provider asked for.
+- **Mock gap:** The retry transport retries on a fixed backoff and never reads the header. Against a real rate-limited provider that retries too early and can deepen a ban. No mock ever sends the header, so nothing has ever noticed. The fix must arrive as a test that serves the header and asserts the wait.
+- **Backing test:** `connector-retry-*.spec.ts` (retry behaviour, but neither serves the header) · the header itself → `gap`
+
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+
+Every failure mode reaches the transcript as a sentence — no stack trace, no exit code, no error object.
+A failed turn leaves no half-rendered bubble and no spinner that never resolves.
+A degraded answer says it degraded, because silence about a limit reads as a wrong answer.

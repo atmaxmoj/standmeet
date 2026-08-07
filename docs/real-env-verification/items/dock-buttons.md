@@ -1,54 +1,61 @@
-# dock-buttons — Owner-configured chat shortcuts (summarize / booking)
+# dock-buttons — Owner-configured chat shortcuts
 
-- **Status:** ✅ verified (UPDATE, 2026-07-22, full live click-through on prod) — bind→resolved-title read-back, snapshot freeze, click→trigger→real turn all driven live; F-A-8/F-A-16 closed earlier; NEW small finding F-A-20 (fresh issue via the switch-name picker doesn't populate the dock store until reload).
-- **Module:** the owner binds ≤2 capabilities (canonically **summarize** and **booking**) to shortcut buttons on a role; the visitor sees them as buttons in the chat dock with a resolved title; clicking one sends its **trigger** as a visitor message, firing the real capability. The owner's shortcut into the visitor's chat — the only owner-authored affordance a visitor can press.
-- **Surface:** admin/roles → `RoleDockConfig` (owner config) · visitor chat dock (the two button slots).
-- **Real dep:** prod stack + real DeepSeek (the trigger fires a real agent turn); **booking** additionally needs a connected calendar (see [[calendar-connect]] / [[booking-book]]); **summarize** pairs with [[chat-summarize]].
+- **Module:** The owner binds at most two capabilities to shortcut buttons on a role. The visitor sees them in the chat dock with a resolved title, and clicking one sends its trigger as a visitor message, which fires the real capability. This is the only owner-authored affordance a visitor can press.
+- **Surface:** `/admin/roles` for the config, and the visitor chat dock for the buttons.
+- **Real dep:** A real model, because the trigger fires a real turn. The booking button additionally needs a connected calendar (see [[calendar-connect]]).
 - **Backing e2e:** `dock-buttons` · `dock-buttons-mcp` · `floating-chat-dock`.
-
-> **Two config surfaces, one truth.** The owner can set these from the admin UI (`RoleDockConfig.tsx`) **and** from the owner MCP (`roles.set_dock_buttons`, `cap_roles.go:64` → `usecases.SetRoleDockButtons`). Both must agree — this is a facade-parity surface ([[facade-parity design]]).
->
-> **The config is frozen per session.** Dock buttons are captured into the `RoleSnapshot` at session assembly (`role_snapshot.go:151` — "冻下的 ≤2 个 dock 按钮配置", defensive copy), so changing a role's buttons must NOT mutate a live visitor session's dock.
 
 ## Checks
 
-### 1 — Owner configures dock buttons on a role (both surfaces agree)
-- **Steps:** in admin/roles, bind a capability to a dock button with a trigger phrase; read it back. Then set the same via owner MCP `roles.set_dock_buttons` and read back through the admin UI.
-- **Expected:** whichever surface wrote it, the read-back is identical (`{capability_id, trigger}`); the admin UI renders the button with a **resolved title**, not a raw `capability_id`.
-- **Backing test:** `dock-buttons.spec.ts` (admin) · `dock-buttons-mcp.spec.ts` (MCP surface)
-- **Result:** ✅ (2026-07-22 prod GUI) — bound `summarize_conversation` + trigger on subj-verify, saved, reloaded: read-back shows the RESOLVED title ("Summarize the conversation"), not the raw id; sibling fields (ghost toggle, waypoint) preserved (`roleUpdatePayload` live). MCP surface parity: e2e `dock-buttons-mcp`.
-### 2 — The ≤2 cap is enforced
-- **Steps:** attempt to configure a 3rd dock button.
-- **Expected:** refused with a friendly error (`MaxDockButtons = 2`, `ErrTooManyDockButtons`, `role_dock_buttons.go:16/25`) — not a silent truncation, not a 500.
+### 1 — Both config surfaces agree
+- **Steps:** Bind a capability and a trigger in the admin UI. Read it back through owner MCP. Then set a different one through MCP and read it back in the admin UI.
+- **Expected:** Whichever surface wrote it, the read-back is identical. This is a facade-parity surface, so a difference between the two is the defect.
+- **Backing test:** `dock-buttons.spec.ts` · `dock-buttons-mcp.spec.ts`
+
+### 2 — The admin UI shows a title, not an identifier
+- **Steps:** Bind a capability. Reload the role editor. Read the button's label.
+- **Expected:** A human-readable capability title. A raw identifier means the owner is configuring something they cannot name.
 - **Backing test:** `dock-buttons.spec.ts`
-- **Result:** ✅ structural (prod GUI exposes exactly 2 fixed slots — a 3rd is unpressable) + API-level refusal e2e `dock-buttons.spec.ts`.
-### 3 — Capability validity is checked at bind time
-- **Steps:** bind a dock button to a capability id that doesn't exist / isn't granted to that role.
-- **Expected:** refused at config time (the registry is consulted — `cap_roles.go:24` notes `set_dock_buttons` validates capability validity), rather than surfacing a button that dead-ends at click.
-- **Result:** ✅ structural (the cap dropdown is sourced from the role's real capabilities and filters grounding caps — DOCK_INELIGIBLE, F-A-8) + e2e.
-### 4 — The visitor sees them, resolved and code-deny-filtered ⭐
-- **Steps:** issue a code on that role → enter chat as the visitor → inspect the dock. Then deny that capability at the **code** level and re-enter.
-- **Expected:** the session payload carries `dock_buttons: [{capability_id, title, trigger}]` (`sessions.go:65`) with `title` resolved; the granted button renders in its slot; the **code-denied** capability's button does **not** surface at all (filtered server-side, not hidden client-side).
+
+### 3 — The two-button limit reads as a limit
+- **Steps:** Try to configure a third button, through both surfaces.
+- **Expected:** Refused with a sentence naming the limit. Not a silent truncation and not a 500.
+- **Backing test:** `dock-buttons.spec.ts`
+
+### 4 — An invalid or ungranted capability is refused at bind time
+- **Steps:** Bind a capability the role does not have, and one that does not exist.
+- **Expected:** Both refused while configuring. A button that dead-ends when the visitor clicks it is what this prevents.
+- **Backing test:** `dock-buttons.spec.ts`
+
+### 5 — The visitor sees only what their code allows ⭐
+- **Steps:** Issue a code on the role and enter chat. Read the dock and the session payload. Then deny that capability at the code level and enter again.
+- **Expected:** The session carries each button with its resolved title. The granted button renders. The denied one is absent from the payload — filtered on the server, not hidden in the browser.
 - **Backing test:** `floating-chat-dock.spec.ts` · `dock-buttons.spec.ts`
-- **Result:** ✅ (2026-07-22 prod) — session issued post-binding carries `dock_buttons: [{capability_id, title:"Summarize the conversation" (resolved), trigger}]`; the button renders in its slot, enabled. Code-deny filtering half: e2e only (`floating-chat-dock`) — no denied-cap code exists on this prod instance. ⚠️ see F-A-20: on the fresh picker-issued session the button appeared only after reload.
-### 5 — Clicking fires the trigger and the capability really runs ⭐
-- **Steps:** click the **summarize** dock button in a real coded session with real DeepSeek; then (with a connected calendar) click **booking**.
-- **Expected:** the click sends the configured `trigger` as a visitor message; the real agent turn runs the underlying capability — summarize produces a faithful summary of the actual conversation ([[chat-summarize]]); booking reaches the real calendar path ([[booking-book]]). Not a no-op, not a message that just sits there.
-- **⚠️ mock gap:** CI drives the click + asserts the trigger is sent against the scripted LLM; whether the **real** model then honors the trigger and performs the capability is untested.
-- **Result:** ✅ (2026-07-22 prod, real DeepSeek) — click sent the trigger as a visitor message and a REAL turn ran; on the empty conversation the model declined with a sensible "nothing to summarize yet" (good judgment, not a no-op); the same trigger on a non-empty conversation produced the full report card earlier this round (F-A-6 ⑤). Booking leg: blocked-by-setup (no calendar).
-### 6 — Snapshot freeze: changing the role mid-session doesn't mutate a live dock
-- **Steps:** open a visitor session, then change the role's dock buttons from admin → observe the live session.
-- **Expected:** the live session keeps the buttons frozen at assembly time (`RoleSnapshot`); a NEW session picks up the change.
-- **Result:** ✅ (2026-07-22 prod) — session A (issued pre-binding) reloaded after the role change: `dock_buttons` still `[]`, 0 dock elements — frozen; session B (post-binding) shows the button.
-### 7 — A role with no dock buttons shows none
-- **Steps:** enter as a visitor on a role with `dock_buttons: []`.
-- **Expected:** no empty slots, no placeholder buttons, no dead affordance — the dock is simply absent.
-- **Result:** ✅ (2026-07-22 prod) — session A on the unbound role: dock entirely absent (no empty slots, no placeholder).
+
+### 6 — Clicking runs the capability for real ⭐
+- **Steps:** Click a button in a real session. Watch the trigger appear as a message. Read what the turn produces.
+- **Expected:** The configured trigger is sent, a real turn runs, and the underlying capability actually happens. A message that lands and produces nothing is a failure. A model that declines for a good reason — nothing to summarize yet — is not.
+- **Mock gap:** CI asserts the trigger was sent to a scripted model. Whether a real model honours the trigger and performs the capability is untested.
+- **Backing test:** `floating-chat-dock.spec.ts`
+
+### 7 — A live session's dock does not change under it
+- **Steps:** Open a visitor session. Change the role's buttons in admin. Reload the visitor's page.
+- **Expected:** The live session keeps the buttons it was assembled with. A newly issued session picks up the change.
+- **Backing test:** `dock-buttons.spec.ts`
+
+### 8 — A session issued through any path renders its dock at once
+- **Steps:** Issue a session through code entry. Read the dock. Then issue one through the name-switch picker. Read the dock again, before reloading.
+- **Expected:** Both render the dock immediately. A payload that carries buttons the page does not show until a reload is a state-propagation defect, not a config one.
+- **Backing test:** `gap`
+
+### 9 — A role with no buttons shows no dock
+- **Steps:** Enter as a visitor on a role with no dock buttons.
+- **Expected:** No dock, no empty slots, no placeholders.
+- **Backing test:** `dock-buttons.spec.ts`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-Admin side: the dock config renders **resolved capability titles**, not raw ids; the ≤2 limit reads as a limit (not a silent drop). Visitor side: each button shows a human title, sits in its slot, and **clicking does something visible** (the trigger appears as a message and a turn starts) — a shortcut that fires nothing is the F-N-1 dead-affordance class. A role with none shows no empty dock.
 
-## Findings
-(record here during the manual phase; also log `../findings.md`, historical anchor `F-A-n` for the chat surface / `F-B-n` for the booking leg)
-
-- **F-A-20 (2026-07-22, live):** a session freshly issued via the switch-name picker carries `dock_buttons` in its payload but renders NO dock until a reload — the picker issue flow doesn't push into `useDockButtonsStore` (restore path does). Logged in `../findings.md`.
-- **Latent (not logged, no live exposure):** `roles.go:40` declares `DockButtons []domain.DockButtonConfig` with `json:"dock_buttons"` (**no** `omitempty`), so a nil slice would marshal to `null`, and both consumers (`use-roles.ts:29`, `use-gate.ts:72`) declare `dock_buttons: z.array(...).optional()` with no `.nullable()` — the exact `F-D-1` trap. Live `/api/admin/roles` currently returns `[]`, so nothing fires today. Closing `F-D-1` at the source (never emit a nil slice) should cover this too.
+Admin side: titles are resolved, and the limit reads as a limit rather than as a silent drop.
+Visitor side: each button carries a human title and clicking it visibly starts something.
+A shortcut that fires nothing belongs to the dead-affordance class this audit keeps finding.
+A role with none shows nothing at all, rather than an empty dock frame.
