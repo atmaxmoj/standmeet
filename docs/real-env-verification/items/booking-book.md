@@ -1,47 +1,51 @@
 # booking-book — Booking: book / cancel / reschedule across dispatch paths
 
-- **Status:** ✅ VERIFIED end-to-end (2026-07-23) — the agent called calendar_book and created a REAL event: 'BookGo — Intro chat — recursion and cybernetics', Tue Jul 28 2026 1:00–1:30 PM EDT. **Confirmed present on the actual Google Calendar (calendar.google.com day view).** Full real path: visitor chat → agent → calendar_book → connected Google Calendar connector → real event.
-- **Module:** a booking actually lands on the real calendar (and cancel deletes / reschedule moves the same event), quota is enforced against real accumulating events, a duplicate-id insert hits real 409, and the same real booking path is reached whether dispatched from chat reasoning or the API-key facade.
-- **Surface:** visitor chat (book via reasoning) + API-key facade.
-- **Real dep:** real Google Calendar on a connected account (see [[calendar-connect]]) + real DeepSeek (chat-book) + an outward API key (facade-book).
-- **Backing e2e:** `chat-book-success` · `chat-book-conflict-{busy,policy-hours,policy-leadtime,policy-weekend}` · `chat-book-quota-exhausted` · `tool-calendar-cancel-booking` · `connector-calendar-cancel-tool` · `visitor-cancel-booking` · `tool-endpoint-calendar-book`.
+- **Module:** A booking lands on the real calendar. Cancelling deletes that event and rescheduling moves it rather than creating a second one. Quota is enforced against real accumulating events, and the same real path is reached whether the request comes from chat reasoning or from the outward API.
+- **Surface:** Visitor chat, and the outward API-key facade.
+- **Real dep:** A connected real calendar account (see [[calendar-connect]]), a real model for the chat path, and an outward key for the facade path. Also a role granting the booking tool, or the tools never assemble — see [[booking-slots]].
+- **Backing e2e:** `chat-book-success` · `chat-book-conflict-*` · `chat-book-quota-exhausted` · `tool-calendar-cancel-booking` · `connector-calendar-cancel-tool` · `visitor-cancel-booking` · `tool-endpoint-calendar-book`.
 
 ## Checks
 
-### 1 — `calendar_book` → event actually appears in Google  (was §B3)
-- **Steps:** run one booking through chat → open the account's Google Calendar and confirm the event was created (title/time/attendees).
-- **Expected:** the event appears in Google Calendar.
+### 1 — A booking appears on the real calendar ⭐
+- **Steps:** Book through chat. Open the account's calendar in its own web view. Find the event.
+- **Expected:** The event exists there, with the right title, time and attendees. Reading the tool's own success reply is not this check — the calendar is.
 - **Backing test:** `chat-book-success.spec.ts`
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected Google Calendar (not connected on this instance). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 2 — cancel → event actually deleted  (was §B4)
-- **Steps:** cancel the booking → confirm the event is gone from Google Calendar.
-- **Backing test:** `tool-calendar-cancel-booking.spec.ts` · `connector-calendar-cancel-tool.spec.ts` · `visitor-cancel-booking.spec.ts`
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected Google Calendar (not connected on this instance). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 3 — reschedule → event actually moved  (was §B5)
-- **Steps:** reschedule → confirm the time changed in Google Calendar (same event, not a new one).
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected Google Calendar (not connected on this instance). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 4 — `max_bookings` quota (real events)  (was §B8)
-- **Steps:** book up to the quota with real events accumulating; over-limit should be refused.
-- **Backing test:** `chat-book-quota-exhausted.spec.ts`
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected Google Calendar (not connected on this instance). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 5 — duplicate-id insert → real Google returns 409 ⭐  (was §B9)
-- **Steps:** provoke a "same event id inserted twice" (e.g. the reconnect-retry path) → observe real Google's response.
-- **Expected (likely RED):** real Google returns **409**, and the **backend has zero 409 handling**. CI's mock returns an idempotent 200 (`gcal.go:279`), masking it — the "no double-book after reconnect" CI proves would break live.
-- **Backing test:** idempotency/retry specs (`connector-retry-*`) — focus here at attribution.
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected Google Calendar (not connected on this instance). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 6 — Booking via chat (real reasoning → `calendar_book`)  (was §A9)
-- **Steps:** visitor asks to book a slot in natural language → real model reasons through list-slots → `calendar_book`.
-- **Expected:** the model selects a sane slot and books it without a scripted tool queue.
-- **Backing test:** `tool-endpoint-calendar-book.spec.ts:62`
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected Google Calendar (not connected on this instance). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 7 — Real booking via API-key facade  (was §J3)
-- **Steps:** on a key with a booking capability opened, dispatch a booking tool through the facade → confirm the event actually lands in the connected real calendar.
-- **Expected:** the facade path can book against a real connector, honoring policy/quota exactly as the chat path does.
-- **⚠️ mock gap:** `api-key-facade.spec.ts` only dispatches a **corpus** tool — there is **no booking-via-key case** in the facade suite (gap).
-- **Backing test:** no dedicated facade-booking spec (gap); nearest `api-key-facade.spec.ts:154` (generic dispatch) + booking specs.
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected Google Calendar (not connected on this instance). Backing e2e green; not manually driven (no live disproof, no manual proof).
-## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-A confirmed booking renders a friendly confirmation (not a raw tool result); a quota/conflict refusal reads human, not an error code.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-B-n` / `F-A-n` / `F-J-n` historical anchor)
+### 2 — Cancelling removes that event
+- **Steps:** Cancel the booking through chat. Open the calendar again.
+- **Expected:** The event is gone.
+- **Backing test:** `tool-calendar-cancel-booking.spec.ts` · `visitor-cancel-booking.spec.ts`
+
+### 3 — Rescheduling moves the event, and does not clone it
+- **Steps:** Reschedule the booking. Open the calendar.
+- **Expected:** The same event now sits at the new time. There is no second event at the old one.
+- **Backing test:** `gap`
+
+### 4 — The booking quota counts real events
+- **Steps:** Book up to a code's quota, letting real events accumulate. Attempt one more.
+- **Expected:** The over-limit attempt is refused in readable words, and no extra event lands.
+- **Backing test:** `chat-book-quota-exhausted.spec.ts`
+
+### 5 — A duplicate insert is handled, not assumed away ⭐
+- **Steps:** Provoke the same event being inserted twice, for instance through a reconnect and retry. Read what the provider returned and what the backend did with it.
+- **Expected:** The provider's conflict response is handled and the visitor is not double-booked.
+- **Mock gap:** The mock answers a duplicate insert with an idempotent success. So the "no double booking after a reconnect" that CI proves rests on a behaviour a real provider does not have, and the real conflict path has never run.
+- **Backing test:** `connector-retry-*.spec.ts` · the real conflict → `gap`
+
+### 6 — The model reasons its way to a booking
+- **Steps:** Ask to book in plain language, with no scripted tool queue. Watch the model list slots and then book.
+- **Expected:** It selects a sane slot and books it. It does not invent a confirmation without calling the tool.
+- **Backing test:** `tool-endpoint-calendar-book.spec.ts`
+
+### 7 — The API path books against the same real calendar
+- **Steps:** Open a booking capability on an outward key. Dispatch a booking through the facade. Check the real calendar. Then try to exceed the policy and the quota through the same path.
+- **Expected:** The event lands on the real calendar, and policy and quota are enforced exactly as they are in chat.
+- **Mock gap:** The facade suite only dispatches a corpus tool. There is no booking-through-a-key case at all.
+- **Backing test:** `gap`
+
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+
+A confirmed booking renders a friendly confirmation, never a raw tool result.
+A refusal for a conflict or a quota reads as a sentence, not as an error code.
+Verify the outcome where it lives — a chat bubble saying "booked" is a claim, and the calendar is the fact.
