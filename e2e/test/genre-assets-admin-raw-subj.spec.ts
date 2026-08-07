@@ -89,7 +89,13 @@ test.describe('raw 和 subjectivity 的面板素材入口', () => {
     await expect(row, 'AI 写的那条在面板上看得见').toBeVisible({ timeout: 10_000 });
     await expect(row).toContainText('How I judge a system');
 
-    await page.getByTestId(`subjectivity-edit-${subjectivityID}`).click();
+    // 这个开关**说了什么**,不只是它在不在。原来这里只有 .click():按钮存在、可点,
+    // 断言就过——所以 2026-08-07 真实环境里它把 `ADMINCORPUS.COMMON.EDIT`(一条没解析的
+    // i18n key)印在 17 行上,而这条 spec 一直是绿的(F-L-15)。存在性断言证明不了内容正确。
+    const editToggle = page.getByTestId(`subjectivity-edit-${subjectivityID}`);
+    await expect(editToggle, '开关上写的是 EDIT,不是翻译 key').toHaveText(/^edit$/i);
+    await editToggle.click();
+    await expect(editToggle, '展开之后它变成 CANCEL').toHaveText(/^cancel$/i);
     const prefix = `subjectivity-edit-form-${subjectivityID}`;
     await expect(page.getByTestId(`subjectivity-edit-loaded-${subjectivityID}`))
       .toBeVisible({ timeout: 15_000 });
