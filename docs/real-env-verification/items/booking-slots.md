@@ -1,35 +1,42 @@
 # booking-slots — Booking: list_slots vs real freeBusy
 
-- **Status:** ✅ VERIFIED end-to-end (2026-07-23) — a coded visitor (role granting calendar.book) got calendar_list_slots; the agent called it against the REAL connected Google Calendar and returned genuine free slots (afternoons 12–2 PM EDT), proposed in the visitor's Toronto tz with UTC conversions, honoring weekday-only + min-lead-days. UX note: booking needs a role whose skill declares `allowed-tools: [calendar.book]` — no such skill is seeded on a fresh instance, so the owner must hand-craft one (non-obvious; consider a seeded booking skill or a per-code toggle).
-- **Module:** the booker returns only genuinely-free slots inside the requested window, filtered against the account's real calendar busy/free.
-- **Surface:** visitor chat (slot listing) / booker tool.
-- **Real dep:** real `www.googleapis.com/calendar/v3` freeBusy on a connected account (see [[calendar-connect]]).
+- **Module:** The booker returns only genuinely free slots inside the requested window, filtered against the account's real calendar.
+- **Surface:** Visitor chat, on a code whose role grants the booking tool.
+- **Real dep:** A connected real calendar account (see [[calendar-connect]]) with known busy blocks. Also a role that grants `calendar.book` — see the Note below, because without it the tools never assemble.
 - **Backing e2e:** `visitor-chat-list-slots`.
 
 ## Checks
 
-### 1 — `list_slots` vs real freeBusy  (was §B2)
-- **Steps:** visitor chat asks for slots / call the booker directly with a real `timeMin/timeMax` window; compare against the account's real Google Calendar busy/free.
-- **Expected:** only real free slots returned, and the **window is really filtered**.
-- **⚠️ mock gap:** the mock ignores `timeMin/timeMax` (`gcal.go:390`) → window filtering never truly verified.
+### 1 — Only genuinely free times are offered ⭐
+- **Steps:** Put a known busy block on the real calendar. Ask for slots covering that period. Compare the offered slots against the calendar.
+- **Expected:** No offered slot overlaps a busy block. Times the calendar shows free are offered.
 - **Backing test:** `visitor-chat-list-slots.spec.ts`
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — needs a connected calendar. Backing e2e green; not manually driven (no live disproof, no manual proof).
+
+### 2 — The requested window is really filtered
+- **Steps:** Ask for slots inside a narrow window. Read every slot returned.
+- **Expected:** Every slot falls inside the window. None comes from outside it.
+- **Mock gap:** The mock ignores the window bounds entirely, so window filtering has never been verified against anything that enforces it.
+- **Backing test:** `visitor-chat-list-slots.spec.ts` (mock ignores the window)
+
+### 3 — Policy exclusions hold
+- **Steps:** Set the booking policy to weekdays only with a minimum lead time. Ask for slots spanning a weekend and starting today.
+- **Expected:** No weekend slot appears. No slot falls inside the lead time.
+- **Backing test:** `gap`
+
+### 4 — Times are proposed in the visitor's timezone
+- **Steps:** Ask for slots from a client in a timezone different from the owner's. Read how the times are stated.
+- **Expected:** Slots are proposed in the visitor's timezone, unambiguously, so the visitor does not have to convert.
+- **Backing test:** `gap`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The slot list renders real times (not empty, not garbled); weekend/policy-excluded windows don't appear.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-B-n` historical anchor)
+The slot list renders real times, never empty and never garbled.
+Excluded windows do not appear at all, rather than appearing and failing on booking.
+Every time carries its zone, because a bare clock time is ambiguous to anyone not in the owner's zone.
 
-### ~~F-B-3~~ NOT A BUG — booking is role-gated (calendar.book must be in role.AllowedTools)  (2026-07-23, live)
-- **Symptom (verified via session tool_specs, not the LLM's word):** with `connector.google-calendar` connected+active (real OAuth done), `calendar.book` capability registered + **enabled:true**, and a code carrying an explicit bookings quota (BOOK-TEST, bookings=5), a coded visitor session's `tool_specs` contain ONLY `ask_visitor, summarize_conversation, corpus_*` — **NO `calendar_book` / `calendar_list_slots`**, and capabilities are just `ask_visitor, summarize_conversation, corpus.retrieval`. Two codes tested (FA5-001 blank-quota, BOOK-TEST quota=5) — both lack the booker tools. The agent correctly says "no calendar/booking tool hooked up" (not an F-A-4 hallucination — the tools are genuinely absent from the assembled session).
-- **So:** connecting Google Calendar has NO visitor-facing effect — the booker never assembles into a visitor session even with every prerequisite met (connector connected, cap enabled, quota set). The whole booking feature (slots/book/email) is dead for visitors on prod.
-- **RESOLUTION (read capreg_booker.go):** `BookerSkillName = "calendar.book"` — the booker unlocks ONLY when the session role's `AllowedTools` union contains `"calendar.book"`. `public`/`default` roles don't grant it → booker correctly hidden. So this is **correct ACL gating, NOT a bug** (avoided a false finding — the connect+enabled state is necessary but not sufficient; the code's ROLE must also grant calendar.book). Verify path: give a role calendar.book in its skills/tools grant, issue a code with it → visitor gets calendar_book/list_slots.
-- **Status:** ✅ not-a-bug; booking positive-path verification pending a role that grants calendar.book (in progress).
+## Note
 
-### Follow-up (2026-07-23) — how does the owner GRANT calendar.book via the GUI?
-The role editor (/admin/roles) exposes: prompt, corpus URIs (wiki/output/writing/subjectivity), a
-ghost-steer-only toggle, weight/terminal — but no visible skills/tools grant to add `calendar.book`
-to a role's AllowedTools (public shows "SKILLS 0 · MCP 0" with no add-affordance I could find). Either
-the skills-grant UI didn't expand for me, or there's no GUI path to grant booking to a code — which
-would make the whole booking feature unreachable for owners through the admin UI. **To confirm next:
-inspect an existing role that grants calendar.book (if any), or the role-edit skills section.**
+The booker assembles into a visitor session only when the session role's granted tools include
+`calendar.book`. A connected calendar and an enabled capability are necessary but not sufficient.
+A visitor on a stock role correctly sees no booking tools — read the role before calling that a
+defect. Whether an owner can grant it through the GUI at all is tracked as `F-B-4`.

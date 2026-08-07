@@ -1,34 +1,36 @@
-# sandbox — Sandbox: egress isolation, prod docker driver, cron
+# sandbox — Sandbox: egress isolation, prod driver, cron
 
-- **Status:** ✅ verified (UPDATE 2) — retrieval tools WORK on this local prod (searched/read fired); F-A-1 is remote-host-specific
-- **Module:** sandboxed skills/tools run isolated — net egress gated (`--network=none` vs AllowNet), no host socket / host FS reachable — under the **prod docker driver** (sibling containers via `docker.sock`, not bwrap-in-backend), with the workspace cron sweep firing on schedule.
-- **Surface:** backend sandbox runtime + admin/sandbox (workspaces).
-- **Real dep:** the **prod stack** (`SANDBOX_DRIVER=docker`, backend runs `0:0` with the docker socket) + a reachable local payload origin.
+- **Module:** Sandboxed skills and tools run isolated. Network egress is gated, the host socket and host filesystem are unreachable, and this holds under the driver prod actually uses. The workspace sweep fires on its own schedule.
+- **Surface:** The backend sandbox runtime, and `/admin/sandbox` for workspaces.
+- **Real dep:** The prod stack on its real sandbox driver, plus a reachable payload origin for the egress tests.
 - **Backing e2e:** `real-third-party-mcp-network` · `real-third-party-mcp-escape` · `real-third-party-mcp-sandboxed` · `real-third-party-mcp-loader` · `sandbox-workspace-ttl-cron` · `admin-sandbox` · `skill-scripts` · `admin-system-jobs`.
 
 ## Checks
 
-### 1 — AllowNet vs default-deny (`--network=none`)  (was §K1)
-- **Steps:** run a sandboxed skill that fetches a reachable local payload URL **with** net granted (AllowNet) → fetch succeeds. Then run the identical fetch under default `--network=none` → **blocked** (egress denied), surfaced as a friendly error, not a hang/stack trace.
-- **Expected:** AllowNet → the sandbox really downloads the payload; default → denied at the container network layer. Escape vectors stay closed: cannot reach the host docker socket, cannot read host config (`/etc/standmeet/plugins.json`).
-- **Backing test:** `real-third-party-mcp-network.spec.ts:68` (AllowNet download) · `:90` (default blocked) · `real-third-party-mcp-escape.spec.ts:55` (no host socket) · `:79` (no host config)
-- **Result:** ✅ — AllowNet vs default-deny: retrieval tools fire on this local prod (searched/read confirmed live).
-### 2 — Sandbox under prod isolation (docker-driver, not bwrap)  (was §K2, §N2)
-- **Steps:** on the **prod** stack, run a sandbox skill (e.g. `skill_run_script`) and confirm it executes in a **sibling container** spawned via `docker.sock`, not the dev bwrap-in-backend path → the script's stdout returns in the reply. Confirm the default workspace root (`SANDBOX_WORKSPACE_ROOT` → `/srv/sandbox-workspaces`) is writable and the prod backend runs as `0:0` (root) with `SANDBOX_DRIVER=docker`.
-- **Expected:** the prod driver spawns an isolated sibling container, runs the real script, and the K1 isolation guarantees hold under this driver too; per-session workspace created writable under the default root.
-- **⚠️ config nuance:** dev runs bwrap *inside* the backend container; prod uses the docker driver — a different mechanism CI never drives on the prod path. Verify the real uid/permission story (backend is `0:0`, not the assumed 1001).
-- **Backing test:** `skill-scripts.spec.ts:53` · `real-third-party-mcp-sandboxed.spec.ts` · `admin-sandbox.spec.ts:42`
-- **Result:** ✅ — sandbox under prod isolation (docker-driver): F-A-1 is remote-host-specific (bwrap gap), not this local prod.
-### 3 — Real cron fires on schedule  (was §K3)
-- **Steps:** on the prod stack, let the **real scheduler** run (do not trigger the diag hook) → confirm the workspace-TTL sweep (and resume-draft TTL sweep) actually fires → an expired workspace is swept while a fresh one survives.
-- **Expected:** the scheduled sweep runs unattended at its interval and evicts only expired workspaces.
-- **⚠️ mock gap:** the sweeps are only ever run **on-demand via a diag hook** in CI — the real cron scheduler is never exercised, so a broken schedule would pass CI and never sweep in prod.
-- **Backing test:** `sandbox-workspace-ttl-cron.spec.ts:73` · `admin-system-jobs.spec.ts` · `resume-draft-ttl.spec.ts`
-- **Result:** ✅ — real cron fires: cron e2e green.
+### 1 — Granted egress reaches the network; default egress does not ⭐
+- **Steps:** Run a sandboxed skill that fetches a reachable payload URL, with network access granted. Then run the identical fetch with no grant.
+- **Expected:** The granted run downloads the payload. The ungranted run is denied at the container's network layer, and the denial surfaces as a friendly error rather than a hang or a stack trace.
+- **Backing test:** `real-third-party-mcp-network.spec.ts`
+
+### 2 — The sandbox cannot reach the host
+- **Steps:** From inside a sandboxed run, try to reach the host container socket. Try to read a host config path.
+- **Expected:** Both fail. Neither returns content.
+- **Backing test:** `real-third-party-mcp-escape.spec.ts`
+
+### 3 — The isolation holds under the driver prod uses ⭐
+- **Steps:** On the prod stack, run a sandboxed script. Confirm where it executed. Read its stdout in the reply. Check the workspace root is writable and note the uid the backend runs as.
+- **Expected:** The run happens in an isolated container spawned by the prod driver, the script's real output comes back, and checks 1 and 2 still hold under this driver.
+- **Mock gap:** Dev and prod isolate by different mechanisms. CI drives the dev one, so the prod path's permission and uid story is only ever verified by hand.
+- **Backing test:** `skill-scripts.spec.ts` · `real-third-party-mcp-sandboxed.spec.ts` · `admin-sandbox.spec.ts`
+
+### 4 — The sweep runs unattended
+- **Steps:** On the prod stack, create a workspace and let it age past its TTL. Create another and leave it fresh. Wait for the scheduler's own interval. Do not trigger the sweep by hand.
+- **Expected:** The expired workspace is swept. The fresh one survives.
+- **Mock gap:** CI only ever triggers the sweeps through a diagnostic hook, so a broken schedule would pass CI and never sweep in prod.
+- **Backing test:** `sandbox-workspace-ttl-cron.spec.ts` · `admin-system-jobs.spec.ts`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-admin/sandbox lists workspaces and the sweep affordance fires; a blocked egress surfaces a friendly error (not a hang).
 
-## Findings
-(record here; also log `../findings.md`, ID `F-K-n` / `F-N-n` historical anchor)
-
-- Skills are prompt-based (skill_list ✓); `SANDBOX_DRIVER=docker` confirmed (K2). Egress (K1) not reached first pass.
+`/admin/sandbox` lists workspaces, and its sweep affordance fires.
+A blocked egress reads as a friendly error, never as a hang the visitor interprets as slowness.
+A job listed as scheduled shows when it last ran — a schedule with no last-run is indistinguishable from one that never fires.

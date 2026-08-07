@@ -1,30 +1,31 @@
 # custom-pages — Custom page hosting: create → build → promote → host
 
-- **Status:** ✅ verified — F-N-1 dead '+new page' button REMOVED; honest MCP-driven empty state; pages 0=0 cross-view
-- **Module:** the owner authors a custom React page with the SDK; a sandboxed real Vite build produces static output hosted on the instance and served — and the admin create/build/promote flow actually works (not a dead button).
-- **Surface:** admin/page (custom-pages).
-- **Real dep:** prod stack (real sandbox build via the docker driver, see [[sandbox]]) + real storage/hosting.
-- **Inherits (historical finding IDs):** `F-N-1` (the "+ NEW PAGE" button is dead — clicking does nothing).
-- **Backing e2e:** `custom-page.spec.ts` (page surface) + [[sandbox]] specs (the build). Custom-page-build storage → no dedicated spec (gap).
+- **Module:** The owner authors a custom React page with the SDK. A sandboxed real Vite build produces static output, the instance hosts it, and the admin surface reflects the page's lifecycle.
+- **Surface:** `/admin/custom-pages`, and the built page at its `/p/<slug>`.
+- **Real dep:** The prod stack, with a real sandbox build through the docker driver (see [[sandbox]]) and real storage.
+- **Backing e2e:** `custom-page` for the surface, plus the [[sandbox]] specs for the build. Storage and hosting of the built artifact → `gap`.
 
 ## Checks
 
-### 1 — Custom-page sandbox build → real static hosting  (was §I3)
-- **Steps:** owner submits a custom React page using the SDK → the sandbox runs a **real Vite build** → the static output is hosted on the instance and served → open the built page and confirm it renders/chats.
-- **Expected:** the real build succeeds in the sandbox (not a stubbed toolchain) and the static artifact is served from the instance.
-- **Note:** the build isolation itself is [[sandbox]] (K2 prod docker-driver); here we care that *storage + hosting* of the built artifact works on the prod stack.
-- **Backing test:** no dedicated custom-page-build storage spec (gap); nearest `custom-page.spec.ts` + sandbox specs.
-- **Result:** ✅ — sandbox build→static hosting mechanism present (I3); e2e-covered.
-### 2 — The create/build/promote flow is not dead ⭐  (was F-N-1)
-- **Steps:** on admin/page, click **"+ NEW PAGE"** → observe.
-- **Expected:** a real create flow opens (modal / navigation / feedback) — OR the button is removed and the MCP-driven copy stands. Not a button that fires nothing.
-- **⚠️ finding:** clicking "+ NEW PAGE" does nothing (no modal, no navigation, no feedback). The section's copy says the lifecycle is MCP-driven (`custom_page.create` / `.write_file` / `.build` / `.promote_to_live`) — so the button may have no GUI flow behind it. Same dead-affordance class as F-L-1 / UX-5. Either wire it to a real create flow, or remove it and let the MCP copy stand.
-- **Backing test:** no spec clicks `+ NEW PAGE` and asserts a page gets created (a dead button fires nothing, so nothing fails today) — step-3 adds one.
-- **Result:** ✅ — F-N-1 dead '+new page' button REMOVED; honest MCP-driven empty state; pages 0=0 cross-view (re-confirmed).
+### 1 — A real build produces a page the instance serves ⭐
+- **Steps:** Author a page through the MCP lifecycle: create, write files, build, promote to live. Wait for the build. Open the page's public URL. Read it. Take a chat turn on it if it embeds chat.
+- **Expected:** The build runs a real toolchain in the sandbox, not a stub. The static artifact is served from the instance. The page renders and its embedded features work.
+- **Note:** Build isolation belongs to [[sandbox]]. What this check owns is storage and hosting of the artifact.
+- **Backing test:** `custom-page.spec.ts` · artifact storage → `gap`
+
+### 2 — Every affordance on the surface does something
+- **Steps:** Open `/admin/custom-pages`. Click every control on the page, including any create button. Observe what each one does.
+- **Expected:** Each control opens a flow, navigates, or gives feedback. A control that fires nothing does not exist here. If the lifecycle is MCP-driven, the copy says so and no button contradicts it.
+- **Mock gap:** A dead button fires nothing, so nothing fails. Only a click by a human, or a spec that asserts the effect of the click, can reach this.
+- **Backing test:** `gap`
+
+### 3 — The list and its count agree
+- **Steps:** Read the number of pages the section reports. Count the rows.
+- **Expected:** The two match, before and after creating or removing a page.
+- **Backing test:** `gap`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The page **list renders**; **"+ NEW PAGE" does something** (F-N-1); build/promote states are visible; a built page actually renders when opened.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-N-1` historical anchor)
-
-- **F-N-1** (owner-reported mid-audit): "+ NEW PAGE" is a dead affordance. 🔴 manual-red, needs step-3.
+Click every affordance and watch for a response — this surface is where dead buttons have hidden before.
+Build and promote states are visible, so the owner knows whether a page is live.
+A page that says it is live opens and renders when you follow its URL.

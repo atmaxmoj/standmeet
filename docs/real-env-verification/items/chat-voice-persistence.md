@@ -1,29 +1,27 @@
 # chat-voice-persistence — Visitor chat: owner voice holds
 
-- **Status:** ✅ verified (UPDATE 2) — owner 1st-person across 4 turns
-- **Module:** the model stays in the owner's first-person voice across a long conversation and sounds like a *real* owner (not the shipped fictional persona).
-- **Surface:** visitor chat (multi-turn).
-- **Real dep:** real DeepSeek + a real owner's corpus (voice fidelity) or the eval persona (persistence).
-- **Backing e2e:** `code-intro-greeting` (role greeting only). Persistence / real-owner fidelity → no backing spec (gap). Voice eval lane: `eval-harness/reseed-marcus.sh` · `eval-harness/seed_persona.py`.
+- **Module:** The model stays in the owner's first-person voice across a long conversation, and it sounds like the real owner rather than a shipped persona.
+- **Surface:** Visitor chat, multi-turn.
+- **Real dep:** A real model. Voice fidelity needs a real owner's corpus; persistence can be judged against the eval persona.
+- **Backing e2e:** `code-intro-greeting` covers the role greeting only. Persistence and real-owner fidelity → `gap`. Voice eval lane: `eval-harness/reseed-marcus.sh` · `eval-harness/seed_persona.py`.
 
 ## Checks
 
-### 1 — Role persistence across a long conversation  (was §A12)
-- **Steps:** over many turns, try to get the model to drop the owner persona / speak as "an AI assistant".
-- **Expected:** it stays in the owner's first-person voice throughout.
-- **⚠️ mock gap:** the mock has no persona to drop; persistence is untestable against it.
-- **Backing test:** `code-intro-greeting.spec.ts:75` (role greeting only). Persistence → no backing spec (gap).
-- **Result:** ✅ — 4-turn owner-1st-person persistence documented this round; re-pass conversations stayed in-voice across turns incl. after summarize.
-### 2 — Voice fidelity for a REAL owner  (was §A20)
-- **Steps:** onboard a *real* owner's corpus → run the voice eval against DeepSeek → judge whether the answers sound like that owner.
-- **Expected:** a faithful voice from real content (not the fictional `marcus-chen` persona the eval ships with). This is an onboarding ritual, not a CI gate.
-- **⚠️ mock gap:** the only real-LLM voice eval uses one fictional persona; no check that a newly onboarded real owner's corpus yields a faithful voice.
-- **Backing test:** `eval-harness/reseed-marcus.sh` · `eval-harness/seed_persona.py` (fictional persona only). Real-owner fidelity → no backing spec (gap).
-- **Result:** ✅ — voice fidelity vs the real owner's corpus held across all real answers this round (network-shaped-thinking answer matched the owner's actual written positions).
+### 1 — The persona survives a long conversation ⭐
+- **Steps:** Take many turns. Try to make the model drop the owner persona: ask what model it is, ask it to speak as an assistant, change subject abruptly, and ask again after a summarize.
+- **Expected:** Every answer stays in the owner's first person. No answer opens with an assistant disclaimer or refers to itself as a model.
+- **Mock gap:** The mock has no persona to drop, so persistence cannot be observed against it.
+- **Backing test:** `code-intro-greeting.spec.ts` (greeting only) · persistence → `gap`
+
+### 2 — The voice belongs to THIS owner
+- **Steps:** Ask a question the owner has written about. Compare the answer's positions and phrasing against what the owner actually wrote.
+- **Expected:** The answer reflects the owner's own documented positions. It does not read as the fictional persona the eval harness ships with.
+- **Mock gap:** The only real-LLM voice eval uses one fictional persona. Nothing checks that a newly onboarded owner's corpus yields their voice.
+- **Backing test:** `gap`
+- **Note:** This is an onboarding ritual, not a CI gate — it needs a human who knows how the owner writes.
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-Across a long transcript the persona never breaks into "as an AI assistant"; the transcript-flow render (mono Q heading, serif answer body) stays consistent turn after turn.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-A-n` historical anchor)
-
-- **Second pass ✅** — first-person owner voice confirmed clean on real DeepSeek (no "as an AI" disclaimer).
+Read a long transcript end to end: the persona never breaks into an assistant register.
+The transcript-flow rendering holds turn after turn — mono question heading, serif answer body.
+A voice that is right for three turns and slips on the tenth is the failure this check exists for.

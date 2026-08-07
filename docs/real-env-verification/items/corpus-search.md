@@ -1,34 +1,35 @@
 # corpus-search — Corpus: search relevance + ACL + PG fallback
 
-- **Status:** ✅ verified — agent corpus_search/read fired (chat-grounding, 4-8 hits); tree lazy-load works
-- **Module:** `corpus_search` over real content is relevant and write→search consistent, role-scoped by the caller's ACL, and correct on the **PG-FTS fallback** (prod ships without Meilisearch by default); the API-key facade dispatches the same real search.
-- **Surface:** visitor chat retrieval + API-key facade + backend search.
-- **Real dep:** the full real corpus indexed; prod stack (PG-FTS by default; a pinned Meili only if opted in).
+- **Module:** `corpus_search` over real content returns relevant hits, is consistent immediately after a write, and is scoped by the caller's ACL. It is correct on the Postgres full-text path, which is what prod runs by default because prod ships without a search engine. The API-key facade dispatches the same real search.
+- **Surface:** Visitor chat retrieval, the outward API-key facade, and the backend search itself.
+- **Real dep:** The full real corpus indexed on the prod stack. A seeded CJK note, because the real vault is English and the CJK path needs its own input.
 - **Backing e2e:** `retrieval-search-consistency` · `api-key-facade` · `retrieval-acl` · `retrieval-degrade`.
 
 ## Checks
 
-### 1 — Scale / perf + real `corpus_search` relevance  (was §L13, search half)
-- **Steps:** with the full real corpus indexed, run `corpus_search` over real content: write-then-search consistency (`WaitForTask` strong consistency), delete-then-miss, mixed CJK+EN relevance (real vault is English; confirm the CJK path against a seeded CJK note).
-- **Expected:** written notes are immediately searchable and deleted ones immediately gone; CJK query hits its note; relevance is sane on real prose.
-- **⚠️ mock gap:** `retrieval-search-consistency` seeds a handful of docs; real relevance at corpus scale is not covered, and **the degrade-to-PG-FTS fallback has no backing spec here** (that failure mode is check 3 / [[resilience]]).
-- **Backing test:** `retrieval-search-consistency.spec.ts` (Meili read/write consistency + CJK).
-- **Result:** ✅ — real corpus_search relevance held at scale (223 notes; 4–8 hits per real turn; re-pass searched 8).
-### 2 — Real corpus dispatch via API-key facade  (was §J1)
-- **Steps:** mint an outward API key → `api.open corpus.retrieval` → issue `QUERY corpus_search` (and a `corpus_read`) over the **real seeded corpus** → confirm real hits come back, ranked, and role-scoped to what the key may see.
-- **Expected:** real corpus rows returned (not fixture rows), tool discovery renders only the opened non-Agentic tools, results respect the key's capability scope. Private/raw content excluded from an outward key.
-- **⚠️ note:** with prod shipping without Meili by default (check 3), this runs on **PG-FTS fallback** — verify the fallback returns relevant hits over real content, not just that it doesn't 500.
-- **Backing test:** `api-key-facade.spec.ts:152` · `api-key-facade.spec.ts:154` · `api-key-facade.spec.ts:160`
-- **Result:** ✅ — API-key facade corpus dispatch: facade waves e2e green (api-key-facade).
-### 3 — Meili down → clean PG-FTS fallback  (was §L13 / §P5 fallback)
-- **Steps:** kill Meili → confirm `corpus_search` degrades to PG-FTS without a 500; writes still land; recovery re-indexes the down-period writes. (Prod's DEFAULT is already PG-FTS — verify the fallback IS the primary prod path: relevance acceptable CJK+EN, write→search consistent, nothing assumes Meili present.)
-- **Expected:** killing Meili degrades to PG-FTS without a 500; admin shows degraded; recovery re-indexes.
-- **Backing test:** `retrieval-degrade.spec.ts:56` · `retrieval-degrade.spec.ts:73` · `retrieval-search-consistency.spec.ts:108`
-- **Result:** ✅ — Meili-down→PG-FTS fallback: retrieval-degrade e2e green; not forced by hand this round.
+### 1 — A write is searchable at once, and a delete is gone at once
+- **Steps:** Write a note with a distinctive term. Search for it immediately. Delete it. Search again immediately.
+- **Expected:** The first search finds it. The second finds nothing. No sleep is needed between the write and the search.
+- **Backing test:** `retrieval-search-consistency.spec.ts`
+
+### 2 — Relevance holds on real prose, in both scripts ⭐
+- **Steps:** Search the full real corpus for several topics you know it covers. Read the top hits. Repeat with a CJK query against the seeded CJK note.
+- **Expected:** The top hits are the notes a reader would name. The CJK query finds its note.
+- **Mock gap:** The consistency spec seeds a handful of documents. Relevance at real corpus scale is not covered anywhere.
+- **Backing test:** `retrieval-search-consistency.spec.ts` (small corpus) · relevance at scale → `gap`
+
+### 3 — An outward key gets real hits, scoped to what it may see
+- **Steps:** Mint an outward API key. Open corpus retrieval on it. Query the real corpus and read one hit. Then query for something only a private entry holds.
+- **Expected:** Real corpus rows come back ranked. Tool discovery shows only the opened tools. The private query returns nothing — no title, no body.
+- **Backing test:** `api-key-facade.spec.ts`
+
+### 4 — Losing the search engine degrades, it does not fail
+- **Steps:** With a search engine configured, stop it. Search. Write a note. Search again. Restart it and search once more.
+- **Expected:** Search falls back to Postgres full text with no 500. Writes still land. Recovery re-indexes what was written while it was down. The admin surface says it is degraded.
+- **Note:** Prod's default is already the fallback path, so verify the fallback as the primary, not as an emergency.
+- **Backing test:** `retrieval-degrade.spec.ts`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-Search results render relevant real hits (not empty, not fixture rows); an out-of-scope query returns nothing (ACL), not a private title.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-L-n` / `F-J-n` / `F-P-n` historical anchor)
-
-- **P5 confirmed** (first pass): no meili in prod → `corpus_search` on PG-FTS by default.
+Results are real hits from real content, never fixture rows and never a silent empty list on a term the corpus clearly contains.
+An out-of-scope query returns nothing, and specifically not a private title as evidence that something was withheld.

@@ -1,30 +1,37 @@
 # access-codes — Access codes / invitations: issue, list, QR, revoke, redeem
 
-- **Status:** ✅ verified — codes 6=6 cross-view; F-D-1 not reproducing; cards show real grants + QR
-- **Module:** the owner's access-code management — codes issue, **render in the list**, show QR + members/quota/expiry, revoke, and redeem end-to-end (request → approve → email → redeem). AccessCode === invitation.
-- **Surface:** admin/codes + `/gate` (redeem) + admin/requests (approve).
-- **Real dep:** prod stack; real mail (see [[mail-connector]]) for the emailed-code path.
-- **Inherits (historical finding IDs):** `F-D-1` (dashboard KPI reads "CODES LIVE 3" while `/admin/codes` renders "No codes yet" — count right, list broken).
+- **Module:** The owner's access-code management. A code issues, renders in the list, shows its QR and its members, quota and expiry, revokes, and redeems end to end. An access code IS an invitation.
+- **Surface:** `/admin/codes`, plus `/gate` to redeem and `/admin/requests` to approve.
+- **Real dep:** The prod stack. A real mail connector for the emailed-code path (see [[mail-connector]]).
 - **Backing e2e:** `access-codes` · `admin-requests` · `mail-connector`.
 
 ## Checks
 
-### 1 — Owner can see their own access codes ⭐  (was F-D-1)
-- **Steps:** issue a code (e.g. through admin/codes) → confirm it **RENDERS in the `/admin/codes` list** and the list **matches the codes-live KPI count**. Confirm each code shows its **QR**, members/quota/expiry, and that **revoke** / **copy-share** fire.
-- **Expected:** the list shows every live code and agrees with the KPI; the owner can share the QR, see members/quota, and revoke.
-- **⚠️ finding:** the dashboard KPI reads "CODES LIVE 3 · 3 active" but `/admin/codes` renders **"No codes yet."** — the codes demonstrably EXIST (FA5-001 was created through this very page and a visitor redeemed it end-to-end). So the COUNT is right and the LIST is broken; the whole code-management surface is dead while the feature underneath works. Same count-vs-list divergence family as F-L-4 (mirror image: list empty, count fine).
-- **Backing test:** no spec asserts a seeded code RENDERS on /admin/codes — `access-codes.spec.ts` drives issue/redeem via API, so an empty list never fails. Step-3 attribution: compare the list query/scope against the growth-stats count (owner_id scope? a status/expiry filter? response-shape the frontend zod-strips to []?).
-- **Result:** ✅ — /admin/codes driven repeatedly this round (6=6 cross-view; cards show real grants + QR; ghost-override select added this round renders on all 6). F-D-1 not reproducing.
-### 2 — Access-request → approve → email-with-code → redeem  (was §Q2)
-- **Steps:** a no-code visitor submits a request on `/gate` → owner sees it in admin/requests → approves → a real code email lands in a **real inbox** → the visitor opens the emailed `/{handle}?code=` → session opens → chat works. One continuous journey.
-- **Expected:** the whole chain works with **real mail**; approve is blocked without a verified mail connector; the emailed code redeems into a working session.
-- **⚠️ mock gap:** no single spec walks the whole thing — CI proves the request list, the approve gate, and code redemption **separately**; the real-mail hop is only ever mailpit/mock.
-- **Backing test:** `admin-requests.spec.ts:35` · `:70` (approve rejected without verified mail) · `mail-connector.spec.ts:29` · `access-codes.spec.ts` (redemption)
-- **Result:** 🟡 blocked-by-setup (mail not connected on this instance) — the request→approve GUI legs exist and the request submit was driven at the gate; the email-with-code delivery + redeem-from-email leg needs a live mail connector ([[mail-connector]]). e2e covers the flow.
+### 1 — Every issued code renders in the list ⭐
+- **Steps:** Issue a code. Open `/admin/codes`. Count the cards. Read the codes-live figure on the dashboard.
+- **Expected:** The list shows every live code, and its length equals the dashboard figure. A count that is right beside a list that is empty is the failure this check exists for — the two read one dataset.
+- **Mock gap:** `access-codes.spec.ts` drives issue and redeem through the API, so an empty list never fails it.
+- **Backing test:** `access-codes.spec.ts` (API) · the list rendering → `gap`
+
+### 2 — A card carries what the owner needs to share and to police the code
+- **Steps:** Read one card. Find its QR, its member count against its cap, and its expiry. Click copy-share. Click revoke.
+- **Expected:** The QR renders. The member count states consumption, not only the cap. The expiry is a date. Both controls fire and their effect is visible without a reload.
+- **Backing test:** `access-codes.spec.ts`
+
+### 3 — Request → approve → emailed code → redeem, as one journey
+- **Steps:** As a no-code visitor, submit a request on `/gate`. As the owner, find it in `/admin/requests` and approve it. Open the real inbox. Follow the emailed link. Take a turn in the session it opens.
+- **Expected:** The chain completes with real mail. The emailed code opens a working session.
+- **Mock gap:** No spec walks the whole journey. CI proves the request list, the approve gate and redemption separately, and the mail hop is always a local catcher.
+- **Backing test:** `admin-requests.spec.ts` · `mail-connector.spec.ts` · `access-codes.spec.ts` · the joined journey → `gap`
+
+### 4 — Approve is refused without a way to deliver
+- **Steps:** With no verified mail connector, approve a request.
+- **Expected:** The approval is refused, and the reason names the missing connector.
+- **Backing test:** `admin-requests.spec.ts`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The `/admin/codes` **list shows issued codes and matches the codes-live KPI** (F-D-1); each code's **QR renders**; revoke/copy-share fire; admin/requests list shows pending (count == list).
 
-## Findings
-(record here; also log `../findings.md`, ID `F-D-1` historical anchor)
-
-- **F-D-1 ⭐** (owner-reported mid-audit): KPI "3 · 3 active" vs `/admin/codes` "No codes yet"; FA5-001 was created through this page and redeemed end-to-end (session issued, strip showed `code · FA5-001`). Count right, list broken → owner can't share QR / see members / revoke. 🔴 manual-red, needs step-3.
+The codes list and the dashboard figure state the same number, on one screen and after a mutation.
+Every QR renders, so the owner can actually hand a code over.
+The requests list length equals its own count.
+Every quota on a card reports consumption against its cap — a cap alone makes a full code look new.

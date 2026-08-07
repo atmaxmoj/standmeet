@@ -1,32 +1,31 @@
 # resume-draft — Jobs: resume curation + ranking (real model)
 
-- **Status:** 🟡 blocked-by-setup — 0 drafts (empty pool); e2e-covered
-- **Module:** the real model ranks the day's job pool against the corpus + stated preferences, and curates raw+wiki+JD into a coherent, JD-tailored resume + cover letter (authored by the model, not a template) previewed in staging.
-- **Surface:** owner MCP (`resume.draft` / job ranking) → staging preview.
-- **Real dep:** real DeepSeek + a filled 1d Redis job pool (see [[job-fetch]]) + `page.where.looking_for`.
-- **Backing e2e:** `resume-draft-preview` · `resume-draft-update` · `applications-commit` · `integration-job-loop`. Curation/ranking quality → no backing spec (gap).
+- **Module:** The real model ranks the day's job pool against the corpus and the owner's stated preferences, then curates raw, wiki and the job description into a tailored résumé and cover letter. The owner previews it in staging before anything is committed.
+- **Surface:** Owner MCP (`resume.draft`, job ranking) → the staging preview → `/admin/drafts`.
+- **Real dep:** A real model, a filled job pool (see [[job-fetch]] — the pool is 1-day TTL, so fetch first), and the owner's stated `looking_for`.
+- **Backing e2e:** `resume-draft-preview` · `resume-draft-update` · `applications-commit` · `integration-job-loop`. Curation and ranking quality → `gap`.
 
 ## Checks
 
-### 1 — Resume-content curation (job-loop core) ⭐  (was §A17)
-- **Steps:** run `resume.draft(job_cache_id, …)` against a real job snapshot → let the real model curate raw+wiki+JD into `resume_content` → preview in staging.
-- **Expected (likely RED):** a coherent, corpus-grounded, JD-tailored resume + cover letter authored *by the model* — not a template. The outbound loop's core reasoning step.
-- **⚠️ mock gap:** `e2e/fixtures/resume.ts:150 sampleResumeContent` **hand-authors the entire tailored resume + cover letter**, and the specs only assert the PDF render of that fixture. The model's curation is never exercised.
-- **Backing test:** `resume-draft-preview.spec.ts:33` · `resume-draft-update.spec.ts:34` · `applications-commit.spec.ts:43` (all consume `sampleResumeContent`). Curation quality → no backing spec (gap).
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — empty draft pool (0 drafts). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 2 — Job ranking / recommendation  (was §A18)
-- **Steps:** with a filled 1d Redis job pool, ask "what's worth applying to today" → the model ranks the pool using the corpus + `page.where.looking_for`.
-- **Expected:** a sensible ranked shortlist with reasons tied to the owner's corpus and stated preferences.
-- **⚠️ mock gap:** `integration-job-loop` covers fetch/dedup/discard only; the "Claude ranks the pool" step has no coverage.
-- **Backing test:** `integration-job-loop.spec.ts:45` (fetch/QR loop, not ranking). Ranking → no backing spec (gap).
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — empty draft pool (0 drafts). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 3 — `resume.draft` + `applications.commit` with a real job snapshot  (was §E6)
-- **Steps:** pick a real fetched job (`cache_id`) → `resume.draft(cache_id, resume_content)` → preview the staging draft → hand to [[application-commit]].
-- **Expected:** the job snapshot persists into the application row while the cache row stays 1d-TTL ephemeral.
-- **Backing test:** `resume-draft-preview.spec.ts` · `applications-commit.spec.ts` · `job-fetch-ttl-eviction.spec.ts`
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — empty draft pool (0 drafts). Backing e2e green; not manually driven (no live disproof, no manual proof).
-## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The staging draft renders the tailored resume (not the sample fixture, not empty); the owner can eyeball before committing.
+### 1 — The model curates the résumé, and a template does not ⭐
+- **Steps:** Pick a real fetched job. Run `resume.draft` against its snapshot. Read the produced résumé and cover letter. Compare them against the owner's corpus and against the job description.
+- **Expected:** The text is coherent, grounded in the corpus, and tailored to this job. Claims trace to real corpus content. Running it against a different job produces materially different text.
+- **Mock gap:** The e2e fixture hand-authors the entire tailored résumé and cover letter, and the specs only assert that the fixture renders to PDF. The model's curation — the outbound loop's core reasoning step — is never exercised.
+- **Backing test:** `resume-draft-preview.spec.ts` · `resume-draft-update.spec.ts` (both consume the fixture) · curation quality → `gap`
 
-## Findings
-(record here; also log `../findings.md`, ID `F-A-n` / `F-E-n` historical anchor)
+### 2 — The ranking reasons trace to the corpus and the stated preferences
+- **Steps:** With a filled pool, ask which jobs are worth applying to. Read the shortlist and the reason given for each.
+- **Expected:** The order is defensible and each reason names something real — a corpus topic or a stated preference — rather than restating the job title.
+- **Mock gap:** `integration-job-loop` covers fetch, dedup and discard only. The ranking step has no coverage.
+- **Backing test:** `gap`
+
+### 3 — The snapshot persists while the pool row stays ephemeral
+- **Steps:** Draft against a real `cache_id`. Commit it. Wait for the pool row to expire, or evict it. Read the application row.
+- **Expected:** The application row still carries the job snapshot and the résumé content. The pool row is gone on its own TTL. The permanent record does not depend on the ephemeral one.
+- **Backing test:** `resume-draft-preview.spec.ts` · `applications-commit.spec.ts` · `job-fetch-ttl-eviction.spec.ts`
+
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+
+The staging draft renders the tailored text, not a sample and not an empty frame.
+The owner can read the whole thing before committing, because commit is the irreversible step.
+Any figure shown beside the draft states what it measured — see [[resume-match-gauge]].

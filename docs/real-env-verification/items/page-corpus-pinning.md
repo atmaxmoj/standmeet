@@ -1,33 +1,39 @@
 # page-corpus-pinning — homepage insights/projects = corpus pin windows
 
-- **Status:** ⬜ not-run
-- **Module:** the public page's insights/projects are ordered pin lists over the corpus (not a hand-maintained content store). Each pinned entry renders its title + excerpt and links into `/wiki/<path>`; a thought is stored once, in the corpus. Invariant **pinned ⊆ published** at both write ends (page.pin / admin PUT reject unpublished; unpublish auto-unpins + declares it). Design: `docs/design/page-corpus-pinning.md`.
-- **Surface:** owner MCP (`page.pin` / `page.unpin`) + admin `/admin/page` (PinManager: pick / unpin / reorder over `GET /page/pinnable`) → public homepage `/`.
-- **Real dep:** none external — real corpus + the publish toggle on the prod instance.
-- **Backing e2e:** `page-corpus-pinning.spec.ts` (6) · `chatroom-layout` · `public-page` (empty-section).
+- **Module:** The public page's insights and projects sections are ordered pin lists over the corpus, not a second content store. A pinned entry renders its title and excerpt and links into the reader. A thought is stored once. The invariant is that a pinned entry is always a published one, enforced at both write ends.
+- **Surface:** Owner MCP (`page.pin` / `page.unpin`) and `/admin/page`'s pin manager, rendering to the public homepage.
+- **Real dep:** none external. A real corpus and the publish toggle on the instance.
+- **Backing e2e:** `page-corpus-pinning` · `chatroom-layout` · `public-page`. Design: `docs/design/page-corpus-pinning.md`.
 
 ## Checks
 
-### 1 — Empty state + invariant honesty (pinned ⊆ published)
-- **Steps:** open `/admin/page` with no published wiki entries → look at the PinManager picker.
-- **Expected:** both sections show "no pins yet — this section is hidden on the page"; the picker says "nothing to pin — publish a corpus entry first". Consistent with the product's own surfaces (wiki rows badged "● private", `/admin/seo` indexing "pages 0").
-- **Backing test:** `page-corpus-pinning.spec.ts` (pin-unpublished-rejected)
-- **Result:** ⬜
+### 1 — With nothing published, both surfaces say so honestly
+- **Steps:** Start with no published wiki entries. Open `/admin/page` and read the pin manager and its picker. Open `/`.
+- **Expected:** Each section says it has no pins and that it is hidden on the page. The picker says there is nothing to pin and names publishing as the first step. The homepage renders neither section, header included.
+- **Backing test:** `page-corpus-pinning.spec.ts`
 
-### 2 — Publish → pin → homepage renders the card
-- **Steps:** publish one wiki entry via the wiki editor's public-landing panel (excerpt + publish toggle) → back on `/admin/page`, confirm it now appears in the picker → pin it → save → open `/`.
-- **Expected:** the homepage "things I've been thinking about" section appears with a card = the entry's title (link → `/wiki/<path>`) + its excerpt. Empty sections (projects, where) stay hidden, header included.
-- **Backing test:** `page-corpus-pinning.spec.ts` (pin→homepage renders)
-- **Result:** ⬜
+### 2 — Publishing makes an entry pinnable, and pinning renders it ⭐
+- **Steps:** Publish one wiki entry through the wiki editor, giving it an excerpt. Return to `/admin/page` and open the picker. Pin the entry. Save. Open `/`.
+- **Expected:** The entry appears in the picker only after publishing. The homepage section appears with a card carrying the entry's title and excerpt, linking into the reader at its real path.
+- **Backing test:** `page-corpus-pinning.spec.ts`
 
-### 3 — Unpublish a pinned entry → auto-unpin + card drops
-- **Steps:** unpublish a currently-pinned entry (wiki editor publish toggle off, or MCP `seo.set_wiki_seo published:false`) → check `/admin/page` and `/`.
-- **Expected:** the pin is removed from the section (the tool result / response declares which sections were touched); the homepage drops the card; if the section is now empty it hides entirely.
-- **Backing test:** `page-corpus-pinning.spec.ts` (unpublish auto-unpins)
-- **Result:** ⬜
+### 3 — Pinning an unpublished entry is refused
+- **Steps:** Attempt to pin an unpublished entry, through the MCP tool and through the admin write.
+- **Expected:** Both refuse, and the reason names the missing publish.
+- **Backing test:** `page-corpus-pinning.spec.ts`
+
+### 4 — Unpublishing a pinned entry unpins it and says so
+- **Steps:** Unpublish an entry that is currently pinned. Read the tool's response. Open `/admin/page`. Open `/`.
+- **Expected:** The pin is removed. The response declares which sections it touched, so the owner is not surprised later. The homepage drops the card, and hides the section if it is now empty.
+- **Backing test:** `page-corpus-pinning.spec.ts`
+
+### 5 — Reordering and unpinning behave
+- **Steps:** Pin several entries. Reorder them. Unpin one. Save. Open `/`.
+- **Expected:** The homepage order matches the pin order. The unpinned card is gone.
+- **Backing test:** `page-corpus-pinning.spec.ts`
 
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The pinned card links into the real reader (not a second copy of the content); empty sections render nothing, header included; the picker only offers published entries; reorder ↑/↓ + unpin behave.
 
-## Findings
-(record real-env mismatches here during the manual phase; also log `../findings.md`)
+A pinned card links into the real reader — a second copy of the content would mean the thought is stored twice.
+An empty section renders nothing at all, header included.
+The picker offers only what is publishable, so the invariant is visible in the UI and not just enforced on write.

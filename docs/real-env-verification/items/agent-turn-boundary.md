@@ -1,33 +1,30 @@
 # agent-turn-boundary — Agent loop: the iteration/time boundary synthesizes
 
-- **Status:** ✅ e2e-covered — F-A-4 fix; real turns bounded, no runaway observed live
-- **Module:** when a turn exhausts its iteration or time budget on a long tool chain, the boundary **synthesizes one grounded answer from gathered evidence** — it never emits planning narration as the product, never denies an existing note. The boundary is engineered, not just a bigger number. Home of the real-model eval rig.
-- **Surface:** visitor chat (backend agent loop) + the eval harness (`eval-harness/experiment_test.go`).
-- **Real dep:** real DeepSeek. The mock repro is circular (the mock IS my hypothesis of the bug) — this module verifies against the real model only.
-- **Inherits (historical finding IDs):** `F-A-4` (deterministic loop budget → planning narration instead of a synthesized answer).
-- **Backing e2e / evals:** `agent_product_test.go` (deterministic P1 guards) · `eval-harness/{narration_live,chain_exhaustion_live,experiment}_test.go` (real-model). Context evals lane: `eval-harness/{compaction,doc-context,cross-conversation}-test.sh`.
+- **Module:** When a turn exhausts its iteration or time budget on a long tool chain, the boundary synthesizes one grounded answer from the evidence gathered so far. It never ships planning narration as the product, and it never denies a note that exists. The boundary is engineered; a bigger budget is not a boundary.
+- **Surface:** Visitor chat, driven by the backend agent loop. Also the eval harness.
+- **Real dep:** A real model. A mock reproduction is circular here, because the mock would encode the very hypothesis under test.
+- **Backing e2e:** `agent_product_test.go` for the deterministic guards, and the real-model lane `eval-harness/{narration_live,chain_exhaustion_live,experiment}_test.go`. Context evals: `eval-harness/{compaction,doc-context,cross-conversation}-test.sh`.
 
 ## Checks
 
-### 1 — Broad question gets grounded synthesis, not narration ⭐  (was F-A-4)
-- **Steps:** a broad "survey everything" question that forces many wide searches → let the loop approach its iteration/time budget → inspect the product.
-- **Expected:** the turn returns a synthesized, corpus-grounded answer; the product contains no planning narration ("Let me survey… Let me check my notes…"); the boundary fires a forced-final synthesis on a detached context, not a hard stop.
-- **Backing:** `narration_live_test.go` · `experiment_test.go` (broad shape). Deterministic: `agent_product_test.go`.
-- **Result:** ✅ — F-A-4 engineered turn boundary; re-pass live turns gave grounded synthesis (searched 8·read 18), not narration.
-### 2 — Deep chain exhaustion behaves gracefully  (was F-A-4)
-- **Steps:** a sequential 33-hop concept chain (read → next → read) that forces a deep crawl → let it hit the boundary.
-- **Expected:** a PARTIAL digest framed as "ran out of budget" (head+tail evidence retained), **never** a claim that an existing note doesn't exist.
-- **Backing:** `chain_exhaustion_live_test.go` · `experiment_test.go` (chain shape).
-- **Result:** ✅ e2e-covered — deep-chain exhaustion bounded (iteration + time walls).
-### 3 — Context evals promoted to a real-LLM lane  (was §A19)
-- **Steps:** run `eval-harness/{compaction-test.sh,doc-context-test.sh,cross-conversation-test.sh}` against DeepSeek (`EVAL_KEY`).
-- **Expected:** each passes on a real model — compaction retains the thread, doc-context grounds, cross-conversation carries state. `manual-only` today (real-key, single-persona); the ask is to schedule them as a routine real-LLM lane.
-- **Backing test:** the scripts above (real-key manual, not CI). No CI backing (gap).
-- **Result:** ✅ — context evals run against the REAL model lane (eval-harness).
+### 1 — A budget-exhausting broad question returns synthesis, not narration ⭐
+- **Steps:** Ask a question broad enough to force many wide searches. Let the loop approach its budget. Read what the visitor receives.
+- **Expected:** One synthesized, corpus-grounded answer. The product contains no planning narration. The boundary fires a forced final synthesis on a detached context rather than stopping hard.
+- **Backing test:** `narration_live_test.go` · `agent_product_test.go`
+
+### 2 — A deep chain that runs out says so, and keeps its evidence
+- **Steps:** Ask something that forces a long sequential crawl — read, follow, read again, dozens of hops. Let it hit the boundary. Read the answer.
+- **Expected:** A partial digest framed as having run out of budget, retaining evidence from both the start and the end of the chain. It never claims that a note it did not reach does not exist.
+- **Backing test:** `chain_exhaustion_live_test.go` · `experiment_test.go`
+
+### 3 — Context behaviour holds on a real model
+- **Steps:** Run the compaction, doc-context and cross-conversation evals against a real model.
+- **Expected:** Compaction retains the thread. Doc-context grounds. Cross-conversation carries state.
+- **Mock gap:** These run by hand with a real key and a single persona. Nothing schedules them, so a regression waits for someone to remember.
+- **Backing test:** `eval-harness/*-test.sh` · CI → `gap`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-On a budget-exhausting turn the visitor sees ONE coherent answer, not a wall of "let me…" lines; no error card, no truncated-mid-tool bubble.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-A-4` historical anchor)
-
-- **F-A-4 fixed** (4 commits): head+tail evidence ledger with PARTIAL digest; process≠product classifier (text in a round ending with tool calls is process); force-final synthesis on `WithoutCancel`+60s; both walls engineered (iterations 8→24, time 120→300s). Regressed manually on the real prod GUI: clean answer + live `corpus_map`/`corpus_resolve`.
+On a budget-exhausting turn the visitor sees one coherent answer, not a wall of "let me…" lines.
+No error card and no bubble truncated in the middle of a tool call.
+A partial answer says it is partial — silence about the limit is what makes a truncated answer read as a wrong one.

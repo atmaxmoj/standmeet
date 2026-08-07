@@ -1,32 +1,31 @@
 # connector-security — Connectors: secret at-rest + SSRF + rotation
 
-- **Status:** ✅ verified — connectors page loads; api/calendar/mail all not-connected (honest); capabilities panel real
-- **Module:** connector credentials are encrypted + AAD-bound and never leak (transcript/logs/status); the runtime dialer blocks SSRF (DNS-rebind to private IPs) live; an `INSTANCE_SECRET` rotation degrades to a friendly reconnect, not a decrypt panic.
-- **Surface:** admin/connectors (secret masking) + backend runtime dialer.
-- **Real dep:** prod stack with `CONNECTOR_EGRESS_ALLOW` empty (so the SSRF guard is live) + a hostname you control that can flip DNS to a private IP; for rotation, a DB of encrypted creds + an `INSTANCE_SECRET` change.
-- **Backing e2e:** `connector-secret-no-leak` · `connector-security` · Go unit `backend/internal/connector/egress_test.go` · `connector-secret-no-leak` (nearest at-rest).
+- **Module:** Connector credentials are encrypted and AAD-bound, and never leak on any surface. The runtime dialer blocks SSRF, including a host that resolves public and then flips to a private address. Rotating the instance secret degrades to a friendly reconnect, not a decrypt panic.
+- **Surface:** `/admin/connectors` for masking, and the backend runtime dialer for egress.
+- **Real dep:** A prod stack with the egress allow-list EMPTY, so the guard is live. A hostname you control that can flip DNS to a private IP. For rotation, a database holding encrypted credentials and a changed instance secret.
+- **Backing e2e:** `connector-secret-no-leak` · `connector-security` · Go unit `egress_test.go`. Rotation → `gap`.
 
 ## Checks
 
-### 1 — Credential at-rest (AAD-bound, never in transcript/logs)  (was §H4)
-- **Steps:** inspect the stored connector credential → confirm it is encrypted + AAD-bound; grep the transcript and logs for the raw secret.
-- **Expected:** the raw secret is never returned on any surface and is masked in status/list; it never appears in a transcript or a log line.
+### 1 — A stored credential is encrypted and bound
+- **Steps:** Read the stored credential directly from the database. Read the connector's status and list responses. Grep a session transcript and the logs for the raw secret.
+- **Expected:** The stored value is ciphertext bound to this owner. The raw secret appears on no surface, in no transcript, and in no log line. Status and list show it masked.
 - **Backing test:** `connector-secret-no-leak.spec.ts` · `connector-security.spec.ts`
-- **Result:** ✅ — credential at-rest AAD-bound; connectors page shows honest not-connected; secrets never in transcript (connector-security design).
-### 2 — SSRF BLOCK path (never runs in CI) ⭐  (was §H5)
-- **Steps:** build a connector whose `servers[].url` (or OAuth token URL) resolves **public first, then flips to a private IP** — DNS-rebind to `169.254.x` / `127.x` / an IPv6-private address — and one whose redirect lands on a private IP mid-call.
-- **Expected (likely RED at e2e):** the runtime dialer refuses with `ErrBlockedEgress`; assembly is refused for a statically-internal URL.
-- **⚠️ mock gap:** `CONNECTOR_EGRESS_ALLOW=external-mock` **whitelists the mock host**, so `safeDialAddr` (`egress.go:104`, whitelist short-circuit `:109`) **never actually blocks** in CI — the DNS-rebind block branch (`resolveSafeIP`, `egress.go:145-149`) is only ever exercised by a Go unit test, **never by an e2e against a real rebinding host**. The whole SSRF thesis, unwalked live.
-- **Backing test:** `connector-security.spec.ts` (`ssrfConsumeTimeRejected` / `ssrfOAuthDanceRedirectRejected` — both hit `external-mock`, not a real rebinding host) · Go unit `egress_test.go`
-- **Result:** ✅ — SSRF block path guarded by e2e (never runs in CI live, but the block is asserted).
-### 3 — Envelope decrypt + `INSTANCE_SECRET` rotation (partial)  (was §P3)
-- **Steps:** with a DB holding real encrypted connector creds, rotate `INSTANCE_SECRET` → attempt to use a connector → observe.
-- **Expected:** a friendly "reconnect required" (AAD mismatch handled), **not** a decrypt panic.
-- **⚠️ partial:** needs a populated encrypted-creds DB + a rotation event — not driven by any current spec (gap). Reproducible in a harness (encrypt under key A, boot under key B, assert friendly error).
-- **Backing test:** no dedicated spec (gap); `connector-secret-no-leak.spec.ts` is the nearest cred-at-rest coverage.
-- **Result:** ✅ — envelope decrypt + INSTANCE_SECRET rotation: e2e-covered (partial live).
-## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-Every connector surface (status / list / edit) shows the secret **masked** — never a raw key; a blocked-egress or rotation error reads friendly.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-H-n` / `F-P-n` historical anchor)
+### 2 — The dialer blocks a host that flips to a private address ⭐
+- **Steps:** Point a connector at a hostname you control that resolves public first and then to a private address. Call through it. Then try one whose redirect lands on a private address mid-call.
+- **Expected:** The dialer refuses both with a blocked-egress error. Assembly is refused outright for a statically internal URL.
+- **Mock gap:** CI whitelists the mock host, so the whitelist short-circuits before the guard ever runs. The rebind branch is exercised only by a Go unit test, never end to end against a real rebinding host. The SSRF thesis is unwalked live.
+- **Backing test:** `connector-security.spec.ts` (hits the whitelisted mock) · `egress_test.go` (unit) · a real rebinding host → `gap`
+
+### 3 — Rotating the instance secret asks for a reconnect
+- **Steps:** Start from a database holding real encrypted credentials. Change the instance secret. Restart. Use a connector.
+- **Expected:** The owner sees a message asking them to reconnect. The process does not panic and the surface does not show a decrypt error.
+- **Mock gap:** No spec drives a rotation. It is reproducible in a harness: encrypt under one key, boot under another, assert the friendly error.
+- **Backing test:** `gap`
+
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+
+Every connector surface — status, list, edit — shows the secret masked, never a raw key.
+A blocked egress and a rotation mismatch both reach the owner as sentences they can act on.
+A connector that says it is connected can actually be called; a status that cannot be trusted is worse than none.

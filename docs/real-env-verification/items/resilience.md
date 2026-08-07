@@ -1,33 +1,30 @@
-# resilience — Live-only resilience: eviction, Meili drift, models discovery
+# resilience — Live-only resilience: eviction, search drift, models discovery
 
-- **Status:** ✅ e2e-covered — no crashes/500s across this round's live driving; error surfacing intact
-- **Module:** the failure modes no mock exercises — Redis TTL eviction under memory pressure, Meilisearch version drift / `WaitForTask` latency at scale, and inference `/v1/models` discovery (a different endpoint than chat) — all degrade friendly, no 500, no leak.
-- **Surface:** backend + admin/BYOAI model picker (for models discovery).
-- **Real dep:** a memory-capped Redis; a pinned prod Meili at scale (optional — prod default is PG-FTS, see [[corpus-search]]); a real inference key.
+- **Module:** The failure modes no mock exercises. Redis evicting under memory pressure, a search engine drifting or lagging at scale, and inference model discovery — a different endpoint from chat. Each degrades to a sentence the owner can act on, with no 500 and no leak of an upstream body.
+- **Surface:** The backend, and the model picker used for BYOAI.
+- **Real dep:** A memory-capped Redis. A real inference key. Optionally a pinned search engine at scale — prod's default is the Postgres path, see [[corpus-search]].
 - **Backing e2e:** `job-fetch-ttl-eviction` · `session-token-eviction` · `retrieval-degrade` · `retrieval-search-consistency` · `inference-usage` · `security-inference-models-ssrf`.
 
 ## Checks
 
-### 1 — Redis TTL eviction under memory pressure  (was §P4)
-- **Steps:** run a memory-capped Redis with a `maxmemory-policy` → fill the 1d job pool until eviction → confirm graceful behavior; bounce Redis → confirm sessions/rate-limit recover.
-- **Expected:** eviction is graceful (a `jobs.show` on an evicted/expired `cache_id` errors friendly, not 500); after a Redis bounce, sessions and rate-limit buckets recover.
-- **Backing test:** `job-fetch-ttl-eviction.spec.ts:33` · `session-token-eviction.spec.ts:41`
-- **Result:** ✅ e2e-covered — Redis TTL eviction; F-L-11 session-liveness now also validates against expiry live.
-### 2 — Meili version drift + `WaitForTask` latency at scale  (was §P5)
-- **Steps:** index a few-thousand-doc corpus on a **pinned prod Meili** → check write-then-search consistency + latency → then **kill Meili** and confirm a clean **PG fallback** (the fallback itself is [[corpus-search]] check 3).
-- **Expected:** write-then-search is consistent at scale; killing Meili degrades to PG-FTS without a 500; recovery re-indexes.
-- **⚠️ prod-default note:** **prod ships WITHOUT meilisearch** — so `corpus_search` runs on the **PG-FTS fallback by DEFAULT**. The "Meili at scale" half only applies if an owner opts Meili in; verify the *fallback* is the primary prod path.
-- **Backing test:** `retrieval-degrade.spec.ts:56` · `:73` · `retrieval-search-consistency.spec.ts:108`
-- **Result:** ✅ e2e-covered — Meili drift + WaitForTask latency.
-### 3 — Inference `/v1/models` discovery  (was §P6)
-- **Steps:** with a real inference key, hit the admin/BYOAI model picker → it calls `/v1/models` (a **different** endpoint than chat, `inference_models.go:147`) → verify a key that can chat but can't list models, a 429, and a sanitized error.
-- **Expected:** the picker lists real models when the key is scoped for it; a chat-only key gives a friendly "can't list" (not a leak of the raw upstream body); 429 handled; SSRF-guarded (no internal dial).
-- **Backing test:** `security-inference-models-ssrf.spec.ts:24` · `inference-usage.spec.ts:57`
-- **Result:** ✅ — inference /v1/models discovery works (BYOAI load-models fired live this round).
+### 1 — Eviction is graceful, and a restart recovers
+- **Steps:** Run Redis with a memory cap and an eviction policy. Fill the job pool until eviction happens. Ask for an evicted entry by id. Then restart Redis and use an existing session and a rate-limited key.
+- **Expected:** The evicted lookup returns a friendly error, not a 500. After the restart, sessions and rate-limit buckets recover rather than wedging.
+- **Backing test:** `job-fetch-ttl-eviction.spec.ts` · `session-token-eviction.spec.ts`
+
+### 2 — Search stays consistent at scale, and its loss degrades
+- **Steps:** Index a few thousand documents on a pinned engine. Write, then search immediately. Measure how long a search takes. Stop the engine and search again.
+- **Expected:** Write-then-search is consistent at scale and the latency stays usable. Stopping the engine falls back to Postgres full text without a 500, and recovery re-indexes.
+- **Note:** Prod ships without the engine, so the fallback is the normal path, not the emergency one.
+- **Backing test:** `retrieval-degrade.spec.ts` · `retrieval-search-consistency.spec.ts`
+
+### 3 — Model discovery handles a key that cannot list ⭐
+- **Steps:** Open the model picker with a real key. Then use a key that can chat but cannot list models. Then drive it into a rate limit. Then point it at an internal address.
+- **Expected:** A scoped key lists real models. A chat-only key gets a sentence saying it cannot list, with no raw upstream body echoed back. A rate limit is handled. An internal address is refused.
+- **Backing test:** `security-inference-models-ssrf.spec.ts` · `inference-usage.spec.ts`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The admin/BYOAI **model picker lists models** (not empty/errored); an eviction or degrade shows friendly copy, never a 500 page.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-P-n` historical anchor)
-
-- **P5 confirmed** (first pass): no meili in prod → corpus_search on PG-FTS by default. P1 (Retry-After) → [[agent-loop-robustness]]; P2/P3 → [[calendar-connect]]/[[connector-security]].
+The model picker lists models rather than sitting empty or showing an error.
+Every degraded path reaches the owner as a sentence, never as a 500 page and never as a raw upstream payload.
+A recovered dependency leaves no wedged state behind — check the surface again after the restart, not only during the outage.
