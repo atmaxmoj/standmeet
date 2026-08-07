@@ -232,7 +232,23 @@ async function runSubmit(
     setState({ busy: false, error: null });
     return ok;
   } catch (e) {
-    setState({ busy: false, error: e instanceof Error ? e.message : 'submit failed' });
+    setState({ busy: false, error: submitErrorText(e) });
     return false;
   }
+}
+
+// submitErrorText —— 后端为每一种拒绝都写了一句给访客看的话("access code invalid or revoked"、
+// "this code is full — no more names available"),那就把那句话说出来。拿不到才退到一句通用的:
+// `issue session: 403` 这种给不了访客任何东西(F-A-23)。
+function submitErrorText(e: unknown): string {
+  const fromServer = serverMessageOf(e);
+  return fromServer !== '' ? fromServer : 'Couldn’t check that just now. Try again.';
+}
+
+// serverMessageOf —— SDK 把信封里的 message 挂在抛出的 Error 上。类型断言在这个 repo 里
+// 是禁的,所以走 in + typeof 逐步收窄。
+function serverMessageOf(e: unknown): string {
+  if (typeof e !== 'object' || e === null || !('serverMessage' in e)) return '';
+  const msg: unknown = e.serverMessage;
+  return typeof msg === 'string' ? msg : '';
 }

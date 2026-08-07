@@ -127,7 +127,16 @@ func preferable(cand, cur *entity.MarketSkill) bool {
 	if ca != cb {
 		return ca < cb
 	}
-	return cand.Stars > cur.Stars
+	return starsOrZero(cand) > starsOrZero(cur)
+}
+
+// starsOrZero —— 只在"谁更值得留下"这个排序里把未知当 0。展示层不许这么做:
+// 那里 nil 必须继续是 nil,否则 `★ 0` 会把"不知道"说成"零颗星"(F-F-2)。
+func starsOrZero(s *entity.MarketSkill) int {
+	if s.RepoStars == nil {
+		return 0
+	}
+	return *s.RepoStars
 }
 
 func nonASCIICount(s string) int {

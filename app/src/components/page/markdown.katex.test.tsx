@@ -36,4 +36,42 @@ describe('ChatMarkdown · KaTeX layout survives the sanitize pipeline', () => {
     expect(html, 'the katex strut must keep its height (else the box collapses to one line)')
       .toMatch(/class="strut"[^>]*style="height:/);
   });
+
+  // F-R-4 —— 访客在真 vault 笔记里读到的是 TeX 源码:一段证明的中间冒出
+  // `$0<h_1<h_2, ,t=h_1/h_2, ,...` 和一串 `\varphi` `\le`,而周围的词还被粘成了
+  // `dividingby` / `isnondecreasingandbounded`。
+  //
+  // 下面这一行是那条笔记里的原文(cybernetics/.../adaptive-commitment-value.md:40),
+  // 它坐在三层嵌套的 callout(`> > >`)里 —— 页面上其余的公式都渲染正常,所以要复现就得
+  // 连它所在的那个容器一起搬过来。
+  const PROOF_LINE =
+    '> > > For $h>0$ let $D(h)=\\frac{\\varphi(a+h)-\\varphi(a)}{h}$. '
+    + 'For $0<h_1<h_2$, $t=h_1/h_2$, $a+h_1=(1-t)a+t(a+h_2)$, so '
+    + '$\\varphi(a+h_1)\\le(1-t)\\varphi(a)+t\\varphi(a+h_2)$; dividing by $h_1=th_2$ '
+    + 'gives $D(h_1)\\le D(h_2)$.';
+
+  it('renders every inline span inside a nested callout — no TeX source reaches the reader (F-R-4)', () => {
+    const html = renderToStaticMarkup(<ChatMarkdown source={PROOF_LINE} variant="article" />);
+    // katex 自己会把原始 TeX 回声进 <annotation>(MathML 的语义分支),所以要判"有没有源码
+    // 漏到读者眼前",得先把 <math> 整块摘掉 —— 否则这条断言在修好之后也永远红。
+    const visible = html.replace(/<math[\s\S]*?<\/math>/g, '');
+    expect(visible, '一条 \\varphi 都不该以源码形态到达访客').not.toContain('\\varphi');
+    expect(visible, '\\le 同理').not.toContain('\\le');
+    expect(visible, '一个 $ 都不该剩下 —— 剩下就说明有一段没被当成公式').not.toContain('$');
+    // 每一段 `$...$` 都该变成一个 katex 节点。源里有 6 段。
+    const katexNodes = (html.match(/class="katex"/g) ?? []).length;
+    expect(katexNodes, '6 段行内公式,一段都不许漏').toBeGreaterThanOrEqual(6);
+  });
+
+  // 同一处修改的另一半:货币那条规则(#36/#40)必须继续成立 —— 两个金额之间的话不许被当公式吃掉。
+  // 这两条断言必须一起看:F-R-4 的根因正是"为货币写的规则吃掉了紧挨着的公式",
+  // 只测一边就会在两个方向之间来回撞。
+  it('two currency amounts in one sentence stay literal (#36/#40 still holds)', () => {
+    const html = renderToStaticMarkup(
+      <ChatMarkdown source="Pricing: it cost $100 up front and $200 on renewal." variant="article" />,
+    );
+    expect(html, '两个金额都要原样出现').toContain('$100');
+    expect(html).toContain('$200');
+    expect(html, '中间那段话不许被当成公式').not.toContain('class="katex"');
+  });
 });

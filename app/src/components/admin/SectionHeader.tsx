@@ -14,7 +14,10 @@ type Props = {
 
 export function SectionHeader(props: Props) {
   return (
-    <div className="flex items-baseline justify-between border-b border-(--color-rule) pb-4 mb-7 gap-6">
+    <div
+      data-testid="section-header"
+      className="flex items-baseline justify-between border-b border-(--color-rule) pb-4 mb-7 gap-6"
+    >
       <SectionHeaderTitle
         title={props.title}
         kicker={props.kicker}

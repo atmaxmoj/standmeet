@@ -65,7 +65,10 @@ export function pulseView(g: CorpusGrowth | null): PulseView {
   return {
     spark: sparkline(g.series.map((d) => d.count)),
     total: String(g.total),
-    delta: `${g.delta_7d >= 0 ? '+' : ''}${g.delta_7d} · 7d`,
+    // "in 7d",不是裸的 "· 7d"。标题那边是火花线的 14 天窗口,这边是增量的 7 天窗口 ——
+    // 两个不相干的窗口一旦都缩成裸令牌并排放着,整块就读成了一个范围切换器,而它谁也切不了
+    // (F-C-7:我在冷扫时真去点了那个 "7d")。让每个数字自己说清楚量的是哪一段。
+    delta: `${g.delta_7d >= 0 ? '+' : ''}${g.delta_7d} in 7d`,
     tiers: `${g.by_tier.raw} raw · ${g.by_tier.wiki} wiki · ${g.by_tier.output} out`,
   };
 }

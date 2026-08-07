@@ -12,10 +12,9 @@ import { useTranslations } from 'next-intl';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
 import {
-  APPLICATION_STATUSES,
   pillToneFor,
+  submissionLabel,
   type Application,
-  type ApplicationStatus,
 } from '@/lib/admin/applications-model';
 import { listViewKind } from '@/lib/admin/list-view-kind';
 import {
@@ -29,7 +28,7 @@ export function ApplicationsSection() {
   return (
     <>
       <SectionHeader
-        kicker="jobs · sent"
+        kicker="jobs · committed"
         title="applications"
         count={titleCount(rows.length, loading)}
       />
@@ -42,8 +41,10 @@ export function ApplicationsSection() {
   );
 }
 
+// titleCount —— 数的是申请行,不是"已投出"的申请:今天没有任何代码会把一行标成投出去了,
+// 所以 `N sent` 这句话在每一台实例上都是假的(F-E-3)。
 function titleCount(n: number, loading: boolean): string {
-  return loading ? 'loading…' : `${n} sent`;
+  return loading ? 'loading…' : `${n} committed`;
 }
 
 function Intro() {
@@ -125,11 +126,12 @@ function toDetailApp(row: AdminApplicationRow): Application {
     id: row.id,
     company: row.company,
     role: row.role,
-    sentAt: row.submitted_at,
+    committedAt: row.created_at,
+    submittedAt: realDate(row.submitted_at),
     method: 'autofill',
     contact: '—',
     notes: '',
-    status: parseAppStatus(row.status),
+    state: submissionLabel(row.status),
     resumeDelta: '',
   };
 }
@@ -190,36 +192,50 @@ function RowHead({ row }: { row: AdminApplicationRow }) {
           · {row.role}
         </span>
       </div>
-      <StatusPill status={parseAppStatus(row.status)} />
+      <StatusPill id={row.id} wire={row.status} />
     </div>
   );
 }
 
+// RowMeta —— commit 那一刻是真的,投递那一刻今天还没有(没有代码写它)。
+// 上一版把 `sent —` 排在第一位:一个断言"已投出"的标签配一个不存在的日期。
 function RowMeta({ row }: { row: AdminApplicationRow }) {
   const t = useTranslations('adminJobs');
   return (
     <div className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) flex items-baseline gap-3 flex-wrap mt-2">
-      <span>{t('applications.metaSent', { date: formatDate(row.submitted_at) })}</span>
+      <span>{t('applications.metaCommitted', { date: formatDate(row.created_at) })}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>{t('applications.metaCreated', { date: formatDate(row.created_at) })}</span>
+      <SubmittedMeta iso={realDate(row.submitted_at)} />
     </div>
   );
 }
 
-function formatDate(iso: string): string {
-  return iso === '' || iso.startsWith('0001') ? '—' : iso.slice(0, 10);
-}
-
-function parseAppStatus(s: string): ApplicationStatus {
-  const found = APPLICATION_STATUSES.find((x) => x === s);
-  return found ?? 'silent';
-}
-
-function StatusPill({ status }: { status: ApplicationStatus }) {
+function SubmittedMeta({ iso }: { iso: string }) {
+  const t = useTranslations('adminJobs');
   return (
-    <span className={`sm-pill ${pillToneFor(status)}`}>
+    <span>
+      {iso === ''
+        ? t('applications.metaNotSubmitted')
+        : t('applications.metaSubmitted', { date: iso.slice(0, 10) })}
+    </span>
+  );
+}
+
+// realDate —— pg 的 NULL timestamptz 经 Go 的零值走过来是 "0001-01-01T…"。
+// 那不是一个日期,是"没有";空串统一表示"没有"。
+function realDate(iso: string): string {
+  return iso === '' || iso.startsWith('0001') ? '' : iso;
+}
+
+function formatDate(iso: string): string {
+  return realDate(iso) === '' ? '—' : iso.slice(0, 10);
+}
+
+function StatusPill({ id, wire }: { id: string; wire: string }) {
+  return (
+    <span className={`sm-pill ${pillToneFor(wire)}`} data-testid={`application-state-${id}`}>
       <span className="sm-dot-mark" />
-      {status}
+      {submissionLabel(wire)}
     </span>
   );
 }

@@ -13,6 +13,16 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { fetchItemCount, fetchRecentConversations, type DashboardRecentRow } from '@/lib/admin/dashboard-fetch';
 import { Sparkline } from '@/components/admin/atoms/Sparkline';
 import {
+  jobHeadline,
+  jobHint,
+  poolCountLabel,
+  poolHeadState,
+  type JobsLoopInput,
+  type PoolHeadState,
+} from '@/lib/admin/jobs-loop-view';
+import { useAdminListings } from '@/lib/admin/use-admin-listings';
+import { useAdminSources } from '@/lib/admin/use-admin-sources';
+import {
   allActionItems,
   useAdminDashboard,
   type ActionItem,
@@ -127,8 +137,16 @@ function CorpusSparkline({ pulse, days }: { pulse: readonly number[]; days: read
 function JobsHeat() {
   const t = useTranslations('adminShell.dashboard');
   const { sent } = useApplicationCount();
+  const sources = useAdminSources();
+  const listings = useAdminListings();
+  const loop: JobsLoopInput = {
+    sourceCount: sources.rows.length,
+    listings: listings.rows,
+    loading: sources.loading || listings.loading,
+    error: sources.error ?? listings.error,
+  };
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="dash-jobs-panel">
       <GroupHeader title="jobs · active loop" action={
         <Link href="/admin/listings" className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)">
           {t('viewAll')}
@@ -136,17 +154,24 @@ function JobsHeat() {
       } />
       <div className="grid grid-cols-2 gap-3 mt-2">
         <div>
-          <div className="sm-smallcaps mb-1">{t('shortlist')}</div>
-          <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">0</div>
+          {/* 词汇跟 /admin/listings 对齐:那边写 "in pool",产品里没有 shortlist 这个东西。 */}
+          <div className="sm-smallcaps mb-1">{t('inPool')}</div>
+          <div
+            className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none"
+            data-testid="dash-pool-count"
+          >
+            {poolCountLabel(loop)}
+          </div>
         </div>
         <div>
-          <div className="sm-smallcaps mb-1">{t('sent')}</div>
+          <div className="sm-smallcaps mb-1">{t('applications')}</div>
           <StatCount state={sent} testid="dash-applications-sent" />
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-(--color-rule)/60">
-        <div className="sm-smallcaps mb-1">{t('topMatch')}</div>
-        <JobsTopMatch />
+        {/* 「top match」是 Claude 排的,StandMeet 排不出来 —— 所以这里报的是池子里最新的一条。 */}
+        <div className="sm-smallcaps mb-1">{t('newestInPool')}</div>
+        <PoolHead state={poolHeadState(loop)} />
       </div>
     </div>
   );
@@ -182,15 +207,31 @@ function StatCount({ state, testid }: { state: CountState; testid: string }) {
   );
 }
 
-function JobsTopMatch() {
+// PoolHead —— 这一行说的是池子此刻的真状态。五个分支各说各的话,尤其把"一个源都没有"
+// 和"源有了但没 fetch"分开 —— 上一版把两者(以及其余三种)都说成"去注册源"(F-E-2)。
+function PoolHead({ state }: { state: PoolHeadState }) {
   const t = useTranslations('adminShell.dashboard');
+  const lines = {
+    loading: { head: t('poolLoading'), hint: '' },
+    error: { head: t('poolError'), hint: '' },
+    noSources: { head: t('registerSources'), hint: t('sourcesHint') },
+    noFetch: { head: t('nothingFetched'), hint: t('nothingFetchedHint') },
+    job: { head: jobHeadline(state), hint: jobHint(state) },
+  } as const;
+  return <PoolHeadLines line={lines[state.kind]} />;
+}
+
+function PoolHeadLines({ line }: { line: { head: string; hint: string } }) {
   return (
     <>
-      <div className="font-serif text-[16px] text-(--color-muted) italic">
-        {t('registerSources')}
+      <div
+        className="font-serif text-[16px] text-(--color-muted) italic"
+        data-testid="dash-pool-head"
+      >
+        {line.head}
       </div>
       <div className="mono text-[10px] text-(--color-faint) tracking-[0.06em] mt-1">
-        {t('sourcesHint')}
+        {line.hint}
       </div>
     </>
   );

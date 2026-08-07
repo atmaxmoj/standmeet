@@ -47,6 +47,47 @@ test.describe('admin applications UI', () => {
       // At least one row/card should appear (not the empty state)
       await expect(adminPage.getByText(/no applications/i)).toHaveCount(0, { timeout: 5_000 });
     });
+
+  // F-E-3 —— 刚 commit 的申请卡片上写着 `SENT —`:一个断言"已投出"的标签,配一个不存在的日期。
+  // 真相在库里:`applications.status` 建出来就是 'pending'、`submitted_at` 是 NULL,而**没有任何
+  // 代码会改它们** —— job-loop 第 4 步(Playwright 真投递)还不存在,所以"sent"这个词在今天的产品里
+  // 没有东西能让它变成真的。前端离得更远:它的枚举是 silent/reviewing/replied/rejected/offer
+  // (recruiter 回没回),跟后端的 pending/submitted 完全不相交,于是每一行都被兜底渲染成 SILENT。
+  //
+  // 这条断言只要求一件事:卡片报**产品真的知道的**那件事 —— 已 commit(日期是真的)、投递尚未记录。
+  test('a committed application reports what the product actually knows (F-E-3)',
+    async ({ playwright, adminPage }) => {
+      const request = await playwright.request.newContext();
+      await seedApplication(request);
+      await request.dispose();
+      await gotoAdminSection(adminPage, 'applications');
+      const card = adminPage.getByTestId('applications-list').locator('> div').first();
+      await expect(card).toBeVisible({ timeout: 5_000 });
+
+      const today = new Date().toISOString().slice(0, 10);
+      await expect(card, 'commit 是真发生过的,日期必须是真的').toContainText(today);
+
+      // 取一次文本再断言。`.not.toContainText()` 是会重试的,而元素还没出现的那一刻它也算过 ——
+      // 一条永远能绿的断言;这一版把它变成对一个确定字符串的判断。
+      const cardText = (await card.innerText()).toLowerCase();
+      expect(
+        cardText,
+        '没有任何代码会把它变成 submitted,所以卡片不许把 commit 说成 sent',
+      ).not.toMatch(/\bsent\b/);
+      expect(
+        cardText,
+        'recruiter 有没有回,产品根本没有写入口 —— 不许兜底编一个 SILENT 出来',
+      ).not.toMatch(/\bsilent\b/);
+      await expect(
+        card.getByTestId(/^application-state-/),
+        '状态说的是投递这条轴:刚 commit = committed',
+      ).toHaveText(/committed/i);
+
+      const headerText = (
+        await adminPage.getByTestId('section-header').innerText()
+      ).toLowerCase();
+      expect(headerText, '标题也一样:数的是申请,不是已投出的申请').not.toMatch(/\bsent\b/);
+    });
 });
 
 async function seedApplication(request: APIRequestContext): Promise<void> {

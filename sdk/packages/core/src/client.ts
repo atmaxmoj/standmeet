@@ -120,12 +120,19 @@ async function issueSession(
     body: JSON.stringify(input),
   });
   if (!res.ok) {
-    // 把 status + 后端错误 code(member_quota_reached / code_invalid …)挂到 error
-    // 上,让前端区分"code 已满"等情形给人话提示。
-    const body = (await res.json().catch(() => ({}))) as { code?: unknown };
+    // 后端的错误信封是 `{"error":{"code","message"}}`,而上一版读的是顶层 `body.code` ——
+    // 那个字段根本不存在,于是 code 永远是空串,message 一路被丢掉。信封里那句
+    // 「this code is full — no more names available」是**写给访客看的**,却从来没到过屏幕上:
+    // gate 只剩一个布尔,把每一种失败都说成 "unknown code",拿着有效邀请、只是名额满了的人
+    // 被告知他的码不存在(F-A-23)。code 和 message 都带上。
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: { code?: unknown; message?: unknown };
+    };
+    const env = body.error ?? {};
     throw Object.assign(new Error(`issue session: ${res.status}`), {
       status: res.status,
-      code: typeof body.code === 'string' ? body.code : '',
+      code: typeof env.code === 'string' ? env.code : '',
+      serverMessage: typeof env.message === 'string' ? env.message : '',
     });
   }
   return (await res.json()) as PublicSessionResponse;

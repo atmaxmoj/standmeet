@@ -1,7 +1,6 @@
 {
   "sidebar": {
     "instanceLabel": "instance ·",
-    "instanceName": "standmeet",
     "uptimeLabel": "uptime ·",
     "groupPrefix": "──"
   },
@@ -13,7 +12,8 @@
     "signOut": "sign out"
   },
   "pulse": {
-    "title": "corpus pulse · 14d"
+    "title": "corpus pulse",
+    "sparkWindow": "new entries per day, last 14 days"
   },
   "constellation": {
     "empty": "no links yet"
@@ -115,15 +115,19 @@
   "dashboard": {
     "corpusActive": "↑ corpus active",
     "entriesTotal": "entries · total",
-    "daysAgo14": "14d ago",
+    "daysAgo14": "new per day · 14d ago",
     "today": "today",
     "viewAll": "view all →",
     "all": "all →",
-    "shortlist": "shortlist",
-    "sent": "sent",
-    "topMatch": "top match",
+    "inPool": "in pool",
+    "applications": "applications",
+    "newestInPool": "newest in pool",
+    "poolLoading": "reading the pool…",
+    "poolError": "Couldn’t read the job pool. Reload and retry.",
     "registerSources": "register sources to start matching",
-    "sourcesHint": "/admin/sources → fetch → listings ranked by corpus match",
+    "sourcesHint": "/admin/sources → fetch → listings land here for a day",
+    "nothingFetched": "sources are registered — nothing fetched lately",
+    "nothingFetchedHint": "ask Claude to run jobs.fetch_new; results land in /admin/listings for a day",
     "recentError": "Couldn’t load recent visitors. Reload and retry.",
     "noConversations": "no conversations yet — visitors will appear here once they start chatting",
     "visitorMeta": "{label} · {turns} turns · {last}",

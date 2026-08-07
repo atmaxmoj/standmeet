@@ -25,9 +25,13 @@ const (
 // `skillsmp.com/skills/<id>`. The backend doesn't link out to it; the
 // frontend renders it as plain monospace text.
 //
-// Field order packs the GC-scannable pointers (strings) before the
-// non-pointer Stars (int) so fieldalignment sees a smaller scan window.
+// RepoStars is the star count of the REPOSITORY the skill lives in — not of the skill. Skills
+// are folders inside a repo, so siblings legitimately share one number; the earlier name `Stars`
+// invited the card to present it as this skill's popularity (F-F-2). nil means "not known from
+// this source" and must stay distinguishable from zero: the GitHub path has no per-skill figure
+// at all, and rendering that as `★ 0` tells the owner this skill has no stars.
 type MarketSkill struct {
+	RepoStars   *int         `json:"repo_stars"`
 	ID          string       `json:"id"`
 	Name        string       `json:"name"`
 	Author      string       `json:"author"`
@@ -36,7 +40,6 @@ type MarketSkill struct {
 	Description string       `json:"description"`
 	SourceURL   string       `json:"source_url"`
 	Source      MarketSource `json:"source"`
-	Stars       int          `json:"stars"`
 }
 
 // MarketSkillContent —— parsed SKILL.md(#48-3 install)。Prompt 是 SKILL.md 正文

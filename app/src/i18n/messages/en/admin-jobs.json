@@ -33,8 +33,9 @@
     "contact": "contact",
     "notes": "notes",
     "open": "open ›",
-    "metaSent": "sent {date}",
-    "metaCreated": "created {date}"
+    "metaCommitted": "committed {date}",
+    "metaSubmitted": "submitted {date}",
+    "metaNotSubmitted": "submission not recorded"
   },
   "detail": {
     "kicker": "application · {id}",
@@ -49,7 +50,7 @@
     "viewFull": "view full ↗",
     "downloadPdf": "download pdf",
     "status": "status",
-    "footMeta": "sent {sentAt} · {method}",
+    "footMeta": "committed {committedAt} · {method}",
     "withdraw": "withdraw",
     "logUpdate": "log update",
     "closeAction": "close"

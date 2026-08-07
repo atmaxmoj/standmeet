@@ -87,18 +87,82 @@ type wikiTreeQuery struct {
 	ownerID string
 }
 
-// WikiTreeStats —— 侧栏脚定位计数(owner 级聚合:总数/根数/非公开数),不按访客 scope,
-// 纯 COUNT 不 load 树。
-func WikiTreeStats(ctx context.Context, deps SEODeps) (corpus.WikiStats, error) {
+// WikiTreeStats —— 侧栏脚计数。Entries / Roots 是关于这个语料的事实(一共多少条、几个根);
+// **Gated 是相对这位访客的**:对他关着几条。
+//
+// 上一版是一句 `COUNT(*) WHERE NOT published`,完全不看 session。于是一个 role 授了
+// `wiki://**` 的受邀访客被告知「222 GATED」,而他随手就能打开其中任何一条 —— 同一个会话里,
+// 侧栏树、条目页、检索三处都认这份 grant,只有这个计数(和 /wiki 索引)认 published 标志。
+// 一个问题两道闸,而这里用错了那一道(F-L-14)。
+//
+// 现在按 scope 数,cascade 跟树一致:一条可见 ⟺ 它自己过闸且每个祖先都过闸。
+// 一次 ListAllMeta(无 body)+ 内存里拼 path;个人语料的量级下这比"少一句 COUNT"重要得多。
+func WikiTreeStats(
+	ctx context.Context, deps SEODeps, scope WikiTreeScope,
+) (corpus.WikiStats, error) {
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return corpus.WikiStats{}, nil
 	}
-	stats, err := deps.Wiki.CountStats(ctx, soleOwner.ID)
+	metas, err := deps.Wiki.ListAllMeta(ctx, soleOwner.ID)
 	if err != nil {
 		return corpus.WikiStats{}, fmt.Errorf("wiki tree stats: %w", err)
 	}
-	return stats, nil
+	return countVisible(metas, scope), nil
+}
+
+// countVisible —— entries / roots 照实数;gated = 这位访客看不到的条数。
+func countVisible(metas []corpus.WikiMeta, scope WikiTreeScope) corpus.WikiStats {
+	byID := make(map[string]*corpus.WikiMeta, len(metas))
+	for i := range metas {
+		byID[metas[i].ID] = &metas[i]
+	}
+	stats := corpus.WikiStats{Entries: len(metas)}
+	for i := range metas {
+		if metas[i].ParentID == nil {
+			stats.Roots++
+		}
+		if !visibleWithAncestors(byID, &metas[i], scope) {
+			stats.Gated++
+		}
+	}
+	return stats
+}
+
+// visibleWithAncestors —— 从根到自己每一级都要过闸(跟 visibleChain 同一条规则)。
+// path 是顺链拼的 PathSegment,跟树、条目页用的是同一个口径。
+func visibleWithAncestors(
+	byID map[string]*corpus.WikiMeta, node *corpus.WikiMeta, scope WikiTreeScope,
+) bool {
+	chain := ancestorChain(byID, node)
+	segs := make([]string, 0, len(chain))
+	for _, meta := range slices.Backward(chain) {
+		segs = append(segs, corpus.PathSegment(meta.Title))
+		if !scope(meta.Published, strings.Join(segs, "/")) {
+			return false
+		}
+	}
+	return true
+}
+
+// ancestorChain —— node → root(自身在前)。父不在图里(理论上不该发生)就到此为止。
+func ancestorChain(
+	byID map[string]*corpus.WikiMeta, node *corpus.WikiMeta,
+) []*corpus.WikiMeta {
+	out := make([]*corpus.WikiMeta, 0, corpus.TreeMaxDepth)
+	cur := node
+	for range corpus.TreeMaxDepth {
+		out = append(out, cur)
+		if cur.ParentID == nil {
+			break
+		}
+		parent, ok := byID[*cur.ParentID]
+		if !ok {
+			break
+		}
+		cur = parent
+	}
+	return out
 }
 
 // WikiTreeChildren —— 返 parentID 的直接可见子(parentID="" → roots)。非根先验

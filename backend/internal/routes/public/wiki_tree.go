@@ -36,14 +36,17 @@ type wikiTreeStatsView struct {
 	Gated   int `json:"gated"`
 }
 
-// getWikiTreeStats —— GET /api/v1/wiki-tree/stats —— 侧栏脚定位计数(纯聚合 COUNT,
-// 不 load 树)。owner 级,不按访客 scope。
+// getWikiTreeStats —— GET /api/v1/wiki-tree/stats —— 侧栏脚计数。
+// **跟 wiki-tree 同一道闸**:带有效 bearer → role scope,否则匿名。上一版这里不看 token,
+// 于是一个受邀访客读到的 GATED 数说的是别人的事(F-L-14)。
 // logErrKey —— slog 错误字段名(本文件 "err" 多处,提常量过 add-constant)。
 const logErrKey = "err"
 
 func (h *SEOHandlers) getWikiTreeStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		stats, err := owner.WikiTreeStats(r.Context(), h.Deps)
+		token, _ := bearerToken(r)
+		scope := owner.WikiTreeScopeFor(r.Context(), h.Sessions, token)
+		stats, err := owner.WikiTreeStats(r.Context(), h.Deps, scope)
 		if err != nil {
 			h.Log.Error("wiki tree stats", logErrKey, err)
 			writeError(h.Log, w, serverErr())

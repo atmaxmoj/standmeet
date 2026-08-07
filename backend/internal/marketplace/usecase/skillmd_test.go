@@ -36,6 +36,36 @@ func TestParseSkillMDBlockTools(t *testing.T) {
 	eq(t, "prompt", got.Prompt, "body here")
 }
 
+// TestParseSkillMDBlockScalar —— a description written as a YAML block scalar must come out as
+// the BLOCK, not as the marker. F-F-1: the `Claude Api` card in anthropics/skills renders the
+// literal two characters `|-`, because `consume` stored the marker as the value and every
+// following indented line has no colon, so `splitKV` returned an empty key and dropped it.
+// This is the same shape as the KaTeX and i18n-key leaks — the surface rendering its source.
+func TestParseSkillMDBlockScalar(t *testing.T) {
+	t.Parallel()
+	raw := "---\nname: Claude Api\ndescription: |-\n" +
+		"  Guidance for building with the Claude API.\n" +
+		"  Covers streaming, tool use, and prompt caching.\nversion: 1.2.0\n---\nbody here"
+	got := parseSkillMD(raw)
+	eq(t, "description", got.Description,
+		"Guidance for building with the Claude API.\n"+
+			"Covers streaming, tool use, and prompt caching.")
+	// the key AFTER the block must still parse — a block scalar that swallows the rest of the
+	// frontmatter would trade one silent loss for another.
+	eq(t, "version", got.Version, "1.2.0")
+	eq(t, "name", got.Name, "Claude Api")
+	eq(t, "prompt", got.Prompt, "body here")
+}
+
+// TestParseSkillMDFoldedScalar —— `>` folds its lines into one paragraph (a card description
+// written this way must not come back with hard newlines in the middle of a sentence).
+func TestParseSkillMDFoldedScalar(t *testing.T) {
+	t.Parallel()
+	raw := "---\ndescription: >\n  one sentence\n  split over two lines\n---\nbody"
+	got := parseSkillMD(raw)
+	eq(t, "description", got.Description, "one sentence split over two lines")
+}
+
 func TestParseSkillMDNoFrontmatter(t *testing.T) {
 	t.Parallel()
 	raw := "just a prompt, no frontmatter"

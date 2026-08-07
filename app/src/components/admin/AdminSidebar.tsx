@@ -7,6 +7,8 @@ import { useTranslations } from 'next-intl';
 
 import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
 import { sidebarBadgeFor } from '@/lib/admin/sidebar-badge-for';
+import { useAdminSession } from '@/lib/admin/use-admin-session';
+import { deployView, useSystemInfo } from '@/lib/admin/use-system-info';
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
@@ -161,12 +163,25 @@ function Badge({ count, testId }: { count: number | null; testId?: string }) {
   ) : null;
 }
 
+// SidebarFooter —— 这两行 owner 在 admin 每一页都看得见,所以两行都必须是关于**这台**机器的。
+// 上一版是 `instance · standmeet`(i18n 常量:每台实例都这么写,于是它谁也没说)加
+// `uptime · —`(横杠是 JSX 字面量)。而 /admin/system 同一时刻显示着真的 uptime —— 值一直
+// 在,只是没接过来。现在两处读同一个 system-info store,不可能再各说各的(UX-27)。
 function SidebarFooter() {
   const t = useTranslations('adminShell.sidebar');
+  const { info } = useSystemInfo();
+  const session = useAdminSession();
+  const handle = session.kind === 'ready' ? session.session.handle : '';
   return (
     <div className="mt-auto px-4 pt-4 border-t border-(--color-rule) mono text-[9.5px] tracking-[0.06em] text-(--color-faint) leading-[1.6]">
-      <div>{t('instanceLabel')} <span className="text-(--color-muted)">{t('instanceName')}</span></div>
-      <div>{t('uptimeLabel')} <span className="text-(--color-muted)">—</span></div>
+      <div>
+        {t('instanceLabel')}{' '}
+        <span className="text-(--color-muted)" data-testid="sidebar-instance">{handle}</span>
+      </div>
+      <div>
+        {t('uptimeLabel')}{' '}
+        <span className="text-(--color-muted)" data-testid="sidebar-uptime">{deployView(info).uptime}</span>
+      </div>
     </div>
   );
 }

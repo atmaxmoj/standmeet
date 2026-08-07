@@ -10,10 +10,9 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import {
-  APPLICATION_STATUSES,
+  SUBMISSION_STATES,
   timelineFor,
   type Application,
-  type ApplicationStatus,
   type TimelineEvent,
 } from '@/lib/admin/applications-model';
 
@@ -37,7 +36,7 @@ export function ApplicationDetailModal({ app, onClose }: Props) {
         <ModalHeader app={app} onClose={onClose} />
         <ModalBody
           app={{ ...app, notes }}
-          status={app.status}
+          state={app.state}
           notes={notes} onNotes={setNotes}
         />
         <ModalFooter app={app} onClose={onClose} />
@@ -69,7 +68,7 @@ function ModalHeader({ app, onClose }: { app: Application; onClose: () => void }
 
 interface BodyProps {
   app: Application;
-  status: ApplicationStatus;
+  state: string;
   notes: string;
   onNotes: (v: string) => void;
 }
@@ -78,7 +77,7 @@ function ModalBody(props: BodyProps) {
   return (
     <div className="sm-app-modal-body">
       <LeftCol app={props.app} notes={props.notes} onNotes={props.onNotes} />
-      <RightCol app={props.app} status={props.status} />
+      <RightCol app={props.app} state={props.state} />
     </div>
   );
 }
@@ -155,16 +154,16 @@ function NotesBlock({
 }
 
 function RightCol({
-  app, status,
+  app, state,
 }: {
   app: Application;
-  status: ApplicationStatus;
+  state: string;
 }) {
   return (
     <div>
       <ResumeSnapshot app={app} />
       <SnapshotActions />
-      <StatusBlock status={status} />
+      <StatusBlock state={state} />
     </div>
   );
 }
@@ -198,22 +197,24 @@ function SnapshotActions() {
   );
 }
 
-function StatusBlock({ status }: { status: ApplicationStatus }) {
+function StatusBlock({ state }: { state: string }) {
   const t = useTranslations('adminJobs');
   return (
     <section className="mt-4 px-3 py-2.5 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
       <div className="sm-smallcaps">{t('detail.status')}</div>
-      <StatusSegmented value={status} />
+      <StatusSegmented value={state} />
     </section>
   );
 }
 
 // StatusSegmented —— **只读**分段：展示这条 application 的真实状态，不是一个能改能存的控件
 // （rot-C1：没有持久化路径）。用 span 而非 button —— 一个不落库的东西不该看起来能点。
-function StatusSegmented({ value }: { value: ApplicationStatus }) {
+// 分的是**投递**这条轴(committed → submitted / failed / withdrawn);上一版分的是
+// recruiter 回没回,而产品对那条轴连读都读不到,更没有写口(F-E-3)。
+function StatusSegmented({ value }: { value: string }) {
   return (
     <div className="sm-seg mt-1.5" data-testid="application-status" aria-readonly="true">
-      {APPLICATION_STATUSES.map((s) => (
+      {SUBMISSION_STATES.map((s) => (
         <span
           key={s}
           className={value === s ? 'is-on' : ''}
@@ -231,7 +232,7 @@ function ModalFooter({ app, onClose }: { app: Application; onClose: () => void }
   return (
     <div className="sm-app-modal-foot">
       <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
-        {t('detail.footMeta', { sentAt: app.sentAt, method: app.method })}
+        {t('detail.footMeta', { committedAt: app.committedAt, method: app.method })}
       </span>
       <div className="flex items-baseline gap-2">
         <button type="button" className="sm-btn sm-btn-danger sm-btn-sm">{t('detail.withdraw')}</button>

@@ -42,7 +42,6 @@ export function MarketplaceCard({
 }
 
 function CardHead({ skill }: { skill: MarketSkillView }) {
-  const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <header className={styles.head}>
       <div className={styles.titleRow}>
@@ -53,8 +52,20 @@ function CardHead({ skill }: { skill: MarketSkillView }) {
           {skill.marketplace}
         </span>
       </div>
-      <span className={styles.stars}>{t('stars', { stars: String(skill.stars) })}</span>
+      <RepoStars stars={skill.repoStars} />
     </header>
+  );
+}
+
+// RepoStars —— 数的是技能所在**仓库**的星数,所以标签要说 repo:同一个仓库里的兄弟技能
+// 共享一个数,不说清楚的话,一列相同的数字读起来就是"这些技能一样受欢迎"。
+// 源报不出来(null)就什么都不印 —— 上一版印 `★ 0`,那是把"不知道"说成"零颗星"(F-F-2)。
+function RepoStars({ stars }: { stars: number | null }) {
+  const t = useTranslations('adminIntegrations.marketplaceCard');
+  return stars === null ? null : (
+    <span className={styles.stars} data-testid="market-stars">
+      {t('repoStars', { stars: String(stars) })}
+    </span>
   );
 }
 

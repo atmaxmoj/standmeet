@@ -12,7 +12,9 @@ export interface MarketSkillView {
   id: string;
   name: string;
   author: string;
-  stars: number;
+  // repoStars —— 技能所在**仓库**的星数;null = 这个源报不出来(GitHub 那一源就是),
+  // 这时候一个数都不许印 —— `★ 0` 读起来是"零颗星",不是"不知道"(F-F-2)。
+  repoStars: number | null;
   version: string;
   marketplace: Marketplace;
   category: SkillCategory;

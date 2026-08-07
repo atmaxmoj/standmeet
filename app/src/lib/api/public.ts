@@ -385,9 +385,12 @@ export type WikiTreeStats = z.infer<typeof WikiTreeStatsSchema>;
 const EMPTY_WIKI_STATS: WikiTreeStats = { entries: 0, roots: 0, gated: 0 };
 
 // fetchWikiTreeStats —— GET /api/v1/wiki-tree/stats —— 侧栏脚计数。坏响应 → 全 0。
-export async function fetchWikiTreeStats(): Promise<WikiTreeStats> {
+// token 非空带 Bearer:gated 数说的是**对这位访客**关着几条,跟 wiki-tree 同一道闸(F-L-14)。
+export async function fetchWikiTreeStats(token = ''): Promise<WikiTreeStats> {
   try {
-    const res = await fetch(`${baseURL()}/api/v1/wiki-tree/stats`, { cache: 'no-store' });
+    const headers: Record<string, string> = token === ''
+      ? {} : { Authorization: `Bearer ${token}` };
+    const res = await fetch(`${baseURL()}/api/v1/wiki-tree/stats`, { headers, cache: 'no-store' });
     if (!res.ok) return EMPTY_WIKI_STATS;
     const parsed = WikiTreeStatsSchema.safeParse(await res.json());
     return parsed.success ? parsed.data : EMPTY_WIKI_STATS;

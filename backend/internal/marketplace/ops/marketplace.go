@@ -96,6 +96,9 @@ var (
 
 // marketSkillOut —— 市场里一条结果的出站形状。
 type marketSkillOut struct {
+	// RepoStars —— 技能所在**仓库**的星数;null = 这个源报不出来。
+	// 不许在这里兜底成 0:那会把"不知道"说成"零颗星"(F-F-2)。
+	RepoStars   *int   `json:"repo_stars"`
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Author      string `json:"author"`
@@ -104,7 +107,6 @@ type marketSkillOut struct {
 	Description string `json:"description"`
 	SourceURL   string `json:"source_url"`
 	Source      string `json:"source"`
-	Stars       int    `json:"stars"`
 }
 
 type marketSearchArgs struct {
@@ -150,7 +152,7 @@ func toMarketSkillOut(items []entity.MarketSkill) []marketSkillOut {
 			ID: items[i].ID, Name: items[i].Name, Author: items[i].Author,
 			Version: items[i].Version, Category: items[i].Category,
 			Description: items[i].Description, SourceURL: items[i].SourceURL,
-			Source: string(items[i].Source), Stars: items[i].Stars,
+			Source: string(items[i].Source), RepoStars: items[i].RepoStars,
 		})
 	}
 	return out

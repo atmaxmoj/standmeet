@@ -31,6 +31,11 @@ type PageHandlers struct {
 	// Turnstile widget。composition root 已经从 env 决定了"开/关"，这里
 	// 只读结果。空字符串表示 captcha 关闭。
 	CaptchaSiteKey string
+	// AppVersion —— 跑着的这个进程是哪个版本。/login 和 admin 顶栏的徽标读它,
+	// **而不是各自带一个常量**:前端曾经手打 "v1.0.0"、后端手打 "0.1.0",两个数字
+	// 在同一个页面上互相矛盾,而版本号存在的意义就是出事时说得清自己在哪个 build(F-C-10)。
+	// 组装根从 sysinfo 那一份传进来,于是 /admin/system 和徽标读的是同一个值。
+	AppVersion string
 }
 
 // Mount 挂 /page + /instance + /appearance.css。caller 负责前缀（/api/v1）。
@@ -82,6 +87,7 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 			owner:          &soleOwner,
 			setupToken:     h.unclaimedSetupToken(r.Context(), &soleOwner),
 			captchaSiteKey: h.CaptchaSiteKey,
+			appVersion:     h.AppVersion,
 			canEmailCodes:  owner.CanDeliverCodes(r.Context(), h.Outbound, soleOwner.ID),
 		})
 	}
@@ -123,6 +129,7 @@ type instanceWriteInput struct {
 	owner          *owner.Owner
 	setupToken     string
 	captchaSiteKey string
+	appVersion     string
 	canEmailCodes  bool
 }
 
@@ -135,6 +142,7 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 		Name:            in.owner.FullName,
 		SetupToken:      in.setupToken,
 		CaptchaSiteKey:  in.captchaSiteKey,
+		Version:         in.appVersion,
 		CanDeliverCodes: in.canEmailCodes,
 	}
 	if err := json.NewEncoder(w).Encode(view); err != nil {
@@ -147,6 +155,7 @@ type instanceInfoView struct {
 	Name            string `json:"name"`
 	SetupToken      string `json:"setup_token,omitempty"`
 	CaptchaSiteKey  string `json:"captcha_site_key,omitempty"`
+	Version         string `json:"version,omitempty"` // 跑着的这个进程报的版本;徽标读它(F-C-10)
 	Claimed         bool   `json:"claimed"`
 	CanDeliverCodes bool   `json:"can_deliver_codes"`
 }

@@ -8,9 +8,10 @@
 //   5. jump 链接 → 点击跳到对应 admin section
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { claim, clearAIProviderKey, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
 import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -71,7 +72,105 @@ test.describe('admin dashboard', () => {
       const pending = adminPage.getByTestId('needs-hand');
       await expect(pending).toBeVisible();
     });
+
+  // F-A-24 —— 这台实例没有可用的 AI provider:每一个访客的第一句话都被 503 挡回去
+  // (「This page doesn't have an AI provider set up yet.」),而 owner 这边**什么都看不到** ——
+  // 没有横幅、没有待办,/admin/api-mcp 那张表单只是空着,跟"还没配过"长得一模一样。
+  // 一次升级就能把 owner 打到这个状态(旧的四列还在库里,新的地板只读 provider 本子),
+  // 而访客一个接一个被赶走,owner 毫不知情。
+  //
+  // 迁移那一半这个仓库做不了(没有迁移器,旧列也已经不在 schema.sql 里),但**说出来**这一半
+  // 是必须的,而且它不挑原因:只要这台实例答不了访客,dashboard 就得当面讲。
+  test('the dashboard says out loud that no AI provider is usable (F-A-24)',
+    async ({ playwright, adminPage }) => {
+      const request = await playwright.request.newContext();
+      // 这个状态得**开出来**:claim 总会种一条可用的 provider,而 F-A-24 说的正是一台
+      // 曾经能答、后来答不了的实例。清掉 key = 每一个访客的第一句话都会被 503 挡回去。
+      await clearAIProviderKey(request, { email: OWNER.email, password: OWNER.password });
+      await request.dispose();
+      await assertProviderOutageAnnounced(adminPage);
+    });
+
+  // F-E-2 —— JOBS · ACTIVE LOOP 那一格里的东西都不跟状态动:TOP MATCH 是 `JobsTopMatch()`
+  // 无条件渲染的一句"register sources to start matching",而 SHORTLIST 底下那个 `0` 是 JSX 字面量。
+  // 于是这块面板对每一个 owner、在每一个时刻、说同样的话 —— 包括源已经注册好、池子里躺着工作的时候。
+  //
+  // 正确的那句话产品里已经有了:/admin/listings 在同样的状态下写的是"源有了,去 fetch",还点了名要跑
+  // 哪个命令。所以这不是缺一句文案,是两句里挑错了一句(而且根本没在挑)。
+  //
+  // 这条用例驱三个真状态,断言这一格每次说的都不一样。
+  test('the jobs panel changes with the state it claims to describe (F-E-2)',
+    async ({ playwright, adminPage }) => {
+      await assertJobsPanelFollowsState(playwright, adminPage);
+    });
 });
+
+async function assertProviderOutageAnnounced(page: Page): Promise<void> {
+  await gotoAdminSection(page, 'dashboard');
+  // adminPage 登录时就已经落在 dashboard 上,那一刻 key 还在;dashboard 只在挂载时拉一次,
+  // 所以必须重新加载一次文档,否则断言看的是清 key 之前的那份数据。
+  await page.reload();
+  await expect(
+    page.getByTestId('needs-hand'),
+    '答不了访客是第一等大事,它必须出现在 needs your hand 里',
+  ).toContainText(/ai provider/i, { timeout: 10_000 });
+  await expect(page.getByTestId('dashboard-jump-ai'), '还要给一条能走过去的路').toBeVisible();
+}
+
+async function assertJobsPanelFollowsState(playwright: Playwright, adminPage: Page): Promise<void> {
+  {
+      const request = await playwright.request.newContext();
+      const { token, sid } = await jobsSession(request);
+
+      // ① 一个源都没有 —— 这时候"去注册源"才是对的。用页面上现有的文字断言,
+      // 而不是等一个还不存在的 testid:后者红起来只说明"没这个元素",说不出那句话错在哪。
+      await gotoAdminSection(adminPage, 'dashboard');
+      await expect(adminPage.getByText(/register sources/i)).toBeVisible({ timeout: 5_000 });
+
+      // ② 源注册了,池子还空 —— 这时候再说"去注册源",就是在让 owner 去做已经做完的事。
+      const src = await jobsRegisterSource(request, token, sid, {
+        kind: 'greenhouse', label: 'Dash Board', config: { company: 'airbnb' },
+      });
+      await adminPage.reload();
+      await expect(adminPage.getByTestId('dashboard')).toBeVisible({ timeout: 5_000 });
+      await expect(
+        adminPage.getByText(/register sources/i),
+        '源已经在了,不许再把"没有源"当成原因',
+      ).toHaveCount(0);
+      await expect(
+        adminPage.getByTestId('dash-jobs-panel'),
+        '缺的是 fetch,那就说 fetch —— /admin/listings 在同样的状态下已经这么说了',
+      ).toContainText(/fetch/i);
+
+      // ③ 池子里有工作了 —— TOP MATCH 该指着其中一个,而不是继续讲怎么开始。
+      const { jobs } = await jobsFetchNew(request, token, sid, src.id);
+      expect(jobs.length, 'mock job board returned 0 jobs').toBeGreaterThan(0);
+      await adminPage.reload();
+      // 先等这个数落定 —— 它就是"池子拉回来了"的确切信号。
+      // 上一版直接读 head,读到的是 "reading the pool…" 那个加载占位:一个只是在跟自己赛跑的红。
+      // 顺带这条也是断言本身:那个数上一版是写死的 `0`,池子非空时它必须跟着动。
+      await expect(
+        adminPage.getByTestId('dash-pool-count'),
+        '池子那个数必须是数出来的',
+      ).toHaveText(String(jobs.length), { timeout: 10_000 });
+
+      // 不钉顺序(池子的排序不归这条用例管),钉的是:报出来的那条必须真的在池子里。
+      const headText = (await adminPage.getByTestId('dash-pool-head').innerText()).trim();
+      expect(
+        jobs.map((j) => `${j.title} · ${j.company}`),
+        '池子里有东西了,就报池子里真有的那一条',
+      ).toContain(headText);
+      await request.dispose();
+  }
+}
+
+async function jobsSession(
+  request: APIRequestContext,
+): Promise<{ token: string; sid: string }> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'dash-jobs');
+  return { token, sid: await initMCP(request, token) };
+}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();

@@ -21,8 +21,16 @@ import (
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
-// appVersion —— 应用版本(发布时经 ldflags 覆写;dev 走默认)。
-const appVersion = "0.1.0"
+// appVersion —— 应用版本。**必须是 var**:`-ldflags -X` 只能写 var,写不了 const,
+// 所以上一版那句"发布时经 ldflags 覆写"从来没有发生过 —— 它是一个手打的字面量,
+// 而前端另有一个手打的 "v1.0.0",两个数字长期互相矛盾(F-C-10)。
+//
+// 现在这里是**唯一**的那份:前端不再自带常量,它显示的是运行中的进程报的这个值。
+var appVersion = "0.1.0"
+
+// AppVersion —— 组装根把这一份也交给公开的 /api/v1/instance。徽标和 /admin/system 的
+// DEPLOYMENT 于是读的是同一个进程报的同一个数,而不是各自一份手打的常量(F-C-10)。
+func AppVersion() string { return appVersion }
 
 const bytesPerMB = 1024 * 1024
 

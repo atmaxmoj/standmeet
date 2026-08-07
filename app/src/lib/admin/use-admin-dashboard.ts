@@ -21,6 +21,10 @@ export interface DashboardStats {
   // pulseDays —— 与 pulse 对齐的日期(每点的 x 标签)，让 sparkline 的 hover tooltip 显示
   // 「日期 · 值」，owner 读得出具体哪天多少条（F-C-5：一条读不出数字的图等于只有形状）。
   pulseDays: readonly string[];
+  // aiProviderUsable —— 这台实例还答得了访客吗(本子里至少有一条配了 key)。
+  // 答不了的时候访客收到 503,而 owner 那边曾经**没有任何提示** —— 表单空着,看起来像"还没配过",
+  // 于是一个接一个的访客被赶走而他毫不知情(F-A-24)。这一条就是那个提示的数据源。
+  aiProviderUsable: boolean;
 }
 
 interface State {
@@ -32,6 +36,8 @@ interface State {
 const EMPTY_STATS: DashboardStats = {
   rawCount: 0, rawUnprocessed: 0, codesLive: 0,
   requestsNew: 0, conversationsCount: 0, draftsReviewing: 0, pulse: [], pulseDays: [],
+  // 还没拉到的时候不许喊狼来了:先当它是好的,拉回来再说。
+  aiProviderUsable: true,
 };
 
 // Counts come from the real COUNT(*) growth endpoint, NOT a paginated list length (F-L-4):
@@ -49,6 +55,8 @@ const CodeRowSchema = z.object({ id: z.string(), status: z.string() });
 const RequestRowSchema = z.object({ id: z.string(), status: z.string() });
 const ConvRowSchema = z.object({ id: z.string() });
 const DraftRowSchema = z.object({ id: z.string(), status: z.string().optional() });
+// key_configured 是"这条能不能真去调"的唯一凭据 —— 一条没有 key 的 provider 行答不了访客。
+const ProviderRowSchema = z.object({ id: z.string(), key_configured: z.boolean() });
 
 export function useAdminDashboard(): State {
   const [state, setState] = useState<State>({
@@ -72,6 +80,12 @@ function pluralize(n: number, singular: string, plural: string): string {
 
 export function allActionItems(stats: DashboardStats): ActionItem[] {
   return [
+    // 排第一,因为它一条就让整台实例答不了任何人:访客发第一句话就收到 503。
+    // 这一行存在的意义就是**打破沉默** —— F-A-24 里 owner 唯一能察觉的方式是自己去当访客。
+    { key: 'ai', count: stats.aiProviderUsable ? 0 : 1,
+      label: 'no usable AI provider',
+      sub: 'visitors are being turned away — set a key under api · mcp',
+      href: '/admin/api-mcp' },
     { key: 'requests', count: stats.requestsNew,
       label: `${stats.requestsNew} access ${pluralize(stats.requestsNew, 'request', 'requests')}`,
       sub: 'visitors waiting on a code', href: '/admin/requests' },
@@ -88,12 +102,13 @@ export function allActionItems(stats: DashboardStats): ActionItem[] {
 
 async function load(setState: (s: State) => void): Promise<void> {
   try {
-    const [growth, codes, requests, conversations, drafts] = await Promise.all([
+    const [growth, codes, requests, conversations, drafts, providers] = await Promise.all([
       fetchGrowth(),
       fetchList('/api/admin/codes/', z.array(CodeRowSchema)),
       fetchList('/api/admin/access-requests', z.array(RequestRowSchema)),
       fetchList('/api/admin/conversations', z.array(ConvRowSchema)),
       fetchList('/api/admin/drafts/', z.array(DraftRowSchema)),
+      fetchList('/api/admin/providers/', z.array(ProviderRowSchema)),
     ]);
     setState({
       stats: {
@@ -106,6 +121,7 @@ async function load(setState: (s: State) => void): Promise<void> {
         draftsReviewing: drafts.filter((d) => d.status !== 'sent').length,
         pulse: growth.series.map((d) => d.count),
         pulseDays: growth.series.map((d) => d.day),
+        aiProviderUsable: providers.some((p) => p.key_configured),
       },
       loading: false, error: null,
     });

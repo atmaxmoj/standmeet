@@ -106,7 +106,7 @@
     "builtin": "· builtin"
   },
   "marketplaceCard": {
-    "stars": "★ {stars}",
+    "repoStars": "★ {stars} repo",
     "author": "{author} · v{version}",
     "authorOnly": "{author}",
     "installed": "✓ installed",

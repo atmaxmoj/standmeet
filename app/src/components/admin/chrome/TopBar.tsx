@@ -9,19 +9,19 @@ import { useTranslations } from 'next-intl';
 
 import { CorpusConstellation } from '@/components/admin/chrome/CorpusConstellation';
 import { Pill } from '@/components/admin/atoms/Pill';
-import { APP_VERSION } from '@/lib/app-version';
+import { useAppVersion } from '@/lib/app-version';
 import { signOut } from '@/lib/admin/sign-out';
 
 type Props = {
   handle: string;
   email: string;
-  buildTag?: string;
 };
 
-// one source of truth (F-C-4) — same version the login page shows, no fake "· dev" env label.
-const DEFAULT_BUILD = APP_VERSION;
-
-export function TopBar({ handle, email, buildTag = DEFAULT_BUILD }: Props) {
+// 版本号来自 useAppVersion —— 跑着的那个进程报的。上一版这里是个 `buildTag?: string`
+// 参数配一个常量默认值,而没有任何调用点传过它:那个参数唯一的作用就是让常量看起来像
+// "外面给的"(F-C-10)。参数去掉了。
+export function TopBar({ handle, email }: Props) {
+  const buildTag = useAppVersion();
   const onSignOut = useCallback(() => void signOut(), []);
   return (
     <header className="flex items-center px-6 lg:px-8 h-14 border-b border-(--color-rule) shrink-0 gap-4">

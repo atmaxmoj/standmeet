@@ -33,7 +33,6 @@
   },
   "codePanel": {
     "enter": "enter",
-    "unknownCode": "unknown code",
     "hint": "codes look like <sample>OAEN-3K2</sample> · the owner bakes them into a QR code or link · case doesn’t matter · paste the whole thing (with or without the dash) and press enter.",
     "nameHint": "your name lets the owner separate visitors who share the same code."
   },

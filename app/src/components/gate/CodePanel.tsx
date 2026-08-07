@@ -70,7 +70,7 @@ export function CodePanel({ hook }: Props) {
         />
         <NameRow name={name} setName={setName} />
       </form>
-      <Hint busy={hook.state.busy} error={hook.state.error !== null} />
+      <Hint busy={hook.state.busy} error={hook.state.error} />
     </section>
   );
 }
@@ -172,7 +172,7 @@ function NameRow({ name, setName }: { name: string; setName: (v: string) => void
 // sample —— hint 里示例码 "OAEN-3K2" 的 rich tag。
 const sample = (chunks: ReactNode) => <span className="text-(--color-muted)">{chunks}</span>;
 
-function Hint({ busy, error }: { busy: boolean; error: boolean }) {
+function Hint({ busy, error }: { busy: boolean; error: string | null }) {
   const t = useTranslations('gate.codePanel');
   return (
     <div className="mono text-[10.5px] tracking-[0.12em] mt-4 leading-[1.7] max-w-[44em]">
@@ -187,10 +187,13 @@ function Hint({ busy, error }: { busy: boolean; error: boolean }) {
   );
 }
 
-function HintStatus({ busy, error }: { busy: boolean; error: boolean }) {
+// HintStatus —— 说后端说的那句话。上一版这里收的是一个布尔,于是它**结构上无法**区分
+// "这码不存在"(401)和"这码满了"(403,而且信封里带着一句写给访客的话)——不是分支写错了,
+// 是信息在类型里就没了(F-A-23)。
+function HintStatus({ busy, error }: { busy: boolean; error: string | null }) {
   const t = useTranslations('gate');
-  return error ? (
-    <p className="text-(--color-accent) mb-1 tracking-[0.16em] uppercase" data-testid="gate-error">{t('codePanel.unknownCode')}</p>
+  return error !== null ? (
+    <p className="text-(--color-accent) mb-1 tracking-[0.16em] uppercase" data-testid="gate-error">{error}</p>
   ) : busy ? (
     <p className="text-(--color-muted) mb-1 tracking-[0.16em] uppercase">{t('common.checking')}</p>
   ) : null;

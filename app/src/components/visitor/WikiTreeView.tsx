@@ -7,14 +7,14 @@
 
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 import { LazyTree } from '@/components/corpus/LazyTree';
 import type { TreeNode } from '@/lib/corpus/tree';
 import type { WikiTreeStats } from '@/lib/api/public';
-import { loadWikiChildren } from '@/lib/visitor/load-wiki-children';
+import { loadWikiChildren, subscribeScopedStats } from '@/lib/visitor/load-wiki-children';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 import styles from '@/components/visitor/WikiTreeView.module.css';
@@ -49,12 +49,17 @@ function allGatedAnonymous(hasSession: boolean, stats: WikiTreeStats): boolean {
 function TreeStats({ stats }: { stats: WikiTreeStats }) {
   const t = useTranslations('visitor.wikiTreeView');
   const session = useVisitorSessionStore((s) => s.session);
-  const showHint = allGatedAnonymous(session !== null, stats);
+  // SSR 拿不到访客 token,所以 SSR 那份 GATED 数说的是匿名访客的事。有 session 就按这位
+  // 访客的 grant 重取一次 —— 否则受邀访客读到「222 GATED」,而他每一条都打得开(F-L-14)。
+  const [scoped, setScoped] = useState<WikiTreeStats | null>(null);
+  useEffect(() => subscribeScopedStats(setScoped), []);
+  const shown = scoped ?? stats;
+  const showHint = allGatedAnonymous(session !== null, shown);
   return (
     <div className={styles['stats']} data-testid="wiki-tree-stats">
       {/* 计数用 String() 传:ICU 会给 number 加千分位(1,234),原 JSX 直出 1234。 */}
       {t.rich('stats', {
-        entries: String(stats.entries), roots: String(stats.roots), gated: String(stats.gated),
+        entries: String(shown.entries), roots: String(shown.roots), gated: String(shown.gated),
         num: (c) => <span className={styles['statNum']}>{c}</span>,
       })}
       {showHint ? (

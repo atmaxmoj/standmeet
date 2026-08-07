@@ -75,6 +75,26 @@ test.describe('admin sidebar badges + nav', () => {
       await expect(wikiNavLink).not.toHaveAttribute('aria-current', 'page');
     });
 
+  // UX-27 —— 页脚那两行是 owner 在 admin 每一页都看得见的东西,而两行都不是关于这台机器的:
+  // `instance · standmeet` 是 i18n 里的常量(每一台自托管实例都这么写,于是它谁也没说),
+  // `uptime · —` 里那根横杠是 JSX 字面量。同一时刻 /admin/system 上有真的 uptime —— 值早就
+  // 算出来了,只是没接到这里。断言两件事:页脚说的是这台机器,而且它跟 system 页读的是同一份。
+  test('sidebar footer reports THIS instance and a real uptime (UX-27)',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'dashboard');
+      await expect(
+        page.getByTestId('sidebar-instance'),
+        '页脚的 instance 必须是这台机器的 handle,不是产品名',
+      ).toHaveText(OWNER.handle);
+      const footerUptime = page.getByTestId('sidebar-uptime');
+      await expect(footerUptime, 'uptime 必须是个真时长,不是占位横杠').toHaveText(/^\d+[hms]/);
+      // 同一份 system-info:两处读同一个 store,所以字面量必须逐字相同。
+      // 只断言「都像时长」是不够的 —— 那样两处各自算各自的也能过。
+      const footerText = (await footerUptime.innerText()).trim();
+      await gotoAdminSection(page, 'system');
+      await expect(page.getByTestId('system-uptime')).toHaveText(footerText);
+    });
+
   // #34:AdminShell 挂在 layout → 跨 section 导航 sidebar 不 remount,滚动位置保留
   // (之前每次点击 reset 到顶)。短 viewport 逼 sidebar 滚动,滚下去再导航,验 scrollTop。
   test('persistent layout：sidebar 滚动位置跨导航保留', async ({ adminPage }) => {

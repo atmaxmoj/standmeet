@@ -58,6 +58,27 @@ test.describe('F-L-11 · invited viewer reads a gated entry via the bearer-aware
       await goto(page, '/wiki');
       await expect(page.getByTestId('wiki-tree-gated-hint')).toBeVisible({ timeout: 5_000 });
     });
+
+  // F-L-14 —— 同一个受邀会话里,四个面对同一个问题给了两种答案:侧栏树列得出这条,条目页打得开,
+  // 检索引得到,而 **/wiki 的索引**只列 published 的那些,脚注还写着「N GATED」。
+  // 原因是两道闸:索引走条目自己的 published 标志,其余三处走这个 session 的 corpus grant。
+  // 受邀访客对语料的第一眼因此是"空的、锁着的"。
+  //
+  // 这条用例把索引和脚注跟其余三处对齐:能读的就列出来,而 gated 数说的是**对这位访客**关着几条。
+  test('the /wiki index and its counter answer for THIS session, not for an anonymous one (F-L-14)',
+    async ({ page }) => {
+      await enterCodeSession(page, CODE, 'Reader');
+      await goto(page, '/wiki');
+      await expect(page.getByTestId('wiki-index')).toBeVisible({ timeout: 8_000 });
+      await expect(
+        page.getByTestId('wiki-index-roots'),
+        '树里列得出、条目页打得开的那条,索引也必须列得出',
+      ).toContainText(NOTE.title, { timeout: 8_000 });
+      await expect(
+        page.getByTestId('wiki-tree-stats'),
+        'grant 给了 wiki://**,那对这位访客就一条都没关着',
+      ).toContainText(/0\s+gated/i, { timeout: 8_000 });
+    });
 });
 
 async function seedGatedNoteAndCode(request: APIRequestContext): Promise<void> {

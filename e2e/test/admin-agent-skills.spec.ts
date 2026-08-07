@@ -51,6 +51,17 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
       await expectFamilyCount(adminPage, 'market-skill-', 3);
     });
 
+  // F-F-2 —— GitHub 那一源的每一张卡片都印着 `★ 0`,而 `ghContentToMarketSkill` 里那句注释
+  // 自己就写明了原因:"GitHub skills are folders in one repo → no per-skill star count"。
+  // 也就是说 0 的意思是**不知道**,而屏幕上写的是"零颗星"。owner 拿这个数字挑技能。
+  // 空值不是 0(empty-is-not-json-null 的同一课)——不知道就别印。
+  //
+  // 顺带钉住这个数到底在数什么:它是技能所在**仓库**的星数,所以同一个仓库里的兄弟技能
+  // 共享同一个数(真环境里 openclaw 那六个都是 385119)。标签必须这么说,否则一个跨行相同的
+  // 数字读起来就是"这些技能一样受欢迎"。
+  test('an unknown star count is not printed as zero (F-F-2)',
+    async ({ adminPage }) => { await assertStarsHonest(adminPage); });
+
   // UX-13 residual: SkillsMP skills carry no version → the footer renders author alone,
   // not a dangling "· v" with nothing after it.
   test('marketplace: a versionless skill shows author, not a bare "· v"',
@@ -114,6 +125,22 @@ async function openAgentSkills(page: Page): Promise<void> {
   await gotoAdminSection(page, 'skills');
   await page.waitForURL('**/admin/skills');
   await expect(page.getByTestId('skill-list')).toBeVisible({ timeout: 5_000 });
+}
+
+// assertStarsHonest —— F-F-2 的主体。GitHub 源报不出 per-skill 星数(它自己的注释就这么写),
+// 那就一个数都别印;skillsmp 有真数就印,并且说清楚数的是**仓库**。
+async function assertStarsHonest(page: Page): Promise<void> {
+  await openAgentSkills(page);
+  await page.getByTestId('skills-tab-marketplace').click();
+  await page.getByTestId('marketplace-source-github').click();
+  await expect(page.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
+  const cards = await page.locator(MARKET).all();
+  for (const card of cards) {
+    await expect(card, 'GitHub 源没有 per-skill 星数,那就一个数都别印').not.toContainText('★');
+  }
+  await page.getByTestId('marketplace-source-skillsmp').click();
+  await expect(page.locator(MARKET).first().getByTestId('market-stars'))
+    .toHaveText(/★\s*\d+\s*repo/i);
 }
 
 async function assertNoBareVersion(page: Page): Promise<void> {

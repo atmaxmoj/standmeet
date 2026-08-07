@@ -176,7 +176,7 @@ func splitFrontmatter(raw string) fmResult {
 			break
 		}
 		curKey = fm.consume(lines[end], curKey)
-		end++
+		end += 1 + fm.absorbBlock(lines, end, curKey)
 	}
 	return fmResult{fm: fm, body: strings.Join(lines[end:], "\n")}
 }
@@ -199,6 +199,54 @@ func (fm *frontmatter) consume(line, curKey string) string {
 		fm.scalars[p.key] = strings.Trim(p.val, `"'`)
 	}
 	return p.key
+}
+
+// absorbBlock —— if the record just consumed held a YAML block-scalar MARKER (`|`, `>`, and
+// their chomp variants) instead of a value, pull in the indented block that follows and replace
+// the marker with it. Returns how many extra lines were eaten.
+//
+// Without this the block is lost twice over: `consume` stores the marker as the value, and every
+// line of the block has no colon, so `splitKV` returns an empty key and drops it. The marketplace
+// card for `Claude Api` therefore read as the two characters `|-` (F-F-1) — the surface rendering
+// its source instead of its content, and silently, for every skill whose author writes this way.
+func (fm *frontmatter) absorbBlock(lines []string, i int, key string) int {
+	sep, ok := blockJoiner(fm.scalars[key])
+	if !ok {
+		return 0
+	}
+	block, n := readIndented(lines, i+1)
+	fm.scalars[key] = joinBlock(block, sep)
+	return n
+}
+
+// blockJoiner —— what glues the block's lines back together: `|` keeps the line breaks, `>`
+// folds them into spaces. A trailing `-`/`+` is the chomp indicator. ok=false means this is an
+// ordinary inline value and there is no block to read.
+func blockJoiner(val string) (string, bool) {
+	marker := strings.TrimRight(strings.TrimSpace(val), "-+")
+	joiner := map[string]string{"|": "\n", ">": " "}
+	sep, ok := joiner[marker]
+	return sep, ok
+}
+
+// readIndented —— the block is every following line that is indented (or blank). The closing
+// `---` and the next key sit at column 0, so they end it.
+func readIndented(lines []string, from int) ([]string, int) {
+	out, n := []string{}, 0
+	for from+n < len(lines) && isBlockLine(lines[from+n]) {
+		out = append(out, strings.TrimSpace(lines[from+n]))
+		n++
+	}
+	return out, n
+}
+
+func isBlockLine(line string) bool {
+	return strings.TrimSpace(line) == "" ||
+		strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")
+}
+
+func joinBlock(block []string, sep string) string {
+	return strings.TrimSpace(strings.Join(block, sep))
 }
 
 func (fm *frontmatter) addToolIf(curKey, item string) {

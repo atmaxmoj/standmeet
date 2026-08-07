@@ -1,29 +1,53 @@
-// applications-model —— admin /applications 的 Application 数据形态 +
-// timeline 派生 + 状态枚举。
+// applications-model —— admin /applications 的数据形态 + timeline 派生 + 状态枚举。
 //
-// 设计源 docs/design/project/admin.js APPLICATIONS + ApplicationDetailModal
-// (1825-1908)。
+// **状态说的是投递这条轴,不是 recruiter 回没回。**上一版这里是
+// `silent | reviewing | replied | rejected | offer` —— 一套关于对方反应的词,而后端那一列存的是
+// `pending | submitted | failed | withdrawn`,两套词一个都不重合。前端拿 `find(x => x === s)`
+// 去对,永远对不上,于是每一行都被兜底渲染成 SILENT:一个纯属虚构的状态(F-E-3)。
 //
-// 数据走真 fetch（use-admin-applications → GET /api/admin/applications，后端已挂）；本文件只有类型 +
-// 纯派生，没有 fixture。commit + send 走 MCP `applications.commit`。**status 目前没有持久化路径**
-// （后端 /applications 只 GET）——详见 rot-C1/D4：modal 的状态开关是 local-only。
+// 今天的产品只知道投递这条轴,而且只知道它的第一格:`applications.commit` 写下一行(status
+// 建出来就是 'pending' = owner 点了头、PDF 和邀请码已发),然后**没有任何代码会再改它** ——
+// job-loop 第 4 步(Playwright 真投出去)还不存在,所以 submitted_at 一直是空的。
+// recruiter 有没有回,产品连写入口都没有,那就不该有一个格子假装在跟踪它。
+//
+// 所以:能显示的只有 committed / submitted / failed / withdrawn,而没见过的值**原样显示**——
+// 兜底成某个已知状态正是上一版制造假象的那一步。
 
-export type ApplicationStatus =
-  | 'silent' | 'reviewing' | 'replied' | 'rejected' | 'offer';
+// SubmissionState —— 库里那一列的取值(见 jobsmodel/application.go)。'pending' 在界面上
+// 叫 committed:owner 已经点头,只是还没投出去。
+export type SubmissionState = 'committed' | 'submitted' | 'failed' | 'withdrawn';
 
-export const APPLICATION_STATUSES: readonly ApplicationStatus[] = [
-  'silent', 'reviewing', 'replied', 'rejected', 'offer',
+export const SUBMISSION_STATES: readonly SubmissionState[] = [
+  'committed', 'submitted', 'failed', 'withdrawn',
 ];
+
+// STATE_BY_WIRE —— 后端字面量 → 界面词。缺席不是错误状态,是"没见过的值",见 submissionLabel。
+const STATE_BY_WIRE: Record<string, SubmissionState> = {
+  pending: 'committed',
+  submitted: 'submitted',
+  failed: 'failed',
+  withdrawn: 'withdrawn',
+};
+
+// submissionLabel —— 没见过的值原样返回。宁可让 owner 看见一个陌生的字符串,
+// 也不要把它说成某个具体状态。
+export function submissionLabel(wire: string): string {
+  return STATE_BY_WIRE[wire] ?? wire;
+}
 
 export interface Application {
   id: string;
   company: string;
   role: string;
-  sentAt: string;
+  // committedAt —— owner 点头那一刻(applications 行的 created_at)。永远是真的。
+  committedAt: string;
+  // submittedAt —— 真投出去那一刻。空串 = 没有记录过(今天永远是空的)。
+  submittedAt: string;
+  // state —— 展示用的投递状态词;可能是一个没见过的原值。
+  state: string;
   method: string;
   contact: string;
   notes: string;
-  status: ApplicationStatus;
   // resume snapshot 简化版：标题行 + 一段 delta（tailored 给该 job 的 punch）
   resumeDelta: string;
 }
@@ -34,42 +58,26 @@ export interface TimelineEvent {
   kind: 'accent' | 'muted' | 'faint';
 }
 
-// timelineFor —— 只画**真**事件:application sent(真 sentAt)+ 当前 status。
-// 不再编「6小时后被打开 / 次日 recruiter 回复」那种 mailbox-tracker 假步骤
-// (那需要 webhook 进 backend,还没接)。接通后这里加真 events。
+// timelineFor —— 只画**真**事件:commit(真日期)+ 投递(有日期才画,没有就明说没有记录)。
+// 不编「6小时后被打开 / 次日 recruiter 回复」那种 mailbox-tracker 假步骤。
 export function timelineFor(app: Application): TimelineEvent[] {
   return [
-    { t: app.sentAt, label: 'application sent', kind: 'accent' },
-    { t: 'current', label: labelForStatus(app.status), kind: kindForStatus(app.status) },
+    { t: app.committedAt, label: 'committed · pdf + code issued', kind: 'accent' },
+    app.submittedAt === ''
+      ? { t: '—', label: 'submission not recorded', kind: 'faint' }
+      : { t: app.submittedAt, label: 'submitted', kind: 'accent' },
   ];
 }
 
-function labelForStatus(status: ApplicationStatus): string {
-  switch (status) {
-    case 'reviewing': return 'reviewing';
-    case 'replied':   return 'replied';
-    case 'offer':     return 'offer extended';
-    case 'rejected':  return 'rejected';
-    default:          return 'silent';
-  }
+// pillToneFor —— 列表行 status pill 的 tone class。抽到 lib/ 因为 presentation 层不准跑
+// if / 复杂三元。没见过的值给空 tone(中性),不假装它属于哪一类。
+export function pillToneFor(wire: string): string {
+  return STATE_PILL_TONE[submissionLabel(wire)] ?? '';
 }
 
-function kindForStatus(status: ApplicationStatus): 'accent' | 'muted' | 'faint' {
-  return status === 'offer' || status === 'reviewing' || status === 'replied'
-    ? 'accent'
-    : status === 'rejected' ? 'muted' : 'faint';
-}
-
-// pillToneFor —— ApplicationsSection 列表行的 status pill tone class。
-// 抽到 lib/ 因为 presentation 层不准跑 if/复杂三元。
-export function pillToneFor(status: ApplicationStatus): string {
-  return STATUS_PILL_TONE[status];
-}
-
-const STATUS_PILL_TONE: Record<ApplicationStatus, string> = {
-  offer: 'is-accent',
-  reviewing: 'is-accent',
-  replied: 'is-accent',
-  rejected: 'is-violet',
-  silent: '',
+const STATE_PILL_TONE: Record<string, string> = {
+  committed: '',
+  submitted: 'is-accent',
+  failed: 'is-violet',
+  withdrawn: 'is-violet',
 };

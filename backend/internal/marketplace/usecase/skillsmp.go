@@ -103,6 +103,8 @@ func smpToMarketSkill(s *smpSkill) entity.MarketSkill {
 		Description: s.Description,
 		SourceURL:   s.GithubURL, // where install fetches the SKILL.md from
 		Source:      entity.MarketSourceSkillsMP,
-		Stars:       s.Stars,
+		// SkillsMP 报的是技能所在仓库的星数,所以同一个仓库里的兄弟技能共享同一个数
+		// (真环境里 openclaw 那六个技能都是 385119)。照实传,由卡片说清楚它数的是仓库。
+		RepoStars: &s.Stars,
 	}
 }

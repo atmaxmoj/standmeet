@@ -23,7 +23,9 @@ const MarketSkillWireSchema = z.object({
   description: z.string(),
   source_url: z.string(),
   source: z.enum(['github', 'skillsmp']),
-  stars: z.number(),
+  // repo_stars —— null 就是 null(这个源报不出星数)。不许 `.default(0)`:那正是
+  // 每张 GitHub 卡片印出 `★ 0` 的那一步 —— 把"不知道"翻译成了"零颗星"(F-F-2)。
+  repo_stars: z.number().nullish(),
   // needs —— 这个 skill 依赖的连接器（label，如 'Calendar'/'Email'）。可空。
   // rot-A4：以前 adapt() 把它硬编码成 []，于是「needs X connector」提示对任何真卡都不出现。
   needs: z.array(z.string()).optional().default([]),
@@ -96,7 +98,7 @@ function adapt(w: MarketSkillWire): MarketSkillView {
     id: w.id,
     name: w.name,
     author: w.author,
-    stars: w.stars,
+    repoStars: w.repo_stars ?? null,
     version: w.version,
     marketplace: w.source,
     category: normalizeCategory(w.category),

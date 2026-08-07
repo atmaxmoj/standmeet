@@ -103,6 +103,30 @@ async function seedDevAIProvider(
   }
 }
 
+// clearAIProviderKey —— 把 owner 默认 provider 的 key 清掉,于是这台实例**答不了任何访客**。
+// `claim` 总会种一条可用的 provider(上面 seedDevAIProvider),所以"没有可用 provider"这个状态
+// 只能开出来 —— 而它正是 F-A-24 里 prod 升级之后落到的那个状态。
+export async function clearAIProviderKey(
+  request: APIRequestContext,
+  creds: { email: string; password: string },
+): Promise<void> {
+  const { csrf } = await login(request, creds.email, creds.password);
+  const res = await request.patch(`${BACKEND}/api/admin/ai-provider`, {
+    headers: { 'X-Csrftoken': csrf },
+    // endpoint + model 是必填的(这条 op 说的是"把默认那条整个提交一遍"),
+    // 要清的只是 key,所以其余字段照原样送回去。
+    data: {
+      provider: 'anthropic',
+      endpoint: process.env['LLM_GATEWAY_BACKEND_URL'] ?? 'http://llm-gateway:9300',
+      model: 'claude-haiku-4-5-20251001',
+      key_change: 'clear',
+    },
+  });
+  if (res.status() !== 200) {
+    throw new Error(`clear-ai-provider failed: ${res.status()} ${await res.text()}`);
+  }
+}
+
 export interface AdminLogin {
   csrf: string;
 }

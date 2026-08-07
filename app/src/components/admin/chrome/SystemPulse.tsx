@@ -24,8 +24,13 @@ export function SystemPulse() {
         </div>
         <div className="mono text-[10px] tracking-[0.12em] text-(--color-accent)">{v.delta}</div>
       </div>
-      <div className="mono text-[15px] leading-none tracking-[0.15em] text-(--color-accent) mb-2">
+      <div className="mono text-[15px] leading-none tracking-[0.15em] text-(--color-accent) mb-1">
         {v.spark}
+      </div>
+      {/* 火花线画的是**每天新增**,而下面那个大数字是**累计总量**。两者挨着放而没人说明,
+          于是曲线看起来像"语料一直只有 1 条"(UX-16)。这一行就是那句说明。 */}
+      <div className="mono text-[9px] tracking-[0.08em] text-(--color-faint) mb-2">
+        {t('sparkWindow')}
       </div>
       <div className="flex items-baseline justify-between">
         <div className="font-serif text-[22px] leading-none text-(--color-ink)">{v.total}</div>

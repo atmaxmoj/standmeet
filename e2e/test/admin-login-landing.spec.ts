@@ -13,6 +13,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, navigateToOwnerLogin, navigateToSetup } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'landing@example.com',
@@ -74,15 +75,34 @@ test.describe('login landing + auth-shell UX', () => {
       // one page (no adminPage fixture — it shares a context and would deauth `page`):
       // read the version on /login, then sign in on the same page and read the admin badge.
       await navigateToOwnerLogin(page);
-      const loginVersion = (await page.getByTestId('app-version').innerText()).trim();
+      // both badges now report the running process, so they arrive with a fetch — wait for a
+      // digit rather than reading once. A bare innerText read here caught the placeholder and
+      // would have compared two "—"s, which agree with each other and prove nothing.
+      const loginBadge = page.getByTestId('app-version');
+      await expect(loginBadge, 'the login badge must report a version').toHaveText(/\d/);
+      const loginVersion = (await loginBadge.innerText()).trim();
       await page.getByTestId('email').fill(OWNER.email);
       await page.getByTestId('password').fill(OWNER.password);
       await page.getByTestId('submit').click();
       await page.waitForURL('**/admin/**', { timeout: 10_000 });
-      const buildTag = (await page.getByTestId('build-tag').innerText()).trim();
+      const adminBadge = page.getByTestId('build-tag');
+      await expect(adminBadge, 'the admin badge must report a version').toHaveText(/\d/);
+      const buildTag = (await adminBadge.innerText()).trim();
       expect(buildTag, 'admin banner version must equal the login version (one source of truth)')
         .toBe(loginVersion);
       expect(buildTag, 'the badge must not be a fixed env label like "dev"')
         .not.toMatch(/\bdev\b/i);
+
+      // F-C-10 —— 上面两条只证明**两个前端徽标互相一致**,而 F-C-4 当初正是这么"修"的:
+      // 把两份拷贝合成一个常量,于是矛盾没消失,只是从"两张脸互相矛盾"变成"一张脸跟来源矛盾"。
+      // 真正的来源是运行中的进程 —— /admin/system 的 DEPLOYMENT 就是它报的。徽标必须等于它。
+      await gotoAdminSection(page, 'system');
+      const runtimeCell = page.getByTestId('system-version');
+      await expect(runtimeCell, 'the running process must report a version').toHaveText(/\d/);
+      const runtime = (await runtimeCell.innerText()).trim();
+      expect(
+        buildTag.replace(/^v/i, ''),
+        'the badge must equal the version the running process reports, not a hand-typed literal',
+      ).toBe(runtime.replace(/^v/i, ''));
     });
 });

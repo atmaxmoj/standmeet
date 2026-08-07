@@ -150,8 +150,10 @@ func ghContentToMarketSkill(it *ghContentItem) entity.MarketSkill {
 		Description: it.Description, // ditto — so the card isn't blank (UX-13)
 		SourceURL:   it.HTMLURL,
 		Source:      entity.MarketSourceGitHub,
-		// GitHub skills are folders in one repo → no per-skill star count.
-		Stars: 0,
+		// GitHub skills are folders in one repo → this source reports no star count at all.
+		// nil, not 0 — the card used to print `★ 0` on every one of them, which reads as
+		// "nobody starred this" rather than "we don't know" (F-F-2).
+		RepoStars: nil,
 	}
 }
 

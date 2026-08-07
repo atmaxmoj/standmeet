@@ -256,6 +256,7 @@ func buildPublicPageDeps(d *deps.Runtime) publicroutes.PageHandlers {
 			log: d.Log, repo: d.InstanceRepo, holder: d.SetupTokenHolder,
 		},
 		CaptchaSiteKey: d.CaptchaSiteKey,
+		AppVersion:     port.AppVersion(),
 		Outbound:       owner.OutboundStatusDeps{Proxy: port.OutboundSender(d)},
 	}
 }
