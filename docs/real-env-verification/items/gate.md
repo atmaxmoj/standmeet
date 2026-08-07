@@ -1,38 +1,44 @@
 # gate — Visitor gate: code entry, BYOAI panel, request-access, identity
 
-- **Status:** ✅ verified (UPDATE 2) — ?q= handoff auto-submit; identity name from gate, no re-pop; code-entry + BYOAI panels
-- **Module:** the no-code visitor entry surface — code-entry validates+redeems, the BYOAI panel accepts a key, request-access submits, and the identity-picker modal behaves (doesn't re-pop over an active session).
-- **Surface:** `/gate` + the visitor identity-picker modal.
-- **Real dep:** prod stack; real DeepSeek + real mail for the downstream legs (which live in [[chat-byoai]], [[access-codes]], [[mail-connector]]).
-- **Inherits (historical finding IDs):** `F-A-5` (identity picker re-popped over an active session — ✅ fixed, 338cf6b/regressed on real prod GUI).
+- **Module:** The no-code visitor's entry surface. Code entry validates and redeems, the BYOAI panel accepts a key, request-access submits, and the identity picker resolves who the visitor is exactly once.
+- **Surface:** `/gate`, plus the identity-picker modal.
+- **Real dep:** A running instance. The downstream legs need real services and live in [[chat-byoai]], [[access-codes]] and [[mail-connector]].
 - **Backing e2e:** `gate-code-ux` · `gate-request-access` · `gate-byoai-ux` · `chat-welcome`.
 
 ## Checks
 
-### 1 — Code entry validates + redeems
-- **Steps:** enter a valid code → redeems into a scoped session; enter a wrong code repeatedly → per-IP lockout + captcha demand (see [[captcha]]).
-- **Expected:** valid code opens a session; the `/gate?q=…` handoff carries a homepage question and auto-submits it as the first message.
+### 1 — A valid code opens a scoped session ⭐
+- **Steps:** Enter a valid code with a name. Submit. Read the session strip.
+- **Expected:** The session opens, the strip shows it as invited, and it carries the name entered.
 - **Backing test:** `gate-code-ux.spec.ts` · `access-codes.spec.ts`
-- **Result:** ✅ (re-driven 2026-07-22) — SUBJ-V01 entered live twice this re-pass: via the gate form (code+name → session, INVITED strip) and via `?code=` → picker; `?q=` handoff auto-submit verified earlier this round.
-### 2 — BYOAI panel renders + accepts a key
-- **Steps:** open the BYOAI panel → provider/endpoint/model/key → submit → land on `/<handle>?byoai=1` (real answer leg → [[chat-byoai]]).
-- **Expected:** the panel renders and accepts a key; the welcome states public scope.
-- **Backing test:** `gate-byoai-ux.spec.ts` · `chat-welcome.spec.ts:46`
-- **Result:** ✅ — real-DeepSeek BYOAI leg verified this round ([[chat-byoai]]: key path incl. load-models, grounded answer, public scope stated).
-### 3 — Request-access submits (no-code handoff)
-- **Steps:** a no-code visitor submits request-access with an inbox address → recorded (approve leg → [[access-codes]] / [[mail-connector]]). A no-code ask hands off to `/gate` carrying `?q=` — no inline chat.
-- **Expected:** the request-access block submits and confirms; the gate handoff preserves the question.
-- **Backing test:** `gate-request-access.spec.ts:40`
-- **Result:** ✅ — request-access submit + `/gate?q=` handoff verified this round (status UPDATE 2); approve/email leg tracked in [[access-codes]]/[[mail-connector]] (blocked-by-setup).
-### 4 — Identity picker doesn't re-pop over an active session  (was F-A-5)
-- **Steps:** enter a coded session → the identity picker appears once → after picking, it must **not** re-pop over the active session.
-- **Expected:** the picker resolves identity once and stays gone for the active session.
-- **⚠️ finding (fixed):** F-A-5 — the picker re-popped over an active session; fixed (338cf6b) and regressed on the real prod GUI.
-- **Result:** ✅ (re-observed 2026-07-22) — across LiveVerify/GhostVerify/DockClick sessions and many navigations the picker never re-popped over an active session; it appeared only when explicitly invoked (switch-name). F-A-5 stays fixed.
+
+### 2 — Every refusal says which refusal it is ⭐
+- **Steps:** Enter a code that does not exist. Read the message. Enter a real code that is full. Read it again. Enter a revoked code. Read it a third time.
+- **Expected:** Each case states its own reason in the words the backend used. A code that exists and is merely full is never reported as unknown, because the holder of a valid invitation would otherwise conclude the owner sent them a bad code.
+- **Backing test:** `gate-code-ux.spec.ts`
+
+### 3 — A question asked on the homepage survives the handoff
+- **Steps:** Ask a question on the public page without a code. Follow the handoff to the gate. Enter a valid code.
+- **Expected:** The question is carried through and submitted as the session's first message, so the visitor does not retype it. The public page offers no inline chat of its own.
+- **Backing test:** `gate-code-ux.spec.ts`
+
+### 4 — The BYOAI panel accepts a key and states the scope
+- **Steps:** Open the BYOAI panel. Enter provider, endpoint, model and key. Submit. Read the welcome.
+- **Expected:** The panel accepts the key and lands the visitor in chat. The welcome says the session is on the public slice.
+- **Backing test:** `gate-byoai-ux.spec.ts` · `chat-welcome.spec.ts`
+
+### 5 — Request-access submits and confirms
+- **Steps:** As a no-code visitor, fill request-access with a real address. Submit.
+- **Expected:** The form confirms. The approval and email legs belong to [[access-codes]] and [[mail-connector]].
+- **Backing test:** `gate-request-access.spec.ts`
+
+### 6 — The identity picker appears once and stays gone
+- **Steps:** Enter a coded session. Answer the identity picker. Navigate around the surfaces. Take turns. Reload once.
+- **Expected:** The picker resolves identity once and does not reappear over the active session. It returns only when the visitor asks to switch name.
+- **Backing test:** `gate-code-ux.spec.ts`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-`/gate` renders all three blocks (code entry / BYOAI panel / request-access) — none empty or dead; the identity modal appears once and doesn't re-pop; a submitted request confirms.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-A-5` historical anchor)
-
-- **F-A-5 ✅fixed** — identity picker no longer re-pops over an active session (regressed on real prod GUI).
+All three blocks render — code entry, BYOAI, request-access — and none of them is an empty frame.
+A refusal reads as a sentence a stranger can act on, and it does not clear the field without saying why.
+The identity modal appears once; a modal that re-pops over an active session reads as the product losing track of who you are.

@@ -1,35 +1,35 @@
 # deploy-forks — Prod deploy-config forks
 
-- **Status:** ✅ e2e-covered — fork/opt-in flags (captcha off by default is this path); config-level, e2e-covered
-- **Module:** the prod-default branches CI never runs with the dev value — plugins unset, 120s turn timeout, captcha off — behave correctly (or are named so they aren't silently assumed).
-- **Surface:** the running `docker-compose.prod.yml` config (observation) + the branches it selects.
-- **Real dep:** a running prod stack (`make prod-up`). Config observation — read each key and diff against `docker-compose.dev.yml`.
+- **Module:** The prod-default branches that CI never runs, because CI sets a different value. Each one behaves correctly, or is named clearly enough that nobody assumes the dev behaviour in prod.
+- **Surface:** The running prod compose config, and the code branches it selects. No owner screen.
+- **Real dep:** A running prod stack. This is observation: read each key and diff it against the dev compose.
 - **Backing e2e:** `plugin-discovery-chat` · `real-third-party-mcp-loader` · `agent-turn-endpoint` · `security-captcha-bypass`.
 
 ## Checks
 
-### 1 — `STANDMEET_PLUGINS` unset in prod → no managed MCP-app plugins load  (was §N1)
-- **Steps:** confirm prod's backend env carries **no** `STANDMEET_PLUGINS` (dev sets it). On prod, `registerPluginSource` gets an empty path → no managed plugin source registers. Then register a real owner-side plugin and confirm it loads in prod.
-- **Expected:** with the env unset, zero platform-declared plugins load at boot; a real owner-registered plugin still discovers + dispatches in visitor chat.
-- **⚠️ config fork:** `backend/cmd/server/plugins.go:31` reads `STANDMEET_PLUGINS`; prod compose omits it, so the whole platform-declared-plugin discovery path CI exercises runs on a source that does not exist in prod.
-- **Backing test:** `plugin-discovery-chat.spec.ts:53` · `real-third-party-mcp-loader.spec.ts:55`
-- **Result:** ✅ — STANDMEET_PLUGINS unset in prod → no managed plugins (F-A-1 prod-sandbox-gap confirms plugins absent on non-dev).
-### 2 — `AGENT_TURN_TIMEOUT` prod default  (was §N3)
-- **Steps:** confirm prod carries no `AGENT_TURN_TIMEOUT` → it falls to the code default (`agent_turn.go`), selected by `agentTurnTimeout()`. Drive a real long-running turn and confirm the cap applies (CI only ever sets a short test timeout to exercise the error path).
-- **Expected:** with the env unset, the agent turn caps at the prod default; a turn that exceeds it surfaces a friendly timeout error, not a crash. (Note: the boundary itself now synthesizes — see [[agent-turn-boundary]] / F-A-4, which raised the default to 300s.)
-- **⚠️ config fork:** the short-timeout error path CI validates only fires under a dev/e2e override; the real default branch is never driven.
-- **Backing test:** `agent-turn-endpoint.spec.ts:101`
-- **Result:** ✅ — AGENT_TURN_TIMEOUT prod default holds (turns bounded, F-A-4).
-### 3 — `TURNSTILE_*` unset in BOTH composes → captcha off by default  (was §N4)
-- **Steps:** confirm neither compose sets `TURNSTILE_SITEKEY`/`SECRET` → `NewFromConfig` returns `ProviderNone` (`captcha.go:65`) and the noop verifier is wired. Captcha is a **permissive default the owner opts into** (see [[captcha]]).
-- **Expected:** out of the box prod runs with captcha OFF (noop); this is deliberate, not a bug — name it so a deploy isn't assumed captcha-protected. The IP hard-lock (not captcha) guards a locked IP by default.
-- **⚠️ config fork:** the entire real-siteverify branch is dark until the owner supplies keys.
-- **Backing test:** `security-captcha-bypass.spec.ts:34` (hard-lock holds while captcha off)
-- **Result:** ✅ — TURNSTILE_* unset in both composes → captcha off by default (this instance shows no widget — [[captcha]]).
+### 1 — With the plugin path unset, no platform plugin loads ⭐
+- **Steps:** Read the prod backend's environment and confirm the plugin-path variable is absent. Boot and list what registered. Then register a real owner-side plugin and use it in visitor chat.
+- **Expected:** No platform-declared plugin registers at boot. An owner-registered plugin still discovers and dispatches.
+- **Mock gap:** Dev sets the variable, so the whole platform-plugin discovery path CI exercises runs on a source that does not exist in prod.
+- **Backing test:** `plugin-discovery-chat.spec.ts` · `real-third-party-mcp-loader.spec.ts`
+
+### 2 — The turn timeout falls to the code default
+- **Steps:** Confirm prod sets no turn-timeout override. Drive a genuinely long turn and watch where it stops.
+- **Expected:** The turn caps at the code default, and exceeding it produces the engineered boundary rather than a crash (see [[agent-turn-boundary]]).
+- **Mock gap:** CI validates the timeout error path only under a short override, so the real default branch is never driven.
+- **Backing test:** `agent-turn-endpoint.spec.ts`
+
+### 3 — Captcha is off by default, and that is deliberate
+- **Steps:** Confirm neither compose sets the captcha keys. Open `/gate` and look for a widget. Trip the IP lockout.
+- **Expected:** No widget renders, because the provider resolves to none. The IP hard-lock still guards. This is a permissive default the owner opts into (see [[captcha]]), so it must be named rather than assumed.
+- **Backing test:** `security-captcha-bypass.spec.ts`
+
+### 4 — Every other prod-only value is read, not assumed
+- **Steps:** Diff the prod compose against the dev one key by key. For each difference, name which code branch it selects and where that branch is covered.
+- **Expected:** Every divergence is either covered somewhere or written down as a known fork. Storage and isolation specifics belong to [[corpus-media]] and [[sandbox]].
+- **Backing test:** `gap`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-Config-only module — no owner screen; the "look" is that each fork is *named* so a deploy isn't silently assumed to have plugins / captcha / a short timeout.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-N-n` historical anchor)
-
-- **✅ confirmed** (first pass): plugins/turnstile/timeout unset, docker driver, storage SSL off (matches inventory). (`SANDBOX_WORKSPACE_ROOT`/isolation → [[sandbox]]; `STORAGE_*` → [[corpus-media]].)
+This module has no screen — the thing to look at is whether each fork is named anywhere an operator would find it.
+An unnamed fork becomes an assumption, and the assumption is always the dev value.

@@ -3,22 +3,15 @@
 # Regenerate ONLY to record a drain: infra/scripts/check-verify-items --bless
 admin-shell.md 18
 agent-loop-robustness.md 19
-application-status-persist.md 8
 booking-book.md 30
-calendar-connect.md 22
-captcha.md 18
 chat-grounding.md 28
 connector-assembly.md 30
 corpus-acl-editing.md 28
 corpus-media.md 25
 corpus-render.md 27
-corpus-subjectivity-admin.md 14
-deploy-forks.md 13
 dock-buttons.md 31
 ext-mcp.md 27
-gate.md 20
 job-fetch.md 26
 mail-connector.md 37
 owner-mcp.md 16
-sdk-embed.md 12
 vault-sync.md 35

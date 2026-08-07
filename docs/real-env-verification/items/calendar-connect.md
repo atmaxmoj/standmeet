@@ -1,40 +1,36 @@
 # calendar-connect — Booking: OAuth connect + token lifecycle
 
-- **Status:** ✅ verified (2026-07-23) — full real Google OAuth2 dance completed on prod: saved client_id/secret → Authorize → consent (calendar.events + calendar.readonly) → callback → token exchange → connector connected:true, active:true. Cleared `access_denied` by self-adding the test user in the Google Cloud console (consent screen was Testing with 0 test users — a real first-run friction: an unverified/testing app needs the account added as a test user before OAuth works). UX-11 tz default holds. Refresh/rotate/invalid_grant not separately forced this round.
-- **Module:** connect a calendar via a real OAuth2 dance (consent → code+secret+PKCE+state → token), refresh transparently on expiry, rotate + persist the new refresh token, and surface `invalid_grant` as a friendly reconnect.
-- **Surface:** admin/connectors (Google Calendar card).
-- **Real dep:** real `accounts.google.com` OAuth (`GOOGLE_OAUTH_CLIENT_ID/SECRET`) or any real OAuth2 AS. After the connector exists, register its generated `redirect_uri` back on the OAuth client.
-- **Inherits (historical finding IDs):** `F-B-2` (Authorize → `/init` 404, OAuth dance dead).
-- **Backing e2e:** `connector-happy-matrix` (mock OAuth dance) · `chat-book-token-refresh` · `security-oauth-callback-state` · `connector-err-refresh-network`.
+- **Module:** A calendar connects through a real OAuth dance — consent, then an exchange carrying the code, the secret, PKCE and state. Tokens refresh transparently on expiry, a rotated refresh token persists, and a revoked grant surfaces as a friendly reconnect.
+- **Surface:** `/admin/connectors`, the calendar card.
+- **Real dep:** A real OAuth authorization server and a real account. After the connector exists, its generated redirect URI must be registered back on the OAuth client. An app still in testing needs the account added as a test user first, or consent is denied — that is real first-run friction, not a defect.
+- **Backing e2e:** `connector-happy-matrix` (mock dance) · `chat-book-token-refresh` · `security-oauth-callback-state` · `connector-err-refresh-network` · `connector-retry-invalid-grant-no-retry` · `connector-gcal-rotate-creds-reverify`.
 
 ## Checks
 
-### 1 — OAuth connect (real consent, real token)  (was §B1)
-- **Steps:** admin/connectors → connect Google → browser redirects to real Google consent → authorize → callback exchanges a real refresh/access token; connector flips to connected.
-- **Expected:** connected; the DB stores real (encrypted) tokens, not mock tokens.
-- **Backing test:** `connector-happy-matrix.spec.ts` (mock OAuth dance)
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — connect leg needs a real Google OAuth consent (panel + booking-policy present + UX-11 tz fix verified). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 2 — Real OAuth2 dance (code + secret + PKCE + state)  (was §H2)
-- **Steps:** build an OAuth2 connector against a real authorization server → connect → real consent → callback exchanges `code` + `client_secret` (with PKCE + real `redirect_uri`, real `state`).
-- **Expected:** a real token is minted; `state` is validated; the refresh token rotates and the new one persists.
-- **⚠️ mock gap:** the mock **validates no `client_secret` / `code` / PKCE / `redirect_uri` and never rotates the refresh token** (`gcal.go:172`) → the real exchange + rotation persistence is untested.
-- **Backing test:** `connector-happy-matrix.spec.ts` (openapi calendar + oauth2 dance) · `security-oauth-callback-state.spec.ts` (forged state never mints a token / no open-redirect)
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — connect leg needs a real Google OAuth consent (panel + booking-policy present + UX-11 tz fix verified). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 3 — Token refresh + rotation  (was §B7)
-- **Steps:** force the access token to expire → the next call should refresh transparently; revoke it → should give a friendly `revoked` error.
-- **⚠️ mock gap:** the mock never rotates the refresh token; the persist-new-refresh-token path is untested.
+### 1 — Authorize reaches real consent and comes back with a real token ⭐
+- **Steps:** Save the client credentials on the card. Click Authorize. Complete consent on the provider. Return through the callback. Read the connector's state and the stored credential.
+- **Expected:** The browser reaches the provider's own consent screen. The callback exchanges a real token. The card shows connected and active. The stored token is real and encrypted, not a mock value.
+- **Backing test:** `connector-happy-matrix.spec.ts` (mock dance) · the real dance → `gap`
+
+### 2 — The exchange is validated, and the refresh token rotates
+- **Steps:** Complete the dance against a real authorization server. Inspect what the exchange sent and what came back. Force a refresh. Read the stored refresh token before and after.
+- **Expected:** The exchange carries the secret, the PKCE verifier and the real redirect URI, and the state is validated on return. A rotated refresh token replaces the stored one.
+- **Mock gap:** The mock validates no secret, no code, no PKCE and no redirect URI, and never rotates the refresh token. So the real exchange and rotation persistence are unexercised.
+- **Backing test:** `security-oauth-callback-state.spec.ts` · rotation against a real server → `gap`
+
+### 3 — An expired token refreshes without the owner noticing
+- **Steps:** Force expiry or clock skew on a real provider. Make a call that needs the calendar.
+- **Expected:** The call succeeds after a transparent refresh. The owner sees nothing.
 - **Backing test:** `chat-book-token-refresh.spec.ts`
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — connect leg needs a real Google OAuth consent (panel + booking-policy present + UX-11 tz fix verified). Backing e2e green; not manually driven (no live disproof, no manual proof).
-### 4 — OAuth silent refresh + `invalid_grant` (partial)  (was §P2)
-- **Steps:** on a **real** OAuth provider force token expiry/skew → next call should refresh transparently; revoke the grant → the refresh returns `invalid_grant` and surfaces as a friendly "reconnect required".
-- **Expected:** transparent refresh on expiry; `invalid_grant` → friendly reconnect prompt, no crash, no retry storm (an `invalid_grant` must **not** be retried).
-- **⚠️ partial:** needs a real provider — the mock validates no client_secret/code/PKCE/redirect_uri and never rotates the refresh token, so the real `invalid_grant` path can't be reproduced without live Google. The reproducible half (no-retry-on-invalid_grant) can be tested; the real-provider half stays `manual-only`.
-- **Backing test:** `connector-retry-invalid-grant-no-retry.spec.ts` · `connector-err-refresh-network.spec.ts` · `connector-gcal-rotate-creds-reverify.spec.ts`
-- **Result:** 🟡 blocked-by-setup this round (outside self-serve scope §0) — connect leg needs a real Google OAuth consent (panel + booking-policy present + UX-11 tz fix verified). Backing e2e green; not manually driven (no live disproof, no manual proof).
+
+### 4 — A revoked grant asks for a reconnect, once
+- **Steps:** Revoke the grant at the provider. Make a call. Watch the logs for retries.
+- **Expected:** The refusal surfaces as a friendly reconnect prompt. There is no crash and no retry storm — a revoked grant must not be retried.
+- **Mock gap:** The real revocation path needs a live provider. The no-retry half is reproducible without one.
+- **Backing test:** `connector-retry-invalid-grant-no-retry.spec.ts` · `connector-err-refresh-network.spec.ts`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-The connector card shows its **true** state (connected / disconnected / error), not a stale default; Authorize actually navigates to consent (not a dead `/init`); a revoked grant shows a friendly reconnect prompt.
 
-## Findings
-(record here; also log `../findings.md`, ID `F-B-n` / `F-P-n` historical anchor)
-
-- **F-B-2** (first pass): Authorize → `/init` 404 — creds save ✓ but the OAuth dance was dead. Redirect URI registered in Google.
+The card shows its true state — connected, disconnected or error — never a stale default from before the last action.
+Authorize actually navigates to consent; a button that goes nowhere is the failure this surface has had before.
+A revoked grant reads as a reconnect prompt, not as a raw provider error code.
