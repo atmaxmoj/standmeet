@@ -13,7 +13,7 @@
   },
   "pulse": {
     "title": "corpus pulse",
-    "sparkWindow": "new entries per day, last 14 days"
+    "sparkWindow": "new per day · last 14d"
   },
   "constellation": {
     "empty": "no links yet"

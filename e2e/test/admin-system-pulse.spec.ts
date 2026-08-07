@@ -75,6 +75,29 @@ test.describe('admin · SystemPulse corpus-growth stats', () => {
   // 一个是火花线的窗口,另一个是增量的窗口,两件不相干的事被排版成了一对选项。
   //
   // 断言:每个数字自己说清楚量的是什么窗口,面板上不再有两个裸露的 range 令牌并排。
+  // F-C-11 —— 这块面板的正文**根本没被看见过**。DOM 里火花线、总量、分层计数都在(所以
+  // 上面那两条读 innerText 的断言全绿),但 `aside` 在 `flex flex-col` 的 sidebar 里没有
+  // `shrink-0`,导航项一多就把它压成只剩标题那一行 —— 30px 高,其余全被裁掉。
+  // 真环境上 owner 看到的一直是 `CORPUS PULSE  +0 in 7d` 一行,而 407 / `184 raw · 223 wiki`
+  // 就在下面几像素之外。⑤ 手工回归时用眼睛发现的:读文本的断言分不出"渲染了"和"被压扁了"。
+  //
+  // 判据是几何:分层计数那一行必须落在面板自己的框**里面**。
+  test('the pulse rail is tall enough to show what it renders (F-C-11)',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'system');
+      const rail = adminPage.getByTestId('system-pulse');
+      const tiers = adminPage.getByTestId('pulse-tiers');
+      await expect(tiers).toBeVisible();
+      const railBox = await rail.boundingBox();
+      const tiersBox = await tiers.boundingBox();
+      expect(railBox, 'rail must have a box').not.toBeNull();
+      expect(tiersBox, 'tiers must have a box').not.toBeNull();
+      expect(
+        tiersBox!.y + tiersBox!.height,
+        '分层计数必须落在面板框里 —— 超出去就是被压扁了,owner 看不到',
+      ).toBeLessThanOrEqual(railBox!.y + railBox!.height + 1);
+    });
+
   test('the pulse rail does not read as a range toggle (F-C-7)',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'system');

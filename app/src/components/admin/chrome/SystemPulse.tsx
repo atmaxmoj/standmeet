@@ -15,7 +15,11 @@ export function SystemPulse() {
   return (
     <aside
       data-testid="system-pulse"
-      className="crosshair border border-(--color-rule) p-4 bg-(--color-surface)/40 scanline mb-6"
+      // shrink-0 —— 这块面板挂在一个 `flex flex-col` 的 sidebar 里,而 flex 子项默认可以被压缩。
+      // 导航项一多(这里有 26 个),它就被压成只剩标题那一行:火花线、总量、分层计数都还在 DOM 里,
+      // 只是被裁在 30px 的框外 —— 真环境上 owner 从来没看见过那几个数字(F-C-11)。
+      // 读文本的断言分不出"渲染了"和"被压扁了",所以那一条也换成了几何判据。
+      className="crosshair shrink-0 border border-(--color-rule) p-4 bg-(--color-surface)/40 scanline mb-6"
     >
       <span className="ch-tl" /><span className="ch-br" />
       <div className="flex items-baseline justify-between mb-3">
@@ -32,9 +36,13 @@ export function SystemPulse() {
       <div className="mono text-[9px] tracking-[0.08em] text-(--color-faint) mb-2">
         {t('sparkWindow')}
       </div>
-      <div className="flex items-baseline justify-between">
-        <div className="font-serif text-[22px] leading-none text-(--color-ink)">{v.total}</div>
-        <div className="mono text-[9.5px] tracking-[0.08em] text-(--color-faint)">{v.tiers}</div>
+      {/* 232px 宽放不下"大数字 + 三段分层"并排:它们会叠在一起。竖着排。 */}
+      <div className="font-serif text-[22px] leading-none text-(--color-ink)">{v.total}</div>
+      <div
+        className="mono text-[9.5px] tracking-[0.08em] text-(--color-faint) mt-1"
+        data-testid="pulse-tiers"
+      >
+        {v.tiers}
       </div>
     </aside>
   );
