@@ -30,8 +30,17 @@ type OwnerOp struct {
 type OpField struct {
 	Key         string
 	Description string
-	Required    bool
+	// Type —— 声明里写的标量类型("string" / "integer" / "number")。面据此选控件,并且
+	// 按它把值送回去 —— 数字字段送字符串的话,op 自己的 schema 第一步就 unmarshal 失败。
+	Type     string
+	Required bool
 }
+
+// renderableFieldTypes —— 能派生出一个控件的标量类型。
+//
+// 见 Fields 的注释:不猜控件。但**标量不是猜** —— integer 只有一种控件、一种转换。
+// 这张表之外的(嵌套对象 / 数组)才是猜,那些在装载时就被拒掉(见 ValidateOpSchema)。
+var renderableFieldTypes = map[string]bool{"string": true, "integer": true, "number": true}
 
 // Fields —— 把声明的 input_schema 派生成一张表单。
 //
@@ -39,9 +48,13 @@ type OpField struct {
 // 解一遍 schema,不如在声明旁边派生一次 —— 跟 DeriveCredentialForm 从 manifest 派生凭据
 // 表单是同一个路子。加一个 owner 操作 = 在 manifest 里加一段,面一行不改。
 //
-// 只认顶层的 string 属性:owner 操作的入参就是几段短文本(收件人 / 主题 / 正文)。声明里
-// 出现嵌套或别的类型就跳过,**不猜一个控件** —— 猜出来的控件填出来的值是错的,而且错得
-// 无声。schema 坏了同理:返回空,那张卡上就没有这个动作,而不是渲一个填不对的表单。
+// 只认顶层的**标量**属性(string / integer / number)。声明里出现嵌套或别的类型就跳过,
+// **不猜一个控件** —— 猜出来的控件填出来的值是错的,而且错得无声。schema 坏了同理:返回空,
+// 那张卡上就没有这个动作,而不是渲一个填不对的表单。
+//
+// 以前这里只认 string,于是一个 integer 字段(calendar.check 的 days)声明了、op 收得到、
+// 面上却没有那一格,而且没有任何东西说少了一格 —— F-C-17。跳过要跳得**出声**:装载时
+// ValidateOpSchema 直接拒掉派生不出来的字段,跟「声明了没实现的 op 就启动炸」同一条纪律。
 func (o OwnerOp) Fields() []OpField {
 	var decl opSchemaDecl
 	if err := json.Unmarshal(o.InputSchema, &decl); err != nil {
@@ -70,11 +83,12 @@ type opPropDecl struct {
 func orderFields(props map[string]opPropDecl, required map[string]bool) []OpField {
 	out := make([]OpField, 0, len(props))
 	for key, prop := range props {
-		if prop.Type != "string" {
+		if !renderableFieldTypes[prop.Type] {
 			continue
 		}
 		out = append(out, OpField{
-			Key: key, Description: prop.Description, Required: required[key],
+			Key: key, Description: prop.Description,
+			Type: prop.Type, Required: required[key],
 		})
 	}
 	slices.SortFunc(out, func(a, b OpField) int {
@@ -83,6 +97,26 @@ func orderFields(props map[string]opPropDecl, required map[string]bool) []OpFiel
 		}
 		return strings.Compare(a.Key, b.Key)
 	})
+	return out
+}
+
+// UnrenderableFields —— 声明里派生不出控件的那些字段名(排序稳定,好放进错误消息)。
+//
+// 装载时用:声明了一格而面上永远不会有那一格,是一句谎话,该在拉起时炸,不该等 owner
+// 对着一张缺了一格的表单发呆(F-C-17)。schema 本身坏掉不算这里的事(loader 先验过 JSON),
+// 解不开就当没声明字段。
+func (o OwnerOp) UnrenderableFields() []string {
+	var decl opSchemaDecl
+	if err := json.Unmarshal(o.InputSchema, &decl); err != nil {
+		return []string{}
+	}
+	out := make([]string, 0, len(decl.Properties))
+	for key, prop := range decl.Properties {
+		if !renderableFieldTypes[prop.Type] {
+			out = append(out, key)
+		}
+	}
+	slices.Sort(out)
 	return out
 }
 

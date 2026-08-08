@@ -13,6 +13,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
@@ -25,6 +27,87 @@ import (
 func connectorOpImpls(d *deps.Runtime) map[string]fp.Invoke {
 	return map[string]fp.Invoke{
 		"mail.test_send": mailTestSend(d),
+		"calendar.check": calendarCheck(d),
+	}
+}
+
+// calendarFailureReason —— 归类后的一句话,给 owner 看。跟 mailFailureReason 同一套纪律:
+// 每一句都指出下一步,措辞里不放状态码、主机名、栈。
+func calendarFailureReason(err error) string {
+	switch {
+	case errors.Is(err, contract.ErrCalendarNotConnected):
+		return "no calendar is connected yet — connect one first"
+	case errors.Is(err, contract.ErrCalendarRevoked):
+		return "the calendar access was revoked — reconnect it to continue"
+	case errors.Is(err, contract.ErrCalendarBadRequest):
+		return "the calendar rejected this request — check the booking policy"
+	default:
+		// 含 ErrCalendarUnavailable 和还没归过类的:对 owner 都是同一件事,等一会儿再试。
+		return "couldn't reach the calendar — please try again later"
+	}
+}
+
+type calendarCheckArgs struct {
+	Days int `json:"days"`
+}
+
+// calendarCheckOut —— 通了就报**它到底说了什么**(往后看几天、其中几段是忙的),没通就报一句人话。
+//
+// 为什么回执要带 BusyCount 而不是一句 ok:owner 要判的是「这条链现在还活着吗」,而 "ok" 这个词
+// 一个本地短路也答得出来。忙时段的条数只能来自 provider 那一头,所以它才是回执。
+type calendarCheckOut struct {
+	Reason string `json:"reason,omitempty"`
+	// Summary —— 成功那一句,**这个操作自己说**。通用的那一层原本只会说邮件那句
+	// 「去收件箱确认」,对日历自检是胡话。
+	Summary   string `json:"summary,omitempty"`
+	Days      int    `json:"days,omitempty"`
+	BusyCount int    `json:"busy_count"`
+	OK        bool   `json:"ok"`
+}
+
+// checkWindowDays —— 默认往后看多久。一周足够碰到大多数人的日程,又不至于让 provider 慢下来。
+const checkWindowDays = 7
+
+// plural —— 回执要读得像句话。「1 busy blocks」会让 owner 停一下去想是不是哪儿错了。
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// calendarCheck —— 拿存着的凭据向日历问一段 free/busy。
+//
+// **只读**:不建事件、不改任何东西。一次成功把整条链一起证了 —— 凭据是真的、token 有效或已被
+// 透明刷新、scope 够用、账号可达。这正是卡片上那个 "connected" 声称、却从不检查的东西。
+//
+// 问不到**不是**这台机器的错(授权被撤销 / provider 抖动都算常态),所以回 ok:false 而不是报错:
+// owner 要的就是这个答案。
+func calendarCheck(d *deps.Runtime) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in calendarCheckArgs
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return nil, fp.BadInput("invalid arguments: " + err.Error())
+		}
+		days := checkWindowDays
+		if in.Days > 0 {
+			days = in.Days
+		}
+		now := time.Now().UTC()
+		busy, ferr := d.ConnectorSlots.Calendar().FreeBusy(ctx, ownerID, contract.FreeBusyReq{
+			TimeMin: now, TimeMax: now.AddDate(0, 0, days),
+		})
+		if ferr != nil {
+			// 原始错误进日志(排查的人要);面上给归类后的一句话。
+			d.Log.Warn("connectors.calendar_check", "err", ferr)
+			return json.Marshal(calendarCheckOut{OK: false, Reason: calendarFailureReason(ferr)})
+		}
+		return json.Marshal(calendarCheckOut{
+			OK: true, Days: days, BusyCount: len(busy),
+			Summary: fmt.Sprintf(
+				"The calendar answered — %d busy %s in the next %d days.",
+				len(busy), plural(len(busy), "block", "blocks"), days),
+		})
 	}
 }
 

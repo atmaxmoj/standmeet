@@ -22,6 +22,10 @@ const OpResultSchema = z.object({
   ok: z.boolean().nullish(),
   reason: z.string().nullish(),
   via_kind: z.string().nullish(),
+  // summary —— 成了之后那一句,由**操作自己**说。以前只有 via_kind,而卡上那句成功文案是
+  // 「被 {kind} 连接器收下了 —— 去收件箱确认」:邮件口吻长在了通用的那一层里,换个品类就是胡话
+  // (日历自检没有收件箱)。给得出 summary 的操作用自己的话;给不出的仍走老那句。
+  summary: z.string().nullish(),
 });
 
 // OpOutcome —— 跑完之后的结果。reason 是**后端的原话**;viaKind 是成时那一路的 kind。
@@ -33,20 +37,30 @@ export interface OpOutcome {
   ok: boolean;
   reason: string;
   viaKind: string;
+  summary: string;
 }
 
 export interface ConnectorOpHook {
   segment: string;
   running: boolean;
   outcome: OpOutcome | null;
-  setField: (key: string, value: string) => void;
+  setField: (key: string, value: string, type: string) => void;
   run: () => void;
+}
+
+// coerce —— 按声明的类型把输入框里的字符串转回去。数字字段送字符串的话,op 自己的
+// schema 第一步 unmarshal 就失败(F-C-17)。空串一律当没填,交给 op 的默认值。
+function coerce(value: string, type: string): string | number | undefined {
+  if (value === '') return undefined;
+  if (type !== 'integer' && type !== 'number') return value;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 export function useConnectorOp(op: OwnerOp): ConnectorOpHook {
   const [running, setRunning] = useState(false);
   const [outcome, setOutcome] = useState<OpOutcome | null>(null);
-  const values = useRef<Record<string, string>>({});
+  const values = useRef<Record<string, string | number>>({});
   const segment = op.name.startsWith(OP_PREFIX) ? op.name.slice(OP_PREFIX.length) : op.name;
 
   const run = useCallback(() => {
@@ -54,15 +68,31 @@ export function useConnectorOp(op: OwnerOp): ConnectorOpHook {
     setOutcome(null);
     void adminAPI.post(`/connectors/ops/${segment}`, { ...values.current }, OpResultSchema)
       .then((r) => setOutcome({
-        reached: true, ok: r.ok ?? false, reason: r.reason ?? '', viaKind: r.via_kind ?? '',
+        reached: true, ok: r.ok ?? false, reason: r.reason ?? '',
+        viaKind: r.via_kind ?? '', summary: r.summary ?? '',
       }))
-      .catch(() => setOutcome({ reached: false, ok: false, reason: '', viaKind: '' }))
+      .catch(() => setOutcome({
+        reached: false, ok: false, reason: '', viaKind: '', summary: '',
+      }))
       .finally(() => setRunning(false));
   }, [segment]);
 
   return {
     segment, running, outcome,
-    setField: (key, value) => { values.current[key] = value; },
+    setField: (key, value, type) => { setValue(values.current, key, value, type); },
     run,
   };
+}
+
+// setValue —— 空值就把这一格删掉,而不是送一个空串:op 的 schema 里 days 是 integer,
+// 送 "" 过去它连解析都过不了,而 owner 的意思只是「这格我没填」。
+function setValue(
+  bag: Record<string, string | number>, key: string, value: string, type: string,
+): void {
+  const v = coerce(value, type);
+  if (v === undefined) {
+    delete bag[key];
+    return;
+  }
+  bag[key] = v;
 }

@@ -95,10 +95,19 @@ func ownerOps(dir string, decls []ownerOpDesc) ([]connector.OwnerOp, error) {
 			return nil, fmt.Errorf(
 				"connector %s owner op %q: input_schema is not valid JSON", dir, decls[i].Name)
 		}
-		out = append(out, connector.OwnerOp{
+		op := connector.OwnerOp{
 			Name: decls[i].Name, Op: decls[i].Op,
 			Description: decls[i].Description, InputSchema: schema,
-		})
+		}
+		// 声明了一格、面上派生不出来 → 拉起时就拒。以前它是**静默跳过**:manifest 说这个 op
+		// 收 days,op 也收得到,而卡上根本没有那一格,owner 填不了也没人吭声(F-C-17)。
+		// 跟「声明了一个没实现的 op 就启动炸」是同一条纪律 —— 声称的东西必须到得了面上。
+		if bad := op.UnrenderableFields(); len(bad) > 0 {
+			return nil, fmt.Errorf(
+				"connector %s owner op %q: input fields %v cannot be rendered "+
+					"(only string / integer / number are derivable)", dir, decls[i].Name, bad)
+		}
+		out = append(out, op)
 	}
 	return out, nil
 }

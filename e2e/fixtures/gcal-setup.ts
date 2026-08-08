@@ -106,6 +106,20 @@ export async function seedCodeVisitorOnConnectedOwner(
   return { ...seed, code, visitor };
 }
 
+/** Connect GCal on an owner that already exists — credentials + OAuth + activate,
+ *  WITHOUT resetting the instance.
+ *
+ *  seedOwnerGCalConnected resets first, which is right for API-only specs but kills
+ *  the admin browser session a GUI spec logged in with. A spec that drives the card
+ *  needs to claim once in beforeAll and then change connector state underneath the
+ *  same session. */
+export async function connectGCalOnExistingOwner(seed: BaseSeed): Promise<void> {
+  await saveGCalCredentials(seed.request, seed.csrf, MOCK_GCAL_CREDS);
+  await runMockOAuthFlow(seed);
+  const status = await getGCalStatus(seed.request);
+  if (!status.connected) throw new Error('connectGCalOnExistingOwner: not connected');
+}
+
 // ─── OAuth flow driver ─────────────────────────────────────────
 
 async function runMockOAuthFlow(seed: BaseSeed): Promise<void> {

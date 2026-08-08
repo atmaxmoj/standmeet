@@ -12,6 +12,9 @@ import { useLatestList } from '@/lib/admin/use-latest-list';
 const OwnerOpFieldSchema = z.object({
   key: z.string(),
   description: z.string().nullish(),
+  // type —— 声明里的标量类型。控件按它选,值也按它送回去:数字字段送字符串的话,
+  // op 自己的 schema 第一步 unmarshal 就失败(F-C-17)。
+  type: z.string().nullish(),
   required: z.boolean().nullish(),
 });
 const OwnerOpSchema = z.object({

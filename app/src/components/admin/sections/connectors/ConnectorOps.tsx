@@ -43,15 +43,21 @@ function OpFields({ fields, hook }: { fields: readonly OwnerOpField[]; hook: Con
         <input
           key={f.key}
           data-testid={`connector-op-field-${f.key}`}
-          type="text"
+          type={inputType(f.type)}
           placeholder={f.key}
           aria-label={f.description ?? f.key}
-          onChange={(e) => hook.setField(f.key, e.target.value)}
+          onChange={(e) => hook.setField(f.key, e.target.value, f.type ?? 'string')}
           className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
         />
       ))}
     </div>
   );
+}
+
+// inputType —— 声明说这格是数字,就给一个数字控件。声明里能出现的标量只有这三种
+// (派生不出来的字段在装载时就被拒了),所以这里不需要兜底一个「万一呢」的分支。
+function inputType(declared: string | null | undefined): 'text' | 'number' {
+  return declared === 'integer' || declared === 'number' ? 'number' : 'text';
 }
 
 function RunButton({ hook }: { hook: ConnectorOpHook }) {
@@ -93,7 +99,18 @@ function resultSentence(
 function reachedSentence(
   outcome: NonNullable<ConnectorOpHook['outcome']>, t: Translate,
 ): string {
-  return outcome.ok ? t('sent', { kind: outcome.viaKind }) : failureSentence(outcome.reason, t);
+  return outcome.ok ? successSentence(outcome, t) : failureSentence(outcome.reason, t);
+}
+
+// successSentence —— 操作自己说了一句就用它的。
+//
+// 老那句(`sent`)是**邮件口吻**的:「被 {kind} 连接器收下了 —— 去收件箱确认它到了」。
+// 它长在这个通用组件里,于是任何第二个品类的成功都会读成胡话 —— 日历自检没有收件箱。
+// 失败那句早就由操作自己给了(后端归好类),成功这句本该同样如此。
+function successSentence(
+  outcome: NonNullable<ConnectorOpHook['outcome']>, t: Translate,
+): string {
+  return outcome.summary === '' ? t('sent', { kind: outcome.viaKind }) : outcome.summary;
 }
 
 // failureSentence —— 失败那句**原样用后端的**:它在后端已经归过类了(改配置 / 换收件人 /

@@ -127,7 +127,10 @@ type ownerOpOut struct {
 type ownerOpFieldOut struct {
 	Key         string `json:"key"`
 	Description string `json:"description"`
-	Required    bool   `json:"required"`
+	// Type —— 声明里的标量类型。面据此选控件并按类型送值:数字字段送字符串的话,
+	// op 自己的 schema 第一步 unmarshal 就失败(F-C-17)。
+	Type     string `json:"type"`
+	Required bool   `json:"required"`
 }
 
 func toOwnerOps(decls []connector.OwnerOp) []ownerOpOut {
@@ -145,7 +148,8 @@ func toOwnerOpFields(fields []connector.OpField) []ownerOpFieldOut {
 	out := make([]ownerOpFieldOut, 0, len(fields))
 	for _, f := range fields {
 		out = append(out, ownerOpFieldOut{
-			Key: f.Key, Description: f.Description, Required: f.Required,
+			Key: f.Key, Description: f.Description,
+			Type: f.Type, Required: f.Required,
 		})
 	}
 	return out

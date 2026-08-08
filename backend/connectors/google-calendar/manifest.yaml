@@ -4,3 +4,26 @@ category: calendar
 auth_scheme: oauth2
 spec: spec.yaml
 binding: binding.yaml
+
+# owner_ops —— 这个连接器自己出的 owner 侧操作。
+#
+# 「它现在还通吗」在日历上比在别处要紧:OAuth 授权可以在 provider 那边被撤销、refresh token
+# 可以轮换掉,而卡片上那个 "connected" 不查任何东西 —— 于是失效一直看不见,直到某个访客来约
+# 会议才爆(F-C-16)。
+#
+# 用 free/busy 而不是建一个事件:只读,不在 owner 日历上留下任何东西,而一次成功的调用把整条链
+# 一起证了 —— 凭据是真的、token 有效或**已被透明刷新**、授到的 scope 够用、账号可达。
+owner_ops:
+  - name: connectors.calendar_check
+    op: calendar.check
+    description: >-
+      Ask the connected calendar what it is busy with over the next few days.
+      Read-only — it books nothing. Proves the credential still works and the
+      token still refreshes.
+    input_schema: |
+      {
+        "type":"object",
+        "properties":{
+          "days":{"type":"integer","description":"How many days ahead to look (default 7)."}
+        }
+      }
