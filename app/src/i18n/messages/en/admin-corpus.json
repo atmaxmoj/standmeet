@@ -42,7 +42,7 @@
   "seoEditor": {
     "heading": "public landing (url is tree-derived from the title)",
     "description": "meta description",
-    "indexed": "include in sitemap.xml (let search engines find this)"
+    "indexed": "published — a public page lives at this URL, and it is listed in sitemap.xml"
   },
   "scope": {
     "kept": "kept as written (not on the tree): ",

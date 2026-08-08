@@ -69,7 +69,7 @@
     "full": "This code is full — it’s reached its limit of names. Ask whoever shared it with you for a fresh one.",
     "prompt": "One last thing before the chat starts — the owner sees this on your transcript later. Pick a short name; a handle is fine.",
     "capacityDefault": "More than one person can use this code.",
-    "capacityNote": "Keep using the <strong>same name</strong> and your chats stay grouped as you; a <strong>different name</strong> reads as a new person and starts a separate conversation. Passing the code to someone else? Have them scan it and pick their own name.",
+    "capacityNote": "Keep using the <strong>same name</strong> and your chats stay grouped as you; a <strong>different name</strong> reads as a new person and starts a separate conversation. Passing the code to someone else? Have them scan it and pick their own name. Rather not give a name? <strong>Skip</strong> takes one of the code's names too, as a guest — and coming back later starts over as a new guest.",
     "start": "start ↵",
     "skip": "skip",
     "starting": "starting chat"
