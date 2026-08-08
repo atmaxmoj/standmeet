@@ -181,8 +181,11 @@ func ownerSkillRows(facts *capabilityFacts) []capabilityRow {
 		if s.IsBuiltin {
 			continue // 内建 skill 不算 owner-origin,不可删
 		}
+		// Title 必须给:skill 的 id 是个 UUID。内建能力的 id 本身就是人话(mail.send),
+		// 所以面上只渲 id 也看着正常 —— 直到 owner 自己写的 skill 出现,那一行就只剩一串
+		// 十六进制,旁边还挂着开关和删除。
 		out = append(out, capabilityRow{
-			ID: s.ID, Origin: string(capreg.OriginOwner), Kind: "skill",
+			ID: s.ID, Title: s.Name, Origin: string(capreg.OriginOwner), Kind: "skill",
 			Enabled: s.Enabled, Deletable: true,
 		})
 	}

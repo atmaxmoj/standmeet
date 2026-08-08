@@ -90,7 +90,7 @@ function CapabilityItem({ row, hook }: { row: CapabilityRow; hook: CapabilitiesH
     <li className="flex items-center gap-3 py-3" data-testid={`capability-row-${row.id}`}>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm text-(--color-ink)">{row.id}</span>
+          <span className="truncate text-sm text-(--color-ink)">{capabilityLabel(row)}</span>
           <OriginBadge row={row} />
           <KindBadge row={row} />
         </div>
@@ -100,6 +100,17 @@ function CapabilityItem({ row, hook }: { row: CapabilityRow; hook: CapabilitiesH
       <DeleteBtn row={row} hook={hook} />
     </li>
   );
+}
+
+// capabilityLabel —— 这一行叫什么。
+//
+// 内建能力的 id 本身就是人话(`mail.send`),所以直接渲 id 一直看着没问题;owner 自己写的
+// skill 的 id 是 UUID,于是那一行就只剩一串十六进制,而它旁边正是开关和删除 —— owner 得在
+// 一个认不出来的名字上决定关掉还是删掉。同一个 skill 在 /admin/skills 上是有名字的。
+//
+// title 早就在这张表的 schema 里(dock 按钮下拉在用),这一面从来没读过它。
+function capabilityLabel(row: CapabilityRow): string {
+  return row.title === undefined || row.title === '' ? row.id : row.title;
 }
 
 const BADGE_BASE =
