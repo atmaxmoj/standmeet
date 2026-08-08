@@ -29,7 +29,7 @@ type Waypoint struct {
 // 保留 role 顺序(稳定,便于 owner 对照),code 新增的接在后面。空 override → 原样返回 role 的。
 //
 // 这里**只做合并**:授权过滤仍由 FilterWaypointsByCorpus 在冻结那刻统一执行 —— code 永远
-// 不能借覆盖把 role 看不见的证据引导出来(feasibility floor 不因 code 而松)。
+// 不能借覆盖把 role 看不见的证据引导出来(授权下限不因 code 而松)。
 func MergeWaypoints(base, override []Waypoint) []Waypoint {
 	if len(override) == 0 {
 		return base
@@ -112,9 +112,14 @@ func cloneWaypoints(in []Waypoint) []Waypoint {
 	return out
 }
 
-// FilterWaypointsByCorpus —— feasibility floor（冻结时调）：丢弃 evidence_refs 全落在授权 glob
+// FilterWaypointsByCorpus —— **授权**下限（冻结时调）：丢弃 evidence_refs 全落在授权 glob
 // 之外的 waypoint —— role 看不到的证据不该被引导向。无 refs 的 waypoint（如 booking 终点，靠工具
 // 事件而非 corpus）保留；≥1 条 ref 在界内 → 保留整条（policy 侧只会引用可见的那些）。
+//
+// 这里一度叫 "feasibility floor"，而它从来没做过那件事：glob 判的是**这串字**落不落在界内，
+// `subjectivity://standpoint` 匹配 `subjectivity://*` 匹配得完美，指向的笔记却可以根本不存在。
+// 那样的 waypoint 永久不可访（ledger 靠引用拼 URI 才标 visited），ghost 会永远推它。可行性由
+// conversation 侧的 feasibleWaypoints 单独守（F-A-26）—— 两件事，两个名字。
 func FilterWaypointsByCorpus(waypoints []Waypoint, granted []string) []Waypoint {
 	out := make([]Waypoint, 0, len(waypoints))
 	for _, w := range waypoints {

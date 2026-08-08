@@ -60,7 +60,7 @@ type RoleSnapshot struct {
 	// dockButtons —— #109/#110 owner 在 role 上配的 ≤2 个 chat dock 按钮（冻结）。
 	dockButtons []DockButtonConfig
 	// waypoints —— ghost-steering 的引导目的地（冻结）。构造前经 FilterWaypointsByCorpus
-	// 过滤：evidence_refs 全越授权 glob 的 waypoint 在冻结那刻整条丢弃（feasibility floor）。
+	// 过滤：evidence_refs 全越授权 glob 的 waypoint 在冻结那刻整条丢弃（授权下限）。
 	waypoints []Waypoint
 	// requireGhostEvidence —— F-A-10: 冻下的「内容型引导 ghost 需有证据」开关(role 值经 code 覆盖)。
 	// ghost 选择时据此把空证据的非终点 waypoint 从 steering 候选里剔除;终点/工具 waypoint 不受影响。

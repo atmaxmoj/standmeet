@@ -200,12 +200,15 @@ func buildRoleSnapshotByID(
 		ProviderID: role.ProviderID(),
 		GasMetered: role.GasMetered(),
 		// ghost-steering: 冻 waypoints。先按 waypoint_id 把 code 的覆盖层叠在 role 之上
-		// （role = 这个受众的目的地，code = 这一次邀约的），**再**按 role 授权 glob 过滤
-		// （feasibility floor）—— 顺序要紧：过滤在合并之后，code 才不能借覆盖把 role 看不到的
-		// 证据引导出来。evidence_refs 全越界的 waypoint 整条丢弃。
-		Waypoints: access.FilterWaypointsByCorpus(
+		// （role = 这个受众的目的地，code = 这一次邀约的），**再**过两道下限 —— 顺序要紧：
+		// 过滤在合并之后，code 才不能借覆盖把 role 看不到的证据引导出来。
+		//   1. 授权：evidence_refs 全落在 role 授权 glob 之外 → 整条丢弃；
+		//   2. 可行性(F-A-26)：非终点 waypoint 的 refs 一条都指不到真笔记 → 整条丢弃。
+		//      两件事以前共用一个名字而只做了第一件，于是「glob 匹配得上、笔记不存在」的
+		//      引导目的地永久不可访，ghost 永远静默不下来。见 visitor_waypoint_feasible.go。
+		Waypoints: feasibleWaypoints(ctx, deps.CorpusRefs, ownerID, access.FilterWaypointsByCorpus(
 			access.MergeWaypoints(role.Waypoints(), overlay.waypoints), role.CorpusURIs(),
-		),
+		)),
 		// F-A-10: 有效开关 = code 覆盖(非 nil)否则 role 值。冻进 snapshot,ghost 选择时用。
 		RequireGhostEvidence: effectiveGhostEvidence(
 			role.RequireGhostEvidence(), overlay.requireGhostEvidence,

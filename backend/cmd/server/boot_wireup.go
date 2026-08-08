@@ -211,6 +211,9 @@ func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
 		Gas: port.OwnerGas{Providers: owner.ProvidersUseDeps{
 			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo,
 		}},
+		// 冻 waypoints 时问「这条 evidence_ref 指得到真笔记吗」(F-A-26)。跟沙箱读语料
+		// 同一份 IndexDeps —— 「引导得过去」和「读得到」必须是同一件事。
+		CorpusRefs: corpus.NewRefResolver(wire.CorpusIndexDeps(d)),
 	}
 }
 

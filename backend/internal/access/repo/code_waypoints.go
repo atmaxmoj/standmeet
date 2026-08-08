@@ -4,7 +4,7 @@
 // role 是「这个受众」的目的地，code 是「这一次邀约」的：一张招聘码想给通用 role 加一个只属于
 // 本次的目的地、或把某条 weight 调高，不该被迫复制整份清单。合并语义在 MergeWaypoints
 // （同 waypoint_id → code 覆盖，新 id → 追加），授权过滤仍由冻结那刻的
-// FilterWaypointsByCorpus 统一执行 —— code 覆盖不能松掉 feasibility floor。
+// FilterWaypointsByCorpus 统一执行 —— code 覆盖不能松掉授权下限。
 //
 // 这里只存/读 **覆盖层本身**（不含继承来的 role 的）；合并发生在 snapshot 装配。
 

@@ -12,9 +12,11 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
-import { claim, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
+import { seedWiki } from '@/fixtures/corpus';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
+import { initMCP } from '@/fixtures/mcp';
 import { scriptMockGhost } from '@/fixtures/mock-llm-script';
 import { createRole } from '@/fixtures/roles';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
@@ -134,6 +136,13 @@ async function setup(playwright: Playwright): Promise<void> {
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  // WP 的证据 note 得真存在,冻结那一刻的可行性下限才放它进快照(F-A-26)。
+  // 以前没 seed 也绿:那时没有任何一道闸问过「这条 ref 指得到东西吗」。
+  const apiToken = await createAPIToken(request, csrf, 'wppolicy-seed');
+  const sid = await initMCP(request, apiToken);
+  await seedWiki(request, apiToken, sid, {
+    title: 'Alpha', body: 'Alpha shipped last quarter.', path: 'alpha',
+  });
   const role = await createRole(request, csrf, {
     name: 'wp-policy-role', description: 'policy spec',
     corpus_uris: ['wiki://**'], waypoints: [WP],

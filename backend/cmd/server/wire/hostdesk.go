@@ -58,8 +58,7 @@ func serveHostOps(
 
 // sharedHostDeps —— 跟能力无关的那几样(语料、对话、owner、连接器)。
 //
-// 语料的三个 lister 和 LLM 解析器取自访客技能那份 deps:同一份对象,访客工具和沙箱能力
-// 读到的是同一套 ACL 与同一个凭据解析路径。
+// LLM 解析器取自访客技能那份 deps:同一份对象,访客工具和沙箱能力走的是同一条凭据解析路径。
 func sharedHostDeps(
 	d *deps.Runtime, skills *conversation.VisitorSkillsDeps,
 ) *hostdesk.Deps {
@@ -67,18 +66,27 @@ func sharedHostDeps(
 		Conversation: conversation.OpsHost{
 			Chats: d.ChatRepo, Resolver: skills.Resolver, Reports: skills.Reports,
 		},
-		Corpus: &corpus.IndexDeps{
-			Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
-			Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo,
-			NoteRefs: d.NoteRefRepo, Searcher: d.SearchClient,
-			// 素材:访客读到一条语料时顺带拿到它的图 / 附件。可见性纯继承 —— 读到条目
-			// 那一步已经过了 ACL,素材挂在它后面,不再判第二次。
-			Media: &corpus.NoteAssetsDeps{
-				Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
-				Hero:   d.NoteHeroRepo,
-			},
-		},
+		Corpus:     CorpusIndexDeps(d),
 		Owners:     d.OwnerRepo,
 		Connectors: d.ConnectorSlots,
+	}
+}
+
+// CorpusIndexDeps —— 「读语料」这件事的一份原料,一处装配。
+//
+// 沙箱能力经 host op 读语料用它;冻 role snapshot 时判 waypoint 的 evidence_ref 指不指得到
+// 真笔记(F-A-26)也用它。两处必须是同一套 —— 「agent 读得到什么」和「引导目的地算不算可达」
+// 一旦各装一份,就会各自漂,而漂开的那天没有任何东西会报错。
+func CorpusIndexDeps(d *deps.Runtime) *corpus.IndexDeps {
+	return &corpus.IndexDeps{
+		Wiki: d.WikiRepo, Output: d.OutputRepo, Writings: d.WritingRepo,
+		Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo,
+		NoteRefs: d.NoteRefRepo, Searcher: d.SearchClient,
+		// 素材:访客读到一条语料时顺带拿到它的图 / 附件。可见性纯继承 —— 读到条目
+		// 那一步已经过了 ACL,素材挂在它后面,不再判第二次。
+		Media: &corpus.NoteAssetsDeps{
+			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
+			Hero:   d.NoteHeroRepo,
+		},
 	}
 }

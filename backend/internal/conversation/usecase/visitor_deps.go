@@ -43,6 +43,9 @@ type VisitorSessionDeps struct {
 	// Gas —— 油表(#7)。可空 = 这台实例读不到油量,于是每一场都当作没挂表 ——
 	// 读不到油量就把所有人挡在门外,是拿一个诊断问题去惩罚访客。
 	Gas GasGauge
+	// CorpusRefs —— 冻 waypoints 时问「这条 evidence_ref 指得到真笔记吗」(F-A-26)。
+	// 可空 = 不做可行性过滤(见 feasibleWaypoints)。
+	CorpusRefs CorpusRefResolver
 }
 
 // GasGauge —— 一箱油还剩多少 token。nil = 这箱油没挂表。

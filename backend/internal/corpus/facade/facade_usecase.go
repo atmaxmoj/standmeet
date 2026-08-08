@@ -36,6 +36,7 @@ type (
 	PromoteInput                    = usecase.PromoteInput
 	PromoteToOutputInput            = usecase.PromoteToOutputInput
 	RawDumpInput                    = usecase.RawDumpInput
+	RefResolver                     = usecase.RefResolver
 	SEOSettingsPatch                = usecase.SEOSettingsPatch
 	SaveWritingInput                = usecase.SaveWritingInput
 	SubjectivityCiteLookup          = usecase.SubjectivityCiteLookup
@@ -90,6 +91,7 @@ var (
 	RebuildNoteRefs             = usecase.RebuildNoteRefs
 	CorpusHostOps               = usecase.CorpusHostOps
 	CorpusHostOpsFor            = usecase.CorpusHostOpsFor
+	NewRefResolver              = usecase.NewRefResolver
 	IndexPeriodicJobs           = usecase.IndexPeriodicJobs
 	ReindexCorpusOwner          = usecase.ReindexCorpusOwner
 	ResolveAssetURLs            = usecase.ResolveAssetURLs

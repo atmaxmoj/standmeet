@@ -38,11 +38,17 @@ type corpusRunner func(context.Context, Lister, *corpusIndexReq) (string, error)
 
 // CorpusHostOpsFor —— prod 那套:从 postgres 的 IndexDeps 装出 pgCorpusLister,再声明这七件事。
 func CorpusHostOpsFor(deps *IndexDeps) []hostop.Op {
-	return CorpusHostOps(&pgCorpusLister{
+	return CorpusHostOps(newPGLister(deps))
+}
+
+// newPGLister —— IndexDeps → pgCorpusLister。host ops 和 RefResolver 共用一句,
+// 好让「waypoint 的 evidence_ref 解不解析得出」跟「agent 真读得到什么」是同一套 finder。
+func newPGLister(deps *IndexDeps) *pgCorpusLister {
+	return &pgCorpusLister{
 		wiki: deps.Wiki, output: deps.Output, writing: deps.Writings,
 		subjectivity: deps.Subjectivity, queryRepo: deps.VaultSync,
 		noteRefs: deps.NoteRefs, searcher: deps.Searcher, media: deps.Media,
-	})
+	}
 }
 
 // CorpusHostOps —— 本域开给沙箱能力的读语料那几件事,背后是任意 Lister。

@@ -10,7 +10,9 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
-import { claim, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { seedWiki } from '@/fixtures/corpus';
+import { initMCP } from '@/fixtures/mcp';
 import { createCode } from '@/fixtures/codes';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 import { scriptMockGhost } from '@/fixtures/mock-llm-script';
@@ -83,6 +85,10 @@ async function seed(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
   await claim(request, findSetupToken(), OWNER);
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  // WP_A 的证据 note 得真存在,冻结那刻的可行性下限才放它进快照(F-A-26)。
+  const apiToken = await createAPIToken(request, csrf, 'telemui-seed');
+  const sid = await initMCP(request, apiToken);
+  await seedWiki(request, apiToken, sid, { title: 'Alpha', body: 'Alpha.', path: 'alpha' });
   const role = await createRole(request, csrf, {
     name: 'telem-ui-role', description: 'ghost telemetry ui',
     corpus_uris: ['wiki://**', 'output://**'], waypoints: [WP_A],
