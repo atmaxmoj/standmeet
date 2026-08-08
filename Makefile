@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -323,6 +323,13 @@ dev-restart-svc:
 dev-logs:
 	@test -n "$(SVC)" || (echo "usage: make dev-logs SVC=<service> [N=<lines>]"; exit 2)
 	@docker compose -f docker-compose.dev.yml logs --tail=$(if $(N),$(N),60) $(SVC)
+
+# prod-logs —— 同上,但对着真实环境那一套(真实环境审计手工驱到不对时,第一步就是读它的日志)。
+# 用法：make prod-logs SVC=backend N=80
+prod-logs:
+	@test -n "$(SVC)" || (echo "usage: make prod-logs SVC=<service> [N=<lines>]"; exit 2)
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml logs \
+		--tail=$(if $(N),$(N),60) $(SVC)
 
 build:
 	@echo "[build] not implemented yet."

@@ -6,6 +6,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { ConnectorOps } from '@/components/admin/sections/connectors/ConnectorOps';
 import { useConnectorCard, type ConnectorCardHook } from '@/lib/admin/use-connector-card';
 import type { CatalogEntry } from '@/lib/admin/use-connector-catalog';
 
@@ -24,6 +25,7 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
       <Scopes hook={hook} />
       <Actions hook={hook} />
       <ErrorLine error={hook.error} />
+      <ConnectorOps ops={entry.owner_ops ?? []} />
     </li>
   );
 }

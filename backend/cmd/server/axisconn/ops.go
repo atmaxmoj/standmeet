@@ -45,8 +45,9 @@ func connectorRegistryOps(ops connectorOps) []fp.Op {
 		},
 		{
 			ID: "connectors.catalog",
-			Description: "List the built-in connectors available to connect (id / " +
-				"category / kind); fetch per-connector status and credential forms separately.",
+			Description: "List the built-in connectors available to connect (id / category / " +
+				"kind, plus the owner operations each one declares); fetch per-connector " +
+				"status and credential forms separately.",
 			InputSchema: fp.NoArgs,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
@@ -105,9 +106,62 @@ func listConnectors(ops connectorOps) fp.Invoke {
 	}
 }
 
+// catalogRowOut —— 目录里的一张卡:通用那几项 + **它自己声明的 owner 操作**。
+//
+// 声明必须一路走到面上。不走的话,面要摆一个「发一封测试信」的按钮就只能自己写死
+// "mail 卡上有这个" —— 通用的那一层里又出现了品类名,而这正是 owner_op.go 把它拆开的
+// 理由。声明是数据:manifest 里加一段,卡上就多一个动作,前端一行不改。
+type catalogRowOut struct {
+	connectorRowOut
+
+	OwnerOps []ownerOpOut `json:"owner_ops,omitempty"`
+}
+
+// ownerOpOut —— 一个 owner 操作在面上的样子:操作 id + 一句说明 + 要填的几格。
+type ownerOpOut struct {
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Fields      []ownerOpFieldOut `json:"fields,omitempty"`
+}
+
+type ownerOpFieldOut struct {
+	Key         string `json:"key"`
+	Description string `json:"description"`
+	Required    bool   `json:"required"`
+}
+
+func toOwnerOps(decls []connector.OwnerOp) []ownerOpOut {
+	out := make([]ownerOpOut, 0, len(decls))
+	for _, decl := range decls {
+		out = append(out, ownerOpOut{
+			Name: decl.Name, Description: decl.Description,
+			Fields: toOwnerOpFields(decl.Fields()),
+		})
+	}
+	return out
+}
+
+func toOwnerOpFields(fields []connector.OpField) []ownerOpFieldOut {
+	out := make([]ownerOpFieldOut, 0, len(fields))
+	for _, f := range fields {
+		out = append(out, ownerOpFieldOut{
+			Key: f.Key, Description: f.Description, Required: f.Required,
+		})
+	}
+	return out
+}
+
 func catalogConnectors(ops connectorOps) fp.Invoke {
 	return func(_ context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
-		return json.Marshal(toConnectorRows(ops.svc.Catalog()))
+		conns := ops.svc.Catalog()
+		rows := make([]catalogRowOut, 0, len(conns))
+		for i := range conns {
+			rows = append(rows, catalogRowOut{
+				connectorRowOut: toConnectorRow(&conns[i]),
+				OwnerOps:        toOwnerOps(ops.svc.OwnerOpsOf(conns[i].ConnectorID)),
+			})
+		}
+		return json.Marshal(rows)
 	}
 }
 

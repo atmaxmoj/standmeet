@@ -67,6 +67,19 @@ func (s *Service) DeclaredOwnerOpIDs() []string {
 	return out
 }
 
+// OwnerOpsOf —— 某个内置连接器**自己声明**的 owner 操作。未知 id / 没声明 → 空。
+//
+// 跟 DeclaredOwnerOpIDs 的分工:那一份是扁平清单,给挂路由用(挂路由不关心谁声明的);
+// 这一份按连接器分,给**面**用 —— 一个动作要渲在声明它的那张卡上,否则面就得自己知道
+// "mail 卡上有个发信按钮",通用层里又冒出品类名,正是 owner_op.go 要拆掉的那件事。
+func (s *Service) OwnerOpsOf(id string) []OwnerOp {
+	m := s.Manifest(id)
+	if m == nil {
+		return []OwnerOp{}
+	}
+	return m.OwnerOps
+}
+
 // Catalog —— 所有内置连接器（拉起时外置装配进来的 manifest），供 admin UI 渲染可连接的内置卡。
 // 各卡状态/凭据表单各自再取 /{id}/{status,credential-form}。不进 List（List 只列 owner 已建；内置
 // 混进去会被 reuse-by-category 的调用方误抓）。复用 Connection，不新增公开类型。

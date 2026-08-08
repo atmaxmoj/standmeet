@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/textproto"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
@@ -116,9 +117,30 @@ func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg contract.M
 		b = b.HTML(msg.HTML)
 	}
 	if serr := b.Send(); serr != nil {
-		// SMTP 分不出"服务器暂时不行"和"这封被拒"(两者都可能是一个 5xx 回码),所以统一
-		// 归到"暂时不可用"。原始错误留在 %w 链里给日志 —— 面那一侧只读哨兵。
-		return fmt.Errorf("%w: %w", contract.ErrMailUnavailable, serr)
+		// 原始错误留在 %w 链里给日志 —— 面那一侧只读哨兵。
+		return fmt.Errorf("%w: %w", smtpFailureClass(serr), serr)
 	}
 	return nil
 }
+
+// smtpFailureClass —— 按 SMTP 回码把失败分成「永久」和「暂时」。
+//
+// 这里以前一律归成「暂时不可用」,理由写的是"SMTP 分不出服务器暂时不行和这封被拒"。分得出:
+// 回码的第一位就是这件事 —— 5xx 是永久拒绝(地址不合法 / 被拒收 / 超大),4xx 才是稍后再试。
+// 塌成一类之后,面上那句"改收件人"**永远出不来**:owner 拿到的永远是"过一会儿再试",而这一类
+// 他再试一百次也不会好。一个从来不可能出现的分支跟没写是一回事。
+//
+// 拿不到回码(连接被拒 / 网络断 / 超时)→ 暂时:那种失败本来就跟这一封的内容无关。
+func smtpFailureClass(err error) error {
+	var reply *textproto.Error
+	if errors.As(err, &reply) && reply.Code >= smtpPermanentFloor && reply.Code < smtpCodeCeiling {
+		return contract.ErrMailRejected
+	}
+	return contract.ErrMailUnavailable
+}
+
+// SMTP 回码的百位就是永久 / 暂时之分:5xx 永久,4xx 暂时。
+const (
+	smtpPermanentFloor = 500
+	smtpCodeCeiling    = 600
+)

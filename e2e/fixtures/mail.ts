@@ -21,8 +21,11 @@ const MAIL_MOCK = process.env['MAIL_MOCK_URL'] ?? 'http://localhost:19400';
 
 // SMTPFault —— arm the next send(s) to fail. times omitted = persistent until reset
 // (模拟「SMTP 服务宕」); subjectContains 限定只让匹配主题的信失败（内容触发）。
+//
+// permanent —— 中继回一个 5xx 而**不断连接**(地址不存在 / 被拒收)。跟另外两个模式分开是因为
+// owner 要做的事不一样:5xx 再试一百次也不会好,他得改收件人。断连只剩传输错,没有回码可分。
 export interface SMTPFault {
-  mode: 'connection_refused' | 'transient';
+  mode: 'connection_refused' | 'transient' | 'permanent';
   times?: number;
   subjectContains?: string;
 }

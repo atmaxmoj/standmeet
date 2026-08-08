@@ -86,6 +86,13 @@
   "connectorCard": {
     "disconnect": "Disconnect"
   },
+  "connectorOp": {
+    "run": "Run",
+    "running": "Running…",
+    "sent": "Accepted by the {kind} connector — check the inbox to confirm it arrived.",
+    "unreachable": "Couldn’t reach your instance — check your connection and retry.",
+    "failedNoReason": "It didn’t work, and the connector gave no reason — check the server logs."
+  },
   "connectorList": {
     "loadError": "Couldn’t load your connectors — reload and retry.",
     "delete": "Delete"
