@@ -37,6 +37,9 @@ build/
 out/
 .next/
 *.tsbuildinfo
+# TikZ TeX faces (BaKoMa), copied out of node-tikzjax by app/scripts/copy-tikz-fonts.mjs on every
+# build so they always match the installed package. 140 binaries — generated, never hand-edited.
+app/public/tikz-fonts/
 # Go local-build binaries (when running `go build ./cmd/...` outside docker)
 backend/standmeet
 backend/server

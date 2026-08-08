@@ -36,6 +36,8 @@ export default tseslint.config(
       // 跑不动它们，单独忽略避免 'not found by project service' 报错。
       '*.mjs',
       '*.config.ts',
+      // 同理:scripts/ 是构建期的 node 脚本(跟着 build 跑),不在 app 的 tsconfig 里。
+      'scripts/**',
       // next-env.d.ts 是 next 自动维护的（每次 build 重写），里面有 triple-slash
       // reference —— 我们不去碰它，忽略对应的 lint 规则报错。
       'next-env.d.ts',
