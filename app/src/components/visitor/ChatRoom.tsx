@@ -7,12 +7,13 @@
 import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
+import { composerPlaceholder, pickGhost } from '@/lib/visitor/ghost-text';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
 import { useDockButtonsStore } from '@/lib/visitor/dock-buttons-store';
 import { dispatchComposerKey, useAutoGrowTextarea } from '@/lib/visitor/composer-keys';
 import { composeMessage, useComposerAttachments } from '@/lib/visitor/composer-attachments';
 import { AttachmentChips } from '@/components/visitor/ComposerAttachments';
+import { GhostText } from '@/components/visitor/GhostText';
 
 import Link from 'next/link';
 
@@ -178,7 +179,10 @@ function ChatComposer({ showStarters, mode, ...rest }: ComposerProps & { showSta
 function ComposerForm(p: ComposerProps) {
   const blocked = p.pending || p.exhausted;
   const ghost = pickGhost({ value: p.input, blocked, ghost: p.ghost });
-  const placeholder = pickPlaceholder({
+  // ghost **不进 placeholder**(F-A-25):placeholder 不换行,长一点的引导就在半句话处被裁掉,
+  // 访客读不完也就不知道自己被引向哪儿。它由 GhostText 渲成会换行的覆盖层,而 composerPlaceholder
+  // 在 ghost 在场时把 placeholder 让成空 —— 两层都画会叠字。
+  const placeholder = composerPlaceholder({
     locked: p.exhausted, lockedText: 'session full', ghost, fallback: 'ask…',
   });
   const att = useComposerAttachments();
@@ -200,24 +204,40 @@ function ComposerForm(p: ComposerProps) {
       <AttachmentChips attachments={att.attachments} onRemove={att.remove} />
       <div className="flex items-end gap-4 py-3 border-t border-b border-(--color-ink) relative">
         <span className="text-(--color-accent) font-serif shrink-0 text-[26px] leading-none pb-1">›</span>
-        <textarea
-          ref={taRef} rows={1} value={p.input}
-          onChange={(e) => p.setInput(e.target.value)}
-          onPaste={(e) => { att.onPaste(e); }}
-          onKeyDown={(e) => dispatchComposerKey(e, {
-            ghost, onSubmit: submit, onAccept: p.onAcceptGhost,
-          })}
-          placeholder={placeholder}
-          disabled={blocked}
-          className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0 text-[22px] leading-[1.4] font-[380] disabled:opacity-60 resize-none"
-          autoComplete="off" spellCheck={false} autoFocus
-          data-testid="chat-input-field"
-          data-ghost={ghost ?? ''}
-        />
+        {/* ghost 在场时由 GhostText 撑出这一格的高度(它会换行),textarea 浮在它上面;
+            访客一打字 pickGhost 就返回 null,textarea 回到常流,由 useAutoGrowTextarea 管高。 */}
+        <div className="relative flex-1 min-w-0">
+          <textarea
+            ref={taRef} rows={1} value={p.input}
+            onChange={(e) => p.setInput(e.target.value)}
+            onPaste={(e) => { att.onPaste(e); }}
+            onKeyDown={(e) => dispatchComposerKey(e, {
+              ghost, onSubmit: submit, onAccept: p.onAcceptGhost,
+            })}
+            placeholder={placeholder}
+            disabled={blocked}
+            className={ghostClass(ghost)}
+            autoComplete="off" spellCheck={false} autoFocus
+            data-testid="chat-input-field"
+            data-ghost={ghost ?? ''}
+          />
+          <GhostText text={ghost} />
+        </div>
         <ComposerAction pending={p.pending} exhausted={p.exhausted} />
       </div>
     </form>
   );
+}
+
+// ghostClass —— ghost 在场时 textarea 绝对定位盖在 GhostText 上(高度由 ghost 决定),
+// 否则回到常流自己撑高。排版两条路必须完全一致,不然接受 ghost 的一瞬文字会跳。
+const composerTypography = 'bg-transparent text-(--color-ink) placeholder:text-(--color-faint) '
+  + 'font-serif text-[22px] leading-[1.4] font-[380] disabled:opacity-60 resize-none';
+
+function ghostClass(ghost: string | null): string {
+  return ghost === null
+    ? `w-full ${composerTypography}`
+    : `absolute inset-0 w-full h-full ${composerTypography}`;
 }
 
 function isComposerReady(msg: string, pending: boolean, exhausted: boolean): boolean {

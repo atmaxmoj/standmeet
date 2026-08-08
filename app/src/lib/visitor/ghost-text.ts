@@ -37,6 +37,19 @@ export function pickPlaceholder(p: PlaceholderInputs): string {
   return p.fallback;
 }
 
+// composerPlaceholder —— ghost 由覆盖层渲的那些输入框用这个,而不是 pickPlaceholder。
+//
+// ghost 在场时 placeholder 必须**让位成空**:两层都画就会叠字。prod 上就是这样 ——
+// ghost 的第一行和 "ask…" 糊在一起,读出来是 "Ẏsḵu.mentioned"。e2e 只量了 ghost 元素的几何,
+// 量不出它背后还压着另一串字,是拿眼睛看出来的。
+//
+// locked 仍然压过一切:锁住时输入框是禁用的,pickGhost 早就返回 null 了,这里只是把顺序写死。
+export function composerPlaceholder(p: PlaceholderInputs): string {
+  if (p.locked) return p.lockedText;
+  if (p.ghost !== null && p.ghost !== '') return '';
+  return p.fallback;
+}
+
 interface GhostHandlers {
   onAccept: (g: string) => void;
 }
