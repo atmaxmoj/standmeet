@@ -127,11 +127,11 @@
     "help": "import picks your Obsidian vault folder (wiki / subjectivity / raw / writings) and upserts the matching corpus notes by their vault path. export downloads your corpus as a vault of markdown + frontmatter. No live sync / file watcher — two manual actions."
   },
   "seo": {
-    "intro": "Defaults applied across the public site. Per-output / per-post SEO lives with the individual entry. Site title is edited here; the social description and canonical host mirror your page tagline and domain — edit those where they live.",
+    "intro": "Defaults applied across the public site. Per-output / per-post SEO lives with the individual entry. Site title is edited here; the social description and canonical host mirror your hero prose and domain — edit those where they live.",
     "defaults": "defaults",
     "robots": "index, follow (robots)",
     "ogDescription": "og:description",
-    "usesTagline": "Uses your page tagline.",
+    "usesHeroProse": "Uses your hero prose.",
     "editOnPage": "edit on the Page section →",
     "canonicalHost": "canonical host",
     "editOnDomain": "edit on the Page section →",

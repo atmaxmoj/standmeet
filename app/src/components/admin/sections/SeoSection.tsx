@@ -1,8 +1,12 @@
 // SeoSection —— /admin/seo，接真后端（#102）。
 //
 // site_title 是 owner 自写、可编辑并持久化的字段；og:description 与 canonical
-// host 是**只读镜像**——分别复用 page.tagline / owner.public_url，在各自的 section
-// 编辑（这里只展示 + 跳转链接，避免同一个值两处可改）。robots 是真开关，
+// host 是**只读镜像**——分别复用 page 的 **hero prose**(`hero_prose`) / owner.public_url，
+// 在各自的 section 编辑（这里只展示 + 跳转链接，避免同一个值两处可改）。
+//
+// 这块的文案以前写的是 "your page tagline"，而产品里没有任何叫 tagline 的东西：hero 段里
+// 那个字段标签是 `prose`，后端字段是 `hero_prose`。owner 照着那句话点进 /admin/page，
+// 找不到它说的东西。robots 是真开关，
 // indexing stats 是真计数 + owner 可选统计范围（默认全含）。
 //
 // 已删：regenerate-sitemap 按钮（sitemap 实时算，无「待重算」）、twitter handle
@@ -109,14 +113,14 @@ function RobotsToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   );
 }
 
-// DescriptionMirror —— og:description 复用 page.tagline，只读 + 跳 /admin/page 编辑。
+// DescriptionMirror —— og:description 复用 page 的 hero prose，只读 + 跳 /admin/page 编辑。
 function DescriptionMirror() {
   const t = useTranslations('adminCorpus.seo');
   return (
     <div data-testid="seo-description">
       <div className="sm-smallcaps mb-1">{t('ogDescription')}</div>
       <p className="reading text-[13px] text-(--color-muted)">
-        {t('usesTagline')}{' '}
+        {t('usesHeroProse')}{' '}
         <a data-testid="seo-description-edit" href="/admin/page"
           className="text-(--color-accent) underline">{t('editOnPage')}</a>
       </p>

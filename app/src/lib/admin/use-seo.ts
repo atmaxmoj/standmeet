@@ -2,7 +2,7 @@
 //
 //   GET  /seo        → { site_title, og_template, sitemap_extras, index_robots }
 //   PUT  /seo        → 存（site_title 是 owner 自写的；og:description / canonical
-//                      不在此——分别复用 page.tagline / owner.public_url）
+//                      不在此——分别复用 page 的 hero prose（hero_prose）/ owner.public_url）
 //   GET  /seo/stats  → { wiki, outputs, writings } 各 tier 已 published 计数；
 //                      owner 在 UI 选统计范围（默认全含），求和在组件侧。
 //
