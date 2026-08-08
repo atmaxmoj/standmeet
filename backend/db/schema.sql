@@ -598,6 +598,15 @@ CREATE TABLE messages (
     cited_subjectivity_ids uuid[]  NOT NULL DEFAULT '{}',
     -- cited_writing_ids：本轮引用的 writing（公开发布内容，读了就引，无 show_as_source gate）。
     cited_writing_ids uuid[]       NOT NULL DEFAULT '{}',
+    -- grounded_subjectivity_ids：本轮读到、但**没有** opt-in 的 subjectivity 笔记 —— 塑造了
+    -- 声音却不进访客 footer 的那些。以前这些 id 在 show_as_source gate 上被直接丢掉
+    -- （dialog.go 的 continue），于是 owner 无从知道自己写的 standpoint 笔记有没有起过作用
+    -- （F-A-27）。跟 cited_ 分成两列而不是加一个标志位：访客那条路只读 cited_，多一列就
+    -- **结构上**不可能漏进 footer，而不是靠每个读者记得过滤。
+    --
+    -- 只存 id。展示时 admin transcript 只 hydrate 标题和路径，不取正文 —— owner 要判断的是
+    -- 「哪几条在起作用」，不需要把私有正文复制进会话表。
+    grounded_subjectivity_ids uuid[] NOT NULL DEFAULT '{}',
     created_at       timestamptz   NOT NULL DEFAULT now()
 );
 CREATE INDEX messages_dialog_idx ON messages(dialog_id);

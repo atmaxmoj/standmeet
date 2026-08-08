@@ -116,7 +116,8 @@ func toDialogResps(ds []conversation.ConvDialog) []dialogResp {
 			Answer:    ds[i].Answer,
 			Ghosts:    toGhostResps(ds[i].Ghosts),
 			Citations: toCitationResps(ds[i].Citations),
-			ToolCalls: rawOrEmptyArray(ds[i].ToolCalls),
+			// F-A-28:检索调用的 result 不下发给访客 —— 那里面是笔记正文,包括私有的。
+			ToolCalls: conversation.VisitorToolCalls(ds[i].ToolCalls),
 		}
 	}
 	return out
@@ -138,11 +139,5 @@ func toCitationResps(cs []conversation.DialogCitation) []citationResp {
 	return out
 }
 
-// rawOrEmptyArray —— 存的 tool_calls 为空(老 dialog / 没用 tool)→ 回 [],
-// 让前端拿到合法数组而不是 null。
-func rawOrEmptyArray(b []byte) json.RawMessage {
-	if len(b) == 0 {
-		return json.RawMessage("[]")
-	}
-	return json.RawMessage(b)
-}
+// 空 tool_calls → `[]` 由 VisitorToolCalls 一并兜掉(前端要合法数组而不是 null),
+// 所以这里不再有单独的 rawOrEmptyArray。

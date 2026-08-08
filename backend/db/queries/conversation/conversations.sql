@@ -46,11 +46,14 @@ VALUES ($1)
 RETURNING id;
 
 -- name: AppendMessage :one
+-- grounded_subjectivity_ids 跟 cited_ 分两列:访客 footer 只读 cited_,所以私有 standpoint
+-- 笔记**结构上**不可能漏进去,而不是靠每个读者记得过滤(F-A-27)。
 INSERT INTO messages (
     conversation_id, dialog_id, role, body, tool_calls,
-    cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids
+    cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids,
+    grounded_subjectivity_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: ListMessages :many

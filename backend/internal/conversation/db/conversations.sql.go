@@ -14,24 +14,28 @@ import (
 const appendMessage = `-- name: AppendMessage :one
 INSERT INTO messages (
     conversation_id, dialog_id, role, body, tool_calls,
-    cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids
+    cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids,
+    grounded_subjectivity_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids, created_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids, grounded_subjectivity_ids, created_at
 `
 
 type AppendMessageParams struct {
-	ConversationID       pgtype.UUID
-	DialogID             pgtype.UUID
-	Role                 string
-	Body                 string
-	ToolCalls            []byte
-	CitedWikiIds         []pgtype.UUID
-	CitedOutputIds       []pgtype.UUID
-	CitedSubjectivityIds []pgtype.UUID
-	CitedWritingIds      []pgtype.UUID
+	ConversationID          pgtype.UUID
+	DialogID                pgtype.UUID
+	Role                    string
+	Body                    string
+	ToolCalls               []byte
+	CitedWikiIds            []pgtype.UUID
+	CitedOutputIds          []pgtype.UUID
+	CitedSubjectivityIds    []pgtype.UUID
+	CitedWritingIds         []pgtype.UUID
+	GroundedSubjectivityIds []pgtype.UUID
 }
 
+// grounded_subjectivity_ids 跟 cited_ 分两列:访客 footer 只读 cited_,所以私有 standpoint
+// 笔记**结构上**不可能漏进去,而不是靠每个读者记得过滤(F-A-27)。
 func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (Message, error) {
 	row := q.db.QueryRow(ctx, appendMessage,
 		arg.ConversationID,
@@ -43,6 +47,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 		arg.CitedOutputIds,
 		arg.CitedSubjectivityIds,
 		arg.CitedWritingIds,
+		arg.GroundedSubjectivityIds,
 	)
 	var i Message
 	err := row.Scan(
@@ -56,6 +61,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 		&i.CitedOutputIds,
 		&i.CitedSubjectivityIds,
 		&i.CitedWritingIds,
+		&i.GroundedSubjectivityIds,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -367,7 +373,7 @@ func (q *Queries) ListMemberOtherConversationMessages(ctx context.Context, arg L
 }
 
 const listMessages = `-- name: ListMessages :many
-SELECT id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
+SELECT id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids, grounded_subjectivity_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) ([]Message, error) {
@@ -390,6 +396,7 @@ func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) 
 			&i.CitedOutputIds,
 			&i.CitedSubjectivityIds,
 			&i.CitedWritingIds,
+			&i.GroundedSubjectivityIds,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

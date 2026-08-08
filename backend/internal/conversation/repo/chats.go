@@ -175,16 +175,17 @@ func toDomainChat(c *db.Conversation) entity.Chat {
 
 func toDomainMessage(m *db.Message) entity.Message {
 	return entity.Message{
-		ID:                   pgstore.FormatUUID(m.ID),
-		ConversationID:       pgstore.FormatUUID(m.ConversationID),
-		Role:                 m.Role,
-		Body:                 m.Body,
-		CitedWikiIDs:         pgstore.FormatUUIDList(m.CitedWikiIds),
-		CitedWritingIDs:      pgstore.FormatUUIDList(m.CitedWritingIds),
-		CitedOutputIDs:       pgstore.FormatUUIDList(m.CitedOutputIds),
-		CitedSubjectivityIDs: pgstore.FormatUUIDList(m.CitedSubjectivityIds),
-		ToolCalls:            m.ToolCalls,
-		CreatedAt:            m.CreatedAt.Time,
+		ID:                      pgstore.FormatUUID(m.ID),
+		ConversationID:          pgstore.FormatUUID(m.ConversationID),
+		Role:                    m.Role,
+		Body:                    m.Body,
+		CitedWikiIDs:            pgstore.FormatUUIDList(m.CitedWikiIds),
+		CitedWritingIDs:         pgstore.FormatUUIDList(m.CitedWritingIds),
+		CitedOutputIDs:          pgstore.FormatUUIDList(m.CitedOutputIds),
+		CitedSubjectivityIDs:    pgstore.FormatUUIDList(m.CitedSubjectivityIds),
+		GroundedSubjectivityIDs: pgstore.FormatUUIDList(m.GroundedSubjectivityIds),
+		ToolCalls:               m.ToolCalls,
+		CreatedAt:               m.CreatedAt.Time,
 	}
 }
 

@@ -12,6 +12,14 @@ type (
 	Message           = entity.Message
 )
 
+// 函数（实现:entity）.
+var (
+	// VisitorToolCalls —— 一轮的 tool_calls 里可以下发给访客的那一份(F-A-28)。
+	VisitorToolCalls = entity.VisitorToolCalls
+	// VisitorToolResult —— 直播那一路的同一条规则:检索结果不发给访客。
+	VisitorToolResult = entity.VisitorToolResult
+)
+
 // 错误/变量（实现:entity）.
 var (
 	ErrChatNotFound       = entity.ErrChatNotFound

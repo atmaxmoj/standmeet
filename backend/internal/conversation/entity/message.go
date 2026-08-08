@@ -23,5 +23,8 @@ type Message struct {
 	CitedWritingIDs      []string
 	CitedOutputIDs       []string
 	CitedSubjectivityIDs []string
-	ToolCalls            []byte
+	// GroundedSubjectivityIDs —— 塑造了这一轮但没 opt-in 的 subjectivity(F-A-27)。
+	// 只进 owner 的 transcript,访客侧永不读。
+	GroundedSubjectivityIDs []string
+	ToolCalls               []byte
 }

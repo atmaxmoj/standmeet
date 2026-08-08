@@ -74,7 +74,10 @@ type transcriptOut struct {
 	WritingRefs      []citedRefOut   `json:"writing_refs"`
 	OutputRefs       []citedRefOut   `json:"output_refs"`
 	SubjectivityRefs []citedRefOut   `json:"subjectivity_refs"`
-	Ghosts           []ghostShownOut `json:"ghosts"`
+	// GroundingRefs —— 塑造了这一轮、但没 opt-in 的 subjectivity(F-A-27)。只有标题和地址,
+	// 没有正文 —— owner 要判的是「哪几条在起作用」,私有正文不复制进这份回参。
+	GroundingRefs []citedRefOut   `json:"grounding_refs"`
+	Ghosts        []ghostShownOut `json:"ghosts"`
 }
 
 func buildTranscript(
@@ -94,6 +97,7 @@ func buildTranscript(
 		OutputRefs:       citedRefs(ctx, ownerID, bundle.OutputRefs, outputBody(d.Corpus)),
 		WritingRefs:      citedRefs(ctx, ownerID, bundle.WritingRefs, noBody),
 		SubjectivityRefs: toSubjectivityRefs(bundle.SubjectivityRefs),
+		GroundingRefs:    citedRefs(ctx, ownerID, bundle.GroundingRefs, noBody),
 		Ghosts:           ghostsFor(ctx, d, ownerID, convID),
 	}
 }

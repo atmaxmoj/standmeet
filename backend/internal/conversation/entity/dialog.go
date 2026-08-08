@@ -21,7 +21,10 @@ type Dialog struct {
 	Question  string
 	Answer    string
 	Citations []Citation
-	ToolCalls []byte
+	// GroundedSubjectivityIDs —— 本轮读到、但没 opt-in 的 subjectivity 笔记 id。塑造了声音,
+	// 不进访客 footer,落 owner 那一列(F-A-27)。跟 Citations 分开:访客那条路只看 Citations。
+	GroundedSubjectivityIDs []string
+	ToolCalls               []byte
 }
 
 // DialogInit —— NewDialog 入参(打包避开 argument-limit)。
@@ -31,7 +34,10 @@ type DialogInit struct {
 	Question  string
 	Answer    string
 	Citations []Citation
-	ToolCalls []byte
+	// GroundedSubjectivityIDs —— 本轮读到、但没 opt-in 的 subjectivity 笔记 id。塑造了声音,
+	// 不进访客 footer,落 owner 那一列(F-A-27)。跟 Citations 分开:访客那条路只看 Citations。
+	GroundedSubjectivityIDs []string
+	ToolCalls               []byte
 }
 
 // NewDialog —— 构造 dialog (createdAt 用调用方传入的时间，便于测试 + 持
@@ -39,6 +45,8 @@ type DialogInit struct {
 func NewDialog(in *DialogInit) Dialog {
 	return Dialog{
 		ChatID: in.ChatID, Question: in.Question, Answer: in.Answer,
-		Citations: in.Citations, ToolCalls: in.ToolCalls, CreatedAt: in.CreatedAt,
+		Citations:               in.Citations,
+		GroundedSubjectivityIDs: in.GroundedSubjectivityIDs,
+		ToolCalls:               in.ToolCalls, CreatedAt: in.CreatedAt,
 	}
 }

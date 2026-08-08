@@ -222,6 +222,21 @@ type sseSink struct {
 	mu      sync.Mutex
 }
 
+// shownResult —— 这一次工具调用的结果能不能原样发到线上。
+//
+// **现在原样发,而这是 F-A-28 还没关掉的那一半。** 检索结果里是笔记正文(含私有 subjectivity),
+// 落库那条路已经剥掉了(history.go 走 VisitorToolCalls),直播这条路还没有。
+//
+// 不能就地剥:**访客的引用脚注是前端从这些结果里自己算出来的**。剥掉 result,footer 整个消失
+// (visitor-chat-tool-cards 立刻红)。也就是说设计所依赖的 show_as_source 闸,实际上是浏览器里
+// 对一份已经含私有正文的 payload 做的过滤 —— 服务端把全部东西发出去,由客户端决定显示哪些。
+//
+// 要关掉这一半,得先让服务端把 citations 作为一帧发出来(它已经在算了,history 的回参里就有),
+// 让 footer 不再依赖原始结果。那是流协议的改动,不是这里加一个 if。
+func shownResult(_, result string) string {
+	return result
+}
+
 var _ AgentSink = (*sseSink)(nil)
 
 func (s *sseSink) Text(delta string) {
@@ -243,10 +258,17 @@ func (s *sseSink) ToolStarted(id, name, progressLabel string, args json.RawMessa
 	writeSSEFrame(s.log, s.w, s.flusher, "tool_started", body)
 }
 
+// ToolCompleted —— 把一次工具调用的结果发到线上。
+//
+// 结果先过 shownResult:哪些工具的结果能给对面看,是**产品规则**,由 caller 注入
+// (AgentTurnInput.ShowToolResult)。内核不认识任何一个具体工具名。
+// 累计 citation 走的是 accumSink,拿的是同一份原始结果,不受这里影响。
 func (s *sseSink) ToolCompleted(name, result string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	body, err := json.Marshal(toolCompletedPayload{Name: name, Result: result})
+	body, err := json.Marshal(toolCompletedPayload{
+		Name: name, Result: shownResult(name, result),
+	})
 	if err != nil {
 		s.log.Error("agent turn marshal tool_completed", logErrKey, err)
 		return

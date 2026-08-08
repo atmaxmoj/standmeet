@@ -31,6 +31,7 @@ export function ConvTranscriptModal({ transcript, onClose }: Props) {
     >
       <div className="px-7 py-6" data-testid="transcript-body">
         <TranscriptBody transcript={transcript} />
+        <GroundingBlock titles={transcript.grounding} />
         <GhostsBlock ghosts={transcript.ghosts} />
       </div>
     </ModalShell>
@@ -174,6 +175,38 @@ function CitedTail({
 function formatTime(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
+
+// GroundingBlock —— 塑造了这段对话、但没进访客脚注的 subjectivity 笔记(F-A-27)。
+//
+// 为什么要有这一块:subjectivity 的设计就是「塑造声音、不当引用」,那是故意的 —— 可另一头
+// 又假设「读了哪些」由引用脚注承载。两条合起来,owner 写了一堆 standpoint 笔记来定语气,却
+// 在任何界面上都看不到它们参与过。这一块就是那个缺掉的观察点。
+//
+// 只渲**标题**:owner 要判的是哪几条在起作用,私有正文不必复制到这儿来(后端也没给)。
+// 跟 CITED 分开一块,而不是混进同一张清单 —— 它们不是引用,混在一起会让人以为访客也看得到。
+function GroundingBlock({ titles }: { titles: readonly string[] }) {
+  const t = useTranslations('adminAccess');
+  return titles.length === 0 ? null : (
+    <section
+      className="mt-8 pt-6 border-t border-(--color-rule)"
+      data-testid="transcript-grounding"
+    >
+      <h3 className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
+        {t('transcript.groundingTitle')}
+      </h3>
+      <ul className="space-y-0.5 mono text-[10px] tracking-[0.12em] uppercase">
+        {titles.map((title) => (
+          <li key={title} className="flex items-baseline gap-2">
+            <span className="text-(--color-faint)">{t('transcript.grounded')}</span>
+            <span className="reading-tight italic text-(--color-muted) normal-case tracking-[0.04em]">
+              {title}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 // GhostsBlock —— H.13.e: owner 后台观测 ghost text 日志。code 对话

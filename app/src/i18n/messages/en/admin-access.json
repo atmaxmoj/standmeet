@@ -56,7 +56,9 @@
     "loading": "loading transcript…",
     "empty": "No messages in this conversation.",
     "cited": "cited · {kind}",
-    "ghostsTitle": "ghost text shown"
+    "ghostsTitle": "ghost text shown",
+    "groundingTitle": "standpoint notes that shaped these answers · not shown to the visitor",
+    "grounded": "grounded"
   },
   "ghostTelemetry": {
     "title": "ghost steering · per-waypoint funnel",

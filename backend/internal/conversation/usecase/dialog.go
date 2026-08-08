@@ -69,10 +69,11 @@ func RecordDialog(
 	if in.Answer == "" && !toolCallsNonEmpty(in.ToolCalls) {
 		return appendVisitorOnly(ctx, deps, in)
 	}
-	cites := resolveCitations(ctx, deps, in)
+	resolved := resolveCitations(ctx, deps, in)
 	dlg := entity.NewDialog(&entity.DialogInit{
 		ChatID: in.ConversationID, Question: in.Question, Answer: in.Answer,
-		Citations: cites, ToolCalls: in.ToolCalls, CreatedAt: time.Now(),
+		Citations: resolved.Cites, GroundedSubjectivityIDs: resolved.Grounded,
+		ToolCalls: in.ToolCalls, CreatedAt: time.Now(),
 	})
 	if _, err := deps.Chats.AppendDialog(ctx, in.ConversationID, &dlg); err != nil {
 		return fmt.Errorf("append dialog: %w", err)
@@ -91,11 +92,21 @@ func appendVisitorOnly(
 	return nil
 }
 
+// resolvedCites —— 一轮解析出来的两拨:进访客 footer 的引用,和只塑造了声音的 subjectivity
+// (F-A-27)。分开返回而不是在 Citation 上加个标志位 —— 访客那条路只拿 Cites,漏不进去。
+type resolvedCites struct {
+	Cites    []entity.Citation
+	Grounded []string
+}
+
 // resolveCitations —— 把 frontend 传的 cited id 数组反查成 Citation VO
 // (genre + doc_id + uri + title)。lookup 失败的丢弃 (不阻塞 dialog 落)。
+//
+// 没过 show_as_source 的 subjectivity 不再直接扔掉:它的 id 进 Grounded,落到独立那一列,
+// owner 的记录里能看见「哪几条 standpoint 笔记在起作用」。
 func resolveCitations(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
-) []entity.Citation {
+) resolvedCites {
 	cites := make([]entity.Citation, 0,
 		len(in.CitedWikiIDs)+len(in.CitedWritingIDs)+
 			len(in.CitedOutputIDs)+len(in.CitedSubjectivityIDs))
@@ -111,18 +122,23 @@ func resolveCitations(
 		OwnerID: in.OwnerID, IDs: in.CitedOutputIDs,
 		Genre: corpus.GenreOutput,
 	}, cites)
-	return appendSubjectivityCitations(ctx, deps, in.OwnerID, in.CitedSubjectivityIDs, cites)
+	return splitSubjectivity(ctx, deps, in.OwnerID, in.CitedSubjectivityIDs, cites)
 }
 
-// appendSubjectivityCitations —— subjectivity id → Citation，**gate 在 show_as_source**：
-// 逐个反查，仅 show_as_source=true 的进 cited（默认私有的丢弃）。server-authoritative：
-// 不信 client，源头查 DB。lookup 未注入 / 未命中 → 略过（不阻塞 dialog 落）。
-func appendSubjectivityCitations(
+// splitSubjectivity —— subjectivity id 按 show_as_source 分成两拨：opt-in 的进 cited（访客
+// footer 看得到），其余进 grounded（只落 owner 那一列）。server-authoritative：不信 client，
+// 源头查 DB。lookup 未注入 / 未命中 → 略过（不阻塞 dialog 落）。
+//
+// 「其余」以前是 `continue` 直接丢：于是 owner 写的 standpoint 笔记塑造了每一条回答，而他
+// 在任何界面上都看不到它们参与过（F-A-27）。现在它们的 id 留下来，标题在 admin transcript
+// 读时才 hydrate —— 正文不进会话表。
+func splitSubjectivity(
 	ctx context.Context, deps *DialogDeps, ownerID string, ids []string,
 	acc []entity.Citation,
-) []entity.Citation {
+) resolvedCites {
+	out := resolvedCites{Cites: acc, Grounded: []string{}}
 	if deps.Subjectivity == nil {
-		return acc
+		return out
 	}
 	for _, id := range ids {
 		ref, err := deps.Subjectivity.ResolveCite(ctx, ownerID, id)
@@ -131,14 +147,15 @@ func appendSubjectivityCitations(
 			continue
 		}
 		if !ref.ShowAsSource {
+			out.Grounded = append(out.Grounded, ref.ID)
 			continue // 私有：ground 了 voice 但不进 visitor footer。
 		}
-		acc = append(acc, entity.Citation{
+		out.Cites = append(out.Cites, entity.Citation{
 			Genre: corpus.GenreSubjectivity, DocID: ref.ID,
 			Path: ref.Path, Title: ref.Title,
 		})
 	}
-	return acc
+	return out
 }
 
 // resolveCiteArgs —— 一组 entry id 用同样 (owner, genre) 反查 Citation 的入

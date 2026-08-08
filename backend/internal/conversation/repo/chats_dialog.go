@@ -36,11 +36,16 @@ func (r *ChatRepo) AppendDialog(
 	if cerr != nil {
 		return "", cerr
 	}
+	grounded, gerr := pgstore.ParseUUIDArray(dialog.GroundedSubjectivityIDs)
+	if gerr != nil {
+		return "", fmt.Errorf("parse grounded subjectivity ids: %w", gerr)
+	}
 	return r.runAppendDialogTx(ctx, &appendDialogTxArgs{
 		ChatUUID: chatUUID, Q: dialog.Question, A: dialog.Answer,
 		WikiUUIDs: cited.Wiki, WritingUUIDs: cited.Writing,
 		OutputUUIDs: cited.Output, SubjUUIDs: cited.Subjectivity,
-		ToolCalls: dialog.ToolCalls,
+		GroundedUUIDs: grounded,
+		ToolCalls:     dialog.ToolCalls,
 	})
 }
 
@@ -83,8 +88,10 @@ type appendDialogTxArgs struct {
 	WritingUUIDs []pgtype.UUID
 	OutputUUIDs  []pgtype.UUID
 	SubjUUIDs    []pgtype.UUID
-	ToolCalls    []byte
-	ChatUUID     pgtype.UUID
+	// GroundedUUIDs —— 没 opt-in 的 subjectivity(F-A-27),落独立列,访客侧不读。
+	GroundedUUIDs []pgtype.UUID
+	ToolCalls     []byte
+	ChatUUID      pgtype.UUID
 }
 
 func (r *ChatRepo) runAppendDialogTx(
@@ -140,6 +147,8 @@ func runAppendVisitorOnlyQueries(
 		ConversationID: chatUUID, DialogID: dialogID, Role: "visitor", Body: question,
 		CitedWikiIds: []pgtype.UUID{}, CitedWritingIds: []pgtype.UUID{},
 		CitedOutputIds: []pgtype.UUID{}, CitedSubjectivityIds: []pgtype.UUID{},
+		// 列是 NOT NULL:sqlc 总是显式发这一格,nil 会当 NULL 送过去,DEFAULT '{}' 不生效。
+		GroundedSubjectivityIds: []pgtype.UUID{},
 	}); err != nil {
 		return "", fmt.Errorf("append visitor message: %w", err)
 	}
@@ -162,14 +171,18 @@ func runAppendDialogQueries(
 		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "visitor", Body: args.Q,
 		CitedWikiIds: []pgtype.UUID{}, CitedWritingIds: []pgtype.UUID{},
 		CitedOutputIds: []pgtype.UUID{}, CitedSubjectivityIds: []pgtype.UUID{},
+		// 见上:NOT NULL,nil 会被当 NULL 送出去。
+		GroundedSubjectivityIds: []pgtype.UUID{},
 	}); err != nil {
 		return "", fmt.Errorf("append visitor message: %w", err)
 	}
 	if _, aerr := q.AppendMessage(ctx, db.AppendMessageParams{
 		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "assistant", Body: args.A,
 		CitedWikiIds: args.WikiUUIDs, CitedWritingIds: args.WritingUUIDs,
-		CitedOutputIds:       args.OutputUUIDs,
-		CitedSubjectivityIds: args.SubjUUIDs, ToolCalls: args.ToolCalls,
+		CitedOutputIds:          args.OutputUUIDs,
+		CitedSubjectivityIds:    args.SubjUUIDs,
+		GroundedSubjectivityIds: args.GroundedUUIDs,
+		ToolCalls:               args.ToolCalls,
 	}); aerr != nil {
 		return "", fmt.Errorf("append assistant message: %w", aerr)
 	}

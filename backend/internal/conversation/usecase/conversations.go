@@ -52,6 +52,8 @@ type TranscriptBundle struct {
 	WritingRefs      []TitledRef
 	OutputRefs       []TitledRef
 	SubjectivityRefs []SubjectivityRef
+	// GroundingRefs —— 塑造了声音但没 opt-in 的 subjectivity,只带 title/path(F-A-27)。
+	GroundingRefs []TitledRef
 }
 
 const (
@@ -96,6 +98,7 @@ func GetConversationTranscript(
 		WritingRefs:      writingCitedRefs(ctx, deps.Writing, ownerID, cited.writings),
 		OutputRefs:       outputCitedRefs(ctx, deps.Output, ownerID, cited.outputs),
 		SubjectivityRefs: subjRefs,
+		GroundingRefs:    groundingRefs(ctx, deps.Subjectivity, ownerID, cited.grounded),
 	}, nil
 }
 
@@ -116,6 +119,28 @@ func subjectivityCitedRefs(
 		out = append(out, SubjectivityRef{
 			ID: ref.ID, Title: ref.Title, Path: ref.Path, Body: ref.Body,
 		})
+	}
+	return out
+}
+
+// groundingRefs —— grounded subjectivity id → {id,title,path}。**不取 body**。
+//
+// 这些是没 opt-in 的私有 standpoint 笔记:它们塑造了这一轮的声音,而 owner 以前在任何界面
+// 上都看不到它们参与过(F-A-27)。owner 要判的是「哪几条在起作用」,那用标题就够 —— 正文不
+// 复制进 transcript 的回参,私有内容留在它自己那张表里。
+func groundingRefs(
+	ctx context.Context, lookup corpus.SubjectivityCiteLookup, ownerID string, ids []string,
+) []TitledRef {
+	out := make([]TitledRef, 0, len(ids))
+	if lookup == nil {
+		return out
+	}
+	for _, id := range ids {
+		ref, err := lookup.ResolveCite(ctx, ownerID, id)
+		if err != nil {
+			continue
+		}
+		out = append(out, TitledRef{ID: ref.ID, Title: ref.Title, Path: ref.Path})
 	}
 	return out
 }
@@ -206,6 +231,9 @@ type citedIDs struct {
 	writings       []string
 	outputs        []string
 	subjectivities []string
+	// grounded —— 没 opt-in 的 subjectivity(F-A-27)。跟 subjectivities 分开收:它们走
+	// 不同的 hydrate(只要标题和路径,不要 body),也渲在不同一块上。
+	grounded []string
 }
 
 const citedSetInitialCap = 16
@@ -217,15 +245,18 @@ func collectCitedIDs(messages []entity.Message) citedIDs {
 	writingSet := make(map[string]struct{}, citedSetInitialCap)
 	outputSet := make(map[string]struct{}, citedSetInitialCap)
 	subjSet := make(map[string]struct{}, citedSetInitialCap)
+	groundSet := make(map[string]struct{}, citedSetInitialCap)
 	for i := range messages {
 		addAll(wikiSet, messages[i].CitedWikiIDs)
 		addAll(writingSet, messages[i].CitedWritingIDs)
 		addAll(outputSet, messages[i].CitedOutputIDs)
 		addAll(subjSet, messages[i].CitedSubjectivityIDs)
+		addAll(groundSet, messages[i].GroundedSubjectivityIDs)
 	}
 	return citedIDs{
 		wikis: keysOf(wikiSet), writings: keysOf(writingSet),
 		outputs: keysOf(outputSet), subjectivities: keysOf(subjSet),
+		grounded: keysOf(groundSet),
 	}
 }
 

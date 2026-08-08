@@ -68,6 +68,9 @@ export interface ConvTranscript {
   // id → title 索引，前端按 cited_*_ids[i] 找 title 渲染 "cited: <title>"。
   wikiRefs: Record<string, string>;
   outputRefs: Record<string, string>;
+  // grounding —— 塑造了这段对话、但没 opt-in 的 subjectivity 笔记标题(F-A-27)。
+  // 按整段对话给,不按 message:owner 要判的是「哪几条在起作用」。
+  grounding: string[];
   ghosts: GhostLog[];
 }
 
@@ -92,6 +95,8 @@ const ConvTranscriptRespSchema = z.object({
   messages: z.array(ConvMessageSchema),
   wiki_refs: z.array(TitledRefSchema).optional(),
   output_refs: z.array(TitledRefSchema).optional(),
+  // grounding_refs —— 没 opt-in 的 subjectivity,后端只给 title/path(无正文,F-A-27)。
+  grounding_refs: z.array(TitledRefSchema).optional(),
   ghosts: z.array(GhostLogSchema).optional(),
 });
 
@@ -137,7 +142,7 @@ const transcriptStore = create<TranscriptState>((set) => ({
       openId: id,
       transcript: {
         conversationID: id, loading: true, error: null,
-        messages: [], wikiRefs: {}, outputRefs: {}, ghosts: [],
+        messages: [], wikiRefs: {}, outputRefs: {}, grounding: [], ghosts: [],
       },
     });
     void loadTranscript(id, (t) => set({ transcript: t }));
@@ -189,6 +194,7 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
       })),
       wikiRefs: indexRefs(data.wiki_refs),
       outputRefs: indexRefs(data.output_refs),
+      grounding: (data.grounding_refs ?? []).map((r) => r.title),
       ghosts: toGhostLogs(data.ghosts),
     });
   } catch (e) {
@@ -199,6 +205,7 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
       messages: [],
       wikiRefs: {},
       outputRefs: {},
+      grounding: [],
       ghosts: [],
     });
   }
