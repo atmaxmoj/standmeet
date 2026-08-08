@@ -286,8 +286,17 @@ func (q *Queries) GetCodeMemberByName(ctx context.Context, arg GetCodeMemberByNa
 }
 
 const getOrCreateCodeMember = `-- name: GetOrCreateCodeMember :one
+WITH locked AS (
+    SELECT max_members FROM access_codes WHERE id = $1 FOR UPDATE
+), allowed AS (
+    SELECT 1 FROM locked
+    WHERE max_members IS NULL
+       OR max_members <= 0
+       OR EXISTS (SELECT 1 FROM code_members WHERE code_id = $1 AND display_name = $2)
+       OR (SELECT count(*) FROM code_members WHERE code_id = $1) < max_members
+)
 INSERT INTO code_members (code_id, display_name, email, is_anonymous)
-VALUES ($1, $2, $3, $4)
+SELECT $1, $2, $3, $4 FROM allowed
 ON CONFLICT (code_id, display_name) DO UPDATE SET last_seen_at = now()
 RETURNING id, code_id, display_name, email, is_anonymous, last_seen_at
 `
@@ -299,6 +308,15 @@ type GetOrCreateCodeMemberParams struct {
 	IsAnonymous bool
 }
 
+// GetOrCreateCodeMember —— 建/续一个成员，**名额上限在同一条语句里守住**。
+//
+// 上限以前只在 usecase 里比一个早先读出来的列表，插入是裸 INSERT：两个会话同时进来都读到
+// len=9、都判 9 < 10、都插进去，于是一张上限 10 的码能长到 11 个人，然后卡死在「满了而且多一个」
+// （F-D-5，实测 12 并发打进上限 5 的码 → 落库 6）。顺序跑的用例永远看不见这件事。
+//
+// `FOR UPDATE` 锁的是 access_codes 那一行：并发的第二条语句会阻塞到第一条提交，再重读计数，
+// 所以计数和插入之间没有缝。同名放行是**续会**，不吃新名额。
+// 满了 → 一行都不插 → :one 返回 no-rows，调用方据此报「已满」。行数就是回执。
 func (q *Queries) GetOrCreateCodeMember(ctx context.Context, arg GetOrCreateCodeMemberParams) (CodeMember, error) {
 	row := q.db.QueryRow(ctx, getOrCreateCodeMember,
 		arg.CodeID,

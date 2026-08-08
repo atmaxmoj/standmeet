@@ -32,9 +32,21 @@ func (r *CodeRepo) GetOrCreateMember(
 		CodeID: codeUUID, DisplayName: displayName, IsAnonymous: false,
 	})
 	if qerr != nil {
-		return entity.CodeMember{}, fmt.Errorf("upsert code member: %w", qerr)
+		return entity.CodeMember{}, memberInsertErr(qerr)
 	}
 	return toDomainMember(&row), nil
+}
+
+// memberInsertErr —— 插了 0 行 = 名额满了,不是数据库出错。
+//
+// 上限守在那条语句自己里(见 access_codes.sql:GetOrCreateCodeMember),所以「满」在这一层的样子
+// 就是 no-rows。把它翻回领域错误,调用方才能说人话;不翻的话它会以 "upsert code member: no rows"
+// 的形状冒到面上 —— 一个访客读不懂、owner 也定位不到的句子。
+func memberInsertErr(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return entity.ErrMemberQuotaReached
+	}
+	return fmt.Errorf("upsert code member: %w", err)
 }
 
 // CreateAnonymousMember —— 匿名访客(skip 名字)每人一个独立 member:生成唯一
@@ -55,7 +67,7 @@ func (r *CodeRepo) CreateAnonymousMember(
 		CodeID: codeUUID, DisplayName: name, IsAnonymous: true,
 	})
 	if qerr != nil {
-		return entity.CodeMember{}, fmt.Errorf("create anonymous member: %w", qerr)
+		return entity.CodeMember{}, memberInsertErr(qerr)
 	}
 	return toDomainMember(&row), nil
 }
