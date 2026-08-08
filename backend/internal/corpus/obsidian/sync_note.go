@@ -18,6 +18,12 @@ type corpFM struct {
 	CSSClasses []string
 	Aliases    []string
 	Publish    bool
+	// PublishSet —— frontmatter 里**有没有** publish 这个键。
+	//
+	// 缺席不是否定。真 vault 的 574 条 wiki 一个 publish 键都没有,而发布是 owner 在网页上做的
+	// 编辑;把「没说」读成 false,一次同步就能把整个站点撤下来(F-L-22)。所以缺键时保持原状,
+	// 由 export 把 `publish: %t` 补写回去 —— 缺了就补上,下一次往返就是显式的。
+	PublishSet bool
 }
 
 // parsedNote —— parseCorpNote 的结果(避免多返回名/无名之争)。
@@ -64,7 +70,7 @@ func parseFMLines(fm string) corpFM {
 func applyScalarFM(out *corpFM, key, val string) {
 	switch key {
 	case "publish", "seo_indexed":
-		out.Publish = coerceBool(val)
+		out.Publish, out.PublishSet = coerceBool(val), true
 	case "excerpt", "seo_description":
 		out.Excerpt = unquote(val)
 	case "visibility":

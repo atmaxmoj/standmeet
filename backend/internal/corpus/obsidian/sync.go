@@ -132,40 +132,6 @@ func collidingTitles(tree []*desiredNode) map[string]bool {
 	return dup
 }
 
-// nodeContent —— 一个节点的落库内容;file==nil(自动补的中间节点)= 空结构节点。
-type nodeContent struct {
-	langLabels map[string]string
-	body       string
-	excerpt    string
-	srcPath    string
-	lang       string
-	tags       []string
-	cssClasses []string
-	aliases    []string
-	published  bool
-}
-
-func contentOf(n *desiredNode) nodeContent {
-	if n.file == nil {
-		return nodeContent{}
-	}
-	return nodeContent{
-		body: n.file.body, excerpt: n.file.fm.Excerpt, srcPath: n.file.sourcePath,
-		tags: n.file.fm.Tags, cssClasses: n.file.fm.CSSClasses,
-		aliases: n.file.fm.Aliases, published: n.file.fm.Publish,
-		lang: n.file.fm.Lang, langLabels: n.file.fm.LangLabels,
-	}
-}
-
-// inboxSourceFor —— genre='raw' 的节点带 vault 来源标签 "obsidian:<srcPath>";其它 genre 空。
-// 落进 corpus_notes.inbox_source(vault raw 幂等 upsert 的 conflict key)。
-func inboxSourceFor(genre string, c *nodeContent) string {
-	if genre == genreRaw && c.srcPath != "" {
-		return "obsidian:" + c.srcPath
-	}
-	return ""
-}
-
 // nodeOp —— reconcile 一个节点的参数包(避开 argument-limit)。
 type nodeOp struct {
 	deps   *SyncDeps
@@ -238,6 +204,9 @@ func createNode(ctx context.Context, op *nodeOp) {
 
 func updateNode(ctx context.Context, op *nodeOp, existing *corpus.SyncNote) {
 	record(op.st, op.node, existing.ID) // always index for link resolution + child parenting
+	// vault 没提 publish → 沿用这条现有的值,别把「没说」当成「说不」(F-L-22)。要在比对**之前**
+	// 填,否则一条只差发布位的 note 会被判成 changed,然后拿那个不作数的 false 覆盖过去。
+	keepPublish(op.c, existing.Published)
 	if unchangedNode(existing, op.node, op.parent, op.c) {
 		op.result.Skipped++
 		return
