@@ -191,6 +191,20 @@ function AnswerParas({ answer }: { answer: Answer }) {
           <ChatMarkdown source={p} />
         </div>
       ))}
+      <PartialNotice notice={answer.notice} />
+    </div>
+  );
+}
+
+// PartialNotice —— 「这一轮没说完」。跟正文分开渲(F-A-32);两个 chat 面共用同一个 testid,
+// 因为它们该有同样的行为。
+function PartialNotice({ notice }: { notice?: string }) {
+  return notice === undefined || notice === '' ? null : (
+    <div
+      data-testid="answer-partial-notice"
+      className="mono text-[11px] tracking-[0.06em] text-(--color-accent) border-l-2 border-(--color-accent) pl-3 mt-5"
+    >
+      {notice}
     </div>
   );
 }

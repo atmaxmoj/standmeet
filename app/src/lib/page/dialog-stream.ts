@@ -33,6 +33,10 @@ export type Answer = {
   paras: string[];
   citations: readonly Citation[];
   toolCalls: readonly ToolCallView[];
+  // notice —— 这一轮**没有正常收尾**时说给访客的那句话,挂在已经流出来的内容旁边。
+  // 分成独立一格而不是塞进 paras:一段被截断的文字和「它被截断了」是两件事,合在一起
+  // 读起来就像作者自己那么写的(F-A-32)。空 = 这一轮正常结束。
+  notice?: string;
 };
 
 // ToolCallView —— G-4: tool_completed 累到 Dialog；UI 按 name dispatch
@@ -213,18 +217,32 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
     currentTool: stillPending ? accum.currentTool : null,
     // error 兜底(errorMsg 非空)= 这轮没答成,不计数。
     failed: accum.errorMsg !== '',
-    // answer 始终在场:错误兜底渲成友好段落,正常则散文 + 引用;toolCalls 一律带上
+    // answer 始终在场:一个字都没流出来 → 只渲那句人话;已经流出来了一部分 → **两样都留**
+    // (残缺的正文 + 引用 + 一句「它没说完」);正常则散文 + 引用。toolCalls 一律带上
     // (跑过的卡片即使最终报错也该留着)。
-    answer: accum.errorMsg !== ''
-      ? noticeAnswer(accum.errorMsg, accum.toolCalls)
-      : { paras: splitParas(accum.body), citations: accum.citations, toolCalls: [...accum.toolCalls] },
+    answer: answerFor(accum),
   };
 }
 
-// noticeAnswer —— backend error 事件的人话消息当普通段落渲(已经是友好文案,
-// 不加 "error:" 前缀)。markFailed 的 throw 路径仍走 errorAnswer 带前缀。
-function noticeAnswer(msg: string, toolCalls: readonly ToolCallView[]): Answer {
-  return { paras: [msg], citations: [], toolCalls: [...toolCalls] };
+// answerFor —— 见 withAnswer。拆出来让 withAnswer 的分支保持可读。
+//
+// F-A-32:以前这里是「有 errorMsg 就整段换成那句话」,于是一次跑了 47 次读、攒了 43 条引用
+// 的turn 一旦没收尾,访客眼前的东西会**全部消失**,只剩一句「连接断了」。反过来同样糟:什么都
+// 不说的话,半截的计划旁白就冒充成了答案。两样都留才对。
+function answerFor(accum: DialogAccumulator): Answer {
+  if (accum.errorMsg === '') {
+    return {
+      paras: splitParas(accum.body), citations: accum.citations,
+      toolCalls: [...accum.toolCalls],
+    };
+  }
+  if (accum.body === '') {
+    return { paras: [accum.errorMsg], citations: [], toolCalls: [...accum.toolCalls] };
+  }
+  return {
+    paras: splitParas(accum.body), citations: accum.citations,
+    toolCalls: [...accum.toolCalls], notice: accum.errorMsg,
+  };
 }
 
 export function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {

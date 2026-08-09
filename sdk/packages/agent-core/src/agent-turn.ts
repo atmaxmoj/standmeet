@@ -64,16 +64,20 @@ export class VisitorTurnAgent {
       // 流被中途掐断:reader.read() reject(代理/服务器 write-deadline 超时、
       // 网络抖动 → ERR_INCOMPLETE_CHUNKED_ENCODING),或 streamer 在拿到响应
       // 时就因非 2xx 抛错(401 session 失效 / 403 等)。绝不让对话卡 pending。
-      ctx.streamCut = true;
       ctx.cutStatus = readCutStatus(err);
     }
     this.emit({ type: 'iteration_completed', iter: 0 });
-    // 流被掐断但已经收到可用回答(常见:答案流完了、被掐的只是 done 尾帧)→
-    // 当截断答案正常收尾。一个字都没收到才 surface 友好 error;按 status 区分
-    // 「session 失效要重进」和「连接掉线再试一次」。
-    if (ctx.streamCut && ctx.text === '') {
+    // 一轮**算不算说完了**,判据是它的 `done` 尾帧到没到 —— 后端在每条路径末尾都无条件发它
+    // (agent_loop.go:152,错误路径也发),所以缺了它就是**确定**没收尾。
+    //
+    // 这里以前判的是 `ctx.text === ''`:一个字都没收到才报。而「有文字」不等于「有答案」——
+    // 真实环境里那段文字是模型的计划旁白(*"Let me peek at the remaining ~39 notes…"*),
+    // 流在 done 之前断掉,于是那半句计划被当成完成的答案发布,访客那边没有任何提示,
+    // 这一轮还算成功、照常计费(F-A-32)。后端早就有这个区分(它判的是 product 而不是
+    // 累计文本),客户端这一侧从来没有。
+    if (!ctx.sawDone && !ctx.errored) {
       ctx.errored = true;
-      this.emit({ type: 'error', message: cutMessage(ctx.cutStatus) });
+      this.emit({ type: 'error', message: unfinishedMessage(ctx) });
     }
     if (ctx.errored) return history;
     this.emit({ type: 'final_text', text: ctx.text });
@@ -109,6 +113,8 @@ export class VisitorTurnAgent {
         this.emit({ type: 'retrying', attempt: ev.attempt });
         return;
       case 'done':
+        // 尾帧本身不渲任何东西,但**它到没到**是这一轮唯一可靠的「说完了」凭据。
+        ctx.sawDone = true;
         return;
       case 'error':
         ctx.errored = true;
@@ -152,9 +158,20 @@ const STREAM_CUT_MESSAGE =
 const SESSION_EXPIRED_MESSAGE =
   'Your session is no longer valid (it may have expired). Re-open your access link to continue.';
 
+// PARTIAL_ANSWER_MESSAGE —— 已经流出来一部分、但没收尾。**必须说出来**:一段没说完的话
+// 沉默地留在屏幕上,读起来就是一个完整而错误的答案(F-A-32 里那半句是模型的计划旁白)。
+const PARTIAL_ANSWER_MESSAGE =
+  'This answer was cut off before it finished — what you see above is partial. Please ask again.';
+
 // cutMessage —— 按掐断时的 HTTP status 选文案:401/403 → 重进;其它 → 重试。
 function cutMessage(status: number): string {
   return status === 401 || status === 403 ? SESSION_EXPIRED_MESSAGE : STREAM_CUT_MESSAGE;
+}
+
+// unfinishedMessage —— 没收尾时说哪一句:已经流出来一部分 → 说它是残缺的;一个字都没有 →
+// 按掐断时的 status 说「重进」还是「再试」。
+function unfinishedMessage(ctx: TurnCtx): string {
+  return ctx.text === '' ? cutMessage(ctx.cutStatus) : PARTIAL_ANSWER_MESSAGE;
 }
 
 // readCutStatus —— 从 streamer 抛的 error 上取 HTTP status(agent-adapters 用
@@ -168,14 +185,17 @@ function readCutStatus(err: unknown): number {
 interface TurnCtx {
   text: string;
   errored: boolean;
-  // streamCut —— 流在 done 帧之前被掐断(reader 抛错)。
-  streamCut: boolean;
+  // sawDone —— 收到过 `done` 尾帧。这是「这一轮说完了」的**唯一**凭据:后端在每条路径末尾
+  // 都无条件发它,所以没收到就是确定没收尾 —— 不管已经流出来多少字。
+  sawDone: boolean;
   // cutStatus —— 掐断时若是非 2xx 响应,带上 HTTP status(401/403 等);否则 0。
+  // 「断没断」不再单独记:done 帧到没到已经说明了一切,而抛错只是没收尾的**一种**方式
+  // (另一种是流干净地结束却少了尾帧 —— 以前那一种连报都不会报)。
   cutStatus: number;
 }
 
 function makeCtx(): TurnCtx {
-  return { text: '', errored: false, streamCut: false, cutStatus: 0 };
+  return { text: '', errored: false, sawDone: false, cutStatus: 0 };
 }
 
 // safeParseToolResult —— H.10: backend agent loop 把 tool RunFn 的 raw
