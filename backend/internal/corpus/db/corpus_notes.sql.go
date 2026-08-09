@@ -1015,6 +1015,7 @@ SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.aliase
 FROM corpus_notes n
 WHERE n.owner_id = $1 AND n.genre = $2
   AND ($3::timestamptz IS NULL OR (n.created_at, n.id) < ($3::timestamptz, $4::uuid))
+  AND ($6::text IS NULL OR $6::text = '' OR $6::text = ANY(n.tags))
 ORDER BY n.created_at DESC, n.id DESC
 LIMIT $5
 `
@@ -1025,6 +1026,7 @@ type ListNotesByOwnerPageParams struct {
 	Column3 pgtype.Timestamptz
 	Column4 pgtype.UUID
 	Limit   int32
+	Column6 string
 }
 
 type ListNotesByOwnerPageRow struct {
@@ -1036,6 +1038,12 @@ type ListNotesByOwnerPageRow struct {
 // last row's (created_at, id) cursor — both NULL = first page. Composite tiebreak because
 // a vault sync batch can share created_at. LIMIT $5 (+1 caller-side → has_more). Full row
 // via sqlc.embed + path_titles so the server slugifies the address even on a partial page.
+//
+// $6 = tag filter (” / NULL = no filter). It has to live HERE, next to the ORDER BY and the
+// LIMIT, because the page is what the cursor walks: filtering client-side after the fact means
+// the filter only ever sees one page, which is how the panel came to report 1 math note against
+// a corpus holding 137 (F-L-23). The recursive CTE stays unfiltered on purpose — it only exists
+// to resolve each returned row's ancestor titles, and narrowing it would not change any answer.
 func (q *Queries) ListNotesByOwnerPage(ctx context.Context, arg ListNotesByOwnerPageParams) ([]ListNotesByOwnerPageRow, error) {
 	rows, err := q.db.Query(ctx, listNotesByOwnerPage,
 		arg.OwnerID,
@@ -1043,6 +1051,7 @@ func (q *Queries) ListNotesByOwnerPage(ctx context.Context, arg ListNotesByOwner
 		arg.Column3,
 		arg.Column4,
 		arg.Limit,
+		arg.Column6,
 	)
 	if err != nil {
 		return nil, err

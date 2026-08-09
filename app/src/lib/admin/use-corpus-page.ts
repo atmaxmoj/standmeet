@@ -35,7 +35,10 @@ export function useCorpusPage<T>(pagePath: string, itemSchema: z.ZodType<T>): Co
     busyRef.current = true;
     setLoading(true);
     const cur = reset ? undefined : cursorRef.current;
-    const qs = cur ? `?cursor=${encodeURIComponent(cur)}` : '';
+    // pagePath 可能已经带着自己的 query(比如 `?tag=math`),所以分隔符要看它有没有 `?` —— 写死
+    // `?cursor=` 会把 tag 顶掉,而那正好是「筛选悄悄退化成筛一页」的另一种写法(F-L-23)。
+    const sep = pagePath.includes('?') ? '&' : '?';
+    const qs = cur ? `${sep}cursor=${encodeURIComponent(cur)}` : '';
     try {
       const resp = await adminAPI.get(`${pagePath}${qs}`, respSchema);
       cursorRef.current = resp.next_cursor;

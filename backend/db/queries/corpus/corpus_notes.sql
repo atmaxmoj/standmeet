@@ -75,6 +75,12 @@ ORDER BY n.title ASC;
 -- last row's (created_at, id) cursor — both NULL = first page. Composite tiebreak because
 -- a vault sync batch can share created_at. LIMIT $5 (+1 caller-side → has_more). Full row
 -- via sqlc.embed + path_titles so the server slugifies the address even on a partial page.
+--
+-- $6 = tag filter ('' / NULL = no filter). It has to live HERE, next to the ORDER BY and the
+-- LIMIT, because the page is what the cursor walks: filtering client-side after the fact means
+-- the filter only ever sees one page, which is how the panel came to report 1 math note against
+-- a corpus holding 137 (F-L-23). The recursive CTE stays unfiltered on purpose — it only exists
+-- to resolve each returned row's ancestor titles, and narrowing it would not change any answer.
 WITH RECURSIVE up AS (
   SELECT c.id AS leaf_id, c.id, c.parent_id, ARRAY[c.title]::text[] AS path_titles
   FROM corpus_notes c
@@ -89,6 +95,7 @@ SELECT sqlc.embed(n),
 FROM corpus_notes n
 WHERE n.owner_id = $1 AND n.genre = $2
   AND ($3::timestamptz IS NULL OR (n.created_at, n.id) < ($3::timestamptz, $4::uuid))
+  AND ($6::text IS NULL OR $6::text = '' OR $6::text = ANY(n.tags))
 ORDER BY n.created_at DESC, n.id DESC
 LIMIT $5;
 

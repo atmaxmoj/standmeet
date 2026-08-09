@@ -124,7 +124,7 @@ type WritingsTreeProvider interface {
 		ctx context.Context, ownerID string, parentID *string,
 	) ([]corpus.TreeChild[corpus.Writing], error)
 	ListPage(
-		ctx context.Context, ownerID string, cursor *corpus.PageCursor, limit int32,
+		ctx context.Context, ownerID string, cursor *corpus.PageCursor, limit int32, tag string,
 	) ([]corpus.TreeChild[corpus.Writing], error)
 }
 
@@ -160,7 +160,8 @@ func (h *Handlers) pageWritings() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("bad cursor"))
 			return
 		}
-		rows, err := h.WritingsAdmin.Tree.ListPage(r.Context(), ownerID, cursor, gridPageSize+1)
+		rows, err := h.WritingsAdmin.Tree.ListPage(
+			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r))
 		if err != nil {
 			h.Log.Error("page writings", "err", err)
 			writeError(h.Log, w, serverErr())

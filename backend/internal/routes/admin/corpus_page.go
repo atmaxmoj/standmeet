@@ -20,6 +20,12 @@ import (
 
 const gridPageSize = 30
 
+// pageTag —— `?tag=` 的取值,"" = 不过滤。过滤下推到取页那一步,而不是让面板拿到一页再筛:
+// 后者筛的只是那一页,而面板会把结果当成整个语料的答案(F-L-23)。
+func pageTag(r *http.Request) string {
+	return strings.TrimSpace(r.URL.Query().Get("tag"))
+}
+
 type wikiPageResponse struct {
 	NextCursor string         `json:"next_cursor,omitempty"`
 	Items      []wikiListItem `json:"items"`
@@ -43,7 +49,8 @@ func (h *Handlers) pageWiki() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("bad cursor"))
 			return
 		}
-		rows, err := h.Corpus.Corpus.Wiki.ListPage(r.Context(), ownerID, cursor, gridPageSize+1)
+		rows, err := h.Corpus.Corpus.Wiki.ListPage(
+			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r))
 		if err != nil {
 			h.Log.Error("page wiki", "err", err)
 			writeError(h.Log, w, serverErr())
@@ -61,7 +68,8 @@ func (h *Handlers) pageOutput() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("bad cursor"))
 			return
 		}
-		rows, err := h.Corpus.Corpus.Output.ListPage(r.Context(), ownerID, cursor, gridPageSize+1)
+		rows, err := h.Corpus.Corpus.Output.ListPage(
+			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r))
 		if err != nil {
 			h.Log.Error("page output", "err", err)
 			writeError(h.Log, w, serverErr())
@@ -79,7 +87,8 @@ func (h *Handlers) pageRaw() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("bad cursor"))
 			return
 		}
-		rows, err := h.Corpus.Corpus.Raw.ListPage(r.Context(), ownerID, cursor, gridPageSize+1)
+		rows, err := h.Corpus.Corpus.Raw.ListPage(
+			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r))
 		if err != nil {
 			h.Log.Error("page raw", "err", err)
 			writeError(h.Log, w, serverErr())

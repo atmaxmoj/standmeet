@@ -141,7 +141,10 @@ function ReadyBody({
         view={view} rows={shown} testid="wiki-list"
         rowTestid={(r) => `wiki-row-${r.id}`}
         loadChildren={loadWikiTreeChildren}
-        gridSource={activeTag === null ? { pagePath: '/corpus/wiki/page', schema: WikiSummarySchema } : undefined}
+        gridSource={{
+          pagePath: taggedPagePath('/corpus/wiki/page', activeTag),
+          schema: WikiSummarySchema,
+        }}
         renderCard={(row, { hasChildren }) => (
           <WikiCard
             entry={row} actions={actions}
@@ -157,8 +160,17 @@ function distinctTags(rows: readonly WikiSummary[]): readonly string[] {
   return Array.from(new Set(rows.flatMap((r) => r.tags))).sort();
 }
 
+// filterByTag —— 只给**树**视图用:树是懒加载的层级,一次一层,标签在这里是「把这一层筛一下」。
+// 网格视图**不**走这里 —— 它是分页视图,筛选必须下推到取页那一步(taggedPagePath),否则筛的就
+// 只是已加载的那一页,而面板会把结果当成整个语料的答案(F-L-23:137 条 math 显示成 1 条)。
 function filterByTag(rows: readonly WikiSummary[], tag: string | null): readonly WikiSummary[] {
   return tag === null ? rows : rows.filter((r) => r.tags.includes(tag));
+}
+
+// taggedPagePath —— 把选中的标签带进分页地址。分页源不再因为「选了标签」就被关掉:关掉它
+// 正是 F-L-23 的成因。
+function taggedPagePath(base: string, tag: string | null): string {
+  return tag === null ? base : `${base}?tag=${encodeURIComponent(tag)}`;
 }
 
 function TagFilterRow({

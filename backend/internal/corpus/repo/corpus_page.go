@@ -27,7 +27,10 @@ type pageReq struct {
 	cursor  *PageCursor
 	ownerID string
 	genre   string
-	limit   int32
+	// tag —— "" = 不过滤。过滤必须发生在**取这一页的时候**:客户端拿到一页再筛,筛的就只是那一页,
+	// 而面板会把结果当成整个语料的答案(F-L-23:137 条 math 笔记显示成 1 条)。
+	tag   string
+	limit int32
 }
 
 func adminPageFetch[T any](
@@ -42,7 +45,8 @@ func adminPageFetch[T any](
 		return nil, cerr
 	}
 	rows, qerr := db.New(req.pool).ListNotesByOwnerPage(ctx, db.ListNotesByOwnerPageParams{
-		OwnerID: ownerUUID, Genre: req.genre, Column3: cp.ts, Column4: cp.id, Limit: req.limit,
+		OwnerID: ownerUUID, Genre: req.genre, Column3: cp.ts, Column4: cp.id,
+		Limit: req.limit, Column6: req.tag,
 	})
 	if qerr != nil {
 		return nil, fmt.Errorf("list page: %w", qerr)
@@ -74,31 +78,33 @@ func pageCursorParams(c *PageCursor) (cursorPg, error) {
 	return cursorPg{ts: pgtype.Timestamptz{Time: c.CreatedAt, Valid: true}, id: id}, nil
 }
 
-// ListPage —— one grid page of the wiki genre (owner-scoped, all statuses).
+// ListPage —— one grid page of the wiki genre (owner-scoped, all statuses). tag "" = no filter.
 func (r *WikiRepo) ListPage(
-	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
+	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,
 ) ([]TreeChild[entity.Wiki], error) {
-	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreWiki, limit}, toDomainWiki)
+	req := pageReq{r.pool, cursor, ownerID, genreWiki, tag, limit}
+	return adminPageFetch(ctx, req, toDomainWiki)
 }
 
-// ListPage —— one grid page of the output genre.
+// ListPage —— one grid page of the output genre. tag "" = no filter.
 func (r *OutputRepo) ListPage(
-	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
+	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,
 ) ([]TreeChild[entity.Output], error) {
-	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreOutput, limit}, toDomainOutput)
+	req := pageReq{r.pool, cursor, ownerID, genreOutput, tag, limit}
+	return adminPageFetch(ctx, req, toDomainOutput)
 }
 
-// ListPage —— one grid page of the raw inbox genre.
+// ListPage —— one grid page of the raw inbox genre. tag "" = no filter.
 func (r *RawRepo) ListPage(
-	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
+	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,
 ) ([]TreeChild[entity.Raw], error) {
-	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreRaw, limit}, toDomainRaw)
+	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreRaw, tag, limit}, toDomainRaw)
 }
 
-// ListPage —— one grid page of writings (genre='writing').
+// ListPage —— one grid page of writings (genre='writing'). tag "" = no filter.
 func (r *WritingRepo) ListPage(
-	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
+	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,
 ) ([]TreeChild[entity.Writing], error) {
-	req := pageReq{r.pool, cursor, ownerID, genreWriting, limit}
+	req := pageReq{r.pool, cursor, ownerID, genreWriting, tag, limit}
 	return adminPageFetch(ctx, req, toDomainWriting)
 }
