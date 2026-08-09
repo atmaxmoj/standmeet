@@ -6,6 +6,7 @@ package connector
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,22 @@ import (
 
 // specFetchReason —— URL 拉取失败的 owner 友好文案（不漏底层）。
 const specFetchReason = "could not fetch the spec from that URL (is it reachable?)"
+
+// specBlockedReason —— 被出站守卫按**策略**挡下的那一种。必须跟上面那句分开:那个地址往往
+// 完完全全可达(F-C-23 就是拿同一 docker 网络上、wget 拿得到 200 的地址驱出来的),
+// 「是不是连不上?」会把 owner 支去排查自己的网络,而真相是这台实例不允许指向内网。
+// 同一个代码库里 inference_models.go 早就这么分了,这里只是补上同一刀。
+const specBlockedReason = "that URL points at an internal/private address, " +
+	"which this instance does not allow"
+
+// fetchReason —— 把拉取失败翻成给 owner 的那句话。只有**真的**是内网目标才说地址策略:
+// 解析不了的域名走原来那句(它说的是实话),否则就是把谎换个方向。
+func fetchReason(err error) string {
+	if errors.Is(err, ErrBlockedEgress) {
+		return specBlockedReason
+	}
+	return specFetchReason
+}
 
 // AuthForms —— 派生凭据表单（别名透传，让 adminroutes 经 connectorsvc 用，不直接 import connector）。
 
@@ -31,7 +48,7 @@ func (s *Service) ValidateSpec(ctx context.Context, spec []byte, url string) Spe
 	if url != "" {
 		fetched, ferr := s.fetchSpec(ctx, url)
 		if ferr != nil {
-			return SpecVerdict{Reason: specFetchReason}
+			return SpecVerdict{Reason: fetchReason(ferr)}
 		}
 		raw = fetched
 	}

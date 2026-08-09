@@ -20,8 +20,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
-// ErrBlockedEgress —— 出站目标落在内网（被 SSRF 守卫拦下）。
+// ErrBlockedEgress —— 出站目标落在内网（被 SSRF 守卫拦下）。**只**用于「这个目标是内网地址」
+// 这个判断,因为面向 owner 的那句话是照它选的:说错了就是把人支去找一个不存在的内网问题。
 var ErrBlockedEgress = errors.New("egress target is an internal/private address (blocked)")
+
+// ErrEgressUnresolvable —— 主机名解析不了 / 解析出零个地址。**不是**「内网」:一个不存在的域名
+// 跟一个指向内网的域名是两件事,以前它们共用 ErrBlockedEgress,于是上层无从分辨(F-C-23)。
+var ErrEgressUnresolvable = errors.New("egress target could not be resolved")
 
 const egressDialTimeout = 10 * time.Second
 
@@ -137,10 +142,10 @@ var lookupIPAddr = net.DefaultResolver.LookupIPAddr
 func resolveSafeIP(ctx context.Context, host string) (string, error) {
 	ips, lerr := lookupIPAddr(ctx, host)
 	if lerr != nil {
-		return "", fmt.Errorf("%w: resolve %q: %w", ErrBlockedEgress, host, lerr)
+		return "", fmt.Errorf("%w: resolve %q: %w", ErrEgressUnresolvable, host, lerr)
 	}
 	if len(ips) == 0 {
-		return "", fmt.Errorf("%w: %q resolved to no addresses", ErrBlockedEgress, host)
+		return "", fmt.Errorf("%w: %q resolved to no addresses", ErrEgressUnresolvable, host)
 	}
 	for i := range ips {
 		ip := ips[i].IP
