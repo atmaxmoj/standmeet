@@ -48,9 +48,12 @@ export interface ConnectorIngestHook {
   candidate: IngestCandidate | null;
   auth: AuthForms | null;
   setText: (t: string) => void;
+  setBaseUrl: (u: string) => void;
   submitSpec: () => void;
   fetchUrl: (url: string) => void;
   ingestFile: (file: File) => void;
+  specText: () => string;
+  baseUrl: () => string;
 }
 
 function verdictToState(v: z.infer<typeof VerdictSchema>): IngestState {
@@ -65,7 +68,9 @@ interface IngestState {
   auth: AuthForms | null;
 }
 
-async function runValidate(body: { spec?: string; url?: string }): Promise<IngestState> {
+async function runValidate(
+  body: { spec?: string; url?: string; base_url?: string },
+): Promise<IngestState> {
   const tooBig = (body.spec?.length ?? 0) > MAX_SPEC_BYTES;
   const fallback: IngestState = {
     error: 'Spec is too large (over the size limit). Provide a smaller spec.',
@@ -84,20 +89,30 @@ async function runValidate(body: { spec?: string; url?: string }): Promise<Inges
 export function useConnectorIngest(): ConnectorIngestHook {
   const [state, setState] = useState<IngestState>({ error: '', candidate: null, auth: null });
   const textRef = useRef('');
+  // baseUrlRef —— owner 手填的 base URL。**三条摄入路（贴 / 上传文件 / URL 拉）都带上它**：
+  // 少带一条，owner 就会遇到「贴进去能过、上传同一份文件反而说缺 servers」这种只在某条路上
+  // 存在的行为，而那看起来像文件解析坏了（F-C-22 那次我就是这么误判的）。
+  const baseUrlRef = useRef('');
 
   const setText = useCallback((t: string) => { textRef.current = t; }, []);
+  const setBaseUrl = useCallback((u: string) => { baseUrlRef.current = u; }, []);
 
   const submitSpec = useCallback(() => {
     const t = textRef.current;
-    t.trim() !== '' && void runValidate({ spec: t }).then(setState);
+    t.trim() !== '' && void runValidate({ spec: t, base_url: baseUrlRef.current }).then(setState);
   }, []);
 
   const fetchUrl = useCallback((url: string) => {
-    void runValidate({ url }).then(setState);
+    void runValidate({ url, base_url: baseUrlRef.current }).then(setState);
   }, []);
 
   const ingestFile = useCallback((file: File) => {
-    void file.text().then((t) => runValidate({ spec: t })).then(setState);
+    // 文件内容同时进 textRef：装配那一步送的是 spec 原文，不是文件句柄 —— 不同步的话，
+    // 「上传文件 → 候选出现 → 点装配」会送出一份空 spec，而 UI 上一切正常。
+    void file.text().then((t) => {
+      textRef.current = t;
+      return runValidate({ spec: t, base_url: baseUrlRef.current });
+    }).then(setState);
   }, []);
 
   return {
@@ -105,8 +120,11 @@ export function useConnectorIngest(): ConnectorIngestHook {
     candidate: state.candidate,
     auth: state.auth,
     setText,
+    setBaseUrl,
     submitSpec,
     fetchUrl,
     ingestFile,
+    specText: () => textRef.current,
+    baseUrl: () => baseUrlRef.current,
   };
 }

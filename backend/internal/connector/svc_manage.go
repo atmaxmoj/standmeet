@@ -6,6 +6,8 @@ package connector
 import (
 	"context"
 	"fmt"
+
+	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
 
 // CreateUploaded —— 从 owner 贴的 spec + JSONata binding 建一个 openapi 连接器：装配期校验
@@ -13,6 +15,11 @@ import (
 func (s *Service) CreateUploaded(
 	ctx context.Context, ownerID string, in *UploadedSpec,
 ) (string, error) {
+	norm, nerr := withBaseURL(in)
+	if nerr != nil {
+		return "", nerr
+	}
+	in = norm
 	id, err := randomState()
 	if err != nil {
 		return "", err
@@ -41,6 +48,19 @@ func (s *Service) Delete(ctx context.Context, ownerID, id string) error {
 		return fmt.Errorf("delete connector: %w", err)
 	}
 	return nil
+}
+
+// withBaseURL —— 把 owner 填的 base URL 并进 spec，返回一份归一化的副本（不改调用方的入参）。
+// Create 和 Update 都从这里进，所以「存下去的 spec 一定已经带上 base URL」是这两条路的共同
+// 前提，而不是某一条路记得做的事。BaseURL 为空 → 零改动。
+func withBaseURL(in *UploadedSpec) (*UploadedSpec, error) {
+	raw, err := openapi.ApplyBaseURL(in.Spec, in.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+	}
+	out := *in
+	out.Spec = raw
+	return &out, nil
 }
 
 // bytesOrEmpty —— nil → 空 bytea（列 NOT NULL）。agent-only 连接器无 binding（nil），存空非 NULL。
@@ -103,6 +123,11 @@ func (s *Service) UpdateUploaded(
 	if s.isBuiltin(id) {
 		return ErrBuiltinReadonly
 	}
+	norm, nerr := withBaseURL(in)
+	if nerr != nil {
+		return nerr
+	}
+	in = norm
 	m := openapiManifest(id, in)
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {

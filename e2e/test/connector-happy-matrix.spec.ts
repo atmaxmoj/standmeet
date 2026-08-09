@@ -163,19 +163,36 @@ async function assembleOpenAPI(
 ): Promise<ConnRef> {
   const before = await connectorIdSet(request);
   await openAddCard(page, opts.category);
-  await page.getByTestId('connector-spec-input')
-    .fill(JSON.stringify({ spec: opts.spec, binding: opts.binding }));
+  // spec / binding 是两个框；校验和装配是两个按钮（F-C-21 之后只剩一份实现）。
+  await page.getByTestId('connector-spec-input').fill(JSON.stringify(opts.spec));
+  await page.getByTestId('connector-binding-input').fill(JSON.stringify(opts.binding));
   await page.getByTestId('connector-spec-submit').click();
-  if (opts.scheme) await page.getByTestId('connector-scheme-select').selectOption(opts.scheme);
+  await expect(page.getByTestId('connector-candidate')).toBeVisible();
+  // 选择器只在方案多于一个时出现（§7 决策#3）。单方案的 spec 不出，而装配送的 auth_scheme
+  // 取派生表单里的第一个 —— 也就是唯一那个。所以「有就选，没有就是它」。
+  await pickSchemeIfOffered(page, opts.scheme);
   for (const [k, v] of Object.entries(opts.fields)) {
     await page.getByTestId(`connector-field-${k}`).fill(v);
   }
+  // 装配之后模态**不关**：摄入表单让位给新连接器的卡（凭据 + Connect 一直是那张卡的职责）。
+  // 关掉的话 owner 会落在一个连不上的列表行上 —— ConnectorList 的行只有品类/状态/删除。
+  await page.getByTestId('connector-assemble-button').click();
   await page.getByTestId('connector-connect-button').click();
   // dance：整页跳去 provider 同意页再回来（waitForURL 可能因「本就在 /admin/connectors」提前命中，
   // 由 newConnector 的轮询兜住 callback 落库的延迟）。非 dance：原地连，状态直接翻 connected。
   if (opts.needsDance) await page.waitForURL('**/admin/connectors**');
   else await expect(page.getByTestId('connector-status')).toHaveText(/connected|已连接/i);
   return newConnector(request, before, opts.category);
+}
+
+// pickSchemeIfOffered —— 有选择器就选指定方案；没有（spec 只声明一个）就什么都不做。
+// 不用 `.count()` 直接判：候选刚渲染出来，选择器可能还没挂上，count 会读到 0 而其实马上就有。
+// 先等它「要么出现要么确定不出现」，再决定。
+async function pickSchemeIfOffered(page: Page, scheme?: string): Promise<void> {
+  if (!scheme) return;
+  const select = page.getByTestId('connector-scheme-select');
+  await expect(page.getByTestId('connector-cred-form')).toBeVisible();
+  if (await select.count() > 0) await select.selectOption(scheme);
 }
 
 // assembleProtocol —— 选内置协议卡（固定表单，无 spec）→ 填固定字段 → connect。

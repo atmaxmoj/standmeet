@@ -48,23 +48,61 @@ interface ClaimBody {
   full_name: string; public_url: string;
 }
 
-// postClaimWithRetry —— claim 偶发 401(setup_token 被 unclaim 轮换的竞态)。
-// 401 时重取 token 重试;其它状态 / 重试用尽 → 抛。200 直接返回(happy path 不变)。
+// postClaimWithRetry —— claim 有两种可重试的失败,而它们**长得完全不一样**:
+//
+//   401 —— setup_token 被 unclaim 轮换的竞态,是一个**状态码**;
+//   超时 —— backend 刚被 dev-up recreate,冷启动还没听端口,`request.post` **直接抛**。
+//
+// 原来这个循环只看状态码,于是第二种失败连循环体都走不完就窜出去了:重试对真正会发生的
+// 那种失败是瞎的。在负载高的机器上 backend 冷启动超过 10 秒是常态,不是异常。
+//
+// 两种都重试;最后一次仍失败 → 照抛(把原因带出去,别吞成一句笼统的 "claim failed")。
 async function postClaimWithRetry(
   request: APIRequestContext, setupToken: string, body: ClaimBody,
 ): Promise<void> {
   let token = setupToken;
   for (let attempt = 0; attempt < CLAIM_RETRIES; attempt++) {
-    const res = await request.post(`${BACKEND}/api/admin/claim`, {
-      data: { token, ...body },
-    });
-    if (res.status() === 200) return;
-    if (res.status() !== 401 || attempt === CLAIM_RETRIES - 1) {
-      throw new Error(`claim failed: ${res.status()}`);
+    const last = attempt === CLAIM_RETRIES - 1;
+    const status = await claimStatus(request, token, body, last);
+    if (status === 200) return;
+    if (status !== 401 && status !== 0) {
+      throw new Error(`claim failed: ${status}`);
+    }
+    if (last) {
+      throw new Error(`claim failed after ${CLAIM_RETRIES} attempts: ${status}`);
     }
     await new Promise((resolve) => setTimeout(resolve, CLAIM_RETRY_DELAY_MS));
     token = findSetupToken();
   }
+}
+
+// claimStatus —— 发一次 claim,回状态码。传输层抛错(超时/连接被拒)回 **0**,让调用方
+// 跟 401 一样当作可重试;最后一次则原样抛,保住真正的错因。
+//
+// 超时**不代表服务端没做**:请求可能已经落库,只是回包慢。这时盲目重试会撞上
+// 「token 已消费」(401)或「email 已占用」(409),最后抛一句跟真相相反的错。所以超时之后
+// 先**问一次结果**——能用这套凭据登录就说明 claim 成立,直接当 200。
+async function claimStatus(
+  request: APIRequestContext, token: string, body: ClaimBody, rethrow: boolean,
+): Promise<number> {
+  try {
+    const res = await request.post(`${BACKEND}/api/admin/claim`, {
+      data: { token, ...body },
+    });
+    return res.status();
+  } catch (err) {
+    if (await claimLanded(request, body)) return 200;
+    if (rethrow) throw err;
+    return 0;
+  }
+}
+
+// claimLanded —— 超时之后核对 claim 到底成没成:拿同一套邮箱/口令登录得上 = 成了。
+async function claimLanded(request: APIRequestContext, body: ClaimBody): Promise<boolean> {
+  const res = await request.post(`${BACKEND}/api/admin/login`, {
+    data: { email: body.email, password: body.password },
+  }).catch(() => null);
+  return res?.status() === 200;
 }
 
 // seedDevAIProvider —— in dev/e2e the backend's anthropic provider talks

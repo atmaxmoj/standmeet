@@ -64,10 +64,6 @@
     "overwrite": "Overwrite",
     "add": "+ add connector"
   },
-  "assemble": {
-    "uploadLabel": "upload an OpenAPI connector",
-    "uploadSubmit": "Upload spec →"
-  },
   "calendar": {
     "heading": "Google Calendar",
     "credentialsHint": "Google Cloud console → APIs & Services → Credentials → OAuth client ID (Desktop). Owner's own client; no global StandMeet OAuth.",

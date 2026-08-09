@@ -91,6 +91,7 @@ var (
 			"protocol":{"type":"string","description":"Protocol connector: caldav / smtp."},
 			"category":{"type":"string","description":"Protocol connector category."},
 			"auth_scheme":{"type":"string","description":"Selected OpenAPI auth scheme."},
+			"base_url":{"type":"string","description":"Base URL if the spec has none."},
 			"spec":{"type":"string","description":"OpenAPI spec text (JSON or YAML)."},
 			"binding":{"type":"string","description":"JSONata binding text (YAML)."},
 			"expose_as_agent_tools":{"type":"boolean","description":"Expose raw ops as tools."}
@@ -102,6 +103,7 @@ var (
 		"properties":{
 			"id":{"type":"string","description":"Connector id."},
 			"auth_scheme":{"type":"string","description":"Selected OpenAPI auth scheme."},
+			"base_url":{"type":"string","description":"Base URL if the spec has none."},
 			"spec":{"type":"string","description":"OpenAPI spec text (JSON or YAML)."},
 			"binding":{"type":"string","description":"JSONata binding text (YAML)."},
 			"expose_as_agent_tools":{"type":"boolean","description":"Expose raw ops as tools."}
@@ -113,7 +115,8 @@ var (
 		"type":"object",
 		"properties":{
 			"spec":{"type":"string","description":"OpenAPI spec text (JSON or YAML)."},
-			"url":{"type":"string","description":"URL to fetch the spec from (optional)."}
+			"url":{"type":"string","description":"URL to fetch the spec from (optional)."},
+			"base_url":{"type":"string","description":"Base URL if the spec has none."}
 		}
 	}`)
 )
@@ -146,6 +149,7 @@ type connectorCreateArgs struct {
 	Protocol           string `json:"protocol"`
 	Category           string `json:"category"`
 	AuthScheme         string `json:"auth_scheme"`
+	BaseURL            string `json:"base_url"`
 	Spec               string `json:"spec"`
 	Binding            string `json:"binding"`
 	ExposeAsAgentTools bool   `json:"expose_as_agent_tools"`
@@ -153,7 +157,8 @@ type connectorCreateArgs struct {
 
 func (a *connectorCreateArgs) uploaded() *connector.UploadedSpec {
 	return &connector.UploadedSpec{
-		AuthScheme: a.AuthScheme, Spec: []byte(a.Spec), Binding: []byte(a.Binding),
+		AuthScheme: a.AuthScheme, BaseURL: a.BaseURL,
+		Spec: []byte(a.Spec), Binding: []byte(a.Binding),
 		ExposeAsAgentTools: a.ExposeAsAgentTools,
 	}
 }
@@ -189,6 +194,7 @@ func createByKind(
 type connectorUpdateArgs struct {
 	ID                 string `json:"id"`
 	AuthScheme         string `json:"auth_scheme"`
+	BaseURL            string `json:"base_url"`
 	Spec               string `json:"spec"`
 	Binding            string `json:"binding"`
 	ExposeAsAgentTools bool   `json:"expose_as_agent_tools"`
@@ -204,7 +210,8 @@ func updateConnector(ops connectorOps) fp.Invoke {
 			return nil, err
 		}
 		if err := ops.svc.UpdateUploaded(ctx, ownerID, in.ID, &connector.UploadedSpec{
-			AuthScheme: in.AuthScheme, Spec: []byte(in.Spec), Binding: []byte(in.Binding),
+			AuthScheme: in.AuthScheme, BaseURL: in.BaseURL,
+			Spec: []byte(in.Spec), Binding: []byte(in.Binding),
 			ExposeAsAgentTools: in.ExposeAsAgentTools,
 		}); err != nil {
 			return nil, connErr("update connector", err)
@@ -214,8 +221,9 @@ func updateConnector(ops connectorOps) fp.Invoke {
 }
 
 type connectorValidateArgs struct {
-	Spec string `json:"spec"`
-	URL  string `json:"url"`
+	Spec    string `json:"spec"`
+	URL     string `json:"url"`
+	BaseURL string `json:"base_url"`
 }
 
 // connectorVerdictOut —— 验 spec 的结果。auth 原样透传:它的形状由那份 spec 决定,
@@ -233,7 +241,7 @@ func validateConnectorSpec(ops connectorOps) fp.Invoke {
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return nil, fp.BadInput("invalid arguments: " + err.Error())
 		}
-		v := ops.svc.ValidateSpec(ctx, []byte(in.Spec), in.URL)
+		v := ops.svc.ValidateSpec(ctx, []byte(in.Spec), in.URL, in.BaseURL)
 		auth, aerr := json.Marshal(v.Auth)
 		if aerr != nil {
 			// 认证表单编不出来只该少这一半,不该让 owner 连"这份 spec 行不行"都问不到。

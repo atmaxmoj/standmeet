@@ -71,10 +71,14 @@
   "specIngest": {
     "heading": "paste an OpenAPI spec",
     "blurb": "Any OpenAPI 3.0 spec (JSON or YAML). We derive the credential form + category from it.",
-    "useThisSpec": "use this spec",
+    "useThisSpec": "check this spec",
     "orFetchFromUrl": "…or fetch from a URL",
     "fetch": "fetch",
-    "candidate": "connector candidate"
+    "candidate": "connector candidate",
+    "baseUrlLabel": "base URL — only if the spec declares no servers",
+    "assemble": "assemble connector →",
+    "exposeLabel": "Let a visitor's AI call these operations directly. Every operation in the spec becomes a tool it can use, subject to per-code grants. Leave this off if you supplied a binding.",
+    "needsBindingOrExpose": "This would assemble a connector nothing can call. Supply a binding to fill a category, or tick the box above to open the operations to a visitor's AI."
   },
   "composer": {
     "backToDrafts": "← drafts",

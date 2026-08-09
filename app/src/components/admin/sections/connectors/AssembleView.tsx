@@ -1,70 +1,54 @@
-// AssembleView —— 归一装配视图（一个品类一套）。owner 二选一：贴 OpenAPI { spec, binding } 上传一个
-// per-SaaS 连接器（openapi 路，提交后用 ConnectorCard 派生表单 + scheme + connect），或填内置协议
-// （CalDAV/SMTP）的固定表单直接连（protocol 路）。归一鈦：两 kind 同一个视图，连上后跑同一品类契约。
+// AssembleView —— 归一装配视图（一个品类一套）。owner 二选一：上传一份 OpenAPI spec 装配一个
+// per-SaaS 连接器（openapi 路），或填内置协议（CalDAV/SMTP）的固定表单直接连（protocol 路）。
+// 归一鈦：两 kind 同一个视图，连上后跑同一品类契约。
+//
+// **openapi 那一半渲染的是 ConnectorSpecIngest 本尊，不是这里自己搓的第二个表单**（F-C-21）。
+// 原来这里有一个只收 `{ spec, binding }` 整块 JSON 的文本框 —— 跟目录层那个表单的 payload 形状
+// 不是一个东西，而且从目录层走过来时会把已填的候选/方案/token 全部清空。两份实现就是漂移本身。
+//
+// 品类卡这个入口留着是有理由的：owner 点进 Calendar 只看得见 CalDAV 的话，不会知道还能自带一份
+// OpenAPI 日历。但**品类对 openapi 这条路不起作用** —— 品类由 binding 声明（后端 BindingCategory），
+// 跟点了哪张卡无关。
 
 'use client';
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { useSpecAssemble } from '@/lib/admin/use-assemble';
 import { useProtocolConnect, type ProtocolConnectHook } from '@/lib/admin/use-protocol-connect';
 import {
   protocolForCategory, seedDefaults, fieldDefault, type AssembleField,
 } from '@/lib/admin/assemble-fields';
-import { ConnectorCard } from '@/components/admin/sections/connectors/ConnectorCard';
+import { ConnectorSpecIngest } from '@/components/admin/ConnectorSpecIngest';
+import type { AssembleInput } from '@/lib/admin/use-connector-upload';
 
-export function AssembleView({ category }: { category: string }) {
-  const [openapiID, setOpenapiID] = useState<string | null>(null);
-  const spec = useSpecAssemble(setOpenapiID);
+export function AssembleView({ category, onAssemble, assembledID }: {
+  category: string;
+  onAssemble?: (input: AssembleInput) => void;
+  assembledID?: string | null;
+}) {
+  const [specChosen, setSpecChosen] = useState(false);
   return (
     <div className="sm-connector-modal-body space-y-5">
-      <SpecUpload spec={spec} />
-      <AssembleBody category={category} openapiID={openapiID} />
-    </div>
-  );
-}
-
-// AssembleBody —— 上传过 spec → 渲染那个 openapi 连接器的卡（派生表单 + connect）；否则渲染内置协议
-// 固定表单。两路都以 connector-field-{k} + connector-connect-button + connector-status 收口。
-function AssembleBody({ category, openapiID }: { category: string; openapiID: string | null }) {
-  return openapiID === null
-    ? <ProtocolForm category={category} />
-    : <ConnectorCard entry={{ id: openapiID, category, kind: 'openapi' }} />;
-}
-
-function SpecUpload({ spec }: { spec: ReturnType<typeof useSpecAssemble> }) {
-  const t = useTranslations('adminIntegrations.assemble');
-  return (
-    <div className="border-b border-(--color-rule)/60 pb-5">
-      <p className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) mb-2">
-        {t('uploadLabel')}
-      </p>
-      <textarea
-        data-testid="connector-spec-input"
-        onChange={(e) => spec.setSpec(e.target.value)}
-        placeholder='{ "spec": { … }, "binding": { … } }'
-        rows={5}
-        className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
+      <ConnectorSpecIngest
+        onAssemble={onAssemble} onCandidate={setSpecChosen}
+        assembledID={assembledID ?? null}
       />
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          type="button" onClick={spec.submit}
-          data-testid="connector-spec-submit"
-          className="sm-btn sm-btn-solid sm-btn-sm"
-        >
-          {t('uploadSubmit')}
-        </button>
-        <SpecError error={spec.error} />
-      </div>
+      <ProtocolFormMaybe category={category} hidden={specChosen} />
     </div>
   );
 }
 
-function SpecError({ error }: { error: string }) {
-  return error === '' ? null : (
-    <span className="mono text-[11px] text-(--color-accent)">{error}</span>
-  );
+// ProtocolFormMaybe —— spec 校验出候选之后就把协议表单收起来。两个理由，一个产品一个机制：
+//
+// 产品 —— owner 已经选定了「自带一份 OpenAPI」这条路，屏幕上再摆一套 CalDAV 凭据框，就是
+// item 的 LOOK 行说的那种「两个做同一件事、做法却不同的表单」。
+//
+// 机制 —— 两套表单的字段 testid 同名空间（connector-field-{key}）。今天恰好不撞是因为
+// oauth2 派生出 client_id/client_secret 而 CalDAV 是 url/username/password；一份声明 basic
+// 认证的 spec 会派生出 username/password，当场撞车。**靠字段名恰好不重来保证唯一性**不是保证。
+function ProtocolFormMaybe({ category, hidden }: { category: string; hidden: boolean }) {
+  return hidden ? null : <ProtocolForm category={category} />;
 }
 
 // ProtocolForm —— 内置协议（CalDAV/SMTP）的固定凭据表单 + connect（use-protocol-connect 建连接器 +

@@ -71,7 +71,7 @@ test.describe('connector · area G upload / manage', () => {
     // 再传一份同品类 calendar 连接器 → 命中重名。
     await openConnectorAdd(page);
     await fillSpecAndBinding(page, validCalendarSpec(), calendarBinding());
-    await page.getByTestId('connector-spec-submit').click();
+    await assembleFilledSpec(page);
 
     const confirm = page.getByTestId('connector-overwrite-confirm');
     await expect(confirm).toBeVisible();
@@ -139,14 +139,29 @@ async function fillSpecAndBinding(
   await page.getByTestId('connector-binding-input').fill(binding);
 }
 
-// uploadConnector —— 打开 add → 填 spec+绑定 → 提交 → 等列表里出现该品类行。
+// uploadConnector —— 打开 add → 填 spec+绑定 → **校验 → 装配** → 等列表里出现该品类行。
+//
+// 校验和装配现在是两个动作（F-C-21）：`connector-spec-submit` 只校验（出候选 + 派生凭据表单），
+// `connector-assemble-button` 才建连接器。以前这两件事挤在同一个按钮上，而它做哪一件取决于
+// binding 框空不空 —— 一个按钮两种语义，正是 owner 拿真 vendor spec 时走进死胡同的原因。
 async function uploadConnector(
   page: Page, spec: string, binding: string,
 ): Promise<void> {
   await openConnectorAdd(page);
   await fillSpecAndBinding(page, spec, binding);
-  await page.getByTestId('connector-spec-submit').click();
+  await assembleFilledSpec(page);
+  // 装配之后模态**留着**（表单让位给新连接器的卡：凭据 + Connect 在那儿）。这条用例只关心
+  // 它有没有落进列表，所以自己关掉模态 —— 区内主体在模态开着时不渲染。
+  await page.getByTestId('connector-modal-close').click();
   await expect(page.getByTestId('connector-row-calendar')).toBeVisible();
+}
+
+// assembleFilledSpec —— 表单已填好 → 校验 → 等候选出现 → 装配。**不关模态**：重名那条路上
+// 模态会自己让位给覆盖确认（待回答的问题优先于模态），这里再去点关闭就会扑空。
+async function assembleFilledSpec(page: Page): Promise<void> {
+  await page.getByTestId('connector-spec-submit').click();
+  await expect(page.getByTestId('connector-candidate')).toBeVisible();
+  await page.getByTestId('connector-assemble-button').click();
 }
 
 // validCalendarSpec —— 最小合法 OpenAPI 3.0 calendar spec（servers + freebusy +

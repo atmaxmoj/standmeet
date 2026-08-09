@@ -142,12 +142,18 @@ test.describe('connector · area A spec ingest · err', () => {
     await expect(err).toContainText(/operation|path/i);
   });
 
-  // err —— 给 spec URL 但拉取失败（不可达/404）→ UI 报 fetch 失败，不卡死。
+  // err —— 给 spec URL 但拉取失败（不可达）→ UI 报 fetch 失败，不卡死。
+  //
+  // 地址从 `http://127.0.0.1:9/...` 换成一个解析不了的**公网**主机名。原来那个是回环地址，
+  // F-C-23 之后出站闸门会（正确地）把它命名为**地址策略拒绝**，而不再笼统地说「是不是连不上」——
+  // 于是这条断言从那时起就在断修复前的旧行为，只是一直没人把这个 spec 跟着跑一遍。
+  // 「被策略挡住」和「真的不可达」两条分支的对照在 connector-spec-fetch-names-the-refusal 里；
+  // 这一条只管后者。
   test('spec URL fetch fails → human-readable fetch error', async ({ adminPage: page }) => {
     await openConnectorAdd(page);
     // 切到「从 URL 拉 spec」入口。
     await page.getByTestId('connector-spec-url-input')
-      .fill('http://127.0.0.1:9/does-not-exist.openapi.json');
+      .fill('https://no-such-openapi-host.invalid/does-not-exist.openapi.json');
     await page.getByTestId('connector-spec-fetch-button').click();
 
     const err = page.getByTestId('connector-spec-error');

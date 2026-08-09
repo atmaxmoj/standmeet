@@ -9,8 +9,14 @@ package connector
 
 // UploadedSpec —— 上传/编辑连接器的内容（spec + JSONata binding + 选中的 authScheme +
 // 是否把 raw ops 暴露成 agent 工具）。
+//
+// BaseURL —— owner 手填的 base URL。真厂商文档常常不带可用的 `servers`（Cal.com v2 写的是
+// 显式的 `"servers": []`），而 owner 不该去手改 vendor 的文件（F-C-22）。它在 Create/Update
+// 的入口就被并进 Spec，**不往下游传**：存下去的那份 spec 自己就有 servers，于是运行时、
+// 出站校验、凭据表单派生都只看到一份普通的 spec。
 type UploadedSpec struct {
 	AuthScheme         string
+	BaseURL            string
 	Spec               []byte
 	Binding            []byte
 	ExposeAsAgentTools bool

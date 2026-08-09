@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
 
 // specFetchReason —— URL 拉取失败的 owner 友好文案（不漏底层）。
@@ -41,9 +43,20 @@ type SpecVerdict struct {
 	OK     bool
 }
 
-// ValidateSpec —— 校验一份待摄入 spec。url 非空则先 fetch（限长）。结果是 owner 友好 verdict
-// （坏版本 / 缺 servers / operationId 问题 / 外部 $ref / 过大 / 拉取失败 → Reason）。
-func (s *Service) ValidateSpec(ctx context.Context, spec []byte, url string) SpecVerdict {
+// specBaseURLReason —— owner 填的 base URL 并不进这份文档时说的话。
+const specBaseURLReason = "could not apply that base URL to the spec " +
+	"(is the document an OpenAPI object?)"
+
+// ValidateSpec —— 校验一份待摄入 spec。url 非空则先 fetch（限长）；baseURL 非空则先并进
+// `servers`（F-C-22：真厂商文档常常不带 servers，而 owner 不该去手改 vendor 的文件）。
+// 结果是 owner 友好 verdict（坏版本 / 缺 servers / operationId 问题 / 外部 $ref / 过大 /
+// 拉取失败 → Reason）。
+//
+// baseURL 为空时这里**一个字节都不改**，所以「没填 base URL 的 spec 仍然因缺 servers 被拒」
+// 这条老行为原样保留 —— 补上才放行，不是从此不查。
+func (s *Service) ValidateSpec(
+	ctx context.Context, spec []byte, url, baseURL string,
+) SpecVerdict {
 	raw := spec
 	if url != "" {
 		fetched, ferr := s.fetchSpec(ctx, url)
@@ -52,7 +65,11 @@ func (s *Service) ValidateSpec(ctx context.Context, spec []byte, url string) Spe
 		}
 		raw = fetched
 	}
-	v := ValidateIngestSpec(raw)
+	normalized, aerr := openapi.ApplyBaseURL(raw, baseURL)
+	if aerr != nil {
+		return SpecVerdict{Reason: specBaseURLReason}
+	}
+	v := ValidateIngestSpec(normalized)
 	return SpecVerdict(v)
 }
 

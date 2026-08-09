@@ -25,7 +25,12 @@ export function ConnectorsSection() {
   const catalog = useConnectorCatalog();
   const upload = useConnectorUpload(list);
   const [showAdd, setShowAdd] = useState(false);
-  // AddModal 的内置-connect 回调:上传流不用它(走 onUpload),留 no-op 满足 prop。
+  // modalOpen —— 有待回答的覆盖确认时,模态让位(那个确认渲染在区内主体里)。
+  const modalOpen = showAdd && upload.pending === null;
+  // openAdd —— 每次打开都从**干净的表单**开始。createdID 属于一次模态会话，不清的话摄入表单
+  // 会一直让位给上一次装好的那张卡，spec 输入框永远不再出现 —— 装第二个连接器就此无门。
+  const openAdd = useCallback(() => { upload.resetCreated(); setShowAdd(true); }, [upload]);
+  // AddModal 的内置-connect 回调:上传流不用它(走 onAssemble),留 no-op 满足 prop。
   const onConnect = useCallback(() => {}, []);
   return (
     <>
@@ -33,17 +38,22 @@ export function ConnectorsSection() {
         kicker="integrations"
         title="connectors"
         count="calendar · mail live · upload your own"
-        action={<AddBtn onOpen={() => setShowAdd(true)} />}
+        action={<AddBtn onOpen={openAdd} />}
       />
       <Intro />
       {/* 模态打开时不渲染区内卡片/列表 —— 否则它们的 connector-connect-button/connector-status 会和
           模态里装配视图的同名 testid 撞上（装配测试用 page 级选择器）。 */}
-      <SectionBody show={!showAdd} catalog={catalog} list={list} upload={upload} />
-      {showAdd && (
+      {/* 模态在「有待回答的问题」时让位：覆盖确认渲染在区内主体里，模态盖着就问不出来。
+          待回答的问题优先于模态。 */}
+      <SectionBody show={!modalOpen} catalog={catalog} list={list} upload={upload} />
+      {modalOpen && (
         <ConnectorAddModal
           installed={[]} onClose={() => setShowAdd(false)}
           onConnect={onConnect}
-          onUpload={(s, b) => { upload.upload(s, b); setShowAdd(false); }}
+          // 装配之后**不关**模态：接着在同一处渲染新连接器的卡（凭据 + Connect）。
+          // 关掉的话 owner 会落在一个连不上的列表行上 —— ConnectorList 的行没有 Connect。
+          onAssemble={upload.upload}
+          assembledID={upload.createdID}
         />
       )}
     </>

@@ -18,17 +18,33 @@ const ConnectorRowSchema = z.object({
   active: z.boolean().nullish(),
 });
 const ListSchema = z.object({ connectors: z.array(ConnectorRowSchema).nullish() });
+const CreatedSchema = z.object({ id: z.string() });
 
 export type ConnectorRow = z.infer<typeof ConnectorRowSchema>;
 
-export interface UploadInput { specText: string; bindingText: string }
+// UploadInput —— 装配一个 openapi 连接器要送的东西。
+//
+// baseUrl —— spec 没写 servers 时 owner 手填的（F-C-22）。authScheme —— spec 没声明认证时
+// owner 选的 manual 方案；不带它的话，后端派生凭据表单时在三个候选里挑不出唯一一个，
+// 连接器建出来却填不了凭据。
+export interface UploadInput {
+  specText: string;
+  bindingText: string;
+  baseUrl?: string;
+  authScheme?: string;
+  // exposeAsAgentTools —— owner **明确勾选**「把这份 spec 的接口开给访客的 AI」。
+  // 设计源写明这条路是 opt-in（`docs/design/connector.md` §3）：它把厂商文档里的**每一个**
+  // operation 变成访客 AI 能调的工具（Cal.com v2 是 211 条），是一次对外授权，不是排版选项。
+  // 一度我按「没写 binding 就自动打开」来推断 owner 的意思 —— 那是替 owner 点头。
+  exposeAsAgentTools?: boolean;
+}
 
 export interface ConnectorListHook {
   connectors: readonly ConnectorRow[];
   loaded: boolean;
   loadError: boolean;
   refresh: () => void;
-  create: (input: UploadInput) => Promise<void>;
+  create: (input: UploadInput) => Promise<string>;
   remove: (id: string) => Promise<void>;
 }
 
@@ -42,11 +58,21 @@ export function useConnectorList(): ConnectorListHook {
     items: connectors, loaded, loadError, refresh,
   } = useLatestList<ConnectorRow>('/connectors', ListSchema);
 
-  const create = useCallback(async (input: UploadInput) => {
-    await adminAPI.postVoid('/connectors', {
-      kind: 'openapi', spec_text: input.specText, binding_text: input.bindingText,
-    });
+  // create —— 建一个 openapi 连接器,**返回它的 id**。以前这里是 postVoid,把回执扔了 ——
+  // 于是「建完之后把 owner 填的 token 存进这个连接器」根本无从下手(同 [[write-with-no-receipt]])。
+  //
+  // expose_as_agent_tools 原样透传 owner 的勾选,**不从 binding 空不空去推断**。
+  const create = useCallback(async (input: UploadInput): Promise<string> => {
+    const r = await adminAPI.post('/connectors', {
+      kind: 'openapi',
+      spec_text: input.specText,
+      binding_text: input.bindingText,
+      base_url: input.baseUrl ?? '',
+      auth_scheme: input.authScheme ?? '',
+      expose_as_agent_tools: input.exposeAsAgentTools ?? false,
+    }, CreatedSchema);
     refresh();
+    return r.id;
   }, [refresh]);
 
   const remove = useCallback(async (id: string) => {

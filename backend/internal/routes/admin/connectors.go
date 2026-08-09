@@ -87,6 +87,7 @@ func (h *Handlers) mountConnectorItem(r chi.Router, face *dispatcher.Face) {
 // 选 caldav/smtp，Category 显式给；openapi 的品类由 binding 定）。
 type connectorWriteReq struct {
 	AuthScheme         string          `json:"auth_scheme"`
+	BaseURL            string          `json:"base_url"` // spec 没写 servers 时 owner 手填的
 	Kind               string          `json:"kind"`
 	Protocol           string          `json:"protocol"`
 	Category           string          `json:"category"`
@@ -134,6 +135,7 @@ type connectorOpArgs struct {
 	Protocol           string `json:"protocol,omitempty"`
 	Category           string `json:"category,omitempty"`
 	AuthScheme         string `json:"auth_scheme,omitempty"`
+	BaseURL            string `json:"base_url,omitempty"`
 	Spec               string `json:"spec,omitempty"`
 	Binding            string `json:"binding,omitempty"`
 	ExposeAsAgentTools bool   `json:"expose_as_agent_tools"`
@@ -143,6 +145,7 @@ func (b *connectorWriteReq) opArgs(id string) (json.RawMessage, error) {
 	out, err := json.Marshal(connectorOpArgs{
 		ID: id, Kind: b.Kind, Protocol: b.Protocol, Category: b.Category,
 		AuthScheme:         b.AuthScheme,
+		BaseURL:            b.BaseURL,
 		Spec:               string(rawOrText(b.Spec, b.SpecText)),
 		Binding:            string(rawOrText(b.Binding, b.BindingText)),
 		ExposeAsAgentTools: b.ExposeAsAgentTools,

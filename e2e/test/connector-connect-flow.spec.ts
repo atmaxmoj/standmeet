@@ -402,12 +402,20 @@ async function assembleUploadedOAuth2(page: Page, request: APIRequestContext): P
   await page.waitForURL('**/admin/connectors**');
   await page.getByTestId('connector-add-open').click();
   await page.getByTestId('connector-card-calendar').click();
-  await page.getByTestId('connector-spec-input')
-    .fill(JSON.stringify({ spec: UPLOADED_OAUTH2_SPEC, binding: UPLOADED_OAUTH2_BINDING }));
+  // spec 和 binding 现在是两个框(F-C-21 之后只剩一份实现:目录层那个真表单)。以前这里往
+  // 一个框里塞整块 `{spec, binding}` JSON —— 那是品类卡下面那个**第二个**表单的形状,它已经没了。
+  await page.getByTestId('connector-spec-input').fill(JSON.stringify(UPLOADED_OAUTH2_SPEC));
+  await page.getByTestId('connector-binding-input').fill(JSON.stringify(UPLOADED_OAUTH2_BINDING));
   await page.getByTestId('connector-spec-submit').click();
-  await page.getByTestId('connector-scheme-select').selectOption('oauth2');
+  await expect(page.getByTestId('connector-candidate')).toBeVisible();
+  // 这份 spec 只声明 oauth2 一个方案 → **不出选择器**（§7 决策#3：多于一个才出）。装配送的
+  // auth_scheme 取派生表单里的第一个，也就是 oauth2。以前这里要选一下，是因为当时选的其实是
+  // 装配**之后** ConnectorCard 上那个（那个单方案也渲染）；现在方案是建连接器的入参，
+  // 只有一个时它是确定的，没什么可选。
   await page.getByTestId('connector-field-client_id').fill('mock-client-id');
   await page.getByTestId('connector-field-client_secret').fill('mock-client-secret');
+  // 装配 = 建连接器 + 把刚填的凭据存进去;随后摄入表单让位给这个连接器的卡,Connect 在卡上。
+  await page.getByTestId('connector-assemble-button').click();
   await page.getByTestId('connector-connect-button').click();
   await page.waitForURL('**/admin/connectors**');
   return pollConnectedCalendarId(request);
