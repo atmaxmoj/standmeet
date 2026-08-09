@@ -40,6 +40,11 @@ function DialogCard({ dialog, onAsk, conversationID }: {
         <span className="text-(--color-ink)">{t('you')}</span>
       </div>
       <VisitorQuestion q={dialog.q} />
+      {/* 说话人标签属于这一**轮**,不属于答案正文,所以它排在遥测和工具卡之前:读者要先知道
+          是谁在说,再看这一轮做了什么(UX-31 —— 以前是 `SEARCHED n · READ m` 先出现,`AI` 在
+          它下面,而这个产品的整个论点是「AI 用 owner 的声音回答」)。它也因此在 pending 期间
+          就在场:AI 一开始动作就该署名。 */}
+      <SpeakerLabel />
       <ToolCallCards
         calls={dialog.answer.toolCalls}
         onAsk={onAsk} conversationID={conversationID}
@@ -99,11 +104,22 @@ function ThinkingDots({ retrying, tool }: { retrying: boolean; tool: ToolThrobbe
   );
 }
 
-function AnswerView({ answer }: { answer: Dialog['answer'] }) {
+// SpeakerLabel —— 「AI」。属于这一轮,不属于答案正文(见 DialogCard 里的说明)。
+function SpeakerLabel() {
   const t = useTranslations('visitor.chatTranscript');
   return (
+    <div
+      data-testid="answer-speaker"
+      className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3"
+    >
+      {t('ai')}
+    </div>
+  );
+}
+
+function AnswerView({ answer }: { answer: Dialog['answer'] }) {
+  return (
     <div data-testid="answer-body">
-      <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">{t('ai')}</div>
       {answer.paras.map((p, i) => (
         <div key={i} className="reading mb-4 last:mb-0 text-[18px]">
           <ChatMarkdown source={p} />
