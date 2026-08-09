@@ -21,8 +21,10 @@ type stubRT struct {
 }
 
 type stubResp struct {
-	err    error
-	status int
+	err error
+	// retryAfter —— 非空则作为 `Retry-After` 头随这条响应发出(provider 说「等这么久再来」)。
+	retryAfter string
+	status     int
 }
 
 func (s *stubRT) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -37,7 +39,14 @@ func (s *stubRT) RoundTrip(req *http.Request) (*http.Response, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-	return &http.Response{StatusCode: r.status, Body: io.NopCloser(strings.NewReader("ok"))}, nil
+	hdr := http.Header{}
+	if r.retryAfter != "" {
+		hdr.Set("Retry-After", r.retryAfter)
+	}
+	return &http.Response{
+		StatusCode: r.status, Header: hdr,
+		Body: io.NopCloser(strings.NewReader("ok")),
+	}, nil
 }
 
 // fastClient —— 极小退避,让重试测试不空等;经 NewClient 走完整公共表面。

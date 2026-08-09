@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -40,16 +42,74 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// stop —— 这次结果是否终止重试:成功 / 确定性失败 / 最后一次 / ctx 取消。否则
-// (transient 且还有 attempt):回调 + 退避,返回 false 继续。
+// stop —— 这次结果是否终止重试:成功 / 确定性失败 / 最后一次 / 等不起 / ctx 取消。否则
+// (transient 且还有 attempt):回调 + 等,返回 false 继续。
+//
+// 等多久由 retryWait 决定 —— **provider 明说的 Retry-After 优先于我们自己的退避表**。
+// 必须在 fireOnRetry 之前算:那一步会 drain 响应。
 func (rt *retryTransport) stop(
 	ctx context.Context, resp *http.Response, err error, attempt int,
 ) bool {
 	if !transientFailure(resp, err) || attempt == rt.max {
 		return true
 	}
+	wait := retryWait(resp, rt.baseDelay, attempt)
+	if !waitFitsDeadline(ctx, wait) {
+		return true // 等不到那个时刻 —— 把这次的响应交回去,别把剩下的预算睡掉
+	}
 	rt.fireOnRetry(ctx, resp, err, attempt)
-	return !backoffSleep(ctx, rt.baseDelay, attempt) // ctx 中途取消 → 停
+	return !sleepCtx(ctx, wait) // ctx 中途取消 → 停
+}
+
+// retryWait —— 这次重试前等多久:我们自己的指数退避,和 provider 明说的间隔,取**大**的那个。
+//
+// 取大而不是取 Retry-After 覆盖:头缺失或读不出来时仍然有退避,而头在时我们绝不会更早重打。
+// 比它要求的更早重打正是加重封禁的那个动作 —— 而在这行代码之前,那个头从来没有被读过。
+func retryWait(resp *http.Response, base time.Duration, attempt int) time.Duration {
+	backoff := base * time.Duration(1<<attempt)
+	if hinted := retryAfterDelay(resp); hinted > backoff {
+		return hinted
+	}
+	return backoff
+}
+
+// retryAfterDelay —— RFC 9110 的两种写法都认:整秒数,或一个 HTTP-date。真 provider 两种都发。
+// 读不出来 → 0(退回自己的退避),因为一个看不懂的头不该让请求停住。
+func retryAfterDelay(resp *http.Response) time.Duration {
+	if resp == nil {
+		return 0
+	}
+	v := strings.TrimSpace(resp.Header.Get("Retry-After"))
+	if v == "" {
+		return 0
+	}
+	if secs, cerr := strconv.Atoi(v); cerr == nil {
+		return nonNegative(time.Duration(secs) * time.Second)
+	}
+	when, perr := http.ParseTime(v)
+	if perr != nil {
+		return 0
+	}
+	return nonNegative(time.Until(when))
+}
+
+// nonNegative —— 过去的时刻 / 负数秒数当作「现在就可以」,不是当作错误。
+func nonNegative(d time.Duration) time.Duration {
+	if d < 0 {
+		return 0
+	}
+	return d
+}
+
+// waitFitsDeadline —— 等得起吗。等不起就**别等**:把这次的响应交回调用方(上面渲一句人话),
+// 而不是把剩下的预算全部睡掉再失败 —— 那样调用方既没拿到答案,也没拿到时间。
+// 没有 deadline → 等(ctx 取消仍然打断得了)。
+func waitFitsDeadline(ctx context.Context, wait time.Duration) bool {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return true
+	}
+	return wait <= time.Until(deadline)
 }
 
 // fireOnRetry —— transient 失败:drain 旧响应(连接可复用)+ 调 OnRetry 钩子(attempt 从 1 数起)。
@@ -114,9 +174,9 @@ func statusOf(resp *http.Response) int {
 	return resp.StatusCode
 }
 
-// backoffSleep —— 指数退避,可被 ctx 取消打断。返回 false = ctx 已取消。
-func backoffSleep(ctx context.Context, base time.Duration, attempt int) bool {
-	t := time.NewTimer(base * time.Duration(1<<attempt))
+// sleepCtx —— 等指定时长,可被 ctx 取消打断。返回 false = ctx 已取消。
+func sleepCtx(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(d)
 	defer t.Stop()
 	select {
 	case <-t.C:
