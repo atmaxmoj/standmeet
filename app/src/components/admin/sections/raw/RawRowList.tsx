@@ -20,6 +20,7 @@ import {
 } from '@/lib/admin/use-corpus-actions';
 import { heroInput, useRawHeroForm } from '@/lib/admin/use-corpus-detail';
 import { appendBlock, runWith } from '@/lib/admin/use-corpus-form';
+import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 import type { RawAdminView } from '@/lib/api/admin';
@@ -196,7 +197,7 @@ function RawRowActions(props: RowActionsProps) {
         type="button"
         onClick={onDelete}
         data-testid={`raw-delete-${props.row.id}`}
-        className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)"
+        className={DANGER_ACTION_CLASS}
       >
         {t('delete')}
       </button>

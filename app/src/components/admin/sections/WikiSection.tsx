@@ -16,6 +16,7 @@ import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 import { useGenreTags } from '@/lib/admin/use-genre-tags';
+import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
 import { useCorpusView } from '@/lib/admin/corpus-view';
 import { descendantCounts, pickExcerpt } from '@/lib/admin/corpus-tree';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
@@ -376,7 +377,7 @@ function DeleteBtn({
   return (
     <button
       type="button" onClick={onClick} data-testid={`wiki-delete-${entry.id}`}
-      className="text-(--color-faint) hover:text-(--color-accent)"
+      className={DANGER_ACTION_CLASS}
     >
       {t('deleteX')}
     </button>

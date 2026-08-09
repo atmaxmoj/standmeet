@@ -27,6 +27,7 @@ import {
   type OutputHook, type OutputSummary,
 } from '@/lib/admin/use-output';
 import { runWith } from '@/lib/admin/use-corpus-form';
+import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function OutputSection() {
@@ -311,7 +312,7 @@ function DeleteBtn({ entry, actions }: { entry: OutputSummary; actions: CorpusAc
   return (
     <button
       type="button" onClick={onClick} data-testid={`output-delete-${entry.id}`}
-      className="text-(--color-faint) hover:text-(--color-accent)"
+      className={DANGER_ACTION_CLASS}
     >
       {t('deleteX')}
     </button>
