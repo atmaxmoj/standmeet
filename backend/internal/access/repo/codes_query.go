@@ -34,17 +34,39 @@ func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (entity.Code, err
 	return CodeFromRow(&row), nil
 }
 
-// GetByCode 拿 code（active only）；不命中返回 ErrCodeInvalid。
+// GetByCode 拿 code（active only）；不命中时**分得出是哪一种**：这张码根本不存在 →
+// ErrCodeInvalid；存在但被撤销了 → ErrCodeRevoked。
+//
+// 以前这里只按 status='active' 查一次,两种都是 no-rows,于是访客那句拒绝只能合成
+// 「invalid or revoked」—— 而这两种人的下一步是相反的:打错字该重新粘一次,被撤销该去要
+// 一张新的。分支在这一层就没了,上面再怎么写文案也分不出来(F-D-6)。
+//
+// 代价是「码不对」这条路多一次查询。这条路本来就是失败路径(正常访客第一次就命中 active),
+// 不在热路上。
 func (r *CodeRepo) GetByCode(ctx context.Context, code string) (entity.Code, error) {
 	q := db.New(r.pool)
 	row, err := q.GetAccessCode(ctx, code)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return entity.Code{}, entity.ErrCodeInvalid
-		}
+	if err == nil {
+		return CodeFromRow(&row), nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return entity.Code{}, fmt.Errorf("get access code: %w", err)
 	}
-	return CodeFromRow(&row), nil
+	return entity.Code{}, r.missingCodeReason(ctx, code)
+}
+
+// missingCodeReason —— active 那次没命中之后,再问一次「这张码到底存不存在」。
+// 查不到 → 不存在;查得到 → 是被撤销/停用了。第二次查询本身出错时退回 ErrCodeInvalid:
+// 说不清就说最保守的那一种,不编一个更具体的原因。
+func (r *CodeRepo) missingCodeReason(ctx context.Context, code string) error {
+	row, err := db.New(r.pool).GetAccessCodeAnyStatus(ctx, code)
+	if err != nil {
+		return entity.ErrCodeInvalid
+	}
+	if row.Status == entity.CodeStatusRevoked {
+		return entity.ErrCodeRevoked
+	}
+	return entity.ErrCodeInvalid
 }
 
 // ListByOwner 给 admin 列 codes。

@@ -209,6 +209,37 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 	return i, err
 }
 
+const getAccessCodeAnyStatus = `-- name: GetAccessCodeAnyStatus :one
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1
+`
+
+// 不带状态过滤:让仓储分得出「这张码不存在」和「这张码被撤销了」。
+// 只按 status='active' 查的话两种都是 no-rows,访客那句拒绝就只能合成一句,
+// 而这两种人的下一步是相反的(重新粘一次 / 去要一张新的)—— F-D-6。
+func (q *Queries) GetAccessCodeAnyStatus(ctx context.Context, code string) (AccessCode, error) {
+	row := q.db.QueryRow(ctx, getAccessCodeAnyStatus, code)
+	var i AccessCode
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Code,
+		&i.Label,
+		&i.Purpose,
+		&i.Ghosts,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.MaxTurnsPerSession,
+		&i.MaxMembers,
+		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.AssumedRoleID,
+		&i.PromptID,
+		&i.InlinePrompt,
+	)
+	return i, err
+}
+
 const getAccessCodeByID = `-- name: GetAccessCodeByID :one
 SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE id = $1
 `

@@ -42,6 +42,7 @@ var (
 	ErrAccessRequestStatusInvalid = entity.ErrAccessRequestStatusInvalid
 	ErrCodeExpired                = entity.ErrCodeExpired
 	ErrCodeInvalid                = entity.ErrCodeInvalid
+	ErrCodeRevoked                = entity.ErrCodeRevoked
 	ErrCodeTaken                  = entity.ErrCodeTaken
 	ErrDockButtonEmptyTrigger     = entity.ErrDockButtonEmptyTrigger
 	ErrGasExhausted               = entity.ErrGasExhausted

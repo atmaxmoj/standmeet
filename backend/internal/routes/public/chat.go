@@ -120,9 +120,17 @@ var visitorErrCases = []apierr.Case{
 		Status: http.StatusBadRequest, Code: "bad_request", Message: "missing required field",
 	}},
 	{Match: access.ErrCodeInvalid, Envelope: apierr.Envelope{
-		Status:  http.StatusUnauthorized,
-		Code:    "code_invalid",
-		Message: "access code invalid or revoked",
+		Status: http.StatusUnauthorized,
+		Code:   "code_invalid",
+		// 「不存在」和「被撤销」曾经共用一句 "invalid or revoked" —— 而这两种人的下一步
+		// 相反:打错字重新粘一次,被撤销去要一张新的。合成一句,谁都不知道该做什么(F-D-6)。
+		Message: "no such access code — check it and paste it again",
+	}},
+	{Match: access.ErrCodeRevoked, Envelope: apierr.Envelope{
+		Status: http.StatusUnauthorized,
+		Code:   "code_revoked",
+		// 指下一步,而不是复述状态:这张码不会再好用了,再试多少次都一样。
+		Message: "this access code was revoked — ask the owner for a new one",
 	}},
 	{Match: access.ErrCodeExpired, Envelope: apierr.Envelope{
 		Status: http.StatusUnauthorized, Code: "code_expired", Message: "access code expired",

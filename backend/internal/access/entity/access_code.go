@@ -74,8 +74,20 @@ type CodeMember struct {
 	IsAnonymous bool
 }
 
-// ErrCodeInvalid —— access code 不存在或已撤销。
+// CodeStatusActive / CodeStatusRevoked —— access_codes.status 的词表(schema CHECK 与此一致)。
+const (
+	CodeStatusActive  = "active"
+	CodeStatusRevoked = "revoked"
+)
+
+// ErrCodeInvalid —— 这张 access code **不存在**。
+//
+// 曾经它同时表示「已撤销」,于是访客那句拒绝只能合成「invalid or revoked」—— 而这两种人的
+// 下一步是相反的:打错字该重新粘一次,被撤销该去要一张新的(F-D-6)。撤销现在是 ErrCodeRevoked。
 var ErrCodeInvalid = errors.New("access code invalid")
+
+// ErrCodeRevoked —— 这张 access code 存在,但 owner 撤销了它。
+var ErrCodeRevoked = errors.New("access code revoked")
 
 // ErrCodeTaken —— code 已被占用（access_codes.code unique）。
 var ErrCodeTaken = errors.New("access code already exists")

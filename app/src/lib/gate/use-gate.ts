@@ -237,8 +237,9 @@ async function runSubmit(
   }
 }
 
-// submitErrorText —— 后端为每一种拒绝都写了一句给访客看的话("access code invalid or revoked"、
-// "this code is full — no more names available"),那就把那句话说出来。拿不到才退到一句通用的:
+// submitErrorText —— 后端为每一种拒绝都写了一句给访客看的话("no such access code…"、
+// "this access code was revoked…"、"this code is full…"),那就把那句话说出来。
+// 每一句都指向不同的下一步,所以这一层不许把它们归并(F-D-6)。拿不到才退到一句通用的:
 // `issue session: 403` 这种给不了访客任何东西(F-A-23)。
 function submitErrorText(e: unknown): string {
   const fromServer = serverMessageOf(e);

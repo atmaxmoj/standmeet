@@ -19,6 +19,12 @@ RETURNING *;
 -- name: GetAccessCode :one
 SELECT * FROM access_codes WHERE code = $1 AND status = 'active';
 
+-- name: GetAccessCodeAnyStatus :one
+-- 不带状态过滤:让仓储分得出「这张码不存在」和「这张码被撤销了」。
+-- 只按 status='active' 查的话两种都是 no-rows,访客那句拒绝就只能合成一句,
+-- 而这两种人的下一步是相反的(重新粘一次 / 去要一张新的)—— F-D-6。
+SELECT * FROM access_codes WHERE code = $1;
+
 -- name: GetAccessCodeByID :one
 SELECT * FROM access_codes WHERE id = $1;
 
