@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
+import { pendingRequests } from '@/lib/admin/access-request-status';
+
 export interface DashboardStats {
   rawCount: number;
   rawUnprocessed: number;
@@ -115,8 +117,7 @@ async function load(setState: (s: State) => void): Promise<void> {
         rawCount: growth.by_tier.raw + growth.by_tier.wiki + growth.by_tier.output,
         rawUnprocessed: growth.by_tier.raw_unprocessed,
         codesLive: codes.filter((c) => c.status === 'active').length,
-        requestsNew: requests.filter((r) => r.status === 'new'
-          || r.status === 'pending').length,
+        requestsNew: pendingRequests(requests).length,
         conversationsCount: conversations.length,
         draftsReviewing: drafts.filter((d) => d.status !== 'sent').length,
         pulse: growth.series.map((d) => d.count),

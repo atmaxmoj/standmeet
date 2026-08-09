@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
+import { pendingRequests } from '@/lib/admin/access-request-status';
 import { safeJson } from '@/lib/api/typed-json';
 import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 import type { SidebarBadges } from '@/components/admin/AdminSidebar';
@@ -39,7 +40,7 @@ async function fetchRequestBadge(): Promise<SidebarBadges> {
     .catch(() => null);
   if (res !== null && res.ok) {
     const rows = await safeJson(res, BadgeRowsSchema);
-    out.requests = rows.filter((r) => r.status === 'open').length;
+    out.requests = pendingRequests(rows).length;
   }
   return out;
 }
