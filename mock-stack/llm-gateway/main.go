@@ -78,6 +78,7 @@ func (s *server) run(port string) error {
 	mux.HandleFunc("POST /__mock/inference/next_reply", s.serveSetNextReply)
 	mux.HandleFunc("POST /__mock/inference/next_ghost", s.serveSetNextGhost)
 	mux.HandleFunc("POST /__mock/inference/next_error", s.serveSetNextError)
+	mux.HandleFunc("POST /__mock/inference/next_rate_limit", s.serveSetNextRateLimit)
 	mux.HandleFunc("GET /__mock/inference/state", s.serveState)
 	mux.HandleFunc("GET /__mock/inference/last_request", s.serveLastRequest)
 	srv := &http.Server{

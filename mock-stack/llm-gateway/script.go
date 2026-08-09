@@ -64,6 +64,14 @@ type scriptQueue struct {
 	replies map[string]string
 	ghosts  map[string]string
 	fails   map[string]bool
+	// rateLimits —— keyword → `Retry-After` 秒数。注册之后,消息里含该 keyword 的调用回
+	// **429 + Retry-After**,而不是 500。
+	//
+	// 这是 agent-loop-robustness 的 Real dep 点名的那个「能注入限流响应和重试提示的代理」。
+	// 它一直被当成外部装置,其实就是这里的几行:mock 已经会注入 500(`fails`),429 只是另一种
+	// 状态码加一个头。没有它,checks 3/4/5 在判据上够不着 —— 而真实 provider 的限流是唯一
+	// 会让「提前重打」造成实际伤害(加重封禁)的场景。
+	rateLimits map[string]int
 	// lastKeys —— the `[[s:…]]` tokens from the most recent visitor (stream) turn.
 	// Backend-initiated generate calls (GhostPolicy, summarize) are built from
 	// derived content and don't carry the visitor message, so the mock retains
@@ -75,9 +83,10 @@ type scriptQueue struct {
 
 func newScriptQueue() *scriptQueue {
 	return &scriptQueue{
-		replies: map[string]string{},
-		ghosts:  map[string]string{},
-		fails:   map[string]bool{},
+		replies:    map[string]string{},
+		ghosts:     map[string]string{},
+		fails:      map[string]bool{},
+		rateLimits: map[string]int{},
 	}
 }
 
@@ -99,6 +108,25 @@ func (q *scriptQueue) setFail(key string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.fails[key] = true
+}
+
+// setRateLimit —— 给某 keyword 注册「回 429,并在 Retry-After 里要求等 secs 秒」。
+func (q *scriptQueue) setRateLimit(key string, secs int) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.rateLimits[key] = secs
+}
+
+// rateLimitFor —— 消息里含已注册的 keyword 时,返回它要求的 Retry-After 秒数;否则 0。
+func (q *scriptQueue) rateLimitFor(text string) int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for key, secs := range q.rateLimits {
+		if strings.Contains(text, key) {
+			return secs
+		}
+	}
+	return 0
 }
 
 // shouldFailFor —— true if the request text contains any registered fail keyword.
@@ -228,6 +256,30 @@ func (s *server) serveSetNextError(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.queue.setFail(p.Key)
+	writeJSON(s.log, w, map[string]bool{"ok": true})
+}
+
+// ScriptedRateLimit —— {key, retry_after_seconds}。
+type ScriptedRateLimit struct {
+	Key               string `json:"key"`
+	RetryAfterSeconds int    `json:"retry_after_seconds"`
+}
+
+// serveSetNextRateLimit —— 给某 keyword 打开「回 429 + Retry-After」模式。
+// 跟 next_error 的区别正是这一条要测的东西:500 是"坏了",429 是"**别这么快再来**",
+// 而后者带着一个 provider 明说的间隔 —— 提前重打会加重封禁。
+func (s *server) serveSetNextRateLimit(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body", http.StatusBadRequest)
+		return
+	}
+	var p ScriptedRateLimit
+	if uerr := json.Unmarshal(body, &p); uerr != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	s.queue.setRateLimit(p.Key, p.RetryAfterSeconds)
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 

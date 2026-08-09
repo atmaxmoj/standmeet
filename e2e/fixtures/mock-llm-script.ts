@@ -100,6 +100,20 @@ export async function scriptMockError(
   return postScript(request, 'next_error', {});
 }
 
+/** Make the mock answer every /v1/messages carrying the returned tag with **429 +
+ *  `Retry-After: <seconds>`** — a provider saying "not this fast", not "I'm broken".
+ *
+ *  That distinction is the whole point of agent-loop-robustness checks 4/5: a 500 is
+ *  a fault, a 429 carries an interval the provider explicitly asked for, and retrying
+ *  before it is what deepens a real ban. Returns the `[[s:key]]` tag to embed. */
+export async function scriptMockRateLimit(
+  request: APIRequestContext, retryAfterSeconds: number,
+): Promise<string> {
+  return postScript(request, 'next_rate_limit', {
+    retry_after_seconds: retryAfterSeconds,
+  });
+}
+
 /** What the gateway actually received for a turn carrying `tag` — the only way to
  *  assert WHICH upstream configuration served it. `model` is the request's model
  *  (give each provider row a distinct one); `auth_prefix` is the first 8 chars of

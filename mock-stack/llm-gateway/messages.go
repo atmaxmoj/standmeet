@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -46,6 +47,14 @@ func (s *server) serveMessages(w http.ResponseWriter, r *http.Request) {
 	// inference 调用 500,模拟 LLM 故障(测"失败/重试的 turn 不消耗配额")。
 	if s.queue.shouldFailFor(req.markerText()) {
 		http.Error(w, `{"error":"mock injected failure"}`, http.StatusInternalServerError)
+		return
+	}
+	// e2e rate-limit injection:next_rate_limit 注册之后,含该 keyword 的调用回 **429 +
+	// Retry-After**。这是 agent-loop-robustness 的 Real dep 点名的那个「能注入限流响应和
+	// 重试提示」的东西 —— 一直被我当成外部装置,其实就是这几行。
+	if secs := s.queue.rateLimitFor(req.markerText()); secs > 0 {
+		w.Header().Set("Retry-After", strconv.Itoa(secs))
+		http.Error(w, `{"error":"mock injected rate limit"}`, http.StatusTooManyRequests)
 		return
 	}
 	if !req.Stream {
