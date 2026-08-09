@@ -106,10 +106,20 @@ const DialogCitationSchema = z.object({
   path: z.string(),
   title: z.string(),
 });
+// ToolCallSchema —— 会话聚合里的一次工具调用。
+//
+// result **必须是 optional**:F-A-28 起,检索族(corpus_*)的 result 在下发给访客前就被剥掉了
+// (那里面是笔记正文,含私有的),只留 name + ok。而 zod v4 里对象内的 `z.unknown()` 是
+// **非可选**的 —— 缺这个键会报 `expected nonoptional, received undefined`,于是**整份**聚合
+// safeParse 失败,fetchConversation 回 'error',restoreSession 一声不吭地返回,访客刷新后
+// 看到的是空白 transcript:自己刚才的整段对话没了。
+//
+// 非检索工具(booker 报告卡 / summarize / skill_* / ext_*)的 result 照常在,刷新后那些卡要靠它
+// 重渲,所以这里不能直接删掉这一格,只能放宽。
 const ToolCallSchema = z.object({
   name: z.string(),
   ok: z.boolean(),
-  result: z.unknown(),
+  result: z.unknown().optional(),
 });
 const AggDialogSchema = z.object({
   created_at: z.string(),

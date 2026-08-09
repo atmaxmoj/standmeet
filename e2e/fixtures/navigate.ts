@@ -9,6 +9,15 @@ import { expect, type Page } from '@playwright/test';
 
 const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 
+// SESSION_OPEN_TIMEOUT_MS —— 等 /sessions 200 的耐心,必须**大于服务端自己给插件拨号的预算**
+// (20s,见 `plugin dial ... budget=20s`)。这里曾经写 15s —— 比服务端的预算还短,于是一次
+// 合法的冷启(实测 21.8s:三个沙箱首次 spawn+initialize)必然等不到。
+//
+// 而且后果不只是"这条用例红了":客户端放弃 → 浏览器关掉 → 请求被 abort → 服务端那三次
+// 拨号收到 `parent-canceled(caller gave up first)` → 会话**照样开成**,只是每个能力都
+// "hidden from this session"。于是失败信息指向会话打不开,真相却是我们自己把它掐了。
+const SESSION_OPEN_TIMEOUT_MS = 30_000;
+
 // goto —— 任意相对路径（含 query）。eslint 把 page.goto 限制在 helper/ 里。
 // caller 给"/setup?t=xxx"、"/login"、"/alice" 这种。
 export async function goto(page: Page, path: string): Promise<void> {
@@ -36,7 +45,7 @@ export async function enterCodeSession(
   page.on('response', note);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200,
-    { timeout: 15_000 },
+    { timeout: SESSION_OPEN_TIMEOUT_MS },
   );
   await submitVisitorName(page, name);
   try {

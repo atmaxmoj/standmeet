@@ -17,15 +17,24 @@ export function cardKindFor(name: string): CardKind {
 // isRetrievalTool —— corpus_* 检索族。这些工具**不**各渲一张 ui:// 沙盒卡:一个真模型
 // 一轮可能检索十几次,per-call 卡片会竖着堆满屏(UX-10)。它们折叠成一行 RetrievalSummary;
 // 「读了哪些」由 citations footer 承载(原设计:corpus_read 本就不重复渲卡)。
-const RETRIEVAL_TOOLS = new Set([
-  'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
-]);
+//
+// 判据是**前缀**,不是一份名单。这里曾经写死 4 个名字,而后端注册的是 8 个
+// (search/read/list/links/map/resolve/peek/grep) —— 后加的那 4 个既不进计数,
+// cardKindFor 又返回 'none',两条分支都不渲,于是完全隐形:真实环境里 agent 一轮跑了
+// 2 次 search + 3 次 grep + 1 次 read,访客看到的是 `searched 2 · read 1`(F-A-29)。
+// 一份手抄的名单会在**每次**新增检索工具时重犯同一个错;前缀不会。
+const RETRIEVAL_PREFIX = 'corpus_';
 
 export function isRetrievalTool(name: string): boolean {
-  return RETRIEVAL_TOOLS.has(name);
+  return name.startsWith(RETRIEVAL_PREFIX);
 }
 
-// RetrievalCounts —— 折叠后的检索计数(searched = search/list/links;read = corpus_read)。
+// ENTRY_READ_TOOLS —— 打开某一条**具体条目**的内容的那些。peek 归这边:它拿的是那条笔记
+// 自己的东西(标题/标签/小标题/出链/首行),只是不要全文 —— 对访客而言那是"看了这条",
+// 不是"找了一圈"。其余(search/list/links/map/resolve/grep)都是在问"哪些条目相关"。
+const ENTRY_READ_TOOLS = new Set(['corpus_read', 'corpus_peek']);
+
+// RetrievalCounts —— 折叠后的检索计数。
 export interface RetrievalCounts {
   searches: number;
   reads: number;
@@ -35,7 +44,7 @@ export function retrievalCounts(calls: readonly { name: string }[]): RetrievalCo
   let searches = 0;
   let reads = 0;
   for (const c of calls) {
-    if (c.name === 'corpus_read') reads += 1;
+    if (ENTRY_READ_TOOLS.has(c.name)) reads += 1;
     else searches += 1;
   }
   return { searches, reads };

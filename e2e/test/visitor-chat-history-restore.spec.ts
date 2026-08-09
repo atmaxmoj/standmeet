@@ -2,6 +2,11 @@
 // (纯内存)会空。载入时按 session token 拉回这段对话的 Q&A 重建,刷新不丢历史。
 //
 // 故事:visitor 进 code 会话、问一句、拿到答 → reload → 那条问 + 答还在。
+//
+// F-A-29:这一轮**必须带工具调用**。以前它问的那句一个工具都不调,于是聚合里 `tool_calls: []`,
+// 而真实的每一轮都有检索 —— 当 F-A-28 把检索调用的 `result` 从访客回参里剥掉之后,客户端 schema
+// 对着「有工具调用」的那份 payload 直接解析失败、整段历史被丢掉,而这条用例照样绿。
+// 它守的是刷新不丢历史,却只走了一种真实世界里不存在的形状。
 
 import { test, expect } from '@/fixtures/test';
 
@@ -11,6 +16,7 @@ import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -50,8 +56,17 @@ test.describe('刷新后对话历史恢复', () => {
       const turnDone = page.waitForResponse((res) =>
         res.url().includes('/agent/turn') && res.status() === 200, { timeout: 20_000 });
 
+      // 真实的一轮总是先检索。检索调用的 result 在下发给访客时被剥掉(F-A-28),而恢复这条路
+      // 必须扛得住那个形状 —— 这两个 tag 就是把它带进来。
+      const searchTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_search', args: { query: 'lucerna' },
+      });
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: 'projects/lucerna' },
+      });
+
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill(QUESTION);
+      await input.fill(`${QUESTION}${searchTag}${readTag}`);
       await input.press('Enter');
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({
         timeout: 20_000,

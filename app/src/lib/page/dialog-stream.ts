@@ -38,10 +38,14 @@ export type Answer = {
 // ToolCallView —— G-4: tool_completed 累到 Dialog；UI 按 name dispatch
 // 渲染 (corpus_search hits / calendar_book confirmation / generic JSON
 // dump for skill_* / ext_*)。result 是 raw unknown，渲染层自己 narrow。
+//
+// result 是 **optional**:检索族(corpus_*)的结果根本不下发给访客(F-A-28,里面是笔记正文),
+// 直播那一路给空串、刷新恢复那一路整格不给。界面对这些调用也只数个数、不渲正文,所以"没有
+// result"是这条通道的**常态**,不是异常。写成必填会让类型撒谎,而那个谎正是恢复整段挂掉的地方。
 export type ToolCallView = {
   name: string;
   ok: boolean;
-  result: unknown;
+  result?: unknown;
 };
 
 // ToolThrobberView —— per-tool 进度行:name 给 `tool-throbber-<name>` testid,
