@@ -26,6 +26,25 @@ func pageTag(r *http.Request) string {
 	return strings.TrimSpace(r.URL.Query().Get("tag"))
 }
 
+type genreTagsResponse struct {
+	Tags []string `json:"tags"`
+}
+
+// tagsWiki —— GET /corpus/wiki/tags —— 这个 genre 用过的全部标签。面板的标签行读它,而不是
+// 从已加载的那一页推:后者让只存在于那一页之外的标签连 chip 都没有(F-L-23 的后半条)。
+func (h *Handlers) tagsWiki() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		tags, err := h.Corpus.Corpus.Wiki.ListTags(r.Context(), ownerID)
+		if err != nil {
+			h.Log.Error("tags wiki", "err", err)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		writeJSON(h.Log, w, genreTagsResponse{Tags: tags})
+	}
+}
+
 type wikiPageResponse struct {
 	NextCursor string         `json:"next_cursor,omitempty"`
 	Items      []wikiListItem `json:"items"`

@@ -70,6 +70,15 @@ WHERE n.owner_id = $1 AND n.genre = $2
   AND (($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3)
 ORDER BY n.title ASC;
 
+-- name: ListDistinctTagsByGenre :many
+-- 一个 genre 里出现过的**全部**标签,去重排序。给面板的标签行用。
+-- 它必须是语料级的:标签行以前从「已加载的那一页」推,于是只存在于那一页之外的标签**连
+-- chip 都没有** —— 点不到,也就无从发现自己漏了什么(F-L-23 的后半条)。
+SELECT DISTINCT unnest(tags)::text AS tag
+FROM corpus_notes
+WHERE owner_id = $1 AND genre = $2
+ORDER BY 1;
+
 -- name: ListNotesByOwnerPage :many
 -- Grid pagination (infinite scroll): keyset on (created_at DESC, id DESC). $3/$4 = the
 -- last row's (created_at, id) cursor — both NULL = first page. Composite tiebreak because

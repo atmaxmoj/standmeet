@@ -36,6 +36,9 @@ const OWNER = {
 // 列表钩子的窗口里,而客户端筛选筛的正是那个窗口。chip 列表和筛选共用同一个窗口,所以筛不到的
 // 条目连 chip 都不会有:这个缺陷纯靠点击是触发不了的,得先从别处知道那个标签存在。
 const NEEDLE_TAG = 'needle-tag';
+// FAR_ONLY_TAG —— **只**挂在 FAR 上的标签。标签行如果从已加载的那一页推,它连 chip 都不会有 ——
+// 点不到,也就无从发现自己漏了什么。真 vault 上 `rate-reduction` 就是这样消失的。
+const FAR_ONLY_TAG = 'far-only-tag';
 const NEAR_TITLE = 'needle-on-the-first-page';
 const FAR_TITLE = 'needle-beyond-the-loaded-window';
 // FILLER —— 后端 gridPageSize 是 30,列表钩子按 defaultCorpusLimit(50)取行。60 条填充把 FAR
@@ -59,7 +62,7 @@ async function seedCorpus(playwright: Playwright): Promise<void> {
   // FAR 先建 —— created_at 最早,分页按 DESC 排,它落在已加载窗口之外。
   await callTool(request, token, sid, 'corpus.create', {
     genre: 'wiki', title: FAR_TITLE, body: 'the tagged entry past the loaded window',
-    tags: [NEEDLE_TAG], source: 'mcp:e2e',
+    tags: [NEEDLE_TAG, FAR_ONLY_TAG], source: 'mcp:e2e',
   });
   for (let i = 0; i < FILLER; i += 1) {
     await callTool(request, token, sid, 'corpus.create', {
@@ -98,7 +101,12 @@ test.describe('corpus · tag filter spans the corpus, not one page', () => {
       // 而 FAR 本来就不在第一页 —— 这一步坐实了「筛选必须跨越已加载的那一页」才是真需求。
       await expect(list).not.toContainText(FAR_TITLE);
 
-      await page.getByTestId('wiki-tag-filter').getByText(NEEDLE_TAG, { exact: true }).click();
+      // 标签行必须来自整个 genre:只挂在窗口外那条上的标签也得有 chip,否则它点不到,
+      // 而「点不到」跟「没有这个标签」在屏幕上长得一模一样。
+      const chips = page.getByTestId('wiki-tag-filter');
+      await expect(chips.getByText(FAR_ONLY_TAG, { exact: true })).toBeVisible({ timeout: 30_000 });
+
+      await chips.getByText(NEEDLE_TAG, { exact: true }).click();
 
       // NEAR 出现 = 筛选确实生效了(非空守卫,挡住「筛完什么都没有也算过」)。
       await expect(list).toContainText(NEAR_TITLE, { timeout: 30_000 });

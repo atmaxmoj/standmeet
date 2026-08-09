@@ -15,6 +15,7 @@ import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/W
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
+import { useGenreTags } from '@/lib/admin/use-genre-tags';
 import { useCorpusView } from '@/lib/admin/corpus-view';
 import { descendantCounts, pickExcerpt } from '@/lib/admin/corpus-tree';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
@@ -127,7 +128,9 @@ function ReadyBody({
   setActiveTag: (t: string | null) => void;
 }) {
   const [view, setView] = useCorpusView('wiki');
-  const tags = distinctTags(rows);
+  // 标签行来自**整个 genre**,不是已加载的那一页 —— 后者让只存在于那一页之外的标签连 chip
+  // 都没有,于是点不到、也无从发现自己漏了什么(F-L-23 的后半条)。
+  const tags = useGenreTags('wiki');
   const shown = filterByTag(rows, activeTag);
   // 地址树派生 + 级联删:每条算子孙数,删它时警告会连带删掉几条。
   const childCounts = descendantCounts(shown);
@@ -154,10 +157,6 @@ function ReadyBody({
       />
     </>
   );
-}
-
-function distinctTags(rows: readonly WikiSummary[]): readonly string[] {
-  return Array.from(new Set(rows.flatMap((r) => r.tags))).sort();
 }
 
 // filterByTag —— 只给**树**视图用:树是懒加载的层级,一次一层,标签在这里是「把这一层筛一下」。

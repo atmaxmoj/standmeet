@@ -78,6 +78,29 @@ func pageCursorParams(c *PageCursor) (cursorPg, error) {
 	return cursorPg{ts: pgtype.Timestamptz{Time: c.CreatedAt, Valid: true}, id: id}, nil
 }
 
+// listGenreTags —— every tag used anywhere in one genre. 语料级,不是某一页:标签行如果从
+// 已加载的那一页推,只存在于那一页之外的标签就连 chip 都没有(F-L-23 的后半条)。
+func listGenreTags(
+	ctx context.Context, pool *pgstore.Pool, ownerID, genre string,
+) ([]string, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	tags, qerr := db.New(pool).ListDistinctTagsByGenre(ctx, db.ListDistinctTagsByGenreParams{
+		OwnerID: ownerUUID, Genre: genre,
+	})
+	if qerr != nil {
+		return nil, fmt.Errorf("list genre tags: %w", qerr)
+	}
+	return tags, nil
+}
+
+// ListTags —— every tag used across the wiki genre (owner-scoped).
+func (r *WikiRepo) ListTags(ctx context.Context, ownerID string) ([]string, error) {
+	return listGenreTags(ctx, r.pool, ownerID, genreWiki)
+}
+
 // ListPage —— one grid page of the wiki genre (owner-scoped, all statuses). tag "" = no filter.
 func (r *WikiRepo) ListPage(
 	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,

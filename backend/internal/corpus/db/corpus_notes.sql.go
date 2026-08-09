@@ -738,6 +738,41 @@ func (q *Queries) ListAllOwnerNoteTitles(ctx context.Context, ownerID pgtype.UUI
 	return items, nil
 }
 
+const listDistinctTagsByGenre = `-- name: ListDistinctTagsByGenre :many
+SELECT DISTINCT unnest(tags)::text AS tag
+FROM corpus_notes
+WHERE owner_id = $1 AND genre = $2
+ORDER BY 1
+`
+
+type ListDistinctTagsByGenreParams struct {
+	OwnerID pgtype.UUID
+	Genre   string
+}
+
+// 一个 genre 里出现过的**全部**标签,去重排序。给面板的标签行用。
+// 它必须是语料级的:标签行以前从「已加载的那一页」推,于是只存在于那一页之外的标签**连
+// chip 都没有** —— 点不到,也就无从发现自己漏了什么(F-L-23 的后半条)。
+func (q *Queries) ListDistinctTagsByGenre(ctx context.Context, arg ListDistinctTagsByGenreParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listDistinctTagsByGenre, arg.OwnerID, arg.Genre)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		items = append(items, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNoteCardsByIDs = `-- name: ListNoteCardsByIDs :many
 SELECT id, title, excerpt, published
 FROM corpus_notes
