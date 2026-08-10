@@ -73,7 +73,7 @@ func wrapMCPAppTools(
 		bt := capreg.NewTool(
 			name,
 			mcpAppToolDescription(m.ID, t),
-			toolProgressLabel(t),
+			toolProgressLabel(m, t),
 			t.InputSchema,
 			makeExtMCPRun(sess, t.Name, sessionMeta, toolCallBudget(t)),
 		)
@@ -130,12 +130,19 @@ func toolUIHTML(
 }
 
 // toolProgressLabel —— server 在 tool `_meta.progress_label` 里声明的 throbber 文案
-// （外置内建保各自原文案：corpus_search "searching corpus" 等）。未声明 → 通用兜底。
-func toolProgressLabel(t *mcpclient.Tool) string {
-	if v, ok := t.Meta["progress_label"].(string); ok && v != "" {
-		return v
+// （外置内建保各自原文案：corpus_search "searching corpus" 等）。未声明 → 退到 manifest
+// 的 Title。
+//
+// **选哪一句归 `mcpplugin.ProgressLabel`** —— 那是能力自己的属性（「我在做什么」该由声明
+// 这个能力的东西回答），不是加载器的决定。这里只把 tool 声明的那一份取出来递过去。
+// routes-cyclo 那条闸门先发现了归属放错：它拦的是"face 里长出了分支"，而分支之所以在这儿，
+// 正是因为这段判断本来就不属于这一层。
+func toolProgressLabel(m *mcpplugin.Manifest, t *mcpclient.Tool) string {
+	declared, ok := t.Meta["progress_label"].(string)
+	if !ok {
+		declared = ""
 	}
-	return "calling plugin"
+	return mcpplugin.ProgressLabel(m, declared)
 }
 
 // composeMCPAppToolName —— RawToolNames 时用 server 原名（外置内建保 canonical

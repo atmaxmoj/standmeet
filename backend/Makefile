@@ -96,6 +96,7 @@ arch:
 # into capability/usecases code. Red until the connector proxy lands.
 connector-boundary:
 	@bash ../infra/scripts/check-connector-boundary.sh
+	@bash ../infra/scripts/check-no-impl-words-at-visitor.sh
 
 # #135 structural lock (Layer 4): the kernel (internal/usecases + inference +
 # domain) must name ZERO concrete capabilities/connectors. go-arch-lint only
