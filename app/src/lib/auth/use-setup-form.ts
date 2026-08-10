@@ -4,21 +4,32 @@
 //   1. identity      —— name + handle + publicUrl
 //   2. credentials   —— email + password + confirm
 //   3. ai provider   —— provider chip + key + model（可跳，admin 后台可补）
-//   4. verify        —— arithmetic captcha + summary 卡 → claim
+//   4. review        —— summary 卡 → claim
 //
-// Step 3 写到 admin/ai-provider PATCH（成功 claim 之后顺手调一次）；
-// captcha 是 client-only 防 drive-by bot —— 同 IP 重放还会被 backend
-// turnstile 拦（如开启）。
+// Step 3 写到 admin/ai-provider PATCH（成功 claim 之后顺手调一次）。
+//
+// **step 4 曾经还有一道算术 captcha，已经删掉（F-H-1）。**
+// 它是 client-only 的：`routes/admin/claim.go` 的 `claimRequest` 只有
+// token/email/password/handle/full_name/public_url —— **后端从头到尾没见过那个答案**。
+// 而真正的授权是**一次性 setup token**（打印在后端日志里，只有能读服务器的人拿得到），
+// 所以 claim 连 loginGuard 都不套。
+//
+// 于是那道算术的收益是负的：能读到 token 的自动化当然会算加法，它一个 bot 都拦不住；
+// 唯一拦住的是**合法的、owner 自己挂的 agent** —— 而这个产品的既定目标就是能被
+// owner 的 AI 客户端纯自动驱动（job loop 整条链只有 MCP 一条路，正是这个设计）。
+//
+// **删的只是这一道装饰。** 对外的防护一层没动：gate / login 的 per-IP 锁定、
+// 以及后端 turnstile（如开启）都还在 —— 那些是服务端真的会验的。
 //
 // 业务规则：
 //   - step 1：name + handle + publicUrl 必填，handle 只允许 [a-z0-9-]
 //   - step 2：email + password + confirm，password ≥ 8，两次输入一致
 //   - step 3：选了 provider 必须有 key（ollama 例外，本地无 key）；可整步跳过
-//   - step 4：captcha 等式答案对得上才允许 submit
+//   - step 4：只是复核 summary 卡，随时可以提交
 //
 // 摆 lib/ 是因为 components/ + app/**/*.tsx 禁 `if`，wizard 的分支控制走 hook 干净。
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { claim, type ClaimResult } from '@/lib/api/auth';
 
@@ -82,12 +93,6 @@ export interface SetupFormState {
   aiProvider: string;
   aiKey: string;
   aiModel: string;
-  captcha: string;
-}
-
-export interface CaptchaQuestion {
-  text: string;
-  answer: string;
 }
 
 export interface SetupFormHook {
@@ -96,7 +101,6 @@ export interface SetupFormHook {
   error: string | null;
   busy: boolean;
   canAdvance: boolean;
-  captchaQ: CaptchaQuestion;
   provider: AIProviderEntry;
   setField: (key: keyof SetupFormState, value: string) => void;
   pickProvider: (id: string) => void;
@@ -113,7 +117,6 @@ export function useSetupForm(setupToken: string): SetupFormHook {
   const [form, setForm] = useState<SetupFormState>(initialState());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const captchaQ = useMemo(generateCaptcha, []);
   const provider = SETUP_PROVIDERS.find((p) => p.id === form.aiProvider) ?? SETUP_PROVIDERS[0]!;
 
   const setField = useCallback((key: keyof SetupFormState, value: string) => {
@@ -139,8 +142,6 @@ export function useSetupForm(setupToken: string): SetupFormHook {
 
   const submit = useCallback(async (): Promise<ClaimResult | null> => {
     setError(null);
-    const v = validateCaptcha(form, captchaQ);
-    if (v !== null) { setError(v); return null; }
     setBusy(true);
     try {
       return await claim({
@@ -157,24 +158,23 @@ export function useSetupForm(setupToken: string): SetupFormHook {
     } finally {
       setBusy(false);
     }
-  }, [form, setupToken, captchaQ]);
+  }, [form, setupToken]);
 
   const canAdvance = stepCanAdvance(step, form);
 
   return {
-    step, form, error, busy, canAdvance, captchaQ, provider,
+    step, form, error, busy, canAdvance, provider,
     setField, pickProvider, next, back, submit,
   };
 }
 
 // stepCanAdvance —— 实时禁用 PrimaryBtn 的判定。step 1 看 identity 三项
 // 必填 + url 是 http；step 2 看 password/confirm 是否填且一致；step 3
-// 总是允许（key 可空，跳到 verify 现场补）；step 4 看 captcha 是否非空。
+// 总是允许（key 可空，跳到 review 现场补）；step 4 是复核，随时可提交。
 function stepCanAdvance(step: SetupStep, f: SetupFormState): boolean {
   if (step === 1) return identityComplete(f);
   if (step === 2) return credentialsComplete(f);
-  if (step === 3) return true;
-  return f.captcha.trim() !== '';
+  return true;
 }
 
 function identityComplete(f: SetupFormState): boolean {
@@ -190,19 +190,11 @@ function initialState(): SetupFormState {
     full: '', handle: '', publicUrl: '',
     email: '', password: '', passwordConfirm: '',
     aiProvider: 'anthropic', aiKey: '', aiModel: SETUP_PROVIDERS[0]!.defaultModel,
-    captcha: '',
   };
-}
-
-function generateCaptcha(): CaptchaQuestion {
-  const a = 2 + Math.floor(Math.random() * 8);
-  const b = 1 + Math.floor(Math.random() * 8);
-  return { text: `${a} + ${b}`, answer: String(a + b) };
 }
 
 function normalizeField(key: keyof SetupFormState, value: string): string {
   if (key === 'handle') return value.toLowerCase().replace(HANDLE_PATTERN, '');
-  if (key === 'captcha') return value.replace(/[^0-9]/g, '');
   return value;
 }
 
@@ -233,10 +225,6 @@ function validateProvider(f: SetupFormState): string | null {
   if (f.aiKey.trim() === '') return null; // key 留空 = 跳过，admin 后台可补
   if (f.aiKey.trim().length < 8) return 'that key looks too short';
   return null;
-}
-
-function validateCaptcha(f: SetupFormState, q: CaptchaQuestion): string | null {
-  return f.captcha.trim() === q.answer ? null : 'captcha is off · try again';
 }
 
 // handleSetupSubmit —— SetupForm form 提交分发：step < 4 → next；

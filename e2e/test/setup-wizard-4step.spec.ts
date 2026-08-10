@@ -11,6 +11,8 @@
 import type { Page } from '@playwright/test';
 
 import { resetInstance } from '@/fixtures/instance';
+
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 import { test, expect } from '@/fixtures/test';
 
 const OWNER = {
@@ -58,24 +60,32 @@ test.describe('first-run claim · 4-step wizard polish', () => {
       await fillStep2(page);
       await page.getByTestId('next').click();
       await page.getByTestId('next').click(); // skip provider
-      await answerCaptchaAndSubmit(page);
+      await submitReview(page);
       // /admin 落地 = dashboard（app/admin/page.tsx 的 server redirect）。
       await page.waitForURL('**/admin/dashboard', { timeout: 10_000 });
     });
 
-  test('wrong captcha → error, stays on /setup',
-    async ({ page }) => {
-      await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
-      await fillStep1(page);
-      await page.getByTestId('next').click();
-      await fillStep2(page);
-      await page.getByTestId('next').click();
-      await page.getByTestId('next').click();
-      await page.getByTestId('setup-captcha').fill('999');
-      await page.getByTestId('submit').click();
-      await expect(page.getByTestId('error')).toContainText(/captcha/i);
-      expect(page.url()).toMatch(/\/setup\?t=/);
+  // 这里曾经有一条 `wrong captcha → error, stays on /setup`。**那个不变量随控件一起没了**
+  // （F-H-1：算术框后端不验，拦不住 bot 只拦得住 owner 的 agent，已删）。
+  //
+  // 补上真正该守的那一条：**坏 setup token 必须被拒**。那才是这一步的授权 ——
+  // 一次性 token 打印在后端日志里，只有能读服务器的人拿得到，而且它是**服务端验**的。
+  //
+  // 验在 API 层而不是走 GUI：换一个 token 就得换 URL，而 e2e 的 lint 禁 `page.goto`
+  // （要求从已知入口点点进去，这条规则是对的）。**换 token 这件事本来就属于 API 层** ——
+  // GUI 那条路上 token 是环境给的，测不出"另一个 token"。
+  test('a bad setup token is refused by the server', async ({ request }) => {
+    const res = await request.post(`${BACKEND}/api/admin/claim`, {
+      data: {
+        token: 'not-a-real-setup-token',
+        email: OWNER.email, password: OWNER.password,
+        handle: OWNER.handle, full_name: OWNER.full, public_url: OWNER.publicUrl,
+      },
     });
+    expect(res.status(), 'a forged setup token must not claim the instance').toBe(401);
+    const body = await res.json() as { error?: { code?: string } };
+    expect(body.error?.code, 'and the refusal names what was wrong').toBe('invalid_setup_token');
+  });
 });
 
 async function fillStep1(page: Page): Promise<void> {
@@ -90,11 +100,7 @@ async function fillStep2(page: Page): Promise<void> {
   await page.getByTestId('password-confirm').fill(OWNER.password);
 }
 
-async function answerCaptchaAndSubmit(page: Page): Promise<void> {
-  const captchaText = await page.locator('text=/^\\s*\\d+\\s*\\+\\s*\\d+\\s*=/').first().textContent();
-  const m = (captchaText ?? '').match(/(\d+)\s*\+\s*(\d+)/);
-  if (!m) throw new Error('captcha question not found');
-  const answer = String(Number(m[1]) + Number(m[2]));
-  await page.getByTestId('setup-captcha').fill(answer);
+// submitReview —— 第 4 步现在只是复核卡，直接提交（算术框已删，见 F-H-1）。
+async function submitReview(page: Page): Promise<void> {
   await page.getByTestId('submit').click();
 }

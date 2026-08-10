@@ -59,13 +59,13 @@ async function fillProviderStepSkip(page: Page): Promise<void> {
   await page.getByTestId('next').click();
 }
 
+// fillVerifyStep —— 第 4 步现在只是复核卡，直接提交。
+//
+// 这里曾经要从页面上抽一道 `a + b =` 算出答案再填。那道算术已经删了（F-H-1）：
+// 它**后端不验**（`routes/admin/claim.go` 的 `claimRequest` 没有校验字段），
+// 真正的授权是一次性 setup token —— 所以它拦不住任何 bot，只拦得住 owner 自己挂的 agent，
+// 而这个产品要的正是能被它纯自动驱动。
 async function fillVerifyStep(page: Page): Promise<void> {
-  // arithmetic captcha: 从页面文字抽 "a + b =" 算出来。
-  const captchaText = await page.locator('text=/^\\s*\\d+\\s*\\+\\s*\\d+\\s*=/').first().textContent();
-  const m = (captchaText ?? '').match(/(\d+)\s*\+\s*(\d+)/);
-  if (!m) throw new Error('captcha question not found');
-  const answer = String(Number(m[1]) + Number(m[2]));
-  await page.getByTestId('setup-captcha').fill(answer);
   await page.getByTestId('submit').click();
 }
 

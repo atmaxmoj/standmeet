@@ -104,6 +104,7 @@ async function openEditForm(page: Page, title: string): Promise<EditForm> {
   };
 }
 
+
 // citableDefaultsOnAndIsExplained —— 新建默认可引用（对齐 DB 的 `NOT NULL DEFAULT true`），
 // 而且 UI 必须**解释**这个勾是什么 —— owner 面对一个没有语境的 checkbox 只会猜错。
 async function citableDefaultsOnAndIsExplained({ adminPage }: { adminPage: Page }): Promise<void> {

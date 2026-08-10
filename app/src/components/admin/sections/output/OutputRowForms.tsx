@@ -79,7 +79,8 @@ function EditFormBody({
           cover_hue: detail.cover_hue,
         }}
         busy={actions.pending}
-        submitLabel="save"
+        // "save entry"：同 wiki —— 这一屏下面还有一张带自己提交的 PUBLIC LANDING 卡（UX-60）。
+        submitLabel="save entry"
         testidPrefix={`output-edit-form-${entry.id}`}
         onSubmit={onSubmit}
         onCancel={onDone}

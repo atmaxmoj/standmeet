@@ -102,6 +102,15 @@ interface ActionsProps {
   testid: string;
 }
 
+// Actions —— 这张卡自己的提交。
+//
+// 这一屏上**有两个各自独立的 SAVE**：上面那张 CorpusEntryForm（正文/标签/封面）走 `onSubmit`，
+// 这张 PUBLIC LANDING 卡走 `onSave`，两者提交的是不同的东西。而它们原本都只写 `save` ——
+// owner 填完下半张卡，最自然的动作是去按上面那个更显眼的实心按钮，而那个按钮**不管这一半**
+// （UX-60）。屏幕上没有边界提示、没有"未保存"标记，两个提交边界叠在一个滚动面里靠猜。
+//
+// 修法不是再加第三个"全部保存"按钮 —— 那会把两个后端调用藏进一个动作，更难说清。
+// 让每个按钮**自己点名它管哪一半**：这是 owner 唯一能据以判断"我该按哪个"的信息。
 function Actions(props: ActionsProps) {
   const t = useTranslations('adminCorpus.common');
   return (
@@ -113,7 +122,7 @@ function Actions(props: ActionsProps) {
         data-testid={`${props.testid}-seo-save`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        {props.busy ? t('saving') : t('save')}
+        {props.busy ? t('saving') : t('saveLanding')}
       </button>
     </div>
   );
