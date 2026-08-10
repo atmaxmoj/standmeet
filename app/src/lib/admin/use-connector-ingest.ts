@@ -54,6 +54,9 @@ export interface ConnectorIngestHook {
   ingestFile: (file: File) => void;
   specText: () => string;
   baseUrl: () => string;
+  // sourceUrl —— spec 是从 URL 抓来的时候,**正文只在后端那次抓取里存在过**;装配得把来源
+  // 一并送去,由后端再抓一次(F-C-25)。贴/上传进来的 spec 这里是空串。
+  sourceUrl: () => string;
 }
 
 function verdictToState(v: z.infer<typeof VerdictSchema>): IngestState {
@@ -93,8 +96,14 @@ export function useConnectorIngest(): ConnectorIngestHook {
   // 少带一条，owner 就会遇到「贴进去能过、上传同一份文件反而说缺 servers」这种只在某条路上
   // 存在的行为，而那看起来像文件解析坏了（F-C-22 那次我就是这么误判的）。
   const baseUrlRef = useRef('');
+  const sourceUrlRef = useRef('');
 
-  const setText = useCallback((t: string) => { textRef.current = t; }, []);
+  // 贴/上传进来的正文把「来源 URL」清掉:否则先抓过一次、再改贴一份别的 spec,装配会送去
+  // 那个陈旧的 URL —— 屏幕上是新 spec 的候选,装出来的却是旧的那个。
+  const setText = useCallback((t: string) => {
+    textRef.current = t;
+    sourceUrlRef.current = '';
+  }, []);
   const setBaseUrl = useCallback((u: string) => { baseUrlRef.current = u; }, []);
 
   const submitSpec = useCallback(() => {
@@ -103,6 +112,9 @@ export function useConnectorIngest(): ConnectorIngestHook {
   }, []);
 
   const fetchUrl = useCallback((url: string) => {
+    // 记住来源:装配那一步没有正文,只能靠它(F-C-25)。textRef 清空,免得跟上一次贴的混在一起。
+    sourceUrlRef.current = url;
+    textRef.current = '';
     void runValidate({ url, base_url: baseUrlRef.current }).then(setState);
   }, []);
 
@@ -111,6 +123,7 @@ export function useConnectorIngest(): ConnectorIngestHook {
     // 「上传文件 → 候选出现 → 点装配」会送出一份空 spec，而 UI 上一切正常。
     void file.text().then((t) => {
       textRef.current = t;
+      sourceUrlRef.current = '';
       return runValidate({ spec: t, base_url: baseUrlRef.current });
     }).then(setState);
   }, []);
@@ -126,5 +139,6 @@ export function useConnectorIngest(): ConnectorIngestHook {
     ingestFile,
     specText: () => textRef.current,
     baseUrl: () => baseUrlRef.current,
+    sourceUrl: () => sourceUrlRef.current,
   };
 }

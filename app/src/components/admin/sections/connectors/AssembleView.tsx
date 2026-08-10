@@ -20,19 +20,18 @@ import {
   protocolForCategory, seedDefaults, fieldDefault, type AssembleField,
 } from '@/lib/admin/assemble-fields';
 import { ConnectorSpecIngest } from '@/components/admin/ConnectorSpecIngest';
-import type { AssembleInput } from '@/lib/admin/use-connector-upload';
+import type { AssembleInput, AssembleState } from '@/lib/admin/use-connector-upload';
 
-export function AssembleView({ category, onAssemble, assembledID }: {
+export function AssembleView({ category, onAssemble, assemble }: {
   category: string;
   onAssemble?: (input: AssembleInput) => void;
-  assembledID?: string | null;
+  assemble?: AssembleState;
 }) {
   const [specChosen, setSpecChosen] = useState(false);
   return (
     <div className="sm-connector-modal-body space-y-5">
       <ConnectorSpecIngest
-        onAssemble={onAssemble} onCandidate={setSpecChosen}
-        assembledID={assembledID ?? null}
+        onAssemble={onAssemble} onCandidate={setSpecChosen} assemble={assemble}
       />
       <ProtocolFormMaybe category={category} hidden={specChosen} />
     </div>

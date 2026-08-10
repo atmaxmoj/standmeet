@@ -20,19 +20,20 @@ import { ConnectorConfigForm } from '@/components/admin/ConnectorConfigForm';
 import { ConnectorSpecIngest } from '@/components/admin/ConnectorSpecIngest';
 import { ProtocolConnectorForm } from '@/components/admin/ProtocolConnectorForm';
 import { AssembleView } from '@/components/admin/sections/connectors/AssembleView';
-import type { AssembleInput } from '@/lib/admin/use-connector-upload';
+import type { AssembleInput, AssembleState } from '@/lib/admin/use-connector-upload';
 
 interface Props {
   installed: readonly string[];
   onClose: () => void;
   onConnect: (id: string, values: Record<string, string>) => void;
   onAssemble: (input: AssembleInput) => void;
-  // assembledID —— 刚装配出来的连接器；非 null 时表单让位给它的卡（凭据 + Connect）。
-  assembledID: string | null;
+  // assemble —— 一次装配的结果：id 非 null 时表单让位给那张卡（凭据 + Connect）；
+  // error 非空时把失败摆在模态里（模态盖着整页，页面级 toast owner 看不到）。
+  assemble: AssembleState;
 }
 
 export function ConnectorAddModal(
-  { installed, onClose, onConnect, onAssemble, assembledID }: Props,
+  { installed, onClose, onConnect, onAssemble, assemble }: Props,
 ) {
   const [cat, setCat] = useState(CONNECTOR_CATEGORIES[0]!.id);
   const [picked, setPicked] = useState<ConnectorEntry | null>(null);
@@ -42,11 +43,11 @@ export function ConnectorAddModal(
       {picked === null
         ? <Catalog
             cat={cat} onCat={setCat} installed={installed}
-            onPick={setPicked} onAssemble={onAssemble} assembledID={assembledID}
+            onPick={setPicked} onAssemble={onAssemble} assemble={assemble}
           />
         : <PickedView
             entry={picked} onBack={() => setPicked(null)} onAssemble={onAssemble}
-            assembledID={assembledID}
+            assemble={assemble}
             onConnect={(values) => { onConnect(picked.id, values); onClose(); }}
           />}
     </ModalOverlay>
@@ -56,18 +57,18 @@ export function ConnectorAddModal(
 // PickedView —— 品类装配卡（assemble）走归一 AssembleView（OpenAPI 上传 或 内置协议）；protocol
 // 连接器（SMTP）走固定表单 + 连接测试；其余走通用 catalog 配置表单。
 function PickedView({
-  entry, onBack, onConnect, onAssemble, assembledID,
+  entry, onBack, onConnect, onAssemble, assemble,
 }: {
   entry: ConnectorEntry;
   onBack: () => void;
   onConnect: (v: Record<string, string>) => void;
   onAssemble: (input: AssembleInput) => void;
-  assembledID: string | null;
+  assemble: AssembleState;
 }) {
   return entry.assemble
     ? <AssembleView
         category={entry.assembleCategory ?? ''}
-        onAssemble={onAssemble} assembledID={assembledID}
+        onAssemble={onAssemble} assemble={assemble}
       />
     : <NonAssembleView entry={entry} onBack={onBack} onConnect={onConnect} />;
 }
@@ -113,18 +114,18 @@ function ModalHead({ onClose }: { onClose: () => void }) {
 }
 
 function Catalog({
-  cat, onCat, installed, onPick, onAssemble, assembledID,
+  cat, onCat, installed, onPick, onAssemble, assemble,
 }: {
   cat: string;
   onCat: (id: string) => void;
   installed: readonly string[];
   onPick: (e: ConnectorEntry) => void;
   onAssemble: (input: AssembleInput) => void;
-  assembledID: string | null;
+  assemble: AssembleState;
 }) {
   return (
     <div className="sm-connector-modal-body">
-      <ConnectorSpecIngest onAssemble={onAssemble} assembledID={assembledID} />
+      <ConnectorSpecIngest onAssemble={onAssemble} assemble={assemble} />
       <CategoryTabs cat={cat} onCat={onCat} />
       <CategoryBlurb cat={cat} />
       <ConnectorGrid cat={cat} installed={installed} onPick={onPick} />

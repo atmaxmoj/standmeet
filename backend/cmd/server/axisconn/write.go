@@ -92,6 +92,7 @@ var (
 			"category":{"type":"string","description":"Protocol connector category."},
 			"auth_scheme":{"type":"string","description":"Selected OpenAPI auth scheme."},
 			"base_url":{"type":"string","description":"Base URL if the spec has none."},
+			"url":{"type":"string","description":"Fetch the spec from here if no text."},
 			"spec":{"type":"string","description":"OpenAPI spec text (JSON or YAML)."},
 			"binding":{"type":"string","description":"JSONata binding text (YAML)."},
 			"expose_as_agent_tools":{"type":"boolean","description":"Expose raw ops as tools."}
@@ -104,6 +105,7 @@ var (
 			"id":{"type":"string","description":"Connector id."},
 			"auth_scheme":{"type":"string","description":"Selected OpenAPI auth scheme."},
 			"base_url":{"type":"string","description":"Base URL if the spec has none."},
+			"url":{"type":"string","description":"Fetch the spec from here if no text."},
 			"spec":{"type":"string","description":"OpenAPI spec text (JSON or YAML)."},
 			"binding":{"type":"string","description":"JSONata binding text (YAML)."},
 			"expose_as_agent_tools":{"type":"boolean","description":"Expose raw ops as tools."}
@@ -150,6 +152,7 @@ type connectorCreateArgs struct {
 	Category           string `json:"category"`
 	AuthScheme         string `json:"auth_scheme"`
 	BaseURL            string `json:"base_url"`
+	URL                string `json:"url"` // spec 从 URL 抓来时:调用方没有正文,这一层去抓
 	Spec               string `json:"spec"`
 	Binding            string `json:"binding"`
 	ExposeAsAgentTools bool   `json:"expose_as_agent_tools"`
@@ -157,7 +160,7 @@ type connectorCreateArgs struct {
 
 func (a *connectorCreateArgs) uploaded() *connector.UploadedSpec {
 	return &connector.UploadedSpec{
-		AuthScheme: a.AuthScheme, BaseURL: a.BaseURL,
+		AuthScheme: a.AuthScheme, BaseURL: a.BaseURL, URL: a.URL,
 		Spec: []byte(a.Spec), Binding: []byte(a.Binding),
 		ExposeAsAgentTools: a.ExposeAsAgentTools,
 	}
@@ -195,6 +198,7 @@ type connectorUpdateArgs struct {
 	ID                 string `json:"id"`
 	AuthScheme         string `json:"auth_scheme"`
 	BaseURL            string `json:"base_url"`
+	URL                string `json:"url"`
 	Spec               string `json:"spec"`
 	Binding            string `json:"binding"`
 	ExposeAsAgentTools bool   `json:"expose_as_agent_tools"`
@@ -210,7 +214,7 @@ func updateConnector(ops connectorOps) fp.Invoke {
 			return nil, err
 		}
 		if err := ops.svc.UpdateUploaded(ctx, ownerID, in.ID, &connector.UploadedSpec{
-			AuthScheme: in.AuthScheme, BaseURL: in.BaseURL,
+			AuthScheme: in.AuthScheme, BaseURL: in.BaseURL, URL: in.URL,
 			Spec: []byte(in.Spec), Binding: []byte(in.Binding),
 			ExposeAsAgentTools: in.ExposeAsAgentTools,
 		}); err != nil {

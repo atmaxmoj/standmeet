@@ -15,7 +15,7 @@ import (
 func (s *Service) CreateUploaded(
 	ctx context.Context, ownerID string, in *UploadedSpec,
 ) (string, error) {
-	norm, nerr := withBaseURL(in)
+	norm, nerr := s.resolveSpec(ctx, in)
 	if nerr != nil {
 		return "", nerr
 	}
@@ -27,7 +27,7 @@ func (s *Service) CreateUploaded(
 	m := openapiManifest("up-"+id, in)
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {
-		return "", fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
+		return "", fmt.Errorf(wrapSentinel, ErrInvalidManifest, ierr)
 	}
 	if serr := s.d.Repo.SaveUploaded(ctx, uploadedSaveInput(ownerID, m.ID, cat, in)); serr != nil {
 		return "", fmt.Errorf("persist uploaded connector: %w", serr)
@@ -50,13 +50,23 @@ func (s *Service) Delete(ctx context.Context, ownerID, id string) error {
 	return nil
 }
 
-// withBaseURL —— 把 owner 填的 base URL 并进 spec，返回一份归一化的副本（不改调用方的入参）。
-// Create 和 Update 都从这里进，所以「存下去的 spec 一定已经带上 base URL」是这两条路的共同
-// 前提，而不是某一条路记得做的事。BaseURL 为空 → 零改动。
-func withBaseURL(in *UploadedSpec) (*UploadedSpec, error) {
-	raw, err := openapi.ApplyBaseURL(in.Spec, in.BaseURL)
+// resolveSpec —— 把 owner 交上来的东西变成**一份可以直接存的 spec**：没有正文就按来源 URL 抓
+// 一次（F-C-25），然后把 base URL 并进去（F-C-22）。返回副本，不改调用方的入参。
+//
+// Create 和 Update 都从这里进，所以「存下去的 spec 一定已经是完整的」是这两条路的共同前提，
+// 而不是某一条路记得做的事。两样都没给 → 零改动，原样往下走（由摄入闸去拒）。
+func (s *Service) resolveSpec(ctx context.Context, in *UploadedSpec) (*UploadedSpec, error) {
+	body := in.Spec
+	if len(body) == 0 && in.URL != "" {
+		fetched, ferr := s.fetchSpec(ctx, in.URL)
+		if ferr != nil {
+			return nil, fmt.Errorf(wrapSentinel, ErrInvalidManifest, ferr)
+		}
+		body = fetched
+	}
+	raw, err := openapi.ApplyBaseURL(body, in.BaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+		return nil, fmt.Errorf(wrapSentinel, ErrInvalidManifest, err)
 	}
 	out := *in
 	out.Spec = raw
@@ -104,7 +114,7 @@ func (s *Service) CreateProtocol(
 	}
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {
-		return "", fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
+		return "", fmt.Errorf(wrapSentinel, ErrInvalidManifest, ierr)
 	}
 	if serr := s.d.Repo.SaveUploaded(ctx, &SaveUploadedInput{
 		OwnerID: ownerID, ConnectorID: m.ID, Category: cat, Kind: "protocol", Protocol: protocol,
@@ -123,7 +133,7 @@ func (s *Service) UpdateUploaded(
 	if s.isBuiltin(id) {
 		return ErrBuiltinReadonly
 	}
-	norm, nerr := withBaseURL(in)
+	norm, nerr := s.resolveSpec(ctx, in)
 	if nerr != nil {
 		return nerr
 	}
@@ -131,7 +141,7 @@ func (s *Service) UpdateUploaded(
 	m := openapiManifest(id, in)
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
+		return fmt.Errorf(wrapSentinel, ErrInvalidManifest, ierr)
 	}
 	if serr := s.d.Repo.UpdateUploaded(ctx, uploadedSaveInput(ownerID, id, cat, in)); serr != nil {
 		return fmt.Errorf("persist updated connector: %w", serr)
@@ -148,7 +158,7 @@ func (s *Service) CredentialForm(ctx context.Context, ownerID, id string) (Crede
 	}
 	form, derr := DeriveCredentialForm(m)
 	if derr != nil {
-		return CredentialForm{}, fmt.Errorf("%w: %w", ErrInvalidManifest, derr)
+		return CredentialForm{}, fmt.Errorf(wrapSentinel, ErrInvalidManifest, derr)
 	}
 	return form, nil
 }

@@ -192,6 +192,15 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /media/bulk", s.serveMediaBulk)
 	mux.HandleFunc("GET /media/{filename}", s.serveMedia)
 
+	// 厂商发布 OpenAPI 文档的替身。**没有它,「从 URL 抓 spec」的 happy path 一条 e2e 都没有** ——
+	// 现有两处用到抓取的用例走的都是失败场景(不可达 / 被出站策略挡),于是「抓回来的文档能不能
+	// 真的装配成连接器」从来没人走过。F-C-25 就活在那条缝里。
+	//
+	// 这份文档**故意不声明 servers**:真厂商文档常常如此(Cal.com v2 写的就是 `"servers": []`),
+	// 而 owner 只能在面板上补 base URL。一条守卫因此能覆盖整段真实旅程:抓 → 被拒并点名 →
+	// 补 base URL → 出候选 → 装配。
+	mux.HandleFunc("GET /vendor-openapi/no-servers.json", s.serveVendorSpecNoServers)
+
 	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)
 	mux.HandleFunc("POST /__mock/reset", s.adminReset)

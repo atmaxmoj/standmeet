@@ -29,6 +29,8 @@ export type ConnectorRow = z.infer<typeof ConnectorRowSchema>;
 // 连接器建出来却填不了凭据。
 export interface UploadInput {
   specText: string;
+  // specUrl —— spec 从 URL 抓来时的来源；面板手上没有正文，由后端按它再抓一次（F-C-25）。
+  specUrl?: string;
   bindingText: string;
   baseUrl?: string;
   authScheme?: string;
@@ -66,6 +68,7 @@ export function useConnectorList(): ConnectorListHook {
     const r = await adminAPI.post('/connectors', {
       kind: 'openapi',
       spec_text: input.specText,
+      url: input.specUrl ?? '',
       binding_text: input.bindingText,
       base_url: input.baseUrl ?? '',
       auth_scheme: input.authScheme ?? '',

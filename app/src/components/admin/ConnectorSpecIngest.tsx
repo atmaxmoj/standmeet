@@ -10,7 +10,9 @@ import { useTranslations } from 'next-intl';
 import {
   useConnectorIngest, type AuthForms, type AuthScheme,
 } from '@/lib/admin/use-connector-ingest';
-import { isAssemblable, type AssembleInput } from '@/lib/admin/use-connector-upload';
+import {
+  isAssemblable, type AssembleInput, type AssembleState,
+} from '@/lib/admin/use-connector-upload';
 import { ConnectorCredForm } from '@/components/admin/ConnectorCredForm';
 import { ConnectorCard } from '@/components/admin/sections/connectors/ConnectorCard';
 
@@ -24,16 +26,24 @@ import { ConnectorCard } from '@/components/admin/sections/connectors/ConnectorC
 // 以前却唯独没有出口。
 // onCandidate —— 校验出候选（owner 已经选定「自带 spec」这条路）时通知外层。品类卡下面的
 // 协议表单据此收起来：两套表单的字段 testid 同名空间，同屏并存迟早撞车（见 AssembleView）。
-export function ConnectorSpecIngest({ onAssemble, onCandidate, assembledID }: {
+export function ConnectorSpecIngest({ onAssemble, onCandidate, assemble }: {
   onAssemble?: (input: AssembleInput) => void;
   onCandidate?: (has: boolean) => void;
-  assembledID?: string | null;
+  assemble?: AssembleState;
 }) {
-  const id = assembledID ?? '';
-  return id === ''
-    ? <IngestForm onAssemble={onAssemble} onCandidate={onCandidate} />
-    : <AssembledCard id={id} />;
+  const state = assemble ?? NO_ASSEMBLE;
+  return state.id === null
+    ? (
+      <IngestForm
+        onAssemble={onAssemble} onCandidate={onCandidate} assembleError={state.error}
+      />
+    )
+    : <AssembledCard id={state.id} />;
 }
+
+// NO_ASSEMBLE —— 没传 assemble 时的空态（纯摄入/凭据表单那两条调用路用不到装配）。
+// 常量而不是内联可选链：那一串 `?.` 每个都算一次分支，超 complexity 闸。
+const NO_ASSEMBLE: AssembleState = { id: null, error: '' };
 
 // AssembledCard —— 装配完成之后**表单让位给这张卡**。卡是凭据 + Connect 的唯一归属；
 // 让摄入表单继续留在屏幕上的话，它派生的那个 connector-connect-button（`ConnectMaybe` 渲染的、
@@ -42,9 +52,10 @@ function AssembledCard({ id }: { id: string }) {
   return <ConnectorCard entry={{ id, category: '', kind: 'openapi' }} />;
 }
 
-function IngestForm({ onAssemble, onCandidate }: {
+function IngestForm({ onAssemble, onCandidate, assembleError }: {
   onAssemble?: (input: AssembleInput) => void;
   onCandidate?: (has: boolean) => void;
+  assembleError: string;
 }) {
   const hook = useConnectorIngest();
   const bindingRef = useRef('');
@@ -61,7 +72,8 @@ function IngestForm({ onAssemble, onCandidate }: {
   // authScheme：没动过下拉 → 用派生表单里的第一个方案。留空的话后端在三个 manual 候选里挑不出
   // 唯一一个，连接器建得出来却派生不了凭据表单。
   const buildInput = (): AssembleInput => ({
-    spec: hook.specText(), binding: bindingRef.current, baseUrl: hook.baseUrl(),
+    spec: hook.specText(), url: hook.sourceUrl(),
+    binding: bindingRef.current, baseUrl: hook.baseUrl(),
     authScheme: schemeRef.current === '' ? defaultScheme(hook.auth) : schemeRef.current,
     exposeAsAgentTools: expose,
     credentials: credsRef.current,
@@ -99,6 +111,7 @@ function IngestForm({ onAssemble, onCandidate }: {
         onChange={(v) => { setExpose(v); setUseless(false); }}
       />
       <UselessWarning show={useless} />
+      <AssembleFailure message={assembleError} />
       <AssembleRow show={hasCandidate && onAssemble !== undefined} onClick={assemble} />
     </div>
   );
@@ -125,6 +138,19 @@ function ExposeRow({ show, checked, onChange }: {
       <span className="reading-tight text-[12.5px] text-(--color-muted)">{t('exposeLabel')}</span>
     </label>
   ) : null;
+}
+
+// AssembleFailure —— 装配真的失败了（后端拒了）的那句话，**落在模态里**。
+// 页面级 toast 不够：模态盖着整页，owner 看不到它 —— 于是「点了装配、什么都没发生」（F-C-26）。
+function AssembleFailure({ message }: { message: string }) {
+  return message === '' ? null : (
+    <p
+      data-testid="connector-assemble-error"
+      className="mono text-[12px] text-(--color-accent) mt-3"
+    >
+      {message}
+    </p>
+  );
 }
 
 // UselessWarning —— 无 binding 且未勾选时的拒绝。说的是**缺哪一样**，不是「操作失败」。

@@ -15,6 +15,8 @@ import { useReportError } from '@/lib/ui/use-report-error';
 // 声明齐全的 spec 时，binding / baseUrl / authScheme 都不必填。
 export interface AssembleInput {
   spec: string;
+  // url —— spec 从 URL 抓来时的来源。正文只在后端那次抓取里存在过，装配靠它再抓一次（F-C-25）。
+  url: string;
   binding: string;
   baseUrl: string;
   authScheme: string;
@@ -33,6 +35,22 @@ export function isAssemblable(input: AssembleInput): boolean {
   return input.binding.trim() !== '' || input.exposeAsAgentTools;
 }
 
+// ASSEMBLE_FAILED —— 装配没成时给 owner 的兜底话。后端给了人话就用后端那句。
+const ASSEMBLE_FAILED = 'The connector could not be assembled. Check the spec and try again.';
+
+// failureText —— 把一个异常翻成能摆在模态里的一句话。
+function failureText(err: unknown): string {
+  return err instanceof Error && err.message !== '' ? err.message : ASSEMBLE_FAILED;
+}
+
+// AssembleState —— 一次装配尝试的结果，**打包成一样东西往下传**。
+// id 和 error 分成两个 prop 的话，要穿 4 个文件 6 处；加第三样时漏一处不会报错，只会少显示
+// 一点东西 —— 正是 [[move-the-capability-move-its-edges]] 那一类。
+export interface AssembleState {
+  id: string | null;
+  error: string;
+}
+
 interface Pending { input: AssembleInput; category: string }
 
 export interface ConnectorUploadHook {
@@ -46,6 +64,9 @@ export interface ConnectorUploadHook {
   // 不清的话，摄入表单会一直让位给上一次那张卡，spec 输入框永远不再出现（装第二个连接器
   // 就此无门）。createdID 属于一次模态会话，不属于这个页面。
   resetCreated: () => void;
+  // state —— 装出来的 id + 失败的那句话。**失败必须落在模态里**：只靠页面级 toast 的话，
+  // 模态盖着整页，owner 什么都看不到 —— F-C-26 就是这么发生的。
+  state: AssembleState;
   upload: (input: AssembleInput) => void;
   confirmOverwrite: () => void;
   cancelOverwrite: () => void;
@@ -65,12 +86,14 @@ function hasValue(creds: Record<string, string>): boolean {
 export function useConnectorUpload(list: ConnectorListHook): ConnectorUploadHook {
   const [pending, setPending] = useState<Pending | null>(null);
   const [createdID, setCreatedID] = useState<string | null>(null);
+  const [error, setError] = useState('');
   const report = useReportError();
 
   // assemble —— 建 + 存凭据。任一步失败都 report：装配没成而界面不吭声，是这个面上最坏的结局。
   const assemble = useCallback(async (input: AssembleInput) => {
     const id = await list.create({
-      specText: input.spec, bindingText: input.binding,
+      specText: input.spec, specUrl: input.url,
+      bindingText: input.binding,
       baseUrl: input.baseUrl, authScheme: input.authScheme,
       exposeAsAgentTools: input.exposeAsAgentTools,
     });
@@ -85,26 +108,39 @@ export function useConnectorUpload(list: ConnectorListHook): ConnectorUploadHook
     list.refresh();
   }, [list]);
 
+  // fail —— 失败走**两条路**：模态里那句话（owner 正看着模态）+ 页面级 toast（保留原行为）。
+  // 只留 toast 的话，模态盖着整页，owner 什么都看不到 —— 那正是 F-C-26。
+  const fail = useCallback((err: unknown) => {
+    setError(failureText(err));
+    report(err);
+  }, [report]);
+
   const upload = useCallback((input: AssembleInput) => {
+    setError(''); // 新的一次尝试先清掉上一次的失败，否则修好了那句话还挂在那儿
     const category = bindingCategory(input.binding);
     const exists = category !== '' && list.connectors.some((c) => c.category === category);
     exists
       ? setPending({ input, category })
-      : void assemble(input).catch(report);
-  }, [assemble, list.connectors, report]);
+      : void assemble(input).catch(fail);
+  }, [assemble, list.connectors, fail]);
 
   const confirmOverwrite = useCallback(() => {
     const p = pending;
     const old = p === null ? undefined : list.connectors.find((c) => c.category === p.category);
     void (old === undefined ? Promise.resolve() : list.remove(old.id))
       .then(() => (p === null ? undefined : assemble(p.input)))
-      .catch(report) // 删旧/建新任一步失败 → report 反显（覆盖没生效 owner 必须知道）。
+      .catch(fail) // 删旧/建新任一步失败 → 模态里 + toast 双路反显（覆盖没生效 owner 必须知道）。
       .finally(() => setPending(null)); // 成败都收起确认框：失败也别把对话框卡死。
-  }, [pending, list, assemble, report]);
+  }, [pending, list, assemble, fail]);
 
   const cancelOverwrite = useCallback(() => setPending(null), []);
 
-  const resetCreated = useCallback(() => setCreatedID(null), []);
+  // resetCreated —— 再次打开「添加连接器」时清场：上一次的 id 和上一次的失败都不该留到下一轮。
+  const resetCreated = useCallback(() => { setCreatedID(null); setError(''); }, []);
 
-  return { pending, createdID, resetCreated, upload, confirmOverwrite, cancelOverwrite };
+  return {
+    pending, createdID, resetCreated,
+    state: { id: createdID, error },
+    upload, confirmOverwrite, cancelOverwrite,
+  };
 }

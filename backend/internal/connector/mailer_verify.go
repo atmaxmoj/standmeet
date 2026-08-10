@@ -19,8 +19,10 @@ var (
 	ErrVerifyAuth    = errors.New("SMTP authentication failed — check the username and password")
 )
 
-// wrapCategory —— 分类 sentinel + 原始错误的统一包裹格式。
-const wrapCategory = "%w: %w"
+// wrapSentinel —— 「分类 sentinel + 原始错误」的统一包裹格式。整个 connector 包共用：
+// 名字原来叫 wrapCategory，但它包的从来不只是品类（装配失败、凭据失败都是同一个形状），
+// 而同值的第二个常量只会让下一个人猜该用哪个。
+const wrapSentinel = "%w: %w"
 
 // Verify —— 跑一次 SMTP 握手验证配置，不发信。成功 = 凭据能连。
 func Verify(ctx context.Context, cfg *Config) (err error) {
@@ -47,7 +49,7 @@ func dialSMTP(ctx context.Context, cfg *Config) (*smtp.Client, error) {
 	}
 	c, derr := smtp.Dial(addr)
 	if derr != nil {
-		return nil, fmt.Errorf(wrapCategory, ErrVerifyConnect, derr)
+		return nil, fmt.Errorf(wrapSentinel, ErrVerifyConnect, derr)
 	}
 	return c, nil
 }
@@ -57,18 +59,18 @@ func dialImplicitTLS(ctx context.Context, addr, host string) (*smtp.Client, erro
 	tlsCfg := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
 	conn, terr := (&tls.Dialer{Config: tlsCfg}).DialContext(ctx, "tcp", addr)
 	if terr != nil {
-		return nil, fmt.Errorf(wrapCategory, ErrVerifyTLS, terr)
+		return nil, fmt.Errorf(wrapSentinel, ErrVerifyTLS, terr)
 	}
 	c, cerr := smtp.NewClient(conn, host)
 	if cerr != nil {
-		return nil, fmt.Errorf(wrapCategory, ErrVerifyTLS, cerr)
+		return nil, fmt.Errorf(wrapSentinel, ErrVerifyTLS, cerr)
 	}
 	return c, nil
 }
 
 func handshake(c *smtp.Client, cfg *Config) error {
 	if herr := c.Hello("localhost"); herr != nil {
-		return fmt.Errorf(wrapCategory, ErrVerifyConnect, herr)
+		return fmt.Errorf(wrapSentinel, ErrVerifyConnect, herr)
 	}
 	if terr := maybeStartTLS(c, cfg); terr != nil {
 		return terr
@@ -86,7 +88,7 @@ func maybeStartTLS(c *smtp.Client, cfg *Config) error {
 	}
 	tlsCfg := &tls.Config{ServerName: cfg.Host, MinVersion: tls.VersionTLS12}
 	if serr := c.StartTLS(tlsCfg); serr != nil {
-		return fmt.Errorf(wrapCategory, ErrVerifyTLS, serr)
+		return fmt.Errorf(wrapSentinel, ErrVerifyTLS, serr)
 	}
 	return nil
 }
@@ -97,7 +99,7 @@ func maybeAuth(c *smtp.Client, cfg *Config) error {
 	}
 	auth := smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
 	if aerr := c.Auth(auth); aerr != nil {
-		return fmt.Errorf(wrapCategory, ErrVerifyAuth, aerr)
+		return fmt.Errorf(wrapSentinel, ErrVerifyAuth, aerr)
 	}
 	return nil
 }

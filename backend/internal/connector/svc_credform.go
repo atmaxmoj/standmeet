@@ -14,9 +14,14 @@ package connector
 // 显式的 `"servers": []`），而 owner 不该去手改 vendor 的文件（F-C-22）。它在 Create/Update
 // 的入口就被并进 Spec，**不往下游传**：存下去的那份 spec 自己就有 servers，于是运行时、
 // 出站校验、凭据表单派生都只看到一份普通的 spec。
+// URL —— spec 是「从 URL 抓来的」时,owner 手上**没有正文** —— 正文只在后端那次抓取里存在过
+// (F-C-25:面板据此出了候选,装配却送出一份空 spec)。所以建/改时把来源 URL 一并送来,由这一层
+// 重新抓一次:抓取本来就带出站守卫,也免得把 1.47 MB 的厂商文档送去浏览器再送回来。
+// Spec 非空时以 Spec 为准,URL 只是没有正文时的来源。
 type UploadedSpec struct {
 	AuthScheme         string
 	BaseURL            string
+	URL                string
 	Spec               []byte
 	Binding            []byte
 	ExposeAsAgentTools bool

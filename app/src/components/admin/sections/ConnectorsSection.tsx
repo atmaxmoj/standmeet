@@ -53,7 +53,7 @@ export function ConnectorsSection() {
           // 装配之后**不关**模态：接着在同一处渲染新连接器的卡（凭据 + Connect）。
           // 关掉的话 owner 会落在一个连不上的列表行上 —— ConnectorList 的行没有 Connect。
           onAssemble={upload.upload}
-          assembledID={upload.createdID}
+          assemble={upload.state}
         />
       )}
     </>
