@@ -7,8 +7,9 @@
 //
 // 对齐 docs/design/connector.md §4（认证 type → 字段表）+ §7 决策#3（多
 // scheme owner UI 自选）+ §8 区 B testid（connector-spec-input /
-// connector-scheme-select / connector-field-{key} / connector-connect-button
-// / connector-status）。
+// connector-scheme-select / connector-field-{key} / connector-needs-dance
+// / connector-status）。connector-connect-button 归 D 区：连接要连接器 id，
+// 而这张表单跑在建出连接器**之前**（F-C-24）。
 //
 // 覆盖 spec-driven 凭据表单派生 UI（§8 区 B）。已实现，绿（原为 RED 契约，实现后转绿）。
 
@@ -244,8 +245,10 @@ test.describe('connector · credential form derived from spec · happy (area B)'
       await expect(redirect).toBeVisible();
       await expect(redirect).toHaveAttribute('readonly', '');
 
-      // oauth2 needs the dance → a Connect button is present.
-      await expect(page.getByTestId('connector-connect-button')).toBeVisible();
+      // oauth2 needs the dance → the form says so. It is a note, not a button: connecting needs
+      // the connector's id, which does not exist until it is assembled, so the button that used to
+      // sit here had no handler and could never have one (F-C-24).
+      await expect(page.getByTestId('connector-needs-dance')).toBeVisible();
     });
 
   // ── happy: apiKey ────────────────────────────────────────────────────────
@@ -263,8 +266,8 @@ test.describe('connector · credential form derived from spec · happy (area B)'
       await expect(form).toContainText(/header/i);
       await expect(form).toContainText(/X-Api-Key/);
 
-      // no dance → no Connect button (just save the key).
-      await expect(page.getByTestId('connector-connect-button')).toHaveCount(0);
+      // no dance → no authorization note (just save the key).
+      await expect(page.getByTestId('connector-needs-dance')).toHaveCount(0);
     });
 
   // ── happy: http basic ────────────────────────────────────────────────────
@@ -303,14 +306,14 @@ test.describe('connector · credential form derived from spec · happy (area B)'
       await select.selectOption('oauth2');
       await expect(page.getByTestId('connector-field-client_id')).toBeVisible();
       await expect(page.getByTestId('connector-field-client_secret')).toBeVisible();
-      await expect(page.getByTestId('connector-connect-button')).toBeVisible();
+      await expect(page.getByTestId('connector-needs-dance')).toBeVisible();
       await expect(page.getByTestId('connector-field-key')).toHaveCount(0);
 
       // pick apiKey → the form swaps to the key field, oauth fields gone.
       await select.selectOption('apiKey');
       await expect(page.getByTestId('connector-field-key')).toBeVisible();
       await expect(page.getByTestId('connector-field-client_id')).toHaveCount(0);
-      await expect(page.getByTestId('connector-connect-button')).toHaveCount(0);
+      await expect(page.getByTestId('connector-needs-dance')).toHaveCount(0);
       // apiKey here is in query param api_key — surfaced to owner.
       await expect(page.getByTestId('connector-cred-form')).toContainText(/query/i);
       await expect(page.getByTestId('connector-cred-form')).toContainText(/api_key/);
@@ -334,8 +337,8 @@ test.describe('connector · credential form derived from spec · corner (area B)
       await expect(page.getByTestId('connector-field-client_secret')).toBeVisible();
       await expect(page.getByTestId('connector-field-token')).toHaveCount(0);
 
-      // needs the dance → Connect button present (like oauth2).
-      await expect(page.getByTestId('connector-connect-button')).toBeVisible();
+      // needs the dance → the authorization note is present (like oauth2).
+      await expect(page.getByTestId('connector-needs-dance')).toBeVisible();
 
       // a discovery-URL note points owner at the openIdConnectUrl.
       const form = page.getByTestId('connector-cred-form');
@@ -355,8 +358,8 @@ test.describe('connector · credential form derived from spec · corner (area B)
       await expect(form).toContainText(/api_key/);
       await expect(form).not.toContainText(/header/i);
 
-      // no dance → no Connect button.
-      await expect(page.getByTestId('connector-connect-button')).toHaveCount(0);
+      // no dance → no authorization note.
+      await expect(page.getByTestId('connector-needs-dance')).toHaveCount(0);
     });
 
   // ── happy: oauth2 multiple scopes → all listed in multi-select ───────────
@@ -405,7 +408,7 @@ test.describe('connector · credential form derived from spec · err (area B)', 
       await expect(status).toContainText(/unsupported|not supported|不支持|mutualTLS/i);
       // unsupported scheme must not be rendered as a usable field.
       await expect(page.getByTestId('connector-field-token')).toHaveCount(0);
-      await expect(page.getByTestId('connector-connect-button')).toHaveCount(0);
+      await expect(page.getByTestId('connector-needs-dance')).toHaveCount(0);
     });
 });
 

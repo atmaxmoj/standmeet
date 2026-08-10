@@ -62,7 +62,7 @@
     "authentication": "authentication",
     "apiKeyHint": "Sent in the {where} as <code>{name}</code>.",
     "discoveryHint": "Discovery: <code>{url}</code>",
-    "connect": "Connect →",
+    "needsDance": "This scheme needs an authorization step. Assemble the connector first — the Connect button lives on its card.",
     "scopes": "scopes"
   },
   "protocolConnector": {

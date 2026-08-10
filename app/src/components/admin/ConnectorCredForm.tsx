@@ -138,13 +138,29 @@ function DiscoveryHintBody({ url }: { url: string }) {
   );
 }
 
+// NeedsDanceNote —— 「这个方案要走一次授权跳转」是**真实的信号**，owner 该在填凭据时就知道。
+//
+// 但这里以前渲染的是一个 `connector-connect-button` **按钮，而且没有 onClick**（F-C-24）。
+// 后果不是"少一个功能"：装配这条路上，owner（和 e2e）点下去什么都不会发生，
+// 而屏幕上找不出任何"没生效"的迹象 —— 直到 15 秒后轮询超时才知道连接从未发起。
+// 连接是**卡片**的职责（卡片才有连接器 id），摄入表单从来就没有能力连。
+// 而且两处同名 testid 一旦同时在场，定位器还会撞车。
+//
+// 所以信号留下，元件换掉：说一句话，别摆一个按不动的按钮。
 function ConnectMaybe({ form }: { form: AuthScheme }) {
+  return form.needs_dance ? <NeedsDanceNote /> : null;
+}
+
+function NeedsDanceNote() {
   const t = useTranslations('adminShell.connectorCred');
-  return form.needs_dance ? (
-    <button type="button" data-testid="connector-connect-button" className="sm-btn sm-btn-solid sm-btn-sm">
-      {t('connect')}
-    </button>
-  ) : null;
+  return (
+    <p
+      data-testid="connector-needs-dance"
+      className="reading-tight text-[12px] text-(--color-muted)"
+    >
+      {t('needsDance')}
+    </p>
+  );
 }
 
 function CredField({ field, values, scopes }: {
