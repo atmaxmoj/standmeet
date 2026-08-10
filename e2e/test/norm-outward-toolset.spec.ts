@@ -13,8 +13,12 @@
 // backtick 原始串里误用了 Go 字符串拼接 `"+`)。Go 侧有 schema_valid_test 兜底,这条在
 // e2e 把"真客户端能发现完整工具面"钉死。
 //
-// golden = 全部 owner_only 工具(内建 126 + jobs 插件 10 = 136)。加/删 owner 工具时这条
-// 会红 —— 那是**有意**的:逼你同步更新工具面预期。
+// golden = 全部 owner_only 工具(内建 126 + jobs 插件 10 + 连接器 manifest 声明的 1 = 137)。
+// 加/删 owner 工具时这条会红 —— 那是**有意**的:逼你同步更新工具面预期。
+//
+// **owner 工具有三个来源**,不是两个:host 侧写死的、能力插件的、以及**连接器 manifest 里的
+// `owner_ops:`**。第三个来源是后加的(F-C-16 的 connectors.calendar_check),而那次没更新这份
+// golden —— 于是这条从那时起一直红着,直到手工驱 owner-mcp 数了一遍工具才被发现。
 
 import { test, expect } from '@/fixtures/test';
 
@@ -100,6 +104,11 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'connectors.create', 'connectors.update', 'connectors.delete',
   'connectors.activate', 'connectors.disconnect',
   'connectors.validate_spec', 'connectors.mail_test_send',
+  // **第三个来源**：连接器 manifest 自己声明的 owner op（`owner_ops:`）。
+  // 上面那些是 host 侧写死的；这一条住在 `backend/connectors/google-calendar/manifest.yaml`，
+  // 由 F-C-16 加进来 —— 而这份 golden 当时没跟着改，于是它从那时起一直红着没人看见
+  // （见 [[green-means-the-real-suite-ran]]：局部跑绿掩不住跨切面守卫的红）。
+  'connectors.calendar_check',
   // access requests / ip bans / domains / instance / marketplace / ai
   'access_requests.list', 'access_requests.update', 'access_requests.approve',
   'ip_bans.list', 'ip_bans.add', 'ip_bans.remove',
