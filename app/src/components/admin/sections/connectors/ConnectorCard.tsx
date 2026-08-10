@@ -68,6 +68,7 @@ function SchemeSelect({ schemes }: { schemes: readonly string[] }) {
 function Fields({ hook }: { hook: ConnectorCardHook }) {
   return (
     <div className="space-y-2 mb-3">
+      <StoredCredsNote show={hook.hasCredentials} />
       {hook.fields.map((key) => (
         <input
           key={key}
@@ -80,6 +81,27 @@ function Fields({ hook }: { hook: ConnectorCardHook }) {
       ))}
     </div>
   );
+}
+
+// StoredCredsNote —— 「这个连接器已经存了凭据」。
+//
+// 后端**从不回**凭据的值，只回 `has_credentials: true`（connector-security 验过：
+// credential-form 回的是字段名、连打码的值都没有 —— 那比打码更强，是对的）。
+// 但代价没被界面接住：一张写着 `connected` 的卡下面摆着一排空框，
+// **「已存但隐藏」和「什么都没配」长得一模一样**（UX-65）。
+// owner 因此没法判断"我到底要不要重填"，而重填一次就把好凭据覆盖掉了。
+//
+// 保密不变，只是把**已知的事实**说出来：值不回来，但"有"这件事后端一直在说。
+function StoredCredsNote({ show }: { show: boolean }) {
+  const t = useTranslations('adminShell.connectorCard');
+  return show ? (
+    <p
+      data-testid="connector-creds-stored"
+      className="mono text-[11px] text-(--color-muted) reading-tight"
+    >
+      {t('credsStored')}
+    </p>
+  ) : null;
 }
 
 // isSecret —— 凭据里该遮的字段（密钥/口令/token）。

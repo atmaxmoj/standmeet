@@ -58,6 +58,9 @@
     "backToCatalog": "← back to catalog",
     "connect": "connect →"
   },
+  "connectorCard": {
+    "credsStored": "Credentials are saved for this connector. They are never shown again — leave the fields blank to keep them, or type new ones to replace them."
+  },
   "connectorCred": {
     "authentication": "authentication",
     "apiKeyHint": "Sent in the {where} as <code>{name}</code>.",

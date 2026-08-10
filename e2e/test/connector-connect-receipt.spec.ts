@@ -97,6 +97,32 @@ test.describe('connector · connect writes a receipt, not a claim', () => {
         { message: 'the card says connected — the database has to agree' },
       ).toBe(true);
     });
+
+  // UX-65 —— 凭据存了就得说出来，否则「已存但隐藏」和「什么都没配」长得一模一样。
+  //
+  // 后端**从不回**凭据的值（connector-security 验过：credential-form 回的是字段名，
+  // 连打码的值都没有 —— 那比打码更强，是对的）。代价是卡片上只剩一排空框：owner 看不出
+  // 自己到底配没配过，而重填一次就把好凭据覆盖掉了。事实一直在 —— `/status` 回
+  // `has_credentials: true` —— 只是没人往界面上传。
+  //
+  // 断言必须在**两种状态下给出相反结果**，否则一句"总是显示"的通用提示也能过：
+  // 存之前不该有，存之后必须有。只断后半句的守卫是不会红的。
+  test('a card with stored credentials says so, instead of showing empty boxes',
+    async ({ adminPage: page }) => {
+      // 这条跑在上面两条之后（describe 是 serial），bearer-api 此时已经存过凭据并连上。
+      const card = await openConnectorCard(page, CONNECTOR_ID);
+      await expect(
+        card.getByTestId('connector-creds-stored'),
+        'credentials are saved and the card must say so — empty boxes read as "nothing configured"',
+      ).toBeVisible();
+
+      // 反方向：另一个从没配过的连接器上，这句话必须不在。
+      const untouched = await openConnectorCard(page, 'smtp');
+      await expect(
+        untouched.getByTestId('connector-creds-stored'),
+        'a connector with no credentials must not claim to have any',
+      ).toHaveCount(0);
+    });
 });
 
 // Gate —— 一道由本用例显式放开的闸门(替代 sleep;spec 里禁计时器等待)。

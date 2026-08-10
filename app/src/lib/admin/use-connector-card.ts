@@ -30,6 +30,8 @@ export interface ConnectorCardHook {
   scopes: readonly string[];
   schemes: readonly string[];
   connected: boolean;
+  /** 后端说这个连接器已经存了凭据。值本身永远不回来 —— 卡片据此说「有」，而不是摆空框。 */
+  hasCredentials: boolean;
   connecting: boolean;
   error: string;
   setField: (key: string, value: string) => void;
@@ -46,6 +48,11 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   const [scopes, setScopes] = useState<string[]>([]);
   const [schemes, setSchemes] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
+  // hasCredentials —— 后端一直在回它（`connector-security` 验过：status 只回
+  // `has_credentials: true`，凭据本身永远不回来）。而这个 hook 以前**取到就扔了**，
+  // 于是卡片只能摆一排空框 —— owner 分不出「已存但隐藏」和「什么都没配」（UX-65）。
+  // 不回值是对的（比打码更强的保密），但那就必须由界面把「有」这件事说出来。
+  const [hasCredentials, setHasCredentials] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
   const values = useRef<Record<string, string>>({});
@@ -57,6 +64,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
     void adminAPI.get(`/connectors/${id}/status`, StatusSchema)
       .then((s) => {
         setConnected(s.connected);
+        setHasCredentials(s.has_credentials === true);
         // 连上了 → 清掉「正在连」标记，免得下次别处的 connect_error 误落到本卡。
         s.connected && clearConnecting(id);
       })
@@ -119,7 +127,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   }, [id]);
 
   return {
-    authType, fields, scopes, schemes, connected, connecting, error,
+    authType, fields, scopes, schemes, connected, hasCredentials, connecting, error,
     setField: (k, v) => { values.current[k] = v; saveCreds(); },
     setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); saveCreds(); },
     connect, disconnect,
