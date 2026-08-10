@@ -1,8 +1,16 @@
 // ModalShell —— overlay + close 行为通用部分。
+//
+// **渲染到 body（portal），不留在调用它的那棵子树里。**
+// `position: fixed` 的定位基准不是"视口"这么简单：任何一个带 transform / filter / backdrop-filter
+// / contain 的祖先都会把基准换成它自己 —— 而这件事在代码里没有任何一处写着。于是「这个遮罩
+// 到底盖住了什么」只能靠试，而 owner 定的判据是不许靠试（要么看日志，要么架构清晰到一眼看出）。
+// portal 到 body 之后，祖先链只有 <body>，基准永远是视口 —— 这个问题**不再需要问**。
+// 层级同理已经收进 --z-* 量表；两件事合起来，模态压住了谁是读得出来的事实。
 
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
@@ -14,7 +22,15 @@ type Props = {
   children: ReactNode;
 };
 
-export function ModalShell({ onClose, kicker, title, maxWidth = 540, children }: Props) {
+export function ModalShell(props: Props) {
+  // mounted —— SSR 时没有 document；挂载后才 portal。第一帧不渲染模态，而模态本来就是
+  // 交互之后才出现的东西，所以这不影响首屏。
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? createPortal(<ModalBody {...props} />, document.body) : null;
+}
+
+function ModalBody({ onClose, kicker, title, maxWidth = 540, children }: Props) {
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
   return (
     <div
