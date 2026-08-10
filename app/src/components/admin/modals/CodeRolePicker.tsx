@@ -3,6 +3,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import { useRoles, type RoleView } from '@/lib/admin/use-roles';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
@@ -22,17 +23,17 @@ function CodeRolePickerSelect({
 }: { form: CodeFormHook; roles: readonly RoleView[] }) {
   const t = useTranslations('adminShell.codeModal');
   return (
-    <select
-      className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px] w-full"
+    <SelectField
+      className="w-full"
       value={form.values.assumedRoleID}
       onChange={(e) => form.setAssumedRoleID(e.target.value)}
-      data-testid="code-field-role"
+      testid="code-field-role"
     >
       <option value="">{t('roleDefault')}</option>
       {roles.map((r) => (
         <option key={r.id} value={r.id}>{r.name}</option>
       ))}
-    </select>
+    </SelectField>
   );
 }
 

@@ -14,6 +14,7 @@ import { useRef, useState } from 'react';
 
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import {
   clearFileInput, formatBytes, useCorpusAssets,
   type CorpusAsset, type CorpusAssetsHook,
@@ -74,15 +75,16 @@ function UploadRow({ media, testid }: { media: CorpusAssetsHook; testid: string 
   };
   return (
     <div className="flex items-baseline gap-2">
-      <select
+      <SelectField
         value={kind}
         onChange={(e) => setKind(e.target.value)}
-        data-testid={`${testid}-asset-kind`}
-        className="bg-transparent border-b border-(--color-rule) py-1 mono text-[11px]"
+        testid={`${testid}-asset-kind`}
+        className="shrink-0"
+        mono
       >
         <option value="image">{t('kindImage')}</option>
         <option value="attachment">{t('kindAttachment')}</option>
-      </select>
+      </SelectField>
       <input
         ref={inputRef}
         type="file"

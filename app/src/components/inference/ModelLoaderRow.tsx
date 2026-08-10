@@ -13,6 +13,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import type { ModelListHook } from '@/lib/inference/use-model-list';
 
 const MODEL_PLACEHOLDER = 'type model id, or click Load models';
@@ -61,7 +62,7 @@ function ModelField({
 }) {
   return options === null
     ? <ModelInput value={value} onChange={onChange} prefix={prefix} inputClassName={inputClassName} />
-    : <ModelSelect value={value} onChange={onChange} options={options} prefix={prefix} inputClassName={inputClassName} />;
+    : <ModelSelect value={value} onChange={onChange} options={options} prefix={prefix} />;
 }
 
 function ModelInput({
@@ -84,24 +85,27 @@ function ModelInput({
   );
 }
 
+// ModelSelect —— 不吃 inputClassName:那串类里既有布局(flex-1)也有观感(下划线、字号),
+// 而观感现在归 SelectField 管。只留下布局那一半 —— 两个调用方给的都是 flex-1。
 function ModelSelect({
-  value, onChange, options, prefix, inputClassName,
+  value, onChange, options, prefix,
 }: {
   value: string; onChange: (v: string) => void;
   options: readonly string[];
-  prefix: ModelTestidPrefix; inputClassName: string;
+  prefix: ModelTestidPrefix;
 }) {
   const t = useTranslations('visitor.modelLoader');
   return (
-    <select
+    <SelectField
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      data-testid={`${prefix}-model-select`}
-      className={`${inputClassName} cursor-pointer`}
+      testid={`${prefix}-model-select`}
+      className="flex-1"
+      mono
     >
       <option value="">{t('pickModel')}</option>
       {options.map((m) => <option key={m} value={m}>{m}</option>)}
-    </select>
+    </SelectField>
   );
 }
 

@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import type { ConnectorEntry, ConnectorField } from '@/lib/admin/connector-registry';
 
 interface Props {
@@ -63,7 +64,7 @@ function FieldRender({ field, value, onChange }: {
   onChange: (v: string) => void;
 }) {
   return field.oauth ? <OauthBtn field={field} />
-    : field.options ? <SelectField field={field} value={value} onChange={onChange} />
+    : field.options ? <ConfigSelectField field={field} value={value} onChange={onChange} />
     : <TextField field={field} value={value} onChange={onChange} />;
 }
 
@@ -83,7 +84,10 @@ function OauthBtn({ field }: { field: ConnectorField }) {
   );
 }
 
-function SelectField({ field, value, onChange }: {
+// ConfigSelectField —— 连接器配置表单里「一行带 label 的字段,控件是下拉」。
+// 它跟 `SelectField`(全 app 那个下拉控件本身)不是一个概念,原本重名 —— 控件那个名字归通用件,
+// 这里叫 Config* 说明它属于这张表单(见 [[vocabulary-must-not-diverge]])。
+function ConfigSelectField({ field, value, onChange }: {
   field: ConnectorField;
   value: string;
   onChange: (v: string) => void;
@@ -92,14 +96,14 @@ function SelectField({ field, value, onChange }: {
   return (
     <label className="sm-field">
       <span className="sm-field-label">{field.label}</span>
-      <select
+      <SelectField
         value={value} onChange={(e) => onChange(e.target.value)}
-        className="sm-field-input sm-mono"
-        data-testid={`connector-field-${field.k}`}
+        mono
+        testid={`connector-field-${field.k}`}
       >
         <option value="">{t('choose')}</option>
         {field.options!.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
+      </SelectField>
     </label>
   );
 }

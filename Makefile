@@ -61,6 +61,7 @@ app-lint:
 	@infra/scripts/check-css-parses.sh
 	@infra/scripts/check-one-scrim.sh
 	@infra/scripts/check-one-layer-scale.sh
+	@infra/scripts/check-one-select.sh
 	@if [ -d app/node_modules ] && [ -f app/package.json ]; then \
 	  cd app && pnpm lint; \
 	else \

@@ -15,6 +15,7 @@ import { useTranslations } from 'next-intl';
 import {
   useGCal, toggledWeekdays, type BookingPolicy, type WeekdayT,
 } from '@/lib/admin/use-gcal';
+import { SelectField } from '@/components/atoms/SelectField';
 import { timezoneOptions, detectedTimezone } from '@/lib/admin/timezones';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
@@ -301,16 +302,17 @@ function PolicyTimezoneRow({
       <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
         {t('timezone')}
       </span>
-      <select
-        data-testid="gcal-timezone"
+      <SelectField
+        testid="gcal-timezone"
         value={shownTz}
         onChange={(e) => { void hook.savePolicy({ timezone: e.target.value }).catch(report); }}
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
+        className="w-full"
+        mono
       >
         {timezoneOptions(shownTz).map((tz) => (
           <option key={tz.value} value={tz.value}>{tz.label}</option>
         ))}
-      </select>
+      </SelectField>
     </label>
   );
 }

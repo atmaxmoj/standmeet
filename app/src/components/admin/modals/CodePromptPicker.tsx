@@ -4,6 +4,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
@@ -23,17 +24,17 @@ function CodePromptSelect({
 }: { form: CodeFormHook; prompts: readonly PromptView[] }) {
   const t = useTranslations('adminShell.codeModal');
   return (
-    <select
-      className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px] w-full"
+    <SelectField
+      className="w-full"
       value={form.values.promptID}
       onChange={(e) => form.setPromptID(e.target.value)}
-      data-testid="code-field-prompt"
+      testid="code-field-prompt"
     >
       <option value="">{t('promptNone')}</option>
       {prompts.map((p) => (
         <option key={p.id} value={p.id}>{p.name}</option>
       ))}
-    </select>
+    </SelectField>
   );
 }
 

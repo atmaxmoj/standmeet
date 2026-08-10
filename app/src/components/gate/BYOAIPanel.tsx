@@ -15,6 +15,7 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
 import { lookupPreset, PRESETS, type InferencePreset } from '@/lib/inference/presets';
 import {
@@ -178,16 +179,19 @@ function ProviderRow({ value, onChange }: { value: string; onChange: (p: string)
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
         {t('chooseModel')}
       </div>
-      <select
+      {/* 这里原本是 `provider-pick is-on` —— 近黑实心,是整个 gate 页最重的色块(UX-36)。
+          一个"选哪家"的下拉不该比"进来"那个动作更抢眼。换成全 app 同一个下拉。 */}
+      <SelectField
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        data-testid="byoai-provider"
-        className="provider-pick is-on mb-5 cursor-pointer"
+        testid="byoai-provider"
+        className="mb-5"
+        mono
       >
         {PRESETS.map((p) => (
           <option key={p.name} value={p.name}>{p.label}</option>
         ))}
-      </select>
+      </SelectField>
     </>
   );
 }

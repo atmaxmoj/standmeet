@@ -9,6 +9,7 @@
 
 'use client';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import type {
   DraftCustom,
   DraftEducation,
@@ -255,13 +256,13 @@ function SocialItem({
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 grid grid-cols-[120px_1fr] gap-3">
       <Field label="kind">
-        <select
+        <SelectField
           value={soc.kind}
           onChange={(e) => onPatch(soc.id, { kind: e.target.value })}
-          className="sm-field-input sm-mono"
+          mono
         >
           {SOCIAL_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-        </select>
+        </SelectField>
       </Field>
       <Field label="handle" hint="url or @handle">
         <input

@@ -359,6 +359,52 @@
   letter-spacing: 0.02em;
 }
 
+/* ── select ────────────────────────────────────────────────────────────
+   下拉此前是全 app 唯一不守这套视觉语言的控件(UX-47):19 个 `<select>`,**五种**
+   互不知道的写法 —— 盒子边框 / 小盒子 / 下划线 / sm-field-input / gate 那个近黑实心。
+   不是某处漏改,是**没有这一层**,于是每个面各自决定怎么办。
+
+   下拉复用 `.sm-field-input` 的线 —— 那条线只有一处定义,输入框和下拉共用同一条,
+   于是"这条线长什么样"以后只会改一个地方。`.sm-select` 只加**下拉独有**的那部分。
+
+   箭头必须自己画:原生箭头是系统件,`appearance: none` 之后才轮得到我们。
+   而 `<select>` 挂不住 `::after` —— 这就是为什么这里必须有一个 shell,
+   也就是 UX-47 判的"缺一个组件"。 */
+.sm-select-shell {
+  position: relative;
+  display: block;
+}
+/* 箭头用 **mask** 而不是 background-image:data URI 里塞不进 `var()`,若直接写死
+   `stroke='%23B5391C'` 就等于把朱红抄了第二份,而抄第二份必然分叉。
+   mask 只取 SVG 的 alpha(形状),颜色由 background-color 给 —— token 仍然是唯一来源。 */
+.sm-select-shell::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  width: 9px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-color: var(--color-accent);
+  -webkit-mask-image: var(--sm-chevron);
+  mask-image: var(--sm-chevron);
+  -webkit-mask-size: 9px 6px;
+  mask-size: 9px 6px;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  pointer-events: none;
+}
+.sm-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 18px;
+  cursor: pointer;
+}
+.sm-select:disabled {
+  cursor: default;
+  color: var(--color-faint);
+}
+
 /* ── segmented toggle ──────────────────────────────────────────────── */
 .sm-seg {
   display: inline-flex;

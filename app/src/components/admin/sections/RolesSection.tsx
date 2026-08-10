@@ -16,6 +16,7 @@ import { RoleDockConfig } from '@/components/admin/sections/roles/RoleDockConfig
 import { RoleProviderConfig } from '@/components/admin/sections/roles/RoleProviderConfig';
 import { RoleGhostConfig } from '@/components/admin/sections/roles/RoleGhostConfig';
 import { RoleWaypointsConfig } from '@/components/admin/sections/roles/RoleWaypointsConfig';
+import { SelectField } from '@/components/atoms/SelectField';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import {
@@ -181,17 +182,17 @@ function RolePromptSelect({
 }) {
   const t = useTranslations('adminAccess');
   return (
-    <select
-      className="mono text-[11px] bg-(--color-paper) border border-(--color-rule) px-2 py-1"
+    <SelectField
+      mono
       value={role.prompt_id ?? ''}
       onChange={(e) => onPick(e.target.value)}
-      data-testid={`role-prompt-${role.name}`}
+      testid={`role-prompt-${role.name}`}
     >
       <option value="">{t('common.noneDash')}</option>
       {prompts.map((p) => (
         <option key={p.id} value={p.id}>{p.name}</option>
       ))}
-    </select>
+    </SelectField>
   );
 }
 

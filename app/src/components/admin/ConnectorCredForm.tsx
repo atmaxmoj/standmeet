@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import type { AuthField, AuthForms, AuthScheme } from '@/lib/admin/use-connector-ingest';
 
 // onScheme / values —— 装配那一步要的两样东西。scheme 是**建**连接器的参数（写进 manifest），
@@ -81,14 +82,14 @@ function SchemeSelectMaybe({
       <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
         {t('authentication')}
       </span>
-      <select
-        data-testid="connector-scheme-select"
+      <SelectField
+        testid="connector-scheme-select"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
+        mono
       >
         {forms.map((f) => <option key={f.scheme} value={f.scheme}>{f.scheme}</option>)}
-      </select>
+      </SelectField>
     </label>
   );
 }

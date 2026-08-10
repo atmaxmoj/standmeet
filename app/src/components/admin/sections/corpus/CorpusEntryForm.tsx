@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import { appendBlock, useCorpusForm, type CorpusFormHook } from '@/lib/admin/use-corpus-form';
 import type { CorpusEntryInput, PromoteInput } from '@/lib/admin/use-corpus-actions';
 
@@ -148,15 +149,15 @@ export function HeroFields(
         <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
           {t('hue')}
         </span>
-        <select
+        <SelectField
           value={hue}
           onChange={(e) => onHue(e.target.value)}
-          data-testid={`${testid}-cover-hue`}
-          className="bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
+          testid={`${testid}-cover-hue`}
+          mono
         >
           <option value="">{t('hueDefault')}</option>
           {COVER_HUES.map((h) => <option key={h} value={h}>{h}</option>)}
-        </select>
+        </SelectField>
       </label>
     </div>
   );
@@ -265,15 +266,16 @@ function ParentField({
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
         {t('form.parent')}
       </span>
-      <select
+      <SelectField
         value={form.parentID}
         onChange={(e) => form.setParentID(e.target.value)}
-        data-testid={`${testid}-parent`}
-        className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
+        testid={`${testid}-parent`}
+        className="w-full"
+        mono
       >
         <option value="">{t('common.noneRoot')}</option>
         {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-      </select>
+      </SelectField>
     </label>
   );
 }

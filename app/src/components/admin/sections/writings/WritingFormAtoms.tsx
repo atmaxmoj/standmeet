@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
+import { SelectField } from '@/components/atoms/SelectField';
 import { WritingEditor } from '@/components/writings/editor';
 import type { PendingFile } from '@/lib/writings/upload-asset';
 
@@ -49,16 +50,15 @@ export function CoverHueSelect({
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{t('coverHue')}</span>
-      <select
-        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
+      <SelectField
         value={value}
         onChange={(e) => onChange(toCoverHue(e.target.value))}
-        data-testid="writing-field-cover-hue"
+        testid="writing-field-cover-hue"
       >
         <option value="amber">{t('hueAmber')}</option>
         <option value="violet">{t('hueViolet')}</option>
         <option value="acid">{t('hueAcid')}</option>
-      </select>
+      </SelectField>
     </label>
   );
 }
@@ -74,15 +74,14 @@ export function ParentSelect({
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
         {t('writings.parent')}
       </span>
-      <select
-        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
+      <SelectField
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        data-testid="writing-field-parent"
+        testid="writing-field-parent"
       >
         <option value="">{t('common.noneRoot')}</option>
         {options.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
-      </select>
+      </SelectField>
     </label>
   );
 }

@@ -36,6 +36,14 @@
      `subjectivity://cv`，owner 分不出哪一层在前。提到 66%。 */
   --sm-scrim: color-mix(in oklab, var(--color-ink) 66%, transparent);
 
+  /* --sm-chevron —— 下拉的箭头**形状**（不是颜色）。
+     原生箭头是系统件，`appearance: none` 之后要自己画；而 data URI 里塞不进 `var()`，
+     所以这里若写 `stroke='%23B5391C'` 就等于把朱红抄了第二份。
+     解法：这个 SVG 只当 **mask** 用 —— 只取它的 alpha（形状），颜色由
+     `.sm-select-shell::after` 的 `background-color: var(--color-accent)` 给。
+     于是下面这个 `%23000` 完全不影响成色，换主题也不用动它。 */
+  --sm-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 6'%3E%3Cpath d='M0.75 0.75 4.5 4.5 8.25 0.75' fill='none' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E");
+
   /* —— 层级量表：**「谁在谁上面」只在这里声明一次**。
      之前 19 处魔数散在 CSS 和 TSX 两种语言里，没有一处说明顺序，于是「模态盖没盖住底层」
      只能靠试 —— 而 owner 定的判据是「不可以通过实验判别，要么看日志，要么架构清晰到一眼
@@ -373,30 +381,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .codecell.is-filled { border-color: var(--color-ink); }
 .codecell.is-error  { border-color: var(--color-accent); color: var(--color-accent); }
 
-/* provider pick chip —— gate BYOAI provider 选择 */
-.provider-pick {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border: 1px solid var(--color-rule);
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  transition: border-color .15s ease, color .15s ease, background .15s ease;
-  border-radius: 2px;
-}
-.provider-pick:hover {
-  color: var(--color-ink);
-  border-color: var(--color-muted);
-}
-.provider-pick.is-on {
-  background: var(--color-ink);
-  color: var(--color-paper);
-  border-color: var(--color-ink);
-}
+/* `.provider-pick` 曾在这里 —— gate BYOAI 那个 provider 下拉专用的一套样式,
+   `is-on` 是近黑实心。它的唯一使用者已改用 SelectField(UX-36 / UX-47),规则随之作废。
+   死 CSS 没有任何工具会报 —— knip 看不见样式表 —— 所以搬走能力时得**手动**把它的边也搬走
+   (见 [[move-the-capability-move-its-edges]])。 */
 
 /* keydot —— BYOAI 已脱敏 key 的 6 个 dots */
 .keydot {

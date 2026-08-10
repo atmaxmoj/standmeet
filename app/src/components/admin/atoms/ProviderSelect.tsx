@@ -5,6 +5,7 @@
 
 'use client';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import { useProviders, type ProviderView } from '@/lib/admin/use-providers';
 
 export function ProviderSelect({
@@ -17,17 +18,17 @@ export function ProviderSelect({
 }) {
   const hook = useProviders();
   return (
-    <select
-      className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px] w-full"
+    <SelectField
+      className="w-full"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      data-testid={testid}
+      testid={testid}
     >
       <option value="">{inheritLabel}</option>
       {hook.providers.map((p) => (
         <option key={p.id} value={p.id}>{optionLabel(p)}</option>
       ))}
-    </select>
+    </SelectField>
   );
 }
 

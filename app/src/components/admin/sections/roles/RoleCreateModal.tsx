@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { ProviderSelect } from '@/components/admin/atoms/ProviderSelect';
+import { SelectField } from '@/components/atoms/SelectField';
 import { useMCPServers } from '@/lib/admin/use-mcp-servers';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import type { RoleView, WriteRoleInput } from '@/lib/admin/use-roles';
@@ -150,17 +151,16 @@ function RolePromptDropdown({
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{t('common.prompt')}</span>
-      <select
-        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
+      <SelectField
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-        data-testid="role-field-prompt"
+        testid="role-field-prompt"
       >
         <option value="">{t('roleCreate.promptNone')}</option>
         {prompts.map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
-      </select>
+      </SelectField>
     </label>
   );
 }

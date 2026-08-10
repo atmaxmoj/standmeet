@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import type { AIProviderPresetView } from '@/lib/api/admin';
 import type { CreateProviderInput } from '@/lib/admin/use-providers';
 import { endpointForPreset } from '@/lib/inference/use-presets';
@@ -109,16 +110,17 @@ function PresetSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <select
-      data-testid="provider-new-provider"
+    <SelectField
+      testid="provider-new-provider"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
+      className="w-full"
+      mono
     >
       {presets.map((p) => (
         <option key={p.name} value={p.name}>{p.name}</option>
       ))}
-    </select>
+    </SelectField>
   );
 }
 

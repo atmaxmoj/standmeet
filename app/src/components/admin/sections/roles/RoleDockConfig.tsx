@@ -5,6 +5,7 @@
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
+import { SelectField } from '@/components/atoms/SelectField';
 import { useCapabilities, type CapabilityRow } from '@/lib/admin/use-capabilities';
 import {
   roleUpdatePayload, useRoles, type DockButtonConfig, type RoleView,
@@ -70,21 +71,26 @@ function DockSlotRow({
 }) {
   const t = useTranslations('adminAccess');
   return (
-    <div className="flex gap-2">
-      <select
-        className="mono text-[11px] bg-(--color-paper) border border-(--color-rule) px-2 py-1 shrink-0"
+    // 上下两行,不是并排(UX-49):并排时输入分到的宽度不够,占位符被卡片右缘切成
+    // `trigger phrase (e.g. s` —— **被切掉的恰恰是唯一给出具体写法的例子**。
+    // 上面那段说明讲清了"触发语是什么概念",但"该写成什么样子"只有那个例子在说。
+    // 不是文案太长,是布局没给够;竖过来输入就拿到整张卡片的宽度。
+    <div className="flex flex-col gap-1.5">
+      <SelectField
+        className="w-full"
+        mono
         value={slot.capability_id}
         onChange={(e) => onSlot(idx, { capability_id: e.target.value })}
-        data-testid={`role-dock-cap-${idx}`}
+        testid={`role-dock-cap-${idx}`}
       >
         <option value="">{t('common.noneDash')}</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>{o.title}</option>
         ))}
-      </select>
+      </SelectField>
       <input
         type="text"
-        className="flex-1 min-w-0 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13px]"
+        className="w-full min-w-0 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13px]"
         value={slot.trigger}
         onChange={(e) => onSlot(idx, { trigger: e.target.value })}
         placeholder={t('roleDock.triggerPlaceholder')}
