@@ -11,6 +11,7 @@
 import type { Page } from '@playwright/test';
 
 import { resetInstance } from '@/fixtures/instance';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 import { test, expect } from '@/fixtures/test';
@@ -65,6 +66,30 @@ test.describe('first-run claim · 4-step wizard polish', () => {
       await page.waitForURL('**/admin/dashboard', { timeout: 10_000 });
     });
 
+  // F-H-2：第 3 步收的 key **必须真的落地**。
+  //
+  // 这条以前没人守：既有的两条 full-flow 用例都在第 3 步直接 next（"可跳过"），
+  // 于是"填了会怎样"从来没被问过 —— 而重建实例那次真填了，结果 review 卡照印
+  // `AI · DeepSeek · deepseek-chat`，claim 也成功，key 却一个字都没写进去。
+  //
+  // 断言落在 **owner 后面看得到的那个面**（/admin/api·mcp），不是 claim 的响应：
+  // owner 判断"配好了没"看的就是这个面，而 endpoint 回填成 deepseek 的 base URL
+  // 恰好证明 provider 也跟着落地了（那个值这一步压根没让 owner 输过）。
+  test('the AI key typed at step 3 is configured by the time the wizard lands in admin',
+    async ({ page }) => {
+      await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
+      await fillStep1(page);
+      await page.getByTestId('next').click();
+      await fillStep2(page);
+      await page.getByTestId('next').click();
+      await fillStep3Provider(page);
+      await page.getByTestId('next').click();
+      await submitReview(page);
+      await page.waitForURL('**/admin/dashboard', { timeout: 10_000 });
+      await gotoAdminSection(page, 'api-mcp');
+      await expectProviderOnFile(page);
+    });
+
   // 这里曾经有一条 `wrong captcha → error, stays on /setup`。**那个不变量随控件一起没了**
   // （F-H-1：算术框后端不验，拦不住 bot 只拦得住 owner 的 agent，已删）。
   //
@@ -98,6 +123,25 @@ async function fillStep2(page: Page): Promise<void> {
   await page.getByTestId('email').fill(OWNER.email);
   await page.getByTestId('password').fill(OWNER.password);
   await page.getByTestId('password-confirm').fill(OWNER.password);
+}
+
+async function fillStep3Provider(page: Page): Promise<void> {
+  await page.getByTestId('setup-provider-deepseek').click();
+  await page.getByTestId('setup-ai-model').fill('deepseek-chat');
+  await page.getByTestId('setup-ai-key').fill('sk-setup-wizard-fake-key');
+}
+
+// expectProviderOnFile —— 在 /admin/api·mcp 上确认第 3 步那份配置真的在库里。
+// endpoint 是判据里最硬的一条：这一步从没让 owner 输过它，它只能是服务端按
+// provider 从 preset 表查出来的。
+async function expectProviderOnFile(page: Page): Promise<void> {
+  await expect(
+    page.getByTestId('ai-provider-key'),
+    'the key from step 3 must be on file, not thrown away',
+  ).toHaveAttribute('placeholder', /already set/);
+  await expect(page.getByTestId('ai-provider-endpoint'))
+    .toHaveValue('https://api.deepseek.com');
+  await expect(page.getByTestId('ai-provider-model')).toHaveValue('deepseek-chat');
 }
 
 // submitReview —— 第 4 步现在只是复核卡，直接提交（算术框已删，见 F-H-1）。

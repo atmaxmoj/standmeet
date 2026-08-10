@@ -6,7 +6,10 @@
 //   3. ai provider   —— provider chip + key + model（可跳，admin 后台可补）
 //   4. review        —— summary 卡 → claim
 //
-// Step 3 写到 admin/ai-provider PATCH（成功 claim 之后顺手调一次）。
+// Step 3 的 provider/model/key 跟 claim 同一次请求送出去，服务端在 claim 成功后
+// 立刻落库（`routes/admin/claim.go` 的 setupAIProvider）。
+// **这里以前写的是「claim 之后顺手 PATCH 一次」—— 那一"顺手"从来没发生过**（F-H-2）：
+// 注释描述了一个不存在的行为，而界面上没有任何东西否认它。
 //
 // **step 4 曾经还有一道算术 captcha，已经删掉（F-H-1）。**
 // 它是 client-only 的：`routes/admin/claim.go` 的 `claimRequest` 只有
@@ -151,6 +154,11 @@ export function useSetupForm(setupToken: string): SetupFormHook {
         handle: form.handle,
         full_name: form.full,
         public_url: normalizePublicURL(form.publicUrl),
+        // F-H-2：第 3 步收的 key 以前到这里就断了 —— 这一行以前不存在，
+        // 于是 review 卡照印 provider、claim 照样成功，而 key 一个字都没落地。
+        ai_provider: form.aiProvider,
+        ai_model: form.aiModel,
+        ai_key: form.aiKey.trim(),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'claim failed');

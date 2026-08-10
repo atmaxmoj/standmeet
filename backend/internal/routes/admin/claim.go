@@ -6,9 +6,12 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/go-chi/chi/v5"
 
@@ -115,6 +118,13 @@ type claimRequest struct {
 	Handle    string `json:"handle"`
 	FullName  string `json:"full_name"`
 	PublicURL string `json:"public_url"`
+	// 向导第 3 步的 AI provider。可空(那一步明说可跳)，非空就必须落地 ——
+	// F-H-2：以前前端收了这三个值就扔了，owner 看到 review 卡印着 provider、
+	// claim 也成功，key 却从没写进去。endpoint 不在这里收：它由服务端从
+	// ai_provider.presets 那张唯一的表里查，客户端无从自己编一个。
+	AIProvider string `json:"ai_provider"`
+	AIModel    string `json:"ai_model"`
+	AIKey      string `json:"ai_key"`
 }
 
 type claimResponse struct {
@@ -203,7 +213,71 @@ func (h *Handlers) runClaimAndAutoLogin(
 	}
 	setSessionCookies(w, loggedIn.SessionToken, loggedIn.CSRFToken, h.SecureCookie)
 	session.RemoveFirstRunFile(h.Log)
+	h.setupAIProvider(r.Context(), claimed.ID, req)
 	writeJSONClaim(h.Log, w, &claimed)
+}
+
+// setupAIProvider —— 把向导第 3 步的 provider/model/key 落地。
+//
+// 排在 claim 之后而不是里面:instance 已经归属，token 已经消耗，这一步再失败也
+// 不能把 owner 挡在门外。失败**不静默**:这里记 Error 日志，而 owner 那侧
+// dashboard 的 NEEDS YOUR HAND 会直说「no usable AI provider — visitors are
+// being turned away」。
+func (h *Handlers) setupAIProvider(ctx context.Context, ownerID string, req *claimRequest) {
+	if req.AIKey == "" {
+		return // 第 3 步可跳过(向导自己这么写的)，跳了就什么都不做
+	}
+	if err := h.applyAIProvider(ctx, ownerID, req); err != nil {
+		h.Log.Error("claim: the AI provider from setup did not land",
+			"owner_id", ownerID, "provider", req.AIProvider, logErrKey, err)
+	}
+}
+
+func (h *Handlers) applyAIProvider(
+	ctx context.Context, ownerID string, req *claimRequest,
+) error {
+	endpoint, err := h.presetEndpoint(ctx, ownerID, req.AIProvider)
+	if err != nil {
+		return err
+	}
+	args, err := json.Marshal(map[string]string{
+		"provider": req.AIProvider, "endpoint": endpoint, "model": req.AIModel,
+		"key_change": "set", "key": req.AIKey,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = h.AIProviderAdmin.Face.MustOp("ai_provider.set").Invoke(ctx, ownerID, args)
+	return err
+}
+
+// presetEndpoint —— provider 名 → base URL，问的是**同一张 preset 表**
+// (`ai_provider.presets`)，不是这一层手抄的第二份。
+func (h *Handlers) presetEndpoint(
+	ctx context.Context, ownerID, provider string,
+) (string, error) {
+	raw, err := h.AIProviderAdmin.Face.MustOp("ai_provider.presets").Invoke(ctx, ownerID, nil)
+	if err != nil {
+		return "", err
+	}
+	return pickPresetBaseURL(raw, provider)
+}
+
+type aiPresetRow struct {
+	Name    string `json:"name"`
+	BaseURL string `json:"base_url"`
+}
+
+func pickPresetBaseURL(raw json.RawMessage, provider string) (string, error) {
+	var rows []aiPresetRow
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return "", fmt.Errorf("decode ai provider presets: %w", err)
+	}
+	i := slices.IndexFunc(rows, func(p aiPresetRow) bool { return p.Name == provider })
+	if i < 0 {
+		return "", fmt.Errorf("no preset endpoint for provider %q", provider)
+	}
+	return rows[i].BaseURL, nil
 }
 
 func handleClaimErr(log *slog.Logger, w http.ResponseWriter, err error) {

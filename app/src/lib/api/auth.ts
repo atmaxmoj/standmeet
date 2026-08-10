@@ -17,6 +17,11 @@ export interface ClaimInput {
   handle: string;
   full_name: string;
   public_url: string;
+  // 向导第 3 步收的 AI provider，跟 claim 同一次请求送过去。留空 = 那一步跳过了。
+  // endpoint 不在这里 —— 服务端从自己的 preset 表查，前端不编第二份。
+  ai_provider: string;
+  ai_model: string;
+  ai_key: string;
 }
 
 const ClaimResultSchema = z.object({
