@@ -89,5 +89,20 @@ if [ -z "$(scan_overlays "$planted_file")" ]; then
 fi
 rm -f "$planted_file"
 
+# 原生控件的强调色和焦点环也各自只能有**一处**声明(UX-33 / UX-50)。
+# 这两样在此之前一处都没声明过 —— 于是勾选框和焦点环用的是系统蓝,在纸色/墨/朱红的版面上
+# 是唯一的外来色。声明在 html/body 和 *:focus-visible 上,组件不许各写各的:
+# 一旦某个组件自己覆盖一份,「这个控件是什么颜色」就又要靠翻文件回答。
+#
+# 判据是**声明次数**,不是"在哪个选择器里" —— 后者要解析 CSS 才判得准,而数声明是确定的:
+# 全 app 恰好一条 `accent-color: …`(排除注释行)。多一条就是有人另起了一份。
+accent_n=$(grep -rn 'accent-color:' app/src 2>/dev/null | grep -v '^\s*[^:]*:[0-9]*:\s*/\*' \
+  | grep -vc '^\s*$' || true)
+if [ "$accent_n" != "1" ]; then
+  echo "check-one-scrim: expected exactly one 'accent-color:' declaration, found $accent_n:"
+  grep -rn 'accent-color:' app/src 2>/dev/null || true
+  fail=1
+fi
+
 [ "$fail" -eq 0 ] || exit 1
 echo "check-one-scrim: one scrim source (self-test passed: a planted hand-rolled overlay goes red)."
