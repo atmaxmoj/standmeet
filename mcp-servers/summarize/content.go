@@ -32,11 +32,23 @@ const (
 // result {ok, report_id, html} via mcp-ui:data and renders the inline sneak-peek.
 // The "open as page" link carries href=/report/<id> (asserted by e2e) AND posts
 // mcp-ui:link so the parent actually opens it (the sandbox can't navigate top).
+//
+// UX-56 —— 卡里那个 280px 的内层 iframe 是**有意**的：这是 sneak-peek，不是全文。
+// 但切口原本什么信号都没有 —— 报告长过 280px 就断在句子中间撞上卡片边框，
+// 读起来像"坏了"而不是"还有"。续读入口（open as page ↗）一直在头部，
+// 缺的只是"你需要走它"这件事被说出来。
+//
+// 所以加的是一道**渐隐**而不是又一句提示语：这套设计语言里，续读该被看见，不该被念出来。
+// 归属值得记一笔：我最初把这条记成"聊天转录在裁剪"，错了 —— 宿主不裁剪，
+// `McpAppCard.tsx` 的 iframe 高度是这张卡自己 post 上去的。尺寸是谁设的，缺陷就归谁。
 const reportCardHTML = `<!doctype html><html><head><meta charset="utf-8">
 <style>
  :root{font-family:ui-serif,Georgia,serif;color:#1B1814}
  body{margin:0;padding:2px}
- .card{border:1px solid #d9d0c2;border-radius:3px;overflow:hidden;background:#F3EFE6}
+ .card{border:1px solid #d9d0c2;border-radius:3px;overflow:hidden;background:#F3EFE6;position:relative}
+ /* UX-56: fade at the cut so a peek reads as "more", not "ended". */
+ .card::after{content:"";position:absolute;left:1px;right:1px;bottom:1px;height:56px;
+   background:linear-gradient(to bottom,rgba(255,255,255,0),#fff);pointer-events:none}
  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
    padding:8px 10px;border-bottom:1px solid #ece5d8}
  .kicker{font:600 11px ui-monospace,monospace;letter-spacing:.1em;
