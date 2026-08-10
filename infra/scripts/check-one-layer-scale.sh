@@ -40,10 +40,27 @@ if [ -n "$bare_css" ]; then
   fail=1
 fi
 
+# 带内偏移只能是 +1..+9。层与层之间隔 10,所以 `calc(var(--z-modal) + 1)` 是"同一带里排先后",
+# 而 `+ 10` 就撞上下一层了 —— 那不是排序,那是**偷偷换层**,而且看起来跟合法写法一模一样。
+# 允许相对偏移是为了让「谁压谁」写在它该在的尺度上:跨层的事改这张表,带内的事在用它的地方写。
+big_offset=$(find app/src -name '*.css' -o -name '*.tsx' -print0 2>/dev/null \
+  | xargs -0 -r grep -nE 'var\(--z-[a-z-]+\)[[:space:]]*\+[[:space:]]*[0-9]{2,}' || true)
+if [ -n "$big_offset" ]; then
+  echo "check-one-layer-scale: a layer offset of 10+ escapes its band — use +1..+9:"
+  echo "$big_offset"
+  fail=1
+fi
+
 # bare_tsx —— TSX 里的裸 z-<n> 工具类。只认 class 串里的,避免误伤变量名。
-bare_tsx=$(find app/src -name '*.tsx' -print0 2>/dev/null | xargs -0 -r grep -nE '(class|className)="[^"]*[[:space:]"]z-[0-9]+' || true)
+#
+# **TSX 只准写类名**：`sm-z-modal` / `sm-z-modal-3`。裸 `z-40` 和任意值 `z-[...]` 都禁 ——
+# 后者虽然指向量表，但它让"层级"这件事在用的地方以两种写法出现，而**一个概念两种写法**
+# 正是词汇分叉的起点（见 [[vocabulary-must-not-diverge]]）。收成一个封闭集合之后，
+# 「这个东西在第几层」永远只有一种读法。
+bare_tsx=$(find app/src -name '*.tsx' -print0 2>/dev/null \
+  | xargs -0 -r grep -nE '(class|className)="[^"]*[[:space:]"](z-[0-9]+|z-\[)' || true)
 if [ -n "$bare_tsx" ]; then
-  echo "check-one-layer-scale: a bare z-<n> utility instead of z-[var(--z-*)]:"
+  echo "check-one-layer-scale: use a layer class (sm-z-<band>[-1..9]), not z-<n> or z-[...]:"
   echo "$bare_tsx"
   fail=1
 fi

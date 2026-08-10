@@ -175,7 +175,7 @@ function PromptCreateModal({
   const [body, setBody] = useState('');
   return (
     <div
-      className="fixed inset-0 bg-[var(--sm-scrim)] flex items-center justify-center z-[var(--z-modal)]"
+      className="fixed inset-0 bg-[var(--sm-scrim)] flex items-center justify-center sm-z-modal"
       data-testid="prompt-create-modal"
     >
       <div className="bg-(--color-paper) border border-(--color-rule) max-w-[640px] w-[92vw] p-7 flex flex-col gap-4">

@@ -14,7 +14,7 @@ type Props = {
 
 export function SaveBar({ dirty, savedAt, saving, onSave, onRevert }: Props) {
   return (
-    <div className="sticky bottom-0 z-[var(--z-raised)] -mb-8 mt-8 py-3 bg-(--color-paper) border-t border-(--color-rule) flex items-center justify-between">
+    <div className="sticky bottom-0 sm-z-raised -mb-8 mt-8 py-3 bg-(--color-paper) border-t border-(--color-rule) flex items-center justify-between">
       <SaveStatus dirty={dirty} savedAt={savedAt} saving={saving} />
       <SaveActions dirty={dirty} saving={saving} onSave={onSave} onRevert={onRevert} />
     </div>

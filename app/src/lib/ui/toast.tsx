@@ -88,7 +88,7 @@ export function Toaster() {
   return (
     <div
       aria-live="polite"
-      className="fixed bottom-6 right-6 z-[var(--z-toast)] flex flex-col gap-2 max-w-[24em]"
+      className="fixed bottom-6 right-6 sm-z-toast flex flex-col gap-2 max-w-[24em]"
       data-testid="toaster"
     >
       {items.map((t) => <ToastCard key={t.id} item={t} />)}

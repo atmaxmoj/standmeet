@@ -11,6 +11,128 @@
  * 维护规则：design bundle (docs/design/project/sm-tokens.css) 变更时，
  * 这里 mirror 一份。tokens (color/type/tracking/motion) 在 globals.css。 */
 
+/* ── layer （层级）────────────────────────────────────────────────────
+ * 用的地方只写名字：`className="fixed inset-0 sm-z-modal"`。
+ * 数值只在 globals.css 的量表里出现一次；这里把它翻成一组可读的类。
+ *
+ * 带内排序用后缀 `-1`…`-9`（层间隔 10，所以排得出先后、排不出自己那一层）。
+ *
+ * **每一层都定义满 0–9，一个不缺。** 一开始我只手加了当下要用的那一个 `.sm-z-float-1` ——
+ * 那是个只为当前用例存在的特例，下一个人要加 `-2` 时得先判断"这样加对不对"，而这种判断
+ * 正是规则烂掉的入口。要么把偏移做成参数，要么每层定义全；选了后者，因为用的地方读到的是
+ * 名字而不是表达式，闸门也因此能把词汇收成一个封闭集合。没用到的类不会进产物（Tailwind
+ * 的 content 扫描按实际出现的类名产出）。
+ */
+.sm-z-local   { z-index: var(--z-local); }
+.sm-z-local-1 { z-index: calc(var(--z-local) + 1); }
+.sm-z-local-2 { z-index: calc(var(--z-local) + 2); }
+.sm-z-local-3 { z-index: calc(var(--z-local) + 3); }
+.sm-z-local-4 { z-index: calc(var(--z-local) + 4); }
+.sm-z-local-5 { z-index: calc(var(--z-local) + 5); }
+.sm-z-local-6 { z-index: calc(var(--z-local) + 6); }
+.sm-z-local-7 { z-index: calc(var(--z-local) + 7); }
+.sm-z-local-8 { z-index: calc(var(--z-local) + 8); }
+.sm-z-local-9 { z-index: calc(var(--z-local) + 9); }
+
+.sm-z-raised   { z-index: var(--z-raised); }
+.sm-z-raised-1 { z-index: calc(var(--z-raised) + 1); }
+.sm-z-raised-2 { z-index: calc(var(--z-raised) + 2); }
+.sm-z-raised-3 { z-index: calc(var(--z-raised) + 3); }
+.sm-z-raised-4 { z-index: calc(var(--z-raised) + 4); }
+.sm-z-raised-5 { z-index: calc(var(--z-raised) + 5); }
+.sm-z-raised-6 { z-index: calc(var(--z-raised) + 6); }
+.sm-z-raised-7 { z-index: calc(var(--z-raised) + 7); }
+.sm-z-raised-8 { z-index: calc(var(--z-raised) + 8); }
+.sm-z-raised-9 { z-index: calc(var(--z-raised) + 9); }
+
+.sm-z-sticky   { z-index: var(--z-sticky); }
+.sm-z-sticky-1 { z-index: calc(var(--z-sticky) + 1); }
+.sm-z-sticky-2 { z-index: calc(var(--z-sticky) + 2); }
+.sm-z-sticky-3 { z-index: calc(var(--z-sticky) + 3); }
+.sm-z-sticky-4 { z-index: calc(var(--z-sticky) + 4); }
+.sm-z-sticky-5 { z-index: calc(var(--z-sticky) + 5); }
+.sm-z-sticky-6 { z-index: calc(var(--z-sticky) + 6); }
+.sm-z-sticky-7 { z-index: calc(var(--z-sticky) + 7); }
+.sm-z-sticky-8 { z-index: calc(var(--z-sticky) + 8); }
+.sm-z-sticky-9 { z-index: calc(var(--z-sticky) + 9); }
+
+.sm-z-dock   { z-index: var(--z-dock); }
+.sm-z-dock-1 { z-index: calc(var(--z-dock) + 1); }
+.sm-z-dock-2 { z-index: calc(var(--z-dock) + 2); }
+.sm-z-dock-3 { z-index: calc(var(--z-dock) + 3); }
+.sm-z-dock-4 { z-index: calc(var(--z-dock) + 4); }
+.sm-z-dock-5 { z-index: calc(var(--z-dock) + 5); }
+.sm-z-dock-6 { z-index: calc(var(--z-dock) + 6); }
+.sm-z-dock-7 { z-index: calc(var(--z-dock) + 7); }
+.sm-z-dock-8 { z-index: calc(var(--z-dock) + 8); }
+.sm-z-dock-9 { z-index: calc(var(--z-dock) + 9); }
+
+.sm-z-strip   { z-index: var(--z-strip); }
+.sm-z-strip-1 { z-index: calc(var(--z-strip) + 1); }
+.sm-z-strip-2 { z-index: calc(var(--z-strip) + 2); }
+.sm-z-strip-3 { z-index: calc(var(--z-strip) + 3); }
+.sm-z-strip-4 { z-index: calc(var(--z-strip) + 4); }
+.sm-z-strip-5 { z-index: calc(var(--z-strip) + 5); }
+.sm-z-strip-6 { z-index: calc(var(--z-strip) + 6); }
+.sm-z-strip-7 { z-index: calc(var(--z-strip) + 7); }
+.sm-z-strip-8 { z-index: calc(var(--z-strip) + 8); }
+.sm-z-strip-9 { z-index: calc(var(--z-strip) + 9); }
+
+.sm-z-float   { z-index: var(--z-float); }
+.sm-z-float-1 { z-index: calc(var(--z-float) + 1); }
+.sm-z-float-2 { z-index: calc(var(--z-float) + 2); }
+.sm-z-float-3 { z-index: calc(var(--z-float) + 3); }
+.sm-z-float-4 { z-index: calc(var(--z-float) + 4); }
+.sm-z-float-5 { z-index: calc(var(--z-float) + 5); }
+.sm-z-float-6 { z-index: calc(var(--z-float) + 6); }
+.sm-z-float-7 { z-index: calc(var(--z-float) + 7); }
+.sm-z-float-8 { z-index: calc(var(--z-float) + 8); }
+.sm-z-float-9 { z-index: calc(var(--z-float) + 9); }
+
+.sm-z-overlay   { z-index: var(--z-overlay); }
+.sm-z-overlay-1 { z-index: calc(var(--z-overlay) + 1); }
+.sm-z-overlay-2 { z-index: calc(var(--z-overlay) + 2); }
+.sm-z-overlay-3 { z-index: calc(var(--z-overlay) + 3); }
+.sm-z-overlay-4 { z-index: calc(var(--z-overlay) + 4); }
+.sm-z-overlay-5 { z-index: calc(var(--z-overlay) + 5); }
+.sm-z-overlay-6 { z-index: calc(var(--z-overlay) + 6); }
+.sm-z-overlay-7 { z-index: calc(var(--z-overlay) + 7); }
+.sm-z-overlay-8 { z-index: calc(var(--z-overlay) + 8); }
+.sm-z-overlay-9 { z-index: calc(var(--z-overlay) + 9); }
+
+.sm-z-modal   { z-index: var(--z-modal); }
+.sm-z-modal-1 { z-index: calc(var(--z-modal) + 1); }
+.sm-z-modal-2 { z-index: calc(var(--z-modal) + 2); }
+.sm-z-modal-3 { z-index: calc(var(--z-modal) + 3); }
+.sm-z-modal-4 { z-index: calc(var(--z-modal) + 4); }
+.sm-z-modal-5 { z-index: calc(var(--z-modal) + 5); }
+.sm-z-modal-6 { z-index: calc(var(--z-modal) + 6); }
+.sm-z-modal-7 { z-index: calc(var(--z-modal) + 7); }
+.sm-z-modal-8 { z-index: calc(var(--z-modal) + 8); }
+.sm-z-modal-9 { z-index: calc(var(--z-modal) + 9); }
+
+.sm-z-toast   { z-index: var(--z-toast); }
+.sm-z-toast-1 { z-index: calc(var(--z-toast) + 1); }
+.sm-z-toast-2 { z-index: calc(var(--z-toast) + 2); }
+.sm-z-toast-3 { z-index: calc(var(--z-toast) + 3); }
+.sm-z-toast-4 { z-index: calc(var(--z-toast) + 4); }
+.sm-z-toast-5 { z-index: calc(var(--z-toast) + 5); }
+.sm-z-toast-6 { z-index: calc(var(--z-toast) + 6); }
+.sm-z-toast-7 { z-index: calc(var(--z-toast) + 7); }
+.sm-z-toast-8 { z-index: calc(var(--z-toast) + 8); }
+.sm-z-toast-9 { z-index: calc(var(--z-toast) + 9); }
+
+.sm-z-confirm   { z-index: var(--z-confirm); }
+.sm-z-confirm-1 { z-index: calc(var(--z-confirm) + 1); }
+.sm-z-confirm-2 { z-index: calc(var(--z-confirm) + 2); }
+.sm-z-confirm-3 { z-index: calc(var(--z-confirm) + 3); }
+.sm-z-confirm-4 { z-index: calc(var(--z-confirm) + 4); }
+.sm-z-confirm-5 { z-index: calc(var(--z-confirm) + 5); }
+.sm-z-confirm-6 { z-index: calc(var(--z-confirm) + 6); }
+.sm-z-confirm-7 { z-index: calc(var(--z-confirm) + 7); }
+.sm-z-confirm-8 { z-index: calc(var(--z-confirm) + 8); }
+.sm-z-confirm-9 { z-index: calc(var(--z-confirm) + 9); }
+
 /* ── reading ───────────────────────────────────────────────────────── */
 .sm-reading {
   font-family: var(--font-serif);
@@ -627,7 +749,7 @@
   position: fixed;
   right: 18px;
   bottom: 64px;
-  z-index: var(--z-float-panel);
+  z-index: calc(var(--z-float) + 1);  /* 贴着它的触发器（同 .sm-z-float-1） */
   width: 380px;
   max-width: calc(100vw - 36px);
   max-height: 70vh;

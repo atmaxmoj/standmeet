@@ -76,7 +76,7 @@ export function ChatRoom({ owner, mode }: Props) {
 
 function ChatRoomHeader({ handle }: { handle: string }) {
   return (
-    <header className="flex items-center justify-between px-6 lg:px-10 py-3 border-b border-(--color-rule) shrink-0 gap-4 sticky top-0 bg-(--color-paper)/95 backdrop-blur z-[var(--z-sticky)]">
+    <header className="flex items-center justify-between px-6 lg:px-10 py-3 border-b border-(--color-rule) shrink-0 gap-4 sticky top-0 bg-(--color-paper)/95 backdrop-blur sm-z-sticky">
       <HeaderLeft handle={handle} />
       <HeaderRight />
     </header>
@@ -168,7 +168,7 @@ type ComposerProps = {
 function ChatComposer({ showStarters, mode, ...rest }: ComposerProps & { showStarters: boolean; mode: string }) {
   const starters = mode === 'byoai' ? BYOAI_STARTERS : CODED_STARTERS;
   return (
-    <div className="sticky bottom-0 z-[var(--z-dock)] bg-(--color-paper)/95 backdrop-blur border-t border-(--color-rule) pt-4 pb-5">
+    <div className="sticky bottom-0 sm-z-dock bg-(--color-paper)/95 backdrop-blur border-t border-(--color-rule) pt-4 pb-5">
       <DockButtons onPick={rest.onSubmit} pending={rest.pending} />
       {showStarters && <StarterChips starters={starters} onPick={rest.onSubmit} pending={rest.pending} />}
       <ComposerForm {...rest} />
