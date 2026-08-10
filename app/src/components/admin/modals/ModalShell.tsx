@@ -21,7 +21,7 @@ export function ModalShell({ onClose, kicker, title, maxWidth = 540, children }:
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--sm-scrim)] fadein p-4"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-[var(--sm-scrim)] fadein p-4"
     >
       <div
         onClick={stop}

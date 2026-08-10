@@ -59,6 +59,7 @@ backend-no-mock:
 app-lint:
 	@infra/scripts/check-i18n-keys
 	@infra/scripts/check-one-scrim.sh
+	@infra/scripts/check-one-layer-scale.sh
 	@if [ -d app/node_modules ] && [ -f app/package.json ]; then \
 	  cd app && pnpm lint; \
 	else \
