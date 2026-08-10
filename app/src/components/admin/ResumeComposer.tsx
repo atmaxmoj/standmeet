@@ -181,14 +181,25 @@ function MatchGauge({ pct }: { pct: number }) {
   );
 }
 
-// MatchGaugeBar —— 填充比例走 `style`,不走拼出来的类名。
-// 拼接的 Tailwind 任意属性构建期扫不到,一条 CSS 都不生成,`.sm-fill` 于是一直退到兜底的
-// `width: 0%` —— **这根条从来没显示过任何数值**,而它的名字说它在显示匹配度([[names-that-lie]])。
+// MatchGaugeBar —— 这根条**两个各自独立的原因**都会让它什么都不显示,缺一个都不够:
+//
+//  1. 填充比例曾写成拼接出来的 Tailwind 任意值,构建期扫不到 → 一条 CSS 都不生成,
+//     `.sm-fill` 退到兜底的 `width: 0%`。现在走 `style`。
+//  2. `.sm-fill` **只有 width** —— 高度和底色住在 `.sm-session-strip-gauge-fill` 里,
+//     而这里原本只贴了前者,于是即便宽度对了,盒子仍然高 0、无色。
+//
+// 两个都得修才看得见,所以**修一个仍然一片空白** —— 这正是它一直没被发现的原因:
+// 每一次"顺手改一下"都没有任何肉眼可见的回报,于是没人确认过它到底画没画
+// (见 [[names-that-lie]]:表上那个数一直是对的,只有条是假的)。
 function MatchGaugeBar({ pct }: { pct: number }) {
   return (
-    <span className="sm-session-strip-gauge-bar">
-      {/* eslint-disable-next-line no-restricted-syntax -- pct 是运行时算出来的匹配度，只有 style 能承载 */}
-      <span className="sm-fill" style={cssVars({ '--fill': `${pct}%` })} />
+    <span className="sm-session-strip-gauge-bar" data-testid="composer-match-track">
+      <span
+        className="sm-session-strip-gauge-fill sm-fill"
+        data-testid="composer-match-fill"
+        // eslint-disable-next-line no-restricted-syntax -- pct 是运行时算出来的匹配度，只有 style 能承载
+        style={cssVars({ '--fill': `${pct}%` })}
+      />
     </span>
   );
 }

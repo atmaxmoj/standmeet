@@ -41,7 +41,85 @@ test.describe('admin /drafts · the "match" gauge must depend on the job, not li
 
   test('the same résumé applied to a different job must not keep the identical "match" score',
     gaugeDependsOnJob);
+
+  test('the gauge BAR renders the value it sits next to, and moves with it', gaugeBarRendersValue);
 });
+
+// gaugeBarRendersValue —— 数字对不代表**表**对。
+//
+// 手工驱这个模块时读到 `match 55 / 100`，而它左边那根条**一片空白**。两个各自独立的原因，
+// 缺一个都不会显示：
+//   1. 填充比例曾写成拼接出来的 Tailwind 任意值 → 一条 CSS 都不生成（已单独修）。
+//   2. `MatchGaugeBar` 只贴了 `.sm-fill`，而 `.sm-fill` **只有 width**；高度和颜色住在
+//      `.sm-session-strip-gauge-fill` 里，composer 这份漏了它 → 盒子高 0、无底色。
+// 所以只修其中一个，屏幕上仍然什么都没有 —— 这正是它一直没被发现的原因。
+//
+// 判据是**几何**不是文本：读 innerText 分不出「画了」和「被压成 0」
+// （见 [[text-assertion-cannot-see-layout]]）。而且断两件事：
+//   - 这一刻的宽度确实按比例（一个写死 50% 的条也能骗过"有宽度"）
+//   - 换个岗位、值变了，宽度**跟着变**（这一条让断言不可能恒真）
+async function gaugeBarRendersValue({ adminPage: page }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(page, 'drafts');
+  await expect(page.getByTestId('draft-card')).toBeVisible({ timeout: 5_000 });
+  await page.getByRole('button', { name: /open composer/i }).first().click();
+
+  const composer = page.getByTestId('resume-composer');
+  await expect(composer).toBeVisible({ timeout: 5_000 });
+
+  await composer.getByTestId('composer-company').fill('Anthropic');
+  await composer.getByTestId('composer-role').fill('Backend retrieval engineer');
+  await expect(composer.getByTestId('composer-role')).toHaveValue('Backend retrieval engineer');
+  await expectBarMatchesNumber(page);
+  const high = await gaugeGeometry(page);
+
+  expect(high.fillHeight, 'the gauge fill has no height — it is not drawn at all').toBeGreaterThan(0);
+
+  // 换成一个跟简历无关的岗位 → 值必然下降到下限；条必须跟着缩。
+  await composer.getByTestId('composer-company').fill('Blue Bottle Coffee');
+  await composer.getByTestId('composer-role').fill('Barista, morning shift');
+  await expect(composer.getByTestId('composer-role')).toHaveValue('Barista, morning shift');
+  await expectBarMatchesNumber(page);
+  const low = await gaugeGeometry(page);
+
+  expect(low.value, 'the number should drop for an unrelated job').toBeLessThan(high.value);
+  expect(
+    low.fillWidth,
+    `the number moved ${high.value}→${low.value} but the bar stayed ${low.fillWidth}px `
+    + `(was ${high.fillWidth}px) — the bar is decoration, not a reading`,
+  ).toBeLessThan(high.fillWidth);
+}
+
+// expectBarMatchesNumber —— 条的宽度必须是表上那个数的同一个比例。
+//
+// 用 `expect.poll` 而不是睡一觉：这根条带 `transition: width .3s`，第一版直接量，量到的是
+// **动画中途的一帧**（读数 79 而条 44%），断言于是在骂一个不存在的缺陷。poll 会一直重试到
+// 过渡结束；**而如果它永远到不了那个比例，这条仍然会红** —— 等待没有把断言弱化成恒真。
+async function expectBarMatchesNumber(page: Page): Promise<void> {
+  await expect.poll(async () => {
+    const g = await gaugeGeometry(page);
+    return Math.abs(g.fillRatio - g.value / 100) < 0.08;
+  }, {
+    timeout: 5_000,
+    message: 'the bar never settled at the fraction the number claims',
+  }).toBe(true);
+}
+
+// gaugeGeometry —— 轨道与填充的实际盒子 + 表上那个数。取一次快照，不等待。
+async function gaugeGeometry(page: Page): Promise<{
+  value: number; fillWidth: number; fillHeight: number; fillRatio: number;
+}> {
+  const track = await page.getByTestId('composer-match-track').boundingBox();
+  const fill = await page.getByTestId('composer-match-fill').boundingBox();
+  const raw = (await page.getByTitle(JD_MATCH_TOOLTIP).first().innerText()).trim();
+  const m = raw.match(/\d+/);
+  // boundingBox() 对 0 尺寸元素返回 null —— 那正是"没画出来"，记成 0 而不是让它炸在别处。
+  return {
+    value: m ? Number(m[0]) : NaN,
+    fillWidth: fill?.width ?? 0,
+    fillHeight: fill?.height ?? 0,
+    fillRatio: (fill?.width ?? 0) / (track?.width ?? 1),
+  };
+}
 
 // gaugeDependsOnJob —— 打开 composer，换掉这份简历投的岗位（company+role），断言那个自称
 // "match against the job description" 的数不能在 JD 变了之后一动不动。
