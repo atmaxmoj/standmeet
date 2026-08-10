@@ -143,10 +143,28 @@ prod-down:
 # prod-clean —— down + drop the prod volumes (pgdata/redis/minio). schema.sql
 # only applies on a FRESH pg volume, so a stale prod volume must be recreated
 # after a schema change (greenfield "no migrations" posture — see schema.sql).
+#
+# ⚠️ THIS DESTROYS THE VERIFICATION INSTANCE. The prod stack is where the real-env audit runs:
+# the owner account, the 1009-entry corpus synced from the real vault, the issued access codes,
+# the connected SMTP credentials and the job pool all live in these volumes. Wiping them costs
+# a full re-claim + re-sync + re-configure, and any live audit round loses its ground truth.
+#
+# It needs `I_MEAN_IT=yes` because on 2026-08-10 I reached for `prod-fresh` when I wanted
+# `prod-up` — the names sit three lines apart, one rebuilds and one destroys, and nothing
+# between typing it and losing the instance asked a single question. A comment saying "careful"
+# would not have helped: I had already read this file today. The confirmation is the fix
+# ([[reframes-tasks-into-enforced-invariants]] — make the mistake impossible, not documented).
 prod-clean:
+	@test "$(I_MEAN_IT)" = "yes" || ( \
+	  echo "prod-clean DESTROYS the prod volumes — the audit instance (owner, corpus, codes, creds)."; \
+	  echo "  rebuild the app only ....... make prod-app"; \
+	  echo "  rebuild backend + app ...... make prod-up"; \
+	  echo "  really wipe it ............. make prod-clean I_MEAN_IT=yes"; \
+	  exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
 
 # prod-fresh —— recreate the prod stack from scratch (fresh schema).
+# Inherits prod-clean's confirmation: `make prod-fresh I_MEAN_IT=yes`.
 prod-fresh: prod-clean prod-up
 
 # gateway-up —— 只起 llm-gateway sidecar (eval-smoke 用)，不跑 app-build /

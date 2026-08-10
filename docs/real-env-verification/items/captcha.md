@@ -33,3 +33,17 @@
 With captcha enabled the widget renders with the site key and can actually be solved.
 A failed verification shows friendly copy, never the provider's raw error codes.
 With captcha disabled no widget appears anywhere, and the IP lockout still guards on its own.
+
+## Note — who can drive this
+
+Checks 1, 2 and 4 all begin "solve the widget", and an assistant does not solve captchas or other
+bot checks. That holds even on the owner's own instance: the restriction is on the act, not on who
+owns the target, so it is not something a standing instruction relaxes.
+
+So these three checks need a human at the keyboard for one step. Everything either side of that
+step is drivable: turning captcha on with the test key, watching the backend call the provider,
+reading the verdict, and check 3 in full (a forged token is junk, not a solved widget).
+
+The same limit applies to first-run setup, which ends on an arithmetic human-check before
+`CLAIM INSTANCE` — so **re-claiming a wiped instance is not something the assistant can finish
+alone**. Worth knowing before wiping one.
