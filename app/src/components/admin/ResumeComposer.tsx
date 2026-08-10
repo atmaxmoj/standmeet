@@ -29,6 +29,7 @@ import {
   type DraftSocial,
 } from '@/lib/admin/draft-model';
 import { useDebouncedSavedLabel } from '@/lib/admin/use-debounced-saved-label';
+import { cssVars } from '@/lib/ui/css-vars';
 
 const PANELS = [
   { id: 'header',     label: 'header' },
@@ -180,10 +181,14 @@ function MatchGauge({ pct }: { pct: number }) {
   );
 }
 
+// MatchGaugeBar —— 填充比例走 `style`,不走拼出来的类名。
+// 拼接的 Tailwind 任意属性构建期扫不到,一条 CSS 都不生成,`.sm-fill` 于是一直退到兜底的
+// `width: 0%` —— **这根条从来没显示过任何数值**,而它的名字说它在显示匹配度([[names-that-lie]])。
 function MatchGaugeBar({ pct }: { pct: number }) {
   return (
     <span className="sm-session-strip-gauge-bar">
-      <span className={`sm-fill [--fill:${pct}%]`} />
+      {/* eslint-disable-next-line no-restricted-syntax -- pct 是运行时算出来的匹配度，只有 style 能承载 */}
+      <span className="sm-fill" style={cssVars({ '--fill': `${pct}%` })} />
     </span>
   );
 }

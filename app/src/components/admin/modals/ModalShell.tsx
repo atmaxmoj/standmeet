@@ -14,6 +14,8 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
+import { cssVars } from '@/lib/ui/css-vars';
+
 type Props = {
   onClose: () => void;
   kicker?: string;
@@ -39,9 +41,16 @@ function ModalBody({ onClose, kicker, title, maxWidth = 540, children }: Props) 
       onClick={onClose}
       className="fixed inset-0 sm-z-modal flex items-center justify-center bg-[var(--sm-scrim)] fadein p-4"
     >
+      {/* 宽度走 `style` 而不是 `[--max-w:${'${maxWidth}'}px]` 那种拼出来的类名。
+          Tailwind 在**构建期扫源码**,拼接的类它看不见 —— 那串进了 HTML,规则一条都没生成,
+          于是 `.sm-max-w` 一直退到兜底的 `100%`:**每个模态都是满宽,maxWidth 从未生效过**。
+          跟遮罩那次的简写形式是同一个失败形状,而且同样不报错(见 [[names-that-lie]])。
+          动态值必须走 style —— 那是真的内联 CSS,不经过任何扫描。 */}
       <div
         onClick={stop}
-        className={`flex flex-col w-full max-h-[85vh] overflow-hidden bg-(--color-paper) border border-(--color-rule) rounded-sm rise crosshair sm-max-w [--max-w:${maxWidth}px]`}
+        // eslint-disable-next-line no-restricted-syntax -- maxWidth 是入参，只有 style 能承载运行时值；类名形式会一条 CSS 都不生成
+        style={cssVars({ '--max-w': `${maxWidth}px` })}
+        className="flex flex-col w-full max-h-[85vh] overflow-hidden bg-(--color-paper) border border-(--color-rule) rounded-sm rise crosshair sm-max-w"
       >
         <span className="ch-tl" /><span className="ch-br" />
         <ModalHeader kicker={kicker} title={title} onClose={onClose} />

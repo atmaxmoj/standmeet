@@ -8,6 +8,8 @@
 import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/core';
 
+import { cssVars } from '@/lib/ui/css-vars';
+
 interface Props { editor: Editor | null }
 
 interface Pos { top: number; left: number; visible: boolean }
@@ -55,9 +57,14 @@ function selectionRectPos(editor: Editor): Pos {
 
 function ToolbarBody({ editor, pos }: { editor: Editor; pos: Pos }) {
   return (
+    // 坐标走 `style`,不走拼出来的类名:`[--pos-top:${'${pos.top}'}px]` 这种串 Tailwind
+    // 构建期扫不到,一条 CSS 都不生成,于是 `.sm-pos-abs` 一直退到兜底的 `top:0; left:0` ——
+    // **这条工具条从来没跟随过选区**,它一直贴在定位祖先的左上角。
     <div
       data-testid="bubble-toolbar"
-      className={`sm-pos-abs [--pos-top:${pos.top}px] [--pos-left:${pos.left}px] -translate-x-1/2 bg-(--color-ink) text-(--color-paper) flex items-baseline gap-1 px-1 py-0.5 z-50`}
+      // eslint-disable-next-line no-restricted-syntax -- 选区坐标每次都不同，只有 style 能承载
+      style={cssVars({ '--pos-top': `${pos.top}px`, '--pos-left': `${pos.left}px` })}
+      className="sm-pos-abs sm-z-float -translate-x-1/2 bg-(--color-ink) text-(--color-paper) flex items-baseline gap-1 px-1 py-0.5"
     >
       <BoldBtn editor={editor} />
       <ItalicBtn editor={editor} />

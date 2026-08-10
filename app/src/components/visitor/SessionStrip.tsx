@@ -23,6 +23,7 @@ import {
 } from '@/lib/visitor/session-store';
 import { validateVisitorSession } from '@/lib/visitor/validate-session';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { cssVars } from '@/lib/ui/css-vars';
 
 export function SessionStrip() {
   // mount 一次 bind storage / custom event listener。组件卸载 → unbind。
@@ -194,6 +195,14 @@ function StripGauge({ used, max, pct }: { used: number; max: number; pct: number
   );
 }
 
+// 填充比例走 `style`：拼接出来的 Tailwind 任意属性构建期扫不到，一条 CSS 都不生成，
+// `.sm-fill` 会一直退到兜底的 `width: 0%` —— 访客看到的配额条就永远是空的。
 function SessionStripGaugeFill({ pct }: { pct: number }) {
-  return <span className={`sm-session-strip-gauge-fill sm-fill [--fill:${pct}%]`} />;
+  return (
+    <span
+      className="sm-session-strip-gauge-fill sm-fill"
+      // eslint-disable-next-line no-restricted-syntax -- pct 是这次会话用掉的比例，运行时才知道
+      style={cssVars({ '--fill': `${pct}%` })}
+    />
+  );
 }

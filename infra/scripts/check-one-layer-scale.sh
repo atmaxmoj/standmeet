@@ -57,8 +57,14 @@ fi
 # 后者虽然指向量表，但它让"层级"这件事在用的地方以两种写法出现，而**一个概念两种写法**
 # 正是词汇分叉的起点（见 [[vocabulary-must-not-diverge]]）。收成一个封闭集合之后，
 # 「这个东西在第几层」永远只有一种读法。
+#
+# **引号种类要全收**：第一版只认 `className="…"`,于是 `className={`…`}`(模板字面量)整类
+# 看不见 —— BubbleToolbar 里的 `z-50` 就是这么活下来的,而闸门当时报绿。
+# 更糟的是那版**自证**种的也是双引号那一种:它只证明了扫描器认得它已经认得的写法,
+# **没有证明扫描范围覆盖了逃逸真正发生的地方**(见 [[gate-can-go-blind]] / [[verifier-can-lie-about-its-own-coverage]])。
+# 现在两种引号都收,自证也两种都种。
 bare_tsx=$(find app/src -name '*.tsx' -print0 2>/dev/null \
-  | xargs -0 -r grep -nE '(class|className)="[^"]*[[:space:]"](z-[0-9]+|z-\[)' || true)
+  | xargs -0 -r grep -nE '(class|className)=[{]?["`][^"`]*[[:space:]"`](z-[0-9]+|z-\[)' || true)
 if [ -n "$bare_tsx" ]; then
   echo "check-one-layer-scale: use a layer class (sm-z-<band>[-1..9]), not z-<n> or z-[...]:"
   echo "$bare_tsx"
@@ -68,9 +74,15 @@ fi
 # 自证:两条判定各喂一段种进去的坏写法,都必须判红。
 planted_css=$(mktemp -t layercss.XXXXXX); planted_tsx=$(mktemp -t layertsx.XXXXXX)
 printf '.sm-planted { z-index: 42; }\n' > "$planted_css"
-printf '<div className="fixed inset-0 z-40" />\n' > "$planted_tsx"
+{
+  printf '<div className="fixed inset-0 z-40" />\n'
+  printf '<div className={`fixed inset-0 z-50 ${x}`} />\n'
+} > "$planted_tsx"
 seen_css=$(grep -n 'z-index:' "$planted_css" | grep -v -- '--z-' || true)
-seen_tsx=$(grep -nE '(class|className)="[^"]*[[:space:]"]z-[0-9]+' "$planted_tsx" || true)
+# 两种引号各种一行,所以这里要求**两条**都被看见 —— 只中一条说明还有一整类是盲区。
+tsx_hits=$(grep -cE '(class|className)=[{]?["`][^"`]*[[:space:]"`]z-[0-9]+' "$planted_tsx" || true)
+seen_tsx=''
+[ "$tsx_hits" = "2" ] && seen_tsx='both'
 rm -f "$planted_css" "$planted_tsx"
 if [ -z "$seen_css" ] || [ -z "$seen_tsx" ]; then
   echo "check-one-layer-scale: SELF-TEST FAILED — the scan misses a planted bare layer value"
