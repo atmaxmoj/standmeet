@@ -96,3 +96,10 @@ mock-stack/job-board/job-board
 mock-stack/mcp/mcp
 mock-stack/llm-gateway/llm-gateway
 mock-stack/mail/mail
+
+# Screenshots dropped at the repo root. The browser tool writes a bare filename, so a
+# screenshot taken during a manual audit lands here — and `git add -A` swept 106 of them
+# into the repo across several rounds before anyone noticed. Root-anchored on purpose:
+# real PNG assets living under app/, docs/ or sdk/ are unaffected. Audit shots belong in
+# the round's trajectory dir (already ignored above); pass an absolute path when saving one.
+/*.png
