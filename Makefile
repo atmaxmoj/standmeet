@@ -58,6 +58,7 @@ backend-no-mock:
 # 前端子项目：node_modules 没装就 skip（启用时再 pnpm install）。
 app-lint:
 	@infra/scripts/check-i18n-keys
+	@infra/scripts/check-one-scrim.sh
 	@if [ -d app/node_modules ] && [ -f app/package.json ]; then \
 	  cd app && pnpm lint; \
 	else \

@@ -236,7 +236,7 @@ function SkillCreateModal({
   const t = useTranslations('adminIntegrations.skills');
   return (
     <div
-      className="fixed inset-0 bg-(--color-ink)/40 flex items-center justify-center z-40"
+      className="fixed inset-0 bg-[var(--sm-scrim)] flex items-center justify-center z-40"
       data-testid="skill-create-modal"
     >
       <div className="bg-(--color-paper) border border-(--color-rule) max-w-[640px] w-[92vw] p-7 flex flex-col gap-4">

@@ -29,6 +29,13 @@
    组件用 `var(--t-h-l)` / `var(--tk-cap)` 之类直接消费；放 :root 让
    sm-atoms.css 跟所有 component CSS 都看得见。 */
 :root {
+  /* --sm-scrim —— 模态遮罩。**一个来源**：四处 overlay 原本各写一条
+     `color-mix(in oklab, var(--color-ink) 40%, transparent)`，四条字面量谁也不知道彼此
+     存在，改一处就会分叉（UX-48）。
+     40% 墨压在纸色底上，底层正文仍在可读区间 —— 截图里能读出模态背后的表格行和
+     `subjectivity://cv`，owner 分不出哪一层在前。提到 66%。 */
+  --sm-scrim: color-mix(in oklab, var(--color-ink) 66%, transparent);
+
   --t-mono-9:  9px;
   --t-mono-10: 10px;
   --t-mono-11: 11px;

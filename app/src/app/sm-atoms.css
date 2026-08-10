@@ -716,7 +716,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: color-mix(in oklab, var(--color-ink) 40%, transparent);
+  background: var(--sm-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -956,7 +956,7 @@
   position: fixed;
   inset: 0;
   z-index: 80;
-  background: color-mix(in oklab, var(--color-ink) 40%, transparent);
+  background: var(--sm-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -982,7 +982,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: color-mix(in oklab, var(--color-ink) 40%, transparent);
+  background: var(--sm-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1052,7 +1052,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: color-mix(in oklab, var(--color-ink) 40%, transparent);
+  background: var(--sm-scrim);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -259,7 +259,7 @@ function WritingCreateModal({
 }) {
   return (
     <div
-      className="fixed inset-0 bg-(--color-ink)/40 flex items-center justify-center z-40 p-6"
+      className="fixed inset-0 bg-[var(--sm-scrim)] flex items-center justify-center z-40 p-6"
       data-testid="writing-create-modal"
     >
       <WritingForm
@@ -287,7 +287,7 @@ function WritingEditModal({
 }) {
   return (
     <div
-      className="fixed inset-0 bg-(--color-ink)/40 flex items-center justify-center z-40 p-6"
+      className="fixed inset-0 bg-[var(--sm-scrim)] flex items-center justify-center z-40 p-6"
       data-testid="writing-edit-modal"
     >
       <WritingForm
