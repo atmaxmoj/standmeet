@@ -83,24 +83,53 @@ func UnregisterJobSource(
 	return nil
 }
 
+// FetchResult —— 一次抓取的完整结果:**拿到了什么** + **哪些源没成**。
+//
+// 收成一个具名结构而不是多返一个值:一次抓取本来就是"部分成功"这种东西,把两半放在一起,
+// 调用方就无法只接住其中一半。（三返回值也被 revive 的 function-result-limit 挡了 ——
+// 那条闸门这次把代码推去了更好的形状,不是更差的。）
+type FetchResult struct {
+	Jobs     []jobsmodel.FetchedJob
+	Failures []SourceFailure
+}
+
+// SourceFailure —— 某一个源没抓成，其余源照常。带上 owner 认得出来的东西（label / kind），
+// 因为 owner 在 /admin/sources 上看到的是 label，不是 uuid。
+type SourceFailure struct {
+	SourceID string `json:"source_id"`
+	Label    string `json:"label"`
+	Kind     string `json:"kind"`
+	Reason   string `json:"reason"`
+}
+
 // FetchNewJobs —— 核心。sourceID==nil → 跑 owner 所有 source；
-// sourceID 非空 → 跑该 source。返回新 jobs（已 dedup + 已进池子，附 cache_id）。
+// sourceID 非空 → 跑该 source。返回新 jobs（已 dedup + 已进池子，附 cache_id）
+// **以及每个没抓成的源**。
+//
+// 这里曾经是 `if ferr != nil { return nil, ferr }`，而它上面那行注释写着
+// 「单源失败**不阻塞**其他源」—— 注释声明的不变量和下一行代码正好相反。手工驱的时候撞上了：
+// 七个源里只有 workable 那个 token 是错的，结果**另外六个真源一条都没进池子**，
+// owner 拿到的是一句 `jobs.fetch_new failed`。
+//
+// 注释比代码更容易被信：读代码的人看到那句话就不会再往下追（[[names-that-lie]]）。
+// 现在这个不变量由代码本身成立 —— 每个源自己成败，失败的记进 failures 一起返回。
 func FetchNewJobs(
 	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string,
-) ([]jobsmodel.FetchedJob, error) {
+) (FetchResult, error) {
 	if ownerID == "" {
-		return nil, apierr.ErrEmptyField
+		return FetchResult{}, apierr.ErrEmptyField
 	}
 	sources, err := selectSourcesToFetch(ctx, deps, ownerID, sourceID)
 	if err != nil {
-		return nil, err
+		return FetchResult{}, err
 	}
 	var allNew []jobsmodel.FetchedJob
+	var failures []SourceFailure
 	for i := range sources {
 		nu, ferr := fetchOneSourceAndDedup(ctx, deps, &sources[i])
 		if ferr != nil {
-			// 单源失败不阻塞其他源；caller 看 error 自己决定（这里聚合返）。
-			return nil, ferr
+			failures = append(failures, failureOf(&sources[i], ferr))
+			continue
 		}
 		allNew = append(allNew, nu...)
 	}
@@ -109,7 +138,19 @@ func FetchNewJobs(
 	// 内的重复 post，cross-source 用 ATS namespace 不同的 external_id 就漏。
 	// 此处不动 per-source seen 记录 (那条仍按 fetcher 返的 ID 标 seen)，
 	// 只对 visible-to-Claude 的 surface 做去重。
-	return dedup.Apply(allNew), nil
+	return FetchResult{Jobs: dedup.Apply(allNew), Failures: failures}, nil
+}
+
+// failureOf —— 把一个源的失败写成 owner 能据以行动的一行。
+// 后端日志里本来就有源 id、kind、URL 和原因；owner 那边曾经只有 "jobs.fetch_new failed"。
+// 两边的信息量差了整整一条错误链，而能修这件事的人只有 owner。
+func failureOf(src *jobsmodel.JobSource, err error) SourceFailure {
+	return SourceFailure{
+		SourceID: src.ID,
+		Label:    src.Label,
+		Kind:     src.Kind,
+		Reason:   err.Error(),
+	}
 }
 
 func selectSourcesToFetch(

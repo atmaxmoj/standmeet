@@ -218,12 +218,14 @@ func (c *jobsCapability) handleFetchNew(
 		s := args.SourceID
 		sidPtr = &s
 	}
-	jobs, err := jobsuc.FetchNewJobs(ctx, *c.jobs, ownerID, sidPtr)
+	res, err := jobsuc.FetchNewJobs(ctx, *c.jobs, ownerID, sidPtr)
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "fetch_new")
 	}
+	// failures 跟 jobs 一起返回,**不是**换成一个 error:一个源的错 token 不该把另外六个源
+	// 抓到的东西扔掉。owner 需要同时知道「拿到了什么」和「哪个源没成、为什么」。
 	return mcputil.MarshalResult(c.log, "jobs.fetch_new",
-		map[string]any{"jobs": fetchedJobViews(jobs)})
+		map[string]any{"jobs": fetchedJobViews(res.Jobs), "failed_sources": res.Failures})
 }
 
 // ───── jobs.show ────────────────────────────────────────────────

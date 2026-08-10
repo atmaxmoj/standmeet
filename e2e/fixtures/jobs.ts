@@ -33,7 +33,18 @@ export interface FetchedJobView {
 }
 
 export interface JobsListResp { sources: JobSourceView[] }
-export interface JobsFetchResp { jobs: FetchedJobView[] }
+// SourceFailureView —— 某个源没抓成。跟 jobs 一起回，**不是**换掉 jobs：
+// 一个源的错凭据不该把其它源抓到的东西扔掉（F-E-6）。
+interface SourceFailureView {
+  source_id: string;
+  label: string;
+  kind: string;
+  reason: string;
+}
+export interface JobsFetchResp {
+  jobs: FetchedJobView[];
+  failed_sources?: SourceFailureView[];
+}
 export interface OkResp { ok: boolean }
 
 export async function jobsRegisterSource(

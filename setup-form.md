@@ -1,0 +1,16 @@
+- generic [ref=e48]:
+  - generic [ref=e49]:
+    - generic [ref=e50]:
+      - generic [ref=e52]: your full name
+      - textbox [ref=e53]
+    - generic [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]: handle
+        - generic [ref=e57]: · internal owner identifier · used by admin URLs and login response
+      - textbox [ref=e58]
+    - generic [ref=e59]:
+      - generic [ref=e60]:
+        - generic [ref=e61]: public URL
+        - generic [ref=e62]: · full URL recruiters land on via QR · e.g. https://alice.dev or http://localhost:38127
+      - textbox "https://alice.dev" [ref=e63]
+  - button "next →" [disabled] [ref=e65]

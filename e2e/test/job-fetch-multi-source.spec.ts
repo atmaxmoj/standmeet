@@ -49,4 +49,46 @@ test.describe('jobs.fetch_new across multiple registered sources', () => {
         expect(j.cache_id).toMatch(/^[A-Za-z0-9_-]{8,}$/);
       }
     });
+
+  // F-E-6 —— 一个源抓不成，不许把别的源抓到的东西一起扔掉。
+  //
+  // 手工驱这个模块时撞上的：七个源里只有 workable 的 token 是错的，结果**另外六个真源一条
+  // 都没进池子**，owner 拿到的是一句 `jobs.fetch_new failed`，而后端日志里源 id / kind /
+  // URL / 原因一应俱全。代码里那一行 `return nil, ferr` 上面的注释写着「单源失败不阻塞其他
+  // 源」—— 注释声明的不变量和代码正好相反（[[names-that-lie]]）。
+  //
+  // 断言两件事，缺一不可：
+  //   1. 好源的 job **还在**（这一条在旧代码上必红：旧代码返回 0 条）
+  //   2. 坏源在 `failed_sources` 里**被点名**（否则 owner 只知道"少了点什么"，不知道少了哪个）
+  // 只断第 1 条的话，一个"悄悄跳过坏源、什么都不说"的实现也能过 —— 那是另一种谎。
+  test('one source with bad credentials must not zero out the other sources',
+    async ({ request }) => {
+      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+      const token = await createAPIToken(request, csrf, 'isolation-spec');
+      const sid = await initMCP(request, token);
+
+      const good = await jobsRegisterSource(request, token, sid, {
+        kind: 'greenhouse', label: 'GoodBoard', config: { company: 'airbnb' },
+      });
+      const bad = await jobsRegisterSource(request, token, sid, {
+        kind: 'workable', label: 'BadToken', config: { company: 'nope', api_token: 'wrong' },
+      });
+
+      const fetched = await jobsFetchNew(request, token, sid);
+
+      expect(
+        fetched.jobs.length,
+        `the good source (${good.label}) returned nothing because ${bad.label} failed`,
+      ).toBeGreaterThan(0);
+
+      const failed = fetched.failed_sources ?? [];
+      expect(
+        failed.map((f) => f.label),
+        'the failing source must be named, not silently skipped',
+      ).toContain('BadToken');
+      expect(
+        failed.find((f) => f.label === 'BadToken')?.reason ?? '',
+        'the reason must carry the upstream detail the log already has',
+      ).not.toBe('');
+    });
 });
