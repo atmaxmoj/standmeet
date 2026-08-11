@@ -40,6 +40,9 @@ type CodeDenials struct {
 	SkillIDs      []string
 	CorpusURIs    []string
 	CorpusGranted []string
+	// CorpusPublishedOnly —— 继承来的那个 role 读的是「owner 发布过的那些」（public 身份）。
+	// 那种 role **没有正列表**，所以光看 CorpusGranted 会得出「什么都不授」——正好是反的。
+	CorpusPublishedOnly bool
 }
 
 // CodeDenialRef —— 加/删一条拒绝。Kind 取 capability / skill / corpus。
@@ -74,24 +77,27 @@ func listDenials(ctx context.Context, d CodeACLDeps, codeID string) (CodeDenials
 	if uerr != nil {
 		return CodeDenials{}, fmt.Errorf("list code denials: %w", uerr)
 	}
+	granted, publishedOnly := grantedCorpus(ctx, d, codeID)
 	return CodeDenials{
 		CapabilityIDs: caps, SkillIDs: skills, CorpusURIs: uris,
-		CorpusGranted: grantedCorpusURIs(ctx, d, codeID),
+		CorpusGranted: granted, CorpusPublishedOnly: publishedOnly,
 	}, nil
 }
 
 // grantedCorpusURIs —— 这张码的 role 授的语料正列表。读不到当空:它是对照用的一半,
 // 不该让整个 ACL 读失败。
-func grantedCorpusURIs(ctx context.Context, d CodeACLDeps, codeID string) []string {
+// grantedCorpus —— 这张码继承到的语料范围：role 的正列表 + 它是不是「已发布切片」那种身份。
+// 两个值一起回，因为**只看列表推不出范围**：public 的列表是空的，而它授的是已发布的那些。
+func grantedCorpus(ctx context.Context, d CodeACLDeps, codeID string) ([]string, bool) {
 	code, err := d.Codes.GetByID(ctx, codeID)
 	if err != nil {
-		return []string{}
+		return []string{}, false
 	}
 	role, rerr := d.Roles.GetByID(ctx, code.OwnerID, code.AssumedRoleID)
 	if rerr != nil {
-		return []string{}
+		return []string{}, false
 	}
-	return role.CorpusURIs()
+	return role.CorpusURIs(), entity.ReadsPublishedSlice(role.Name())
 }
 
 // AddCodeDenial —— 加一条。幂等。

@@ -116,6 +116,9 @@ type codeDenialsOut struct {
 	SkillIDs      []string `json:"skill_ids"`
 	CorpusURIs    []string `json:"corpus_uris"`
 	CorpusGranted []string `json:"corpus_granted"`
+	// CorpusPublishedOnly —— 继承的 role 读的是「已发布的那些」；它没有正列表，
+	// 所以 corpus_granted 为空**不等于**什么都读不到。
+	CorpusPublishedOnly bool `json:"corpus_published_only"`
 }
 
 type codeWaypointsOut struct {
@@ -130,6 +133,8 @@ func marshalDenials(d *usecase.CodeDenials) (json.RawMessage, error) {
 		SkillIDs:      nonNilStrings(d.SkillIDs),
 		CorpusURIs:    nonNilStrings(d.CorpusURIs),
 		CorpusGranted: nonNilStrings(d.CorpusGranted),
+
+		CorpusPublishedOnly: d.CorpusPublishedOnly,
 	})
 }
 

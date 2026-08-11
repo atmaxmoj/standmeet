@@ -222,7 +222,7 @@ func (s *RoleSnapshot) CorpusScope() CorpusScope {
 	return CorpusScope{
 		Granted:       s.CorpusURIs(),
 		Denied:        s.DeniedCorpusURIs(),
-		PublishedOnly: s.roleName == PublicRoleName,
+		PublishedOnly: ReadsPublishedSlice(s.roleName),
 	}
 }
 

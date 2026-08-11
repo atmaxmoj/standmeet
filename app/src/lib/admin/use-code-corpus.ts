@@ -16,6 +16,9 @@ export const CodeDenialsSchema = z.object({
   corpus_uris: z.array(z.string()),
   // corpus_granted —— 继承来的 role 正列表（只读；改它要去 /admin/roles）。
   corpus_granted: z.array(z.string()),
+  // corpus_published_only —— 继承的 role 读的是「owner 发布过的那些」（public 身份）。
+  // 它**没有**正列表，所以 corpus_granted 空不等于什么都读不到 —— 卡片必须分得清这两件事。
+  corpus_published_only: z.boolean().nullish().transform((v) => v ?? false),
 });
 export type CodeDenials = z.infer<typeof CodeDenialsSchema>;
 
@@ -23,10 +26,16 @@ export type CodeDenials = z.infer<typeof CodeDenialsSchema>;
 export interface CodeCorpus {
   granted: string[];
   denied: string[];
+  // publishedOnly —— 继承的 role 是「已发布切片」那种身份（public）。
+  publishedOnly: boolean;
 }
 
 function toCodeCorpus(d: CodeDenials): CodeCorpus {
-  return { granted: d.corpus_granted, denied: d.corpus_uris };
+  return {
+    granted: d.corpus_granted,
+    denied: d.corpus_uris,
+    publishedOnly: d.corpus_published_only,
+  };
 }
 
 export function fetchCodeCorpus(codeID: string): Promise<CodeCorpus> {

@@ -224,6 +224,15 @@ func (r *Role) AllowsCorpus(uri string) bool {
 // 现在两者就是同一个数据：**private 的没有码就读不到**。
 const PublicRoleName = "public"
 
+// ReadsPublishedSlice —— 这个身份的语料范围是不是「owner 发布过的那些」。
+//
+// 一个函数，因为有三处要问同一件事：会话的准入（RoleSnapshot 只有名字）、role 卡片、
+// 码卡片上那句「这张码继承到什么」。分开写的话，某个面迟早会用「正列表空不空」去推，
+// 而那个推法对 public 恰好得出反的结论 —— 码卡片就这么写出过 `(role grants nothing)`。
+func ReadsPublishedSlice(roleName string) bool {
+	return roleName == PublicRoleName
+}
+
 // PublicRoleDescription —— public role 的一句简介。
 const PublicRoleDescription = "System default. Reads exactly what you have published — " +
 	"each entry's own switch decides. No skills, no MCP. For uninvited BYOAI visitors " +

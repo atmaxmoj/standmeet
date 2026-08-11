@@ -36,6 +36,7 @@ function CorpusLoadFailed({ codeLabel }: { codeLabel: string }) {
 // 「role 什么都没授」和「没拉到」在 UI 上必须分得开（F-A-13）。
 interface CorpusState {
   granted: string[];
+  publishedOnly: boolean;
   text: string;
   setText: (v: string) => void;
   loaded: boolean;
@@ -45,14 +46,18 @@ interface CorpusState {
 // Sinks —— useCodeCorpusState 的 setter 束（组件里不写分支：presentation 层禁 if，故 apply* 提到外面）。
 interface Sinks {
   setGranted: (v: string[]) => void;
+  setPublishedOnly: (v: boolean) => void;
   setText: (v: string) => void;
   setLoaded: (v: boolean) => void;
   setError: (v: boolean) => void;
 }
 
 // applyCorpus —— 落 GET 的结果。
-function applyCorpus(c: { granted: string[]; denied: string[] }, s: Sinks): void {
+function applyCorpus(
+  c: { granted: string[]; denied: string[]; publishedOnly: boolean }, s: Sinks,
+): void {
   s.setGranted(c.granted);
+  s.setPublishedOnly(c.publishedOnly);
   s.setText(c.denied.join('\n'));
   s.setLoaded(true);
 }
@@ -66,37 +71,51 @@ function applyLoadError(s: Sinks): void {
 // useCodeCorpusState —— GET 一张码的 corpus 面。加载失败别静默成空（同 use-latest-list 的 loadError）。
 function useCodeCorpusState(codeID: string): CorpusState {
   const [granted, setGranted] = useState<string[]>([]);
+  const [publishedOnly, setPublishedOnly] = useState(false);
   const [text, setText] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   useEffect(() => {
     const live = { on: true };
-    const sinks: Sinks = { setGranted, setText, setLoaded, setError };
+    const sinks: Sinks = { setGranted, setPublishedOnly, setText, setLoaded, setError };
     void fetchCodeCorpus(codeID)
       .then((c) => { live.on && applyCorpus(c, sinks); })
       .catch(() => { live.on && applyLoadError(sinks); });
     return () => { live.on = false; };
   }, [codeID]);
-  return { granted, text, setText, loaded, error };
+  return { granted, publishedOnly, text, setText, loaded, error };
 }
 
-// GrantedList —— 继承来的 role 正列表。只有在**确实拉到了**的时候才会渲染，所以
-// 「(role grants nothing)」在这里永远是真话（见 useCodeCorpusState 的 error 分支）。
-function GrantedList({ granted }: { granted: readonly string[] }) {
+// GrantedList —— 继承来的 role 授到什么。只有在**确实拉到了**的时候才会渲染，所以这里
+// 说出来的话是真的（见 useCodeCorpusState 的 error 分支）。
+//
+// 空列表有**两种**含义，必须分开说：`public` 身份根本没有正列表（它读 owner 发布过的那些），
+// 别的 role 空着才真的是什么都不授。以前这里只有一句 `(role grants nothing)` —— 挂 public
+// 的码于是被写成"什么都读不到"，而它明明读得到已发布的条目（F-D-7 之后新出现的假话）。
+function GrantedList({
+  granted, publishedOnly,
+}: { granted: readonly string[]; publishedOnly: boolean }) {
   const t = useTranslations('adminAccess');
   return (
     <ul className="mono text-[10.5px] text-(--color-muted) flex flex-wrap gap-x-3">
-      {granted.length === 0
-        ? <li className="italic">{t('codeCorpus.grantsNothing')}</li>
-        : granted.map((g) => <li key={g}>{g}</li>)}
+      {publishedOnly
+        ? <li className="italic">{t('codeCorpus.publishedSlice')}</li>
+        : <GrantedGlobs granted={granted} />}
     </ul>
   );
+}
+
+function GrantedGlobs({ granted }: { granted: readonly string[] }) {
+  const t = useTranslations('adminAccess');
+  return granted.length === 0
+    ? <li className="italic">{t('codeCorpus.grantsNothing')}</li>
+    : <>{granted.map((g) => <li key={g}>{g}</li>)}</>;
 }
 
 export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLabel: string }) {
   const t = useTranslations('adminAccess');
   const run = useAction();
-  const { granted, text, setText, loaded, error } = useCodeCorpusState(codeID);
+  const { granted, publishedOnly, text, setText, loaded, error } = useCodeCorpusState(codeID);
   const onSave = useCallback(
     () => run(
       () => saveCodeCorpus(codeID, text.split('\n').map((s) => s.trim()).filter((s) => s !== '')),
@@ -109,7 +128,7 @@ export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLa
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint)">
         {t('codeCorpus.inherited')}
       </span>
-      <GrantedList granted={granted} />
+      <GrantedList granted={granted} publishedOnly={publishedOnly} />
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mt-1">
         {t('codeCorpus.takenBack')}
       </span>
