@@ -70,8 +70,14 @@ func reportCardHandler(
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`.
+//
+// OwnerName is here because the report is **about a person**. Without it the transcript this
+// plugin hands the model labelled the owner's turns `Assistant:`, and the report came back
+// titled "Conversation with AI Assistant" — the document the visitor forwards to their team,
+// calling the owner a bot (F-A-33).
 type session struct {
 	OwnerID        string
+	OwnerName      string
 	ConversationID string
 	Mode           string
 }
@@ -87,6 +93,7 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 	}
 	return session{
 		OwnerID:        str(raw, "owner_id"),
+		OwnerName:      str(raw, "owner_name"),
 		ConversationID: str(raw, "conversation_id"),
 		Mode:           str(raw, "mode"),
 	}
@@ -126,7 +133,7 @@ func runSummarize(s session) (string, error) {
 		return "", err
 	}
 	raw, gerr := gwInferenceGenerate(s.OwnerID, s.Mode, summarizeHTMLPrompt,
-		[]chatMessage{{Role: "user", Content: buildSummarizeUserPrompt(msgs)}})
+		[]chatMessage{{Role: "user", Content: buildSummarizeUserPrompt(msgs, s.OwnerName)}})
 	if gerr != nil {
 		return "", gerr
 	}

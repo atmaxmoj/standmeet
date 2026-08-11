@@ -48,17 +48,34 @@ const summarizeHTMLPrompt = "You generate a polished HTML conversation report. "
 	"- Ground every Result in what was actually said; do not invent outcomes/metrics\n" +
 	"- ~500 words max; one-page printable; no images"
 
+// ownerTurnFallback —— owner 的名字拿不到时给他的标签。**不是 "Assistant"**：
+// 这份报告是访客带走给团队看的东西，而 gate 上承诺的是 owner 的声音。
+const ownerTurnFallback = "Owner"
+
 // buildSummarizeUserPrompt —— render the transcript into the user turn for the report prompt.
-func buildSummarizeUserPrompt(msgs []chatMessage) string {
+//
+// owner 的每一轮**署 owner 的名字**。以前它们被标成 `Assistant:`，开头还写着"对面是 an AI
+// assistant" —— 于是模型照着标签写，报告标题成了 "Conversation with AI Assistant"，正文通篇
+// "the assistant… its model"（F-A-33）。同一份 prompt 的结构说明其实一直写着这些对话是
+// 「对 owner 的面试」、要写成 "The candidate described…"；模型跟的是逐轮标签，不是那句说明。
+func buildSummarizeUserPrompt(msgs []chatMessage, ownerName string) string {
+	owner := strings.TrimSpace(ownerName)
+	if owner == "" {
+		owner = ownerTurnFallback
+	}
 	var b strings.Builder
-	_, _ = b.WriteString("Here is a conversation between a visitor and an AI assistant:\n\n")
+	_, _ = fmt.Fprintf(&b,
+		"Here is a conversation between a visitor and %s, speaking for themselves:\n\n", owner)
 	for i := range msgs {
 		role := "Visitor"
 		if msgs[i].Role == "assistant" {
-			role = "Assistant"
+			role = owner
 		}
 		_, _ = fmt.Fprintf(&b, "%s: %s\n\n", role, msgs[i].Content)
 	}
-	_, _ = b.WriteString("\nPlease generate the structured HTML report of this conversation.")
+	_, _ = fmt.Fprintf(&b,
+		"\nPlease generate the structured HTML report of this conversation. "+
+			"It is a record of what %s said — write about them as a person, never as "+
+			"an assistant, a bot, or a model.", owner)
 	return b.String()
 }
