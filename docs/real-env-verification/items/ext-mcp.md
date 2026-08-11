@@ -47,6 +47,8 @@ remote server** — the owner pastes a URL and the backend dials it over HTTP. T
 suite loads real servers as managed plugins through a spawn, which proves loader isolation and says
 nothing about remote transport, auth or schema round-trips.
 
-Transport is streamable HTTP only; there is no SSE client. An SSE-only URL fails to dial. That is
-tracked as `F-D-3`, and picking a server for check 4 means picking one that authenticates by
-header — a server that authenticates by query string never exercises the header at all.
+Two transports are tried, in order: streamable HTTP first, then the older HTTP+SSE endpoint
+(`backend/internal/capabilities/mcpclient/dial.go`). Both share one dial budget, so an SSE-only
+URL now connects rather than failing — `F-D-3` closed. Picking a server for check 4 still means
+picking one that authenticates by **header**; a server that authenticates by query string never
+exercises the header at all.
