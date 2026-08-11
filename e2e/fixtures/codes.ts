@@ -54,3 +54,15 @@ export async function createCode(
   if (res.status() !== 201) throw new Error(`create code failed: ${res.status()}`);
   return await res.json() as CodeView;
 }
+
+// revokeCode —— 撤销一张码。被撤销跟不存在是**两种**拒绝（F-D-6 把那句合成的
+// "invalid or revoked" 拆开了：打错字的人重新粘一次，被撤销的人去要一张新码），
+// 所以走访客那一侧的 spec 需要能真造出「被撤销」这个状态。
+export async function revokeCode(
+  request: APIRequestContext, csrf: string, codeID: string,
+): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/codes/${codeID}/revoke`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  if (!res.ok()) throw new Error(`revoke code failed: ${res.status()}`);
+}

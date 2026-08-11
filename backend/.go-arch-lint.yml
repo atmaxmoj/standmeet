@@ -33,6 +33,8 @@ components:
     in: cmd/server/config
   apierr:
     in: internal/infra/apierr                   # HTTP error envelope 翻译 helper
+  clientaddr:
+    in: internal/infra/clientaddr               # 「来源地址是不是访客的」判一次，读的人共用同一个答案
   middleware:
     in: internal/infra/middleware               # chi middleware: WithOwner, RequireCSRF
   mcphandle:
@@ -465,6 +467,13 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # clientaddr —— 「这个请求的来源地址是不是访客自己的」判一次，结论放 context。
+  # 无依赖的叶子。会话记账 / 访问码锁 / 登录限流三处读同一个答案，不再各自去拆
+  # RemoteAddr —— 没有转发头时拆出来的是 app 那一跳，不是访客（F-F-5）。
+  clientaddr:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # middleware 包含 owner auth gate（WithOwner）+ CSRF gate + LoginGuard
   # (rate-limit + captcha + equal-time)。session 给 token lookup；captcha
   # 给 LoginGuard 的 Verifier 接口。
@@ -472,6 +481,7 @@ deps:
     mayDependOn:
       - session
       - security
+      - clientaddr   # 登录限流的分桶键：访客地址；判不出时退成一个具名的共用桶
     anyVendorDeps: true
 
   # mcphandle 是 owner AI 客户端用的 MCP server (controller 层)；通过 OwnerLookup
@@ -1042,6 +1052,7 @@ deps:
       - httpx   # #132 /api/v1 inference-models 列表探测走统一 client
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
       - stats   # #106/#7 记一次用量:UsageRow(哪箱油、算不算油钱)是 stats 的词汇
+      - clientaddr   # conversations.client_ip 只收访客自己的地址，收不到就留空
     anyVendorDeps: true
 
   # pubapi —— API-key facade. Reuses the visitor assembly (capreg) + usecases; whitelists non-Agentic
@@ -1064,6 +1075,8 @@ deps:
       - cmdaxisconn
       - cmdaxiscap
       - cmdwire
+      # clientaddr —— 组装根把它挂在 chi.RealIP 之后：「来源地址是不是访客自己的」只在那儿判一次。
+      - clientaddr
       - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
       - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
       - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）

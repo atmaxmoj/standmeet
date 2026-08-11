@@ -170,6 +170,10 @@ export interface PublicSessionResponse {
   readonly session_token: string;
   readonly conversation_id: string;
   readonly code?: string;
+  // code_label —— owner 给这张码起的名字（"OpenAI eng loop"）。session strip 和欢迎语
+  // 用它说出访客进的是哪一片（设计源 docs/design/project/app.js）。后端一直在发，
+  // 这里以前没声明，于是被整条前端链路丢掉、退回 'invited' 兜底（UX-68）。
+  readonly code_label?: string;
   readonly visitor_name?: string;
   // member_id —— 这次解析到的 member id;client 存下,再来带上续会(尤其匿名)。
   readonly member_id?: string;

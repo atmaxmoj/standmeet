@@ -9,12 +9,12 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"net"
 	"net/http"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
@@ -196,15 +196,12 @@ func toMemberResps(members []access.CodeMember) []sessionMemberResp {
 	return out
 }
 
-// clientIP —— 访客来源 IP。chi.RealIP 已把 X-Forwarded-For 解到 RemoteAddr，
-// 这里只去 port；裸 IP（dev/test）直接用。写 conversations.client_ip 给 owner
-// 做 IP 感知 + 封禁用。
+// clientIP —— 访客来源 IP，写进 conversations.client_ip 给 owner 做 IP 感知 + 封禁。
+// 结论在 clientaddr 中间件里产生：**要么是访客的地址，要么是空串（不知道）**。
+// 这里绝不自己去拆 RemoteAddr —— 没有转发头时那是 app 那一跳，拿它冒充访客会让
+// owner 的 IP 栏和封禁按钮同时变成谎话（F-F-5）。
 func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+	return clientaddr.Of(r.Context())
 }
 
 func pickMode(req *createSessionRequest) string {

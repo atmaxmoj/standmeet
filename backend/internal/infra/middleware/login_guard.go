@@ -7,11 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 )
 
 // CaptchaVerifier —— middleware 需要的 captcha 校验窄口。不 import security 域(叶子基建不依赖域);
@@ -121,16 +122,20 @@ func checkCaptchaOrWrite(
 // gosec G101 看到 "Token" 误判 hardcoded credential —— 这只是 header 名。
 const captchaTokenHeader = "X-Captcha-Token" //nolint:gosec // header name, not a credential
 
-// clientIP —— chi.RealIP 已经把 X-Forwarded-For 解到 RemoteAddr 上了，这里
-// 只需去 port。SplitHostPort 失败说明 RemoteAddr 本身就是裸 IP（dev/test），
-// 直接用即可。
+// clientIP —— 登录限流的分桶键。结论来自 clientaddr 中间件：要么是来访者自己的
+// 地址，要么是空串（不知道）。**不知道时所有人共用一个桶**，那是 fail-closed 的
+// 取舍（关掉限流等于把 owner 的登录交给爆破），但它必须是**明说**的一个桶，而不是
+// 悄悄挂在 app 容器的地址上假装按 IP 分（F-F-5）。
 func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+	if addr := clientaddr.Of(r.Context()); addr != "" {
+		return addr
 	}
-	return host
+	return unknownIPBucket
 }
+
+// unknownIPBucket —— 来源地址不可见时的共用桶名。取一个说人话的名字，让运维在
+// redis 里看到 `login:rate:<unknown-source>` 就知道这不是某个访客的地址。
+const unknownIPBucket = "<unknown-source>"
 
 // checkLoginRate fixed-window：INCR 后第一次 INCR=1 才 EXPIRE，避免每次刷新
 // 续命。返回 true=放行，false=已超限。

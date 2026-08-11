@@ -6,8 +6,9 @@
 // (不给 brute-forcer 在 redis 抖动时白嫖)。captcha 开启时超阈值可用有效 captcha token 放行;
 // captcha 关闭(noop,默认部署)→ 纯硬锁,因为没 captcha 可解。
 //
-// 注:per-IP 依赖 chi.RealIP 解出的来源 IP;X-Forwarded-For 可伪造是独立 infra 问题
-// (login guard 亦然,靠可信反代 strip/set XFF)—— 不在本刀范围。
+// 注:per-IP 靠 clientaddr 判出来的**访客**地址(不是上一跳的地址)。判不出来时退成一个
+// 具名的共用桶,并在日志里说清楚 —— 那时"per-IP"名不副实,运维要知道(F-F-5)。
+// X-Forwarded-For 可伪造是独立 infra 问题(login guard 亦然,靠可信反代 strip/set XFF)。
 //
 // 住在 middleware(跟 login_guard 同层、同样依赖 captcha+redis):public 路由只见一个窄接口
 // (publicroutes.CodeGuard),captcha 依赖藏在这层边界之后,不外泄进 routes/public。
@@ -41,7 +42,15 @@ func NewCodeGuard(rdb *redis.Client, verifier CaptchaVerifier, captchaOn bool) *
 	return &CodeGuard{rdb: rdb, verifier: verifier, captchaOn: captchaOn}
 }
 
-func codeFailKey(ip string) string { return "codefail:ip:" + ip }
+// codeFailKey —— 分桶键。空 ip = clientaddr 判不出访客地址（没有转发头的出厂形态），
+// 此时**所有人共用一个桶**：关掉锁定等于把访问码交给爆破枚举，所以宁可 fail-closed。
+// 但那个桶要有名字 —— 以前它悄悄挂在 app 容器的地址上，看上去像在按 IP 分（F-F-5）。
+func codeFailKey(ip string) string {
+	if ip == "" {
+		ip = unknownIPBucket
+	}
+	return "codefail:ip:" + ip
+}
 
 // Locked —— 该 IP 是否应被拒:已接 redis 且 失败超阈值 且 captcha 未放行。
 func (g *CodeGuard) Locked(ctx context.Context, ip, captchaToken string) bool {

@@ -86,7 +86,8 @@ export function useIssuePendingCode(): IssuePending {
         visitor: sess.visitor_name ?? null,
         byoai: false,
         byoaiProvider: '',
-        label: null,
+        // 换名字重开会话也要带上这张码的名字 —— 否则 strip 会在换人之后退回兜底（UX-68）。
+        label: sess.code_label ?? null,
         used: sess.quota.used_turns,
         max: sess.quota.max_turns,
         maxMembers: sess.quota.max_members,

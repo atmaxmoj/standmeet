@@ -19,6 +19,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
@@ -116,6 +117,9 @@ func New(deps *Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
+	// RealIP 之后：判一次来源地址到底是不是访客的。没有转发头时 RemoteAddr 停在
+	// app 那一跳上，拿它冒充访客会让 IP 栏 / 封禁 / 暴力锁全部改变含义 —— 见 clientaddr。
+	r.Use(clientaddr.Middleware(deps.Log))
 	r.Use(chimw.Recoverer)
 	r.Use(requestLogger(deps.Log))
 

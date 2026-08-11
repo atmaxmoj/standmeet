@@ -103,7 +103,10 @@ function storeDisplaySession(
 ): void {
   useVisitorSessionStore.getState().setSession({
     ...fields,
-    label: null,
+    // label —— 这张码的名字，strip 和欢迎语拿它说「你进的是哪一片」。以前这里写死
+    // null，于是两处的 `?? 'invited'` 兜底恒定生效，每张码都被说成 invited（UX-68）。
+    // 兜底本身是对的（设计源：没标签才退回），错的是把真值扔在这一行。
+    label: sess.code_label ?? null,
     used: sess.quota.used_turns,
     max: sess.quota.max_turns,
     maxMembers: sess.quota.max_members,

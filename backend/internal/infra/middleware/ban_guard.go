@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 )
 
 // BanChecker —— BanGuard 对封禁表的只读视图。用接口而非直接依赖 postgres，
@@ -33,7 +35,14 @@ func BanGuard(checker BanChecker) func(http.Handler) http.Handler {
 func serveBanGuard(
 	w http.ResponseWriter, r *http.Request, checker BanChecker, next http.Handler,
 ) {
-	ip := clientIP(r)
+	// 封禁按定义是**针对一个地址**的。地址不可见时（没有转发头的出厂形态，见 clientaddr）
+	// 就没有可封的对象 —— 直接放行，而不是拿限流用的那个共用桶名去 banned_ips 里查一个
+	// 假地址：那既永远查不中，又让 owner 有机会把那个字面量填进封禁表把所有人挡在门外。
+	ip := clientaddr.Of(r.Context())
+	if ip == "" {
+		next.ServeHTTP(w, r)
+		return
+	}
 	banned, err := checker.IsBannedAnywhere(r.Context(), ip)
 	if err != nil {
 		slog.Default().Warn("ban check failed, allowing", "err", err, "ip", ip)

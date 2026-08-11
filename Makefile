@@ -125,10 +125,19 @@ dev-rebuild-mocks:
 # = dev minus the mocks, with real secrets. TLS/domain is external (front the
 # app's published port with your proxy). Separate compose project + offset host
 # ports so it coexists with the dev/test stack.
+#
+# That proxy is not only about TLS. The app hop (Next rewrites /api/* to the
+# backend) adds no X-Forwarded-For, so without a proxy that sets one, NO visitor
+# address ever reaches the backend: conversations record no source IP, IP bans
+# have nothing to target, and the per-IP code lockout becomes one shared bucket.
+# The backend says so once in its log when it happens.
 prod-up:
 	@test -f .env || { echo "create .env first: cp .env.example .env && edit"; exit 2; }
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build --wait
 	@echo "[prod] app on http://localhost:38227 (front with your TLS proxy)"
+	@echo "[prod] that proxy must set X-Forwarded-For — without it no visitor IP is"
+	@echo "[prod] visible: no source IP on conversations, nothing for an IP ban to"
+	@echo "[prod] target, and the per-IP code lockout applies to everyone at once."
 
 # prod-app —— rebuild ONLY the prod app image (frontend-only change) from a fresh host
 # `app-build`, reusing the running prod backend/db/etc. Use to ship an app-only fix when a full
