@@ -33,7 +33,33 @@ func SeedPublicRole(
 	if err != nil {
 		return err
 	}
-	return syncPublicRoleJoins(ctx, roles, role.ID())
+	if jerr := syncPublicRoleJoins(ctx, roles, role.ID()); jerr != nil {
+		return jerr
+	}
+	return seedInvitedRole(ctx, roles, ownerID, promptID)
+}
+
+// seedInvitedRole —— 产品替 owner 签发的那些码（简历 QR / 批准申请）挂的 builtin role。
+//
+// 它跟 public 共用同一份 persona（同一个人的声音），区别只在**受邀与否**：这一条带真正的
+// 正列表，读得到 owner 策展过的语料；public 只读已发布的。两者分开之前，一次定向邀请
+// 拿的是给未受邀者的兜底档 —— 在 public 收窄之后那等于把受邀的人关在门外。
+func seedInvitedRole(
+	ctx context.Context, roles *access.RoleRepo, ownerID, promptID string,
+) error {
+	role, err := roles.UpsertBuiltin(ctx, &access.UpsertBuiltinInput{
+		OwnerID:     ownerID,
+		Name:        access.InvitedRoleName,
+		Description: access.InvitedRoleDescription,
+		PromptID:    &promptID,
+	})
+	if err != nil {
+		return fmt.Errorf("upsert invited role: %w", err)
+	}
+	if serr := roles.SetCorpusURIs(ctx, role.ID(), access.InvitedRoleCorpusURIs); serr != nil {
+		return fmt.Errorf("set invited role corpus uris: %w", serr)
+	}
+	return nil
 }
 
 func upsertPublicPrompt(

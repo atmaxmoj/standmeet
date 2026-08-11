@@ -35,7 +35,7 @@ type CodesDeps struct {
 func IssueCode(
 	ctx context.Context, d CodesDeps, in *repo.CreateCodeInput,
 ) (entity.Code, error) {
-	roleID, err := assumedRoleOrPublic(ctx, d, in.OwnerID, in.AssumedRoleID)
+	roleID, err := assumedRoleOrInvited(ctx, d, in.OwnerID, in.AssumedRoleID)
 	if err != nil {
 		return entity.Code{}, err
 	}
@@ -47,17 +47,25 @@ func IssueCode(
 	return code, nil
 }
 
-func assumedRoleOrPublic(
+// assumedRoleOrInvited —— owner 没在这张码上指定 role 时的默认档。
+//
+// 默认是 `invited`，不是 public。**发一张码就是一次邀请** —— 这是 owner 定的那条规则的另一半：
+// 「private 的没有码就读不到」，反过来说，有码的人读得到 owner 策展的语料。public 是留给
+// **没有码**的那条路的（BYOAI / gate），它只读已发布的（F-D-7）。
+//
+// 想给某个人只开公开面，仍然做得到：在码上显式挑 `public`。区别是那成了一个**被选中**的
+// 决定，而不是替 owner 做的假设。
+func assumedRoleOrInvited(
 	ctx context.Context, d CodesDeps, ownerID, requested string,
 ) (string, error) {
 	if requested != "" {
 		return requested, nil
 	}
-	public, err := d.Roles.GetByName(ctx, ownerID, entity.PublicRoleName)
+	invited, err := d.Roles.GetByName(ctx, ownerID, entity.InvitedRoleName)
 	if err != nil {
-		return "", fmt.Errorf("public role: %w", err)
+		return "", fmt.Errorf("invited role: %w", err)
 	}
-	return public.ID(), nil
+	return invited.ID(), nil
 }
 
 // RevokeCode —— 撤一张码,并清掉它已经发出去的 visitor session。

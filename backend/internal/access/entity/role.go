@@ -210,9 +210,12 @@ func (r *Role) AllowsCorpus(uri string) bool {
 //
 // 为什么叫 "public":每张 access code 是**定向邀请**，冻结一个 owner 指定的 role。而 BYOAI
 // 访客（自带 API key、没被邀请、走 /gate 的默认档）不属于任何邀请 → 落到这个**默认、公开**的
-// role。所以「未被邀请的默认访客 = public」。visitor_public.go 的 public/byoai 路径锁定它，
-// jobsuc 自动发的 application code 也默认挂它。它是 is_builtin=true：不可删、name 不可改，
-// 但 owner **可以改它的 prompt**。
+// role。所以「未被邀请的默认访客 = public」。visitor_public.go 的 public/byoai 路径锁定它。
+// 它是 is_builtin=true：不可删、name 不可改，但 owner **可以改它的 prompt**。
+//
+// **jobsuc 自动发的 application code 不再挂它** —— 那张码印在简历右上角的 QR 里，是**定向邀请**
+// （这份注释上一句自己就是这么定义 code 的）。让一次邀请落到"给未受邀者的兜底档"，在 public
+// 收窄成"只读已发布"之后就变成了：recruiter 扫码进来只看得到公开页。见 InvitedRoleName。
 //
 // **它的 corpus 范围不是一份可编辑的清单**：public 读到的就是 owner 发布过的那些，
 // 一条一条由笔记自己的 `published` 开关定。这条注释以前写的是「访客身份 role 的 name 跟
@@ -237,6 +240,30 @@ const PublicRoleDescription = "System default. Reads exactly what you have publi
 // 保留成空 slice 而不是删掉这个名字：seed 仍然显式写一次「public 没有正列表」，
 // 让"没设置"和"设成了空"在代码里是同一件被写下来的事。
 var PublicRoleCorpusURIs = []string{}
+
+// InvitedRoleName —— builtin `invited` role：**产品自己签发**的那些码挂它。
+//
+// 这个名字划的就是 PublicRoleName 上面那条注释里的线：`public` = 未受邀的兜底档，
+// `invited` = 一次定向邀请。产品有两处替 owner 发码 —— job loop 印在简历 QR 里的那张，
+// 和 owner 批准 gate 申请时发出的那张 —— 两处都是邀请，所以两处都挂这一条。
+// 叫 `invited` 而不是 `applicant`：招聘只是其中一条渠道，而范围问的是"受没受邀"。
+//
+// 它承接的正是 public 在 F-D-7 之前那三条 glob：这次改动**没有动受邀者看到的东西**，
+// 只是把"未受邀"从里面摘了出来。owner 想收窄，就在 /admin/roles 上改这一条 ——
+// 那是一份真正的正列表，改它是个决定。
+const InvitedRoleName = "invited"
+
+// InvitedRoleDescription —— invited role 的一句简介。
+const InvitedRoleDescription = "System default for the codes StandMeet issues for you — the QR " +
+	"on a résumé, or the code that goes out when you approve a request. A directed invite: it " +
+	"reads your curated corpus, published or not. Narrow it here if invitees should see less."
+
+// InvitedRoleCorpusURIs —— 受邀访客读得到的面（= public 在 F-D-7 之前那三条）。
+var InvitedRoleCorpusURIs = []string{
+	"wiki://**",
+	"output://**",
+	"writing://**",
+}
 
 // ErrRoleNotFound —— role id 不存在或不属于该 owner。
 var ErrRoleNotFound = errors.New("role not found")

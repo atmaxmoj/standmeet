@@ -12,7 +12,9 @@ type Props = { form: CodeFormHook };
 export function CodeRolePicker({ form }: Props) {
   const hook = useRoles();
   return (
-    <CodeRolePickerSection title="role" subtitle="frozen at issue; leave blank for public">
+    // 副标题说的是**留空会发生什么**：默认档是 `invited`（读得到你策展的语料），
+    // 因为发一张码就是一次邀请。想只给公开面，就在下拉里挑 `public`。
+    <CodeRolePickerSection title="role" subtitle="frozen at issue; blank = invited">
       <CodeRolePickerSelect form={form} roles={hook.roles} />
     </CodeRolePickerSection>
   );

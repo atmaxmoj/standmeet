@@ -20,6 +20,7 @@ import { createCode } from '@/fixtures/codes';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { getRoleByName } from '@/fixtures/roles';
 import { test, expect } from '@/fixtures/test';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
 
@@ -54,8 +55,12 @@ test.describe('the public identity reads what the owner published — and nothin
     await seedWiki(request, token, sid, {
       title: 'Held Back Note', body: `a note kept private about ${UNPUBLISHED_KEY}`,
     });
-    // role 留空 = builtin `public`（码上的文案就是 "leave blank for public"）。
-    await createCode(request, csrf, { code: CODE, label: 'pubscope' });
+    // **显式**挑 builtin `public`：留空现在是 `invited`（发一张码就是一次邀请）。
+    // 这条守的是"没被邀请的人看到什么"，所以那个身份必须写出来，不能靠默认。
+    const publicRole = await getRoleByName(request, 'public');
+    await createCode(request, csrf, {
+      code: CODE, label: 'pubscope', assumed_role_id: publicRole.id,
+    });
     await request.dispose();
   });
 

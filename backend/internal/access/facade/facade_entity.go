@@ -32,8 +32,10 @@ var (
 
 // 常量（实现:entity）.
 const (
-	PublicRoleDescription = entity.PublicRoleDescription
-	PublicRoleName        = entity.PublicRoleName
+	InvitedRoleDescription = entity.InvitedRoleDescription
+	InvitedRoleName        = entity.InvitedRoleName
+	PublicRoleDescription  = entity.PublicRoleDescription
+	PublicRoleName         = entity.PublicRoleName
 )
 
 // 错误/变量（实现:entity）.
@@ -55,5 +57,6 @@ var (
 	ErrTooManyDockButtons         = entity.ErrTooManyDockButtons
 	ErrTurnQuotaReached           = entity.ErrTurnQuotaReached
 	ErrUnknownDockCapability      = entity.ErrUnknownDockCapability
+	InvitedRoleCorpusURIs         = entity.InvitedRoleCorpusURIs
 	PublicRoleCorpusURIs          = entity.PublicRoleCorpusURIs
 )

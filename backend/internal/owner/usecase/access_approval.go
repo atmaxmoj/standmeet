@@ -133,10 +133,14 @@ func loadApprovalContext(
 	return approvalContext{req: req, owner: ownerRow}, nil
 }
 
+// issueInviteCode —— owner 批准了一条 gate 申请，产品替他发一张码。
+//
+// 它挂 `invited` 而不是 public：owner 刚刚**亲手同意**跟这个人说话，那正是一次定向邀请。
+// 挂 public 的话，在 public 收窄成"只读已发布"之后，被批准的人拿到的跟没申请时一模一样。
 func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID string) (string, error) {
-	public, verr := deps.Roles.GetByName(ctx, ownerID, access.PublicRoleName)
+	invited, verr := deps.Roles.GetByName(ctx, ownerID, access.InvitedRoleName)
 	if verr != nil {
-		return "", fmt.Errorf("get public role: %w", verr)
+		return "", fmt.Errorf("get invited role: %w", verr)
 	}
 	code, gerr := generateInviteCode()
 	if gerr != nil {
@@ -146,7 +150,7 @@ func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID strin
 	maxMembers := int32(inviteMaxMembers)
 	if _, cerr := deps.Codes.CreateAccessCode(ctx, &access.CreateAccessCodeInput{
 		OwnerID: ownerID, Code: code, Label: "invite",
-		Purpose: "access request approval", AssumedRoleID: public.ID(),
+		Purpose: "access request approval", AssumedRoleID: invited.ID(),
 		ExpiresAt: &expires, MaxMembers: &maxMembers,
 	}); cerr != nil {
 		return "", fmt.Errorf("create access code: %w", cerr)

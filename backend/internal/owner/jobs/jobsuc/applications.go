@@ -160,10 +160,12 @@ func runCommitTx(
 	expires := time.Now().AddDate(0, 0, applicationCodeDays)
 	maxMembers := applicationMaxMembers
 	maxTurns := applicationMaxTurns
-	// A.3-IAM-5: application 自动 issue code 默认挂 owner 的 public role。
-	public, verr := deps.Roles.GetByName(ctx, ownerID, access.PublicRoleName)
+	// 这张码印在简历右上角的 QR 里 —— 是一次**定向邀请**，所以它挂 `invited`，
+	// 不是给未受邀访客的 public 兜底档。挂错档的后果只有在 public 收窄成"只读已发布"
+	// 之后才显形：recruiter 扫码进来只看得到公开页（F-D-7 的下游）。
+	invited, verr := deps.Roles.GetByName(ctx, ownerID, access.InvitedRoleName)
 	if verr != nil {
-		return CommitOutput{}, fmt.Errorf("get public role: %w", verr)
+		return CommitOutput{}, fmt.Errorf("get invited role: %w", verr)
 	}
 	in := &CommitInput{
 		OwnerID:            ownerID,
@@ -175,7 +177,7 @@ func runCommitTx(
 		CodeExpiresAt:      &expires,
 		MaxMembers:         &maxMembers,
 		MaxTurnsPerSession: &maxTurns,
-		AssumedRoleID:      public.ID(),
+		AssumedRoleID:      invited.ID(),
 	}
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {
