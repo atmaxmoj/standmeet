@@ -100,7 +100,8 @@
     "help": "Meter this role against its provider's tank. Off (the default) means no usage check runs at all; on means a visitor is stopped once that provider's tank is empty. A provider with no fuel in it is never metered either way."
   },
   "roleCorpus": {
-    "help": "The positive list of corpus URIs the agent can read, one per line. Match-any: hitting any one line is enough to read, so the grain can be as fine as you like — wiki://thinking/** grants the whole subtree, subjectivity://standpoint grants that one note only. An empty list = nothing at all. Changes only affect sessions issued from now on (the role is frozen when the code is issued)."
+    "help": "The positive list of corpus URIs the agent can read, one per line. Match-any: hitting any one line is enough to read, so the grain can be as fine as you like — wiki://thinking/** grants the whole subtree, subjectivity://standpoint grants that one note only. An empty list = nothing at all. Changes only affect sessions issued from now on (the role is frozen when the code is issued).",
+    "publicIsPublished": "Whatever you have published — no separate list. This is the identity a visitor gets with no code (and with BYOAI), and it reads an entry only if that entry's own published switch is on. Turn one on from the entry's card under wiki or outputs; there is nothing to edit here, so the two can never say different things."
   },
   "roleDock": {
     "label": "dock",

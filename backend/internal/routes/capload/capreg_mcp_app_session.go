@@ -26,8 +26,7 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		VisitorName:    in.Visitor.Name,
 		VisitorEmail:   in.Visitor.Email,
 		RoleID:         roleIDOf(in),
-		CorpusURIs:     corpusURIsOf(in),
-		CorpusDenials:  corpusDenialsOf(in),
+		CorpusScope:    corpusScopeOf(in),
 		// 这个能力自己那份 per-role 配置(冻在 snapshot 里)。只给它自己的 ——
 		// 一个插件不该看见别的能力的设置。
 		CapConfig: capConfigOf(in, m.ID),
@@ -53,19 +52,22 @@ func roleIDOf(in *capreg.AssembleInput) string {
 	return in.RoleSnapshot.RoleID()
 }
 
-// corpusDenialsOf —— code 从 role 正列表收回的 corpus glob(ACL 第三类)。无 role → 空。
-func corpusDenialsOf(in *capreg.AssembleInput) []string {
+// corpusScopeOf —— 当前 session 冻下的 corpus-ACL scope，**整块**序列化过线。
+//
+// 不在这里拆成"授了哪些 / 收回哪些"两个列表：那样每加一条准入规则就要在四个接缝上各抄一遍，
+// 而漏抄的那一处不会编译失败（F-D-7 的修复第一次就是这么丢掉 published_only 的）。
+// 无 role → 空 scope（什么都读不到），不是"不带这个字段"。
+func corpusScopeOf(in *capreg.AssembleInput) json.RawMessage {
 	if in.RoleSnapshot == nil {
-		return []string{}
+		return emptyCorpusScope()
 	}
-	return in.RoleSnapshot.DeniedCorpusURIs()
+	raw, err := json.Marshal(in.RoleSnapshot.CorpusScope())
+	if err != nil {
+		return emptyCorpusScope()
+	}
+	return raw
 }
 
-// corpusURIsOf —— 当前 session 的 corpus-ACL scope(role snapshot 的 URI glob 白名单),
-// 给外置 retrieval 插件的 host op 重建 AllowsCorpus 用。无 role → 空。
-func corpusURIsOf(in *capreg.AssembleInput) []string {
-	if in.RoleSnapshot == nil {
-		return []string{}
-	}
-	return in.RoleSnapshot.CorpusURIs()
+func emptyCorpusScope() json.RawMessage {
+	return json.RawMessage(`{"granted":[],"denied":[],"published_only":false}`)
 }

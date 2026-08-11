@@ -20,6 +20,9 @@ type GrepNoteRow struct {
 	Genre      string
 	Body       string
 	PathTitles []string
+	// Published —— 这一条自己的公开开关。grep 是 never-miss 的:它扫每一条,所以准入
+	// 必须逐条判,而 public 身份的判据就是这个值(access.AllowsCorpusEntry)。
+	Published bool
 }
 
 // NotesWithBodies —— owner 的每一条 note,连正文。
@@ -44,6 +47,7 @@ func (r *VaultSyncRepo) NotesWithBodies(
 			Genre:      rows[i].Genre,
 			Body:       rows[i].Body,
 			PathTitles: rows[i].PathTitles,
+			Published:  rows[i].Published,
 		})
 	}
 	return out, nil

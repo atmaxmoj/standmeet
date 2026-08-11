@@ -122,6 +122,8 @@ func seoDepsOf(d *deps.Runtime) owner.OpsSEO {
 	return owner.OpsSEO{
 		SEO:  d.SEORepo,
 		Pins: owner.PagePinDeps{Owners: d.OwnerRepo, Wiki: d.WikiRepo},
+		// 发布改的是那条笔记 → 写完刷它的检索文档（索引里的 published 是 public 身份的准入判据）。
+		Corpus: corpusDepsOf(d),
 	}
 }
 

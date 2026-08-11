@@ -77,7 +77,7 @@ func (l *pgCorpusLister) neighborMeta(
 		return Meta{}, false
 	}
 	path := SyncNotePath(note.Title, note.ParentID, DBParentOf(ctx, l.queryRepo, ownerID))
-	if !allowsCorpusURI(scope, note.Genre, path) {
+	if !allowsCorpusEntry(scope, note.Genre, path, note.Published) {
 		return Meta{}, false
 	}
 	return Meta{ID: ref.ID, Path: path, Title: ref.Title, Genre: note.Genre}, true

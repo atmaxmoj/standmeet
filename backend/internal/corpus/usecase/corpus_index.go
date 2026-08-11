@@ -213,3 +213,15 @@ func reindexOwnerHook(ctx context.Context, deps Deps, ownerID string) {
 func ReindexCorpusOwner(ctx context.Context, deps Deps, ownerID string) {
 	reindexOwnerHook(ctx, deps, ownerID)
 }
+
+// ReindexCorpusNote —— 供外层在**单条**写后传播。nil-safe。
+//
+// 存在的理由是 publish：`seo.set_entry_seo` 改的是 corpus_notes.published，而它走的是
+// owner 那侧的 SEO 端口，不经过本包任何一个写 usecase —— 于是那条笔记的索引文档里
+// `published` 停在写入时的值。以前没人读索引里的这个字段，所以看不出来；F-D-7 之后
+// public 身份的准入正是读它，一条刚发布的笔记会**从检索里消失**。
+//
+// 索引的每一个字段都必须有它的写路径；这一个以前没有。
+func ReindexCorpusNote(ctx context.Context, deps Deps, ownerID, noteID string) {
+	indexNoteHook(ctx, deps, ownerID, noteID)
+}

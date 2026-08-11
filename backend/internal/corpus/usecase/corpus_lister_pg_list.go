@@ -65,7 +65,7 @@ func wikiChildRows(
 		if parentPath != "" {
 			childPath = parentPath + "/" + childPath
 		}
-		if !allowsCorpusURI(scope, "wiki", childPath) {
+		if !allowsCorpusEntry(scope, "wiki", childPath, kids[i].Published) {
 			continue
 		}
 		out = append(out, Meta{
@@ -87,7 +87,7 @@ func (l *pgCorpusLister) listOutputRoots(
 	out := make([]Meta, 0, len(outputs))
 	for i := range outputs {
 		p := paths[outputs[i].ID()]
-		if !allowsCorpusURI(scope, "output", p) {
+		if !allowsCorpusEntry(scope, "output", p, outputs[i].Published()) {
 			continue
 		}
 		out = append(out, Meta{
@@ -107,7 +107,7 @@ func (l *pgCorpusLister) listWritingRoots(
 	out := make([]Meta, 0, len(writings))
 	for i := range writings {
 		p := writings[i].Path()
-		if !allowsCorpusURI(scope, "writing", p) {
+		if !allowsCorpusEntry(scope, "writing", p, writings[i].IsPublished()) {
 			continue
 		}
 		out = append(out, Meta{

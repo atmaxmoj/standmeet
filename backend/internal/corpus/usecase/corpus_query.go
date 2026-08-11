@@ -113,7 +113,7 @@ func queryRowToMeta(
 		return Meta{}, false
 	}
 	path := strings.Join(row.PathTitles, "/")
-	if !allowsCorpusURI(scope, row.Genre, path) {
+	if !allowsCorpusEntry(scope, row.Genre, path, row.Published) {
 		return Meta{}, false
 	}
 	if childrenOf != "" && !isChildOf(row.PathTitles, childrenOf) {

@@ -212,15 +212,18 @@ func grepTool() mcpgo.Tool {
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`. For retrieval the host
-// op needs the owner id + the frozen corpus-ACL SCOPE to re-evaluate readability. The scope is two
-// lists, and BOTH must be forwarded: the role's grant AND this code's narrowing. Forwarding only
-// the grant makes the host serve exactly what the owner took back on that code — a fail-open, and
-// silent (the deny is stored, the owner believes it holds, the plugin drops it on the floor).
+// op needs the owner id + the frozen corpus-ACL SCOPE to re-evaluate readability.
+//
+// **The scope is opaque here, and that is the point.** This plugin does not know what an ACL is
+// made of; it carries the host's bytes back to the host. The earlier version unpacked the scope
+// into named lists, which meant every new member of that rule had to be re-listed here — and the
+// day one was added (published-only, for uninvited visitors), this file still compiled and quietly
+// dropped it, denying those visitors everything. A courier that reads the envelope is a courier
+// that can lose part of the letter.
 type session struct {
 	OwnerID        string
 	ConversationID string
-	CorpusURIs     []string
-	CorpusDenials  []string
+	CorpusScope    any
 }
 
 func sessionFromMeta(req mcpgo.CallToolRequest) session {
@@ -235,8 +238,7 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 	return session{
 		OwnerID:        str(raw, "owner_id"),
 		ConversationID: str(raw, "conversation_id"),
-		CorpusURIs:     strSlice(raw, "corpus_uris"),
-		CorpusDenials:  strSlice(raw, "corpus_denials"),
+		CorpusScope:    raw["corpus_scope"],
 	}
 }
 
@@ -275,8 +277,7 @@ func opHandler(op string) server.ToolHandlerFunc {
 			"op":              op,
 			"owner_id":        s.OwnerID,
 			"conversation_id": s.ConversationID,
-			"corpus_uris":     s.CorpusURIs,
-			"corpus_denials":  s.CorpusDenials,
+			"corpus_scope":    s.CorpusScope,
 			"args":            json.RawMessage(args),
 		})
 		if err != nil {

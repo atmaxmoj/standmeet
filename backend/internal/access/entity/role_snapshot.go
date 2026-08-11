@@ -204,18 +204,26 @@ func (s *RoleSnapshot) IsZero() bool {
 	return s.roleID == "" && len(s.corpusURIs) == 0
 }
 
-// AllowsCorpus —— 评估 URI 准入。raw://** hardcode deny；其他走 positive-list
-// glob 匹配。corpus_uris 空 = deny 全部。
+// AllowsCorpus —— 评估一条笔记的准入。raw://** hardcode deny；受邀身份走 positive-list
+// glob 匹配（corpus_uris 空 = deny 全部），public 身份看这条笔记自己发布没有。
 //
 // Pattern 跟 entry URI 都包含 scheme（"wiki://thinking/lucerna"）；compileGlob
 // 把 "wiki://thinking/**" 转成 "^wiki://thinking/.*$" regex 直接 match URI。
-func (s *RoleSnapshot) AllowsCorpus(uri string) bool {
-	return AllowsCorpusScope(s.CorpusScope(), uri)
+func (s *RoleSnapshot) AllowsCorpus(uri string, published bool) bool {
+	return AllowsCorpusEntry(s.CorpusScope(), CorpusEntryRef{URI: uri, Published: published})
 }
 
 // CorpusScope —— 冻下的 corpus 准入范围（role 授的正列表 + 这张 code 收回的）。
+//
+// **public 身份不带正列表**：它的范围由每条笔记自己的 `published` 定（PublishedOnly），
+// 见 CorpusScope 的注释。判据是冻在快照里的 role name —— builtin public 不可改名、
+// 每个 owner 下 name 唯一，所以它认得准，而且 name 本来就在 Redis 的 wire 里。
 func (s *RoleSnapshot) CorpusScope() CorpusScope {
-	return CorpusScope{Granted: s.CorpusURIs(), Denied: s.DeniedCorpusURIs()}
+	return CorpusScope{
+		Granted:       s.CorpusURIs(),
+		Denied:        s.DeniedCorpusURIs(),
+		PublishedOnly: s.roleName == PublicRoleName,
+	}
 }
 
 // DeniedCorpusURIs —— code 层收回的 glob（defensive copy）。

@@ -45,6 +45,10 @@ type Entry struct {
 	// ShowAsSource —— wiki/output only: false = AI 能 read 拿 body，但 readCollector
 	// 不把它收进 cited(meta/persona 类)。见 collectCitation 的 gate。
 	ShowAsSource bool
+	// Published —— 这条笔记自己的公开开关（owner 在 /admin 每条上翻的那一个）。
+	// public 身份（未受邀访客 + BYOAI）能不能读到它，就看这一个值 —— 所以每个 finder
+	// 都必须把它带上来，而不是让 ACL 拿一个零值去判（F-D-7）。
+	Published bool
 }
 
 // Lister —— the slim corpus data port (#157). Every method is ACL-scoped via

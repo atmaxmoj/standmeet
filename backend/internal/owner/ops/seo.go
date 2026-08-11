@@ -34,13 +34,20 @@ const (
 )
 
 // SEODeps —— 设置/计数/条目在 corpus,取消公开时摘 pin 在本域。
+//
+// Corpus 只为一件事：发布/取消发布**改的是那条笔记**，所以写完要把它的检索索引刷新。
+// 索引里的 `published` 是 public 身份的准入判据(F-D-7)，一份不刷新的索引会让刚发布的
+// 笔记从检索里消失、刚取消发布的笔记继续被搜到。
 type SEODeps struct {
-	SEO  *corpus.SEORepo
-	Pins usecase.PagePinDeps
+	SEO    *corpus.SEORepo
+	Pins   usecase.PagePinDeps
+	Corpus corpus.Deps
 }
 
 // SEO —— get_settings / update_settings / stats / set_entry_seo。
-func SEO(d SEODeps) []fp.Op {
+//
+// 收 *SEODeps：这份 deps 现在带着 corpus.Deps（发布要刷索引），按值传会被 gocritic 判 hugeParam。
+func SEO(d *SEODeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "seo.get_settings",
@@ -205,7 +212,7 @@ type seoEntryArgs struct {
 }
 
 // setEntrySEO —— genre 决定走哪条:wiki 要连着摘 pin,output 不上主页。
-func setEntrySEO(d SEODeps) fp.Invoke {
+func setEntrySEO(d *SEODeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodeSEOEntry(raw)
 		if perr != nil {
@@ -214,7 +221,7 @@ func setEntrySEO(d SEODeps) fp.Invoke {
 		if in.Genre == seoGenreWiki {
 			return setWikiSEO(ctx, d, ownerID, in)
 		}
-		return setOutputSEO(ctx, d.SEO, ownerID, in)
+		return setOutputSEO(ctx, d, ownerID, in)
 	}
 }
 
@@ -233,7 +240,7 @@ func decodeSEOEntry(raw json.RawMessage) (seoEntryArgs, error) {
 }
 
 func setWikiSEO(
-	ctx context.Context, d SEODeps, ownerID string, in seoEntryArgs,
+	ctx context.Context, d *SEODeps, ownerID string, in seoEntryArgs,
 ) (json.RawMessage, error) {
 	res, err := usecase.UpdateWikiSEOWithPins(ctx, d.SEO, d.Pins, usecase.WikiSEOUpdate{
 		OwnerID: ownerID, WikiID: in.ID,
@@ -242,6 +249,8 @@ func setWikiSEO(
 	if err != nil {
 		return nil, seoErr(err)
 	}
+	// 发布状态变了 → 这条笔记的检索文档要跟着变（见 SEODeps.Corpus）。
+	corpus.ReindexCorpusNote(ctx, d.Corpus, ownerID, in.ID)
 	return json.Marshal(seoEntryOut{
 		ID: res.Wiki.ID(), Genre: in.Genre, Excerpt: res.Wiki.Excerpt(),
 		Published: res.Wiki.Published(), UnpinnedSections: nonNilStrings(res.Unpinned),
@@ -249,12 +258,13 @@ func setWikiSEO(
 }
 
 func setOutputSEO(
-	ctx context.Context, seo *corpus.SEORepo, ownerID string, in seoEntryArgs,
+	ctx context.Context, d *SEODeps, ownerID string, in seoEntryArgs,
 ) (json.RawMessage, error) {
-	updated, err := seo.UpdateOutputSEO(ctx, ownerID, in.ID, in.Excerpt, in.Published)
+	updated, err := d.SEO.UpdateOutputSEO(ctx, ownerID, in.ID, in.Excerpt, in.Published)
 	if err != nil {
 		return nil, seoErr(err)
 	}
+	corpus.ReindexCorpusNote(ctx, d.Corpus, ownerID, in.ID)
 	return json.Marshal(seoEntryOut{
 		ID: updated.ID(), Genre: in.Genre, Excerpt: updated.Excerpt(),
 		Published: updated.Published(), UnpinnedSections: []string{},

@@ -67,6 +67,10 @@ func upsertPublicRole(
 // syncPublicRoleJoins —— 同步 role_corpus_uris + 清 skills + 清 mcp。
 // public 无 skill / 无 mcp，但显式 clear 让 re-seed 幂等（若以前种过别的
 // 后又调回 public 形态，要清干净 join 表）。
+//
+// corpus 那一行现在**清空**：public 读到的是 owner 发布过的那些，由每条笔记自己的
+// `published` 定（`CorpusScope.PublishedOnly`）。旧实例升级时这次 re-seed 会把那三条
+// `wiki://** output://** writing://**` 删掉 —— 这正是 F-D-7 要的：那份第二清单不该存在。
 func syncPublicRoleJoins(
 	ctx context.Context, roles *access.RoleRepo, roleID string,
 ) error {

@@ -34,7 +34,7 @@ func (l *pgCorpusLister) visibleWikiNodes(
 	out := make([]MapEntry, 0, len(wikis))
 	for i := range wikis {
 		p := paths[wikis[i].ID()]
-		if p == "" || !allowsCorpusURI(scope, "wiki", p) {
+		if p == "" || !allowsCorpusEntry(scope, "wiki", p, wikis[i].Published()) {
 			continue
 		}
 		out = append(out, MapEntry{Path: p, Title: wikis[i].Title()})

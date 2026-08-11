@@ -13,10 +13,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// CorpusScopeVisible —— corpus 检索能力的 fragment/enabled 闸：role snapshot 有任何 corpus
-// URI = 活跃（prompt 贡献 + CapabilityState.Enabled=true）。空 scope → fragment 不进
-// prompt + enabled=false，但 tool 仍暴露（ACL=always；内部 AllowsCorpus 对空白名单
-// 恒 deny）。composition root 经 CapHooks.Fragment 注入。
+// CorpusScopeVisible —— corpus 检索能力的 fragment/enabled 闸：这个 session 的身份**够得着
+// 语料**就算活跃（prompt 贡献 + CapabilityState.Enabled=true）。够不着 → fragment 不进
+// prompt + enabled=false，但 tool 仍暴露（ACL=always；内部准入照样逐条判）。
+// composition root 经 CapHooks.Fragment 注入。
+//
+// 判据问的是 scope 自己（`ReachesAnything`），不是"正列表长度 > 0"：public 身份的范围由
+// 每条笔记的 published 定，它一条 glob 都没有 —— 按长度判会把检索能力对每个无码访客关掉。
 func CorpusScopeVisible(in *capreg.AssembleInput) bool {
-	return len(corpusURIsOf(in)) > 0
+	if in.RoleSnapshot == nil {
+		return false
+	}
+	return in.RoleSnapshot.CorpusScope().ReachesAnything()
 }

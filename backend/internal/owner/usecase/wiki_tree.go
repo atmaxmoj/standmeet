@@ -46,10 +46,13 @@ func PublicWikiScope(seoIndexed bool, _ string) bool {
 	return seoIndexed
 }
 
-// RoleWikiScope —— 有 code:role corpus_uris glob 准入 wiki://<path>。
+// RoleWikiScope —— 有 code:role 的准入判 wiki://<path>。
+//
+// `seoIndexed` 就是这条自己的 published 开关,以前在这里被丢掉(`_`)—— 而它正是 public
+// 身份唯一的判据。现在传下去:受邀身份仍走 role 的 glob,public 身份看条目自己(F-D-7)。
 func RoleWikiScope(snap *access.RoleSnapshot) WikiTreeScope {
-	return func(_ bool, path string) bool {
-		return snap.AllowsCorpus("wiki://" + path)
+	return func(seoIndexed bool, path string) bool {
+		return snap.AllowsCorpus("wiki://"+path, seoIndexed)
 	}
 }
 

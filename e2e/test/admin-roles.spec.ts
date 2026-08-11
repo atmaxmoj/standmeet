@@ -39,8 +39,10 @@ test.describe('admin roles', () => {
     const publicRow = adminPage.getByTestId('role-row-public');
     await expect(publicRow).toBeVisible();
     await expect(publicRow.getByTestId('role-system-pill')).toBeVisible();
-    // publicRow 三 publicRow glob：writing/wiki/output —— "3 URIs"
-    await expect(publicRow.getByTestId('role-meta-corpus')).toContainText('3 URIs');
+    // public 身份**没有正列表**：它读到的就是 owner 发布过的那些，由每条笔记自己的开关定
+    // （F-D-7）。这里曾经断言 `3 URIs` —— 那三条 glob 是 claim 时种下的第二份数据，
+    // 正是它让没有码的陌生人读到了标着 PRIVATE 的笔记。卡上现在说的是真正的范围在哪。
+    await expect(publicRow.getByTestId('role-meta-corpus')).toContainText('what you published');
   });
 
   test('public role has no delete button', async ({ adminPage }) => {

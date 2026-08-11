@@ -24,7 +24,7 @@ func (l *pgCorpusLister) Get(
 			continue
 		}
 		foundAny = true
-		if allowsCorpusURI(scope, entry.Genre, path) {
+		if allowsCorpusEntry(scope, entry.Genre, path, entry.Published) {
 			l.fillCSSClasses(ctx, ownerID, &entry)
 			return entry, nil
 		}
@@ -65,6 +65,7 @@ func (l *pgCorpusLister) findSubjectivity(
 	}
 	return Entry{
 		ID: n.ID, Path: path, Title: n.Title, Genre: "subjectivity", Body: n.Body,
+		Published: n.Published,
 	}, true
 }
 
@@ -81,7 +82,7 @@ func (l *pgCorpusLister) findWiki(
 	}
 	return Entry{
 		ID: w.ID(), Path: path, Title: w.Title(), Genre: "wiki", Body: w.Body(),
-		ShowAsSource: w.ShowAsSource(),
+		ShowAsSource: w.ShowAsSource(), Published: w.Published(),
 	}, true
 }
 
@@ -98,7 +99,7 @@ func (l *pgCorpusLister) findOutput(
 	}
 	return Entry{
 		ID: o.ID(), Path: path, Title: o.Title(), Genre: "output", Body: o.Body(),
-		ShowAsSource: o.ShowAsSource(),
+		ShowAsSource: o.ShowAsSource(), Published: o.Published(),
 	}, true
 }
 
@@ -109,7 +110,10 @@ func (l *pgCorpusLister) findWriting(
 	if err != nil {
 		return Entry{}, false
 	}
+	// GetPublishedByPath 名副其实（只回已发布的），所以这里 Published 恒 true —— 写成
+	// 显式的 IsPublished() 而不是字面 true：判据仍来自那一行，不来自函数名的承诺。
 	return Entry{
 		ID: w.ID(), Path: path, Title: w.Title(), Genre: "writing", Body: writingBodyText(&w),
+		Published: w.IsPublished(),
 	}, true
 }

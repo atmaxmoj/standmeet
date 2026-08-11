@@ -65,7 +65,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "marketplace", Ops: marketplace.MarketplaceOps(d.Marketplace)},
 		{Name: "codes", Ops: access.CodeOps(d.Codes)},
 		{Name: "access_requests", Ops: owner.AccessRequestOps(d.AccessRequests)},
-		{Name: "seo", Ops: owner.SEOOps(d.SEO)},
+		{Name: "seo", Ops: owner.SEOOps(&d.SEO)},
 		{Name: "page", Ops: owner.PageOps(d.Page)},
 		{Name: "roles", Ops: access.RoleOps(d.Roles)},
 		{Name: "conversations", Ops: conversation.ConversationOps(&d.Conversations)},

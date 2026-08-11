@@ -229,11 +229,13 @@ func (r *VaultSyncRepo) PruneAbsentVaultNotes(
 	return int(n), nil
 }
 
-// QueryNoteRow —— 原生查询命中的一条:leaf id + genre + root→leaf 的 path 段。
+// QueryNoteRow —— 原生查询命中的一条:leaf id + genre + root→leaf 的 path 段 + 它自己的
+// 公开开关(准入要问这一个,见 access.AllowsCorpusEntry)。
 type QueryNoteRow struct {
 	ID         string
 	Genre      string
 	PathTitles []string
+	Published  bool
 }
 
 // QueryNotes —— 按 genre/tag(空串 = 不筛)查 corp note,path 在 SQL 里沿 parent 链算好。
@@ -256,6 +258,7 @@ func (r *VaultSyncRepo) QueryNotes(
 			ID:         pgstore.FormatUUID(rows[i].ID),
 			Genre:      rows[i].Genre,
 			PathTitles: rows[i].PathTitles,
+			Published:  rows[i].Published,
 		})
 	}
 	return out, nil

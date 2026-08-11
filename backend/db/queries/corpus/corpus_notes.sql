@@ -158,18 +158,23 @@ SELECT id, title, genre, aliases FROM corpus_notes WHERE owner_id = $1;
 -- name: QueryCorpusNotes :many
 -- 原生 standmeet-query 用:按 genre/tag 过滤(空串 = 不筛),并沿 parent 链在 SQL 里算出 path_titles
 -- (root→leaf),省掉逐条 N+1 的 path walk。只返 root-reached 行(每个匹配条一行,带完整 path)。
+-- leaf_published 跟着叶子往上传:准入要问「这条自己发布了吗」(public 身份唯一的判据),
+-- 而 path walk 走到 root 时叶子的行已经不在手里了。
 WITH RECURSIVE up AS (
-  SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.id, n.parent_id,
+  SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.published AS leaf_published,
+         n.id, n.parent_id,
          ARRAY[n.title]::text[] AS path_titles
   FROM corpus_notes n
   WHERE n.owner_id = $1
     AND ($2::text = '' OR n.genre = $2::text)
     AND ($3::text = '' OR $3::text = ANY(n.tags))
   UNION ALL
-  SELECT up.leaf_id, up.leaf_genre, p.id, p.parent_id, p.title || up.path_titles
+  SELECT up.leaf_id, up.leaf_genre, up.leaf_published, p.id, p.parent_id,
+         p.title || up.path_titles
   FROM corpus_notes p JOIN up ON p.id = up.parent_id
 )
-SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.path_titles
+SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.leaf_published AS published,
+       up.path_titles
 FROM up WHERE up.parent_id IS NULL;
 
 -- name: GrepCorpusNotes :many
@@ -181,15 +186,17 @@ FROM up WHERE up.parent_id IS NULL;
 -- POSIX 正则跟 RE2 不是同一门方言,让它先筛一遍就等于让两套方言各漏一点。
 WITH RECURSIVE up AS (
   SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.body AS leaf_body,
+         n.published AS leaf_published,
          n.id, n.parent_id, ARRAY[n.title]::text[] AS path_titles
   FROM corpus_notes n
   WHERE n.owner_id = $1
   UNION ALL
-  SELECT up.leaf_id, up.leaf_genre, up.leaf_body, p.id, p.parent_id,
+  SELECT up.leaf_id, up.leaf_genre, up.leaf_body, up.leaf_published, p.id, p.parent_id,
          p.title || up.path_titles
   FROM corpus_notes p JOIN up ON p.id = up.parent_id
 )
-SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.leaf_body AS body, up.path_titles
+SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.leaf_body AS body,
+       up.leaf_published AS published, up.path_titles
 FROM up WHERE up.parent_id IS NULL;
 
 -- name: ListAllNotesForExport :many

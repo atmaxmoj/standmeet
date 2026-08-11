@@ -23,21 +23,28 @@ import (
 var ErrCorpusNotFound = errors.New("agentcore: corpus path not found")
 
 // CorpusHit —— a search/list row from the Driver (public mirror of corpus.Meta).
+//
+// Published mirrors the entry's own switch. It is part of the row because readability asks
+// the entry for the public identity (access.AllowsCorpusEntry) — a Driver that cannot say
+// whether a row is published cannot be ACL-checked the way prod is, and this file's whole
+// point is that the eval driver and prod share one rule.
 type CorpusHit struct {
-	ID      string
-	Path    string
-	Title   string
-	Genre   string
-	Snippet string
+	ID        string
+	Path      string
+	Title     string
+	Genre     string
+	Snippet   string
+	Published bool
 }
 
 // CorpusDoc —— a full corpus entry from the Driver (read result).
 type CorpusDoc struct {
-	ID    string
-	Path  string
-	Title string
-	Genre string
-	Body  string
+	ID        string
+	Path      string
+	Title     string
+	Genre     string
+	Body      string
+	Published bool
 }
 
 // driverCorpusLister —— usecases.CorpusLister backed by the Driver's corpus ops.
@@ -76,7 +83,8 @@ func (l driverCorpusLister) MapEntries(
 	}
 	out := make([]corpus.MapEntry, 0, len(all))
 	for i := range all {
-		if all[i].Genre != "wiki" || !allowsCorpus(scope, all[i].Genre, all[i].Path) {
+		if all[i].Genre != "wiki" ||
+			!allowsCorpus(scope, all[i].Genre, all[i].Path, all[i].Published) {
 			continue
 		}
 		out = append(out, corpus.MapEntry{Path: all[i].Path, Title: all[i].Title})
@@ -105,11 +113,12 @@ func (l driverCorpusLister) Get(
 	if err != nil {
 		return corpus.Entry{}, fmt.Errorf("driver get corpus: %w", err)
 	}
-	if !allowsCorpus(scope, doc.Genre, path) {
+	if !allowsCorpus(scope, doc.Genre, path, doc.Published) {
 		return corpus.Entry{}, corpus.ErrCorpusDenied
 	}
 	return corpus.Entry{
 		ID: doc.ID, Path: doc.Path, Title: doc.Title, Genre: doc.Genre, Body: doc.Body,
+		Published: doc.Published,
 	}, nil
 }
 
@@ -164,7 +173,8 @@ func outgoingLinks(
 	seen := map[string]bool{}
 	for _, ref := range corpus.ExtractCrossLinks(body) {
 		hit, ok := resolveRef(ref.Target, all)
-		if !ok || seen[hit.Path] || !allowsCorpus(scope, hit.Genre, hit.Path) {
+		if !ok || seen[hit.Path] ||
+			!allowsCorpus(scope, hit.Genre, hit.Path, hit.Published) {
 			continue
 		}
 		seen[hit.Path] = true
@@ -195,7 +205,7 @@ func (l driverCorpusLister) entryLinksTo(
 	ctx context.Context, e *CorpusHit, subjectPath string,
 	targets map[string]bool, scope access.CorpusScope,
 ) bool {
-	if e.Path == subjectPath || !allowsCorpus(scope, e.Genre, e.Path) {
+	if e.Path == subjectPath || !allowsCorpus(scope, e.Genre, e.Path, e.Published) {
 		return false
 	}
 	doc, derr := l.driver.GetCorpus(ctx, e.Path)
@@ -243,7 +253,7 @@ func hitToMeta(h *CorpusHit) corpus.Meta {
 func (l driverCorpusLister) grepOne(
 	ctx context.Context, scope access.CorpusScope, re *regexp.Regexp, hit *CorpusHit,
 ) (corpus.GrepHit, bool) {
-	if !allowsCorpus(scope, hit.Genre, hit.Path) {
+	if !allowsCorpus(scope, hit.Genre, hit.Path, hit.Published) {
 		return corpus.GrepHit{}, false
 	}
 	doc, err := l.driver.GetCorpus(ctx, hit.Path)
@@ -262,7 +272,7 @@ func (l driverCorpusLister) grepOne(
 func filterHits(hits []CorpusHit, scope access.CorpusScope) []corpus.Meta {
 	out := make([]corpus.Meta, 0, len(hits))
 	for i := range hits {
-		if !allowsCorpus(scope, hits[i].Genre, hits[i].Path) {
+		if !allowsCorpus(scope, hits[i].Genre, hits[i].Path, hits[i].Published) {
 			continue
 		}
 		out = append(out, corpus.Meta{
@@ -273,9 +283,10 @@ func filterHits(hits []CorpusHit, scope access.CorpusScope) []corpus.Meta {
 	return out
 }
 
-// allowsCorpus —— same readability rule as the prod facade: the role's grant AND NOT the code's
-// narrowing. Routed through the one domain function so the eval driver and prod can never diverge.
-func allowsCorpus(scope access.CorpusScope, genre, path string) bool {
+// allowsCorpus —— same readability rule as the prod facade: the identity's reach AND NOT the
+// code's narrowing. Routed through the one domain function so the eval driver and prod can
+// never diverge — including the published half, which is the whole answer for a public visitor.
+func allowsCorpus(scope access.CorpusScope, genre, path string, published bool) bool {
 	uri := corpus.FormatURI(corpus.DocumentGenre(genre), path)
-	return access.AllowsCorpusScope(scope, uri)
+	return access.AllowsCorpusEntry(scope, access.CorpusEntryRef{URI: uri, Published: published})
 }

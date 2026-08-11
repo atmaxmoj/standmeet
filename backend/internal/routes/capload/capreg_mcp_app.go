@@ -342,5 +342,5 @@ func mcpAppGranted(m *mcpplugin.Manifest, snap *access.RoleSnapshot) bool {
 	return snap.AllowsCapability(m.ID, always)
 }
 
-// sessionMetaFor / roleIDOf / maxBookingsOf / corpusURIsOf / corpusDenialsOf —— 见
+// sessionMetaFor / roleIDOf / maxBookingsOf / corpusScopeOf —— 见
 // capreg_mcp_app_session.go(从此文件拆出,守 max-lines ≤350)。

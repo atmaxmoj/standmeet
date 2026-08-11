@@ -39,14 +39,18 @@ type pgCorpusLister struct {
 	media        *NoteAssetsDeps     // 读到一条语料时顺带给出它的素材(见 corpus_assets_read.go)
 }
 
-// allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?
-// allowsCorpusURI —— the ONE readability test every visitor-facing corpus surface goes through:
-// the role's grant AND NOT this code's narrowing (access.AllowsCorpusScope). Taking the whole
+// allowsCorpusEntry —— the ONE readability test every visitor-facing corpus surface goes through:
+// the identity's reach AND NOT this code's narrowing (access.AllowsCorpusEntry). Taking the whole
 // SCOPE (not a bare grant list) is the point: a facade handed only the grant would serve exactly
 // what the owner took back on that code — a fail-open the type system now prevents.
-func allowsCorpusURI(scope access.CorpusScope, genre, path string) bool {
+//
+// `published` is the entry's own switch, and it is a REQUIRED argument: for the public identity
+// (uninvited visitors + BYOAI) it is the whole answer, so every reading surface has to fetch it
+// off the row. Making it a parameter is what stops a surface from quietly serving private notes —
+// a missed one does not fail open, it fails to compile (F-D-7).
+func allowsCorpusEntry(scope access.CorpusScope, genre, path string, published bool) bool {
 	uri := entity.FormatURI(entity.DocumentGenre(genre), path)
-	return access.AllowsCorpusScope(scope, uri)
+	return access.AllowsCorpusEntry(scope, access.CorpusEntryRef{URI: uri, Published: published})
 }
 
 // Search —— 词法检索。有 Meili(searcher)走 Meili(corpus_notes:wiki/output/subjectivity = vault)
@@ -73,7 +77,7 @@ func (l *pgCorpusLister) meiliSearch(
 	}
 	out := make([]Meta, 0, len(docs))
 	for i := range docs {
-		if !allowsCorpusURI(scope, docs[i].Genre, docs[i].Path) {
+		if !allowsCorpusEntry(scope, docs[i].Genre, docs[i].Path, docs[i].Published) {
 			continue
 		}
 		out = append(out, Meta{
@@ -119,7 +123,7 @@ func (l *pgCorpusLister) subjectivityHit(
 	ctx context.Context, ownerID string, scope access.CorpusScope, hit *repo.NoteMeta,
 ) (Meta, bool) {
 	path, perr := deriveNotePath(ctx, l.subjectivity, ownerID, hit.ID)
-	if perr != nil || !allowsCorpusURI(scope, "subjectivity", path) {
+	if perr != nil || !allowsCorpusEntry(scope, "subjectivity", path, hit.Published) {
 		return Meta{}, false
 	}
 	return Meta{
@@ -138,7 +142,7 @@ func (l *pgCorpusLister) searchWikis(
 	out := make([]Meta, 0, len(hits))
 	for i := range hits {
 		path, perr := WikiPathByID(ctx, l.wiki, ownerID, hits[i].ID)
-		if perr != nil || !allowsCorpusURI(scope, "wiki", path) {
+		if perr != nil || !allowsCorpusEntry(scope, "wiki", path, hits[i].Published) {
 			continue
 		}
 		out = append(out, Meta{
@@ -159,7 +163,7 @@ func (l *pgCorpusLister) searchOutputs(
 	out := make([]Meta, 0, len(hits))
 	for i := range hits {
 		path, perr := OutputPathByID(ctx, l.output, ownerID, hits[i].ID)
-		if perr != nil || !allowsCorpusURI(scope, "output", path) {
+		if perr != nil || !allowsCorpusEntry(scope, "output", path, hits[i].Published) {
 			continue
 		}
 		out = append(out, Meta{
@@ -180,7 +184,9 @@ func (l *pgCorpusLister) searchWritings(
 	out := make([]Meta, 0, len(hits))
 	for i := range hits {
 		p := hits[i].Path()
-		if !allowsCorpusURI(scope, "writing", p) {
+		// writing 的 Search 只回 published（ports.go：writing 按 published 准入），
+		// 但 ACL 仍要拿到那个值 —— 收口在一处判，不靠"这个 lister 只给发布过的"这种口头约定。
+		if !allowsCorpusEntry(scope, "writing", p, hits[i].IsPublished()) {
 			continue
 		}
 		out = append(out, Meta{

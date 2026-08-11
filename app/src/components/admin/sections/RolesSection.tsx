@@ -240,9 +240,23 @@ function RoleDeleteBtn({
   );
 }
 
+// PUBLIC_ROLE_NAME —— builtin public 的 name（后端 access.PublicRoleName，不可改名）。
+const PUBLIC_ROLE_NAME = 'public';
+
+// corpusMetaOf —— 卡片上那行「corpus」。
+//
+// public 身份**没有正列表**：它读到的是 owner 发布过的那些，一条一条由笔记自己的开关定。
+// 对它写 `0 URIs` 会是句谎话（"什么都读不到"），写 `3 URIs` 更糟（那是它以前那份被
+// 悄悄种下的第二清单，F-D-7）。所以这里说它真正的范围在哪。
+function corpusMetaOf(role: RoleView): string {
+  return role.name === PUBLIC_ROLE_NAME
+    ? 'what you published'
+    : `${role.corpus_uris.length} URIs`;
+}
+
 function RoleMetaGrid({ role }: { role: RoleView }) {
   const cells: ReadonlyArray<readonly [string, string, boolean]> = [
-    ['corpus', `${role.corpus_uris.length} URIs`, false],
+    ['corpus', corpusMetaOf(role), false],
     ['skills', String(role.skill_ids.length), false],
     ['mcp', `${role.mcp_server_ids.length} servers`, false],
     ['codes', `${role.active_codes} active`, role.active_codes > 0],

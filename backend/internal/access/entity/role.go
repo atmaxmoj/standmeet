@@ -212,24 +212,31 @@ func (r *Role) AllowsCorpus(uri string) bool {
 // 访客（自带 API key、没被邀请、走 /gate 的默认档）不属于任何邀请 → 落到这个**默认、公开**的
 // role。所以「未被邀请的默认访客 = public」。visitor_public.go 的 public/byoai 路径锁定它，
 // jobsuc 自动发的 application code 也默认挂它。它是 is_builtin=true：不可删、name 不可改，
-// 但 owner **可以改它的 prompt / corpus**（收窄公开面）。
+// 但 owner **可以改它的 prompt**。
 //
-// 注意跟 writings.visibility='public'（[[VisibilityPublic]]）区分：那是**内容**可见性
-// (public/private)，这是**访客身份** role 的 name。二者不同表不同列，语义上对齐
-// (public 身份读 public 内容) 但不是同一实体。
+// **它的 corpus 范围不是一份可编辑的清单**：public 读到的就是 owner 发布过的那些，
+// 一条一条由笔记自己的 `published` 开关定。这条注释以前写的是「访客身份 role 的 name 跟
+// 内容可见性是两个东西、不同表不同列、不是同一实体」—— 那句话描述的是数据库，被我读成了
+// 产品对访客的承诺，于是"陌生人读到私有笔记"看起来像命名撞车而不是越权（F-D-7）。
+// 现在两者就是同一个数据：**private 的没有码就读不到**。
 const PublicRoleName = "public"
 
 // PublicRoleDescription —— public role 的一句简介。
-const PublicRoleDescription = "System default. Public corpus, no skills, no MCP. " +
-	"For uninvited BYOAI visitors (access codes are directed invites; this is the fallback)."
+const PublicRoleDescription = "System default. Reads exactly what you have published — " +
+	"each entry's own switch decides. No skills, no MCP. For uninvited BYOAI visitors " +
+	"(access codes are directed invites; this is the fallback)."
 
-// PublicRoleCorpusURIs —— public 的"公开"corpus 范围。匹配设计稿
-// admin-data.js ROLES[0].corpus_uris。
-var PublicRoleCorpusURIs = []string{
-	"wiki://**",
-	"output://**",
-	"writing://**",
-}
+// PublicRoleCorpusURIs —— public 身份**不带正列表**：它读到的就是 owner 发布过的那些，
+// 由每条笔记自己的 `published` 开关定（`CorpusScope.PublishedOnly`）。
+//
+// 这里曾经是 `{wiki://**, output://**, writing://**}` —— 一份**第二数据**，用 glob 重述
+// "谁能读什么"。于是条目上标着 PRIVATE、这份清单说"全部"，两边互不知情：F-D-7 里没有码的
+// 陌生人读到了 573 条标着 PRIVATE 的 wiki，而 /admin/roles 上那三个勾还亮着 "all of it"，
+// 看起来像 owner 做过的决定 —— 他从没选过，是 claim 时种进去的。
+//
+// 保留成空 slice 而不是删掉这个名字：seed 仍然显式写一次「public 没有正列表」，
+// 让"没设置"和"设成了空"在代码里是同一件被写下来的事。
+var PublicRoleCorpusURIs = []string{}
 
 // ErrRoleNotFound —— role id 不存在或不属于该 owner。
 var ErrRoleNotFound = errors.New("role not found")

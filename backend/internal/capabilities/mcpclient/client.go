@@ -154,15 +154,16 @@ type SessionContext struct {
 	VisitorName    string
 	VisitorEmail   string
 	RoleID         string
-	// CorpusURIs —— the session's frozen corpus-ACL scope (role snapshot's URI
-	// glob whitelist). Carried so the externalized retrieval plugin's host op can
-	// re-evaluate AllowsCorpus host-side without a role lookup (the frozen scope
-	// travels with the call, no staleness). Empty for non-retrieval sessions.
-	CorpusURIs []string
-	// CorpusDenials —— the code-level narrowing of that scope (ACL's third kind, alongside
-	// capability/skill denials). Must travel WITH the grant: a facade that sees only the grant
-	// serves what the owner explicitly took back — a fail-open.
-	CorpusDenials []string
+	// CorpusScope —— the session's frozen corpus-ACL scope, carried WHOLE so the externalized
+	// retrieval plugin's host op can re-evaluate readability host-side without a role lookup.
+	//
+	// **One opaque blob on purpose.** It used to travel as two named string lists, hand-copied
+	// at four seams (host writes _meta → plugin reads → plugin re-sends → host parses). When the
+	// scope grew a third member — "this identity reads only what the owner published" — three of
+	// those four seams still compiled and the field simply vanished in transit, denying a public
+	// visitor everything (F-D-7's fix, caught by its own guard). The plugin has no business
+	// knowing the shape of the host's ACL: it forwards these bytes untouched.
+	CorpusScope json.RawMessage
 	// CapConfig —— this capability's own per-role configuration, frozen into the role snapshot
 	// at session start. Opaque here: the host carries the bytes and does not read a single key.
 	//
@@ -185,8 +186,8 @@ func (s *SessionContext) meta() map[string]any {
 		"visitor_name":    s.VisitorName,
 		"visitor_email":   s.VisitorEmail,
 		"role_id":         s.RoleID,
-		"corpus_uris":     s.CorpusURIs,
-		"corpus_denials":  s.CorpusDenials,
+		// corpus_scope —— 整块过线，不拆字段（见 SessionContext.CorpusScope）。
+		"corpus_scope": s.CorpusScope,
 		// capability_config —— 这个能力自己的 per-role 配置,原样透传。host 不认识里面的键。
 		"capability_config": s.CapConfig,
 	}}

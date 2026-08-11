@@ -45,6 +45,9 @@ type Note struct {
 	Body         string
 	Tags         []string
 	ShowAsSource bool
+	// Published —— 这条笔记自己的公开开关。读路径要带上它：public 身份能不能读到这条，
+	// 就看这一个值（见 access.AllowsCorpusEntry）。行本来就选出来了，这里只是不再扔掉。
+	Published bool
 }
 
 // NoteMeta —— 无 body 的轻量 meta（树导航 / 搜索 / 算 path 用）。Snippet 仅搜索结果有值。
@@ -246,6 +249,7 @@ func noteFromRow(n *db.CorpusNote) Note {
 	out := Note{
 		ID: pgstore.FormatUUID(n.ID), OwnerID: pgstore.FormatUUID(n.OwnerID),
 		Title: n.Title, Body: n.Body, Tags: n.Tags, ShowAsSource: n.ShowAsSource,
+		Published: n.Published,
 	}
 	if n.ParentID.Valid {
 		s := pgstore.FormatUUID(n.ParentID)

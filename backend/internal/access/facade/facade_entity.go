@@ -7,6 +7,7 @@ type (
 	APIKey                = entity.APIKey
 	Code                  = entity.Code
 	CodeMember            = entity.CodeMember
+	CorpusEntryRef        = entity.CorpusEntryRef
 	CorpusScope           = entity.CorpusScope
 	CreateAPIKeyInput     = entity.CreateAPIKeyInput
 	CreateAccessCodeInput = entity.CreateAccessCodeInput
@@ -22,7 +23,7 @@ type (
 
 // 构造/函数（实现:entity）.
 var (
-	AllowsCorpusScope       = entity.AllowsCorpusScope
+	AllowsCorpusEntry       = entity.AllowsCorpusEntry
 	FilterWaypointsByCorpus = entity.FilterWaypointsByCorpus
 	MergeWaypoints          = entity.MergeWaypoints
 	NewRoleSnapshot         = entity.NewRoleSnapshot

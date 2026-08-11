@@ -155,7 +155,7 @@ func grepNoteRow(
 		return GrepHit{}, false
 	}
 	path := strings.Join(row.PathTitles, "/")
-	if !allowsCorpusURI(scope, row.Genre, path) {
+	if !allowsCorpusEntry(scope, row.Genre, path, row.Published) {
 		return GrepHit{}, false
 	}
 	lines, total := GrepBody(re, row.Body)
@@ -193,7 +193,7 @@ func grepWritingRow(
 	row *entity.Writing, scope access.CorpusScope, re *regexp.Regexp,
 ) (GrepHit, bool) {
 	p := row.Path()
-	if !allowsCorpusURI(scope, "writing", p) {
+	if !allowsCorpusEntry(scope, "writing", p, row.IsPublished()) {
 		return GrepHit{}, false
 	}
 	lines, total := GrepBody(re, row.Body())

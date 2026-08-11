@@ -20,7 +20,41 @@ import { CorpusScopePicker } from '@/components/admin/sections/corpus/CorpusScop
 import { roleUpdatePayload, useRoles, type RoleView } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
+// PUBLIC_ROLE_NAME —— builtin public 的 name（后端 access.PublicRoleName，不可改名）。
+const PUBLIC_ROLE_NAME = 'public';
+
+// RoleCorpusConfig —— public 身份**没有正列表**，所以它这一格不是编辑器而是一句陈述。
+//
+// 以前它跟别的 role 一样摆一排勾选框，里面亮着 `wiki — all of it`。那三条是 claim 时种进去的
+// 默认值，owner 从没选过 —— 但它长在设置页上、勾着、写着 all of it，看起来像一个决定。
+// 于是同一件事有了两份数据：条目上的 `published` 开关，和这份 glob 清单。两边互不知情，
+// 结果是没有码的陌生人读到了标着 PRIVATE 的笔记（F-D-7）。
+//
+// 现在这一格只说出那唯一的数据在哪：**owner 在每条自己的卡上翻的那个开关**。
 export function RoleCorpusConfig({ role }: { role: RoleView }) {
+  return role.name === PUBLIC_ROLE_NAME
+    ? <PublicCorpusNote />
+    : <EditableCorpusConfig role={role} />;
+}
+
+function PublicCorpusNote() {
+  const t = useTranslations('adminAccess');
+  return (
+    <div className="mt-2 grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) pt-1.5">
+        {t('common.corpus')}
+      </span>
+      <p
+        className="reading-tight text-[11px] text-(--color-muted)"
+        data-testid="role-corpus-public-note"
+      >
+        {t('roleCorpus.publicIsPublished')}
+      </p>
+    </div>
+  );
+}
+
+function EditableCorpusConfig({ role }: { role: RoleView }) {
   const t = useTranslations('adminAccess');
   const roles = useRoles();
   const run = useAction();

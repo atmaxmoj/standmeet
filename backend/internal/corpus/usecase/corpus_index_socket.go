@@ -28,9 +28,10 @@ import (
 type corpusIndexReq struct {
 	OwnerID        string          `json:"owner_id"`
 	ConversationID string          `json:"conversation_id"`
-	CorpusURIs     []string        `json:"corpus_uris"`
-	CorpusDenials  []string        `json:"corpus_denials"`
 	Args           json.RawMessage `json:"args"`
+	// CorpusScope —— 整块回来的准入范围（宿主写进 `_meta`，插件原样转发）。
+	// 拆成字段过线的写法已经废弃：漏一个成员不会编译失败，只会静默改变谁能读什么。
+	CorpusScope access.CorpusScope `json:"corpus_scope"`
 }
 
 // corpusRunner —— 一个 op 的执行体：解析 args、调 lister、返 wire JSON。
@@ -326,9 +327,11 @@ func marshalCorpusRows(metas []Meta) string {
 	return marshalRows(rows)
 }
 
-// corpusScopeOf —— the request's full corpus scope: role grant + this code's narrowing.
-// Built in ONE place so no op can accidentally pass the grant alone (which would serve what the
-// owner took back).
+// corpusScopeOf —— the request's corpus scope, exactly as the host froze it.
+//
+// It used to REBUILD the scope from two fields off the wire, which is how "this identity reads
+// only what the owner published" got lost in transit: a member the rebuild did not know about
+// silently defaulted to false. Now the scope crosses whole and is used whole.
 func corpusScopeOf(req *corpusIndexReq) access.CorpusScope {
-	return access.CorpusScope{Granted: req.CorpusURIs, Denied: req.CorpusDenials}
+	return req.CorpusScope
 }

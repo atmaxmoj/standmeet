@@ -93,6 +93,7 @@ var (
 	CorpusHostOpsFor            = usecase.CorpusHostOpsFor
 	NewRefResolver              = usecase.NewRefResolver
 	IndexPeriodicJobs           = usecase.IndexPeriodicJobs
+	ReindexCorpusNote           = usecase.ReindexCorpusNote
 	ReindexCorpusOwner          = usecase.ReindexCorpusOwner
 	ResolveAssetURLs            = usecase.ResolveAssetURLs
 	CompileGrep                 = usecase.CompileGrep
