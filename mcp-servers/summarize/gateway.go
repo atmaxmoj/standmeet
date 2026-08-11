@@ -50,6 +50,29 @@ func gwConversationRead(ownerID, conversationID string) ([]chatMessage, error) {
 	return r.Messages, nil
 }
 
+// gwOwnerFullName —— 报告写的是**一个人**，所以要问 host 这个人叫什么。
+//
+// 走的是既有的白名单动词（booker 取时区、mail-sender 取收件人用的是同一个），不是往会话
+// 载荷里再塞一个字段：owner 的名字本来就有一条到得了沙箱的路，这个插件只是从来没问过，
+// 于是报告把 owner 写成了 "the assistant"（F-A-33）。
+//
+// 取不到不算失败：报告照写，只是用一个中性的第三人称标签（见 ownerTurnFallback）。
+func gwOwnerFullName(ownerID string) string {
+	resp, err := gwCall("owner.meta", map[string]any{
+		"owner_id": ownerID, "field": "full_name",
+	})
+	if err != nil {
+		return ""
+	}
+	var r struct {
+		Value string `json:"value"`
+	}
+	if uerr := json.Unmarshal(resp, &r); uerr != nil {
+		return ""
+	}
+	return r.Value
+}
+
 // gwInferenceGenerate —— 用 owner 的 LLM 跑一次生成(host 按 owner+mode 解 cred；沙箱看不到 key)。
 func gwInferenceGenerate(
 	ownerID, mode, system string, messages []chatMessage,
