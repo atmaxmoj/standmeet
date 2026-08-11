@@ -163,6 +163,8 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	// 网关(summarize / booker / mail-sender / retrieval),各自站一个 socket、各自挂动词。
 	wire.HostDesk(ctx, d, &skills)
 	wire.SearchIndex(ctx, d)
+	// builtin role 对已存在的 owner 也要齐（新加的 `invited` 是发码默认档，老实例缺了就发不出码）。
+	wire.BuiltinRoles(ctx, d)
 	hooks := map[string]capload.CapHooks{
 		"corpus.retrieval": {Fragment: capload.CorpusScopeVisible},
 	}

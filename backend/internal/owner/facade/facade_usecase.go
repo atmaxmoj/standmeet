@@ -90,6 +90,7 @@ var (
 	ListPages                 = usecase.ListPages
 	ListPrompts               = usecase.ListPrompts
 	LoadSoleOwner             = usecase.LoadSoleOwner
+	SeedPublicRole            = usecase.SeedPublicRole
 	Login                     = usecase.Login
 	BuildOwnerPageView        = usecase.BuildOwnerPageView
 	ListPinnable              = usecase.ListPinnable
