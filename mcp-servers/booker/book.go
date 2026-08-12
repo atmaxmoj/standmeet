@@ -45,12 +45,21 @@ type bookErrWire struct {
 	OK     bool   `json:"ok"`
 }
 
+// bookOKWire —— 预约成功的回执。**每个字段都要说话，包括"没有"那一种**。
+//
+// InvitedEmail 以前叫 VisitorEmail 且带 `omitempty`：访客没留邮箱时它整个消失，回执就只剩
+// `{ok, event_id, html_link, start, end, can_email:true}`。而 can_email 说的是 owner **能不能**
+// 发信，不是这一次**邀请了谁**。模型手上于是没有任何东西能反驳"邀请已经发出去了"——
+// prompt 又告诉它"invite goes to the email the visitor entered (if they gave one)"——
+// 它就从对话正文里捡了个地址，对访客说"日历邀请会发到 X"。真收件箱是空的，真事件一个
+// 参会人都没有（F-B-6）。**省略不是 null**：字段永远在，空串就是"谁都没被邀请"。
 type bookOKWire struct {
-	EventID      string `json:"event_id"`
-	HTMLLink     string `json:"html_link"`
-	Start        string `json:"start"`
-	End          string `json:"end"`
-	VisitorEmail string `json:"visitor_email,omitempty"`
+	EventID  string `json:"event_id"`
+	HTMLLink string `json:"html_link"`
+	Start    string `json:"start"`
+	End      string `json:"end"`
+	// InvitedEmail —— 这场会真正加进宾客名单、真正会收到邀请的那个地址；空串 = 没有人。
+	InvitedEmail string `json:"invited_email"`
 	OK           bool   `json:"ok"`
 	CanEmail     bool   `json:"can_email"`
 }
@@ -204,7 +213,7 @@ func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string 
 	return mustJSON(bookOKWire{
 		OK: true, EventID: inserted.EventID, HTMLLink: inserted.HTMLLink,
 		Start: slot.Format(time.RFC3339), End: end.Format(time.RFC3339),
-		VisitorEmail: s.VisitorEmail, CanEmail: ownerCanEmail(s.OwnerID),
+		InvitedEmail: s.VisitorEmail, CanEmail: ownerCanEmail(s.OwnerID),
 	})
 }
 

@@ -14,11 +14,16 @@ import (
 // inspect via /__mock/gcal/deleted_events.
 func (s *server) serveCalendarEventsDelete(w http.ResponseWriter, r *http.Request) {
 	eventID := r.PathValue("eventId")
+	// 取消**这一次**要不要通知与会者，是删除请求自己的 sendUpdates 说了算 —— 不是当初建
+	// 事件时那个值。记下删除请求带的那个，e2e 才能断「取消真的通知了人」（F-B-7）。
+	sendUpdates := r.URL.Query().Get("sendUpdates")
 	s.withState(func(st *gcalState) {
 		filtered := make([]mockEvent, 0, len(st.events))
 		for i := range st.events {
 			if st.events[i].EventID == eventID {
-				st.deletedEvents = append(st.deletedEvents, st.events[i])
+				gone := st.events[i]
+				gone.SendUpdates = sendUpdates
+				st.deletedEvents = append(st.deletedEvents, gone)
 				continue
 			}
 			filtered = append(filtered, st.events[i])

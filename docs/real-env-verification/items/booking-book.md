@@ -8,9 +8,14 @@
 ## Checks
 
 ### 1 — A booking appears on the real calendar ⭐
-- **Steps:** Book through chat. Open the account's calendar in its own web view. Find the event.
-- **Expected:** The event exists there, with the right title, time and attendees. Reading the tool's own success reply is not this check — the calendar is.
+- **Steps:** Book through chat. Open the account's calendar in its own web view. Find the event. Open the event itself and read its guest list.
+- **Expected:** The event exists there, with the right title and time, and its guest list matches what the visitor supplied — the address they typed is on it, and the provider was asked to notify them. Reading the tool's own success reply is not this check — the calendar is. Drive the case where the visitor gives an address, not only the case where they skip it: an empty guest list is correct for a visitor who gave nothing, and it hides the whole invite path from view.
 - **Backing test:** `chat-book-success.spec.ts`
+
+### 1b — Whatever the chat promised about email actually happened ⭐
+- **Steps:** Read what the confirmation said in words. If it names an address, **open that inbox** and search for the invite. Do this even when the calendar event looks correct.
+- **Expected:** Every delivery the chat asserts has a message behind it. If nothing is sent, the chat must not say anything was. A booking whose confirmation says "the invite will go to <address>" and whose inbox stays empty is this check failing, not [[booking-email]]'s — that item covers the mail leg's own behaviour, this one covers the promise made at booking time. The check sits here, next to the action, because a driver who has to look it up in another item books, sees a friendly card, and moves on without ever opening a mailbox. Book as a guest with an address that is not the calendar account's own, since a provider does not email you an invitation to your own event — a plus-address on the same mailbox is a different guest to the provider and still lands where you can read it.
+- **Backing test:** `booking-invite-truth.spec.ts` (the receipt names the invitee, or says there is none) · `chat-book-session-email-default.spec.ts` (the provider is asked to notify, not merely to list)
 
 ### 2 — Cancelling removes that event
 - **Steps:** Cancel the booking through chat. Open the calendar again.

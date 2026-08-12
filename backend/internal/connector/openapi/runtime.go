@@ -80,7 +80,7 @@ func (r *Runtime) Call(ctx context.Context, op string, input, dst any, auth Auth
 	if err != nil {
 		return err
 	}
-	out, err := r.send(req, bo.binding)
+	out, err := r.send(req, &bo.binding)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (r *Runtime) Invoke(
 	if err != nil {
 		return nil, err
 	}
-	out, err := r.send(req, bo.binding)
+	out, err := r.send(req, &bo.binding)
 	if err != nil {
 		return nil, err
 	}
@@ -149,14 +149,24 @@ func (r *Runtime) resolve(op string) (boundOp, error) {
 func (r *Runtime) buildRequest(
 	ctx context.Context, bo *boundOp, input any, auth AuthInjector,
 ) (*http.Request, error) {
-	rdr, err := renderBody(bo.binding, input, bo.resolved.Required)
+	rdr, err := renderBody(&bo.binding, input, bo.resolved.Required)
 	if err != nil {
 		return nil, err
 	}
-	reqURL := r.baseURL + substitutePath(bo.resolved.Path, input)
-	req, rerr := http.NewRequestWithContext(ctx, bo.resolved.Method, reqURL, rdr)
-	if rerr != nil {
-		return nil, fmt.Errorf("build request: %w", rerr)
+	reqURL, uerr := r.requestURL(bo, input)
+	if uerr != nil {
+		return nil, uerr
+	}
+	return newHTTPRequest(ctx, bo.resolved.Method, reqURL, rdr, auth)
+}
+
+// newHTTPRequest —— 组装 *http.Request：有体则声明 JSON content-type，最后注入认证。
+func newHTTPRequest(
+	ctx context.Context, method, reqURL string, rdr io.Reader, auth AuthInjector,
+) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, reqURL, rdr)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
 	}
 	if rdr != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -167,9 +177,11 @@ func (r *Runtime) buildRequest(
 	return req, nil
 }
 
+// requestURL / renderQuery 在 runtime_query.go（守 max-lines 350）。
+
 // renderBody —— request JSONata → 请求体 reader。pre-flight 校验必填字段（缺 → 拒，不发畸形
 // 请求）。无体 → nil reader（合法空）。
-func renderBody(ob opBinding, input any, required []string) (io.Reader, error) {
+func renderBody(ob *opBinding, input any, required []string) (io.Reader, error) {
 	body, err := ob.evalRequest(input)
 	if err != nil {
 		return nil, err
@@ -221,7 +233,7 @@ func injectAuth(req *http.Request, auth AuthInjector) error {
 }
 
 // send —— 发请求、关体、读解。关体错若是首个错则冒出来（codebase 惯用法，无 named return）。
-func (r *Runtime) send(req *http.Request, ob opBinding) (any, error) {
+func (r *Runtime) send(req *http.Request, ob *opBinding) (any, error) {
 	resp, derr := r.doer.Do(req)
 	if derr != nil {
 		return nil, fmt.Errorf("connector http call: %w", derr)
@@ -234,7 +246,7 @@ func (r *Runtime) send(req *http.Request, ob opBinding) (any, error) {
 }
 
 // readAndParse —— 读体、按状态码归一错误、用 response JSONata 抽契约出参。
-func readAndParse(resp *http.Response, ob opBinding) (any, error) {
+func readAndParse(resp *http.Response, ob *opBinding) (any, error) {
 	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if rerr != nil {
 		return nil, fmt.Errorf("read response: %w", rerr)

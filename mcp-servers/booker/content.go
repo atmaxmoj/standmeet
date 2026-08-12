@@ -16,7 +16,7 @@ const instructions = `You can book meetings on the owner's Google Calendar. Two 
 
 1. **calendar_list_slots** — search a time window and get back the free [start, end] slots that pass the owner's booking policy. Pass ` + "`from_rfc3339`" + `, ` + "`until_rfc3339`" + `, and ` + "`duration_min`" + `. Use this *before* offering times so you propose ones the owner actually has free.
 
-2. **calendar_book** — actually create the event. Only call after you have gathered topic, duration (15-180 min), and one or more visitor-confirmed start times in RFC3339. You do not supply a recipient: the calendar invite goes to the email the visitor entered when they arrived (if they gave one). Don't ask them for an email here and don't invent one.
+2. **calendar_book** — actually create the event. Only call after you have gathered topic, duration (15-180 min), and one or more visitor-confirmed start times in RFC3339. You do not supply a recipient; the result tells you what happened. Read ` + "`invited_email`" + ` on the result and say exactly that: if it holds an address, the invite went there; **if it is empty, nobody was invited — say so plainly** ("no invite could be emailed, so keep a note of the time yourself") and offer the confirmation-email widget on the card. Never name an address the result did not give you, even one the visitor typed earlier in the conversation — an address in the transcript is not a recipient the booking used.
 
 Default flow: ask topic + duration **and roughly when the visitor wants to meet** (a day or a window — don't guess it for them). Call calendar_list_slots for a window around what they asked for, present 2-3 of the available slots in their local time, wait for them to pick, then call calendar_book with that single confirmed time.
 
@@ -225,7 +225,7 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    useProfile.onclick=function(){send("",[useProfile,sendTyped]);};
    sendTyped.onclick=function(){send(input.value,[useProfile,sendTyped]);};
    // 引用按钮（发到 session email）只在访客进入时留了 email 时出现；没留 → 只给透传输入框。
-   if(d.visitor_email){ row.appendChild(useProfile); }
+   if(d.invited_email){ row.appendChild(useProfile); }
    row.appendChild(input); row.appendChild(sendTyped);
    row.appendChild(skip);
    p.appendChild(row);
@@ -245,6 +245,14 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
      link.setAttribute("rel","noopener"); link.setAttribute("data-testid","book-card-link");
      root.appendChild(link);
    }
+   // 邀请去向 —— 卡是访客留下的**凭证**（正文会被滚走），所以「有没有人收到邀请」
+   // 必须写在卡上，包括"没有"那一种。留空时说清楚这张卡就是唯一记录，否则访客只会
+   // 记得聊天里那句"邀请已经发出去了"（F-B-6）。
+   var inv=el("div","label muted",
+     d.invited_email ? ("calendar invite emailed to "+d.invited_email)
+                     : "no invite was emailed — this card is your only record");
+   inv.setAttribute("data-testid","book-card-invite");
+   root.appendChild(inv);
    var cancel=el("button",null,"Cancel meeting");
    cancel.setAttribute("data-testid","book-card-cancel");
    function toCancelled(){

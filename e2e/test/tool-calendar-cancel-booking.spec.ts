@@ -71,9 +71,18 @@ test.describe('Phase E-14c calendar.cancel_booking via MCP', () => {
 
       // 4. mock recorded the delete
       const delRes = await seed.request.get(`${MOCK}/__mock/gcal/deleted_events`);
-      const deletedBody = await delRes.json() as { events: Array<{ event_id: string }> };
+      const deletedBody = await delRes.json() as {
+        events: Array<{ event_id: string; send_updates?: string }>;
+      };
       expect(deletedBody.events.map((e) => e.event_id))
         .toContain(insertedEventID);
+      // F-B-7 —— 这条会上坐着一个真人(seed 的访客带 rachel@example.com)。契约把这件事
+      // 写成了注释：`contract/contract.go:27-28` 说 DeleteEvent 在 attendeeEmail 非空时
+      // 「通知与会者取消(sendUpdates=all)」。删掉事件而不通知，等于让他按时到场开一个
+      // 已经不存在的会 —— 而在这一行之前，「删了」和「删了且通知了」在断言上一模一样。
+      const gone = deletedBody.events.find((e) => e.event_id === insertedEventID);
+      expect(gone?.send_updates,
+        'the guest on this meeting was told it was cancelled').toBe('all');
 
       // 5. 列表里没有它了
       const after = await callTool<{ bookings: AdminBooking[] }>(

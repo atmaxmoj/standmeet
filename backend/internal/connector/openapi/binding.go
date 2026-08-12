@@ -41,13 +41,23 @@ var CategoryContractOps = map[string][]string{
 	"mail":     {"send"},
 }
 
-// opBinding —— 一个契约方法到一个 SaaS 操作的映射 + 两向 JSONata（已编译）。
+// opBinding —— 一个契约方法到一个 SaaS 操作的映射 + 三段 JSONata（已编译）。
+//
+// Query 存在的理由：**有些 SaaS 把动作的一半放在查询参数里，而不是请求体里。** Google
+// Calendar 的「通知与会者」就是 `?sendUpdates=all` —— 建会和取消都靠它。这个位置以前不
+// 存在：opBinding 只有 op/request/response，路径只做 {param} 替换，于是连接器外置（#155）
+// 时那个开关无处安放，被静默丢掉，而契约注释还写着它通知与会者。绑定语言表达不了的东西，
+// 迁移时不会报错，只会消失（F-B-7 / [[externalize-is-not-relocate]]）。
 type opBinding struct {
-	reqExpr  *jsonata.Expr
-	respExpr *jsonata.Expr
-	Op       string     `yaml:"op"`
-	Request  jsonataSrc `yaml:"request"`
-	Response jsonataSrc `yaml:"response"`
+	reqExpr   *jsonata.Expr
+	respExpr  *jsonata.Expr
+	queryExpr *jsonata.Expr
+	Op        string     `yaml:"op"`
+	Request   jsonataSrc `yaml:"request"`
+	Response  jsonataSrc `yaml:"response"`
+	// Query —— 求值成一个对象：键是查询参数名，值是标量。值为 null / 空串的键会被丢掉，
+	// 所以「按条件才带这个参数」写成 JSONata 三元式即可。
+	Query jsonataSrc `yaml:"query"`
 }
 
 // Binding —— 一份完整绑定：声明品类 + 各契约方法的映射。
@@ -64,31 +74,35 @@ func ParseBinding(raw []byte) (*Binding, error) {
 		return nil, fmt.Errorf("parse binding: %w", err)
 	}
 	for name, ob := range b.Operations {
-		compiled, err := compileOpBinding(ob)
-		if err != nil {
+		if err := compileOpBinding(&ob); err != nil {
 			return nil, fmt.Errorf("%w: operation %q: %s", ErrBindingBadJSONata, name, err.Error())
 		}
-		b.Operations[name] = compiled
+		b.Operations[name] = ob
 	}
 	return &b, nil
 }
 
-func compileOpBinding(ob opBinding) (opBinding, error) {
-	if ob.Request != "" {
-		e, err := jsonata.Compile(string(ob.Request))
-		if err != nil {
-			return ob, fmt.Errorf("request: %w", err)
-		}
-		ob.reqExpr = e
+func compileOpBinding(ob *opBinding) error {
+	slots := []struct {
+		dst  **jsonata.Expr
+		name string
+		src  jsonataSrc
+	}{
+		{&ob.reqExpr, "request", ob.Request},
+		{&ob.respExpr, "response", ob.Response},
+		{&ob.queryExpr, "query", ob.Query},
 	}
-	if ob.Response != "" {
-		e, err := jsonata.Compile(string(ob.Response))
-		if err != nil {
-			return ob, fmt.Errorf("response: %w", err)
+	for _, s := range slots {
+		if s.src == "" {
+			continue
 		}
-		ob.respExpr = e
+		e, err := jsonata.Compile(string(s.src))
+		if err != nil {
+			return fmt.Errorf("%s: %w", s.name, err)
+		}
+		*s.dst = e
 	}
-	return ob, nil
+	return nil
 }
 
 // ValidateAgainst —— 校验绑定与 spec 自洽：category 已知、每个 op 都在 spec、必填契约方法映全。
@@ -123,7 +137,7 @@ func (b *Binding) checkComplete(required []string) error {
 }
 
 // evalRequest —— 用契约入参（已是 JSON 形状）渲染请求体。无 request JSONata → nil（无体）。
-func (ob opBinding) evalRequest(input any) (any, error) {
+func (ob *opBinding) evalRequest(input any) (any, error) {
 	if ob.reqExpr == nil {
 		return nil, nil
 	}
@@ -134,8 +148,24 @@ func (ob opBinding) evalRequest(input any) (any, error) {
 	return out, nil
 }
 
+// evalQuery —— 用契约入参渲染查询参数。无 query JSONata → nil（不带任何参数）。
+func (ob *opBinding) evalQuery(input any) (map[string]any, error) {
+	if ob.queryExpr == nil {
+		return map[string]any{}, nil
+	}
+	out, err := ob.queryExpr.Eval(input)
+	if err != nil {
+		return nil, fmt.Errorf("eval query jsonata: %w", err)
+	}
+	m, ok := out.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%w: query must evaluate to an object", ErrBindingBadJSONata)
+	}
+	return m, nil
+}
+
 // evalResponse —— 把 SaaS 响应抽成契约出参。无 response JSONata → 原样。
-func (ob opBinding) evalResponse(resp any) (any, error) {
+func (ob *opBinding) evalResponse(resp any) (any, error) {
 	if ob.respExpr == nil {
 		return resp, nil
 	}

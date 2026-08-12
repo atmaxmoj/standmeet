@@ -44,6 +44,13 @@ test.describe('chat · calendar.book defaults visitor_email from session profile
       expect(events[0]!.attendees ?? []).toEqual(
         expect.arrayContaining([expect.objectContaining({ email: SESSION_EMAIL })]),
       );
+      // F-B-7 —— 这条 spec 的抬头写着「Google 仍把 invite 发给访客」，而在这一行之前，
+      // 它能证明的只有「访客被放进了宾客名单」。发不发信是另一个开关：Google 的
+      // `events.insert` 只在带 `sendUpdates=all` 时通知与会者，不带就是静默加人。
+      // 名单对、信没发，上面那条断言照样绿 —— 它看不见自己少验了一半
+      // （[[verifier-can-lie-about-its-own-coverage]]）。
+      expect(events[0]!.send_updates,
+        'the provider was asked to notify the guest, not just to list them').toBe('all');
     });
 
   test('no session email + no arg → no attendee invented',
