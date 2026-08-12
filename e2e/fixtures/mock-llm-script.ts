@@ -81,6 +81,17 @@ export async function scriptMockReplyText(
   return postScript(request, 'next_reply', { text });
 }
 
+/** Register a reply that ends because the model's OUTPUT BUDGET ran out — the other
+ *  way a generation finishes. It is not an error: the stream closes normally, the text
+ *  just stops mid-sentence. Everything else in the loop treats it like a completed
+ *  answer, which is what let a half clause render as finished (F-A-34).
+ *  Returns the `[[s:key]]` tag to embed in the turn message. */
+export async function scriptMockReplyTruncated(
+  request: APIRequestContext, text: string,
+): Promise<string> {
+  return postScript(request, 'next_reply', { text, stop: 'max_tokens' });
+}
+
 /** Register a scripted GhostPolicy body for this test — an object
  *  {text,target_waypoint,follows_from,is_bridge} to emit a ghost, or null for
  *  silence. Returns the `[[s:key]]` tag to embed in the turn that should produce

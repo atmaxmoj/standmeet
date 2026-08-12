@@ -70,4 +70,8 @@ export type AgentEvent =
   | { readonly type: 'retrying'; readonly attempt: number }
   | { readonly type: 'iteration_completed'; readonly iter: number }
   | { readonly type: 'final_text'; readonly text: string }
+  // turn_finished —— 这一轮**怎么**结束的。三种收场里只有 max_tokens 意味着话没说完：
+  // 流正常关闭，正文停在半句上。这个值从 provider 一路传到浏览器，以前在 SSE 解析完
+  // 就被扔了（尾帧只用来置 sawDone），于是半句话冒充了完整答案（F-A-34）。
+  | { readonly type: 'turn_finished'; readonly stopReason: 'end_turn' | 'tool_use' | 'max_tokens' }
   | { readonly type: 'error'; readonly message: string };

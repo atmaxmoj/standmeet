@@ -2,8 +2,8 @@
 //
 // Wire format matches backend/internal/inference/anthropic_sse.go parser:
 //
-//   event: message_start
-//   data: {"type":"message_start", ...}\n\n
+//	event: message_start
+//	data: {"type":"message_start", ...}\n\n
 //
 // Each event has `event:` line, `data:` line, blank line.
 package main
@@ -101,6 +101,14 @@ func emitToolUseBlock(
 		"type": "content_block_stop", "index": index,
 	})
 }
+
+// 一次生成的三种收场。stopMaxTokens 是**正常结束**的一种 —— 流没有报错，只是模型的
+// 输出预算先用完了，正文停在半句上。产品要能把它跟 stopEndTurn 分开对待（F-A-34）。
+const (
+	stopEndTurn   = "end_turn"
+	stopToolUse   = "tool_use"
+	stopMaxTokens = "max_tokens"
+)
 
 func emitMessageDelta(s *sseWriter, stopReason string) error {
 	return s.send("message_delta", map[string]any{

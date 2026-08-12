@@ -96,13 +96,16 @@ export interface DialogAccumulator {
   // ghostReceived —— 这一 turn 是否收到过 `ghost_received` 帧。F-A-9:policy 沉默(没帧)的 turn
   // 收尾时要**清掉**上一条 ghost,否则输入框会一直挂着已访问 waypoint 的陈旧 ghost。
   ghostReceived: boolean;
+  // truncated —— 这一轮是**输出预算用完**才停的(done 帧的 stop_reason=max_tokens),不是说完了。
+  // 它不是错误:流正常关闭,正文只是停在半句上。不标出来的话,半句话就冒充了完整答案(F-A-34)。
+  truncated: boolean;
 }
 
 export function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedIDs: new Set(),
     currentTool: null, toolSeq: 0, toolCalls: [], retrying: false, errorMsg: '',
-    ghostReceived: false,
+    ghostReceived: false, truncated: false,
   };
 }
 
@@ -156,6 +159,13 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
   }
   if (ev.type === 'capability_state_changed') {
     useCapabilityStore.getState().setStates(ev.states);
+    return;
+  }
+  if (ev.type === 'turn_finished') {
+    // 一次生成的三种收场里，只有 max_tokens 意味着「话没说完」。这个值一路从 provider 经
+    // 后端 sink.Done 传到浏览器，**以前在 SSE 解析完就被扔了** —— 于是没人知道这一段是
+    // 收尾了还是被截断。
+    accum.truncated = ev.stopReason === 'max_tokens';
     return;
   }
   if (ev.type === 'ghost_received') {
@@ -229,11 +239,17 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
 // F-A-32:以前这里是「有 errorMsg 就整段换成那句话」,于是一次跑了 47 次读、攒了 43 条引用
 // 的turn 一旦没收尾,访客眼前的东西会**全部消失**,只剩一句「连接断了」。反过来同样糟:什么都
 // 不说的话,半截的计划旁白就冒充成了答案。两样都留才对。
+// TRUNCATED_NOTICE —— 输出预算用完时挂在答案下面的那句话。说两件事：**它没说完**，
+// 以及**下一步做什么**。走的是 F-A-32 建的同一个 notice 槽（残缺正文 + 引用 + 一句人话
+// 都留着），因为这两种情形对访客是同一件事：眼前这段不是完整的答案。
+const TRUNCATED_NOTICE = 'this answer was cut short — ask for the rest, or narrow the question';
+
 function answerFor(accum: DialogAccumulator): Answer {
   if (accum.errorMsg === '') {
     return {
       paras: splitParas(accum.body), citations: accum.citations,
       toolCalls: [...accum.toolCalls],
+      ...(accum.truncated ? { notice: TRUNCATED_NOTICE } : {}),
     };
   }
   if (accum.body === '') {

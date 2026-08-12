@@ -115,6 +115,9 @@ export class VisitorTurnAgent {
       case 'done':
         // 尾帧本身不渲任何东西,但**它到没到**是这一轮唯一可靠的「说完了」凭据。
         ctx.sawDone = true;
+        // 而它**怎么**结束的同样有人要:stop_reason=max_tokens 是"预算用完",不是"说完了"。
+        // 以前这里只置 sawDone、把 stopReason 丢掉 —— 那就是这条信息断掉的地方(F-A-34)。
+        this.emit({ type: 'turn_finished', stopReason: ev.stopReason });
         return;
       case 'error':
         ctx.errored = true;

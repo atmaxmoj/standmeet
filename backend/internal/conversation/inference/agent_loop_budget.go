@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -100,6 +101,17 @@ func evidenceDigest(ev []gatheredEvidence, total int) string {
 		_, _ = b.WriteString("\n\n")
 	}
 	return b.String()
+}
+
+// logTurnStop —— 这一轮**为什么**结束。属于这个文件而不是驱动那边：这是预算耗尽的
+// 第四种情形，而这份文件正是「预算只是一半，边界是另一半」的那一半。
+//
+// 前三种（迭代、超时、终止错误）都有 handleTerminalError / forceFinalAnswer 收口。
+// 第四种 —— 模型自己的**输出预算**用完 —— 不是 error：流正常关闭，正文停在半句上。
+// 于是它在日志里跟说完了的 turn 一模一样，owner 事后判不出来（F-A-34）。记下来，
+// 访客那一侧则由 done 帧的 stop_reason 挂出「这条没说完」。
+func logTurnStop(log *slog.Logger, state *turnState) {
+	log.Info("agent turn stop", "stop", state.stop, "answer_chars", len(state.product))
 }
 
 // handleTerminalError —— agent loop 以 error 收场。绝不把空回答交给 caller：一个字

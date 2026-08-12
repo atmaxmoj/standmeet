@@ -2,14 +2,14 @@
 //
 // Decision tree (ported from backend's old mock_single_turn.go):
 //
-//   1. scripted tool queued by e2e?         → emit tool_use, stop=tool_use
-//   2. corpus_search offered + no result?   → emit corpus_search tool_use
-//   3. corpus_search ran + corpus_read
-//      offered + no read result?            → emit corpus_read tool_use
-//   4. skill_*/ext_* tool offered + no
-//      result?                              → emit one of them
-//   5. else                                  → emit final text reply,
-//                                              stop=end_turn
+//  1. scripted tool queued by e2e?         → emit tool_use, stop=tool_use
+//  2. corpus_search offered + no result?   → emit corpus_search tool_use
+//  3. corpus_search ran + corpus_read
+//     offered + no read result?            → emit corpus_read tool_use
+//  4. skill_*/ext_* tool offered + no
+//     result?                              → emit one of them
+//  5. else                                  → emit final text reply,
+//     stop=end_turn
 //
 // The final text reply prepends "[system:...]\n" + per-message
 // "[skill_result:...]\n" echoes so e2e specs verifying system prompt
@@ -119,7 +119,8 @@ func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
 		return
 	}
 	text := s.reply
-	if scripted, ok := s.queue.takeReplyFor(matchText); ok {
+	// 非流式那条路只用正文；stop 是流式收尾的事（见 emitFinalReply）。
+	if scripted, _, ok := s.queue.takeReplyFor(matchText); ok {
 		text = scripted
 	}
 	// summarize report generation returns the report HTML RAW (like a real LLM) — no [system:...]
@@ -145,7 +146,7 @@ func (s *server) writeNonStream(w http.ResponseWriter, model, text string) {
 		Role:    "assistant",
 		Model:   model,
 		Content: []map[string]string{{"type": "text", "text": text}},
-		Stop:    "end_turn",
+		Stop:    stopEndTurn,
 		Usage:   map[string]int{"input_tokens": 1, "output_tokens": 1},
 	}); err != nil {
 		s.log.Warn("encode non-stream message", "err", err)
@@ -197,7 +198,7 @@ func (s *server) emitToolUseTurn(
 		s.log.Warn("emit tool_use", "err", err)
 		return
 	}
-	if err := emitMessageDelta(sse, "tool_use"); err != nil {
+	if err := emitMessageDelta(sse, stopToolUse); err != nil {
 		s.log.Warn("emit message_delta", "err", err)
 		return
 	}
@@ -207,16 +208,16 @@ func (s *server) emitToolUseTurn(
 }
 
 func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
-	text := s.reply
-	if scripted, ok := s.queue.takeReplyFor(req.markerText()); ok {
-		text = scripted
+	text, stop := s.reply, stopEndTurn
+	if scripted, scriptedStop, ok := s.queue.takeReplyFor(req.markerText()); ok {
+		text, stop = scripted, scriptedStop
 	}
 	text = composeFinalReply(req, text)
 	if err := emitTextBlock(sse, 0, text); err != nil {
 		s.log.Warn("emit text", "err", err)
 		return
 	}
-	if err := emitMessageDelta(sse, "end_turn"); err != nil {
+	if err := emitMessageDelta(sse, stop); err != nil {
 		s.log.Warn("emit message_delta", "err", err)
 		return
 	}

@@ -139,15 +139,15 @@ func turnInputMessages(req *AgentTurnRequest) ([]*schema.Message, error) {
 	return msgs, nil
 }
 
-// DriveAgentLoop —— HTTP-free：消费事件 iterator 灌进 sink，收尾跑 H.13
-// follow-up ghosts + emit Done。caller (RunAgentTurn / eval-harness)
-// 先 BuildAgentIterator 拿 iter，再调这个。
+// DriveAgentLoop —— HTTP-free：消费事件 iterator 灌进 sink，收尾跑 H.13 follow-up
+// ghosts + emit Done。caller (RunAgentTurn / eval-harness) 先 BuildAgentIterator 拿 iter。
 func DriveAgentLoop(
 	ctx context.Context, log *slog.Logger,
 	in *AgentTurnInput, iter *adk.AsyncIterator[*adk.AgentEvent], sink AgentSink,
 ) {
 	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
 	state := consumeAgentEvents(ctx, em, iter)
+	logTurnStop(log, state)
 	// Done 先发 —— 让访客这一轮立刻收尾(能发下一轮);#106 计费是后台,绝不压在关键路径上。
 	sink.Done(state.stop)
 	// ghost-steering P3: policy 在 done **之后** 跑(persist-at-completion:done=已提交,ledger 也已在

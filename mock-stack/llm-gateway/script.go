@@ -32,9 +32,23 @@ type ScriptedTool struct {
 
 // ScriptedReply —— final text reply to emit (overrides INFERENCE_MOCK_REPLY),
 // consumed by a request whose text contains Key.
+//
+// Stop —— the provider's finish reason for this reply. Empty = "end_turn", the model
+// said everything it wanted to. A test registers "max_tokens" to script the OTHER way a
+// generation ends: the output budget ran out mid-sentence. That is not an error — the
+// stream closes normally — which is exactly why the product could render half a clause
+// as a finished answer (F-A-34), and why a guard for it needs the mock to be able to
+// produce it.
 type ScriptedReply struct {
 	Text string `json:"text"`
 	Key  string `json:"key"`
+	Stop string `json:"stop,omitempty"`
+}
+
+// scriptedReplyValue —— what the queue stores per key: the text plus how it ends.
+type scriptedReplyValue struct {
+	text string
+	stop string
 }
 
 // ScriptedGhost —— the GhostPolicy call's JSON body to return, consumed by a
@@ -61,7 +75,7 @@ type ScriptedError struct {
 type scriptQueue struct {
 	mu      sync.Mutex
 	tools   []*ScriptedTool
-	replies map[string]string
+	replies map[string]scriptedReplyValue
 	ghosts  map[string]string
 	fails   map[string]bool
 	// rateLimits —— keyword → `Retry-After` 秒数。注册之后,消息里含该 keyword 的调用回
@@ -83,7 +97,7 @@ type scriptQueue struct {
 
 func newScriptQueue() *scriptQueue {
 	return &scriptQueue{
-		replies:    map[string]string{},
+		replies:    map[string]scriptedReplyValue{},
 		ghosts:     map[string]string{},
 		fails:      map[string]bool{},
 		rateLimits: map[string]int{},
@@ -173,23 +187,27 @@ func (q *scriptQueue) takeToolFor(text string) *ScriptedTool {
 	return nil
 }
 
-func (q *scriptQueue) setReply(key, text string) {
+func (q *scriptQueue) setReply(key, text, stop string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.replies[key] = text
+	if stop == "" {
+		stop = stopEndTurn
+	}
+	q.replies[key] = scriptedReplyValue{text: text, stop: stop}
 	delete(q.fails, key)
 }
 
-func (q *scriptQueue) takeReplyFor(text string) (string, bool) {
+// takeReplyFor —— (text, stop reason, found).
+func (q *scriptQueue) takeReplyFor(text string) (string, string, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for key, r := range q.replies {
 		if strings.Contains(text, key) {
 			delete(q.replies, key)
-			return r, true
+			return r.text, r.stop, true
 		}
 	}
-	return "", false
+	return "", "", false
 }
 
 func (q *scriptQueue) setGhost(key, body string) {
@@ -294,18 +312,29 @@ func (s *server) serveSetNextReply(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	s.queue.setReply(p.Key, p.Text)
+	s.queue.setReply(p.Key, p.Text, p.Stop)
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 
 type stateResp struct {
-	Tools   []*ScriptedTool   `json:"tools"`
-	Replies map[string]string `json:"replies"`
+	Tools   []*ScriptedTool          `json:"tools"`
+	Replies map[string]stateReplyOut `json:"replies"`
+}
+
+// stateReplyOut —— 一条排队中的回复在 /state 里的样子。stop 一起报出来：注册了
+// "这条以 max_tokens 收尾" 却看不见，跟没注册一样难查。
+type stateReplyOut struct {
+	Text string `json:"text"`
+	Stop string `json:"stop"`
 }
 
 func (s *server) serveState(w http.ResponseWriter, _ *http.Request) {
 	s.queue.mu.Lock()
-	resp := stateResp{Tools: s.queue.tools, Replies: s.queue.replies}
+	out := make(map[string]stateReplyOut, len(s.queue.replies))
+	for k, v := range s.queue.replies {
+		out[k] = stateReplyOut{Text: v.text, Stop: v.stop}
+	}
+	resp := stateResp{Tools: s.queue.tools, Replies: out}
 	s.queue.mu.Unlock()
 	writeJSON(s.log, w, resp)
 }
