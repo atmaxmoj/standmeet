@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { ProviderSelect } from '@/components/admin/atoms/ProviderSelect';
+import { RoleMultiSelect } from '@/components/admin/sections/roles/RoleMultiSelect';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useMCPServers } from '@/lib/admin/use-mcp-servers';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
@@ -212,63 +213,7 @@ function RoleCorpusURIsField({
   );
 }
 
-function RoleMultiSelect({
-  label, options, value, onChange, testid,
-}: {
-  label: string;
-  options: readonly { id: string; label: string }[];
-  value: string[];
-  onChange: (v: string[]) => void;
-  testid: string;
-}) {
-  const t = useTranslations('adminAccess');
-  const toggle = useCallback((id: string) => {
-    onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
-  }, [value, onChange]);
-  return (
-    <fieldset className="flex flex-col gap-1.5" data-testid={testid}>
-      <legend className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        {label}
-      </legend>
-      {options.length === 0 && (
-        <p className="mono text-[10.5px] text-(--color-faint) italic">{t('roleCreate.noneConfigured')}</p>
-      )}
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((o) => (
-          <RoleMultiSelectChip
-            key={o.id}
-            option={o}
-            selected={value.includes(o.id)}
-            onToggle={() => toggle(o.id)}
-          />
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-function RoleMultiSelectChip({
-  option, selected, onToggle,
-}: {
-  option: { id: string; label: string };
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      data-testid={`role-multi-${option.label}`}
-      className={`mono text-[10.5px] tracking-[0.10em] uppercase px-2.5 py-1 border ${
-        selected
-          ? 'bg-(--color-ink) text-(--color-paper) border-(--color-ink)'
-          : 'border-(--color-rule) text-(--color-muted) hover:border-(--color-ink)'
-      }`}
-    >
-      {option.label}
-    </button>
-  );
-}
+// RoleMultiSelect 现在住在自己的文件里 —— 卡片上的编辑器要用同一个控件（F-D-9）。
 
 function RoleModalFooter({
   form, onClose, onCreate,

@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { RoleCreateModal } from '@/components/admin/sections/roles/RoleCreateModal';
 import { RoleCorpusConfig } from '@/components/admin/sections/roles/RoleCorpusConfig';
+import { RoleToolsConfig } from '@/components/admin/sections/roles/RoleToolsConfig';
 import { RoleDescriptionConfig } from '@/components/admin/sections/roles/RoleDescriptionConfig';
 import { RoleDockConfig } from '@/components/admin/sections/roles/RoleDockConfig';
 import { RoleProviderConfig } from '@/components/admin/sections/roles/RoleProviderConfig';
@@ -139,6 +140,7 @@ function RoleCard({
       <RolePromptRow role={role} />
       <RoleProviderConfig role={role} />
       <RoleCorpusConfig role={role} />
+      <RoleToolsConfig role={role} />
       <RoleDockConfig role={role} />
       <RoleWaypointsConfig role={role} />
       <RoleGhostConfig role={role} />

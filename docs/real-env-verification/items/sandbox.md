@@ -1,7 +1,7 @@
 # sandbox — Sandbox: egress isolation, prod driver, cron
 
 - **Module:** Sandboxed skills and tools run isolated. Network egress is gated, the host socket and host filesystem are unreachable, and this holds under the driver prod actually uses. The workspace sweep fires on its own schedule.
-- **Surface:** The backend sandbox runtime, and `/admin/sandbox` for workspaces.
+- **Surface:** The backend sandbox runtime, and the sandbox panel on `/admin/system` for workspaces (there is no `/admin/sandbox` route — the panel lives inside the system section).
 - **Real dep:** The prod stack on its real sandbox driver, plus a reachable payload origin for the egress tests.
 - **Backing e2e:** `real-third-party-mcp-network` · `real-third-party-mcp-escape` · `real-third-party-mcp-sandboxed` · `real-third-party-mcp-loader` · `sandbox-workspace-ttl-cron` · `admin-sandbox` · `skill-scripts` · `admin-system-jobs`.
 
@@ -31,6 +31,6 @@
 
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 
-`/admin/sandbox` lists workspaces, and its sweep affordance fires.
+The sandbox panel on `/admin/system` lists workspaces, and its sweep affordance fires.
 A blocked egress reads as a friendly error, never as a hang the visitor interprets as slowness.
 A job listed as scheduled shows when it last ran — a schedule with no last-run is indistinguishable from one that never fires.
