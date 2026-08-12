@@ -276,14 +276,15 @@ function buildPageAgent(
       observer,
     },
     {
-      systemPromptPartIDs: assembledPartIDs(sess),
+      systemPromptPartIDs: sess.systemPromptPartIDs,
+      // persona —— 这个会话动态的那一段（role 人格 + code prompt + skill 清单）。后端一直
+      // 在 /sessions 里下发它，这里以前没传，于是它到 PageSession 就断了（F-A-36）。
+      // 原来这行是 `assembledPartIDs(sess)` —— 一个叫"assembled"却什么都不装配的直通函数，
+      // 名字正好盖住了漏掉的那一半。
+      persona: sess.persona,
       conversationID: sess.conversationID,
       docContext,
     },
   );
-}
-
-function assembledPartIDs(sess: PageSession): readonly string[] {
-  return sess.systemPromptPartIDs;
 }
 

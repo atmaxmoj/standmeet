@@ -22,6 +22,15 @@ export interface VisitorTurnAgentPorts {
 
 export interface VisitorTurnAgentConfig {
   readonly systemPromptPartIDs: readonly string[];
+  // persona —— 这个会话**动态**的那一段 system prompt：role 的人格正文 + 这张码自己的
+  // prompt(#104) + 每条授权 skill 的名字和描述。后端在 /sessions 里算好下发
+  // (`system_prompt_persona`)，因为它随 role/code/skill 变，不是一段可缓存的 fragment，
+  // 所以进不了 part id 那条通道。
+  //
+  // 它以前**根本没被拼进去**：composeSystemPrompt 只遍历 part ids，于是 owner 配的人格、
+  // 码的专属 prompt、skill 清单三样都从没到过模型手上 —— skill_use 要准确的 skill 名，
+  // 没清单就永远点不出名字（F-A-36）。
+  readonly persona?: string;
   // conversationID 持久化 chat 行的 UUID，每次 /agent/turn 都要带，让
   // backend tool (calendar_book / 等) 找得到归属的 conversation。
   readonly conversationID: string;
@@ -138,11 +147,16 @@ export class VisitorTurnAgent {
     });
   }
 
+  // composeSystemPrompt —— 固定 fragment（visitor-header + 每个 capability 一段）在前，
+  // 这个会话的动态 persona 在后。顺序要紧：persona 是 owner 为这个受众写的东西，
+  // 让它压在通用说明之上。
   private async composeSystemPrompt(): Promise<string> {
     const parts: string[] = [];
     for (const id of this.cfg.systemPromptPartIDs) {
       parts.push(await this.ports.prompts.load(id));
     }
+    const persona = (this.cfg.persona ?? '').trim();
+    if (persona !== '') parts.push(persona);
     return parts.join('\n\n');
   }
 
