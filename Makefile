@@ -153,6 +153,25 @@ prod-app: app-build
 prod-down:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down
 
+# verify-proxy-up —— 起故障注入代理，坐在**真** provider 前面（agent-loop-robustness 的 Real
+# dep 点名要的那件装置）。它在 prod 那张网里，但**不在 prod compose 里**：生产文件不该带一个能
+# 让 LLM 调用限流的服务。
+#
+#   make verify-proxy-up UPSTREAM=https://api.deepseek.com
+#
+# 起来之后在 admin 的 AI provider 表单把 endpoint 改成 http://llm-fault-proxy:9500 —— 走产品
+# 自己的界面接线，不改环境变量。**驱完记得改回去**，否则代理一停，这个实例就没有模型可用了。
+verify-proxy-up:
+	@test -n "$(UPSTREAM)" || { echo "usage: make verify-proxy-up UPSTREAM=https://api.provider.com"; exit 2; }
+	@UPSTREAM_BASE_URL=$(UPSTREAM) docker compose -p standmeet-verify \
+		-f docker-compose.verify.yml up -d --build
+	@echo "[verify] proxy on http://localhost:39500 → $(UPSTREAM)"
+	@echo "[verify] backend reaches it at http://llm-fault-proxy:9500"
+
+verify-proxy-down:
+	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
+		-f docker-compose.verify.yml down
+
 # prod-clean —— down + drop the prod volumes (pgdata/redis/minio). schema.sql
 # only applies on a FRESH pg volume, so a stale prod volume must be recreated
 # after a schema change (greenfield "no migrations" posture — see schema.sql).

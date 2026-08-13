@@ -27,6 +27,10 @@ FROM deps AS build-mail
 COPY . .
 RUN go build -trimpath -ldflags='-s -w' -o /out/mail ./mail
 
+FROM deps AS build-llm-fault-proxy
+COPY . .
+RUN go build -trimpath -ldflags='-s -w' -o /out/llm-fault-proxy ./llm-fault-proxy
+
 # ----- runtime: job-board ------------------------------------------------
 FROM alpine:3.21 AS job-board
 WORKDIR /app
@@ -69,6 +73,21 @@ USER mock
 EXPOSE 9300
 ENV PORT=9300
 ENTRYPOINT ["/app/llm-gateway"]
+
+# ----- runtime: llm-fault-proxy (fault injector in front of a REAL provider) --
+# 跟 llm-gateway 的分工:llm-gateway **替换**模型(脚本化,给 dev/e2e);这个**不替换**,它转发到
+# 真 provider,只注入限流/截断。真实环境审计要看真模型在异常下怎么走,换成脚本就把被测对象换掉了。
+# ca-certificates —— 上游是 https。
+FROM alpine:3.21 AS llm-fault-proxy
+WORKDIR /app
+RUN apk add --no-cache wget ca-certificates                                    \
+ && addgroup --system --gid 1001 mock                                         \
+ && adduser --system --uid 1001 --ingroup mock mock
+COPY --from=build-llm-fault-proxy --chown=mock:mock /out/llm-fault-proxy /app/llm-fault-proxy
+USER mock
+EXPOSE 9500
+ENV PORT=9500
+ENTRYPOINT ["/app/llm-fault-proxy"]
 
 # ----- runtime: mail (SMTP fault mock in front of mailpit) ----------------
 FROM alpine:3.21 AS mail
