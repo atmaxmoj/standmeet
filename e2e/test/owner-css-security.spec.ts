@@ -23,6 +23,8 @@ test.describe('owner CSS · sanitize + scope', () => {
   test('sanitize: @import + external url() + expression + javascript: are stripped', sanitizeStrips);
   test('scope: selectors are anchored to .corpus-content — cannot restyle app chrome', scopeAnchors);
   test('scope: a rule targeting app UI (body / .nav) cannot hide/hijack the real chrome', cannotHijack);
+  test('scope: a comment comes back byte-identical — the scoper must not write inside it (F-R-7)',
+    commentSurvives);
 });
 
 async function storeThenGet(request: APIRequestContext, css: string): Promise<string> {
@@ -63,5 +65,22 @@ async function cannotHijack({ playwright }: Ctx): Promise<void> {
   // scoped: a bare `body {` / `.app-nav {` at rule-start would restyle the real app — must be prefixed.
   expect(stored, 'no unscoped body selector reaches app chrome').not.toMatch(/(^|\})\s*body\s*\{/);
   expect(stored, 'no unscoped .app-nav reaches app chrome').not.toMatch(/(^|\})\s*\.app-nav\s*\{/);
+  await request.dispose();
+}
+
+// commentSurvives —— F-R-7：作用域器把第一个 `{` 之前的一切当成选择器列表，**开头的注释
+// 整段落进去**，然后按逗号切开逐个加 `.corpus-content`。真 vault 的
+// `.obsidian/snippets/i18n-switch.css` 因此存成
+// `… switch, .corpus-content pure CSS, .corpus-content NO JavaScript …`。
+//
+// 今天的后果只是脏（`/* */` 仍然闭合，渲染语义没变）。但同一个盲区里藏着更硬的形状：
+// 注释里出现 `{` / `}` 时，这个切法就不再只是"多几个前缀"。所以断言的是**注释原文一字不动**，
+// 而不是"渲染看起来没坏" —— 后者今天就是真的，明天也挡不住任何东西。
+async function commentSurvives({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  const comment = '/* switcher v5 — per-note, pure CSS, NO JavaScript */';
+  const stored = await storeThenGet(request, `${comment}\n.note { color: red }`);
+  expect(stored, 'safe rule survives (positive control)').toContain('color: red');
+  expect(stored, 'the comment comes back exactly as written').toContain(comment);
   await request.dispose();
 }

@@ -110,12 +110,42 @@ func scopeAtRule(prelude, block string, brace int) string {
 	return block
 }
 
+// scopeSelectors —— 给选择器列表逐个加前缀。
+//
+// **注释先摘出去再切逗号**（F-R-7）：prelude 是"第一个 `{` 之前的一切"，所以规则上方的注释
+// 整段都在里面。直接按逗号切，注释里的逗号会被当成选择器分隔符 —— 真 vault 的
+// `i18n-switch.css` 因此存成 `… switch, .corpus-content pure CSS, .corpus-content NO JavaScript …`。
+// 注释原样接回选择器前面：它不指向任何元素，不需要 scope，也不该被改写。
 func scopeSelectors(sel string) string {
+	p := splitLeadingComments(sel)
 	scoped := []string{}
-	for s := range strings.SplitSeq(sel, ",") {
+	for s := range strings.SplitSeq(p.selectors, ",") {
 		if t := strings.TrimSpace(s); t != "" {
 			scoped = append(scoped, cssScopePrefix+" "+t)
 		}
 	}
-	return strings.Join(scoped, ", ")
+	return p.comments + strings.Join(scoped, ", ")
+}
+
+// prelude —— 第一个 `{` 之前那段东西拆开之后的两半。**用结构体而不是两个 string 返回值**:
+// 两个同类型返回值这仓库的 linter 不接受(要么 confusing-results 要么 nonamedreturns,
+// 两条互相打架),而这两半本来也是一个东西的两面。
+type prelude struct {
+	comments  string
+	selectors string
+}
+
+// splitLeadingComments —— 把 prelude 开头连续的 `/* … */`（含其间空白）摘下来，返回
+// (注释原文, 余下的选择器列表)。未闭合的 `/*` 整段算注释：那不是选择器，加前缀只会更坏。
+func splitLeadingComments(sel string) prelude {
+	lead, rest := "", strings.TrimLeft(sel, " \t\r\n")
+	for strings.HasPrefix(rest, "/*") {
+		end := strings.Index(rest, "*/")
+		if end < 0 {
+			return prelude{comments: lead + rest}
+		}
+		lead += rest[:end+2] + "\n"
+		rest = strings.TrimLeft(rest[end+2:], " \t\r\n")
+	}
+	return prelude{comments: lead, selectors: rest}
 }
