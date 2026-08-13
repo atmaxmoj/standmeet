@@ -53,11 +53,21 @@ test.describe('F-S-3 · a degraded search path is stated, not silent', () => {
   // 第一次跑红在**正对照**那一行：`needs-hand` 面板压根不可见。那不是这条守卫要证的东西 ——
   // 它证的是别的事，而前一个缺陷正好替后一个挡了枪（[[two-guards-dying-at-one-line]]）。
   //
-  // **我不知道那块面板为什么不可见，所以这里不写猜测。** 已知的只有：`DashboardSection.tsx:342`
-  // 那个 div 是**无条件**渲染的，所以"没有 action item 就整块隐藏"这个解释不成立；剩下的可能
-  // 至少还有 —— 降级重建之后 dashboard 的 stats 请求本身失败了（那本身就是个缺陷）、
-  // 或者 10 秒不够它加载完。**下一步是去读那一轮的后端日志和失败截图**
-  //（`test-results-archive/…/search-degraded-is-visible-*`），不是调大 timeout 试试看。
+  // **读了归档的失败截图，答案平淡无奇而且是我的错**（`test-results-archive/…/test-failed-1.png`）：
+  // 那一页是**登录页**，不是 dashboard。面板不在是因为**根本没登录进去**。
+  //
+  // 「看到什么」和「为什么」分开记：
+  //   · 看到的 —— `goto('/admin/dashboard')` 之后停在 SIGN IN。
+  //   · 由此确定的 —— 与「没有 action item」「dashboard 加载慢」「降级」都无关。
+  //   · 还没证的 —— 最可能是 beforeAll 里 `setSearchDegraded(true)` **重建了 backend 容器**，
+  //     而会话没活过那次重建。要证它得看那一轮 backend 起来后的第一批请求带没带上有效 cookie。
+  //
+  // 修法方向：把登录排在切换降级**之后**，或者切换后重新登录一次。改之前先把上面那条机制证实，
+  // 否则就是又一次「照着现象改，改完绿了但不知道为什么」。
+  //
+  // **这次差点走上另一条路**：第一反应是把 10 秒调大。如果当时只写了那句关键断言、没写正对照，
+  // 红会落在「面板文本里没有 search」上 —— 看起来正是缺陷本身，我会当场宣布"证红成功"，
+  // 然后去修一个根本没被证明存在的问题。正对照在这里挡下的不是假绿，是**红得不知所以然**。
   //
   // 解开之前它不该在套件里常红：常红的用例会被当成背景噪音，然后连它真正想说的话一起被忽略。
   test.fixme('with the search engine gone, the dashboard says so', async ({ page }) => {
