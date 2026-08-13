@@ -1,0 +1,26 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-search/shots",
+  "viewport": [1280, 2600],
+  "login": false,
+  "shots": [
+    { "name": "cs-01-english-topic", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Search Relevance"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 9000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What does the corpus say about gating a search so it converges?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 30000 }
+      ],
+      "wait": 2000 },
+    { "name": "cs-02-cjk-query", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 6000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "语料里关于「递归收敛」是怎么说的？"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 30000 }
+      ],
+      "wait": 2000 }
+  ]
+}
