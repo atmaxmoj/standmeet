@@ -72,6 +72,21 @@ export async function scriptMockToolCall(
   return postScript(request, 'next_tool', { name: call.name, args: call.args });
 }
 
+/** Register several tool calls the model emits **in one message** — what a real
+ *  provider does routinely and what the mock could not express until now. Pass two
+ *  calls with the same `name` to reproduce the shape where results can no longer be
+ *  attributed to calls (F-S-1). Returns the `[[s:key]]` tag to embed in the turn. */
+export async function scriptMockParallelToolCalls(
+  request: APIRequestContext, calls: readonly ScriptedToolCall[],
+): Promise<string> {
+  const [first, ...rest] = calls;
+  if (first === undefined) throw new Error('scriptMockParallelToolCalls: need at least one call');
+  return postScript(request, 'next_tool', {
+    name: first.name, args: first.args,
+    also: rest.map((c) => ({ name: c.name, args: c.args })),
+  });
+}
+
 /** Register a scripted final reply for this test (used by G-X to verify markdown /
  *  katex / mermaid render through ConversationDeck → AnswerParas → ChatMarkdown).
  *  Returns the `[[s:key]]` tag to embed in the turn message. */

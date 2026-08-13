@@ -158,6 +158,17 @@ export function querySQL(sql: string): string {
   ).trim();
 }
 
+// backendLogTail —— 取 backend 最近 n 行日志。
+//
+// 有些不变量**只在日志里成立或不成立** —— 例如「一轮里派了几次工具调用,就该有几条能各自归因的
+// 结果」(F-S-1)。那种东西 UI 上看不见、API 上也读不到,断言的对象本来就是这份日志。
+// 用它的用例要自己在注释里说清:为什么这条断言不能走产品的面。
+export function backendLogTail(lines = 400): string {
+  return execSync(`docker compose ${COMPOSE} logs --tail ${lines} backend`, {
+    encoding: 'utf-8', maxBuffer: 32 * 1024 * 1024,
+  });
+}
+
 // restartBackend —— 让 backend 进程重来一次。周期任务的第一跑就在 boot,所以"起来时
 // 清一次老行"这件事,只有重启才观察得到。走 Makefile(所有 docker 操作的唯一入口)。
 export function restartBackend(): void {
