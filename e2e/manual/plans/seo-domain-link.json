@@ -1,0 +1,21 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/seo-domain-link/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    { "name": "sd-01-seo-page", "url": "/admin/seo", "wait": 2500, "fullPage": true },
+    { "name": "sd-02-canonical-link-dest", "url": "/admin/seo",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"seo-canonical-edit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500, "fullPage": true },
+    { "name": "sd-03-description-link-dest", "url": "/admin/seo",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"seo-description-edit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500, "fullPage": true }
+  ]
+}

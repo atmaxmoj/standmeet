@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/seo-domain-link/shots",
+  "viewport": [1280, 2600],
+  "shots": [
+    { "name": "sd-04-description-dest-tall", "url": "/admin/seo",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"seo-description-edit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}
