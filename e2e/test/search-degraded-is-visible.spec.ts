@@ -6,20 +6,25 @@
 // `search.New` 返回 nil，检索退 Postgres 全文、**写入不再索引**（`boot_deps.go:142`）——
 // 那是降级，不是另一种正常。
 //
-// **为什么这条守卫必须存在**：降级今天**一声不吭**。全仓（backend + admin）搜 `degrade` 只有
-// 一处 sigv1 nonce 的无关命中。于是 owner 不知道自己少了一个检索法，agent 不知道该换去 grep，
-// 而访客拿到的答案看起来完全正常 —— 中文查询返回空的那一轮，同轮的英文查询把答案撑住了
-// （F-S-2）。**一个能力静默地少了一半，产品的每一个面都显示一切正常。**
+// **缺陷的形状是"沉默"**：`sysinfo.go` 原本写 `if p.search != nil` —— 没配就整条不列，于是
+// **缺席跟"一切正常"在健康表上长得一模一样**，而缺席正是降级本身。db / redis / storage 都在
+// 那张表里，唯独这一项在最该说话的时候消失。访客那侧也看不出来：中文查询返回空的那一轮，
+// 模型同轮发的英文查询把答案撑住了（F-S-2）。**owner 因此可以一直不知道自己少了一个检索法。**
 //
-// **断言落在 dashboard 的「needs your hand」不是我挑的位置**：仓库里已有先例 ——
-// `routes/admin/claim.go:224` 那句注释写着，没有可用的 AI provider 时 NEEDS YOUR HAND 会直说
-// 「visitors are being turned away」。少了一个检索法是同一类事实：owner 需要知道某个能力没在
-// 正常工作。照着已有的那条路，不另发明一个提示位。
+// **断言落在 `/admin/system` 的健康表，不是 dashboard 的 needs-your-hand。** 依赖状态本来就
+// 住在这张表上；needs-your-hand 是"owner 该动手"的位置，而少一个检索法不像"没配 AI provider"
+// 那样把访客挡在门外（答案照常出，只是更差），放进去是过度报警。
 //
-// 这条用例会**重建两次 backend 容器**（进降级、出降级），比一般用例慢。降级是启动期开关，
-// 没有更便宜的进法；afterAll 一定要恢复，否则后面每条搜索用例都会在另一条路上绿。
+// **两例是一体的。** 只写降级那一例，"这一行报坏"可能只是因为它永远报坏；只写正常那一例，
+// 又证明不了它会说话。两例一起才说明这一行**跟着真实状态动**
+// （[[assertion-that-cannot-fail]]）。
+//
+// 这条用例会重建两次 backend 容器（进降级、出降级）。降级是启动期开关，没有更便宜的进法；
+// afterAll 一定要恢复，否则后面每条搜索用例都会在另一条路上绿 —— 那正是这件事一直没被
+// 发现的机制（[[which-path-is-the-green-on]]）。
 
 import { test, expect } from '@/fixtures/test';
+import type { Page } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken, setSearchDegraded } from '@/fixtures/instance';
@@ -42,59 +47,44 @@ test.describe('F-S-3 · a degraded search path is stated, not silent', () => {
     });
     await loginAPI(request, OWNER.email, OWNER.password);
     await request.dispose();
-    // 进降级 —— 数据留着，只换检索那一层。
-    setSearchDegraded(true);
   });
 
   test.afterAll(() => { setSearchDegraded(false); });
 
-  // ⏸ 挂起中，**而且不是因为缺陷不存在**。
-  //
-  // 第一次跑红在**正对照**那一行：`needs-hand` 面板压根不可见。那不是这条守卫要证的东西 ——
-  // 它证的是别的事，而前一个缺陷正好替后一个挡了枪（[[two-guards-dying-at-one-line]]）。
-  //
-  // **读了归档的失败截图，答案平淡无奇而且是我的错**（`test-results-archive/…/test-failed-1.png`）：
-  // 那一页是**登录页**，不是 dashboard。面板不在是因为**根本没登录进去**。
-  //
-  // 「看到什么」和「为什么」分开记：
-  //   · 看到的 —— `goto('/admin/dashboard')` 之后停在 SIGN IN。
-  //   · 由此确定的 —— 与「没有 action item」「dashboard 加载慢」「降级」都无关。
-  //   · **被证伪的假设** —— 我原本写的是「会话没活过容器重建」。**不成立**：owner session 存在
-  //     Redis 里（`infra/session/owner_session.go:49-55`，store 只是个 redis client 包装），
-  //     而这里只重建 backend，redis 根本没动。**是读代码否掉的，不是跑一次试出来的。**
-  //   · **真正的原因，也是读出来的** —— `fixtures/test.ts:44-48` 的 `page` fixture 只做
-  //     `page.goto('/')`，**它不登录**；登录在另一个 fixture **`adminPage`** 里（:52 起）。
-  //     我当时要的是 `{ page }`，于是拿到一个未登录的浏览器。`test.use({ ownerCredentials })`
-  //     只是给 `adminPage` 供凭据 —— **声明了凭据不等于用上了它**。
-  //
-  // 这条弯路留在这里，因为那个假设看起来完全合理（重启 → 会话没了），下一个人很可能想到同一条。
-  // **一个错的线索比一个「不知道」更贵 —— 因为它会被当成起点。**
-  //
-  // **这次差点走上另一条路**：第一反应是把 10 秒调大。如果当时只写了那句关键断言、没写正对照，
-  // 红会落在「面板文本里没有 search」上 —— 看起来正是缺陷本身，我会当场宣布"证红成功"，
-  // 然后去修一个根本没被证明存在的问题。正对照在这里挡下的不是假绿，是**红得不知所以然**。
-  //
-  // 解开之前它不该在套件里常红：常红的用例会被当成背景噪音，然后连它真正想说的话一起被忽略。
-  // ⏸ 挂起，但**理由跟上一版完全不同，别把这两次混为一谈**。
-  //
-  // 上一版挂起是因为红落在了正对照上（拿错 fixture，浏览器没登录），那时它什么都没证明。
-  // 换成 `adminPage` 之后**红落到了该落的地方**：面板可见（正对照过），失败在真正那句 ——
-  // 「owner 被告知少了一个检索路径」为 false。**③ 成立了。**
-  //
-  // 现在挂起只为一件事：**④ 还没做**。一条为未修缺陷而正确变红的用例，在修好之前会把整个套件
-  // 拖红，然后变成背景噪音。取消挂起是 ④ 的第一步，不是一次独立的清理。
-  test.fixme('with the search engine gone, the dashboard says so', async ({ adminPage }) => {
-    await goto(adminPage, '/admin/dashboard');
-    const needs = adminPage.getByTestId('needs-hand');
-    // 正对照：这块面板本身渲染出来了。缺了它，下面的断言在「dashboard 整个没加载」时会红得
-    // 莫名其妙，而红的原因会被记到"没提示降级"头上（[[assertion-that-cannot-fail]] 的反面）。
-    await expect(needs, 'the needs-your-hand panel rendered at all').toBeVisible({ timeout: 10_000 });
+  test('engine attached → the health table names search and calls it fine',
+    async ({ adminPage }) => {
+      const row = (await searchHealthRow(adminPage)).toLowerCase();
+      expect(row, 'a healthy engine is not reported as a problem')
+        .not.toMatch(/no lexical index|not being indexed|fell back/);
+      expect(row, 'and it is reported as ok').toContain('ok');
+    });
 
-    const text = (await needs.innerText()).toLowerCase();
-    // 只要求它**说出这件事**，不规定措辞 —— 措辞是设计的事，存在与否才是这条守卫的事。
-    expect(
-      /search|retrieval|检索/.test(text),
-      'the owner is told a retrieval path is missing, not left to find out from empty results',
-    ).toBe(true);
-  });
+  test('engine gone → the same row says the index is missing and writes are unindexed',
+    async ({ adminPage }) => {
+      setSearchDegraded(true);
+      // 这一行**还在**本身就是断言 —— 以前 `if p.search != nil` 让它在这个状态下整条消失，
+      // 而消失正是降级本身。searchHealthRow 等不到它就红在那一步。
+      const row = (await searchHealthRow(adminPage)).toLowerCase();
+      expect(row, 'the owner is told the lexical index is not attached')
+        .toContain('no lexical index attached');
+      // 第二个后果同样要说出来:写入不再进索引,所以引擎回来之后旧内容不会自己补上。
+      expect(row, 'and that new writes are not being indexed')
+        .toContain('not being indexed');
+      expect(row, 'and the row is marked down, not ok').toContain('down');
+    });
 });
+
+// searchHealthRow —— /admin/system 健康表里 search 那一整行（名字 + 说明 + 状态）。
+//
+// **两次踩坑都在这个函数里，写下来省得再踩：**
+// 一、按 innerText 挑行只拿得到名字 —— name 和 detail 是两个 div，而要判的那句话在 detail 里。
+//     现在按 `health-row-search` 取整行。
+// 二、正对照断言过「面板可见」就往下走，可那时面板显示的是 `healthList` 的加载占位
+//     （`—` / `loading…`），于是"数据还没到"被读成"这一行不存在"。等**具体那一行**出现，
+//     天然把这两者分开（[[red-in-the-wrong-place]]）。
+async function searchHealthRow(page: Page): Promise<string> {
+  await goto(page, '/admin/system');
+  const row = page.getByTestId('health-row-search');
+  await expect(row, 'the search row is in the health table at all').toBeVisible({ timeout: 15_000 });
+  return row.innerText();
+}

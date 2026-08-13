@@ -1,0 +1,7 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-search/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    { "name": "cs-10-system-health", "url": "/admin/system", "wait": 3500 }
+  ]
+}

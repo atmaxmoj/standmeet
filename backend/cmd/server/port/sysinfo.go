@@ -43,7 +43,7 @@ type SysInfoProvider struct {
 	db      *pgxpool.Pool
 	rdb     *redis.Client
 	storage *storage.Client
-	search  *search.Client // corpus 词法检索;nil = 未配 Meili(不进 health 面板)
+	search  *search.Client // corpus 词法检索;nil = 未配 Meili —— **仍然进 health 面板**,报 OK=false(F-S-3)
 }
 
 // NewSysInfoProvider —— /admin/system 那份运行时信息的提供者(真 ping,不是自报)。
@@ -101,15 +101,34 @@ func readHostMetrics(ctx context.Context) hostMetrics {
 }
 
 func (p *SysInfoProvider) healthChecks(ctx context.Context) []stats.HealthCheck {
-	checks := []stats.HealthCheck{
+	return []stats.HealthCheck{
 		pingCheck("database", "postgres", p.db.Ping(ctx)),
 		pingCheck("redis", "job cache + sessions", p.rdb.Ping(ctx).Err()),
 		pingCheck("storage", "asset blob storage (minio)", p.storage.Health(ctx)),
+		// 跟上面三项并列 —— **不再是条件追加**。它有没有配好是这一行要回答的问题,
+		// 不是它出不出现的条件(F-S-3)。
+		searchCheck(ctx, p.search),
 	}
-	if p.search != nil { // 未配 Meili 就不列;配了则 live ping,down → OK=false(degraded)
-		checks = append(checks, pingCheck("meili", "corpus lexical search", p.search.Healthy(ctx)))
+}
+
+// searchCheck —— 词法检索这一项。**没配也要列**(F-S-3)。
+//
+// 原来是 `if p.search != nil` —— 没配就整条不出现,于是缺席跟"一切正常"在这张表上长得一模一样,
+// 而缺席正是降级本身。设计里 `corpus_search` 就是走 Meili 的那个工具
+// (docs/design/open-work-multi-provider-gas-grep-i18n.md:267);`MEILI_URL` 空时它退到 Postgres
+// 全文、**写入不再索引**,而中文这类分词器切不动的查询会直接返回空 —— 访客那一侧看不出异常,
+// 因为模型同轮发的英文查询把答案撑住了。owner 因此可以一直不知道自己少了一个检索法。
+//
+// OK=false 是对的:这不是"可选功能没开",是**一个按设计存在的能力当前不可用**。
+func searchCheck(ctx context.Context, s *search.Client) stats.HealthCheck {
+	if s == nil {
+		return stats.HealthCheck{
+			Name: "search", OK: false,
+			Detail: "no lexical index attached — corpus search fell back to Postgres full text, " +
+				"and new writes are not being indexed",
+		}
 	}
-	return checks
+	return pingCheck("search", "corpus lexical search (meili)", s.Healthy(ctx))
 }
 
 func pingCheck(name, detail string, err error) stats.HealthCheck {

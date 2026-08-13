@@ -141,7 +141,10 @@ function healthTone(status: string): { dot: string; text: string } {
 function HealthRow({ name, status, detail }: { name: string; status: string; detail: string }) {
   const tone = healthTone(status);
   return (
-    <div className="flex items-baseline gap-3 pb-2 border-b border-(--color-rule)/60">
+    // health-row-<name> —— 一项依赖的整行(名字 + 说明 + 状态)。名字和说明是两个 div,
+    // 所以按 innerText 的行去找只拿得到名字;守卫要判的恰恰是**说明里那句话**(F-S-3)。
+    <div data-testid={`health-row-${name}`}
+      className="flex items-baseline gap-3 pb-2 border-b border-(--color-rule)/60">
       <span data-testid="health-dot" className={`inline-block w-[6px] h-[6px] rounded-full ${tone.dot} shrink-0 relative top-[1px]`} />
       <div className="flex-1">
         <div className="font-serif text-[15px] text-(--color-ink)">{name}</div>
