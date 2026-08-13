@@ -1,6 +1,6 @@
 {
   "sources": {
-    "intro": "Where the loop pulls listings from. Greenhouse / Lever / Wellfound are first-class; RSS and HTML scrapers are also supported. Each source is scanned every 30 minutes. Register sources via MCP <mono>jobs.register_source</mono>.",
+    "intro": "Where the loop pulls listings from. Greenhouse / Lever / Wellfound are first-class; RSS and HTML scrapers are also supported. Nothing is pulled on a schedule — a source is read when you ask Claude to run <mono>jobs.fetch_new</mono>, and what comes back lands in listings for a day. Register sources via MCP <mono>jobs.register_source</mono>.",
     "emptyKicker": "no sources registered",
     "emptyTitle": "Connect a job board or RSS feed.",
     "emptyHint": "Ask Claude to run <mono>jobs.register_source</mono> with a Greenhouse / Lever / RSS URL — it shows up here automatically."

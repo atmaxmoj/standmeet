@@ -93,7 +93,7 @@ const mono = (chunks: React.ReactNode) => (
 function Intro() {
   const t = useTranslations('adminJobs');
   return (
-    <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]">
+    <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]" data-testid="sources-intro">
       {t.rich('sources.intro', { mono })}
     </p>
   );
