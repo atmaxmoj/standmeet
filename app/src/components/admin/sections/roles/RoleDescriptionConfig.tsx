@@ -27,9 +27,13 @@ export function RoleDescriptionConfig({ role }: { role: RoleView }) {
         {t('roleDesc.label')}
       </span>
       <div className="flex flex-col gap-1.5 min-w-0">
+        {/* rows=2 **加** resize-none = owner 既看不到自己写的后半段，也拉不大。
+            两个系统角色的 about 都是四五行散文，于是卡上那段在句子中间断掉
+            （"…the code that goes out when you" 然后没了 —— 补图时在真环境上看见的）。
+            这跟 UX-61 是同一类：编辑框比被编辑的东西小。 */}
         <textarea
-          className="w-full min-w-0 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13.5px] text-(--color-muted) resize-none"
-          rows={2}
+          className="w-full min-w-0 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13.5px] text-(--color-muted) resize-y"
+          rows={5}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={t('roleDesc.placeholder')}
