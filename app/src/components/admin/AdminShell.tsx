@@ -10,7 +10,7 @@
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 
-import { AdminSidebar, type AdminSlug } from '@/components/admin/AdminSidebar';
+import { ADMIN_SLUGS, AdminSidebar, type AdminSlug } from '@/components/admin/AdminSidebar';
 import { TopBar } from '@/components/admin/chrome/TopBar';
 
 import { useAdminSession } from '@/lib/admin/use-admin-session';
@@ -28,17 +28,14 @@ export function AdminShell({ children }: Props) {
     : <Loading state={session.kind} />;
 }
 
-const KNOWN_SLUGS: readonly AdminSlug[] = [
-  'raw', 'wiki', 'output', 'conversations', 'codes', 'requests', 'connectors',
-  'page', 'custom-pages', 'api-mcp', 'account', 'skills', 'writings', 'drafts',
-  'applications', 'dashboard', 'sources', 'listings', 'seo', 'system',
-  'preview', 'obsidian', 'roles', 'prompts', 'ip-bans',
-];
-
 // adminActiveSlug —— /admin/<slug>/… → slug;未知/缺省 → dashboard。no-if 走 find + ??。
+//
+// 认哪些 slug 由**侧栏自己**说了算（`ADMIN_SLUGS` 从 `NAV_GROUPS` 算出来）。
+// 这里原本抄了第二份清单，而那份漏了 `subjectivity` —— 侧栏渲得出那一节，
+// 路径映射却不认识它，于是那一页高亮的是 dashboard（F-N-1）。一份事实，一个来源。
 function adminActiveSlug(pathname: string | null): AdminSlug {
   const seg = (pathname ?? '').replace(/^\/admin\/?/, '').split('/')[0];
-  return KNOWN_SLUGS.find((s) => s === seg) ?? 'dashboard';
+  return ADMIN_SLUGS.find((s) => s === seg) ?? 'dashboard';
 }
 
 function AdminLayout({

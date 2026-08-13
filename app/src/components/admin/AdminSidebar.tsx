@@ -145,6 +145,15 @@ function SidebarItem({ section, active, badge }: { section: SectionDef; active: 
   );
 }
 
+// ADMIN_SLUGS —— 侧栏**渲染出来的**那些 slug，从 NAV_GROUPS 算，不另抄一份。
+//
+// F-N-1：`AdminShell` 曾自己维护第二份 `KNOWN_SLUGS` 用来把路径映射成"当前节"，
+// 而那份漏了 `subjectivity` —— 于是 `/admin/subjectivity` 走「未知 → dashboard」的兜底，
+// 侧栏高亮的是 dashboard。侧栏渲得出这一节，路径映射却不认识它：**同一份事实两份存**。
+// 现在只有 NAV_GROUPS 一份，加一节就自动被认识。
+export const ADMIN_SLUGS: readonly AdminSlug[] =
+  NAV_GROUPS.flatMap((g) => g.items.map((i) => i.slug));
+
 function navLinkCls(active: boolean): string {
   const base = 'flex items-baseline gap-2.5 px-4 py-[5px] mono text-[11.5px] tracking-[0.04em] cursor-pointer border-l-2 transition-colors';
   return active

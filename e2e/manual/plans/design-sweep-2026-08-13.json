@@ -1,0 +1,21 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/_shots-2026-08-13",
+  "viewport": [1280, 950],
+  "shots": [
+    { "name": "sw-subjectivity", "url": "/admin/subjectivity" },
+    { "name": "sw-roles-corpus", "url": "/admin/roles" },
+    { "name": "sw-custom-pages", "url": "/admin/custom-pages" },
+    { "name": "sw-page-section", "url": "/admin/page" },
+    { "name": "sw-applications", "url": "/admin/applications" },
+    { "name": "sw-drafts", "url": "/admin/drafts" },
+    { "name": "sw-sources", "url": "/admin/sources" },
+    { "name": "sw-preview", "url": "/admin/preview" },
+    { "name": "sw-account", "url": "/admin/account" },
+    { "name": "sw-system", "url": "/admin/system" },
+    { "name": "sw-ipbans", "url": "/admin/ip-bans" },
+    { "name": "sw-wiki-admin", "url": "/admin/wiki" },
+    { "name": "sw-outputs", "url": "/admin/output" },
+    { "name": "sw-writings", "url": "/admin/writings" },
+    { "name": "sw-reader", "url": "/wiki/the-business-model-wedge" }
+  ]
+}
