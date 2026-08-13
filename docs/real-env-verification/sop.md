@@ -134,8 +134,27 @@ re-driving the GUI**. Run it per module once that module's chain is complete:
 A design issue that is really a *defect* (a dead button, an empty list, a badge that disagrees
 with its list) is NOT a design issue — it belongs to §1b/§2 and gets a `findings.md` row.
 
+**The boundary of this column — apply it before writing any design verdict.** A design issue is
+one whose fix is presentational only. The test is mechanical, not a matter of taste:
+
+> Apply the change. If **no new test is needed**, **no existing test changes** (a testid or an
+> element locator may change, nothing else), and **nobody has to worry about shipping it** —
+> it is a design issue. Otherwise it is not.
+
+Anything that needs a new capability, a new event, new data, or new behaviour is a **Result-column
+finding**, however visual its symptom looks. "It shows no progress while it works" and "it renders
+no tool cards" are features that happen to be visible; they belong in `findings.md`, not here.
+Keeping them out is what makes `🎨✅` mean something: it says *this surface is as good as it can be
+without changing what the product does*, and it can be closed without waiting on any build.
+
 For this to work the shots must be worth reviewing: **full page, not a viewport crop**, and both
-themes on any surface that has a dark mode. A cropped screen hides exactly what a designer
+themes on any surface that has a dark mode.
+
+> **`fullPage: true` does not give you a full page in this admin shell.** The admin scrolls in an
+> inner container, so a full-page capture stops at the document height and silently hands you a
+> viewport crop — which is how several trajectories ended up with the reviewable element cut off
+> (`chat-voice-persistence` lost the whole report card that way). **Resize the viewport tall**
+> (e.g. 1280×2600) and shoot; check the bottom of the image is really the bottom of the page. A cropped screen hides exactly what a designer
 judges — composition and balance.
 
 ### 2 · On a mismatch → RECORD ONLY, do not fix in place ⚠️

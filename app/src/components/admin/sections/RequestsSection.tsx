@@ -233,7 +233,7 @@ function ApproveControl({
   return canDeliver
     ? (
       <Btn
-        kind="primary" size="sm"
+        kind="solid" size="sm"
         onClick={() => { void runApprove(hook, id, onApproved); }}
       >
         {t('requests.approve')}

@@ -37,9 +37,10 @@ function pickClient(id: MCPClient['id']): MCPClient {
 function PanelHead() {
   const t = useTranslations('adminIntegrations.mcpClient');
   return (
-    <div className="flex items-baseline justify-between mb-4 gap-4 flex-wrap">
-      <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink)">{t('heading')}</h3>
-      <span className="mono text-[10.5px] tracking-[0.06em] text-(--color-faint)">
+    // 大节标题走 .sm-section-h（唯一定义处），副标题挂在同一条线的右端。
+    <div className="sm-section-h mb-4 flex-wrap">
+      <h3 className="mr-auto">{t('heading')}</h3>
+      <span className="mono text-[10.5px] tracking-[0.06em] normal-case text-(--color-faint)">
         {t('subhead')}
       </span>
     </div>

@@ -147,7 +147,9 @@ function LoadButton({
       disabled={loading || loadDisabled}
       title={loadTitle(loadDisabled)}
       data-testid={`${prefix}-load-models`}
-      className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-ink) disabled:opacity-40 shrink-0"
+      // 这是个动作，而它原来是 `text-(--color-faint)` —— 整行里最轻的东西（UX-76③）。
+      // 走 outline：比旁边的说明文字重，又不跟提交动作（solid）抢主次。
+      className="sm-btn sm-btn-outline sm-btn-sm shrink-0"
     >
       {loading ? 'loading…' : 'load models'}
     </button>

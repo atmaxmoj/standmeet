@@ -162,7 +162,7 @@ function AddButton({
       data-testid="provider-new-add"
       disabled={disabled}
       onClick={onClick}
-      className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-3 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
+      className="sm-btn sm-btn-solid sm-btn-sm"
     >
       {label}
     </button>

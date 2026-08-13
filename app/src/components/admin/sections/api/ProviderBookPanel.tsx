@@ -20,7 +20,7 @@ export function ProviderBookPanel() {
   useEffectErrorToast(hook.error);
   return (
     <div data-testid="provider-book-panel">
-      <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) mb-3 pb-2 border-b border-(--color-rule)">
+      <h3 className="sm-section-h mb-3">
         {t('heading')}
       </h3>
       <p className="reading-tight text-(--color-muted) text-[14.5px] max-w-[54em] mb-4">
@@ -48,7 +48,7 @@ function List({ hook }: { hook: ProvidersHook }) {
   const t = useTranslations('adminIntegrations.providerBook');
   return hook.providers.length === 0
     ? (
-      <div data-testid="provider-list" className="mono text-[11px] text-(--color-faint) border border-dashed border-(--color-rule) px-4 py-6 text-center">
+      <div data-testid="provider-list" className="sm-empty mono text-[11px] text-(--color-faint)">
         {t('empty')}
       </div>
     )

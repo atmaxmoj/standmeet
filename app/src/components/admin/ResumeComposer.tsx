@@ -145,11 +145,14 @@ function ComposerActions({
 }: { matchPct: number; savedLabel: string; onSend: () => void }) {
   const t = useTranslations('adminShell.composer');
   return (
+    // 三段用竖线分开：对它的判断（match） | 状态（saved） | 动作（regenerate / send）。
     <div className="flex items-center gap-3">
       <MatchGauge pct={matchPct} />
+      <span className="sm-bar-sep" />
       <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
         {savedLabel}
       </span>
+      <span className="sm-bar-sep" />
       <button
         type="button"
         className="sm-btn sm-btn-outline sm-btn-sm"
@@ -171,10 +174,10 @@ function MatchGauge({ pct }: { pct: number }) {
   const t = useTranslations('adminShell.composer');
   return (
     <div className="sm-session-strip-gauge" title={t('matchTitle')}>
-      <span className="sm-session-strip-gauge-text">
+      <span className="sm-session-strip-gauge-text flex items-baseline gap-1.5">
         {t('match')}
-        <span className="sm-session-strip-used ml-2">{pct}</span>
-        <span className="ml-1">{t('matchOutOf')}</span>
+        <span className="sm-match-num" data-testid="composer-match-num">{pct}</span>
+        <span>{t('matchOutOf')}</span>
       </span>
       <MatchGaugeBar pct={pct} />
     </div>

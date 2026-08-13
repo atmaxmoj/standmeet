@@ -158,6 +158,102 @@
   color: var(--color-muted);
 }
 
+/* ── section heading ───────────────────────────────────────────────────
+   一个**面之内**的大节标题(`SectionHeader` 是整页的标题,这个是它下面的分段)。
+
+   在这之前没有这一层:六处各自手抄同一行 `mono text-[10px] tracking-[0.2em] uppercase
+   text-(--color-ink) border-b`,而字段标签是 `.sm-smallcaps`(同样 mono、同样 10px、
+   同样 uppercase,只差一档灰度)。10px 上那一档灰度看不出来 —— 于是 `/admin/api-mcp`
+   整页是一根没有骨架的长柱子(UX-76①),而它偏偏是全后台最长、装了三个概念的一页。
+
+   给大节真正的分量,同时不离开这套语言:
+     - 字号 12px vs 字段名 10px —— 差一档能一眼分出的量,而不是靠灰度;
+     - 左侧一小段朱红竖条 —— 已有的强调色,扫页时是"这里开始新的一节"的锚点;
+     - 下方细线通栏 —— 原来就有,保留。 */
+.sm-section-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.sm-section-h::before {
+  content: '';
+  flex: none;
+  width: 3px;
+  height: 12px;
+  background: var(--color-accent);
+}
+
+/* ── reading scroll column ─────────────────────────────────────────────
+   一栏**长段衬线散文**的滚动容器。
+
+   `overflow-y: auto` 单独用会出事:macOS/移动端的**覆盖式**滚动条压在内容上,滚动期间
+   每一行的最后一个字符被盖住(*"does **a**"* / *"shou**l**d"*),滚动条淡出后又完整 ——
+   看起来像渲染坏了(UX-71)。`scrollbar-gutter: stable` 只对经典滚动条留位,覆盖式的
+   照压不误,所以还要真的给右边留出内边距。两条一起才管两种滚动条。 */
+.sm-scroll-read {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: 12px;
+}
+
+/* ── match gauge (resume composer) ─────────────────────────────────────
+   `match NN / 100` 是这一屏**唯一**可能让 owner 改主意不发这份申请的数字,而它原来借的是
+   访客配额条的排版(等宽灰字),跟旁边那句"已保存"同一族重量 —— 而 `SEND` 是实心黑块。
+   一个左右不可逆外发动作的判据,比那个动作本身轻两档(UX-51)。
+
+   这里只做一件事:把那个数字变成这条栏上最大的东西。衬线 + tabular + 墨色,
+   跟正文数字同族(后台其它地方的大数也是这个处理,见 `IndexStat`)。 */
+.sm-match-num {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+
+/* 一条栏里把不同**种类**的东西分开:这是什么 | 对它的判断 | 对它的动作。
+   三类等距排开、无分隔时,眼睛得逐个读过去才知道哪个是哪个(UX-52)。 */
+.sm-bar-sep {
+  flex: none;
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-rule);
+}
+
+/* ── empty state ───────────────────────────────────────────────────────
+   「这里还没有东西 + 怎么让它有」这张卡,**只有这一处**。
+
+   在这之前是五处各写各的:三种边框(虚线 / 实线 + 面色 / 无)、两种内距、而**每一处都
+   `text-center`** —— 而后台其余全部左对齐。于是一份左对齐的文档里凭空多出一条轴线
+   (UX-75①,在 `/admin/listings` 和 `/admin/drafts` 上一模一样,是一类不是一处)。
+
+   居中在这里也不只是对齐问题:空态卡的正文是**下一步该做什么**,它是要被读的指令,
+   不是标语。左对齐让它跟页面上其它段落进同一条阅读线。 */
+.sm-empty {
+  border: 1px dashed var(--color-rule);
+  border-radius: 3px;
+  padding: 28px 24px;
+}
+.sm-empty-title {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--color-ink);
+}
+.sm-empty-hint {
+  margin-top: 8px;
+  max-width: 36em;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 /* ── chip ──────────────────────────────────────────────────────────── */
 .sm-chip {
   display: inline-flex;

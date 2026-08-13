@@ -81,7 +81,7 @@ function DefaultsCard({ form, setForm, onSave }: {
       <DescriptionMirror />
       <CanonicalMirror />
       <div>
-        <button type="button" data-testid="seo-save" className="sm-btn sm-btn-primary sm-btn-sm"
+        <button type="button" data-testid="seo-save" className="sm-btn sm-btn-solid sm-btn-sm"
           onClick={onSave}>{t('common.save')}</button>
       </div>
     </div>
@@ -97,7 +97,7 @@ function LabeledInput({ label, testid, value, onChange, placeholder }: {
       <div className="sm-smallcaps mb-1">{label}</div>
       <input type="text" data-testid={testid} value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-(--color-rule) rounded-[3px] px-3 py-2 text-(--color-ink) text-[14px] bg-(--color-surface)" />
+        className="sm-field-input" />
     </label>
   );
 }
@@ -113,6 +113,21 @@ function RobotsToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   );
 }
 
+// MirrorEditLink —— 「这个值在别处编辑」那条链接，**只有这一处**。
+//
+// 之前 og:description 那条是大号衬线（跟着说明段的排版走），canonical host 那条是小号等宽
+// （跟着主机名的排版走）—— 同样的去处、同样的语义，长成两种东西（UX-74①）。原因是它们
+// 各自继承父段落的字体，而不是自己声明。这里把它固定成一种，跟周围正文用什么字体无关。
+function MirrorEditLink({ testid }: { testid: string }) {
+  const t = useTranslations('adminCorpus.seo');
+  return (
+    <a data-testid={testid} href="/admin/page"
+      className="mono text-[11px] tracking-[0.04em] text-(--color-accent) underline whitespace-nowrap">
+      {t('editOnPage')}
+    </a>
+  );
+}
+
 // DescriptionMirror —— og:description 复用 page 的 hero prose，只读 + 跳 /admin/page 编辑。
 function DescriptionMirror() {
   const t = useTranslations('adminCorpus.seo');
@@ -121,8 +136,7 @@ function DescriptionMirror() {
       <div className="sm-smallcaps mb-1">{t('ogDescription')}</div>
       <p className="reading text-[13px] text-(--color-muted)">
         {t('usesHeroProse')}{' '}
-        <a data-testid="seo-description-edit" href="/admin/page"
-          className="text-(--color-accent) underline">{t('editOnPage')}</a>
+        <MirrorEditLink testid="seo-description-edit" />
       </p>
     </div>
   );
@@ -138,8 +152,7 @@ function CanonicalMirror() {
       <div className="sm-smallcaps mb-1">{t('canonicalHost')}</div>
       <p className="mono text-[12px] text-(--color-muted)">
         {host || '—'}{' '}
-        <a data-testid="seo-canonical-edit" href="/admin/page"
-          className="text-(--color-accent) underline">{t('editOnDomain')}</a>
+        <MirrorEditLink testid="seo-canonical-edit" />
       </p>
     </div>
   );

@@ -37,11 +37,9 @@ export function MCPDownloadPanel() {
 function Header() {
   const t = useTranslations('adminIntegrations.mcpDownload');
   return (
-    <div className="flex items-baseline justify-between mb-3 pb-2 border-b border-(--color-rule)">
-      <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink)">
-        {t('heading')}
-      </h3>
-      <span className="mono text-[10.5px] tracking-[0.06em] text-(--color-faint)">{t('badge')}</span>
+    <div className="sm-section-h mb-3">
+      <h3 className="mr-auto">{t('heading')}</h3>
+      <span className="mono text-[10.5px] tracking-[0.06em] normal-case text-(--color-faint)">{t('badge')}</span>
     </div>
   );
 }

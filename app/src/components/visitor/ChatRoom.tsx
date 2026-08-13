@@ -48,8 +48,10 @@ export function ChatRoom({ owner, mode }: Props) {
       <main className="flex-1 flex flex-col min-h-0">
         <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col min-h-0">
           {/* scroll area: welcome + transcript scroll here; composer stays docked */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
-            <ChatWelcome owner={owner} d={derived} />
+          {/* sm-scroll-read：右侧留出滚动条的位置。覆盖式滚动条显示期间会压掉每行
+              最后一个字符（"does a" / "should"），而这一栏是长段衬线散文（UX-71）。 */}
+          <div ref={scrollRef} className="sm-scroll-read flex-1 min-h-0">
+            <ChatWelcome owner={owner} d={derived} hasDialogs={ci.chat.dialogs.length > 0} />
             <ChatTranscript
               dialogs={ci.chat.dialogs} onAsk={ci.onAsk}
               conversationID={ci.chat.conversationID}
@@ -111,10 +113,18 @@ function HeaderRight() {
 
 // ── welcome ────────────────────────────────────────────────
 
-function ChatWelcome({ owner, d }: { owner: PublicOwnerView; d: ReturnType<typeof useChatRoomDerived> }) {
+// 空会话不画介绍语下面那条线。有 transcript 时它是「介绍语到此为止」的分隔；没有时，
+// 它跟输入区顶部那条线一起，把中间那段留白框成一个**有边框的空盒子** —— 读起来不像
+// 「这里还没有内容」，像有东西没加载出来（UX-72）。
+function ChatWelcome({ owner, d, hasDialogs }: {
+  owner: PublicOwnerView; d: ReturnType<typeof useChatRoomDerived>; hasDialogs: boolean;
+}) {
   const t = useTranslations('visitor.chatRoom');
   return (
-    <article className="pt-10 pb-10 border-b border-(--color-rule)" data-testid="chat-welcome">
+    <article
+      className={`pt-10 pb-10 ${hasDialogs ? 'border-b border-(--color-rule)' : ''}`}
+      data-testid="chat-welcome"
+    >
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">
         {t('ready', { handle: owner.handle })}
       </div>

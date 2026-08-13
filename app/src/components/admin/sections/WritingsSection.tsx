@@ -40,7 +40,7 @@ export function WritingsSection() {
         kicker="corpus · writing"
         title="writings"
         count={titleCount(hook)}
-        action={<Btn kind="primary" onClick={() => setCreating(true)}>{t('newWriting')}</Btn>}
+        action={<Btn kind="solid" onClick={() => setCreating(true)}>{t('newWriting')}</Btn>}
       />
       <Intro />
       <ObsidianBar onImported={() => hook.refresh()} />

@@ -102,10 +102,10 @@ function Intro() {
 function EmptyState() {
   const t = useTranslations('adminJobs');
   return (
-    <div className="border border-dashed border-(--color-rule) rounded-[3px] p-9 text-center">
+    <div className="sm-empty">
       <div className="sm-smallcaps mb-1.5">{t('sources.emptyKicker')}</div>
-      <div className="font-serif text-[18px] text-(--color-ink)">{t('sources.emptyTitle')}</div>
-      <p className="reading text-[14px] text-(--color-muted) max-w-[36em] mx-auto mt-2">
+      <div className="sm-empty-title">{t('sources.emptyTitle')}</div>
+      <p className="sm-empty-hint reading">
         {t.rich('sources.emptyHint', { mono })}
       </p>
     </div>

@@ -80,7 +80,7 @@ function TextField({ field, onChange }: { field: AssembleField; onChange: (v: st
       placeholder={field.label}
       defaultValue={fieldDefault(field)}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
+      className="sm-field-input sm-mono"
     />
   );
 }

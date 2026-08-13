@@ -84,7 +84,7 @@ function TokensBlock({ hook }: { hook: TokensHook }) {
   const t = useTranslations('adminIntegrations.api');
   return (
     <div>
-      <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) mb-3 pb-2 border-b border-(--color-rule)">
+      <h3 className="sm-section-h mb-3">
         {t('keysHeading')}
       </h3>
       <NewlyCreatedBanner created={bannerView(hook.justCreated)} dismiss={hook.dismissCreated} />
@@ -119,7 +119,7 @@ function TokenList({
 function EmptyTokens() {
   const t = useTranslations('adminIntegrations.api');
   return (
-    <div data-testid="token-list" className="mono text-[11px] text-(--color-faint) border border-dashed border-(--color-rule) px-4 py-6 rounded-sm text-center">
+    <div data-testid="token-list" className="sm-empty mono text-[11px] text-(--color-faint)">
       {t('empty')}
     </div>
   );

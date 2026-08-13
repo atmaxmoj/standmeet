@@ -40,11 +40,9 @@ export function MCPServersPanel() {
 function Head({ count }: { count: number }) {
   const t = useTranslations('adminIntegrations.mcpServers');
   return (
-    <div className="flex items-baseline justify-between mb-2">
-      <h3 className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted)">
-        {t('heading')}
-      </h3>
-      <span className="mono text-[10.5px] text-(--color-faint)">{t('count', { count: String(count) })}</span>
+    <div className="sm-section-h mb-2">
+      <h3 className="mr-auto">{t('heading')}</h3>
+      <span className="mono text-[10.5px] normal-case tracking-normal text-(--color-faint)">{t('count', { count: String(count) })}</span>
     </div>
   );
 }
@@ -165,7 +163,9 @@ function AddButton({ disabled, onAdd }: { disabled: boolean; onAdd: () => void }
       disabled={disabled}
       onClick={onAdd}
       data-testid="mcp-server-add"
-      className="sm-btn sm-btn-ghost sm-btn-sm"
+      // ADD 是这一段唯一的提交动作，跟 GENERATE / SAVE 是同一类，所以长一个样（UX-76②）。
+      // 原来挂 ghost（灰字无边框）—— 在一排填好的输入框旁边读起来像被禁用了。
+      className="sm-btn sm-btn-solid sm-btn-sm"
     >
       {t('add')}
     </button>

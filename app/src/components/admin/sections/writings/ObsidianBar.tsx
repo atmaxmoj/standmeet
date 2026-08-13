@@ -33,12 +33,15 @@ export function ObsidianBar({ onImported }: Props) {
   // 导入失败别只是悄悄复位 spinner —— report 反显（uploadVault 现在把 rejection 传上来）。
   const onFiles = (files: FileList) => importer.importVault(files).catch(report);
   return (
+    // import 在前、实心；export 在后、ghost。两个动作**后果不对称**：import 会 upsert 语料
+    // （本轮 vault-sync 记着它还能删），export 只是下载一个 zip。它们原来是两段同字号同灰度的
+    // 文字链接，看不出哪个会改东西（UX-63）。
     <div className="flex items-baseline gap-3 mb-5" data-testid="obsidian-bar">
-      <ExportBtn />
       <ImportBtn
         busy={importer.busy}
         onPick={() => inputRef.current?.click()}
       />
+      <ExportBtn />
       <HiddenDirInput inputRef={inputRef} onFiles={onFiles} />
       <Status busy={importer.busy} result={importer.result} />
     </div>
@@ -57,7 +60,7 @@ function ExportBtn() {
 function ImportBtn({ busy, onPick }: { busy: boolean; onPick: () => void }) {
   const t = useTranslations('adminCorpus.obsidianBar');
   return (
-    <Btn kind="ghost" disabled={busy} onClick={onPick}>
+    <Btn kind="solid" disabled={busy} onClick={onPick}>
       {busy ? t('importing') : t('import')}
     </Btn>
   );

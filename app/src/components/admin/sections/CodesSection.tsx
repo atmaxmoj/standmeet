@@ -63,7 +63,7 @@ function NewCodeBtn({ open }: { open: () => void }) {
   const t = useTranslations('adminAccess');
   // Btn 把 onClick 调时会传 MouseEvent；openCreate(existing?) 不能把
   // 事件当成 existing 传进去（会让 modal 以为是 edit）。包一层裸调用。
-  return <Btn kind="primary" onClick={() => open()}>{t('codes.new')}</Btn>;
+  return <Btn kind="solid" onClick={() => open()}>{t('codes.new')}</Btn>;
 }
 
 function titleCount(hook: CodesHook): string {

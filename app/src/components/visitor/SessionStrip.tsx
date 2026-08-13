@@ -157,7 +157,7 @@ function StripNamesSlot({ s }: { s: VisitorSession }) {
     <>
       <span className="sm-session-strip-sep">·</span>
       <span className="sm-session-strip-gauge-text" data-testid="session-strip-names">
-        <span className="sm-session-strip-members-used">{s.memberCount}</span>
+        <span className="sm-session-strip-used">{s.memberCount}</span>
         {' / '}{s.maxMembers}
         <span className="sm-session-strip-turns-suffix">{t('names')}</span>
       </span>

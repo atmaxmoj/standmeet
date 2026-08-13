@@ -37,7 +37,7 @@ export function AIProviderPanel() {
   useEffectErrorToast(hook.state.error);
   return (
     <div data-testid="ai-provider-panel">
-      <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) mb-3 pb-2 border-b border-(--color-rule)">
+      <h3 className="sm-section-h mb-3">
         {t('heading')}
       </h3>
       <Intro />
@@ -299,7 +299,9 @@ function SaveBtn({
       onClick={onSave}
       disabled={disabled}
       data-testid="ai-provider-save"
-      className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-3 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
+      // 这一串手抄的 mono/uppercase/bg-ink/hover-accent 逐字就是 `.sm-btn.sm-btn-solid`。
+      // 各处各抄一遍，就是同一页三种按钮长相的成因 —— 走原子，别再抄。
+      className="sm-btn sm-btn-solid sm-btn-sm"
     >
       {hook.state.saving ? 'saving…' : 'save'}
     </button>
@@ -337,7 +339,7 @@ function ClearBtn({
       type="button"
       onClick={onClear}
       data-testid="ai-provider-clear"
-      className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-faint) hover:text-(--color-accent)"
+      className="sm-btn sm-btn-danger sm-btn-sm"
     >
       {t('clearKey')}
     </button>

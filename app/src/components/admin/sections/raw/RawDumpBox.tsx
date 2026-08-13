@@ -98,7 +98,7 @@ function RawDumpFooter({ disabled, submitting, error, onAdd }: FooterProps) {
           建好之后的编辑表单里(CorpusAssetsPanel)。一个装成按钮的标签比没有更糟:
           owner 点它、以为自己挂过了。 */}
       <div className="flex items-baseline gap-3">
-        <Btn kind="primary" onClick={onAdd} disabled={disabled}>
+        <Btn kind="solid" onClick={onAdd} disabled={disabled}>
           {submitting ? t('dumping') : t('dump')}
         </Btn>
       </div>

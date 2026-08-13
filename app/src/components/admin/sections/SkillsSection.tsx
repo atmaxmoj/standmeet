@@ -72,7 +72,7 @@ function HeaderActions({
   return (
     <div className="flex items-center gap-3">
       <SkillsTabs tab={tab} setTab={setTab} />
-      <Btn kind="primary" onClick={onNew}>{t('new')}</Btn>
+      <Btn kind="solid" onClick={onNew}>{t('new')}</Btn>
     </div>
   );
 }
@@ -309,7 +309,7 @@ function SkillField({
         {label}
       </span>
       <input
-        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
+        className="sm-field-input"
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}

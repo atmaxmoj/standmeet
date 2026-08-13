@@ -95,9 +95,9 @@ function LoadError({ msg }: { msg: string }) {
 function EmptyState() {
   const t = useTranslations('adminJobs');
   return (
-    <div className="p-6 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/40 text-center">
-      <p className="font-serif text-(--color-ink) text-[18px]">{t('applications.emptyTitle')}</p>
-      <p className="reading text-(--color-muted) text-[14px] mt-1.5 max-w-[34em] mx-auto">
+    <div className="sm-empty">
+      <p className="sm-empty-title">{t('applications.emptyTitle')}</p>
+      <p className="sm-empty-hint reading">
         {t('applications.emptyHint')}
       </p>
     </div>

@@ -47,7 +47,7 @@ function OpFields({ fields, hook }: { fields: readonly OwnerOpField[]; hook: Con
           placeholder={f.key}
           aria-label={f.description ?? f.key}
           onChange={(e) => hook.setField(f.key, e.target.value, f.type ?? 'string')}
-          className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
+          className="sm-field-input sm-mono"
         />
       ))}
     </div>

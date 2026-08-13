@@ -76,7 +76,9 @@ function Fields({ hook }: { hook: ConnectorCardHook }) {
           type={isSecret(key) ? 'password' : 'text'}
           placeholder={key}
           onChange={(e) => hook.setField(key, e.target.value)}
-          className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
+          // 文本输入在这个产品里只有一种长相：下划线（`.sm-field-input`）。凭据这几格
+          // 曾是**整框**，于是同一种控件隔一屏就是两个标准（UX-59）。
+          className="sm-field-input sm-mono"
         />
       ))}
     </div>

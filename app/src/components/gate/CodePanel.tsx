@@ -68,9 +68,13 @@ export function CodePanel({ hook }: Props) {
           error={hook.state.error !== null}
           inputRef={inputRef}
         />
+        {/* 错误行紧贴出错的那个字段。原来它落在 NameRow **之下**，于是
+            `TOO MANY INVALID CODES` 读起来像是「我的名字被拒了」，眼睛得往回跳
+            才能把错误跟码输入框对上 —— 而这是访客第一次接触这个产品的一屏（UX-73）。 */}
+        <HintStatus busy={hook.state.busy} error={hook.state.error} />
         <NameRow name={name} setName={setName} />
       </form>
-      <Hint busy={hook.state.busy} error={hook.state.error} />
+      <Hint />
     </section>
   );
 }
@@ -172,11 +176,10 @@ function NameRow({ name, setName }: { name: string; setName: (v: string) => void
 // sample —— hint 里示例码 "OAEN-3K2" 的 rich tag。
 const sample = (chunks: ReactNode) => <span className="text-(--color-muted)">{chunks}</span>;
 
-function Hint({ busy, error }: { busy: boolean; error: string | null }) {
+function Hint() {
   const t = useTranslations('gate.codePanel');
   return (
     <div className="mono text-[10.5px] tracking-[0.12em] mt-4 leading-[1.7] max-w-[44em]">
-      <HintStatus busy={busy} error={error} />
       <p className="text-(--color-faint)">
         {t.rich('hint', { sample })}
       </p>
@@ -192,9 +195,10 @@ function Hint({ busy, error }: { busy: boolean; error: string | null }) {
 // 是信息在类型里就没了(F-A-23)。
 function HintStatus({ busy, error }: { busy: boolean; error: string | null }) {
   const t = useTranslations('gate');
+  const cls = 'mono text-[10.5px] tracking-[0.16em] uppercase';
   return error !== null ? (
-    <p className="text-(--color-accent) mb-1 tracking-[0.16em] uppercase" data-testid="gate-error">{error}</p>
+    <p className={`${cls} text-(--color-accent)`} data-testid="gate-error">{error}</p>
   ) : busy ? (
-    <p className="text-(--color-muted) mb-1 tracking-[0.16em] uppercase">{t('common.checking')}</p>
+    <p className={`${cls} text-(--color-muted)`}>{t('common.checking')}</p>
   ) : null;
 }

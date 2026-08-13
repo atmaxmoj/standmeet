@@ -6,7 +6,7 @@
     "emptyHint": "Ask Claude to run <mono>jobs.register_source</mono> with a Greenhouse / Lever / RSS URL — it shows up here automatically."
   },
   "listings": {
-    "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Pool TTL 1 day; missed it, fetch again via MCP <mono>jobs.fetch_new</mono>.",
+    "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
     "emptyKicker": "no listings in pool",
     "emptyTitle": "Fetch jobs from your sources first.",
     "emptyHint": "Ask Claude to run <mono>jobs.fetch_new</mono> — results land here for a day until you draft or discard them."
