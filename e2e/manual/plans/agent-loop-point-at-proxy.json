@@ -1,0 +1,16 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/agent-loop-robustness/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    { "name": "al-20-provider-before", "url": "/admin/api-mcp", "wait": 2500 },
+    { "name": "al-21-endpoint-set", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"ai-provider-endpoint\"]", "https://api.deepseek.com"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"ai-provider-save\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1200 }
+  ]
+}

@@ -99,6 +99,7 @@ func (s *server) pipe(w http.ResponseWriter, r *http.Request, body []byte) {
 		return
 	}
 	req.Header = r.Header.Clone()
+	stripHopByHop(req.Header)
 	req.ContentLength = int64(len(body))
 	resp, err := (&http.Client{Timeout: 5 * time.Minute}).Do(req)
 	if err != nil {
@@ -107,9 +108,28 @@ func (s *server) pipe(w http.ResponseWriter, r *http.Request, body []byte) {
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
+	// 转发成功也要留一行。**不留的话这份日志的沉默有两种意思** —— 「没有流量」和「转发正常」
+	// 长得一模一样,而驱动的人正是靠它判断产品到底接上来没有。第一次用它我就差点据此断定
+	// 「产品没走代理」,其实那一轮完全正常。
+	s.log.Info("forwarded", "path", r.URL.Path, "status", resp.StatusCode)
 	copyHeaders(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	streamCopy(w, resp.Body)
+}
+
+// stripHopByHop —— 逐跳头不能转发(RFC 9110 §7.6.1):它们描述的是**这一跳连接**,不是那份请求。
+// Content-Length 也去掉 —— 长度由 req.ContentLength 说了算,两处各说一遍就有对不上的可能。
+//
+// **改它的理由是规范,不是诊断。** 2026-08-13 驱这个模块时上游出过一次
+// `unexpected EOF`,我怀疑但**没有证据**是这里造成的;这次修正是因为一个代理本来就该这么做,
+// 那次 EOF 治没治好,要下一轮真撞上才知道 —— 不把猜测记成结论。
+func stripHopByHop(h http.Header) {
+	for _, k := range []string{
+		"Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization",
+		"Te", "Trailer", "Transfer-Encoding", "Upgrade", "Content-Length",
+	} {
+		h.Del(k)
+	}
 }
 
 func copyHeaders(dst, src http.Header) {

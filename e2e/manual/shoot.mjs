@@ -58,6 +58,8 @@ for (const shot of plan.shots) {
   for (const step of shot.steps ?? []) {
     step.click && await page.locator(step.click).first().click();
     step.type && await page.locator(step.type[0]).first().fill(step.type[1]);
+    // press —— 有些东西只能按键提交（访客对话框没有发送按钮，回车就是发送）。
+    step.press && await page.locator(step.press[0]).first().press(step.press[1]);
     // 懒加载的树：上一次点击要等它把下一层取回来，下一个选择器才存在。
     step.wait && await page.waitForTimeout(step.wait);
   }
