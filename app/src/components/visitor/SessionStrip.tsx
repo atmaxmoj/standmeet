@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
@@ -25,7 +25,20 @@ import { validateVisitorSession } from '@/lib/visitor/validate-session';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { cssVars } from '@/lib/ui/css-vars';
 
-export function SessionStrip() {
+// Slots —— 一个面可以把**自己的**页眉内容塞进这条已经存在的横条,而不是在它上面再摞一条。
+//
+// 聊天那一屏原来是两条整宽横条摞在一起:一条是这次**会话**的状态,一条是这个**站点**的身份
+// (`STANDMEET / sijie ● LIVE … FULL PAGE →`)。两种不同的东西、同样的形状、同样整宽、
+// 同样的等宽小字,加起来 68px,访客在正文开始之前先要越过它 —— 而且两条各画一个 live dot,
+// 同一个信号说了两遍(UX-53)。
+//
+// 其余七个挂了这条横条的面不传这两个槽,渲染完全不变。
+interface StripSlots {
+  leading?: ReactNode;
+  trailing?: ReactNode;
+}
+
+export function SessionStrip(slots: StripSlots = {}) {
   // mount 一次 bind storage / custom event listener。组件卸载 → unbind。
   // F-L-11: 同时探一下 stored token 还活着没(TTL 过期 → 401 → 清两个 store),
   // 免得读者页拿着死 session 显假「unlocked」chrome + 空正文。
@@ -34,19 +47,19 @@ export function SessionStrip() {
     return bindVisitorSessionSync();
   }, []);
   const session = useVisitorSessionStore((s) => s.session);
-  return session ? <SessionStripGate s={session} /> : null;
+  return session ? <SessionStripGate s={session} slots={slots} /> : null;
 }
 
-function SessionStripGate({ s }: { s: VisitorSession }) {
-  return s.code === null && !s.byoai ? null : <SessionStripBody s={s} />;
+function SessionStripGate({ s, slots }: { s: VisitorSession; slots: StripSlots }) {
+  return s.code === null && !s.byoai ? null : <SessionStripBody s={s} slots={slots} />;
 }
 
-function SessionStripBody({ s }: { s: VisitorSession }) {
+function SessionStripBody({ s, slots }: { s: VisitorSession; slots: StripSlots }) {
   const view = deriveStripView(s);
   return (
     <div className={view.cls} data-testid="session-strip" data-warn={view.warn ? 'true' : undefined}>
-      <StripLeft s={s} />
-      <StripRight s={s} pct={view.pct} warn={view.warn} />
+      <StripLeft s={s} leading={slots.leading} />
+      <StripRight s={s} pct={view.pct} warn={view.warn} trailing={slots.trailing} />
     </div>
   );
 }
@@ -68,9 +81,10 @@ function stripCls(byoai: boolean, warn: boolean): string {
   return parts.join(' ');
 }
 
-function StripLeft({ s }: { s: VisitorSession }) {
+function StripLeft({ s, leading }: { s: VisitorSession; leading?: ReactNode }) {
   return (
     <div className="sm-session-strip-left">
+      {leading}
       <span className="sm-live-dot" />
       <StripModeLabel s={s} />
       <span className="sm-session-strip-sep">·</span>
@@ -124,7 +138,9 @@ function StripVisitorName({ s }: { s: VisitorSession }) {
   );
 }
 
-function StripRight({ s, pct, warn }: { s: VisitorSession; pct: number; warn: boolean }) {
+function StripRight({ s, pct, warn, trailing }: {
+  s: VisitorSession; pct: number; warn: boolean; trailing?: ReactNode;
+}) {
   const t = useTranslations('visitor.sessionStrip');
   return (
     <div className="sm-session-strip-right">
@@ -135,6 +151,7 @@ function StripRight({ s, pct, warn }: { s: VisitorSession; pct: number; warn: bo
       <Link href="/gate" className="sm-session-strip-link is-exit">
         <span data-testid="session-strip-exit">{t('exit')}</span>
       </Link>
+      {trailing}
     </div>
   );
 }

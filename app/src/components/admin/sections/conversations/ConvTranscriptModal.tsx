@@ -116,9 +116,9 @@ function MessageItem({
 // 再写一个,正是因为"一份正文四个渲染器"就是那个 bug 本身。
 function MessageBody({ role, body }: { role: 'visitor' | 'assistant'; body: string }) {
   return role === 'visitor' ? (
-    <p className="reading text-(--color-ink) mt-2 font-[380] text-[20px] italic">{body}</p>
+    <p className="reading sm-measure text-(--color-ink) mt-2 font-[380] text-[20px] italic">{body}</p>
   ) : (
-    <div className="reading text-(--color-ink) mt-2 font-[380] text-[16.5px] not-italic">
+    <div className="reading sm-measure text-(--color-ink) mt-2 font-[380] text-[16.5px] not-italic">
       <ChatMarkdown source={body} />
     </div>
   );

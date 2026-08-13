@@ -225,13 +225,16 @@ function BodyField({ form, testid }: { form: CorpusFormHook; testid: string }) {
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
         {t('body')}
       </span>
+      {/* 这个语料库的全部意义是长文笔记，而这一格曾是整屏最小的框之一（5 行，约 120px），
+          下面的 FILES / COVER LINE / HUE / TAGS / META DESCRIPTION 一路铺到底 —— 比例反了
+          （UX-61）。给正文足够的行数，并允许 owner 自己拉大：写长文的人自己知道要多大。 */}
       <textarea
-        rows={5}
+        rows={16}
         value={form.body}
         onChange={(e) => form.setBody(e.target.value)}
         spellCheck={false}
         data-testid={`${testid}-body`}
-        className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[15px]"
+        className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[15px] resize-y min-h-[8rem]"
       />
     </label>
   );

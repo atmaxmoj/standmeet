@@ -42,9 +42,11 @@ export function ChatRoom({ owner, mode }: Props) {
   }, [ci.chat.dialogs]);
   return (
     <div className="h-screen flex flex-col overflow-hidden" data-testid="chatroom">
-      <SessionStrip />
+      <SessionStrip
+        leading={<BrandMark handle={owner.handle} />}
+        trailing={<FullPageLink />}
+      />
       <VisitorNamePicker />
-      <ChatRoomHeader handle={owner.handle} />
       <main className="flex-1 flex flex-col min-h-0">
         <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col min-h-0">
           {/* scroll area: welcome + transcript scroll here; composer stays docked */}
@@ -75,39 +77,30 @@ export function ChatRoom({ owner, mode }: Props) {
 }
 
 // ── header ──────────────────────────────────────────────────
+//
+// 这一屏原来在会话横条**上面**再摞一条整宽页眉。两条都是整宽、都是等宽小字、都各画一个
+// live dot —— 一条讲这次会话，一条讲这个站点，加起来 68px 的页眉挡在正文前面（UX-53）。
+// 站点身份和 `FULL PAGE →` 现在挂进会话横条自己的两个槽，一条横条讲完两件事，
+// 而 live dot 只剩一个（会话横条那个）。
 
-function ChatRoomHeader({ handle }: { handle: string }) {
-  return (
-    <header className="flex items-center justify-between px-6 lg:px-10 py-3 border-b border-(--color-rule) shrink-0 gap-4 sticky top-0 bg-(--color-paper)/95 backdrop-blur sm-z-sticky">
-      <HeaderLeft handle={handle} />
-      <HeaderRight />
-    </header>
-  );
-}
-
-function HeaderLeft({ handle }: { handle: string }) {
+function BrandMark({ handle }: { handle: string }) {
   const t = useTranslations('visitor.chatRoom');
   return (
-    <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3 shrink-0">
+    <span className="inline-flex items-baseline gap-2 mr-1">
       <span className="text-(--color-ink)">{t('brand')}</span>
       <span className="text-(--color-faint)">/</span>
       <span className="text-(--color-muted)">{handle}</span>
-      <span className="ml-2 inline-flex items-center gap-1.5">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-accent) sm-live-dot" />
-        <span className="text-(--color-faint) text-[10px] tracking-[0.16em]">{t('live')}</span>
-      </span>
-    </div>
+      <span className="text-(--color-faint)">·</span>
+    </span>
   );
 }
 
-function HeaderRight() {
+function FullPageLink() {
   const t = useTranslations('visitor.chatRoom');
   return (
-    <div className="flex items-center gap-5 shrink-0">
-      <Link href="/" className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink) transition-colors">
-        {t('fullPage')}
-      </Link>
-    </div>
+    <Link href="/" className="sm-session-strip-link">
+      {t('fullPage')}
+    </Link>
   );
 }
 
