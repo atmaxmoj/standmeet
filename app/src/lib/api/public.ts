@@ -439,23 +439,9 @@ export type { IssueSessionInput };
 // body_md 是 GitHub-flavored markdown 原文，render 端用 react-markdown +
 // remark-gfm 直渲。不存中间块结构。
 
-// BacklinkRef —— /writings/<slug> "linked from" section 的一条 backlink。后端
-// 渲染时收集，源 writing 必须 published。
-const BacklinkRefSchema = z.object({ slug: z.string(), title: z.string() });
-export type BacklinkRef = z.infer<typeof BacklinkRefSchema>;
+import { WritingViewSchema } from '@/lib/api/public-schemas';
 
-const WritingViewSchema = z.object({
-  id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
-  body_md: z.string(), cover_headline: z.string(),
-  cover_hue: z.enum(['amber', 'violet', 'acid']),
-  cover_image_asset_id: z.string().optional(),
-  tags: z.array(z.string()), visibility: z.enum(['public', 'private']),
-  cross_refs: z.array(z.string()), path: z.string(), read_minutes: z.number(),
-  locked_body: z.string().optional(), published_at: z.string().optional(),
-  asset_urls: z.record(z.string(), z.string()).optional(),
-  backlinks: z.array(BacklinkRefSchema).optional(),
-});
-export type WritingView = z.infer<typeof WritingViewSchema>;
+export type { BacklinkRef, WritingView } from '@/lib/api/public-schemas';
 
 import { z } from 'zod';
 
@@ -479,5 +465,11 @@ export const fetchWritingsPage = (cursor?: string, limit?: number) => {
   return fetchJSONSchema('/api/v1/writings' + suffix, WritingsPageSchema);
 };
 
-export const fetchWriting = (slug: string) =>
-  fetchJSONSchema('/api/v1/writings/' + encodeURIComponent(slug), WritingViewSchema);
+// lang —— `?lang=zh`。多语文章由**服务端**挑面：爬虫和 agent 抓到的是内容，不是两份都发下来
+// 再用 CSS 藏一份。空串 = 不带这个参数，后端按这条的身份语言决定。
+export const fetchWriting = (slug: string, lang = '') =>
+  fetchJSONSchema(
+    '/api/v1/writings/' + encodeURIComponent(slug)
+      + (lang === '' ? '' : `?lang=${encodeURIComponent(lang)}`),
+    WritingViewSchema,
+  );

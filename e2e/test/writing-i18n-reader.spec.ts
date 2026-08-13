@@ -72,6 +72,29 @@ test.describe('a multilingual writing reads as content, not as source', () => {
       expect(text, 'neutral prose outside the block always shows')
         .toContain('The shared epigraph');
     });
+
+  // F-R-6：F-R-5 修完之后立刻显形的第二层 —— 源码不漏了，但读者**也换不了语言**。
+  // wiki reader 有真的 `EN 中文` 切换器（`LanguageSwitch`，testid `language-switch`），
+  // writings reader 什么都没有：拿到英文那一面，无从知道还有中文。
+  //
+  // 断言的是**能切**，不是"DOM 里有两份" —— 后者在「两种语言都发下来、用 CSS 藏一种」
+  // 的实现下也会绿，而那正是照抄 Obsidian 会写出来的东西。
+  test('the reader can switch to the other language (F-R-6)',
+    async ({ page }) => {
+      await goto(page, '/writings/i18n-wedge');
+      const body = page.getByTestId('writing-article-body');
+      await expect(body).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByTestId('language-switch'),
+        'a multilingual writing must offer its languages').toBeVisible();
+
+      await page.getByTestId('language-switch').getByText('中文').click();
+      await expect.poll(async () => (await body.innerText()).includes('攻击商业模式'),
+        { message: 'switching must actually bring the other pane', timeout: 10_000 })
+        .toBe(true);
+      // 换过去之后，英文那一面**不在 DOM 里**（不是藏起来）。
+      expect(await body.innerText(), 'the other pane is gone, not hidden')
+        .not.toContain('Attack the business model');
+    });
 });
 
 interface WritingInput {

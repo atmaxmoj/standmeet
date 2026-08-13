@@ -53,10 +53,15 @@ type writingView struct {
 	Path              string            `json:"path"`
 	LockedBody        string            `json:"locked_body,omitempty"`
 	AssetURLs         map[string]string `json:"asset_urls"`
-	Tags              []string          `json:"tags"`
-	CrossRefs         []string          `json:"cross_refs"`
-	Backlinks         []backlinkView    `json:"backlinks,omitempty"`
-	ReadMinutes       int32             `json:"read_minutes"`
+	// Lang / Languages —— 这份正文是哪一种语言,以及这条有哪些语言可选(切换器用)。
+	// 形状跟 landing 那条线一致(`languageView`),读者页共用同一个 `LanguageSwitch`。
+	// 单语:lang 空、languages 空数组 —— **永不为 null**,null 会被读成"这个字段坏了"。
+	Lang        string         `json:"lang"`
+	Languages   []languageView `json:"languages"`
+	Tags        []string       `json:"tags"`
+	CrossRefs   []string       `json:"cross_refs"`
+	Backlinks   []backlinkView `json:"backlinks,omitempty"`
+	ReadMinutes int32          `json:"read_minutes"`
 }
 
 type writingsPageResp struct {
@@ -190,7 +195,7 @@ func writeWritingResp(
 ) {
 	view := toWritingViewResolved(r, h, wg)
 	view.BodyMD = rewriteBodyWithCrossLinks(r.Context(), h, ownerID, view.BodyMD)
-	view.BodyMD = writingI18nBody(r, view.BodyMD)
+	applyWritingI18n(r, &view)
 	view.Backlinks = loadBacklinks(r.Context(), h, ownerID, wg.ID())
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -199,21 +204,27 @@ func writeWritingResp(
 	}
 }
 
-// writingI18nBody —— 多语 writing 只发一面给读者。
+// applyWritingI18n —— 选一面正文，**并且把"还有哪些语言"一起带上**。
 //
-// F-R-5：这条路**从来没接过**这一层。解析器一直在（`internal/corpus/i18n`），读侧挑面板的
-// `ViewFor` 也一直在，但它的调用点只有 landing 和索引/搜索 —— writings reader 直接把整份
-// body 交给 markdown 渲染器。于是真 vault 里那篇 `the-business-model-wedge` 的读者看到的是
-// `[!i18n]`、`[!lang] en` 和 owner 那段 `<label><input type="radio">` 切换器的**字面文本**。
-// wiki reader 之所以是好的，只是因为它那边有用例盯着（`corpus-i18n-reader.spec.ts`）。
-//
-// 单语正文原样返回 —— `ViewFor` 自己判 `Multilingual()`，这里不需要第二个分支。
-//
-// identity 传空：`WritingHandlers` 手上没有 vault 的 lang（那要多一个依赖）。
-// 于是 `Resolve` 的退回链是「读者要的 → （没有身份语言）→ 第一面」。
-// **身份语言那一档还没接**，写在这里，别让它悄悄变成"就该这样"。
-func writingI18nBody(r *http.Request, body string) string {
-	return corpus.I18nViewFor(body, r.URL.Query().Get("lang"), "").Body
+// F-R-6：上一刀只接了 `.Body`，`Lang` / `Languages` 被丢在返回值里，于是读者拿到英文那一面、
+// 无从知道还有中文 —— 而 wiki reader 一直有那对按钮。修一层露出下一层，边没接就是没接。
+func applyWritingI18n(r *http.Request, view *writingView) {
+	got := corpus.I18nViewFor(view.BodyMD, r.URL.Query().Get("lang"), "")
+	view.BodyMD = got.Body
+	view.Lang = got.Lang
+	view.Languages = toWritingLanguageViews(got.Languages)
+}
+
+// toWritingLanguageViews —— 语言集 → 切换器项。标签走跟 landing 同一个 `I18nLabel`,
+// 于是 vault 里、landing 上、reader 上看到的是同一套字。
+// labels 传 nil:writings 这条线还没有 vault 的 lang-labels(跟 identity 同一个缺口),
+// `I18nLabel` 会退到内置表(zh→中文)。**写下来,别让它悄悄变成"就该这样"**。
+func toWritingLanguageViews(codes []string) []languageView {
+	out := make([]languageView, 0, len(codes))
+	for _, code := range codes {
+		out = append(out, languageView{Code: code, Label: corpus.I18nLabel(code, nil)})
+	}
+	return out
 }
 
 // rewriteBodyWithCrossLinks —— body_md 里 [[X]] → [Title](/writings/slug)。

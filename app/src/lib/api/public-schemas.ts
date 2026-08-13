@@ -21,3 +21,30 @@ export const PinnableEntrySchema = z.object({
 });
 export const PinnableListSchema = z.array(PinnableEntrySchema);
 export type PinnableEntry = z.infer<typeof PinnableEntrySchema>;
+
+// ─── writings（公开读者页）────────────────────────────────────────────
+// 从 `public.ts` 搬过来的：那个文件顶到了 max-lines，而闸门指的方向是对的 ——
+// schema 归 schema。这里只放形状，取数仍在 public.ts。
+
+// BacklinkRef —— /writings/<slug> "linked from" 的一条。后端渲染时收集，
+// 源 writing 必须 published。
+const BacklinkRefSchema = z.object({ slug: z.string(), title: z.string() });
+export type BacklinkRef = z.infer<typeof BacklinkRefSchema>;
+
+export const WritingViewSchema = z.object({
+  id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
+  body_md: z.string(), cover_headline: z.string(),
+  cover_hue: z.enum(['amber', 'violet', 'acid']),
+  cover_image_asset_id: z.string().optional(),
+  tags: z.array(z.string()), visibility: z.enum(['public', 'private']),
+  cross_refs: z.array(z.string()), path: z.string(), read_minutes: z.number(),
+  locked_body: z.string().optional(), published_at: z.string().optional(),
+  asset_urls: z.record(z.string(), z.string()).optional(),
+  backlinks: z.array(BacklinkRefSchema).optional(),
+  // 服务端已挑好那一面；这两个只回答"还有哪些"（切换器用）。
+  // `.optional()`：老实例的响应里没有它们，而 zod 不匹配是**整份挂掉**，
+  // 不是这一个字段变 undefined（[[zod-unknown-is-not-optional]]）。
+  lang: z.string().optional(),
+  languages: z.array(z.object({ code: z.string(), label: z.string() })).optional(),
+});
+export type WritingView = z.infer<typeof WritingViewSchema>;

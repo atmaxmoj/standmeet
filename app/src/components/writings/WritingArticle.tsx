@@ -25,6 +25,7 @@ import { CorpusContent } from '@/components/page/CorpusContent';
 import { markdownComponents, markdownStyles } from '@/components/writings/WritingArticleMarkdown';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
+import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { expandBody } from '@/lib/corpus/media';
 import { escapeCurrencyDollars, promoteDisplayMath } from '@/components/page/markdown-helpers';
@@ -135,6 +136,14 @@ function ArticleHeader({ writing }: { writing: WritingView }) {
       <p className="italic text-(--color-muted) mt-6 max-w-[34em] text-[22px] leading-[1.45] font-[380]">
         {writing.excerpt}
       </p>
+      {/* 多语 writing 的切换器。跟 wiki reader **共用同一个组件** —— 那边一直有，
+          这边一直没有，读者拿到一面就到头了（F-R-6）。少于两种语言时组件自己不渲染。 */}
+      <div className="mt-5">
+        <LanguageSwitch
+          languages={writing.languages ?? []}
+          current={writing.lang ?? ''}
+        />
+      </div>
     </header>
   );
 }

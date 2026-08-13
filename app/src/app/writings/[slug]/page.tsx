@@ -17,12 +17,16 @@ export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  // searchParams —— `?lang=zh`。跟 wiki reader 同一个约定：多语文章**服务端**就挑好那一面，
+  // 于是爬虫和 agent 抓到的是内容，而不是两份都发下来再藏一份（F-R-6）。
+  searchParams: Promise<{ lang?: string }>;
 }
 
-export default async function WritingArticlePage({ params }: PageProps) {
+export default async function WritingArticlePage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { lang } = await searchParams;
   try {
-    const writing = await fetchWriting(slug);
+    const writing = await fetchWriting(slug, lang ?? '');
     const ctx = await fetchWritingContext(slug);
     return (
       <div className="mx-auto max-w-[1180px] px-6 flex gap-12 items-start">
