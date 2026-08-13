@@ -40,12 +40,19 @@ test.describe('writing private: locked view + code access', () => {
       expect(flag).toBeFalsy();
     });
 
-  test('crosslink to broken slug → stays as literal text',
+  // F-L-25 —— 这条以前断言 `[[nonexistent-slug]]` 原样出现。改成断言方括号**不出现**，
+  // 名字仍在：解析不到的链接退成纯文本，而不是把 Obsidian 语法倒给访客。
+  // 放在这个 spec 里还有第二层意思：它守的是「body 是数据不是标记」，而漏出去的方括号正是
+  // 一段没被处理干净的标记。
+  test('crosslink to broken slug → degrades to plain text, not markup',
     async ({ page }) => {
       // Use the writing seeded above which has [[nonexistent-slug]]
       await goto(page, '/writings/xss-deep');
       const body = page.getByTestId('writing-article-body');
-      await expect(body).toContainText('[[nonexistent-slug]]');
+      await expect(body).toBeVisible({ timeout: 5_000 });
+      const text = (await body.innerText()).trim();
+      expect(text, 'the target name survives as words').toContain('nonexistent-slug');
+      expect(text, 'no Obsidian link syntax reaches the visitor').not.toContain('[[');
     });
 });
 

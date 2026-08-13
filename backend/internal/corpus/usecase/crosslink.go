@@ -180,9 +180,11 @@ func HasCrossLinks(body string) bool {
 // 跟 SaveWriting 那边走的 ResolveCrossLinks 是同一套 resolver，但只需要 slug
 // + title（不需要 full Writing），所以走自己的轻 index。
 func RewriteCrossLinksForRender(body string, index []repo.SlugTitle) string {
-	if !HasCrossLinks(body) || len(index) == 0 {
+	if !HasCrossLinks(body) {
 		return body
 	}
+	// 索引为空不早退 —— 理由同 wiki 那一侧(F-L-25):空索引下每条都解析不到,而"解析不到"
+	// 现在有确定的产物(纯文本),不再是"原样漏出"。
 	slim := indexSlugTitle(index)
 	refs := ExtractCrossLinks(body)
 	for i := range refs {
@@ -213,7 +215,7 @@ func applyOneCrossLinkRewrite(
 ) string {
 	dst := resolveSlugTitle(ref.Target, idx)
 	if dst == nil {
-		return body
+		return strings.ReplaceAll(body, ref.Original, unresolvedCrossLinkText(ref))
 	}
 	display := ref.Alias
 	if display == "" {
@@ -221,6 +223,23 @@ func applyOneCrossLinkRewrite(
 	}
 	replacement := fmt.Sprintf("[%s](/writings/%s)", display, dst.Slug)
 	return strings.ReplaceAll(body, ref.Original, replacement)
+}
+
+// unresolvedCrossLinkText —— 解析不到的 `[[X]]` 退成**纯文本**,不是退成原标记(F-L-25)。
+// wiki reader 和 writings reader 共用这一条:两处曾各自 `return body`,于是各自把方括号
+// 漏给访客。
+//
+// 访客不是 Obsidian 用户:`[[ ]]` 是创作机械,不是内容。目标名是 owner 写下的真东西,留着;
+// 方括号没有任何一种读法对访客有用。目标**存在但此处读不到**(例:genre=raw,压根没有 reader
+// 路由)跟目标**根本不存在**,在这一层是同一件事 —— 两者都变不成可点的地址。
+//
+// 顺带把审计那一侧钉死:屏幕上再出现 `[[` 就只剩一个含义 —— **重写器没跑**。
+// vault-links item 要的「解析器坏了 vs 链接悬空必须能区分」因此自动成立,不必去查库分辨。
+func unresolvedCrossLinkText(ref *CrossLinkRef) string {
+	if ref.Alias != "" {
+		return ref.Alias
+	}
+	return ref.Target
 }
 
 func resolveSlugTitle(target string, idx slugTitleIndex) *repo.SlugTitle {

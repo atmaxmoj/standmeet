@@ -6,15 +6,22 @@
 //
 // **它不是 e2e**，两处必须分清：
 //   - e2e 打 dev 栈并且**每个 spec 都重置实例**。这个脚本打 **prod（38227）**，
-//     **一行都不写**：只登录、导航、截图。prod 那份语料是真 vault 的镜像，重置掉就没了。
+//     **绝不重置**：prod 那份语料是真 vault 的镜像，重置掉就没了。
 //   - e2e 断言给机器看，这个脚本只产出图给人看。判断看图，不看 DOM 文本。
+//
+// **写不写？** 大多数 plan 只登录、导航、截图。但 owner 在自己后台点一下开关也是「像人一样点」，
+// 有些 check 的前置条件只能这么造（例：backlinks rail 要有一条已发布→已发布的边）。所以允许写，
+// 两条边界：① 只走产品自己的界面，不碰数据库、不注 cookie；② 写进去的内容必须来自真 vault，
+// 不许为了测试造笔记 —— 发布一条**本来就存在**的笔记不是注入，新建一条是。
+// 造了前置条件的 plan，要在对应 trajectory 里写明那一格是我改的。
 //
 // 用法（走 Makefile，别裸跑）：
 //   make verify-shots PLAN=e2e/manual/plans/<name>.json
 //
 // plan 形状：{ "out": "<trajectory 目录>", "viewport": [w,h], "shots": [{ "name": "...",
-//   "url": "/admin/seo", "wait": 1200, "steps": [{ "click": "text=..." } | { "type": ["sel","txt"] }] }] }
-// `steps` 只有点击和输入两种 —— 人做得出来的那两种。
+//   "url": "/admin/seo", "wait": 1200, "steps": [{ "click": "text=..." } | { "type": ["sel","txt"] }
+//   | { "wait": 800 }] }] }
+// `steps` 只有点击和输入两种 —— 人做得出来的那两种；`wait` 是给懒加载留的时间，不是动作。
 
 import { readFile, mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
@@ -51,6 +58,8 @@ for (const shot of plan.shots) {
   for (const step of shot.steps ?? []) {
     step.click && await page.locator(step.click).first().click();
     step.type && await page.locator(step.type[0]).first().fill(step.type[1]);
+    // 懒加载的树：上一次点击要等它把下一层取回来，下一个选择器才存在。
+    step.wait && await page.waitForTimeout(step.wait);
   }
   await page.waitForTimeout(shot.wait ?? 1200);
   const file = `${plan.out}/${shot.name}.png`;

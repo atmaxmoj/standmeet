@@ -1,7 +1,7 @@
 // wiki_crosslink.go —— wiki body 里 Obsidian `[[Title]]` 的渲染期 rewrite。
 // 镜像 crosslink.go(writings),但 wiki 无 slug:只按 title 解析,目标是树派生
 // path → `[Title](/wiki/<path>)`。存储永远存原始 `[[X]]`(owner 写啥存啥),读时
-// 才 rewrite;unresolved 留 literal 当文字。
+// 才 rewrite;unresolved 退成纯文本(F-L-25:方括号不出这一层)。
 //
 // 解析与抽取复用 crosslink.go 的 ExtractCrossLinks / HasCrossLinks / CrossLinkRef。
 
@@ -27,11 +27,15 @@ type WikiPathTitle struct {
 
 // RewriteWikiCrossLinksForRender —— public wiki landing render:body 里每条
 // `[[Title]]`(或 `[[Title|alias]]`)按 title(case-insensitive)解析到 wiki 的
-// 树派生 path,换成 `[显示文本](/wiki/<path>)`。unresolved 留原 `[[X]]`。
+// 树派生 path,换成 `[显示文本](/wiki/<path>)`。unresolved 退成纯文本 —— 见
+// crosslink.go 的 unresolvedCrossLinkText(两个 reader 共用同一条)。
 func RewriteWikiCrossLinksForRender(body string, index []WikiPathTitle) string {
-	if !HasCrossLinks(body) || len(index) == 0 {
+	if !HasCrossLinks(body) {
 		return body
 	}
+	// 索引为空**不是**早退的理由(F-L-25):一个条目全部 gated 的实例走的就是这条路,而
+	// 早退会把整篇的 `[[X]]` 原样漏给访客 —— 跟单条解析不到是同一个缺陷的另一扇门。
+	// 空索引照常往下走:每条都解析不到,于是每条都退成纯文本。
 	byTitle := indexWikiByTitle(index)
 	refs := ExtractCrossLinks(body)
 	for i := range refs {
@@ -53,7 +57,7 @@ func applyOneWikiRewrite(
 ) string {
 	dst, ok := byTitle[strings.ToLower(ref.Target)]
 	if !ok {
-		return body
+		return strings.ReplaceAll(body, ref.Original, unresolvedCrossLinkText(ref))
 	}
 	display := ref.Alias
 	if display == "" {

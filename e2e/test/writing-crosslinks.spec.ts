@@ -4,7 +4,8 @@
 //   1. owner 在 Claude Desktop 让 AI 调 writing_create 写两篇 writing: A 和 B。
 //      A 的 body 里写 `[[B-slug]]`、`[[B Title]]`、`[[Bad Title|看 B]]`。
 //   2. visitor 打开 /writings/A → body 里这三处都渲染成 <a href="/writings/B"> 的可点
-//      链接 (slug match, title match, alias)；不存在的 `[[Ghost]]` 留原文。
+//      链接 (slug match, title match, alias)；不存在的 `[[Ghost]]` 退成纯文本 `Ghost`
+//      —— 名字留着，方括号不出这一层（F-L-25）。
 //   3. visitor 打开 /writings/B → 页脚出现 "linked from" backlinks，列出 A。
 //   4. A 改 body 移掉 `[[B-slug]]` 那段 → /writings/B 的 backlinks 消失。
 
@@ -26,7 +27,7 @@ const OWNER = {
 test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('A renders [[B]] as links + B shows backlink + unresolved stays literal',
+  test('A renders [[B]] as links + B shows backlink + unresolved degrades to plain text',
     async ({ request, page }) => {
       const { token: tok, sid } = await mcpSession(request, 'crosslink-token');
 
@@ -68,7 +69,13 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
       await expect(linkSlug).toHaveCount(2); // slug match + title match 都 render dst.title
       const linkAlias = body.locator('a[href="/writings/writing-b"]', { hasText: 'see B over there' });
       await expect(linkAlias).toHaveCount(1);
-      await expect(body).toContainText('[[ghost-writing]]');
+      // F-L-25 —— 解析不到的那条退成**纯文本**，不是留原标记。这一行以前断言的是
+      // `[[ghost-writing]]` 原样出现；那句断言复述的是当时的实现，没写下任何理由，而
+      // 访客不是 Obsidian 用户：方括号是创作机械，不是内容。名字留着（owner 确实写了它），
+      // 括号不出这一层。两个 reader 共用 usecase/crosslink.go 的 unresolvedCrossLinkText。
+      const bodyText = (await body.innerText()).trim();
+      expect(bodyText, '目标名留着 —— owner 写下的字不该被吞掉').toContain('ghost-writing');
+      expect(bodyText, '访客看不到 Obsidian 链接语法').not.toContain('[[');
       // 验证 A 自己不出现在自己 backlinks（self-link 排除：A 没指 A）
       await expect(page.getByTestId('writing-article-backlinks')).toHaveCount(0);
 

@@ -38,6 +38,34 @@ test.describe('F-L-12 · public wiki reader linkifies [[wikilinks]]', () => {
       // and no literal double-bracket text survives
       await expect(body).not.toContainText('[[');
     });
+
+  // F-L-25 —— a link the reader CANNOT resolve must degrade to plain text, never to markup.
+  //
+  // Found on prod against the real vault: `recursive-harness` links `[[recursion-is-a-phase-transition]]`,
+  // that note exists, and the reader printed the brackets. Two neighbouring links in the same
+  // bullet list rendered as anchors, so the resolver was not broken — the target is genre `raw`,
+  // and the index the rewriter gets (owner/usecase/seo.go:161, built from Wiki.ListAllMeta) holds
+  // wiki only. applyOneWikiRewrite returns the body untouched on a miss, brackets and all.
+  //
+  // **What this case covers and what it does not.** It seeds a DANGLING target, not a raw one,
+  // because a raw note carries no title through `corpus.create` (ops/corpus.go:87 — "raw 没有
+  // title") and titled raw notes only exist via vault import. Both cases enter the same branch
+  // (`!ok` → return body), so this pins the behaviour; it does not prove the raw-genre path.
+  // Whoever adds the import-driven fixture should assert the raw case here too.
+  //
+  // The assertion reads the text out before judging: `.not.toContainText` also passes while the
+  // element is still absent ([[negated-assertion-passes-while-absent]]), and the whole point is a
+  // claim about what the visitor sees.
+  test('a [[link]] the reader cannot resolve degrades to plain text, not to markup',
+    async ({ page }) => {
+      await goto(page, '/wiki/hub');
+      const body = page.getByTestId('wiki-body');
+      await expect(body).toBeVisible({ timeout: 5_000 });
+      const text = (await body.innerText()).trim();
+      expect(text, 'the reader rendered a body at all (positive control)').toContain('Areas:');
+      expect(text, 'the unresolved target survives as readable words').toContain('Nowhere Note');
+      expect(text, 'no Obsidian link syntax reaches the visitor').not.toContain('[[');
+    });
 });
 
 async function seedLinkedPair(playwright: Playwright): Promise<void> {
@@ -55,7 +83,9 @@ async function seedLinkedPair(playwright: Playwright): Promise<void> {
   });
   await publish(request, token, sid, spoke.wikiID);
   const hub = await seedPublicWiki(request, token, sid, {
-    body: 'Areas: [[Spoke]] — the linked note.', title: 'Hub',
+    // one link that resolves, one that cannot — the pair is what makes the two cases comparable.
+    body: 'Areas: [[Spoke]] — the linked note. Also [[Nowhere Note]], which no entry answers to.',
+    title: 'Hub',
   });
   await publish(request, token, sid, hub.wikiID);
   await request.dispose();
