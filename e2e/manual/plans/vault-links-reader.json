@@ -1,11 +1,9 @@
 {
   "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-links/shots",
-  "viewport": [1280, 2200],
+  "viewport": [1280, 1400],
   "login": false,
   "shots": [
-    { "name": "vl-15-reader-top", "url": "/wiki/cybernetics/engineering/recursive-harness", "wait": 2500 },
-    { "name": "vl-16-reader-bottom", "url": "/wiki/cybernetics/engineering/recursive-harness",
-      "steps": [{ "wait": 2000 }, { "click": "body" }],
-      "wait": 2000 }
+    { "name": "vl-18-reader-full", "url": "/wiki/cybernetics/engineering/recursive-harness",
+      "wait": 3000, "fullPage": true }
   ]
 }

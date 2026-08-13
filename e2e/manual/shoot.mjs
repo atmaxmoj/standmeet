@@ -63,7 +63,9 @@ for (const shot of plan.shots) {
   }
   await page.waitForTimeout(shot.wait ?? 1200);
   const file = `${plan.out}/${shot.name}.png`;
-  await page.screenshot({ path: file });
+  // fullPage —— 一页装不下的东西(reader 的 backlinks rail 在正文之后)要整页拍。
+  // 之前靠「点一下 body」假装滚动,拍出来跟没滚一样,两张图完全相同 —— 那不是证据。
+  await page.screenshot({ path: file, fullPage: shot.fullPage === true });
   console.log(`shot ${file}`);
 }
 
