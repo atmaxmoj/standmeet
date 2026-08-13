@@ -1,0 +1,16 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "cr-01-code-entered", "url": "/?code=VOICE-01",
+      "steps": [
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Render Check"] },
+        { "click": "button:has-text(\"START\")" }
+      ],
+      "wait": 2500 },
+    { "name": "cr-02-writing-top", "url": "/writings/the-business-model-wedge", "wait": 2500 },
+    { "name": "cr-03-writing-scrolled", "url": "/writings/the-business-model-wedge",
+      "steps": [{ "click": "body" }], "wait": 2000 }
+  ]
+}

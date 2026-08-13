@@ -190,12 +190,30 @@ func writeWritingResp(
 ) {
 	view := toWritingViewResolved(r, h, wg)
 	view.BodyMD = rewriteBodyWithCrossLinks(r.Context(), h, ownerID, view.BodyMD)
+	view.BodyMD = writingI18nBody(r, view.BodyMD)
 	view.Backlinks = loadBacklinks(r.Context(), h, ownerID, wg.ID())
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(view); err != nil {
 		h.Log.Error("encode writing", logErr, err)
 	}
+}
+
+// writingI18nBody —— 多语 writing 只发一面给读者。
+//
+// F-R-5：这条路**从来没接过**这一层。解析器一直在（`internal/corpus/i18n`），读侧挑面板的
+// `ViewFor` 也一直在，但它的调用点只有 landing 和索引/搜索 —— writings reader 直接把整份
+// body 交给 markdown 渲染器。于是真 vault 里那篇 `the-business-model-wedge` 的读者看到的是
+// `[!i18n]`、`[!lang] en` 和 owner 那段 `<label><input type="radio">` 切换器的**字面文本**。
+// wiki reader 之所以是好的，只是因为它那边有用例盯着（`corpus-i18n-reader.spec.ts`）。
+//
+// 单语正文原样返回 —— `ViewFor` 自己判 `Multilingual()`，这里不需要第二个分支。
+//
+// identity 传空：`WritingHandlers` 手上没有 vault 的 lang（那要多一个依赖）。
+// 于是 `Resolve` 的退回链是「读者要的 → （没有身份语言）→ 第一面」。
+// **身份语言那一档还没接**，写在这里，别让它悄悄变成"就该这样"。
+func writingI18nBody(r *http.Request, body string) string {
+	return corpus.I18nViewFor(body, r.URL.Query().Get("lang"), "").Body
 }
 
 // rewriteBodyWithCrossLinks —— body_md 里 [[X]] → [Title](/writings/slug)。
