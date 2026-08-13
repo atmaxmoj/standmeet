@@ -1,0 +1,27 @@
+# docker-compose.pgsearch.yml —— 让 dev 栈**模拟一次检索降级**：拿掉 Meili，退到 Postgres 全文。
+#
+# **先说清它不是什么。** 它不是"切到 prod 跑的那条路"，尽管 prod 今天确实跑在那条路上。设计里
+# `corpus_search` **就是走 Meili 的那个工具**（`design/open-work-multi-provider-gas-grep-i18n.md:267`），
+# instant grep 才是兜它分词器漏掉的那些串（词中子串、紧贴标点、CJK 双字，同文件 :306）。prod compose
+# 里没有 meilisearch 是**事故**，不是设计 —— 见 F-S-3。第一版这个文件的说明把现状写成了意图，
+# 那正是它要帮忙发现的那类错误，所以改在这里留着当账。
+#
+# 那它有什么用：**降级本身要能被驱**。corpus-search 的 check 4 就是「搜索引擎没了会怎样」，
+# 而在此之前没有任何装置能进到降级路径上 —— 于是所有搜索 e2e 都只测过 Meili 那一半。
+#
+# `MEILI_URL` 空 → `search.New` 返回 nil，检索退 Postgres 全文、写不再索引（boot_deps.go:142）。
+# 开关在启动期读，所以必须**重建 backend 容器**，改完环境变量再起。
+#
+#   make dev-pgsearch-on     # backend 切到 PG 检索
+#   make test-only SPEC=…    # 这时跑的 spec 才代表 prod
+#   make dev-pgsearch-off    # 切回 Meili
+#
+# 这不是「关掉一个可选加速层」那么轻描淡写：**它换掉了被测对象**。切过去之后为绿的用例，和切
+# 回来之后为绿的用例，不是同一组断言在讲同一件事。
+
+services:
+  backend:
+    environment:
+      # 空字符串,不是删掉这一项 —— compose 的合并是覆盖不是删除,写空才真的清掉基文件里那行。
+      MEILI_URL: ""
+      MEILI_KEY: ""

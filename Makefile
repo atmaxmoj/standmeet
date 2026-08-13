@@ -395,6 +395,26 @@ dev-stop-svc:
 
 # dev-restart-svc —— 重启栈里的**一个** service。用法：make dev-restart-svc SVC=backend
 # 例：只在起进程时跑一次的那类任务(周期任务的第一跑就在 boot),测它得让进程重来一次。
+# dev-pgsearch-on / -off —— 让 dev **模拟一次检索降级**（拿掉 Meili，退 Postgres 全文）再恢复。
+#
+# 存在的理由：corpus-search 的 check 4 要驱「搜索引擎没了会怎样」，而在此之前没有装置能进到
+# 降级路径上 —— 于是所有搜索 e2e 都只测过 Meili 那一半。
+#
+# **别把它读成"切到 prod 那条路"。** 设计里 `corpus_search` 就是走 Meili 的工具；prod compose
+# 里没有 meilisearch 是事故（F-S-3），不是意图。
+#
+# **切过去之后，"绿"的含义变了。** 用它跑出来的结论要注明跑在哪条路上，否则下一个人会把两组
+# 不同的断言当成同一件事。
+dev-pgsearch-on:
+	@docker compose -f docker-compose.dev.yml -f docker-compose.pgsearch.yml \
+		-p standmeet-dev up -d --wait --force-recreate backend
+	@echo "[dev] search path = Postgres full text (prod's default). MEILI_URL blanked."
+
+dev-pgsearch-off:
+	@docker compose -f docker-compose.dev.yml -p standmeet-dev \
+		up -d --wait --force-recreate backend
+	@echo "[dev] search path = meilisearch (dev default)."
+
 dev-restart-svc:
 	@test -n "$(SVC)" || (echo "usage: make dev-restart-svc SVC=<service>"; exit 2)
 	@docker compose -f docker-compose.dev.yml -p standmeet-dev restart $(SVC)
