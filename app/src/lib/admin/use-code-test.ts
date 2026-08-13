@@ -8,7 +8,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import {
   issueCodeSession,
-  streamChatMessage,
+  streamChatMessage, composeChatSystem,
   type PublicSessionResponse,
 } from '@/lib/api/public';
 import { logger } from '@/lib/logger';
@@ -82,7 +82,12 @@ async function streamReplyInto(
 ): Promise<void> {
   try {
     let body = '';
-    for await (const ev of streamChatMessage(sess.conversation_id, sess.session_token, text)) {
+    // owner 在面板上试一张码,看到的必须跟访客看到的是**同一件事** —— 所以这里也要拼
+    // system(fragment + 这张码的 persona)。少了它,自测预览会比真实访客体验"干净"一截。
+    const system = await composeChatSystem(sess);
+    for await (const ev of streamChatMessage(
+      sess.conversation_id, sess.session_token, text, system,
+    )) {
       if (ev.kind === 'token' && ev.text) {
         body += ev.text;
         setState((s) => ({ ...s, phase: 'streaming', reply: body }));

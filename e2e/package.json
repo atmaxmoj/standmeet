@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "@standmeet/sdk-core": "workspace:*",
     "@types/node": "^22.0.0",
     "dotenv": "^17.3.1",
     "eslint": "^9.39.3",

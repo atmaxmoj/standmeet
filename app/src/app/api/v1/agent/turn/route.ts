@@ -14,6 +14,20 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://backend:8000';
 
 export const dynamic = 'force-dynamic';
 
+// OPTIONS —— 跨源的 embed 先发 preflight。**这一跳必须自己答**：接管了这个端点，就连它的
+// preflight 一起接管了；不答的话浏览器停在「preflight 没通过」上，POST 根本不会发出去，而
+// 后端日志里只看得到一条 OPTIONS 也没有 —— SDK 切到这条路之后第一次跨源取 turn 就死在这儿
+// （F-O-2 的 ⑤ 里撞到的）。
+//
+// 策略不在这儿抄第二份：**转给后端**，把它的答复原样带回来。CORS 规则只有
+// `internal/infra/middleware/cors.go` 一处，这一跳只负责搬。
+export async function OPTIONS(req: Request): Promise<Response> {
+  const upstream = await fetch(`${BACKEND}/api/v1/agent/turn`, {
+    method: 'OPTIONS', headers: req.headers,
+  });
+  return new Response(null, { status: upstream.status, headers: upstream.headers });
+}
+
 export async function POST(req: Request): Promise<Response> {
   const upstream = await fetch(`${BACKEND}/api/v1/agent/turn`, {
     method: 'POST',

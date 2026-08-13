@@ -69,8 +69,11 @@ export interface StandMeetClient {
     conversationID: string,
     sessionToken: string,
     content: string,
+    system: string,
     byoai?: BYOAIHeaders,
   ): AsyncGenerator<SSEEvent, void, unknown>;
+  // composeSystem —— 这一场的 system prompt（fragment + persona）。一场拼一次，整场复用。
+  composeSystem(session: PublicSessionResponse): Promise<string>;
 }
 
 export function createClient(opts: ClientOptions = {}): StandMeetClient {
@@ -81,8 +84,9 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     fetchWikiLanding: (slug, lang) => fetchWikiLanding(f, baseURL, slug, lang),
     fetchOutputLanding: (slug) => fetchOutputLanding(f, baseURL, slug),
     issueSession: (input) => issueSession(f, baseURL, input),
-    streamMessage: (id, token, content, byoai) =>
-      streamMessage(f, baseURL, id, token, content, byoai),
+    streamMessage: (id, token, content, system, byoai) =>
+      streamMessage(f, baseURL, id, token, content, system, byoai),
+    composeSystem: (session) => composeSystem(f, baseURL, session),
   };
 }
 
@@ -138,29 +142,59 @@ async function issueSession(
   return (await res.json()) as PublicSessionResponse;
 }
 
-// streamMessage —— H.5: POST /api/v1/llm/chat/stream (eino-backed) +
-// translate pi unified SSE → {kind:'token',text} events for legacy
-// consumers (e.g. admin code-self-test preview). No tool loop; this is
-// a single-turn smoke test path.
+// streamMessage —— 一轮对话，走 **POST /api/v1/agent/turn**：跟 owner 自己那张页面同一条路。
+//
+// 它以前打的是 `/api/v1/llm/chat/stream`，body 里 `system: ''`，注释还写着 "No tool loop; this
+// is a single-turn smoke test path" —— 那条路是**已退役**的裸模型代理（backend 的
+// routes/public/chat.go:109-110 说得很清楚：SDK 切过来之后它就退役）。app 那半边早就切了，
+// SDK 这半边没跟：于是**发出去给别人嵌进自己站点的那个组件**，没有检索、没有工具、没有人格 ——
+// 在异源页面上问「这个语料是干什么的」，答回来的是一段 NLP 教科书定义（F-O-2）。
+//
+// system 由调用方传：它得先 `composeSystem(session)` 把这一场的 fragment + persona 拼出来。
+// 不在这里偷偷拼，是因为那要多打几个 HTTP，调用方通常一场只拼一次、复用整场。
 async function* streamMessage(
   f: typeof fetch, baseURL: string,
   conversationID: string, sessionToken: string, content: string,
-  byoai?: BYOAIHeaders,
+  system: string, byoai?: BYOAIHeaders,
 ): AsyncGenerator<SSEEvent, void, unknown> {
-  void conversationID; // single LLM call; no conv_id needed
-  const res = await f(`${baseURL}/api/v1/llm/chat/stream`, {
+  const res = await f(`${baseURL}/api/v1/agent/turn`, {
     method: 'POST',
     headers: buildMessageHeaders(sessionToken, byoai),
     body: JSON.stringify({
-      system: '',
-      messages: [{ role: 'user', content }],
+      system,
+      user_message: content,
+      conversation_id: conversationID,
+      history: [],
     }),
   });
   if (!res.ok || !res.body) throw new Error(`send message: ${res.status}`);
-  yield* translatePiSSE(res.body);
+  yield* translateAgentSSE(res.body);
 }
 
-async function* translatePiSSE(
+// composeSystem —— 这一场的 system prompt：先按 `system_prompt_part_ids` 逐段取回固定
+// fragment（visitor-header + 每个能力一段），再把这一场**动态**的那一段 persona 接在后面
+// （role 人格 + 这张码自己的 prompt + 授权 skill 的清单）。顺序要紧：persona 是 owner 为这个
+// 受众写的东西，压在通用说明之上 —— 跟 agent-core 里那条路一模一样，只是那边给的是 React 宿主。
+async function composeSystem(
+  f: typeof fetch, baseURL: string, session: PublicSessionResponse,
+): Promise<string> {
+  const parts: string[] = [];
+  for (const id of session.system_prompt_part_ids ?? []) {
+    // 每段一个路径**段**地编码：id 长这样 `capabilities/corpus.retrieval`,整串 encode 会把
+    // 斜杠变成 %2F,路由匹配不上 → 404 → 这一段静默丢掉,模型少收到一整块说明。
+    const path = id.split('/').map(encodeURIComponent).join('/');
+    const res = await f(`${baseURL}/api/v1/prompts/${path}`);
+    if (res.ok) parts.push((await res.text()).trim());
+  }
+  const persona = (session.system_prompt_persona ?? '').trim();
+  if (persona !== '') parts.push(persona);
+  return parts.filter((p) => p !== '').join('\n\n');
+}
+
+// translateAgentSSE —— agent turn 的 SSE → 这个 SDK 的事件。`text` / `done` / `error` 三种直接
+// 对上；agent 路还会发 `tool_started` / `tool_completed` / `ghost` / `retrying`，**这个最简消费者
+// 先忽略**（embed 只渲文字）。忽略不等于丢：要渲工具卡的宿主该用 agent-core 那条路。
+async function* translateAgentSSE(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<SSEEvent, void, unknown> {
   const reader = body.getReader();

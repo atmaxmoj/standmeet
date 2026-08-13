@@ -19,7 +19,7 @@ const TAG = 'standmeet-chat';
 
 class StandMeetChatElement extends HTMLElement {
   private client: StandMeetClient | null = null;
-  private session: { id: string; token: string } | null = null;
+  private session: { id: string; token: string; system: string } | null = null;
   private transcript: HTMLDivElement;
   private input: HTMLTextAreaElement;
 
@@ -64,11 +64,15 @@ class StandMeetChatElement extends HTMLElement {
       const sess = this.session;
       if (!sess) throw new Error('no session');
       if (!this.client) throw new Error('no client');
-      for await (const ev of this.client.streamMessage(sess.id, sess.token, text)) {
+      for await (const ev of this.client.streamMessage(
+        sess.id, sess.token, text, sess.system,
+      )) {
         applyEventToBlock(assistant, ev);
       }
     } catch (e) {
-      assistant.textContent = `error: ${e instanceof Error ? e.message : String(e)}`;
+      // 访客看得懂的话优先；技术细节留给 console（项目规矩：UI 上不出原始错误串）。
+      assistant.textContent = 'That did not go through. Please try again.';
+      console.error('[standmeet-chat] turn failed', e);
     }
   }
 
@@ -77,7 +81,12 @@ class StandMeetChatElement extends HTMLElement {
     const mode = toMode(this.getAttribute('mode') ?? 'public');
     const code = this.getAttribute('code') ?? undefined;
     const s = await this.client.issueSession({ mode, code });
-    this.session = { id: s.conversation_id, token: s.session_token };
+    // system prompt 一场拼一次：fragment + 这场的 persona。不拼的话模型收到的是空 system,
+    // 于是它答得像个通用聊天机器人,跟这个 owner 无关（F-O-2）。
+    this.session = {
+      id: s.conversation_id, token: s.session_token,
+      system: await this.client.composeSystem(s),
+    };
   }
 
   private appendBlock(role: 'visitor' | 'assistant', text: string): HTMLDivElement {

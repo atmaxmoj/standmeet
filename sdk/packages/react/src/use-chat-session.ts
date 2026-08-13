@@ -32,7 +32,7 @@ export function useChatSession(input: IssueSessionInput): ChatState {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const sessionRef = useRef<{ id: string; token: string } | null>(null);
+  const sessionRef = useRef<{ id: string; token: string; system: string } | null>(null);
   const counter = useRef(0);
   const nextID = useCallback((): string => {
     counter.current += 1;
@@ -48,10 +48,15 @@ export function useChatSession(input: IssueSessionInput): ChatState {
     try {
       if (!sessionRef.current) {
         const s = await client.issueSession(input);
-        sessionRef.current = { id: s.conversation_id, token: s.session_token };
+        // system prompt 一场拼一次(fragment + 这场的 persona)。不拼 = 空 system,那样答出来
+        // 的东西跟这个 owner 无关(F-O-2)。
+        sessionRef.current = {
+          id: s.conversation_id, token: s.session_token,
+          system: await client.composeSystem(s),
+        };
       }
       const sess = sessionRef.current;
-      for await (const ev of client.streamMessage(sess.id, sess.token, text)) {
+      for await (const ev of client.streamMessage(sess.id, sess.token, text, sess.system)) {
         applyEvent(setMessages, assistantID, ev);
         if (ev.kind === 'error') setError(ev.message);
       }

@@ -14,6 +14,7 @@ import {
 import type {
   BYOAIHeaders,
   IssueSessionInput,
+  PublicSessionResponse,
   StandMeetClient,
   SSEEvent,
 } from '@standmeet/sdk-core';
@@ -415,14 +416,18 @@ export const issueCodeSession = (input: IssueCodeSessionInput) =>
 export const issueBYOAISession = (input: IssueBYOAISessionInput) =>
   client().issueSession({ ...input, mode: 'byoai' });
 
+// streamChatMessage —— **system 必填**：走 /agent/turn，空 system = 模型收不到 fragment +
+// persona（F-O-2）。一场先 composeChatSystem 拼一次。
 export function streamChatMessage(
-  conversationID: string,
-  sessionToken: string,
-  content: string,
-  byoai?: BYOAIHeaders,
+  conversationID: string, sessionToken: string, content: string,
+  system: string, byoai?: BYOAIHeaders,
 ): AsyncGenerator<SSEEvent, void, unknown> {
-  return client().streamMessage(conversationID, sessionToken, content, byoai);
+  return client().streamMessage(conversationID, sessionToken, content, system, byoai);
 }
+
+// composeChatSystem —— 这一场的 system prompt（fragment + persona）。
+export const composeChatSystem = (s: PublicSessionResponse): Promise<string> =>
+  client().composeSystem(s);
 
 // 一些 caller 还是直接需要 IssueSessionInput（custom-page 在 sdk-react
 // useChatSession 里用），re-export 兼容。
