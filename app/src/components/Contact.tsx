@@ -14,6 +14,10 @@ type Props = {
   onFocusChat: () => void;
 };
 
+// UX-44 的后半句提过「这一区只剩一句指路时就别渲染了」—— **不要那么做**。
+// `public-page.spec.ts:80` 断言这一区在只有 chat_line 时仍然在，旁边写着理由：
+// 那句话指向的聊天框是真实存在的，所以它不是空指路。这个决定已经做过并且被测试钉住了；
+// 改它不属于设计列（会改掉一条现有断言），要改得先推翻那个产品决定。
 export function Contact({ contact, onFocusChat }: Props) {
   return (
     <section className="mt-24">

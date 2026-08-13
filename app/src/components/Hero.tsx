@@ -26,10 +26,13 @@ type Props = {
 };
 
 export function Hero(props: Props) {
+  const named = props.content.hero_prose === '';
   return (
     <section className="pt-10 lg:pt-16">
-      <IdentityStrip owner={props.owner} />
-      <HeroProse prose={props.content.hero_prose} />
+      <IdentityStrip owner={props.owner} nameLed={named} />
+      {named
+        ? <HeroName name={props.owner.full_name} />
+        : <HeroProse prose={props.content.hero_prose} />}
       <div className="mt-10">
         <AskInput
           value={props.input}
@@ -47,13 +50,42 @@ export function Hero(props: Props) {
   );
 }
 
-function IdentityStrip({ owner }: { owner: PublicOwnerView }) {
+// nameLed —— 名字已经当大标题在下面出现了，这条 strip 就不再重复它，只留地点。
+function IdentityStrip({ owner, nameLed }: { owner: PublicOwnerView; nameLed: boolean }) {
   return (
     <div className="mono text-[10.5px] tracking-[0.2em] uppercase text-(--color-muted) mb-5 flex items-baseline gap-3 flex-wrap">
-      <span className="text-(--color-ink)">{owner.full_name}</span>
-      {owner.location && <span className="text-(--color-faint)">·</span>}
-      {owner.location && <span>{owner.location}</span>}
+      <StripName name={owner.full_name} show={!nameLed} />
+      <StripLocation location={owner.location} sep={!nameLed} />
     </div>
+  );
+}
+
+function StripName({ name, show }: { name: string; show: boolean }) {
+  return show ? <span className="text-(--color-ink)">{name}</span> : null;
+}
+
+function StripLocation({ location, sep }: { location: string; sep: boolean }) {
+  return location === '' ? null : (
+    <>
+      {sep && <span className="text-(--color-faint)">·</span>}
+      <span>{location}</span>
+    </>
+  );
+}
+
+// HeroName —— **没有 hero prose 时的退化策略**。
+//
+// 设计源写的是「hero prose + chat input」，而这台实例没配 hero prose，于是那一段整个消失，
+// 首屏最大最显眼的一行变成输入框里的 "Ask anything." —— **一个占位符**。名字则是顶部
+// 一个 10px 的等宽小标签。这个面要替代的是 LinkedIn / 简历 / 博客，而页面的身份从属于
+// 一个输入提示（UX-43）。真正的缺陷是**空态没有设计**：主文案缺席时没人接棒。
+//
+// 名字是这一页永远有的东西，所以由它接棒 —— 用跟 prose 同一档的衬线大号。
+function HeroName({ name }: { name: string }) {
+  return (
+    <h1 className="font-serif text-(--color-ink) text-[clamp(26px,3.4vw,38px)] leading-[1.35] font-[380] tracking-[-0.012em] max-w-[26em]">
+      {name}
+    </h1>
   );
 }
 
