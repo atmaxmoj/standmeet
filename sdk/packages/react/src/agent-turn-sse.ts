@@ -124,8 +124,12 @@ function parseError(d: Record<string, unknown>): AgentTurnEvent {
   };
 }
 
-function normStop(s: string): 'end_turn' | 'tool_use' | 'max_tokens' {
+// normStop —— 未知值塌成 end_turn。**新增停止原因必须加进这一行**：这里漏一个，后端那个新
+// 判定就被静默改写成"正常说完了"，而调用方永远不知道自己少收到一种收场（F-A-37 的
+// claim_unbacked 差点就这样丢掉）。
+function normStop(s: string): 'end_turn' | 'tool_use' | 'max_tokens' | 'claim_unbacked' {
   if (s === 'tool_use' || s === 'end_turn' || s === 'max_tokens') return s;
+  if (s === 'claim_unbacked') return s;
   return 'end_turn';
 }
 

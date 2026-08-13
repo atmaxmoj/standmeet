@@ -11,6 +11,7 @@ import "github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 type descriptor struct {
 	Transport    transportDesc   `yaml:"transport"`
 	Quota        quotaDesc       `yaml:"quota"`
+	ClaimGate    claimGateDesc   `yaml:"claim_gate"`
 	ID           string          `yaml:"id"`
 	Title        string          `yaml:"title"`
 	Version      string          `yaml:"version"`
@@ -75,6 +76,21 @@ func (q quotaDesc) manifest() *mcpplugin.QuotaDecl {
 	decl := &mcpplugin.QuotaDecl{
 		ConfigKey: q.ConfigKey, Collection: q.Collection, CodeField: q.CodeField,
 	}
+	if !decl.Usable() {
+		return nil
+	}
+	return decl
+}
+
+// claimGateDesc —— 「说了就得做」的两句话:哪个工具算回执、哪些说法算主张。
+type claimGateDesc struct {
+	Tool    string   `yaml:"tool"`
+	Phrases []string `yaml:"phrases"`
+}
+
+// manifest —— 两句话齐了才给出一份声明;没声明 claim_gate 的能力得到 nil。
+func (c claimGateDesc) manifest() *mcpplugin.ClaimGateDecl {
+	decl := &mcpplugin.ClaimGateDecl{Tool: c.Tool, Phrases: c.Phrases}
 	if !decl.Usable() {
 		return nil
 	}

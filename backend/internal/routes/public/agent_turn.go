@@ -266,6 +266,8 @@ type visitorToolset struct {
 	ReturnDirectly map[string]bool
 	Bindings       []*capreg.Binding
 	Tools          []tool.BaseTool
+	// ClaimGates —— 本场装配到的「说了就得做」条件,原样交给这一轮(F-A-37)。
+	ClaimGates []inference.ClaimGate
 }
 
 func resolveAgentTurnCred(
@@ -307,5 +309,18 @@ func collectVisitorTools(
 	return &visitorToolset{
 		Bindings: bindings, Tools: fr.Tools,
 		Labels: fr.Labels, ReturnDirectly: fr.ReturnDirectly,
+		ClaimGates: turnClaimGates(fr.ClaimGates),
 	}
+}
+
+// turnClaimGates —— 装配面的声明 → 这一轮的必要条件。两边是同一份数据,分处两个边界:
+// 装配面说「这个能力声明了什么」,内核只问「这一轮满不满足」。
+func turnClaimGates(gates []capreg.ClaimGate) []inference.ClaimGate {
+	out := make([]inference.ClaimGate, 0, len(gates))
+	for i := range gates {
+		out = append(out, inference.ClaimGate{
+			Tool: gates[i].Tool, Phrases: gates[i].Phrases,
+		})
+	}
+	return out
 }

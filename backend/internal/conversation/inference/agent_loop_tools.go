@@ -69,5 +69,8 @@ func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant, state *turnState) {
 	// Keep the finding: if this turn later exhausts its iteration budget, the forced
 	// synthesis answers FROM this material instead of from an empty context.
 	recordEvidence(state, mv.ToolName, msg.Content)
+	// The receipt half of the claim gate (F-A-37): a tool that answered without failing is what
+	// lets this turn's answer say the action happened.
+	markToolOK(state, mv.ToolName, msg.Content)
 	em.sink.ToolCompleted(mv.ToolName, msg.Content)
 }

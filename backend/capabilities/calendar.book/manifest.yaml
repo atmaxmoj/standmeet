@@ -150,3 +150,31 @@ quota:
   config_key: max_bookings
   collection: bookings
   code_field: code_id
+
+# claim_gate —— F-A-37。这个能力做的事**要么发生了要么没发生**，而模型可以把它说出来而不做。
+# 真实环境里就是这样：连约四场之后，第五次的回答是 "Booked. ✅ Monday, August 31 · 13:00–13:30
+# UTC … Invite went to …"，那一轮**一个工具都没调**，日历上什么都没有。访客带着一个不存在的
+# 会议离开。浏览器回放的历史只有 {role, content}，模型读回去的是四条自己写的 "Booked"，看不到
+# 任何工具痕迹 —— 于是要补全的是**那句话**，不是那个动作。
+#
+# 所以这里声明的是一个必要条件，由宿主通用地判：**答案里出现这些说法，本轮就必须有 tool 的
+# 成功回执**；没有 → 宿主判这一轮不算数，访客那边收到产品自己的更正，而不是模型的话。
+# 宿主照这三句话执行，它仍然不认识 "booking"。
+#
+# phrases 要窄：只收「已经完成」的断言。提议（"shall I book"）、提问、拒绝都不是主张，
+# 它们不该被闸住 —— 闸门错杀一句正常回答，比它挡下的谎话更贵。
+# **裸的 "booked" 不在表里,是有意的**:拒绝也会用这个词 —— "that time is already booked"、
+# "the slot you asked for is booked" —— 那是在说事情**没**成，而工具确实调过、回的是
+# `{"ok":false,conflict}`（失败回执不算回执）。收错一句正确的拒绝，比放过一句谎话更贵。
+# 下面这些在拒绝里说不通,只可能出现在「已经办好了」的句子里。
+claim_gate:
+  tool: calendar_book
+  phrases:
+    - "is on the calendar"
+    - "it's on the calendar"
+    - "invite went to"
+    - "invite has been sent"
+    - "invite will go to"
+    - "you're all set"
+    - "i've booked"
+    - "i have booked"

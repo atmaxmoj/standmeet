@@ -147,6 +147,9 @@ func DriveAgentLoop(
 ) {
 	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
 	state := consumeAgentEvents(ctx, em, iter)
+	// The claim gate runs BEFORE Done: an answer that says the action happened, in a turn that
+	// holds no receipt for it, does not get to end as a normal turn (F-A-37).
+	applyClaimGate(log, state, in.ClaimGates)
 	logTurnStop(log, state)
 	// Done 先发 —— 让访客这一轮立刻收尾(能发下一轮);#106 计费是后台,绝不压在关键路径上。
 	sink.Done(state.stop)
@@ -156,20 +159,7 @@ func DriveAgentLoop(
 	recordTurnUsage(ctx, in, state)
 }
 
-// recordTurnUsage —— #106: turn 收尾把累计 token 交给注入的 RecordUsage(有 cred/model + 有用量时)。
-// nil recorder(无状态 smoke) / BYOAI(route 传 no-op) / 零用量 → 不记。
-func recordTurnUsage(ctx context.Context, in *AgentTurnInput, state *turnState) {
-	if in.RecordUsage == nil || in.Cred == nil {
-		return
-	}
-	if state.inTokens == 0 && state.outTokens == 0 {
-		return
-	}
-	in.RecordUsage(ctx, &TurnUsage{
-		Model: in.Cred.Model, In: state.inTokens, Out: state.outTokens,
-		Cached: state.cachedTokens,
-	})
-}
+// recordTurnUsage 在 agent_loop_budget.go —— 用量跟预算是同一件事,也守 max-lines 350。
 
 // turnState —— consumeAgentEvents 边走边累的转态。stop 是 ADK 给的
 // FinishReason 翻译；assistantText 是本 turn assistant 流的全部文字
@@ -186,6 +176,10 @@ type turnState struct {
 	assistantText string
 	roundText     string
 	product       string
+	// okTools —— which tools returned a NON-failing result this turn. Unbounded on purpose:
+	// `evidence` drops its middle on a long crawl, and a receipt that can be evicted is not a
+	// receipt. Read by the claim gate (F-A-37) to decide whether the answer's claim is backed.
+	okTools map[string]bool
 	// evidence —— the tool results gathered this turn (bounded head+tail). Carried into the
 	// budget-exhaustion synthesis so a long crawl's findings survive the boundary.
 	// evidenceTotal counts ALL results, so the digest can say the record is partial.

@@ -175,9 +175,10 @@ func (c *mcpAppCapability) VisitorBinding(
 		return nil, derr
 	}
 	return &capreg.Binding{
-		Tools: wrapMCPAppTools(ctx, &c.m, ds.sess, ds.tools, sessionMetaFor(&c.m, in)),
-		State: c.stateFor(ctx, in),
-		Close: ds.sess.Close,
+		Tools:     wrapMCPAppTools(ctx, &c.m, ds.sess, ds.tools, sessionMetaFor(&c.m, in)),
+		State:     c.stateFor(ctx, in),
+		Close:     ds.sess.Close,
+		ClaimGate: claimGateOf(&c.m),
 	}, nil
 }
 

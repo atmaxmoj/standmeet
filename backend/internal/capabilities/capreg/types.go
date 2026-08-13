@@ -64,8 +64,11 @@ type AssembleInput struct {
 // {id,genre} 自行累计，跟能力解耦；retrieval 外置后该字段成死代码，随之删除。）
 type Binding struct {
 	Close func()
-	Tools []BindingTool
-	State CapabilityState
+	// ClaimGate —— 这个能力声明的「说了就得做」条件(F-A-37,见 claimgate.go)。跟 ProgressLabel /
+	// ReturnDirectly 一样,是声明数据搭着装配结果往上走;nil = 这个能力不闸主张。
+	ClaimGate *ClaimGate
+	Tools     []BindingTool
+	State     CapabilityState
 }
 
 // CapabilityState —— pi-pivot 用：一次 session 颁发时回前端 zustand。

@@ -145,6 +145,8 @@ type FlattenResult struct {
 	Labels         map[string]string
 	ReturnDirectly map[string]bool
 	Tools          []tool.BaseTool
+	// ClaimGates —— 本场装配到的能力里,声明了「说了就得做」的那几条(F-A-37)。
+	ClaimGates []ClaimGate
 }
 
 // FlattenBindings 走每个 Binding 的 BindingTool 列表，抽 Tool 拼成
@@ -155,10 +157,14 @@ func FlattenBindings(bindings []*Binding) FlattenResult {
 		Labels:         map[string]string{},
 		ReturnDirectly: map[string]bool{},
 		Tools:          make([]tool.BaseTool, 0),
+		ClaimGates:     make([]ClaimGate, 0),
 	}
 	for _, b := range bindings {
 		for i := range b.Tools {
 			absorbTool(&out, &b.Tools[i])
+		}
+		if b.ClaimGate != nil {
+			out.ClaimGates = append(out.ClaimGates, *b.ClaimGate)
 		}
 	}
 	return out

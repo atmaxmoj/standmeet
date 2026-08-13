@@ -250,6 +250,15 @@ func mapFinishReason(r string) string {
 	return "end_turn"
 }
 
+// normalizedStop —— 发给客户端的收场值。产品自己判出来的那些**原样透传**;其余走上游归一化。
+// 加一种产品判定就要在这儿加一行,否则它会被 mapFinishReason 的 default 静默改写成"说完了"。
+func normalizedStop(r string) string {
+	if r == StopClaimUnbacked {
+		return r
+	}
+	return mapFinishReason(r)
+}
+
 // writeSSEFrame —— 一帧 SSE：`event: <type>\ndata: <body-json>\n\n` + flush。
 // body 已 marshalled，调用方负责。
 func writeSSEFrame(
@@ -270,7 +279,11 @@ func emitDone(
 	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
 	finishReason string,
 ) {
-	body, err := json.Marshal(donePayload{StopReason: mapFinishReason(finishReason)})
+	// 归一化只对**上游给的** finish reason 做。产品自己判出来的收场(claim_unbacked)已经是
+	// wire 值,再过一遍 mapFinishReason 会被它的 default 分支抹成 end_turn —— 也就是后端刚
+	// 判定"这一轮不算数",转手又告诉客户端"正常说完了"(F-A-37 修的时候就踩在这儿:闸门在日志
+	// 里响了,访客那边什么都没有)。同一类塌陷,这是第二个点。
+	body, err := json.Marshal(donePayload{StopReason: normalizedStop(finishReason)})
 	if err != nil {
 		log.Error("proxy marshal done", logErrKey, err)
 		return

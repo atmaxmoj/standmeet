@@ -34,6 +34,7 @@ func dispatchTurn(
 	inference.RunAgentTurn(r.Context(), h.Log, w, &inference.AgentTurnInput{
 		Cred: cred, Req: req,
 		Tools:            ts.Tools,
+		ClaimGates:       ts.ClaimGates,
 		ProgressLabels:   ts.Labels,
 		ReturnDirectly:   ts.ReturnDirectly,
 		Mode:             auth.Data.Mode,

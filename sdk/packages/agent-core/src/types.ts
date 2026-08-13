@@ -53,8 +53,13 @@ export type AgentTurnEvent =
   | { readonly type: 'tool_completed'; readonly name: string; readonly result: string }
   | { readonly type: 'ghost'; readonly text: string; readonly target_waypoint?: string; readonly follows_from?: string; readonly ghost_id?: string; readonly is_bridge?: boolean }
   | { readonly type: 'retrying'; readonly attempt: number }
-  | { readonly type: 'done'; readonly stopReason: 'end_turn' | 'tool_use' | 'max_tokens' }
+  | { readonly type: 'done'; readonly stopReason: TurnStopReason }
   | { readonly type: 'error'; readonly code: string; readonly message: string };
+
+// TurnStopReason —— 一轮的收场。三种是模型给的（说完了 / 还要调工具 / 预算用完），
+// **claim_unbacked 是产品自己判的**：这一轮的答案说它做成了一件事，而本轮没有那件事的回执
+// （F-A-37）。它跟前三种走同一条通道，因为消费方本来就按停止原因决定这一轮怎么收场。
+export type TurnStopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'claim_unbacked';
 
 // AgentEvent —— observer receives one per state transition. Names align
 // with eval harness scenarios. Ghost-steering P4：`ghost_received`（单数）——
@@ -73,5 +78,5 @@ export type AgentEvent =
   // turn_finished —— 这一轮**怎么**结束的。三种收场里只有 max_tokens 意味着话没说完：
   // 流正常关闭，正文停在半句上。这个值从 provider 一路传到浏览器，以前在 SSE 解析完
   // 就被扔了（尾帧只用来置 sawDone），于是半句话冒充了完整答案（F-A-34）。
-  | { readonly type: 'turn_finished'; readonly stopReason: 'end_turn' | 'tool_use' | 'max_tokens' }
+  | { readonly type: 'turn_finished'; readonly stopReason: TurnStopReason }
   | { readonly type: 'error'; readonly message: string };

@@ -65,6 +65,7 @@ func loadOne(dir string) (mcpplugin.Manifest, error) {
 		Config:     fields(d.Config), CodeConfig: fields(d.CodeConfig),
 		RoleConfig: fields(d.RoleConfig),
 		Quota:      d.Quota.manifest(),
+		ClaimGate:  d.ClaimGate.manifest(),
 		Transport:  transport(d.ID, &d.Transport),
 	}, nil
 }

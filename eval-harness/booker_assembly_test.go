@@ -79,9 +79,20 @@ func TestEvalBookerSurfacesACalendarFailure(t *testing.T) {
 }
 
 // launchWithBooker —— build the plugin, start its host socket, launch a code-mode agent with it.
-// failVerb != "" makes that one connector verb fail.
+// failVerb != "" makes that one connector verb fail. Uses the offline cred: these asserts invoke
+// tools directly and never reach a model.
 func launchWithBooker(
 	t *testing.T, ctx context.Context, failVerb string,
+) (*agentcore.VisitorAgent, *memStore) {
+	t.Helper()
+	c := evalCred()
+	return launchWithBookerCred(t, ctx, &c, failVerb)
+}
+
+// launchWithBookerCred —— same mini-host, with the caller's credential. The live evals need a real
+// one because they drive the model's own decision to call the tool (F-A-37), not the tool itself.
+func launchWithBookerCred(
+	t *testing.T, ctx context.Context, cred *agentcore.Cred, failVerb string,
 ) (*agentcore.VisitorAgent, *memStore) {
 	t.Helper()
 	host, store := bookingWorld("owner-1", "UTC", nil, failVerb, "the calendar refused this call")
@@ -104,7 +115,7 @@ func launchWithBooker(
 	}
 	t.Cleanup(func() { _ = stop() })
 
-	driver := &EvalDriver{cred: evalCred(), plugins: []agentcore.PluginSpec{spec}}
+	driver := &EvalDriver{cred: *cred, plugins: []agentcore.PluginSpec{spec}}
 	agent, err := agentcore.BuildVisitorAgent(ctx, driver, &agentcore.LaunchInput{
 		OwnerID: host.OwnerID, Mode: "code", ConversationID: "c1", CodeID: "code-1",
 		// booker 是 acl=role_granted:role 授了它才暴露(prod 同一道门)。

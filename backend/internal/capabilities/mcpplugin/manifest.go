@@ -132,9 +132,12 @@ type Manifest struct {
 	RoleConfig []ConfigField
 	// Quota —— 本插件的 per-code 用量上限:允许多少、已经用了多少,都由声明说清。
 	// nil = 这个能力不闸用量。
-	Quota   *QuotaDecl
-	ID      string
-	Version string
+	Quota *QuotaDecl
+	// ClaimGate —— 本能力做的动作「说了就得做」的声明:答案断言它完成了,本轮就必须有那个
+	// 工具的成功回执。nil = 这个能力不闸主张(说什么都不必有回执支撑)。见 claimgate.go。
+	ClaimGate *ClaimGateDecl
+	ID        string
+	Version   string
 	// Title —— 人类可读显示名（#109/#110 dock 按钮 label 透传它）。跟 MCP tool title 同角色：
 	// 显示用，区别于程序标识 ID。空 = 该能力没 title（不够格当 dock 按钮 label，无 id 兜底）。
 	Title            string

@@ -114,6 +114,21 @@ func logTurnStop(log *slog.Logger, state *turnState) {
 	log.Info("agent turn stop", "stop", state.stop, "answer_chars", len(state.product))
 }
 
+// recordTurnUsage —— #106: turn 收尾把累计 token 交给注入的 RecordUsage(有 cred/model + 有用量时)。
+// nil recorder(无状态 smoke) / BYOAI(route 传 no-op) / 零用量 → 不记。
+func recordTurnUsage(ctx context.Context, in *AgentTurnInput, state *turnState) {
+	if in.RecordUsage == nil || in.Cred == nil {
+		return
+	}
+	if state.inTokens == 0 && state.outTokens == 0 {
+		return
+	}
+	in.RecordUsage(ctx, &TurnUsage{
+		Model: in.Cred.Model, In: state.inTokens, Out: state.outTokens,
+		Cached: state.cachedTokens,
+	})
+}
+
 // handleTerminalError —— agent loop 以 error 收场。绝不把空回答交给 caller：一个字
 // 都没出时（MaxIterations 死循环、模型幻觉出一个不存在的 tool 名、mid-stream 瞬时
 // 抖动），强制再发一次**无 tool** 的 model call (forceFinalAnswer)，让模型用已有上下文

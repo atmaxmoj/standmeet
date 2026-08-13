@@ -99,13 +99,16 @@ export interface DialogAccumulator {
   // truncated —— 这一轮是**输出预算用完**才停的(done 帧的 stop_reason=max_tokens),不是说完了。
   // 它不是错误:流正常关闭,正文只是停在半句上。不标出来的话,半句话就冒充了完整答案(F-A-34)。
   truncated: boolean;
+  // claimUnbacked —— 这一轮的答案说它办成了一件事，而本轮**没有那件事的回执**（done 帧的
+  // stop_reason=claim_unbacked）。判定在后端，因为只有它知道这一轮调过哪些工具、回执成没成。
+  claimUnbacked: boolean;
 }
 
 export function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedIDs: new Set(),
     currentTool: null, toolSeq: 0, toolCalls: [], retrying: false, errorMsg: '',
-    ghostReceived: false, truncated: false,
+    ghostReceived: false, truncated: false, claimUnbacked: false,
   };
 }
 
@@ -166,6 +169,9 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
     // 后端 sink.Done 传到浏览器，**以前在 SSE 解析完就被扔了** —— 于是没人知道这一段是
     // 收尾了还是被截断。
     accum.truncated = ev.stopReason === 'max_tokens';
+    // claim_unbacked 不是模型给的收场，是**产品判的**：这一轮说它办成了一件事，而本轮没有
+    // 那件事的回执（F-A-37）。
+    accum.claimUnbacked = ev.stopReason === 'claim_unbacked';
     return;
   }
   if (ev.type === 'ghost_received') {
@@ -244,12 +250,20 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
 // 都留着），因为这两种情形对访客是同一件事：眼前这段不是完整的答案。
 const TRUNCATED_NOTICE = 'this answer was cut short — ask for the rest, or narrow the question';
 
+// UNBACKED_CLAIM_NOTICE —— 上面那段话说它替你办成了一件事，而这一轮**没有那件事的回执**
+// （F-A-37：真实环境里 "Booked. ✅ … Invite went to …" 那一轮一个工具都没调，日历上什么都
+// 没有）。已经流出去的字收不回来，所以产品在旁边把话说清楚：**别照着它安排你的时间**。
+// 判定在后端（done 帧的 stop_reason=claim_unbacked），这里只负责说人话。
+const UNBACKED_CLAIM_NOTICE =
+  'nothing was actually done for this one — the reply above says otherwise, '
+  + 'but no action went through. Please ask again, and don’t rely on it until it confirms.';
+
 function answerFor(accum: DialogAccumulator): Answer {
   if (accum.errorMsg === '') {
     return {
       paras: splitParas(accum.body), citations: accum.citations,
       toolCalls: [...accum.toolCalls],
-      ...(accum.truncated ? { notice: TRUNCATED_NOTICE } : {}),
+      ...(noticeFor(accum) === '' ? {} : { notice: noticeFor(accum) }),
     };
   }
   if (accum.body === '') {
@@ -259,6 +273,14 @@ function answerFor(accum: DialogAccumulator): Answer {
     paras: splitParas(accum.body), citations: accum.citations,
     toolCalls: [...accum.toolCalls], notice: accum.errorMsg,
   };
+}
+
+// noticeFor —— 这一轮要不要在答案旁边挂一句产品自己的话。**无据的主张排在截断前面**：
+// 一段没说完的话让人再问一次，一句没发生的承诺让人白等一场会。
+function noticeFor(accum: DialogAccumulator): string {
+  if (accum.claimUnbacked) return UNBACKED_CLAIM_NOTICE;
+  if (accum.truncated) return TRUNCATED_NOTICE;
+  return '';
 }
 
 export function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {

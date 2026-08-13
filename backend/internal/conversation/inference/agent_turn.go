@@ -122,6 +122,9 @@ type AgentTurnInput struct {
 	// 用它告诉 agent 访客在哪个时区,解释访客给的时间(尤其 booking)不再含糊(#120)。
 	VisitorTimezone string
 	Tools           []tool.BaseTool
+	// ClaimGates —— 本场授了的能力声明的「说了就得做」条件(装配期从 manifest 带进来)。
+	// 空 = 这一轮没有需要回执支撑的主张。见 agent_claim_gate.go。
+	ClaimGates []ClaimGate
 }
 
 // RunAgentTurn —— 跑一整轮 agent loop，向 w 写 pi-style SSE。caller (route

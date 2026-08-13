@@ -48,6 +48,12 @@ func (c *cannedCalendar) call(verb string, args []byte) ([]byte, error) {
 		return c.insert()
 	case "calendar.delete_event":
 		return c.forget(args)
+	case "mail.connected":
+		// the booker asks this to decide whether to offer the confirmation-email widget
+		// (`can_email` on the book result). Answering it keeps the eval's world the same shape as
+		// prod's, where a connected owner has mail; without it every eval booking reported that no
+		// invite could be sent, which is a different conversation from the one under test.
+		return []byte(`true`), nil
 	case "mail.send":
 		// the confirmation mail is a soft dependency: it must not decide whether a booking works.
 		return []byte(`{"ok":true}`), nil

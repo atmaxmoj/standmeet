@@ -197,6 +197,16 @@ eval-smoke: gateway-up
 eval-narration:
 	@cd eval-harness && go test -run TestNarrationLive -count=1 -v ./...
 
+# eval-booking-fabrication —— F-A-37 eval: on prod the agent told a visitor a meeting was booked
+# while making ZERO tool calls (empty calendar, no card). A mock spec cannot catch that: every
+# booking spec FORCES the call through scriptMockToolCall, so the thing that failed — the model's
+# own decision to call the tool — is not on trial there. This drives the REAL model through the
+# REAL prod loop with the REAL booker plugin (canned calendar behind it) and asserts one thing:
+# if the answer says a meeting is booked, the capability store must hold that booking.
+# Probabilistic, so drive rounds: EVAL_ROUNDS=20 make eval-booking-fabrication.
+eval-booking-fabrication:
+	@cd eval-harness && go test -run TestBookingFabricationLive -count=1 -v -timeout 1800s ./...
+
 # eval-ask —— 给被测 agent (owner persona) 喂一个问题,看它怎么答 + 查了哪些
 # corpus。被测对象 = owner 的 system prompt + corpus,真 LLM (DeepSeek v4-pro,
 # harness 自读 .env)。面试官不是这里的 —— 面试官是 operator spawn 的 Claude
