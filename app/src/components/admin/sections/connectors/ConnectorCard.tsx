@@ -69,19 +69,36 @@ function Fields({ hook }: { hook: ConnectorCardHook }) {
   return (
     <div className="space-y-2 mb-3">
       <StoredCredsNote show={hook.hasCredentials} />
-      {hook.fields.map((key) => (
-        <input
-          key={key}
-          data-testid={`connector-field-${key}`}
-          type={isSecret(key) ? 'password' : 'text'}
-          placeholder={key}
-          onChange={(e) => hook.setField(key, e.target.value)}
-          // 文本输入在这个产品里只有一种长相：下划线（`.sm-field-input`）。凭据这几格
-          // 曾是**整框**，于是同一种控件隔一屏就是两个标准（UX-59）。
-          className="sm-field-input sm-mono"
-        />
-      ))}
+      {hook.fields.map((key) => <CredField key={key} name={key} onChange={hook.setField} />)}
     </div>
+  );
+}
+
+// CredField —— 一格凭据，**带一个留得住的标签**。
+//
+// 这几格原来只有 placeholder：`host` / `port` / `username` / `password` / `from_address` /
+// `from_name` / `tls` 七个一模一样的框，而 placeholder 在你一开始打字的瞬间就消失 ——
+// 填到第四格就说不清哪格是哪格了（UX-58 的一半）。字段名一直在手里，只是没渲染成标签。
+//
+// **这一条只做得了这一半**：UX-58 还说了「没有分组（连接参数 vs 发信身份）」和
+// 「`tls` 那一格从表单上根本答不出来（布尔？starttls？端口？）」—— 那两条要连接器**声明**
+// 分组和字段说明（`CredentialForm` 现在只有 `Fields []string`），是新数据，归 Result 列。
+//
+// 文本输入在这个产品里只有一种长相：下划线（`.sm-field-input`）。凭据这几格曾是**整框**，
+// 于是同一种控件隔一屏就是两个标准（UX-59）。
+function CredField({ name, onChange }: {
+  name: string; onChange: (k: string, v: string) => void;
+}) {
+  return (
+    <label className="sm-field">
+      <span className="sm-field-label">{name}</span>
+      <input
+        data-testid={`connector-field-${name}`}
+        type={isSecret(name) ? 'password' : 'text'}
+        onChange={(e) => onChange(name, e.target.value)}
+        className="sm-field-input sm-mono"
+      />
+    </label>
   );
 }
 

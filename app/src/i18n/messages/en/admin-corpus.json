@@ -131,6 +131,8 @@
     "intro": "Defaults applied across the public site. Per-output / per-post SEO lives with the individual entry. Site title is edited here; the social description and canonical host mirror your hero prose and domain — edit those where they live.",
     "defaults": "defaults",
     "robots": "index, follow (robots)",
+    "siteTitleHint": "The browser tab and the name search engines show. Left empty, pages fall back to your handle.",
+    "ogTemplateHint": "URL of the image social cards use. Leave empty and shared links carry no card image.",
     "ogDescription": "og:description",
     "usesHeroProse": "Uses your hero prose.",
     "editOnPage": "edit on the Page section →",

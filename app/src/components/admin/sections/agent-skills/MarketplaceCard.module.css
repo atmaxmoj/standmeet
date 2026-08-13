@@ -1,8 +1,15 @@
+/* 卡片撑满它在网格里的那一格，footer 靠 margin-top:auto 沉底 —— 于是同一行的
+   `INSTALL` 对齐在同一条线上。原来卡高由 blurb 的长度决定，同一行两张卡差 5 倍高，
+   四个 INSTALL 分别落在 y=484 / 464 / 680 / 875，想扫一眼"哪里能装"得追一条锯齿线
+   （UX-54）。 */
 .card {
   border: 1px solid var(--color-rule);
   border-radius: 3px;
   padding: 14px 16px;
   background: color-mix(in oklab, var(--color-surface) 30%, transparent);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .head {
@@ -45,12 +52,21 @@
   white-space: nowrap;
 }
 
+/* blurb 截到三行。这一格装的**常常不是一句介绍** —— 有的 skill 把自己的提示词原样放进
+   `description`（`TRIGGER — read BEFORE opening the target file…`，约 1000 字符的机器指令）。
+   我们改不了别人仓库里的 frontmatter，能做的是不让它决定这张卡多高。
+   `line-clamp` 自带省略号，切口处有续读信号 —— 不是硬裁（同 check-peek-signals-more 的道理）。 */
 .blurb {
   font-family: var(--font-serif);
   font-size: 13.5px;
   color: var(--color-muted);
   margin: 0 0 10px;
   line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 
 .foot {
@@ -59,6 +75,7 @@
   align-items: baseline;
   padding-top: 8px;
   border-top: 1px solid color-mix(in oklab, var(--color-rule) 60%, transparent);
+  margin-top: auto;
 }
 
 .author {

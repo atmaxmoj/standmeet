@@ -72,10 +72,15 @@ function DefaultsCard({ form, setForm, onSave }: {
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 flex flex-col gap-4">
       <div className="sm-smallcaps">{t('seo.defaults')}</div>
+      {/* 这张卡真正**拥有**的只有这两个字段，而它们原本一个字的说明都没有 —— 而旁边两个
+          只读镜像各配了一句话加一条跳转（UX-57：照顾的方向反了）。空着会怎样、什么算好的
+          值，得在这里说。 */}
       <LabeledInput label="site title" testid="seo-site-title" value={form.site_title}
-        onChange={(v) => setForm({ ...form, site_title: v })} placeholder="Your public site title" />
+        onChange={(v) => setForm({ ...form, site_title: v })} placeholder="Your public site title"
+        hint={t('seo.siteTitleHint')} />
       <LabeledInput label="og template" testid="seo-og-template" value={form.og_template}
-        onChange={(v) => setForm({ ...form, og_template: v })} placeholder="og:image template (optional)" />
+        onChange={(v) => setForm({ ...form, og_template: v })} placeholder="og:image template (optional)"
+        hint={t('seo.ogTemplateHint')} />
       <RobotsToggle on={form.index_robots}
         onToggle={() => setForm({ ...form, index_robots: !form.index_robots })} />
       <DescriptionMirror />
@@ -88,9 +93,9 @@ function DefaultsCard({ form, setForm, onSave }: {
   );
 }
 
-function LabeledInput({ label, testid, value, onChange, placeholder }: {
+function LabeledInput({ label, testid, value, onChange, placeholder, hint }: {
   label: string; testid: string; value: string;
-  onChange: (v: string) => void; placeholder: string;
+  onChange: (v: string) => void; placeholder: string; hint: string;
 }) {
   return (
     <label className="block">
@@ -98,6 +103,7 @@ function LabeledInput({ label, testid, value, onChange, placeholder }: {
       <input type="text" data-testid={testid} value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="sm-field-input" />
+      <p className="reading text-[12.5px] text-(--color-faint) mt-1.5 max-w-[46em]">{hint}</p>
     </label>
   );
 }
