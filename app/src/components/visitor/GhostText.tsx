@@ -9,16 +9,45 @@
 //
 // aria-hidden:它是「你可以这么问」的提示,不是页面内容;读屏用户拿到的是输入框自己的可及名。
 
+import { useTranslations } from 'next-intl';
+
 // text 收 null(没有 ghost 可渲)而不是让 caller 自己判 —— 那个判断挪回 caller 就是
 // ComposerForm 多一个分支,而它已经顶着 complexity 3 的上限。
 export function GhostText({ text }: { text: string | null }) {
   return text === null ? null : (
-    <div
+    <>
+      {/* 提示是 ghost 的**兄弟**，不是它的一部分：`chat-ghost-text` 那个元素带的必须
+          还是那条完整的 ghost 串，一个字不多（`visitor-ghost-readable` 逐字断言它）。
+          第一版把提示塞进这个元素里，那条断言当场红 —— 而按 owner 定的边界，
+          设计改动不该动到任何现有断言。 */}
+      <div
+        aria-hidden
+        data-testid="chat-ghost-text"
+        className="pointer-events-none whitespace-pre-wrap break-words text-(--color-faint) font-serif text-[22px] leading-[1.4] font-[380]"
+      >
+        {text}
+      </div>
+      <AcceptHint />
+    </>
+  );
+}
+
+// AcceptHint —— 「这句可以按 Tab 收进来」。
+//
+// Tab 一直是能接受的（`dispatchGhostKey` 吃掉 Tab 调 onAccept），但**界面上没有任何东西
+// 说得出来**：ghost 是输入框里一段浅色衬线文字，跟 `ask…` 那个占位符长得一模一样，
+// 于是访客没有理由认为它可以被接受，也不知道无视它会不会丢东西（UX-34）。
+//
+// 提示跟在句尾而不是另起一行：它是这句话的属性，不是屏幕上多一条消息。
+function AcceptHint() {
+  const t = useTranslations('visitor.chatRoom');
+  return (
+    <span
       aria-hidden
-      data-testid="chat-ghost-text"
-      className="pointer-events-none whitespace-pre-wrap break-words text-(--color-faint) font-serif text-[22px] leading-[1.4] font-[380]"
+      data-testid="chat-ghost-accept-hint"
+      className="pointer-events-none absolute right-0 bottom-0 mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint) whitespace-nowrap bg-(--color-paper) pl-2"
     >
-      {text}
-    </div>
+      {t('ghostAccept')}
+    </span>
   );
 }

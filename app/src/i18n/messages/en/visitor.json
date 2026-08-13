@@ -18,6 +18,7 @@
     "brand": "standmeet",
     "live": "live",
     "fullPage": "full page →",
+    "ghostAccept": "↹ tab",
     "ready": "{handle}'s ai · ready",
     "codedWelcome": "{greeting}. I'm an AI grounded in {handle}'s curated corpus. You've come in on the <accent>{codeLabel}</accent> slice.",
     "codedRedaction": "Private topics outside this code's scope are redacted. {handle} reads transcripts afterward.",

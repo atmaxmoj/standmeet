@@ -168,12 +168,20 @@ type ComposerProps = {
   ghost: string | null; onAcceptGhost: (g: string) => void;
 };
 
+// tryVisible —— 有 ghost 时不摆 TRY。两者都在说「你可以问什么」，但含义不同：TRY 是码带的
+// 固定 starters（冷启动的脚手架），ghost 是**刚才那一轮**生成的。上下相邻、两种排版语言，
+// 访客读到的只是"这里有一堆建议"，分不出哪条跟刚才那轮有关（UX-35）。ghost 一出现，脚手架就撤。
+function tryVisible(showStarters: boolean, ghost: string | null): boolean {
+  return showStarters && (ghost === null || ghost === '');
+}
+
 function ChatComposer({ showStarters, mode, ...rest }: ComposerProps & { showStarters: boolean; mode: string }) {
   const starters = mode === 'byoai' ? BYOAI_STARTERS : CODED_STARTERS;
+  const showTry = tryVisible(showStarters, rest.ghost);
   return (
     <div className="sticky bottom-0 sm-z-dock bg-(--color-paper)/95 backdrop-blur border-t border-(--color-rule) pt-4 pb-5">
       <DockButtons onPick={rest.onSubmit} pending={rest.pending} />
-      {showStarters && <StarterChips starters={starters} onPick={rest.onSubmit} pending={rest.pending} />}
+      {showTry && <StarterChips starters={starters} onPick={rest.onSubmit} pending={rest.pending} />}
       <ComposerForm {...rest} />
     </div>
   );
