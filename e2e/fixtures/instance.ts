@@ -169,6 +169,15 @@ export function backendLogTail(lines = 400): string {
   });
 }
 
+// setSearchDegraded —— 把 backend 推进/推出**检索降级**（拿掉 Meili，退 Postgres 全文）。
+//
+// 开关在启动期读（`MEILI_URL` 空 → `search.New` 返回 nil，boot_deps.go:142），所以这是一次
+// 容器重建，不是一个运行期 flag。用它的用例要在 afterAll 里恢复 —— 留着降级会让后面每一条
+// 搜索用例都在另一条路上跑，而它们照样会绿（那正是 F-S-3 一直没被发现的原因）。
+export function setSearchDegraded(on: boolean): void {
+  execSync(`make -C .. ${on ? 'dev-pgsearch-on' : 'dev-pgsearch-off'}`, { stdio: 'inherit' });
+}
+
 // restartBackend —— 让 backend 进程重来一次。周期任务的第一跑就在 boot,所以"起来时
 // 清一次老行"这件事,只有重启才观察得到。走 Makefile(所有 docker 操作的唯一入口)。
 export function restartBackend(): void {
