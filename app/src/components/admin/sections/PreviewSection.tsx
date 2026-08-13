@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useCodes, type CodesHook, type CodeView } from '@/lib/admin/use-codes';
+import { useRoles, type RoleView } from '@/lib/admin/use-roles';
 
 export function PreviewSection() {
   const t = useTranslations('adminPages.preview');
@@ -69,8 +70,22 @@ function CodePicker({ codes, selected, onPick }: {
   );
 }
 
+// roleLabel —— 角色的**名字**，拿不到才退回截断的 id。
+//
+// 这张卡原本印的是 `role 0863240e…` —— 一个截断的 UUID，而产品其他每一处都用角色名
+// （`invited` / `public` / `ext-mcp-probe`）。owner 看着两张码显示同一串 `0863240e…`，
+// 知道它们共用一个角色，却不知道是哪个（UX-78）。名字一直在手边：`useRoles()` 已经在
+// 这个 admin 里拉过，`RoleView.name` 就是它。
+//
+// 拿不到时退回 id 而不是留空 —— 一张码指向已删除的角色是真会发生的状态，
+// 让它可见比让它消失好。
+function roleLabel(roleId: string, roles: readonly RoleView[]): string {
+  return roles.find((r) => r.id === roleId)?.name ?? `${roleId.slice(0, 8)}…`;
+}
+
 function CodePickerCard({ code, active, onClick }: { code: CodeView; active: boolean; onClick: () => void }) {
   const t = useTranslations('adminPages.preview');
+  const roles = useRoles();
   return (
     <button
       type="button" onClick={onClick}
@@ -82,7 +97,7 @@ function CodePickerCard({ code, active, onClick }: { code: CodeView; active: boo
     >
       <div className="font-serif text-[15px] text-(--color-ink)">{code.label}</div>
       <div className="mono text-[10px] text-(--color-muted) mt-0.5">
-        {t('cardCodeRole', { code: code.code, role: code.assumed_role_id.slice(0, 8) })}
+        {t('cardCodeRole', { code: code.code, role: roleLabel(code.assumed_role_id, roles.roles) })}
       </div>
     </button>
   );

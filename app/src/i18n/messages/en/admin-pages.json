@@ -47,7 +47,7 @@
     "openPublic": "open public",
     "loading": "loading codes…",
     "seeAsCode": "see-as · code",
-    "cardCodeRole": "{code} · role {role}…",
+    "cardCodeRole": "{code} · role {role}",
     "byoaiCardTitle": "BYOAI · anonymous",
     "byoaiCardScope": "public scope only",
     "frameTitle": "preview · visitor view",
