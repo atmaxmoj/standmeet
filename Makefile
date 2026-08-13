@@ -63,6 +63,7 @@ app-lint:
 	@infra/scripts/check-one-layer-scale.sh
 	@infra/scripts/check-one-select.sh
 	@infra/scripts/check-one-text-input.sh
+	@infra/scripts/check-one-time-format.sh
 	@infra/scripts/check-no-computed-class.sh
 	@infra/scripts/check-sm-class-defined.sh
 	@infra/scripts/check-peek-signals-more.sh

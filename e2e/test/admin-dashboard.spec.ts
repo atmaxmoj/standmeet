@@ -103,6 +103,37 @@ test.describe('admin dashboard', () => {
     async ({ playwright, adminPage }) => {
       await assertJobsPanelFollowsState(playwright, adminPage);
     });
+
+  // UX-41 —— CORPUS PULSE 卡右上角那句 `↑ corpus active` 曾是一个**无条件**的 span：
+  // 朱红、醒目、占着"这张图给我的结论"那个位置，而它跟图里的数一条关系都没有。
+  // 语料 14 天一条没进的实例上，它照样说 active。
+  //
+  // 这条用例驱的正是那个状态：这台实例的 pulse 是空的（seed 的那条 wiki 不落在 14 天窗口里
+  // 也没关系 —— 断言问的不是"必须说 quiet"，而是**这两句话不能同时对同一份数据成立**）。
+  test('the pulse card does not claim new entries over a flat line (UX-41)',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'dashboard');
+      const verdict = adminPage.getByTestId('pulse-verdict');
+      await expect(verdict).toBeVisible({ timeout: 5_000 });
+      // 先取文本再判断 —— `.not.toContainText` 在元素还没出现时也算通过
+      // （[[negated-assertion-passes-while-absent]]）。
+      const said = (await verdict.innerText()).trim();
+      expect(said, 'a flat 14d window must not be reported as new activity')
+        .toBe('nothing new in 14d');
+    });
+
+  // UX-42 —— y 轴刻度是 `max / round(max/2) / 0`。语料刚起步时 `max` 很小，
+  // `round(1/2)` 又回到 1，于是三格读作 `1 … 1 … 0`：同一个刻度出现两次。
+  // 一个重复的刻度比没有刻度更糟 —— 它让人以为自己看错了，而这正是图最需要被读懂的时候。
+  // 这台实例的语料就在那个量级，所以这条断言驱的是真状态。
+  test('the sparkline never prints the same y tick twice (UX-42)',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'dashboard');
+      const axis = adminPage.getByTestId('sparkline-axis').first();
+      await expect(axis).toBeVisible({ timeout: 5_000 });
+      const ticks = (await axis.innerText()).split('\n').map((s) => s.trim()).filter(Boolean);
+      expect(new Set(ticks).size, `y ticks are ${ticks.join(' / ')}`).toBe(ticks.length);
+    });
 });
 
 async function assertProviderOutageAnnounced(page: Page): Promise<void> {

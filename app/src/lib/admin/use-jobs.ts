@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore } from '@/lib/state/create-resource-store';
+import { ago } from '@/lib/ui/format-time';
 
 const ScheduledJobSchema = z.object({
   name: z.string(),
@@ -42,12 +43,10 @@ export interface JobRowView {
   status: string;
 }
 
-// lastRunView —— ISO last_run → 紧凑本地时间；null(没跑过)→ '—'。
+// lastRunView —— ISO last_run → 「多久以前」；null(没跑过)→ '—'。
+// 原来给的是 `10:16 AM` 这种一天之内才读得懂的时刻：昨天跑的和今天跑的长得一样（UX-46）。
 function lastRunView(iso: string | null): string {
-  if (iso === null) {
-    return '—';
-  }
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return iso === null ? '—' : ago(iso);
 }
 
 // jobRowViews —— jobs → 表格行显示串。空(子系统未起)→ 一条诚实占位行,非假 job。

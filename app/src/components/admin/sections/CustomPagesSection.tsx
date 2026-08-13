@@ -22,6 +22,7 @@ import {
   type CustomPagesHook,
   type CustomPageSummary,
 } from '@/lib/admin/use-custom-pages';
+import { stampDay } from '@/lib/ui/format-time';
 
 export function CustomPagesSection() {
   const hook = useCustomPages();
@@ -174,7 +175,7 @@ const BUILD_TONE_MAP = {
 function DateCell({ iso }: { iso: string }) {
   return (
     <td className="px-4 py-3 mono text-[10px] text-(--color-muted)">
-      {formatDate(iso)}
+      {stampDay(iso)}
     </td>
   );
 }
@@ -230,7 +231,3 @@ function TemplateCard({ label, desc }: { label: string; desc: string }) {
   );
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toISOString().slice(0, 10);
-}

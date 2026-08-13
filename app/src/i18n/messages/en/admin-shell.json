@@ -120,7 +120,8 @@
     "testThisCode": "test this code"
   },
   "dashboard": {
-    "corpusActive": "↑ corpus active",
+    "corpusActive": "↑ {added} new in 14d",
+    "corpusQuiet": "nothing new in 14d",
     "entriesTotal": "entries · total",
     "daysAgo14": "new per day · 14d ago",
     "today": "today",

@@ -30,6 +30,7 @@ import {
   type WikiHook, type WikiSummary,
 } from '@/lib/admin/use-wiki';
 import { runWith } from '@/lib/admin/use-corpus-form';
+import { stampDay } from '@/lib/ui/format-time';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function WikiSection() {
@@ -298,7 +299,7 @@ function WikiTags({ tags }: { tags: readonly string[] }) {
 function WikiMeta({ createdAt }: { createdAt: string }) {
   return (
     <span className="mono text-[9.5px] tracking-[0.06em] text-(--color-faint)">
-      {formatDate(createdAt)}
+      {stampDay(createdAt)}
     </span>
   );
 }
@@ -390,9 +391,4 @@ function deleteWikiPrompt(title: string, childCount: number): string {
     ? ` This also deletes its ${childCount} child ${childCount === 1 ? 'entry' : 'entries'}.`
     : '';
   return `Delete wiki "${title}"?${warn} This cannot be undone.`;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toISOString().slice(0, 10);
 }

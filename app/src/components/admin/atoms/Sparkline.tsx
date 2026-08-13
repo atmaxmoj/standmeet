@@ -129,14 +129,26 @@ function HoverMark({ pt, height }: { pt: SparkPoint; height: number }) {
 }
 
 // AxisLabels —— y 轴刻度(max / mid / 0),HTML 绝对定位贴左缘(不进被拉伸的 svg,字不变形)。
+//
+// 中间那格**画不出来就不画**:`max` 小的时候 `round(max/2)` 会撞上另外两格 —— `max=1`
+// 时三格读作 `1 … 1 … 0`,同一个刻度出现两次,而这恰恰是语料刚起步、图最需要被读懂的时候
+// (UX-42)。一个重复的刻度比没有刻度更糟:它让人以为自己看错了。
+function midTick(max: number): number | null {
+  const mid = Math.round(max / 2);
+  return mid > 0 && mid < max ? mid : null;
+}
+
 function AxisLabels({ max }: { max: number }) {
+  const mid = midTick(max);
   return (
     <div
       className="pointer-events-none absolute inset-0 mono text-[8px] leading-none text-(--color-faint)"
       data-testid="sparkline-axis"
     >
       <span className="absolute left-0.5 top-0 -translate-y-1/2 bg-(--color-paper)/80 px-0.5">{max}</span>
-      <span className="absolute left-0.5 top-1/2 -translate-y-1/2 bg-(--color-paper)/80 px-0.5">{Math.round(max / 2)}</span>
+      {mid !== null && (
+        <span className="absolute left-0.5 top-1/2 -translate-y-1/2 bg-(--color-paper)/80 px-0.5">{mid}</span>
+      )}
       <span className="absolute left-0.5 bottom-0 translate-y-1/2 bg-(--color-paper)/80 px-0.5">{0}</span>
     </div>
   );

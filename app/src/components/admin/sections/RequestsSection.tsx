@@ -19,6 +19,7 @@ import {
   type RequestsHook,
 } from '@/lib/admin/use-requests';
 import { useOutbound } from '@/lib/admin/use-outbound';
+import { stampDay } from '@/lib/ui/format-time';
 import { useAction } from '@/lib/ui/use-action';
 
 const FILTERS: RequestStatusFilter[] = ['open', 'replied', 'closed', 'all'];
@@ -193,7 +194,7 @@ function RequestHead({ req }: { req: AccessRequestView }) {
         </a>
       </div>
       <div className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)">
-        {req.status} · {formatDate(req.created_at)}
+        {req.status} · {stampDay(req.created_at)}
       </div>
     </div>
   );
@@ -252,7 +253,3 @@ async function runApprove(
   onApproved(await hook.approve(id));
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toISOString().slice(0, 10);
-}

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { adminAPI, ConversationSummarySchema, type ConversationSummary } from '@/lib/api/admin';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
+import { ago } from '@/lib/ui/format-time';
 
 export interface ConvTurn {
   who: 'visitor' | 'ai';
@@ -263,7 +264,8 @@ function toView(s: ConversationSummary): ConvView {
   };
 }
 
+// 这个函数叫 formatRelative，返回的却是 `toLocaleString()` —— 一个绝对时间
+// （[[names-that-lie]]）。会话列表是扫新鲜度的地方，所以它现在真的是相对时间了（UX-46）。
 function formatRelative(iso: string): string {
-  const t = new Date(iso).getTime();
-  return Number.isFinite(t) ? new Date(t).toLocaleString() : iso;
+  return ago(iso);
 }

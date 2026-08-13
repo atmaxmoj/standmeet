@@ -15,6 +15,7 @@ import {
   type ConvTranscriptMessage,
   type GhostLog,
 } from '@/lib/admin/use-conversations';
+import { stampMinute } from '@/lib/ui/format-time';
 
 type Props = {
   transcript: ConvTranscript;
@@ -131,7 +132,7 @@ function MessageLabel({ role, at }: { role: 'visitor' | 'assistant'; at: string 
         {text}
       </span>
       <span className="text-(--color-faint) normal-case tracking-[0.06em]">
-        · {formatTime(at)}
+        · {stampMinute(at)}
       </span>
     </div>
   );
@@ -172,10 +173,6 @@ function CitedTail({
   );
 }
 
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
-}
 
 // GroundingBlock —— 塑造了这段对话、但没进访客脚注的 subjectivity 笔记(F-A-27)。
 //

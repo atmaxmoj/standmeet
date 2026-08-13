@@ -21,6 +21,7 @@ import {
 import { heroInput, useRawHeroForm } from '@/lib/admin/use-corpus-detail';
 import { appendBlock, runWith } from '@/lib/admin/use-corpus-form';
 import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
+import { stampDay } from '@/lib/ui/format-time';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 import type { RawAdminView } from '@/lib/api/admin';
@@ -101,7 +102,7 @@ function RawSourceLine({
     <div className="flex items-baseline gap-2 mono text-[10px] tracking-[0.1em] text-(--color-faint) mb-1 min-w-0">
       <span className="uppercase text-(--color-muted) truncate">{prettySource(source)}</span>
       {hasChildren ? <span className="text-(--color-faint) shrink-0" aria-hidden>{'▾'}</span> : null}
-      <span className="shrink-0 tabular-nums normal-case tracking-[0.04em]">{formatRawDate(createdAt)}</span>
+      <span className="shrink-0 tabular-nums normal-case tracking-[0.04em]">{stampDay(createdAt)}</span>
     </div>
   );
 }
@@ -119,10 +120,6 @@ function dropFolderNoteDup(parts: readonly string[]): readonly string[] {
   return isDup ? parts.slice(0, -1) : parts;
 }
 
-function formatRawDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toISOString().slice(0, 10);
-}
 
 function RawRowBody({
   preview, tags, privateFlag, media,

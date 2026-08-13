@@ -22,6 +22,7 @@ import {
 } from '@/lib/admin/jobs-loop-view';
 import { useAdminListings } from '@/lib/admin/use-admin-listings';
 import { useAdminSources } from '@/lib/admin/use-admin-sources';
+import { ago, stampMinute } from '@/lib/ui/format-time';
 import {
   allActionItems,
   useAdminDashboard,
@@ -105,9 +106,7 @@ function CorpusPulse({ stats }: { stats: DashboardStats }) {
   const t = useTranslations('adminShell.dashboard');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <GroupHeader title="corpus pulse · 14d" action={
-        <span className="mono text-[10px] text-(--color-accent)">{t('corpusActive')}</span>
-      } />
+      <GroupHeader title="corpus pulse · 14d" action={<PulseVerdict pulse={stats.pulse} />} />
       <div className="flex items-end gap-6 mt-2">
         <div>
           <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">
@@ -125,6 +124,25 @@ function CorpusPulse({ stats }: { stats: DashboardStats }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// PulseVerdict —— 这张卡右上角那句话，**读的是它旁边那条线**。
+//
+// 它以前是一个无条件的 `<span>{t('corpusActive')}</span>` —— 不管 14 天里进了多少条，
+// 永远朱红地写着 `↑ corpus active`，包括一条都没进的时候（UX-41：断言一件自己不追踪的事，
+// [[names-that-lie]]）。一个恒真的判断不是判断，是装饰；而它占的正是"图给我的结论"那个位置。
+function PulseVerdict({ pulse }: { pulse: readonly number[] }) {
+  const t = useTranslations('adminShell.dashboard');
+  const added = pulse.reduce((n, v) => n + v, 0);
+  return added > 0 ? (
+    <span className="mono text-[10px] text-(--color-accent)" data-testid="pulse-verdict">
+      {t('corpusActive', { added })}
+    </span>
+  ) : (
+    <span className="mono text-[10px] text-(--color-faint)" data-testid="pulse-verdict">
+      {t('corpusQuiet')}
+    </span>
   );
 }
 
@@ -299,8 +317,11 @@ function RecentVisitorRow({ row }: { row: DashboardRecentRow }) {
     <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
       <div>
         <div className="font-serif text-[15px] text-(--color-ink)">{row.visitor}</div>
-        <div className="mono text-[10px] text-(--color-muted) mt-0.5">
-          {t('visitorMeta', { label: row.code_label, turns: row.turns, last: row.last })}
+        {/* 「最近来访」是一眼扫新鲜度的列表，所以给相对时间；精确值放 title，
+            鼠标停下来就能看到。原来这里直接印后端的 `2026-08-07T01:09:14Z` ——
+            ISO-with-Z 是给机器看的（UX-46）。 */}
+        <div className="mono text-[10px] text-(--color-muted) mt-0.5" title={stampMinute(row.last)}>
+          {t('visitorMeta', { label: row.code_label, turns: row.turns, last: ago(row.last) })}
         </div>
       </div>
       <RecentVisitorFlags hits={row.private_hits} />
