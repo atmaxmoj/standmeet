@@ -65,7 +65,7 @@ func CorpusHostOps(lister Lister) []hostop.Op {
 		name string
 		desc string
 	}{
-		{runCorpusSearch, "corpus_search", "Search the corpus under this session's ACL scope."},
+		{runCorpusSearch, "corpus_search", searchToolDesc},
 		{runCorpusRead, "corpus_read", "Read one entry by path, under the session's scope."},
 		{runCorpusList, "corpus_list", "List entries under the session's scope."},
 		{runCorpusLinks, "corpus_links", "The links out of / into one entry."},

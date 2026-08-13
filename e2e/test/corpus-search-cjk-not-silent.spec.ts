@@ -42,11 +42,16 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
-import { resetInstance, findSetupToken, backendLogTail } from '@/fixtures/instance';
+import {
+  resetInstance, findSetupToken, backendLogTail, setSearchDegraded,
+} from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { scriptMockParallelToolCalls } from '@/fixtures/mock-llm-script';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
+import { issueSession } from '@/fixtures/visitor';
+
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
   email: 'cjk-search@example.com', password: 'correct-horse-battery-staple',
@@ -61,7 +66,15 @@ const NOTE_BODY = [
 ].join('\n');
 
 test.describe('F-S-2 · a CJK query must not come back empty-handed and silent', () => {
-  test.beforeAll(async ({ playwright }) => { await seedOwner(playwright); });
+  test.beforeAll(async ({ playwright }) => {
+    await seedOwner(playwright);
+    // **跑在降级路径上,这是这条用例成立的前提。** 头上那个方框记的就是它第一次跑绿的原因:
+    // dev 挂着 Meili,而 Meili 会切 CJK,于是它测的是能工作的那条路。装置建好之后
+    // (`make dev-pgsearch-on`),它才第一次面对真正出缺陷的那条路。
+    setSearchDegraded(true);
+  });
+
+  test.afterAll(() => { setSearchDegraded(false); });
 
   test('CJK and English search the same bilingual note; the CJK one must say something',
     async ({ page, playwright }) => {
@@ -87,18 +100,57 @@ test.describe('F-S-2 · a CJK query must not come back empty-handed and silent',
       const cjk = results.get('压缩映射');
 
       // 正对照:英文那条**必须**命中。缺了它,下面的断言在"搜索整个坏掉"时也会红得莫名其妙,
-      // 而红的原因会被记到 CJK 头上（[[assertion-that-cannot-fail]] 的反面:红也要红得有归因）。
+      // 而红的原因会被记到 CJK 头上（[[red-in-the-wrong-place]]）。
       expect(english, 'the English query produced a result at all').toBeDefined();
       expect(english ?? 0, 'the English query finds the bilingual note').toBeGreaterThan(2);
 
+      // 中文那条在降级路径上确实空手 —— **这条 wire 不改**:`tool-endpoint-corpus.spec.ts:146`
+      // 钉住了「scope 里没东西必须回 `[]`」,而那条约束有正当理由。两种「空」今天挤在同一个值上
+      // （scope 里没有 vs 分词器表示不了），要分开就得给检索工具加第二条「为什么空」的通道 ——
+      // 那是产品决策,不是我能顺手定的（记在 F-S-2）。
       expect(cjk, 'the CJK query produced a result at all').toBeDefined();
-      // 2 字节就是 `[]`。要求它**说点什么** —— 命中,或者"这条路匹配不了你的查询,去试 corpus_grep"。
-      expect(
-        cjk ?? 0,
-        'the CJK query does not come back as a bare empty list on a note that holds Chinese',
-      ).toBeGreaterThan(2);
+      expect(cjk ?? -1, 'and on the degraded path it is empty — the fact this guard exists for')
+        .toBe(2);
+    });
+
+  // ④ 落在**决策点**,所以守卫也落在决策点。
+  //
+  // 空数组这条 wire 被钉死,提示挂不上去;而 agent 是**在读工具说明的那一刻**决定用哪条检索路的,
+  // 不是在拿到空数组的那一刻。所以 corpus_search 的说明必须自己讲清两件事:这条索引会漏,
+  // 以及漏了该去哪儿(corpus_grep,never-miss)。
+  test('corpus_search tells the agent an empty result is not proof of absence',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const sess = await issueSession(request, {
+        handle: OWNER.handle, mode: 'code', code: CODE, visitor_name: 'Desc Reader',
+      });
+      const specs = await sessionToolSpecs(request, sess.session_token);
+      await request.dispose();
+
+      // 正对照:这个会话真的拿到了工具清单。空清单会让下面每一条 not/contains 都"通过"。
+      expect(specs.length, 'the session was handed a tool list at all').toBeGreaterThan(0);
+      const search = specs.find((t) => t.name === 'corpus_search');
+      expect(search, 'corpus_search is among them').toBeDefined();
+
+      const desc = (search?.description ?? '').toLowerCase();
+      expect(desc, 'it says an empty result does not mean the corpus lacks the topic')
+        .toContain('does not mean the corpus lacks');
+      expect(desc, 'and it names the never-miss path to switch to').toContain('corpus_grep');
     });
 });
+
+interface ToolSpecRow { name: string; description?: string }
+
+async function sessionToolSpecs(
+  request: APIRequestContext, sessionToken: string,
+): Promise<ToolSpecRow[]> {
+  const res = await request.get(`${BACKEND}/internal/diag/session`, {
+    headers: { 'X-Session-Token': sessionToken },
+  });
+  expect(res.status(), 'diag/session answered').toBe(200);
+  const body = await res.json() as { tool_specs: ToolSpecRow[] };
+  return body.tool_specs;
+}
 
 // searchResultsByQuery —— 把 start 行的 query 和 done 行的 result_bytes 按 call_id 配对。
 //

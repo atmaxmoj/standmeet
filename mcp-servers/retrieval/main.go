@@ -88,9 +88,21 @@ func searchCardHandler(
 }
 
 func searchTool() mcpgo.Tool {
+	// **这句话是 agent 真正读到的那一句**(F-S-2)。host 那边 `CorpusHostOps` 也写了一句同名工具的
+	// 说明,但装进访客会话的是这里 —— 同一个事实两个家,而落地的是这个。改说明先确认改的是哪一份。
+	//
+	// 必须写明**它会漏**:这是一条词法索引,命中与否取决于分词器,切不动的东西(词中子串、
+	// 紧贴标点、CJK 双字)会直接查不到。真实证据:`递归收敛` 在一份带整段中文的语料上返回 `[]`,
+	// 同一轮的英文查询却拿回 7883 字节,而 agent 不知道该换路,那半个问题就静默地没被回答。
+	// corpus_grep 是为这个建的第二条路(never-miss),名字要出现在这句话里 —— **agent 是在读说明
+	// 的那一刻做选择的**,而空数组那条 wire 被 `tool-endpoint-corpus.spec.ts:146` 钉死,挂不上提示。
 	return withCard(mcpgo.NewToolWithRawSchema("corpus_search",
 		"Search owner's curated corpus by keyword. Returns matching wiki + output "+
-			"entries with path, title, genre, summary.",
+			"entries with path, title, genre, summary. This is a lexical index, so a hit "+
+			"depends on tokenization: substrings inside a word, terms glued to punctuation, "+
+			"and CJK bigrams can all miss. An empty result therefore does NOT mean the corpus "+
+			"lacks the topic — when it comes back empty and you still believe the material "+
+			"exists, use corpus_grep, which is literal and never-miss.",
 		json.RawMessage(`{
 			"type": "object",
 			"properties": {"query": {"type": "string"}},
