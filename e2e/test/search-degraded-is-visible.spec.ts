@@ -59,20 +59,33 @@ test.describe('F-S-3 · a degraded search path is stated, not silent', () => {
   // 「看到什么」和「为什么」分开记：
   //   · 看到的 —— `goto('/admin/dashboard')` 之后停在 SIGN IN。
   //   · 由此确定的 —— 与「没有 action item」「dashboard 加载慢」「降级」都无关。
-  //   · 还没证的 —— 最可能是 beforeAll 里 `setSearchDegraded(true)` **重建了 backend 容器**，
-  //     而会话没活过那次重建。要证它得看那一轮 backend 起来后的第一批请求带没带上有效 cookie。
+  //   · **被证伪的假设** —— 我原本写的是「会话没活过容器重建」。**不成立**：owner session 存在
+  //     Redis 里（`infra/session/owner_session.go:49-55`，store 只是个 redis client 包装），
+  //     而这里只重建 backend，redis 根本没动。**是读代码否掉的，不是跑一次试出来的。**
+  //   · **真正的原因，也是读出来的** —— `fixtures/test.ts:44-48` 的 `page` fixture 只做
+  //     `page.goto('/')`，**它不登录**；登录在另一个 fixture **`adminPage`** 里（:52 起）。
+  //     我当时要的是 `{ page }`，于是拿到一个未登录的浏览器。`test.use({ ownerCredentials })`
+  //     只是给 `adminPage` 供凭据 —— **声明了凭据不等于用上了它**。
   //
-  // 修法方向：把登录排在切换降级**之后**，或者切换后重新登录一次。改之前先把上面那条机制证实，
-  // 否则就是又一次「照着现象改，改完绿了但不知道为什么」。
+  // 这条弯路留在这里，因为那个假设看起来完全合理（重启 → 会话没了），下一个人很可能想到同一条。
+  // **一个错的线索比一个「不知道」更贵 —— 因为它会被当成起点。**
   //
   // **这次差点走上另一条路**：第一反应是把 10 秒调大。如果当时只写了那句关键断言、没写正对照，
   // 红会落在「面板文本里没有 search」上 —— 看起来正是缺陷本身，我会当场宣布"证红成功"，
   // 然后去修一个根本没被证明存在的问题。正对照在这里挡下的不是假绿，是**红得不知所以然**。
   //
   // 解开之前它不该在套件里常红：常红的用例会被当成背景噪音，然后连它真正想说的话一起被忽略。
-  test.fixme('with the search engine gone, the dashboard says so', async ({ page }) => {
-    await goto(page, '/admin/dashboard');
-    const needs = page.getByTestId('needs-hand');
+  // ⏸ 挂起，但**理由跟上一版完全不同，别把这两次混为一谈**。
+  //
+  // 上一版挂起是因为红落在了正对照上（拿错 fixture，浏览器没登录），那时它什么都没证明。
+  // 换成 `adminPage` 之后**红落到了该落的地方**：面板可见（正对照过），失败在真正那句 ——
+  // 「owner 被告知少了一个检索路径」为 false。**③ 成立了。**
+  //
+  // 现在挂起只为一件事：**④ 还没做**。一条为未修缺陷而正确变红的用例，在修好之前会把整个套件
+  // 拖红，然后变成背景噪音。取消挂起是 ④ 的第一步，不是一次独立的清理。
+  test.fixme('with the search engine gone, the dashboard says so', async ({ adminPage }) => {
+    await goto(adminPage, '/admin/dashboard');
+    const needs = adminPage.getByTestId('needs-hand');
     // 正对照：这块面板本身渲染出来了。缺了它，下面的断言在「dashboard 整个没加载」时会红得
     // 莫名其妙，而红的原因会被记到"没提示降级"头上（[[assertion-that-cannot-fail]] 的反面）。
     await expect(needs, 'the needs-your-hand panel rendered at all').toBeVisible({ timeout: 10_000 });
