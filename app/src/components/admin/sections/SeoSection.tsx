@@ -103,7 +103,9 @@ function LabeledInput({ label, testid, value, onChange, placeholder, hint }: {
       <input type="text" data-testid={testid} value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="sm-field-input" />
-      <p className="reading text-[12.5px] text-(--color-faint) mt-1.5 max-w-[46em]">{hint}</p>
+      {/* 不贴 `reading` —— 那个类自带 20px，说明会比它解释的那个字段还大。
+          说明是次要文本，字号必须真的比正文小。 */}
+      <p className="font-serif text-[13px] leading-[1.5] text-(--color-faint) mt-1.5 max-w-[46em]">{hint}</p>
     </label>
   );
 }

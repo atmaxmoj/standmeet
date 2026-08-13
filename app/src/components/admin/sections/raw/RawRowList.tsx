@@ -294,10 +294,13 @@ function EditBodyField({
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
         {t('body')}
       </span>
+      {/* raw 的行内编辑器有**自己的一份** body 字段（不走 CorpusEntryForm，字段不同），
+          于是 UX-61「正文给 4 行，元数据给整页」在这里还有第三份。补图时在真环境上看见的
+          —— 改一处不等于改完这一类。 */}
       <textarea
-        rows={4} value={value} onChange={(e) => onChange(e.target.value)}
+        rows={14} value={value} onChange={(e) => onChange(e.target.value)}
         data-testid={testid} spellCheck={false}
-        className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[15px]"
+        className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[15px] resize-y min-h-[8rem]"
       />
     </label>
   );

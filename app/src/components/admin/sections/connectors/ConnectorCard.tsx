@@ -67,7 +67,10 @@ function SchemeSelect({ schemes }: { schemes: readonly string[] }) {
 
 function Fields({ hook }: { hook: ConnectorCardHook }) {
   return (
-    <div className="space-y-2 mb-3">
+    // space-y-4 而不是 space-y-2：加了标签之后，一格的高度变成「标签 + 6px 内距 + 文字 + 下划线」，
+    // 于是每个标签离**上一格的线**比离**自己的线**还近，眼睛把它归到上面那格去了。
+    // 字段之间要比字段内部松 —— 这是分组，不是留白偏好。
+    <div className="space-y-4 mb-3">
       <StoredCredsNote show={hook.hasCredentials} />
       {hook.fields.map((key) => <CredField key={key} name={key} onChange={hook.setField} />)}
     </div>

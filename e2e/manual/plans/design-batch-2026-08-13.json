@@ -1,0 +1,16 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/_shots-2026-08-13",
+  "viewport": [1280, 950],
+  "shots": [
+    { "name": "seo-hints", "url": "/admin/seo" },
+    { "name": "marketplace-grid", "url": "/admin/skills",
+      "steps": [{ "click": "text=marketplace" }], "wait": 2500 },
+    { "name": "connector-credfields", "url": "/admin/connectors" },
+    { "name": "corpus-body-field", "url": "/admin/raw",
+      "steps": [{ "click": "text=EDIT" }], "wait": 1500 },
+    { "name": "transcript-measure", "url": "/admin/conversations",
+      "steps": [{ "click": "text=Auditor" }], "wait": 2000 },
+    { "name": "public-index", "url": "/" },
+    { "name": "public-index-tall", "url": "/" }
+  ]
+}

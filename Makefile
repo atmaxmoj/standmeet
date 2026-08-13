@@ -311,6 +311,22 @@ eval-owner-mcp:
 verify-round:
 	@infra/scripts/verify-round
 
+# verify-shots —— 手工验证第 ⑤ 步的**拍照驱动器**：开一个真浏览器，按 plan 登录 / 点 /
+# 输入 / 截图，图落进那一轮的 trajectory 目录。判断看图，不看 DOM 文本。
+#
+# 为什么有它：⑤ 一直靠浏览器 MCP 驱动，而 MCP 会掉线（掉线那次手上只剩一个跑在**另一台
+# 机器**上的 Chrome，打不到本机 38227）。驱动器可以换，环境不能换 —— 它打的是 **prod**，
+# 真 vault、真语料、真 provider。
+#
+# **它不碰数据**：只登录、导航、截图，一行都不写。别把它跟 e2e 混起来 —— e2e 打 dev 并且
+# 每个 spec 都重置实例，那个动作在 prod 上会把真语料清掉。
+#
+#   make verify-shots PLAN=e2e/manual/plans/seo.json
+verify-shots:
+	@test -n "$(PLAN)" || (echo 'usage: make verify-shots PLAN=e2e/manual/plans/<name>.json'; exit 2)
+	@set -a; . $$HOME/.config/standmeet/verify-creds.env; set +a; \
+	  cd e2e && node manual/shoot.mjs "../$(PLAN)"
+
 # schema-drift —— 问运行中的库:schema.sql 里声明的表/列,你到底有没有。schema.sql 只在
 # **全新卷**上被 postgres 应用一次,所以长命实例停在它出生时的样子,后加的列只活在文件里 ——
 # backend 照常起来,直到某个界面上的某条查询才炸。开审计轮之前先跑它。
