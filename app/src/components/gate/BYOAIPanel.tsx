@@ -124,6 +124,10 @@ function BYOAIForm(p: FormProps) {
     // autoComplete off on the form + new-password on the key (below) stop the browser's
     // login-form heuristic autofilling a saved email→model / password→key (UX-8).
     <form onSubmit={p.onSubmit} className="rise" autoComplete="off">
+      {/* 这四格**必须一柱到底**。试过排成 2×2 想压低这一段的纵向占地（UX-37：没有码的人
+          才走的备用路，却是整页占地最大的一块）—— 在 1280 视口下这一栏只有约 350px，
+          对半劈开后端点被截断、`LOAD MODELS` 压在 API KEY 上。要真的降它的重心，得折叠
+          或重排整页，那两条都会改交互和测试，不属于设计列。 */}
       <ProviderRow value={p.form.provider} onChange={p.onProvider} />
       <EndpointRow value={p.form.endpoint} onChange={p.onEndpoint} placeholder={ph.endpoint} />
       <ModelRow

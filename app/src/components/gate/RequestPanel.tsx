@@ -46,19 +46,17 @@ export function RequestPanel({ handle, hook }: Props) {
   return (
     <section id="request" className="mt-20 pt-14 border-t border-(--color-rule)" data-testid="request-panel">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-10">
-        <RequestHeadline handle={handle} open={open} sent={sent} onOpen={() => setOpen(true)} />
+        <RequestHeadline handle={handle} />
         <RequestRight
           open={open} sent={sent} form={form} setField={setField}
-          onSubmit={onSubmit} busy={hook.state.busy}
+          onSubmit={onSubmit} busy={hook.state.busy} onOpen={() => setOpen(true)}
         />
       </div>
     </section>
   );
 }
 
-function RequestHeadline({
-  handle, open, sent, onOpen,
-}: { handle: string; open: boolean; sent: boolean; onOpen: () => void }) {
+function RequestHeadline({ handle }: { handle: string }) {
   const t = useTranslations('gate');
   return (
     <div>
@@ -71,22 +69,21 @@ function RequestHeadline({
       <p className="reading text-(--color-muted) mt-3 text-[15.5px]">
         {t('request.lede')}
       </p>
-      <OpenButton show={!open && !sent} onOpen={onOpen} />
     </div>
   );
 }
 
-function OpenButton({ show, onOpen }: { show: boolean; onOpen: () => void }) {
+// 外面这层 div 不是多余的：按钮是 grid 的直接子项，而 grid item 默认拉伸 ——
+// `inline-flex` 挡不住它，`sm-btn-outline` 的边框会被抻成一个占满整格的大空框。
+function OpenButton({ onOpen }: { onOpen: () => void }) {
   const t = useTranslations('gate.request');
-  return show ? (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="mt-5 mono text-[11px] tracking-[0.16em] uppercase text-(--color-ink) border border-(--color-ink) px-3.5 py-2 hover:bg-(--color-ink) hover:text-(--color-paper) transition-colors"
-    >
-      {t('openButton')}
-    </button>
-  ) : null;
+  return (
+    <div>
+      <button type="button" onClick={onOpen} className="sm-btn sm-btn-outline">
+        {t('openButton')}
+      </button>
+    </div>
+  );
 }
 
 type RightProps = {
@@ -96,12 +93,18 @@ type RightProps = {
   setField: (k: keyof FormState, v: string) => void;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   busy: boolean;
+  onOpen: () => void;
 };
 
+// RequestRight —— 右栏永远有东西。
+//
+// 折叠态下这一栏原本渲染 `null`，而「写一张便条」那个按钮挂在左栏文案末尾 —— 于是整页
+// 最后一段是一个窄左栏 + 约 60% 空白右栏，读起来像右半边没加载出来（UX-38）。
+// 按钮搬到**表单将要出现的那个位置**：折叠时它是那一栏的内容，点开后就地长成表单。
 function RequestRight(p: RightProps) {
   return p.sent
     ? <SentConfirmation name={p.form.name} email={p.form.email} />
-    : p.open ? <RequestForm {...p} /> : null;
+    : p.open ? <RequestForm {...p} /> : <OpenButton onOpen={p.onOpen} />;
 }
 
 function RequestForm(p: RightProps) {
@@ -194,7 +197,7 @@ function FormFooter({ why: _why, busy, valid }: { why: string; busy: boolean; va
         type="submit"
         disabled={!valid || busy}
         data-testid="request-submit"
-        className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 hover:bg-(--color-accent) transition-colors disabled:opacity-30"
+        className="sm-btn sm-btn-solid"
       >
         {busy ? t('sending') : t('send')}
       </button>
