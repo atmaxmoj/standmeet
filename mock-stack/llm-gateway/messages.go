@@ -18,6 +18,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -174,7 +175,7 @@ func (s *server) dispatch(sse *sseWriter, req *MessagesReq) {
 	// this turn's registrations.
 	s.queue.rememberTurnKeys(scriptKeyTokens(msgText))
 	if t := s.queue.takeToolFor(msgText); t != nil {
-		s.emitToolUseTurn(sse, t.Name, t.Args)
+		s.emitToolUseTurnN(sse, scriptedCallsOf(t))
 		return
 	}
 	// [[think:N]] —— 跳过 tool,sleep 后直接出答案。期间没 tool 在跑,前端显
@@ -187,16 +188,29 @@ func (s *server) dispatch(sse *sseWriter, req *MessagesReq) {
 	s.emitFinalReply(sse, req)
 }
 
-func (s *server) emitToolUseTurn(
-	sse *sseWriter, name string, input json.RawMessage,
-) {
-	id := "toolu_mock_" + name
-	if len(input) == 0 {
-		input = json.RawMessage(`{}`)
-	}
-	if err := emitToolUseBlock(sse, 0, id, name, input); err != nil {
-		s.log.Warn("emit tool_use", "err", err)
-		return
+// scriptedCallsOf —— 一条注册摊平成这一轮要派的调用序列:主调用在前,Also 依次跟上。
+func scriptedCallsOf(t *ScriptedTool) []ScriptedToolCall {
+	out := make([]ScriptedToolCall, 0, 1+len(t.Also))
+	out = append(out, ScriptedToolCall{Name: t.Name, Args: t.Args})
+	return append(out, t.Also...)
+}
+
+// emitToolUseTurnN —— 一条消息里派 N 个 tool_use 块,再收 `stop=tool_use`。N=1 就是老行为。
+//
+// **id 按序号,不按名字。** 老写法是 `toolu_mock_<name>`,同名工具在一轮里出现两次就撞成同一个 id,
+// 而"同名多次"恰好是这条能力最要紧的用途(F-S-1)。撞了不会报错,只会让两次调用在下游看起来是一次
+// —— 一个静默地把被测形状抹平的 bug。
+func (s *server) emitToolUseTurnN(sse *sseWriter, calls []ScriptedToolCall) {
+	for i := range calls {
+		input := calls[i].Args
+		if len(input) == 0 {
+			input = json.RawMessage(`{}`)
+		}
+		id := fmt.Sprintf("toolu_mock_%d_%s", i, calls[i].Name)
+		if err := emitToolUseBlock(sse, i, id, calls[i].Name, input); err != nil {
+			s.log.Warn("emit tool_use", "err", err, "index", i)
+			return
+		}
 	}
 	if err := emitMessageDelta(sse, stopToolUse); err != nil {
 		s.log.Warn("emit message_delta", "err", err)

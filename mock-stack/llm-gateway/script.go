@@ -28,6 +28,22 @@ type ScriptedTool struct {
 	Name string          `json:"name"`
 	Args json.RawMessage `json:"args"`
 	Key  string          `json:"key"`
+	// Also —— 跟 Name/Args 那次**在同一条消息里**一起派出去的其它调用。空 = 老行为(一轮一个)。
+	//
+	// 为什么需要它:真模型一条消息里就派多个 tool_use 块(agent-loop-robustness 在 prod 上量到过
+	// 一轮四批并行),而这个 mock 只会一次一个。于是**凡是"同一轮里多次调用"才显形的缺陷,守卫都写
+	// 不出来** —— F-S-1(`agent tool done` 不带调用标识,并行结果归因不了)就是被这一条挡在 ③ 门外的。
+	// 好几个 item 把自己的 backing test 标成 `gap`,理由都写着这同一句 mock 限制。
+	//
+	// 顺带:同名工具可以出现多次(`[{corpus_search,英文},{corpus_search,中文}]`)—— 那正是 F-S-1
+	// 要的形状,所以 id 必须按序号发,不能再按名字发。
+	Also []ScriptedToolCall `json:"also,omitempty"`
+}
+
+// ScriptedToolCall —— 一条并行调用:名字 + 原样转发的参数。
+type ScriptedToolCall struct {
+	Name string          `json:"name"`
+	Args json.RawMessage `json:"args"`
 }
 
 // ScriptedReply —— final text reply to emit (overrides INFERENCE_MOCK_REPLY),
