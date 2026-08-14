@@ -36,6 +36,14 @@ export interface ResumePageProps {
   qrURL: string;
   /** 0 = main resume, 1 = cover letter. */
   pageIndex: 0 | 1;
+  /**
+   * 这份文档**一共**几页。页脚的 `page N / M` 里的 M 用它，不再写死。
+   *
+   * 写死的时候是 `"page 1 / 2"` 一个 i18n 字符串 —— 而第二页是**有条件**渲染的
+   * （没写 cover letter 就没有），于是一页的简历页脚写着「1 / 2」，收到的人会去找
+   * 那不存在的第二页（F-E-14）。**总数是个能算出来的量，不该手填。**
+   */
+  pageCount: number;
   /** Display scale (default 1 = print-true). */
   scale?: number;
 }
@@ -62,17 +70,19 @@ function ScaledWrap({ scale, children }: { scale: number; children: React.ReactN
   );
 }
 
-function PageInner({ content, job, qrURL, pageIndex }: ResumePageProps) {
+function PageInner({ content, job, qrURL, pageIndex, pageCount }: ResumePageProps) {
   return (
     <div className={styles.page}>
       {pageIndex === 0
-        ? <ResumeFront content={content} job={job} qrURL={qrURL} />
-        : <CoverBack content={content} job={job} qrURL={qrURL} />}
+        ? <ResumeFront content={content} job={job} qrURL={qrURL} pageCount={pageCount} />
+        : <CoverBack content={content} job={job} qrURL={qrURL} pageCount={pageCount} />}
     </div>
   );
 }
 
-function ResumeFront(props: { content: ResumeContent; job: JobContext; qrURL: string }) {
+function ResumeFront(
+  props: { content: ResumeContent; job: JobContext; qrURL: string; pageCount: number },
+) {
   const { content, job, qrURL } = props;
   const t = useTranslations('adminJobs');
   return (
@@ -85,7 +95,7 @@ function ResumeFront(props: { content: ResumeContent; job: JobContext; qrURL: st
         <LeftRail content={content} company={job.company} />
         <MainColumn works={content.works} />
       </div>
-      <FrontFooter qrURL={qrURL} />
+      <FrontFooter qrURL={qrURL} pageCount={props.pageCount} />
     </>
   );
 }
@@ -297,7 +307,7 @@ function WorkEntry({ work }: { work: ResumeContent['works'][number] }) {
   );
 }
 
-function FrontFooter({ qrURL }: { qrURL: string }) {
+function FrontFooter({ qrURL, pageCount }: { qrURL: string; pageCount: number }) {
   const t = useTranslations('adminJobs');
   return (
     <div className={styles.footer}>
@@ -309,12 +319,16 @@ function FrontFooter({ qrURL }: { qrURL: string }) {
           {t('resume.footerSnapshot', { date: today() })}
         </div>
       </div>
-      <div className={styles.footerPageNum}>{t('resume.page1')}</div>
+      <div className={styles.footerPageNum}>
+        {t('resume.pageOf', { n: 1, total: pageCount })}
+      </div>
     </div>
   );
 }
 
-function CoverBack(props: { content: ResumeContent; job: JobContext; qrURL: string }) {
+function CoverBack(
+  props: { content: ResumeContent; job: JobContext; qrURL: string; pageCount: number },
+) {
   const { content, job, qrURL } = props;
   const firstName = content.identity.name.split(' ')[0] ?? content.identity.name;
   const t = useTranslations('adminJobs');
@@ -353,7 +367,9 @@ function CoverBack(props: { content: ResumeContent; job: JobContext; qrURL: stri
         <div className={styles.footerLeft}>
           {content.identity.name.toLowerCase()} · {content.identity.email}
         </div>
-        <div className={styles.footerPageNum}>{t('resume.page2')}</div>
+        <div className={styles.footerPageNum}>
+          {t('resume.pageOf', { n: 2, total: props.pageCount })}
+        </div>
       </div>
     </>
   );

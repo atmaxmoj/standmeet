@@ -70,9 +70,17 @@ function derivePreview(model: DraftModel): PreviewView {
 function PreviewStack({ view, zoom }: { view: PreviewView; zoom: number }) {
   return (
     <div className={styles.scroll}>
-      <ResumePage content={view.content} job={view.job} qrURL={PREVIEW_QR_URL} pageIndex={0} scale={zoom} />
+      {/* pageCount 这个值 `derivePreview` 一直在算，只是从没传下去 —— 页脚照样写死
+          「/ 2」（F-E-14）。正确的数字就摆在旁边，没人用。 */}
+      <ResumePage
+        content={view.content} job={view.job} qrURL={PREVIEW_QR_URL}
+        pageIndex={0} pageCount={view.pageCount} scale={zoom}
+      />
       {view.hasCover ? (
-        <ResumePage content={view.content} job={view.job} qrURL={PREVIEW_QR_URL} pageIndex={1} scale={zoom} />
+        <ResumePage
+          content={view.content} job={view.job} qrURL={PREVIEW_QR_URL}
+          pageIndex={1} pageCount={view.pageCount} scale={zoom}
+        />
       ) : null}
     </div>
   );

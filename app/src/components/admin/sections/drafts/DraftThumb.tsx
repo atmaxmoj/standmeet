@@ -37,6 +37,8 @@ export function DraftThumb({ row }: { row: AdminDraftRow }) {
         job={draftToJobContext(model)}
         qrURL={PREVIEW_QR_URL}
         pageIndex={0}
+        // 缩略图只画第一页 —— 它就是这一张的全部，所以总数是 1。
+        pageCount={1}
         scale={THUMB_SCALE}
       />
     </div>

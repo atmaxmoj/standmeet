@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "viewport": [1280, 2400],
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "ac-07-codes-revoked", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "[data-testid=\"code-revoke-app-cqzdl6\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"code-revoke-app-rcfie3\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"code-revoke-app-idflwn\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

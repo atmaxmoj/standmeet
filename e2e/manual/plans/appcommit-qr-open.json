@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "ac-06-qr-landing", "url": "/?code=app-rcfie3", "wait": 6000 }
+  ]
+}
