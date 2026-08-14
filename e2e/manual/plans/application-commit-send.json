@@ -1,0 +1,27 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "downloadDir": "../e2e/manual-runs/2026-08-07T0027/downloads",
+  "viewport": [1280, 900],
+  "shots": [
+    { "name": "ac-03-send-confirm", "url": "/admin/drafts",
+      "steps": [
+        { "wait": 5000 },
+        { "click": "button:has-text(\"OPEN COMPOSER\")" },
+        { "wait": 6000 },
+        { "click": "[data-testid=\"composer-send\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 500 },
+    { "name": "ac-04-sent", "url": "/admin/drafts",
+      "steps": [
+        { "wait": 5000 },
+        { "click": "button:has-text(\"OPEN COMPOSER\")" },
+        { "wait": 6000 },
+        { "click": "[data-testid=\"composer-send\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"composer-confirm-send\"]" },
+        { "wait": 30000 }
+      ],
+      "wait": 3000 }
+  ]
+}
