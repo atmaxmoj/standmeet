@@ -133,6 +133,14 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
 //
 // 以前**只有**色板那一支:owner 通过 MCP 设了 cover_image_asset_id,访客这边照样是一块
 // 程序生成的颜色 —— 而且看不出哪里不对,因为它本来就长得像个封面。
+//
+// ⚠️ UX-78 想改的正是这里：没有封面图时这块 21:9 是 ~400px 的生成渐变，上面只有标题和
+// 日期，而两者下面那条 meta 里各有一份 —— 真 vault 的一条稠密数学笔记，第一屏几乎全是
+// 空色块。**但那不是我能在设计列里做的改动**：`wiki-meta-row.spec.ts:51` 明确守着
+// 「没有 tag 的封面显示 `wiki`」，也就是**无图时那块色板是被守卫钉住的行为**；
+// 而 corpus-media 的 check 4 又写着「没有 hero 的条目不许渲染空的 hero 壳」。
+// 两份文件对同一件事的说法相反 —— 这是 owner 的产品决定，不是排版偏好。
+// 在它定下来之前，这里保持原样（[[design-column-boundary]]：改完要动测试的，就不是设计列的）。
 function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
   const { head, sub } = splitTitle(entry.title);
   return (
@@ -185,6 +193,13 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
   );
 }
 
+// Breadcrumb —— 位置 + 右边那行 `{date} · {count} sources cited`。
+//
+// ⚠️ UX-78 的另一半：同样这两件事下面那条 meta 里各有一份（`… · BY … · 0 CORPUS SOURCES`），
+// 而且换了一套词（`sources cited` 对 `corpus sources`）—— 同一屏说两遍、还说得不一样。
+// **但 `wiki-meta-row.spec.ts:42` 这条守卫的名字就是「meta row shows N corpus sources;
+// breadcrumb shows N sources cited」** —— 这份重复是被人明确要求过的，删掉它要改那条守卫，
+// 于是它不属于设计列（[[design-column-boundary]]）。留在这里等 owner 定。
 function Breadcrumb({ ancestors, current, updatedAt, sourcesCount }: {
   ancestors: TreeNode[]; current: string; updatedAt: string; sourcesCount: number;
 }) {
