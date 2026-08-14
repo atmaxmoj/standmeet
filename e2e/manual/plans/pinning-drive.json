@@ -1,0 +1,27 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/page-corpus-pinning/shots",
+  "viewport": [1280, 1800],
+  "shots": [
+    { "name": "pp-10-pins-before", "url": "/admin/page", "wait": 4000 },
+    { "name": "pp-11-picker-open", "url": "/admin/page",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"pin-add-insights\"]" },
+        { "wait": 1500 }
+      ],
+      "wait": 800 },
+    { "name": "pp-12-two-pinned", "url": "/admin/page",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"pin-add-insights\"]" },
+        { "wait": 1200 },
+        { "click": "[data-testid=\"pin-option-dd569175-308e-4d1d-8755-7db605c940b8\"]" },
+        { "wait": 1200 },
+        { "click": "[data-testid=\"pin-add-insights\"]" },
+        { "wait": 1200 },
+        { "click": "[data-testid=\"pin-option-98654137-5567-489a-b6ab-937816f3079b\"]" },
+        { "wait": 1500 }
+      ],
+      "wait": 800 }
+  ]
+}

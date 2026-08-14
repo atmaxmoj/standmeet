@@ -1,0 +1,16 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/page-corpus-pinning/shots",
+  "viewport": [1280, 1800],
+  "shots": [
+    { "name": "pp-17-restored-no-pins", "url": "/admin/page",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"pin-row-insights-0\"] button:has-text(\"unpin\")" },
+        { "wait": 1200 },
+        { "click": "[data-testid=\"save\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1000 },
+    { "name": "pp-18-home-restored", "url": "/", "wait": 4000 }
+  ]
+}
