@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/api-key-facade/shots",
+  "downloadDir": "/private/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/mcpkey",
+  "viewport": [1280, 1800],
+  "shots": [
+    { "name": "ak-01-mcp-key", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"token-name\"]", "audit-facade"] },
+        { "click": "[data-testid=\"token-create\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid=\"key-pem-download\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1500 }
+  ]
+}
