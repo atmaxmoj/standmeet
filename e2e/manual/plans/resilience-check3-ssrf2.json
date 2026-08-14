@@ -1,0 +1,19 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1800],
+  "login": false,
+  "shots": [
+    { "name": "rs-04-internal-endpoint-custom-provider", "url": "/gate",
+      "steps": [
+        { "wait": 3500 },
+        { "select": ["[data-testid=\"byoai-provider\"]", "custom"] },
+        { "wait": 800 },
+        { "type": ["[data-testid=\"byoai-endpoint\"]", "http://localtest.me:8000"] },
+        { "type": ["[data-testid=\"byoai-key\"]", "sk-not-a-real-key-000000000000"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"byoai-load-models\"]" },
+        { "wait": 1500 }
+      ],
+      "wait": 300 }
+  ]
+}

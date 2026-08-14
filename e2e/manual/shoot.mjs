@@ -111,6 +111,8 @@ for (const shot of plan.shots) {
     // pickDir —— 往 `<input type="file" webkitdirectory>` 里选一个**目录**（vault 导入用的
     // 就是这种控件）。人点「import from Obsidian」后在系统对话框里选的也正是一个目录。
     step.pickDir && await page.locator(step.pickDir[0]).setInputFiles(step.pickDir[1]);
+    // select —— 下拉选一项。人点开下拉挑一个；`type` 那条（fill）对 `<select>` 不起作用。
+    step.select && await page.locator(step.select[0]).first().selectOption(step.select[1]);
     // press —— 有些东西只能按键提交（访客对话框没有发送按钮，回车就是发送）。
     step.press && await page.locator(step.press[0]).first().press(step.press[1]);
     // 懒加载的树：上一次点击要等它把下一层取回来，下一个选择器才存在。
