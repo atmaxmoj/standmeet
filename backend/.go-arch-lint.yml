@@ -27,6 +27,8 @@ components:
     in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
   textcut:
     in: internal/infra/textcut                   # 按字符/字节安全截断文本（唯一实现）；domain-less leaf
+  plaintext:
+    in: internal/infra/plaintext                 # 外来 HTML → 可读文本（唯一实现）；domain-less leaf
   session:
     in: internal/infra/session
   config:
@@ -655,6 +657,9 @@ deps:
       - jobsmodel
       - httpx
       - textcut
+      # plaintext —— 板子交回来的是 HTML（greenhouse 还是双重转义的）。title 会印在
+      # /admin/listings 上、body_text 会喂给 owner 的模型，两处都要文字不要标记（F-E-7）。
+      - plaintext
     anyVendorDeps: true
 
   # gotenberg —— thin HTTP client for the Gotenberg sidecar (headless

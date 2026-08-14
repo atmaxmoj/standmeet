@@ -1,0 +1,2 @@
+{ "out": "/tmp", "viewport": [1280, 2400],
+  "shots": [ { "name": "api-probe", "url": "/admin/api", "wait": 5000 } ] }

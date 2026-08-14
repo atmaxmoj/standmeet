@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/plaintext"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
@@ -118,7 +119,21 @@ func (r *Registry) Fetch(
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", kind, err)
 	}
-	return jobs, nil
+	return readableJobs(jobs), nil
+}
+
+// readableJobs —— 每个源交回来的字都要变成**文字**再进池子（F-E-7）。
+//
+// 为什么在这里而不是十个适配器里各补一刀：这是它们唯一的汇合点。板子给的是 HTML
+// （greenhouse 还是双重转义的），而 title 会直接印在 `/admin/listings` 上、body_text 会直接
+// 喂给 owner 的模型 —— 两处都是给人/给模型读的位置，标记在那儿不是内容。适配器仍然
+// **不解析结构**（Company | Title | … 那种切分照旧留给 Claude），这一步只解开传输层的编码。
+func readableJobs(jobs []jobsmodel.FetchedJob) []jobsmodel.FetchedJob {
+	for i := range jobs {
+		jobs[i].Title = plaintext.FromHTML(jobs[i].Title)
+		jobs[i].BodyText = plaintext.FromHTML(jobs[i].BodyText)
+	}
+	return jobs
 }
 
 // ValidateKindConfig —— 在 register_source 路径上校验 (kind, config) 形状：
