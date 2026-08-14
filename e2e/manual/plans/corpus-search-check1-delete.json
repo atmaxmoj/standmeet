@@ -1,0 +1,14 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-search/shots",
+  "viewport": [1280, 1600],
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "cs-22-deleted", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"wiki-delete-c29a914a-26ca-45ef-a5d1-2f8013342dbd\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

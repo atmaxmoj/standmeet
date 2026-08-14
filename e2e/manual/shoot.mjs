@@ -44,6 +44,13 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: vw, height: vh } });
 const page = await ctx.newPage();
 
+// acceptDialogs —— 原生 confirm()/alert() 一律点「确定」。**必须逐个 plan 显式打开**：
+// 人点 OK 是真实动作，但默认接受会让别的 plan 里的破坏性确认被静默点掉，而那种事发生时
+// 截图上什么都看不出来。要它的 plan 自己写 `"acceptDialogs": true`。
+if (plan.acceptDialogs === true) {
+  page.on('dialog', (d) => { void d.accept(); });
+}
+
 // 登录走**真表单**：填邮箱、填密码、按回车 —— 不注 cookie、不塞 token。
 if (plan.login !== false) {
   await page.goto(`${BASE}/login`);

@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-search/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    { "name": "cs-20-created", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"wiki-new-btn\"]" },
+        { "wait": 1500 },
+        { "type": ["[data-testid=\"wiki-create-title\"]", "zqxverify7731"] },
+        { "type": ["[data-testid=\"wiki-create-body\"]", "zqxverify7731 is a throwaway marker written by the real-env audit to drive corpus-search check 1. It is deleted in the same run."] },
+        { "click": "[data-testid=\"wiki-create-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

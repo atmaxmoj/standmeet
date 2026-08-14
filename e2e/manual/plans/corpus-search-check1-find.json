@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-search/shots",
+  "viewport": [1280, 2000],
+  "login": false,
+  "shots": [
+    { "name": "cs-23-gone", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Search Consistency"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 9000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What is zqxverify7731? Quote what the corpus says."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 30000 }
+      ],
+      "wait": 2000 }
+  ]
+}
