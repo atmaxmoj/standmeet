@@ -33,12 +33,13 @@ test.describe('turn rendering: citations, pending, error', () => {
 
   test('answer renders with citations block',
     async ({ page }) => {
+      // `enterCodeSession` 自己已经跳过名字选择器、并等到 /sessions 200 才返回。
+      // 这里**不能再 dismiss 一次**：那是个 check-then-act 竞态 —— `isVisible` 为真的
+      // 那一瞬和真正点下去之间，picker 正在 unmount，于是 Playwright 报
+      // 「element was detached from the DOM」然后重试到 10 秒超时。
+      // 全量套件里它随机红一次，单跑却几乎总是绿 —— 因为窗口只有几十毫秒。
+      // （`chat-composer.spec.ts` 早就把这条写在注释里了，这个文件没跟上。）
       await enterCodeSession(page, CODE);
-      // Skip name picker if visible
-      const skip = page.getByTestId('visitor-name-skip');
-      if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await skip.click();
-      }
       const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about yourself');
       await input.press('Enter');

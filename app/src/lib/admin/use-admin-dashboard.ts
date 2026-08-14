@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { z } from 'zod';
 
 import { pendingRequests } from '@/lib/admin/access-request-status';
+import { growthStore } from '@/lib/admin/use-corpus-growth';
 
 export interface DashboardStats {
   rawCount: number;
@@ -134,10 +135,17 @@ async function load(setState: (s: State) => void): Promise<void> {
 
 const WrappedListSchema = z.object({ items: z.array(z.unknown()).optional() });
 
+// fetchGrowth —— 走**共享的** growth store，不再自己 fetch 一次（F-C-31）。
+//
+// 侧栏那条 rail 和这张 pulse 卡画的是同一份计数。各拉各的时候，两次请求落在两个时刻，
+// 中间进了一条语料就够了：rail 写 `+2 in 7d`，卡片同时写 `nothing new in 14d` ——
+// 而 7 天是 14 天的子集，两句话不可能同时为真。`refresh()` 而不是 `ensureLoaded()`：
+// 进 dashboard 就是要看最新的数，缓存住的旧值正是这类矛盾的另一半。
 async function fetchGrowth(): Promise<z.infer<typeof GrowthSchema>> {
-  const res = await fetch('/api/admin/stats/growth', { credentials: 'include' });
-  if (!res.ok) throw new Error(`/api/admin/stats/growth: ${res.status}`);
-  return GrowthSchema.parse(await res.json());
+  await growthStore.getState().refresh();
+  const data = growthStore.getState().data;
+  if (!data) throw new Error('corpus growth is not loaded');
+  return GrowthSchema.parse(data);
 }
 
 async function fetchList<T>(url: string, schema: z.ZodType<T[]>): Promise<T[]> {

@@ -23,7 +23,13 @@ const CorpusGrowthSchema = z.object({
 });
 export type CorpusGrowth = z.infer<typeof CorpusGrowthSchema>;
 
-const growthStore = createResourceStore<CorpusGrowth>({
+// growthStore —— **这一份计数只有这一个家**。侧栏 pulse 栏、/admin/raw 的标题与 tab、
+// 侧栏 badge、以及 dashboard 的那张 pulse 卡，读的都得是它（F-C-31）。
+//
+// dashboard 曾经自己再 `fetch('/api/admin/stats/growth')` 一次：同一个端点、两次请求、
+// 两个时刻。中间只要进了一条语料，同一屏上就会出现「rail 说 +2 in 7d」而「卡片说
+// nothing new in 14d」—— 7 天是 14 天的**子集**，两句话不可能同时成立。
+export const growthStore = createResourceStore<CorpusGrowth>({
   name: 'corpus-growth',
   fetcher: () => adminAPI.get('/stats/growth', CorpusGrowthSchema),
 });

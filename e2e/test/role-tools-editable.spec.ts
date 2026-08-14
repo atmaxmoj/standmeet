@@ -58,7 +58,15 @@ test.describe('F-D-9 · a role’s tool grants stay editable after it exists', (
         .toBeVisible({ timeout: 5_000 });
 
       await chip.click();
+      // 等那次写**真的回来**再重载：紧接着 reload 会把飞在半空的 PUT 掐掉，
+      // 于是「没保存」和「没等它保存完」在屏幕上长得一模一样（[[write-with-no-receipt]]）。
+      const saved = adminPage.waitForResponse(
+        (r) => /\/api\/admin\/roles\//.test(r.url()) && r.request().method() === 'PUT',
+        { timeout: 10_000 },
+      );
       await invitedCard(adminPage).getByTestId('role-tools-save').click();
+      const res = await saved;
+      expect(res.status(), '保存本身必须成功,不然下面断的是另一件事').toBeLessThan(400);
 
       // 重载再看：断的是「记住了」，不是「点得动」。卡上那一格本来就有（只读的
       // `N servers`），所以这里复用它，不新造 testid。
