@@ -17,7 +17,7 @@ export function CodeQRModal({ code, onClose }: Props) {
   const link = buildShareLink(code.code);
   return (
     <ModalShell onClose={onClose} kicker="scan / share" title={code.label}>
-      <div className="px-7 py-8 flex flex-col items-center">
+      <div className="px-7 py-8 flex flex-col items-center" data-testid="code-qr-modal">
         <div className="p-4 border border-(--color-rule) bg-(--color-paper)">
           <QRCode value={link} size={240} />
         </div>

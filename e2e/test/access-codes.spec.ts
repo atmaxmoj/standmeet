@@ -50,6 +50,32 @@ test.describe('owner issues an access code in admin; visitor uses it', () => {
       await expect(page.getByTestId('code-list')).not.toContainText('No codes yet');
       await visitorChatsWithCode(request);
     });
+
+  // F-D-12 —— 一张码要能**递出去**。item 的 check 2 逐字写着「Click copy-share」，
+  // 而卡片上没有这个控件：`CodeQRModal`（产品里**唯一**带 copy link 的地方）打不开。
+  // `CodesSection` 把 `openQR` 一路传到 `CodeCard`，卡片却把它签收成 `onShowQR: _onShowQR` ——
+  // 下划线是「故意不用」的写法，也就是有人撞上了未使用变量的 lint，然后把它消音了，
+  // 而不是接上去。声明齐全、线也拉到了，末端被主动丢掉。
+  //
+  // 判据不钉住「必须是哪个控件」：卡片上得有**某个**能打开分享面板的东西，点开之后
+  // 那个面板要给得出可复制的链接。
+  test('a card can hand its code over: the share panel opens and carries the link',
+    async ({ adminPage: page }) => {
+      await openCodes(page);
+      await createCodeInUI(page, 'SHARE-001', 'Share test');
+      await expectCodeRowVisible(page, 'SHARE-001');
+
+      const card = page.getByTestId('code-card-SHARE-001');
+      await card.getByTestId('code-qr-open').click();
+
+      const modal = page.getByTestId('code-qr-modal');
+      await expect(modal, '分享面板要真的打开').toBeVisible({ timeout: 10_000 });
+      await expect(modal, '面板上要有那条能递出去的链接').toContainText('SHARE-001');
+      await expect(
+        modal.getByRole('button', { name: /copy/i }),
+        '要能复制 —— 让 owner 自己把 URL 从卡片上抄下来不算「能分享」',
+      ).toBeVisible();
+    });
 });
 
 async function seedTaggedWiki(request: APIRequestContext): Promise<void> {

@@ -1,0 +1,14 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    { "name": "ac-20-codes-full", "url": "/admin/codes", "wait": 4500, "fullPage": true },
+    { "name": "ac-21-share-panel", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "[data-testid=\"code-card-VOICE-01\"] [data-testid=\"code-qr-open\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1000 }
+  ]
+}

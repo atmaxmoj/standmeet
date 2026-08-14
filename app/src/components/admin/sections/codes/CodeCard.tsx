@@ -26,14 +26,14 @@ type Props = {
   onRevoke: (c: CodeView) => void;
 };
 
-export function CodeCard({ code, onEdit, onPreview, onShowQR: _onShowQR, onRevoke }: Props) {
+export function CodeCard({ code, onEdit, onPreview, onShowQR, onRevoke }: Props) {
   const link = buildShareLink(code.code);
   return (
     <article className="crosshair border border-(--color-rule) bg-(--color-surface)/30 p-5 rounded-sm" data-testid={`code-card-${code.code}`}>
       <span className="ch-tl" /><span className="ch-br" />
       <CodeCardHeader code={code} onEdit={onEdit} onPreview={onPreview} onRevoke={onRevoke} />
       <div className="mt-5">
-        <CodeCardBody code={code} />
+        <CodeCardBody code={code} onShowQR={onShowQR} />
       </div>
       <CodeCorpusConfig codeID={code.id} codeLabel={code.code} />
       <CodeCardFooter code={code} link={link} />
@@ -118,14 +118,14 @@ function PurposeText({ purpose }: { purpose?: string }) {
   ) : null;
 }
 
-function CodeCardBody({ code }: { code: CodeView }) {
+function CodeCardBody({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => void }) {
   return (
     <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-5">
       <MembersCol codeID={code.id} code={code.code} />
       <RoleCol code={code} />
       <PromptCol code={code} />
       <GhostEvidenceCol code={code} />
-      <QRCol code={code} />
+      <QRCol code={code} onShowQR={onShowQR} />
       <QuotaBar code={code} />
     </div>
   );
@@ -240,11 +240,25 @@ function MembersCol({ codeID, code }: { codeID: string; code: string }) {
   );
 }
 
-function QRCol({ code }: { code: CodeView }) {
+// QRCol —— 卡片上那张小 QR **就是**分享的入口：点开是大图 + 可复制的链接 + 打印（F-D-12）。
+//
+// 在此之前 `CodeCard` 把 `onShowQR` 签收成 `_onShowQR`（「故意不用」的写法）：整条线拉到了
+// 卡片就断了，于是 `CodeQRModal` —— 产品里**唯一**带 copy link 的地方 —— 谁也打不开，
+// 而 owner 要把码递出去只能自己从卡片上抄那行 URL。72px 的 QR 也不是拿来扫的。
+function QRCol({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => void }) {
+  const t = useTranslations('adminAccess');
   const link = buildShareLink(code.code);
   return (
     <MetaPair label="QR">
-      <span data-testid="code-qr"><QRCode value={link} size={72} /></span>
+      <button
+        type="button"
+        onClick={() => onShowQR(code)}
+        data-testid="code-qr-open"
+        title={t('codeCard.openShare')}
+        className="cursor-pointer hover:opacity-70 transition-opacity"
+      >
+        <span data-testid="code-qr"><QRCode value={link} size={72} /></span>
+      </button>
     </MetaPair>
   );
 }

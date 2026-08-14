@@ -25,7 +25,8 @@
     "roleFrozen": "issued with role (frozen)",
     "quota": "quota",
     "status": "status · {status}",
-    "viewConversations": "view conversations →"
+    "viewConversations": "view conversations →",
+    "openShare": "open the share panel — big QR, copyable link, printable"
   },
   "codeCorpus": {
     "loadError": "Couldn’t load this code’s corpus scope. Reload and retry.",
