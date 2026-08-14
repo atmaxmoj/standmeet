@@ -37,6 +37,11 @@ func commitDraft(deps Deps) http.HandlerFunc {
 
 // committedView —— **不带 PDF**：MCP 那条路把 PDF 作为 embedded resource 交给 owner 的 AI
 // （它要拿去投递），而面板这条路上 owner 要知道的是「成了没有、码是多少、扫码去哪」。
+//
+// **订正**：这里原本写着「那份 PDF 归档在 application 行上，列表页自己能取」——**那是假的，
+// 我没核实就写下了它**。`applications` 表没有 PDF 列，`jobsuc` 里也没有任何一处把渲染结果落库；
+// 那些字节只在 commit 的回参里出现一次。面板上的 `DOWNLOAD PDF` 因此不是忘了接线，
+// 是背后没有东西可接（F-E-13）。要让面板能下载，得先决定是存 bytes 还是按需重渲 —— 那是产品决定。
 type committedView struct {
 	ApplicationID string `json:"application_id"`
 	AccessCode    string `json:"access_code"`

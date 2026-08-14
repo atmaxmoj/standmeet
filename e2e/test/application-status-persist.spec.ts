@@ -57,28 +57,34 @@ test.describe('admin /applications · the status control must not claim a status
     statusMustNotOutliveReload);
   test('the active status is visibly different from the others', litSegmentLooksDifferent);
   test('private notes do not accept an edit they cannot keep', notesDoNotPretendToSave);
-  test('no footer action promises a state change nothing can perform', footerActionsAreHonest);
+  test('no control in the modal promises something nothing can perform', modalActionsAreHonest);
 });
 
-// footerActionsAreHonest —— F-E-12。同一张弹窗的第三格。
+// modalActionsAreHonest —— F-E-12 + F-E-13。**这张弹窗上任何看起来能点的东西，要么真能做，
+// 要么明说做不了。**
 //
-// `WITHDRAW`（朱红的危险色）和 `LOG UPDATE` 都是没有 onClick 的 `<button>`：点下去状态不变、
-// 一个请求都不发、连一句提示都没有。owner 点完 WITHDRAW 会以为撤回了。
-// 这条链上唯一的写口是 applications.commit —— 设计里的 applications.update_status 从没建过。
+// 第一版只遍历 `.sm-app-modal-foot button`，于是它绿着，而同一张弹窗上另外三颗死按钮
+// （`PING IN CHAT` / `VIEW FULL` / `DOWNLOAD PDF`）**就在扫描范围之外一节** ——
+// 闸门自己犯了它要防的那个错（[[gate-can-go-blind]]）。范围现在是整张弹窗。
+//
+// 五颗当时都没有 onClick：点下去状态不变、一个请求都不发、连一句提示都没有。
+// `WITHDRAW` 还是朱红的危险色，owner 点完会以为撤回了。
+// 而 `DOWNLOAD PDF` 更深一层：`applications` 表根本没有 PDF 列，那份产物只在 commit 的
+// 回参里出现一次 —— 不是忘了接线，是背后没有东西可接。
 //
 // 断的是**每一颗**按钮自己的 disabled，不是「有没有那句解释」：文案会改，属性是行为。
-// 遍历而不是点名两颗 —— 将来加第三颗照样得给出答案（要么真能做，要么明说做不了）。
-async function footerActionsAreHonest({ adminPage: page }: { adminPage: Page }): Promise<void> {
+// 遍历而不是点名 —— 将来加一颗照样得给出答案。
+async function modalActionsAreHonest({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'applications');
   await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
   const modal = await openApplication(page);
 
-  const foot = modal.locator('.sm-app-modal-foot button');
-  const n = await foot.count();
-  expect(n, 'precondition: the footer has action buttons').toBeGreaterThan(0);
+  const buttons = modal.locator('button');
+  const n = await buttons.count();
+  expect(n, 'precondition: the modal has buttons').toBeGreaterThan(3);
 
   for (let i = 0; i < n; i++) {
-    const b = foot.nth(i);
+    const b = buttons.nth(i);
     const label = ((await b.textContent()) ?? '').trim();
     // CLOSE 真的会做事（关掉弹窗），它该是活的。其余的必须要么真能做，要么禁用。
     if (/close/i.test(label)) continue;

@@ -120,7 +120,8 @@ function ContactBlock({ contact }: { contact: string }) {
     <section className="mt-5 pt-3.5 border-t border-(--color-rule)">
       <div className="sm-smallcaps">{t('detail.contact')}</div>
       <div className="font-serif text-[15px] mt-1">{contact}</div>
-      <button type="button" className="sm-btn sm-btn-outline sm-btn-sm mt-2">
+      {/* 禁用中：没有联系人、也没有从这里发起对话的通道（F-E-13）。它原来是能点的、点了什么都不发生。 */}
+      <button type="button" disabled title={t('detail.needsWriter')} className="sm-btn sm-btn-outline sm-btn-sm mt-2">
         {t('detail.pingInChat')}
       </button>
     </section>
@@ -192,8 +193,12 @@ function SnapshotActions() {
   const t = useTranslations('adminJobs');
   return (
     <div className="flex items-baseline gap-1.5 mt-2">
-      <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">{t('detail.viewFull')}</button>
-      <button type="button" className="sm-btn sm-btn-ghost sm-btn-sm">{t('detail.downloadPdf')}</button>
+      {/* 两颗都禁用中，而且不只是没接线：**那份 PDF 没有存在任何地方**。`applications` 表没有
+          PDF 列，渲染出来的字节只在 `applications.commit` 的回参里出现一次（作为 embedded
+          resource 交给 owner 的 AI）。面板要能看/能下，得先决定存 bytes 还是按需重渲 ——
+          那是产品决定，不在这一刀里发明（F-E-13）。 */}
+      <button type="button" disabled title={t('detail.pdfNotKept')} className="sm-btn sm-btn-outline sm-btn-sm">{t('detail.viewFull')}</button>
+      <button type="button" disabled title={t('detail.pdfNotKept')} className="sm-btn sm-btn-ghost sm-btn-sm">{t('detail.downloadPdf')}</button>
     </div>
   );
 }
