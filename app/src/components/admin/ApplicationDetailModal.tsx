@@ -235,9 +235,13 @@ function ModalFooter({ app, onClose }: { app: Application; onClose: () => void }
       <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
         {t('detail.footMeta', { committedAt: app.committedAt, method: app.method })}
       </span>
+      {/* withdraw / log update 禁用中：两颗都要 `applications.update_status`，而那个写口还没建
+          （设计里有：`docs/design/job-loop.md`，L.7 把它推后了）。它们原来是**能点的**，点下去
+          状态不变、一个请求不发、连一句话都没有 —— 而 withdraw 还长着破坏性动作的样子，
+          owner 点完会以为这份申请撤回了（F-E-12）。写口建好那天，去掉 disabled **并且**接上它。 */}
       <div className="flex items-baseline gap-2">
-        <button type="button" className="sm-btn sm-btn-danger sm-btn-sm">{t('detail.withdraw')}</button>
-        <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">{t('detail.logUpdate')}</button>
+        <button type="button" disabled title={t('detail.needsWriter')} className="sm-btn sm-btn-danger sm-btn-sm">{t('detail.withdraw')}</button>
+        <button type="button" disabled title={t('detail.needsWriter')} className="sm-btn sm-btn-outline sm-btn-sm">{t('detail.logUpdate')}</button>
         <button type="button" onClick={onClose} className="sm-btn sm-btn-solid sm-btn-sm">{t('detail.closeAction')}</button>
       </div>
     </div>

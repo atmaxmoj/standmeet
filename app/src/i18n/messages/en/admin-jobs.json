@@ -45,6 +45,7 @@
     "pingInChat": "ping in chat ↗",
     "privateNotes": "private notes",
     "notesReadOnly": "read-only for now — nothing stores notes yet, so this box would lose whatever you typed",
+    "needsWriter": "not available yet — this instance has no way to record a status change; commit is the only write on this path",
     "snapshotHead": "resume sent · snapshot",
     "resume": "resume",
     "tailoredFor": "tailored for {company} · {role}",

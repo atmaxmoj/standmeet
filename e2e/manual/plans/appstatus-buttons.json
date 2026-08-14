@@ -1,0 +1,16 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-status-persist/shots",
+  "viewport": [1280, 1600],
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "as-07-after-withdraw-click", "url": "/admin/applications",
+      "steps": [
+        { "wait": 5000 },
+        { "click": "text=OPEN" },
+        { "wait": 3000 },
+        { "click": "button:has-text(\"WITHDRAW\")" },
+        { "wait": 3000 }
+      ],
+      "wait": 800 }
+  ]
+}
