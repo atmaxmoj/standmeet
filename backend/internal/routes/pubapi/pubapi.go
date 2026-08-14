@@ -14,7 +14,9 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -91,8 +93,13 @@ func (h *Handlers) authRate(next http.Handler) http.Handler {
 			h.writeErr(w, http.StatusUnauthorized, "unauthorized", "invalid or missing api key")
 			return
 		}
-		if !h.allowRate(r.Context(), &key) {
-			h.writeErr(w, http.StatusTooManyRequests, "rate_limited", "rate limit exceeded")
+		if allowed, wait := h.rateVerdict(r.Context(), &key); !allowed {
+			// Retry-After —— **说清什么时候能再试**(F-K-2)。只说"你被限了"的话,守规矩的客户端
+			// 也只能猜,而最常见的猜法是立刻重试 —— 恰恰是限流要防的那件事。
+			// 这个秒数不是估的:它是那把 Redis 计数键的剩余 TTL,也就是窗口真正还剩多久。
+			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
+			h.writeErr(w, http.StatusTooManyRequests, "rate_limited",
+				"rate limit exceeded — retry after the window resets")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), keyCtxKey, &key)))
@@ -136,19 +143,47 @@ func toolsetFromCtx(ctx context.Context) *capload.APIToolset {
 	return t
 }
 
-// allowRate —— per-key fixed-window limiter. Fail-open on Redis error (authenticated keys →
+// rateVerdict —— per-key fixed-window limiter. Fail-open on Redis error (authenticated keys →
 // availability over throttling, unlike login_guard which fails closed).
-func (h *Handlers) allowRate(ctx context.Context, key *access.APIKey) bool {
+//
+// 拒绝时**一并给出还要等多久**:那是这把计数键的剩余 TTL,即这个窗口真正还剩的时间。
+// 调用方拿它填 `Retry-After`(F-K-2)—— 不给这个数,客户端只能猜,而猜的结果通常是立刻重试。
+// 两个返回值类型不同(bool / Duration),所以不必起名 —— 起了反而撞 nonamedreturns。
+// 计数那一段拆进 bumpWindow:面上的函数要守 cyclo ≤3,而"数一次"本来也是独立的一件事。
+func (h *Handlers) rateVerdict(ctx context.Context, key *access.APIKey) (bool, time.Duration) {
 	rkey := "ratelimit:apikey:" + key.ID
+	n, counted := h.bumpWindow(ctx, rkey)
+	if !counted {
+		return true, 0 // fail-open：redis 抖不该把已认证的调用方挡在门外
+	}
+	if n <= int64(keyLimit(key, h.d.DefaultRPM)) {
+		return true, 0
+	}
+	return false, h.windowLeft(ctx, rkey)
+}
+
+// bumpWindow —— 这个窗口内的第几次调用;第一次顺手把 TTL 装上。
+// 第二个返回值是"数到了没有":redis 出错时返 false,由调用方决定放行(fail-open)。
+func (h *Handlers) bumpWindow(ctx context.Context, rkey string) (int64, bool) {
 	n, err := h.d.Redis.Incr(ctx, rkey).Result()
 	if err != nil {
 		h.d.Log.Warn("api key rate limit redis", "err", err)
-		return true
+		return 0, false
 	}
 	if n == 1 {
 		h.setRateExpiry(ctx, rkey)
 	}
-	return n <= int64(keyLimit(key, h.d.DefaultRPM))
+	return n, true
+}
+
+// windowLeft —— 这把计数键还有多久过期。取不到(键刚好没了 / redis 抖)就退回整窗:
+// 宁可让调用方多等一会儿,也**不要给一个 0** —— 0 的意思是"现在就可以重试",那是假话.
+func (h *Handlers) windowLeft(ctx context.Context, rkey string) time.Duration {
+	ttl, err := h.d.Redis.TTL(ctx, rkey).Result()
+	if err != nil || ttl <= 0 {
+		return rateWindow
+	}
+	return ttl
 }
 
 func (h *Handlers) setRateExpiry(ctx context.Context, rkey string) {

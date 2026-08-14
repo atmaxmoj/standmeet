@@ -85,6 +85,24 @@ async function checkRateLimit(r: APIRequestContext): Promise<void> {
   expect(statuses.filter((s) => s === 429).length, 'budget-5 key trips 429').toBeGreaterThan(0);
   // the good (default-limit) key is on its own window → still served.
   expect((await facadeQuery(r, goodKey, { query: 'x' })).status(), 'other key unaffected').toBe(200);
+  await checkRetryAfter(r, limited.secret);
+}
+
+// checkRetryAfter —— 429 要说**什么时候**能再试,不只是「你被限了」(F-K-2)。
+//
+// 拿不到时间的客户端只能猜,而最常见的猜法是立刻重试 —— 恰恰是限流要防的那件事。
+// 这一条不是礼貌问题:同一个仓库的推理传输层**要求上游给 `Retry-After` 并据此退避**
+// (F-A-31),我们不能要求别人给、自己这一侧不给。
+//
+// 断言的是**头**而不是响应体里的措辞:头是机器读的那一份,而会照做的正是机器。
+async function checkRetryAfter(r: APIRequestContext, limitedKey: string): Promise<void> {
+  const res = await facadeQuery(r, limitedKey, { query: 'x' });
+  // 正对照:这一次确实是被限了。缺了它,下面的断言在「限流根本没生效」时会红得莫名其妙,
+  // 而红的原因会被记到缺头上（[[red-in-the-wrong-place]]）。
+  expect(res.status(), 'still over the cap for this assertion to mean anything').toBe(429);
+  const retryAfter = res.headers()['retry-after'];
+  expect(retryAfter, 'a 429 carries Retry-After').toBeDefined();
+  expect(Number(retryAfter), 'and it is a positive number of seconds').toBeGreaterThan(0);
 }
 
 // body DoS —— an oversized body is rejected (413), not read unbounded into memory / left to hang.
