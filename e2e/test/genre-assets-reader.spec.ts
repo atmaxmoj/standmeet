@@ -124,6 +124,31 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
     expect(html, '连素材 id 都不该出现在页面里').not.toContain(assetID);
     expect(html, '也不该漏出文件名').not.toContain('pixel.png');
   });
+
+  // F-R-6 —— 拦住他是对的，**说的那句话**不对。
+  //
+  // 这张锁屏写死了 *"The owner has restricted this entry. Enter an access code on the gate
+  // to view the full content."* + 一颗 `enter access code →`。而此刻访客**手里就有码**，
+  // 顶栏同一屏上写着 `CODE · OUT-…`：产品让他去做一件他已经做完的事，而且是唯一给出的下一步。
+  //
+  // 后端对越权和不存在**一律回 404**（那是对的：不承认存在），所以客户端分不出这两种；
+  // 但它分得出**有没有会话**，而这正是决定该说哪句话的那一位。
+  test('手里有码的访客撞上读不到的条目:不该被要求再去输一次码', async ({ page }) => {
+    await enterCodeSession(page, OUT_CODE, 'Outsider');
+    await goto(page, `/wiki/${entryPath}`);
+    const locked = page.getByTestId('wiki-locked');
+    await expect(locked, '访客确实被拦在门外').toBeVisible({ timeout: 8_000 });
+
+    const said = (await locked.innerText()).toLowerCase();
+    expect(said, `他已经带着码进来了,却被告知 "${said.replace(/\s+/g, ' ').slice(0, 90)}"`)
+      .not.toContain('enter an access code');
+    expect(said, '要说的是"这张码够不到这一条",而不是"去输码"').toMatch(/code|scope/);
+    // 那颗 CTA 也得撤：一个点了什么都不改变的按钮，比一句错话更难识破。
+    await expect(
+      locked.getByRole('link', { name: /enter access code/i }),
+      '带着码的人不需要再去 gate 输一次码',
+    ).toHaveCount(0);
+  });
 });
 
 // output 那条 reader 一度**一行素材都没接**:landing 只回 5 个字段,连 asset_urls 都没有。

@@ -1,0 +1,19 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 2400],
+  "login": false,
+  "shots": [
+    { "name": "cr-12-enter-code", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Render Auditor"] },
+        { "wait": 400 },
+        { "press": ["[data-testid=\"visitor-name-input\"]", "Enter"] },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "cr-13-simon-ando-real-path",
+      "url": "/wiki/cybernetics/theory/stages-and-gates/necessity/derivations/simon-ando",
+      "wait": 5000, "fullPage": true }
+  ]
+}

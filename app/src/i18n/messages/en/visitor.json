@@ -54,6 +54,8 @@
     "kindEntry": "entry",
     "lockedTitle": "This {kind} requires an access code",
     "lockedBody": "The owner has restricted this entry. Enter an access code on the gate to view the full content.",
+    "outOfScopeTitle": "Your code doesn’t reach this one",
+    "outOfScopeBody": "Either it sits outside what your code covers, or there is nothing at this address — the instance won’t say which. Ask below and the AI will answer from what you can read.",
     "enterCode": "enter access code →",
     "home": "← home"
   },

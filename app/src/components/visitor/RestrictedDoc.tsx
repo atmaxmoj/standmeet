@@ -18,7 +18,7 @@ import type { VisitorDoc } from '@/lib/api/public';
 import { useSessionScopedDoc } from '@/lib/visitor/use-session-doc';
 
 export function RestrictedDoc({ genre, slug }: { genre: 'wiki' | 'output'; slug: string }) {
-  const { loading, doc } = useSessionScopedDoc(slug);
+  const { loading, doc, hasSession } = useSessionScopedDoc(slug);
   const t = useTranslations('visitor.restrictedDoc');
   return (
     <>
@@ -26,19 +26,19 @@ export function RestrictedDoc({ genre, slug }: { genre: 'wiki' | 'output'; slug:
       <main className="pb-24">
         {loading
           ? <Centered>{t('opening')}</Centered>
-          : <Resolved genre={genre} slug={slug} doc={doc} />}
+          : <Resolved genre={genre} slug={slug} doc={doc} hasSession={hasSession} />}
       </main>
       <FloatingChatDock />
     </>
   );
 }
 
-function Resolved({ genre, slug, doc }: {
-  genre: 'wiki' | 'output'; slug: string; doc: VisitorDoc | null;
+function Resolved({ genre, slug, doc, hasSession }: {
+  genre: 'wiki' | 'output'; slug: string; doc: VisitorDoc | null; hasSession: boolean;
 }) {
   return doc !== null
     ? <DocContent genre={genre} slug={slug} title={doc.title} body={doc.body} />
-    : <Locked genre={genre} slug={slug} />;
+    : <Locked genre={genre} slug={slug} hasSession={hasSession} />;
 }
 
 function DocContent({ genre, slug, title, body }: {
@@ -65,7 +65,15 @@ function DocContent({ genre, slug, title, body }: {
 // Locked —— 这条读不到。**testid 挂在这一支上**:没有它,"访客看不到这条"只能靠
 // "某个元素不存在"来断,而元素不存在在页面 404、组件改名、路由挂掉时同样成立 ——
 // 一条在功能坏掉时也会绿的断言。要断的是"访客确实被拦在门外",那得有个正向的标记。
-function Locked({ genre, slug }: { genre: string; slug: string }) {
+// Locked 的两句话不是同一句 —— 说哪一句由**访客手里有没有码**决定（F-R-6）。
+//
+// 没有码：去 gate 输一张，这是能走的下一步。
+// 有码：让他再去输一次码，是让他重做一件已经做完的事 —— 而顶栏同一屏上就写着他的码。
+// 后端对「越权」和「不存在」一律回 404（不承认存在，这是对的），所以这句话必须**把两种
+// 情况都说进去**，而不是挑一种断言 —— 挑错的那一次就是一句关于世界的假话。
+function Locked({ genre, slug, hasSession }: {
+  genre: string; slug: string; hasSession: boolean;
+}) {
   const t = useTranslations('visitor.restrictedDoc');
   return (
     <div className="mx-auto max-w-2xl px-6 py-24 text-center" data-testid={`${genre}-locked`}>
@@ -74,19 +82,35 @@ function Locked({ genre, slug }: { genre: string; slug: string }) {
         {genre} · {slug}
       </div>
       <h2 className="font-serif text-[28px] text-(--color-ink) font-normal mb-4">
-        {t('lockedTitle', { kind: genre === 'output' ? t('kindOutput') : t('kindEntry') })}
+        {lockedTitle(t, genre, hasSession)}
       </h2>
       <p className="reading text-(--color-muted) text-[16px] max-w-[36em] mx-auto mb-8">
-        {t('lockedBody')}
+        {hasSession ? t('outOfScopeBody') : t('lockedBody')}
       </p>
-      <Link
-        href="/gate"
-        className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 inline-block hover:bg-(--color-accent) transition-colors"
-      >
-        {t('enterCode')}
-      </Link>
+      <GateCTA show={!hasSession} />
     </div>
   );
+}
+
+// lockedTitle —— 组件里禁 if/复杂度，标题的三岔（有码 / 无码×output / 无码×entry）抽出来。
+function lockedTitle(
+  t: (k: string, v?: Record<string, string>) => string, genre: string, hasSession: boolean,
+): string {
+  return hasSession
+    ? t('outOfScopeTitle')
+    : t('lockedTitle', { kind: genre === 'output' ? t('kindOutput') : t('kindEntry') });
+}
+
+function GateCTA({ show }: { show: boolean }) {
+  const t = useTranslations('visitor.restrictedDoc');
+  return show ? (
+    <Link
+      href="/gate"
+      className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 inline-block hover:bg-(--color-accent) transition-colors"
+    >
+      {t('enterCode')}
+    </Link>
+  ) : null;
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

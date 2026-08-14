@@ -115,6 +115,16 @@ for (const shot of plan.shots) {
     step.select && await page.locator(step.select[0]).first().selectOption(step.select[1]);
     // press —— 有些东西只能按键提交（访客对话框没有发送按钮，回车就是发送）。
     step.press && await page.locator(step.press[0]).first().press(step.press[1]);
+    // hover —— 把鼠标停在某个东西上。图表的读数只在指针底下才出现，而截图拍不到
+    // "刚才鼠标路过"这件事 —— 要拍到 tooltip，就得先真的把指针放上去、并且**停在那儿**。
+    // 用法：{"hover": "[data-testid=\"sparkline-box\"]"} 或 {"hover": ["sel", 0.9]}（0.9 = 横向位置比例）
+    step.hover && await (async () => {
+      const sel = Array.isArray(step.hover) ? step.hover[0] : step.hover;
+      const frac = Array.isArray(step.hover) ? step.hover[1] : 0.5;
+      const box = await page.locator(sel).first().boundingBox();
+      box && await page.mouse.move(box.x + box.width * frac, box.y + box.height / 2);
+      await page.waitForTimeout(300);
+    })();
     // scroll —— 把鼠标移到某个容器上滚轮。admin 的滚动在**内层容器**里（侧栏自己一个
     // overflow-y-auto，正文另一个），所以「滚页面」滚不动它们，而 fullPage 也拍不到 ——
     // 判断「下面那截够不够得着」只能真的滚一次。用法：{"scroll": ["nav", 600]}
