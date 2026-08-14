@@ -61,13 +61,41 @@ if (typeof plan.downloadDir === 'string') {
   });
 }
 
+// 浏览器侧的日志一律转出来。没有这一勺时，一次登录不动只给得出一句 waitForURL 超时，
+// 而超时对「表单没提交」「请求发了但 4xx」「JS 挂了」三种情况说的是同一句话 ——
+// 于是只能靠推理，而推理三次都错过。
+page.on('console', (m) => {
+  if (m.type() === 'error' || m.type() === 'warning') console.log(`console.${m.type()} ${m.text()}`);
+});
+page.on('pageerror', (e) => console.log(`pageerror ${e.message}`));
+page.on('requestfailed', (r) => console.log(`requestfailed ${r.method()} ${r.url()} ${r.failure()?.errorText}`));
+page.on('response', (r) => {
+  if (r.status() >= 400) console.log(`http ${r.status()} ${r.request().method()} ${r.url()}`);
+});
+
 // 登录走**真表单**：填邮箱、填密码、按回车 —— 不注 cookie、不塞 token。
 if (plan.login !== false) {
+  // 空凭据当场停。`?? ''` 会把它们原样填进表单，产品回一句「email + password required」，
+  // 而驱动器只报得出 waitForURL 超时 —— 「忘了加载凭据」于是长得跟「产品登录坏了」一模一样。
+  if (EMAIL === '' || PASSWORD === '') {
+    console.error('no owner credentials in env — run it through `make verify-shots PLAN=…`, '
+      + 'which sources ~/.config/standmeet/verify-creds.env');
+    process.exit(2);
+  }
   await page.goto(`${BASE}/login`);
   await page.getByTestId('email').fill(EMAIL);
   await page.getByTestId('password').fill(PASSWORD);
   await page.getByTestId('password').press('Enter');
-  await page.waitForURL('**/admin/**', { timeout: 15_000 });
+  // `**/admin**` 而不是 `**/admin/**`：LoginForm 成功后 push 的是 `/admin` 本身
+  // （`LoginForm.tsx:164`），后面没有下一段，带斜杠的 glob 匹配不到，登录明明成功
+  // 也会在这里超时 —— 而报出来的样子像是「登录失败」。
+  await page.waitForURL('**/admin**', { timeout: 15_000 }).catch(async (err) => {
+    // 超时了就把现场说清楚：停在哪个 URL、表单自己报了什么错、提交键是不是被禁用。
+    const err_text = await page.getByTestId('error').textContent().catch(() => null);
+    const disabled = await page.getByTestId('submit').isDisabled().catch(() => null);
+    console.log(`login stuck at ${page.url()} · form error=${err_text} · submit disabled=${disabled}`);
+    throw err;
+  });
 }
 
 for (const shot of plan.shots) {
@@ -75,6 +103,14 @@ for (const shot of plan.shots) {
   for (const step of shot.steps ?? []) {
     step.click && await page.locator(step.click).first().click();
     step.type && await page.locator(step.type[0]).first().fill(step.type[1]);
+    // typeFile —— 从文件粘贴。长正文（一篇笔记）手抄进 plan 的 JSON 里要转义换行、引号、
+    // 方括号，抄错一个字符会长得像产品把内容弄坏了，而不是像我的手误（跟 downloadDir 同一条理由）。
+    // 人从文件里复制粘贴是真动作。
+    step.typeFile && await page.locator(step.typeFile[0]).first()
+      .fill(await readFile(step.typeFile[1], 'utf8'));
+    // pickDir —— 往 `<input type="file" webkitdirectory>` 里选一个**目录**（vault 导入用的
+    // 就是这种控件）。人点「import from Obsidian」后在系统对话框里选的也正是一个目录。
+    step.pickDir && await page.locator(step.pickDir[0]).setInputFiles(step.pickDir[1]);
     // press —— 有些东西只能按键提交（访客对话框没有发送按钮，回车就是发送）。
     step.press && await page.locator(step.press[0]).first().press(step.press[1]);
     // 懒加载的树：上一次点击要等它把下一层取回来，下一个选择器才存在。

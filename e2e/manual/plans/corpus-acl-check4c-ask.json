@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "login": false,
+  "shots": [
+    { "name": "ca-09-uncited-not-listed", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Citation Check"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 9000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "In the recursive-harness notes, what does the safe-recursion theorem actually claim?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 110000 }
+      ],
+      "wait": 2000 }
+  ]
+}

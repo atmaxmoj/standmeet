@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2400],
+  "shots": [
+    { "name": "ca-18-subj-restored", "url": "/admin/subjectivity",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "[data-testid=\"subjectivity-edit-da96507d-5de5-49dd-b86c-5b2c0c8bd39c\"]" },
+        { "wait": 2500 },
+        { "typeFile": ["[data-testid=\"subjectivity-edit-form-da96507d-5de5-49dd-b86c-5b2c0c8bd39c-body\"]", "/tmp/subj_restore.txt"] },
+        { "click": "[data-testid=\"subjectivity-edit-form-da96507d-5de5-49dd-b86c-5b2c0c8bd39c-citable\"]" },
+        { "wait": 500 },
+        { "click": "[data-testid=\"subjectivity-edit-form-da96507d-5de5-49dd-b86c-5b2c0c8bd39c-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

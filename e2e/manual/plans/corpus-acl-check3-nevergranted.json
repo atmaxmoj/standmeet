@@ -1,0 +1,15 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 3000],
+  "shots": [
+    { "name": "ca-27-takeback-never-granted", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"code-corpus-denied-SBOX-01\"]", "wiki://cybernetics/engineering/recursive-harness\nwiki://cybernetics/engineering/recursive-harness/**\nraw://**"] },
+        { "wait": 800 },
+        { "click": "[data-testid=\"code-corpus-save-SBOX-01\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

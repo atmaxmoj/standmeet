@@ -58,12 +58,20 @@ function AdminLayout({
   );
 }
 
-function Loading({ state }: { state: 'loading' | 'unauthed' }) {
+// Loading —— 三种非 ready 态各说各的话。**`unreachable` 不是 `unauthed`**（F-N-2）：
+// 后端停机时把 owner 送去登录页，等于让他反复输一个没问题的密码。这里说清楚发生了什么，
+// 以及为什么现在登录也没用。
+function Loading({ state }: { state: 'loading' | 'unauthed' | 'unreachable' }) {
   return (
     <main className="mx-auto max-w-md px-6 py-24">
-      <p className="mono text-(--color-muted)">
-        {state === 'loading' ? 'loading admin…' : 'redirecting to /login…'}
-      </p>
+      <p className="mono text-(--color-muted)">{LOADING_COPY[state]}</p>
     </main>
   );
 }
+
+const LOADING_COPY: Record<'loading' | 'unauthed' | 'unreachable', string> = {
+  loading: 'loading admin…',
+  unauthed: 'redirecting to /login…',
+  unreachable: 'couldn’t reach the server — your session is fine, the instance is not '
+    + 'answering. Signing in again will not help; retry once it is back.',
+};

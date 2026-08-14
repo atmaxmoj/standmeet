@@ -1,0 +1,25 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2400],
+  "shots": [
+    { "name": "ca-11-body-edited", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-ea1b1b70-6c6d-43ab-8839-5c358b8b1b33\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-b73c405b-c4b2-44d1-ba65-126ddc523a44\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-98654137-5567-489a-b6ab-937816f3079b\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"wiki-edit-bffaa5b7-b9f4-428c-96ef-d43b8aad518c\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"wiki-edit-form-bffaa5b7-b9f4-428c-96ef-d43b8aad518c-body\"]" },
+        { "press": ["[data-testid=\"wiki-edit-form-bffaa5b7-b9f4-428c-96ef-d43b8aad518c-body\"]", "Control+End"] },
+        { "press": ["[data-testid=\"wiki-edit-form-bffaa5b7-b9f4-428c-96ef-d43b8aad518c-body\"]", "x"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"wiki-edit-form-bffaa5b7-b9f4-428c-96ef-d43b8aad518c-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

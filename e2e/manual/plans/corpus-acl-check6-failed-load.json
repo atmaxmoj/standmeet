@@ -1,0 +1,10 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    { "name": "ca-29b-admin-before-outage", "url": "/admin",
+      "steps": [{ "wait": 20000 }], "wait": 1000 },
+    { "name": "ca-30-roles-load-failed", "url": "/admin/roles", "wait": 9000 },
+    { "name": "ca-31-codes-scope-load-failed", "url": "/admin/codes", "wait": 9000 }
+  ]
+}

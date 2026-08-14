@@ -20,6 +20,7 @@
 import { useEffect } from 'react';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 
+import { APIError } from '@/lib/api/api-error';
 import { logger } from '@/lib/logger';
 import type { ResourceShape, ResourceStatus } from '@/lib/state/status';
 
@@ -50,6 +51,7 @@ export function createResourceStore<T>(
     status: 'idle' satisfies ResourceStatus,
     data: undefined,
     error: null,
+    errorStatus: null,
     lastFetched: null,
 
     ensureLoaded: async () => {
@@ -62,15 +64,17 @@ export function createResourceStore<T>(
     mutate: (next) => {
       set((s) => ({ ...s, data: applyMutate(s.data, next) }));
     },
-    reset: () => set({ status: 'idle', data: undefined, error: null, lastFetched: null }),
+    reset: () => set({
+      status: 'idle', data: undefined, error: null, errorStatus: null, lastFetched: null,
+    }),
   }));
 }
 
 async function runFetch<T>(opts: CreateResourceStoreOpts<T>, set: Setter<T>): Promise<void> {
-  set((s) => ({ ...s, status: 'loading', error: null }));
+  set((s) => ({ ...s, status: 'loading', error: null, errorStatus: null }));
   try {
     const data = await opts.fetcher();
-    set({ status: 'ready', data, error: null, lastFetched: Date.now() });
+    set({ status: 'ready', data, error: null, errorStatus: null, lastFetched: Date.now() });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'load failed';
     logger.error(`store ${opts.name}: fetch`, e);
@@ -80,6 +84,8 @@ async function runFetch<T>(opts: CreateResourceStoreOpts<T>, set: Setter<T>): Pr
       ...s,
       status: s.data === undefined ? 'error' : 'ready',
       error: message,
+      // 状态码要留住 —— 读它的人得分得清 401（去登录）和 5xx（服务器不在）。
+      errorStatus: e instanceof APIError ? e.status : null,
     }));
   }
 }
@@ -109,6 +115,7 @@ export function useResource<T>(
   const status = store((s) => s.status);
   const data = store((s) => s.data);
   const error = store((s) => s.error);
+  const errorStatus = store((s) => s.errorStatus);
   const lastFetched = store((s) => s.lastFetched);
   const ensureLoaded = store((s) => s.ensureLoaded);
   // idle ⇒ 拉。**依赖 status**，所以 reset() 把 store 打回 idle 之后这里会重新武装。
@@ -120,6 +127,6 @@ export function useResource<T>(
   // 画成骨架，列表永远转圈。owner 看到的是"卡住了"，不是"坏了"。
   // 时序决定成败：POST 先落地就一切正常，所以它在满载下才现形。
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded, status]);
-  return { status, data, error, lastFetched, ensureLoaded };
+  return { status, data, error, errorStatus, lastFetched, ensureLoaded };
 }
 

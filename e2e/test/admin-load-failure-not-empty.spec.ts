@@ -19,7 +19,7 @@ import type { Page, Playwright } from '@playwright/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, reloadAdminSection } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
@@ -41,7 +41,55 @@ test.describe('admin · a failed load must not render as an authoritative empty'
   test('code corpus: a 500 does not become “(role grants nothing)”', corpusLoadFailure);
   test('code corpus: a 500 surfaces to the owner', corpusLoadFailureIsVisible);
   test('dashboard: a 500 does not become “0 sent”', dashboardCountLoadFailure);
+  test('session: a 500 on /me does not become “you are signed out”', meFailureIsNotSignedOut);
+  test('session: a 401 on /me still sends the owner to /login', meUnauthedStillRedirects);
 });
+
+// meUnauthedStillRedirects —— 反方向。没有这条，一个「干脆永不跳转」的实现也能让上面那条转绿，
+// 而真正过期的会话会卡在一句「够不着服务器」上 —— 同一个缺陷换了个方向而已。
+async function meUnauthedStillRedirects({ adminPage }: { adminPage: Page }): Promise<void> {
+  await adminPage.route('**/api/admin/me', (route) => route.fulfill({
+    status: 401,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: { code: 'unauthorized', message: 'no session' } }),
+  }));
+  await reloadAdminSection(adminPage, 'roles');
+  await adminPage.waitForURL('**/login', { timeout: 10_000 });
+}
+
+// meFailureIsNotSignedOut —— F-N-2。同一类的第四处，衣服换了一件：**「你没登录」也是一句
+// 关于世界的断言**，而它同样可能是假的。
+//
+// `use-admin-session.ts:41/:59` 把 fetch 的 `error` 一律当成 unauthed → `router.push('/login')`。
+// 401 和 500 于是收成同一件事，可这两件事给 owner 的指示正好相反：401 要他去登录，
+// 500 说服务器不在、登录也没用。合并之后产品给出的恰恰是那个不管用的建议，
+// owner 会以为是自己的密码有问题，反复重输。
+//
+// RED（修复前）：被踢到 /login，页面上一个字都没提服务器。
+//
+// **必须整页重载**，不能只点侧栏：`gotoAdminSection` 是客户端跳转，`sessionStore` 还留着
+// 初次加载时那份 ready，`/me` 压根不会再请求一次 —— 第一版就是这么写的，于是这条用例
+// 在没修的代码上也绿，而绿的原因是**故障根本没注入进去**。owner 遇到的那一幕正是重载
+// （服务器挂了，他刷新一下、或者新开一个标签页）。
+async function meFailureIsNotSignedOut({ adminPage }: { adminPage: Page }): Promise<void> {
+  await fail(adminPage, '**/api/admin/me');
+  await reloadAdminSection(adminPage, 'roles');
+  // 等**两种结局里先出现的那一个**（登录表单，或者那句话），再判 —— 这样不必睡固定时长，
+  // 而且两条断言都还能红。只等那句话的话，缺陷在时失败信息会是"找不到元素"，
+  // 说不出真正发生的事（owner 被踢去登录了）。
+  const signInForm = adminPage.getByTestId('email');
+  const unreachable = adminPage.getByText(/couldn’t reach|could not reach|not reachable/i).first();
+  await expect(signInForm.or(unreachable).first()).toBeVisible({ timeout: 10_000 });
+  expect(
+    new URL(adminPage.url()).pathname,
+    'a 500 is not a sign-out — do not bounce the owner to /login',
+  ).not.toBe('/login');
+  // 措辞要具体到只有这条分支说得出来 —— 松到 /server/i 会被页面别处的字命中，
+  // 那样又是一个不会红的断言。
+  await expect(
+    unreachable, 'a 500 on /me must say the server could not be reached',
+  ).toBeVisible();
+}
 
 // fail —— 把某个 admin GET 钉死成 500（真实故障的确定性替身：prod 上它是缺表）。
 async function fail(page: Page, glob: string | RegExp): Promise<void> {

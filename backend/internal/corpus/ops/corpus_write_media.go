@@ -30,7 +30,7 @@ func (a *corpusWriteArgs) heroPatch() usecase.HeroPatch {
 // "只是给它配了张图"变成"把它清空了"。
 func (a *corpusWriteArgs) entryTouched() bool {
 	given := []bool{
-		a.Title != "", a.Body != "", a.ParentID != "",
+		a.Title != "", a.Body != "", a.ParentID != nil,
 		len(a.Tags) > 0, len(a.CSSClasses) > 0, a.ShowAsSource != nil, a.FlaggedPrivate,
 	}
 	for _, g := range given {

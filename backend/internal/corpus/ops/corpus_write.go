@@ -33,7 +33,9 @@ func CorpusWrites(deps usecase.Deps) []fp.Op {
 		{
 			ID: "corpus.update",
 			Description: "Update a corpus entry in place: body, tags, title, parent, and the " +
-				"show_as_source switch. Omitted fields are replaced, so send the whole entry.",
+				"show_as_source switch. Omitted fields are replaced, so send the whole entry — " +
+				"except parent_id and the cover_* fields, which are left alone when omitted " +
+				"(omitting a parent must not move the note, because its address is its parent).",
 			InputSchema: corpusUpdateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -86,7 +88,8 @@ var (
 			"id":{"type":"string","description":"Entry id."},
 			"title":{"type":"string","description":"Title (wiki / output)."},
 			"body":{"type":"string","description":"Markdown body."},
-			"parent_id":{"type":"string","description":"Parent entry id; root if empty."},
+			"parent_id":{"type":"string",
+				"description":"Parent id. OMIT to leave it put; '' moves it to the root."},
 			"tags":{"type":"array","items":{"type":"string"},"description":"Tags."},
 			"css_classes":{"type":"array","items":{"type":"string"},
 				"description":"wiki only: per-note presentation classes."},
@@ -124,19 +127,26 @@ var (
 // 但 hero 不能跟着那个规矩 —— 既有调用方一个 hero 字段都不带,那样每次改正文都会把 owner
 // 设好的 hero 抹掉。
 type corpusWriteArgs struct {
-	CoverImageAssetID *string  `json:"cover_image_asset_id"`
-	CoverHeadline     *string  `json:"cover_headline"`
-	CoverHue          *string  `json:"cover_hue"`
-	Genre             string   `json:"genre"`
-	ID                string   `json:"id"`
-	Title             string   `json:"title"`
-	Body              string   `json:"body"`
-	ParentID          string   `json:"parent_id"`
-	Source            string   `json:"source"`
-	ShowAsSource      *bool    `json:"show_as_source"`
-	Tags              []string `json:"tags"`
-	CSSClasses        []string `json:"css_classes"`
-	FlaggedPrivate    bool     `json:"flagged_private"`
+	CoverImageAssetID *string `json:"cover_image_asset_id"`
+	CoverHeadline     *string `json:"cover_headline"`
+	CoverHue          *string `json:"cover_hue"`
+	Genre             string  `json:"genre"`
+	ID                string  `json:"id"`
+	Title             string  `json:"title"`
+	Body              string  `json:"body"`
+	// ParentID —— 指针,理由跟 ShowAsSource 一模一样(见下面那段):裸 string 表达不了「没给」。
+	// nil = 请求里没有这个字段 = **不动**;指向 "" = 明确挪到根;指向 id = 挪到那条下面。
+	//
+	// 它曾经是裸 string,于是「没提到父级」和「挪到根」是同一个值。面板的编辑表单既不显示
+	// 也不回传这一格(F-L-28),owner 改一次正文,笔记就被拍到根 —— 而**树是语料的地址**:
+	// `uriOf` = `genre://<path>`,role/code 的 ACL glob 就长在这个 path 上。一条笔记换了地址,
+	// owner 写的 `wiki://a/b/**` 从此拦不住它,屏幕上什么都不说。
+	ParentID       *string  `json:"parent_id"`
+	Source         string   `json:"source"`
+	ShowAsSource   *bool    `json:"show_as_source"`
+	Tags           []string `json:"tags"`
+	CSSClasses     []string `json:"css_classes"`
+	FlaggedPrivate bool     `json:"flagged_private"`
 }
 
 // showAsSource —— 没给就是 true。
@@ -157,12 +167,30 @@ func decodeCorpusWrite(raw json.RawMessage) (corpusWriteArgs, error) {
 	return in, requireGenre(in.Genre)
 }
 
-// parentOrNil —— 空 = 挂在根上,不是错。
-func parentOrNil(id string) *string {
-	if id == "" {
+// parentOrNil —— **建**的时候:没给 / 给空串都是挂在根上,不是错。
+func parentOrNil(id *string) *string {
+	if id == nil || *id == "" {
 		return nil
 	}
-	return &id
+	return id
+}
+
+// keptParentID —— **改**的时候:请求里没给 parent_id 就沿用它现在的父级(不动),
+// 给了空串才是「挪到根」。
+//
+// 为什么要多读一次:下游 `UpdateWikiInput.ParentID` 的 nil 含义是「挪到根」,那是**建**那条路
+// 定下来的,改它会牵动每个调用点。所以「不动」在这一层解析掉 —— 读回当前值再原样传下去。
+func keptParentID(
+	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
+) (*string, error) {
+	if in.ParentID != nil {
+		return parentOrNil(in.ParentID), nil
+	}
+	cur, err := getByGenre(ctx, deps, ownerID, corpusGetArgs{Genre: in.Genre, ID: in.ID})
+	if err != nil {
+		return nil, err
+	}
+	return cur.ParentID, nil
 }
 
 // defaultSource —— raw 没说来源就记 "mcp"(它绝大多数从 owner 的 AI 客户端来);
@@ -203,7 +231,7 @@ func createByGenre(
 		})
 		return rawItem(&row, ""), err
 	case genreSubjectivity:
-		return writeSubjectivityEntry(ctx, deps, ownerID, in)
+		return writeSubjectivityEntry(ctx, deps, ownerID, in, parentOrNil(in.ParentID))
 	case genreWiki:
 		row, err := usecase.CreateWiki(ctx, deps, &usecase.CreateWikiReq{
 			OwnerID: ownerID, ParentID: parentOrNil(in.ParentID),
@@ -254,12 +282,12 @@ func updateCorpus(deps usecase.Deps) fp.Invoke {
 // genre 加进来的时候就写明了"它不是特例,只是第五个 genre"。subjectivity_write 那个名字
 // 留着:owner 的 AI 一直在用它(CLAUDE.md 里也写着),两条打的是同一个 usecase。
 func writeSubjectivityEntry(
-	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
+	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs, parent *string,
 ) (corpusItemOut, error) {
 	res, err := usecase.WriteSubjectivity(ctx, deps, &usecase.WriteSubjectivityInput{
 		OwnerID: ownerID, ID: in.ID, Title: in.Title, Body: in.Body,
 		Tags: in.Tags, CSSClasses: in.CSSClasses,
-		ParentID:     parentOrNil(in.ParentID),
+		ParentID:     parent,
 		ShowAsSource: in.showAsSource(),
 	})
 	if err != nil {
@@ -271,25 +299,37 @@ func writeSubjectivityEntry(
 func updateByGenre(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
 ) (corpusItemOut, error) {
-	switch in.Genre {
-	case genreRaw:
+	if in.Genre == genreRaw {
 		row, err := usecase.UpdateRaw(ctx, deps, &usecase.UpdateRawReq{
 			OwnerID: ownerID, ID: in.ID, Body: in.Body,
 			Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
 		})
 		return rawItem(&row, ""), err
+	}
+	// raw 没有父级(它不成树),其余三个 genre 都要先把「没给 = 不动」解析成具体的父级。
+	parent, err := keptParentID(ctx, deps, ownerID, in)
+	if err != nil {
+		return corpusItemOut{}, err
+	}
+	return updateTreeGenre(ctx, deps, ownerID, in, parent)
+}
+
+func updateTreeGenre(
+	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs, parent *string,
+) (corpusItemOut, error) {
+	switch in.Genre {
 	case genreSubjectivity:
-		return writeSubjectivityEntry(ctx, deps, ownerID, in)
+		return writeSubjectivityEntry(ctx, deps, ownerID, in, parent)
 	case genreWiki:
 		row, err := usecase.UpdateWiki(ctx, deps, &usecase.UpdateWikiReq{
-			OwnerID: ownerID, ID: in.ID, ParentID: parentOrNil(in.ParentID),
+			OwnerID: ownerID, ID: in.ID, ParentID: parent,
 			Title: in.Title, Body: in.Body, Tags: in.Tags,
 			ShowAsSource: in.showAsSource(), CSSClasses: in.CSSClasses,
 		})
 		return wikiItem(&row, ""), err
 	default:
 		row, err := usecase.UpdateOutput(ctx, deps, &usecase.UpdateOutputReq{
-			OwnerID: ownerID, ID: in.ID, ParentID: parentOrNil(in.ParentID),
+			OwnerID: ownerID, ID: in.ID, ParentID: parent,
 			Title: in.Title, Body: in.Body, Tags: in.Tags,
 			ShowAsSource: in.showAsSource(),
 		})

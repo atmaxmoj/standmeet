@@ -41,6 +41,7 @@ test.describe('corpus · citation is owner-controlled and survives an edit', () 
 
   test('the form explains citation and defaults it on', citableDefaultsOnAndIsExplained);
   test('editing the body does NOT silently turn citation off', editPreservesCitation);
+  test('editing the body does NOT move the note to the root', editPreservesParent);
   test('the owner can turn citation off from the form, and it sticks', ownerCanTurnOff);
   test('opening the form fetches the entry ONCE, not in a loop', opensWithoutARequestStorm);
 });
@@ -89,9 +90,18 @@ interface EditForm {
   submit: Locator;
 }
 
-async function openEditForm(page: Page, title: string): Promise<EditForm> {
+// expandParentID —— 列表是**树**：只有根条目直接可见，孩子要先展开父节点那个 `▸` 才渲染出来。
+// 不给这一步的话，找一条子条目的行会一直等到超时，而失败信息看起来像"这条根本没建出来"。
+async function openEditForm(
+  page: Page, title: string, expandParentID?: string,
+): Promise<EditForm> {
   await gotoAdminSection(page, 'wiki');
-  const row = page.locator('[data-testid^="wiki-row-"]', { hasText: title });
+  if (expandParentID !== undefined) {
+    await page.getByTestId(`tree-toggle-wiki-row-${expandParentID}`).click();
+  }
+  // `.last()`：树里父行**包着**子行，所以 hasText 会同时命中两行。要的是最内层那条 ——
+  // 拿到父行的话，后面点的是父条目的编辑按钮，测试会去改错的那条笔记而且照样绿。
+  const row = page.locator('[data-testid^="wiki-row-"]', { hasText: title }).last();
   await expect(row).toBeVisible({ timeout: 10_000 });
   const id = (await row.getAttribute('data-testid'))!.replace('wiki-row-', '');
   await page.getByTestId(`wiki-edit-${id}`).click();
@@ -136,6 +146,66 @@ async function editPreservesCitation({ adminPage }: { adminPage: Page }): Promis
     await citationOf(adminPage, TITLE),
     'editing the body must not flip citation off — the owner never touched that control',
   ).toBe(true);
+}
+
+// CHILD —— editPreservesParent 用的子条目。跟 TITLE 那条分开：它要挂在别人下面。
+const CHILD = 'A Child Of The Citable Entry';
+
+// parentOf —— 这条笔记当前的 parent_id（从 owner 自己的 admin API 读回真值）。
+async function parentOf(page: Page, title: string): Promise<string | null | undefined> {
+  return await page.evaluate(async (t: string) => {
+    const list = await (await fetch('/api/admin/corpus/wiki?limit=100', {
+      credentials: 'include',
+    })).json() as Array<{ id: string; title: string }>;
+    const row = list.find((w) => w.title === t);
+    if (!row) return undefined;
+    const d = await (await fetch(`/api/admin/corpus/wiki/${row.id}`, {
+      credentials: 'include',
+    })).json() as { parent_id?: string | null };
+    return d.parent_id ?? null;
+  }, title);
+}
+
+// editPreservesParent —— F-L-28。跟上面那条是**同一个形状的第二次**：编辑表单清零了一个它
+// 没有显示的字段。`corpus_write.go` 的 `ParentID` 是裸 `string`，所以"请求里没这个字段"和
+// "把它挪到根"是同一个值；而编辑表单的 `initial` 里根本没有 parent_id，也没有 ParentSlot。
+//
+// **为什么这条比"引用开关被关掉"更重**：树是语料的地址。`uriOf` = `genre://<path>`，
+// role/code 的 ACL glob 就长在这个 path 上。一条笔记被拍到根，它的 URI 就变了 ——
+// owner 写的 `wiki://a/b/**` 从此拦不住它，而屏幕上什么都不会说。
+//
+// RED（修好之前）：只改正文保存一次，parent_id 从父条目的 id 变成 null。
+async function editPreservesParent({ adminPage }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(adminPage, 'wiki');
+  // 父级下拉的**标签**是 `path ?? title`（CorpusEntryForm.tsx:26），不是标题本身 ——
+  // 按标题挑会找不到那一项。按 id 挑，id 从行的 testid 上取（跟 openEditForm 同一条路）。
+  const parentRow = adminPage.locator('[data-testid^="wiki-row-"]', { hasText: TITLE });
+  await expect(parentRow).toBeVisible({ timeout: 10_000 });
+  const parentID = (await parentRow.getAttribute('data-testid'))!.replace('wiki-row-', '');
+  await adminPage.getByTestId('wiki-new-btn').click();
+  await adminPage.getByTestId('wiki-create-title').fill(CHILD);
+  await adminPage.getByTestId('wiki-create-body').fill('A fact that lives under another one.');
+  // 挂到 TITLE 那条下面 —— 用真表单的父级选择器挑，不是打 API 塞进去。
+  await adminPage.getByTestId('wiki-create-parent').selectOption(parentID);
+  await adminPage.getByTestId('wiki-create-submit').click();
+
+  // 等它真的落库（子条目在列表里被父节点收着，看不见 —— 等 API 的真值，别等一个不会出现的元素）。
+  await expect.poll(
+    () => parentOf(adminPage, CHILD), { timeout: 10_000 },
+  ).toBe(parentID);
+  // 前置条件本身要能红：挑父级这一步若没生效，下面的断言就变成"null 等于 null"，永远绿。
+  const before = await parentOf(adminPage, CHILD);
+  expect(before, 'precondition: the child really was created under a parent').not.toBeNull();
+
+  const form = await openEditForm(adminPage, CHILD, parentID);
+  await form.body.fill('An edited fact that still lives under the same parent.');
+  await form.submit.click();
+  await expect(adminPage.getByText(TITLE).first()).toBeVisible({ timeout: 5_000 });
+
+  expect(
+    await parentOf(adminPage, CHILD),
+    'editing the body must not re-parent the note — the form never showed that control',
+  ).toBe(before);
 }
 
 // ownerCanTurnOff —— 控制真的通到底：取消勾选 → 存 → 落库。

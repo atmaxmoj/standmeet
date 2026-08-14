@@ -1,0 +1,38 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2400],
+  "shots": [
+    { "name": "ca-10-citable-restored-parent", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-ea1b1b70-6c6d-43ab-8839-5c358b8b1b33\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-b73c405b-c4b2-44d1-ba65-126ddc523a44\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"wiki-edit-98654137-5567-489a-b6ab-937816f3079b\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"wiki-edit-form-98654137-5567-489a-b6ab-937816f3079b-citable\"]" },
+        { "wait": 500 },
+        { "click": "[data-testid=\"wiki-edit-form-98654137-5567-489a-b6ab-937816f3079b-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 },
+    { "name": "ca-22-citable-restored-child", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-ea1b1b70-6c6d-43ab-8839-5c358b8b1b33\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-b73c405b-c4b2-44d1-ba65-126ddc523a44\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-98654137-5567-489a-b6ab-937816f3079b\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"wiki-edit-dd569175-308e-4d1d-8755-7db605c940b8\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"wiki-edit-form-dd569175-308e-4d1d-8755-7db605c940b8-citable\"]" },
+        { "wait": 500 },
+        { "click": "[data-testid=\"wiki-edit-form-dd569175-308e-4d1d-8755-7db605c940b8-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

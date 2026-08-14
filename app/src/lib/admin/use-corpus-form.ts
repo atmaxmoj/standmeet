@@ -79,6 +79,10 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
         title: title.trim(),
         body: bodyVisible ? body : '',
         tags: parseTags(tagsRaw),
+        // parent_id —— 后端现在也是**指针字段**（F-L-28）：不发 = 不动，发空串 = 挪到根。
+        // 编辑表单不显示这一格，所以它一直不发，笔记的位置因此不动 —— 这正是要的。
+        // **给编辑表单加父级控件的时候必须改这一行**：那时候「none (root)」得发空串，
+        // 而不是像这里一样折成 undefined，否则那个选项按下去什么都不会发生。
         parent_id: parentID === '' ? undefined : parentID,
         // citable —— MUST be sent: the Go request struct decodes a missing `show_as_source` as
         // FALSE, so omitting it silently turned citation OFF on every edit (the note stayed

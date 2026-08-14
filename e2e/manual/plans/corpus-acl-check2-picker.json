@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 3000],
+  "shots": [
+    { "name": "ca-24-takeback-by-picker", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"code-corpus-denied-SBOX-01\"]", ""] },
+        { "click": "[data-testid=\"code-corpus-picker-SBOX-01-toggle-wiki\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"code-corpus-picker-SBOX-01-ea1b1b70-6c6d-43ab-8839-5c358b8b1b33-expand\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"code-corpus-picker-SBOX-01-b73c405b-c4b2-44d1-ba65-126ddc523a44-expand\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1500 }
+  ]
+}

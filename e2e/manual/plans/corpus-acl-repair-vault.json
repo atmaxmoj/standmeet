@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 1200],
+  "shots": [
+    { "name": "ca-21-vault-reimported", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 3000 },
+        { "pickDir": ["[data-testid=\"obsidian-vault-input\"]", "/Users/wangsijie/Develop/writing/notes"] },
+        { "wait": 120000 }
+      ],
+      "wait": 3000 }
+  ]
+}

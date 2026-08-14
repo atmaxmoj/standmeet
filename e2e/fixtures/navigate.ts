@@ -82,6 +82,16 @@ export async function gotoAdminSection(page: Page, slug: string): Promise<void> 
   await page.waitForURL(`**/admin/${slug}`, { timeout: 10_000 });
 }
 
+// reloadAdminSection —— **整页重载**到 /admin/<slug>，而不是点侧栏。
+//
+// 两者能观察到的东西不一样：`gotoAdminSection` 是客户端跳转，store 里已经 ready 的缓存
+// 不会重来，于是「mount 那一刻的 fetch 失败会怎样」根本触发不到 —— F-N-2 的第一版守卫
+// 就是这么在没修的代码上绿掉的，绿的原因是故障从没被注入进去。
+// owner 遇到的正是重载这一幕：服务器挂了，他刷新一下，或者第二天新开一个标签页。
+export async function reloadAdminSection(page: Page, slug: string): Promise<void> {
+  await page.goto(`/admin/${slug}`);
+}
+
 // expectAdminSidebarVisible —— 'page' nav 链接可见即视为 sidebar healthy。
 export async function expectAdminSidebarVisible(page: Page): Promise<void> {
   await expect(page.getByTestId('admin-nav-page')).toBeVisible();
