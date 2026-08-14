@@ -44,6 +44,7 @@
     "contact": "contact",
     "pingInChat": "ping in chat ↗",
     "privateNotes": "private notes",
+    "notesReadOnly": "read-only for now — nothing stores notes yet, so this box would lose whatever you typed",
     "snapshotHead": "resume sent · snapshot",
     "resume": "resume",
     "tailoredFor": "tailored for {company} · {role}",

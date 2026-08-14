@@ -6,7 +6,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import {
@@ -25,7 +24,6 @@ interface Props {
 // 路径（/applications 只 GET，写只走 MCP applications.commit）。曾经它是一个 local useState 的可点
 // 分段控件 —— 看着能改能存，一 reload 就变回去。那是"看着像存了、其实没存"的谎。现在只读展示。
 export function ApplicationDetailModal({ app, onClose }: Props) {
-  const [notes, setNotes] = useState(app.notes);
   return (
     <div className="sm-app-modal-overlay sm-fadein" onClick={onClose}>
       <div
@@ -34,11 +32,7 @@ export function ApplicationDetailModal({ app, onClose }: Props) {
         data-testid="application-detail-modal"
       >
         <ModalHeader app={app} onClose={onClose} />
-        <ModalBody
-          app={{ ...app, notes }}
-          state={app.state}
-          notes={notes} onNotes={setNotes}
-        />
+        <ModalBody app={app} state={app.state} notes={app.notes} />
         <ModalFooter app={app} onClose={onClose} />
       </div>
     </div>
@@ -70,26 +64,23 @@ interface BodyProps {
   app: Application;
   state: string;
   notes: string;
-  onNotes: (v: string) => void;
 }
 
 function ModalBody(props: BodyProps) {
   return (
     <div className="sm-app-modal-body">
-      <LeftCol app={props.app} notes={props.notes} onNotes={props.onNotes} />
+      <LeftCol app={props.app} notes={props.notes} />
       <RightCol app={props.app} state={props.state} />
     </div>
   );
 }
 
-function LeftCol({
-  app, notes, onNotes,
-}: { app: Application; notes: string; onNotes: (v: string) => void }) {
+function LeftCol({ app, notes }: { app: Application; notes: string }) {
   return (
     <div>
       <Timeline events={timelineFor(app)} />
       <ContactBlock contact={app.contact} />
-      <NotesBlock notes={notes} onNotes={onNotes} />
+      <NotesBlock notes={notes} />
     </div>
   );
 }
@@ -136,19 +127,29 @@ function ContactBlock({ contact }: { contact: string }) {
   );
 }
 
-function NotesBlock({
-  notes, onNotes,
-}: { notes: string; onNotes: (v: string) => void }) {
+// NotesBlock —— **只读**，跟上面的 status 段控同一个理由：这条链上没有任何东西存 notes。
+//
+// 它原来是个普通可编辑的多行框：owner 写一句话、关掉、重新加载，字就没了，而且从头到尾
+// 没有保存按钮、没有任何提示、后端连一个写请求都没收到（F-E-11）。三层都是空的 ——
+// 前端纯 useState，列表把 notes 硬编码成 ''，后端整个 jobs 包 `notes` 零命中。
+//
+// 设计里这一格是有的（`docs/design/job-loop.md` 的 schema + `applications.update_status`），
+// 但那个写口还没建。**在它建起来之前，这里不该长得像一个能存的字段**；那一天到了，
+// 把 readOnly 去掉、接上写口，这条注释和守卫会一起提醒要两件事都做。
+function NotesBlock({ notes }: { notes: string }) {
   const t = useTranslations('adminJobs');
   return (
     <section className="mt-5 pt-3.5 border-t border-(--color-rule)">
       <div className="sm-smallcaps">{t('detail.privateNotes')}</div>
       <textarea
         value={notes} rows={3}
-        onChange={(e) => onNotes(e.target.value)}
+        readOnly
         data-testid="application-detail-notes"
         className="w-full sm-field-input sm-reading resize-y mt-1.5"
       />
+      <p className="mono text-[10px] text-(--color-faint) tracking-[0.06em] mt-1">
+        {t('detail.notesReadOnly')}
+      </p>
     </section>
   );
 }

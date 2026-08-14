@@ -56,7 +56,35 @@ test.describe('admin /applications · the status control must not claim a status
   test('a status shown after an owner click must equal the status shown after a reload',
     statusMustNotOutliveReload);
   test('the active status is visibly different from the others', litSegmentLooksDifferent);
+  test('private notes do not accept an edit they cannot keep', notesDoNotPretendToSave);
 });
+
+// notesDoNotPretendToSave —— F-E-11，check 3 的那一格。
+//
+// 真环境：往 PRIVATE NOTES 里写一句话 → 关 → reload → 重开，字没了，而打字那一段后端
+// 一个写请求都没有。没有保存按钮，也没有任何字样说它不保存。
+//
+// 三层都是空的：前端纯 useState，列表把 notes 硬编码成 ''，后端整个 jobs 包 `notes` 零命中。
+// 设计里这一格是有的（job-loop.md 的 schema + applications.update_status），但那个写口从没建过。
+//
+// 所以断的是 item 给的另一种合格形态：**看得出来不提交**。判据取 `readOnly`/`disabled`
+// 这类**元素自己**的属性，而不是找一句提示文案 —— 文案会被改写，属性是行为。
+async function notesDoNotPretendToSave({ adminPage: page }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(page, 'applications');
+  await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
+  const modal = await openApplication(page);
+
+  const notes = modal.getByTestId('application-detail-notes');
+  await expect(notes, 'precondition: the notes control is on screen').toBeVisible();
+  const editable = await notes.evaluate(
+    (el) => !(el as HTMLTextAreaElement).readOnly && !(el as HTMLTextAreaElement).disabled,
+  );
+  expect(
+    editable,
+    'the notes box takes an edit and drops it on reload — nothing persists notes anywhere in the '
+    + 'stack. Until there is a writer it must not look like a field that saves.',
+  ).toBe(false);
+}
 
 // litSegmentLooksDifferent —— F-E-10。**判据必须是计算样式，不能是文本或类名。**
 //
