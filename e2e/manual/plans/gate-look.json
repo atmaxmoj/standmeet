@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/gate/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "gt-16-gate-full", "url": "/gate", "wait": 4000, "fullPage": true }
+  ]
+}

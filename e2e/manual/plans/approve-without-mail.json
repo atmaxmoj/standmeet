@@ -1,0 +1,16 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1280, 1600],
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "ac-23-requests-with-mail", "url": "/admin/requests", "wait": 4000 },
+    { "name": "ac-24-mail-disconnected", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-disconnect-button\"]" },
+        { "wait": 3500 }
+      ],
+      "wait": 1200 },
+    { "name": "ac-25-approve-refused", "url": "/admin/requests", "wait": 4500 }
+  ]
+}

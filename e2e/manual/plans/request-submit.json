@@ -1,0 +1,24 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "ac-22-request-sent", "url": "/gate",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "button:has-text(\"write a note\")" },
+        { "wait": 1200 },
+        { "type": ["[data-testid=\"request-name\"]", "Approve Auditor"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"request-org\"]", "real-env verification"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"request-email\"]", "sijie.wang.lark+approve@gmail.com"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"request-message\"]", "Driving access-codes check 4: approve must be refused while no mail connector can deliver."] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1200 }
+  ]
+}

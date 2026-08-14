@@ -1,0 +1,27 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1280, 2000],
+  "shots": [
+    { "name": "ac-26-mail-restored", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4500 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-host\"]", "smtp.gmail.com"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-port\"]", "587"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-username\"]", "sijie.wang.lark@gmail.com"] },
+        { "wait": 300 },
+        { "typeFile": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-password\"]", "/private/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/smtp-pass.txt"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-from_address\"]", "sijie.wang.lark@gmail.com"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-from_name\"]", "Sijie Wang"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-tls\"]", "starttls"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-connect-button\"]" },
+        { "wait": 5000 }
+      ],
+      "wait": 1500 }
+  ]
+}

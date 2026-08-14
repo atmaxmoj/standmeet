@@ -1,0 +1,15 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1280, 2000],
+  "shots": [
+    { "name": "ac-27-mail-test-send", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4500 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-op-field-to\"]", "sijie.wang.lark+restore@gmail.com"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-op-run\"]" },
+        { "wait": 9000 }
+      ],
+      "wait": 1500 }
+  ]
+}
