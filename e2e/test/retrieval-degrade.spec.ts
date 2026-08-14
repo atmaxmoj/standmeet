@@ -24,11 +24,17 @@ function makeTarget(t: string): void {
   execSync(`make ${t}`, { cwd: REPO, stdio: 'ignore' });
 }
 
-// meiliHealthy —— 读 admin /system 的 health[] 里 name==='meili' 那条的 ok(undefined = 未列)。
-async function meiliHealthy(req: APIRequestContext): Promise<boolean | undefined> {
+// searchHealthy —— 读 admin /system 的 health[] 里检索那条的 ok。
+//
+// **那一项叫 `search`,不叫 `meili`,而且现在永远在表上**(F-S-3)。改名之前它写作 `meili` 并且
+// 「没配就不列」,于是这个函数返回 undefined —— 而 undefined 在这里跟「引擎挂了」是两码事,
+// 却长得差不多。现在缺席本身是缺陷,所以 undefined 不再是合法状态:取不到就该红。
+async function searchHealthy(req: APIRequestContext): Promise<boolean> {
   const res = await req.get(`${BACKEND}/api/admin/system`);
   const body = await res.json() as { health?: { name: string; ok: boolean }[] };
-  return body.health?.find((h) => h.name === 'meili')?.ok;
+  const row = body.health?.find((h) => h.name === 'search');
+  expect(row, 'the health table always carries a search row (F-S-3)').toBeDefined();
+  return row?.ok ?? false;
 }
 
 let O: RetrievalOwner;
@@ -50,7 +56,7 @@ test.describe.serial('D · Meili 降级 / 健康 / 重试', () => {
   }
 
   test('D3 admin /system:meili 正常时 healthy', async () => {
-    expect(await meiliHealthy(O.request), 'meili healthy when up').toBe(true);
+    expect(await searchHealthy(O.request), 'meili healthy when up').toBe(true);
   });
 
   test('D1/D2/D3 Meili 挂:搜索降级不 500、写照落、admin 显示 degraded', async () => {
@@ -67,7 +73,7 @@ test.describe.serial('D · Meili 降级 / 健康 / 重试', () => {
     expect(wikiID, 'write committed despite meili down').not.toBe('');
 
     // D3 admin 显示 degraded
-    expect(await meiliHealthy(O.request), 'meili shown degraded').toBe(false);
+    expect(await searchHealthy(O.request), 'meili shown degraded').toBe(false);
   });
 
   test('D4 恢复 → 重试补索引:down 期间写的条目变可搜 + admin 回 healthy', async () => {
@@ -79,7 +85,7 @@ test.describe.serial('D · Meili 降级 / 健康 / 重试', () => {
     }).toPass({ timeout: 15_000 });
 
     await expect(async () => {
-      expect(await meiliHealthy(O.request), 'meili healthy after recovery').toBe(true);
+      expect(await searchHealthy(O.request), 'meili healthy after recovery').toBe(true);
     }).toPass({ timeout: 10_000 });
   });
 
