@@ -363,6 +363,26 @@ verify-shots:
 	@set -a; . $$HOME/.config/standmeet/verify-creds.env; set +a; \
 	  cd e2e && node manual/shoot.mjs "../$(PLAN)"
 
+# verify-mcp —— 用 owner 的 MCP 那条路驱 prod。**它是 verify-shots 的兄弟**：那条走界面，
+# 这条走 owner 在 Claude 里的那条路 —— 好几条 check 的 Expected 说的是「读工具的回执」，
+# 而面板根本产不出那个东西（page.unpin 动了哪些区、custom_page 的生命周期、jobs.fetch_new
+# 抓回多少条）。
+#
+# **不手搓 Sigv1 签名器**：起的是**产品自己**的 stdio 客户端（`sdk/packages/mcp-client/bin`），
+# 跟 owner 在 Claude Desktop 里配的是同一个二进制、同一套环境变量。绕过它去自己签名，
+# 验的就不是产品那条路了（[[c3-stdio-sdk-sigv1-401]]）。
+#
+# 凭据：GUI 上铸一对 keypair → 下载 .pem → `downloads/build-creds.sh <pem> <key-id>` 拼出
+# credentials.json。**收工必须在 GUI 上吊销 keypair 并删掉本地私钥。**
+#
+#   make verify-mcp CREDS=e2e/manual-runs/<round>/downloads/credentials.json \
+#     CALLS='[{"name":"page.pin","args":{"section":"insights","entry_id":"…"}}]'
+verify-mcp:
+	@test -n "$(CREDS)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>'; exit 2)
+	@test -n "$(CALLS)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>'; exit 2)
+	@node e2e/manual/mcp-drive.mjs sdk/packages/mcp-client/bin/standmeet-mcp \
+	  "$${STANDMEET_VERIFY_HOST:-http://localhost:38227}" "$(CREDS)" '$(CALLS)'
+
 # schema-drift —— 问运行中的库:schema.sql 里声明的表/列,你到底有没有。schema.sql 只在
 # **全新卷**上被 postgres 应用一次,所以长命实例停在它出生时的样子,后加的列只活在文件里 ——
 # backend 照常起来,直到某个界面上的某条查询才炸。开审计轮之前先跑它。

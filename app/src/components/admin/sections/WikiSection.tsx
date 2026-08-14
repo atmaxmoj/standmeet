@@ -6,7 +6,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Chip } from '@/components/admin/atoms/Chip';
@@ -133,13 +133,20 @@ function ReadyBody({
   // 标签行来自**整个 genre**,不是已加载的那一页 —— 后者让只存在于那一页之外的标签连 chip
   // 都没有,于是点不到、也无从发现自己漏了什么(F-L-23 的后半条)。
   const tags = useGenreTags('wiki');
+  // 选标签 = 切到网格（F-L-30）。树是**地址层级**且懒加载,`CorpusLazyTree` 根本不收 rows,
+  // 所以在树上"筛"出来的东西会被原样扔掉:chip 亮着、树一行没变 —— 屏幕在说一句假话。
+  // 标签是一个**扁平查询**,它的答案就是网格。切视图是看得见的,而看得见的诚实好过看不见的筛选。
+  const pickTag = useCallback((t: string | null) => {
+    setActiveTag(t);
+    t === null || setView('grid');
+  }, [setActiveTag, setView]);
   const shown = filterByTag(rows, activeTag);
   // 地址树派生 + 级联删:每条算子孙数,删它时警告会连带删掉几条。
   const childCounts = descendantCounts(shown);
   return (
     <>
       <div className="flex items-baseline justify-between gap-4 mb-5 flex-wrap">
-        <TagFilterRow tags={tags} activeTag={activeTag} setActiveTag={setActiveTag} />
+        <TagFilterRow tags={tags} activeTag={activeTag} setActiveTag={pickTag} />
         <CorpusViewToggle view={view} onChange={setView} />
       </div>
       <CorpusTreeGrid

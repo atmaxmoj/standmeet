@@ -113,4 +113,39 @@ test.describe('corpus · tag filter spans the corpus, not one page', () => {
       // FAR 出现 = 筛的是整个语料,不是已经加载的那一页。旧代码在这一行红。
       await expect(list).toContainText(FAR_TITLE, { timeout: 30_000 });
     });
+
+  // F-L-30 —— 上面那条**先切到网格**再点标签（第 95 行），于是树视图那条路从没被走过。
+  // prod 上的样子：树视图里点 `recursive-harness`，chip 亮起来，而树**一行都没变** ——
+  // 十个根节点原样列着；同一刻切到网格，几十条挂着这个标签的笔记都在。
+  // 同一个标签、同一时刻、两个视图给出相反的答案，而亮着的 chip 在断言「已按它筛过」。
+  //
+  // 归因：`CorpusTreeGrid.tsx:52` 的树分支渲的是 `CorpusLazyTree`，它**根本不收 rows** ——
+  // 于是 `WikiSection.tsx:136` 那句 `filterByTag(rows, activeTag)` 算完就被扔了。
+  // F-L-23 把网格那半修好了，树这半在同一次改动里**静默变成了空操作**。
+  //
+  // 判据不钉住"树必须能筛"（那是新能力）：钉住**屏幕不许说谎** —— 选了标签之后，
+  // 看到的东西必须真的是那个标签的答案。产品用切到网格来满足它。
+  test('picking a tag in tree view does not leave an unfiltered tree under a lit chip',
+    async ({ adminPage: page }) => {
+      test.setTimeout(180_000);
+      await page.getByTestId('admin-nav-wiki').click();
+      await page.waitForURL('**/admin/wiki**');
+      await page.getByRole('button', { name: /tree/i }).click();
+
+      const list = page.getByTestId('wiki-list');
+      await expect(list).toBeVisible({ timeout: 30_000 });
+      const chips = page.getByTestId('wiki-tag-filter');
+      await chips.getByText(NEEDLE_TAG, { exact: true }).click();
+      await expect(list).toBeVisible({ timeout: 30_000 });
+
+      // 选了标签之后屏幕上的东西必须**是这个标签的答案**：两条挂着它的都在，
+      // 而没挂它的填充条目不在。旧代码在这里红 —— 树纹丝不动，filler 全在、FAR 不在。
+      await expect(list, '挂着这个标签的那两条都得在').toContainText(NEAR_TITLE, { timeout: 30_000 });
+      await expect(list, '窗口外那条也得在').toContainText(FAR_TITLE, { timeout: 30_000 });
+      const shown = await list.innerText();
+      expect(
+        shown.includes('filler-'),
+        '亮着的 chip 在说「已按这个标签筛过」，那就不该还列着没挂它的条目',
+      ).toBe(false);
+    });
 });

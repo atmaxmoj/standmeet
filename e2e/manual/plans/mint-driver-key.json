@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/_driver",
+  "downloadDir": "../e2e/manual-runs/2026-08-07T0027/downloads",
+  "viewport": [1280, 1600],
+  "shots": [
+    { "name": "drv-01-minted", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"token-name\"]", "verify-driver-0814"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"token-create\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid=\"key-pem-download\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1000 }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/page-corpus-pinning/shots",
+  "viewport": [1280, 1800],
+  "shots": [
+    { "name": "pp-19-wiki-filtered", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "button:has-text(\"recursive-harness\")" },
+        { "wait": 2500 }
+      ],
+      "wait": 1000 }
+  ]
+}

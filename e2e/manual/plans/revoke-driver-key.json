@@ -1,0 +1,14 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/_driver",
+  "viewport": [1280, 1600],
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "drv-02-revoked", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"token-delete-verify-driver-0814\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1000 }
+  ]
+}
