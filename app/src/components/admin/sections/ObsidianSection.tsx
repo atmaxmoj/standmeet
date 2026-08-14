@@ -17,7 +17,7 @@ export function ObsidianSection() {
     <>
       <SectionHeader
         kicker="integrations · vault"
-        title="obsidian"
+        slug="obsidian"
         action={
           <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-faint)">
             {t('manualMode')}

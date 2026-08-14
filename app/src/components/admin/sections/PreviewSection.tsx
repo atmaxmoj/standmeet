@@ -25,7 +25,7 @@ export function PreviewSection() {
     <>
       <SectionHeader
         kicker="access · external view"
-        title="preview"
+        slug="preview"
         action={
           <Link href="/" target="_blank" className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)">
             {t('openPublic')} ↗

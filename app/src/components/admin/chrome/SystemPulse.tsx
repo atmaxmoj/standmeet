@@ -26,7 +26,12 @@ export function SystemPulse() {
         <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted)">
           {t('title')}
         </div>
-        <div className="mono text-[10px] tracking-[0.12em] text-(--color-accent)">{v.delta}</div>
+        <div
+          className="mono text-[10px] tracking-[0.12em] text-(--color-accent)"
+          data-testid="pulse-rail-delta"
+        >
+          {v.delta}
+        </div>
       </div>
       <div className="mono text-[15px] leading-none tracking-[0.15em] text-(--color-accent) mb-1">
         {v.spark}

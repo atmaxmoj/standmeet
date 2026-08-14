@@ -25,7 +25,7 @@ export function PromptsSection() {
     <>
       <SectionHeader
         kicker="access · personas"
-        title="prompts"
+        slug="prompts"
         count={titleCount(hook)}
         action={<NewPromptBtn onClick={() => setCreating(true)} />}
       />

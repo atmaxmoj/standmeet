@@ -53,7 +53,13 @@ export function ChatRoom({ owner, mode }: Props) {
           {/* sm-scroll-read：右侧留出滚动条的位置。覆盖式滚动条显示期间会压掉每行
               最后一个字符（"does a" / "should"），而这一栏是长段衬线散文（UX-71）。 */}
           <div ref={scrollRef} className="sm-scroll-read flex-1 min-h-0">
-            <ChatWelcome owner={owner} d={derived} hasDialogs={ci.chat.dialogs.length > 0} />
+            {/* 欢迎语和输入区读**同一个** showTry：那句「way in」指的就是它下面渲不渲 TRY。
+                各算各的话，两处迟早说不到一块去。 */}
+            <ChatWelcome
+              owner={owner} d={derived}
+              hasDialogs={ci.chat.dialogs.length > 0}
+              showTry={tryVisible(ci.chat.dialogs.length === 0, ci.ghost)}
+            />
             <ChatTranscript
               dialogs={ci.chat.dialogs} onAsk={ci.onAsk}
               conversationID={ci.chat.conversationID}
@@ -109,8 +115,9 @@ function FullPageLink() {
 // 空会话不画介绍语下面那条线。有 transcript 时它是「介绍语到此为止」的分隔；没有时，
 // 它跟输入区顶部那条线一起，把中间那段留白框成一个**有边框的空盒子** —— 读起来不像
 // 「这里还没有内容」，像有东西没加载出来（UX-72）。
-function ChatWelcome({ owner, d, hasDialogs }: {
-  owner: PublicOwnerView; d: ReturnType<typeof useChatRoomDerived>; hasDialogs: boolean;
+function ChatWelcome({ owner, d, hasDialogs, showTry }: {
+  owner: PublicOwnerView; d: ReturnType<typeof useChatRoomDerived>;
+  hasDialogs: boolean; showTry: boolean;
 }) {
   const t = useTranslations('visitor.chatRoom');
   return (
@@ -123,7 +130,7 @@ function ChatWelcome({ owner, d, hasDialogs }: {
       </div>
       <div className="reading text-(--color-ink) text-[17px] max-w-[54ch]">
         {d.mode === 'coded'
-          ? <CodedWelcome handle={owner.handle} visitor={d.visitor} codeLabel={d.codeLabel} />
+          ? <CodedWelcome handle={owner.handle} visitor={d.visitor} codeLabel={d.codeLabel} showTry={showTry} />
           : <ByoaiWelcome handle={owner.handle} provider={d.provider} />}
       </div>
     </article>
@@ -132,14 +139,24 @@ function ChatWelcome({ owner, d, hasDialogs }: {
 
 const accentTag = (c: React.ReactNode) => <span className="text-(--color-accent)">{c}</span>;
 
-function CodedWelcome({ handle, visitor, codeLabel }: { handle: string; visitor: string | null; codeLabel: string }) {
+// CodedWelcome —— 最后那句话必须描述**屏幕上真有的那个东西**。
+//
+// 原本它无条件写着「Starters below if you need a way in.」，而 TRY 那排 chip 在有 ghost 时
+// 是收起来的（UX-35：两套建议同屏，访客分不出哪条跟刚才那轮有关）。于是最常见的情形 ——
+// 码自己带了建议问题 → 首轮就有 ghost —— 欢迎语指着一个不存在的地方，
+// 而真正的建议就躺在输入框里、且没有任何字说它可以按 Tab 拿走（UX-34 记的正是这件事）。
+function CodedWelcome({ handle, visitor, codeLabel, showTry }: {
+  handle: string; visitor: string | null; codeLabel: string; showTry: boolean;
+}) {
   const t = useTranslations('visitor.chatRoom');
   const greeting = visitor ? `Hi, ${visitor.split(' ')[0]}` : 'Hi';
   return (
     <>
       <p>{t.rich('codedWelcome', { greeting, handle, codeLabel, accent: accentTag })}</p>
       <p className="mt-4">{t('codedRedaction', { handle })}</p>
-      <p className="mt-4">{t('codedStarters')}</p>
+      <p className="mt-4" data-testid="welcome-way-in">
+        {showTry ? t('codedStarters') : t('codedGhostHint')}
+      </p>
     </>
   );
 }

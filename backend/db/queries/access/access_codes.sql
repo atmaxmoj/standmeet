@@ -53,6 +53,16 @@ RETURNING *;
 -- max_members 强制用:这张码已经有几个不同名字(member)。
 SELECT count(*) FROM code_members WHERE code_id = $1;
 
+-- name: LockCodeForMemberInsert :one
+-- 名额闸门的第一步:**单独一条语句**锁住这张码,并读回 max_members。
+--
+-- 为什么必须单独一条:READ COMMITTED 下,一条语句里的所有读取共用**语句开始时**的那个快照。
+-- 把 `FOR UPDATE` 和 `count(*)` 写进同一条语句(CTE)时,第二个并发请求确实会阻塞在锁上,
+-- 但拿到锁之后它的 count 仍然来自旧快照 —— 看不见对方刚提交的那一行,于是照样放行。
+-- 锁串行了,计数没有(F-D-5 的第一版就是这样,它的注释还写着「没有缝」)。
+-- 拆成两条之后,count 是锁**之后**才开始的新语句,新快照,看得见已提交的成员。
+SELECT max_members FROM access_codes WHERE id = $1 FOR UPDATE;
+
 -- name: GetCodeMemberByID :one
 -- 按 member id 取(client 存了 member_id,再来时凭 id 续会;尤其匿名者)。
 -- 限定 code_id 防跨码串。
@@ -63,7 +73,22 @@ INSERT INTO code_members (code_id, display_name, email, is_anonymous)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
+-- name: MemberExistsByName :one
+-- 同名 = 续会,不吃新名额。跟 count 一样必须在锁之后单独读。
+SELECT EXISTS (SELECT 1 FROM code_members WHERE code_id = $1 AND display_name = $2);
+
+-- name: UpsertCodeMember :one
+-- 真正落库那一步。名额是否够由调用方在同一个事务里、拿到行锁之后判定 ——
+-- 所以这里不再自己带闸门（带了也没用，见 LockCodeForMemberInsert 的注释）。
+INSERT INTO code_members (code_id, display_name, email, is_anonymous)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (code_id, display_name) DO UPDATE SET last_seen_at = now()
+RETURNING *;
+
 -- GetOrCreateCodeMember —— 建/续一个成员，**名额上限在同一条语句里守住**。
+--
+-- ⚠️ 这条**已经不是名额闸门**（它守不住，见 LockCodeForMemberInsert）。留着是因为还有
+-- 不带上限的调用路径；带上限的那条走 repo 里的事务版本。
 --
 -- 上限以前只在 usecase 里比一个早先读出来的列表，插入是裸 INSERT：两个会话同时进来都读到
 -- len=9、都判 9 < 10、都插进去，于是一张上限 10 的码能长到 11 个人，然后卡死在「满了而且多一个」

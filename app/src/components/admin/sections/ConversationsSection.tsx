@@ -23,7 +23,7 @@ export function ConversationsSection() {
     <>
       <SectionHeader
         kicker="access · sessions"
-        title="conversations"
+        slug="conversations"
         count={`${hook.rows.length} sessions`}
         action={<PrivateHitsHint hook={hook} />}
       />

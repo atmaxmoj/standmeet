@@ -110,17 +110,14 @@ test.describe('admin dashboard', () => {
   //
   // 这条用例驱的正是那个状态：这台实例的 pulse 是空的（seed 的那条 wiki 不落在 14 天窗口里
   // 也没关系 —— 断言问的不是"必须说 quiet"，而是**这两句话不能同时对同一份数据成立**）。
-  test('the pulse card does not claim new entries over a flat line (UX-41)',
-    async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'dashboard');
-      const verdict = adminPage.getByTestId('pulse-verdict');
-      await expect(verdict).toBeVisible({ timeout: 5_000 });
-      // 先取文本再判断 —— `.not.toContainText` 在元素还没出现时也算通过
-      // （[[negated-assertion-passes-while-absent]]）。
-      const said = (await verdict.innerText()).trim();
-      expect(said, 'a flat 14d window must not be reported as new activity')
-        .toBe('nothing new in 14d');
-    });
+  // 判据是**那句话和那条线必须说同一件事**，两个方向都钉住。
+  //
+  // 第一版写成「必须等于 `nothing new in 14d`」，那是把当时那台实例的状态**当成了判据**：
+  // 这个文件里别的用例往语料里写东西，窗口于是不再是平的，产品如实说 `↑ 2 new in 14d`，
+  // 而这条用例红了 —— 红的是它自己的前提，不是产品。这种断言只能在一个特定的实例状态下成立，
+  // 而它守的那条不变量跟状态无关：**图里有峰就该说有，没峰就该说没有。**
+  test('the pulse verdict and the line it sits on say the same thing (UX-41)',
+    async ({ adminPage }) => { await assertPulseVerdictMatchesLine(adminPage); });
 
   // UX-42 —— y 轴刻度是 `max / round(max/2) / 0`。语料刚起步时 `max` 很小，
   // `round(1/2)` 又回到 1，于是三格读作 `1 … 1 … 0`：同一个刻度出现两次。
@@ -135,6 +132,41 @@ test.describe('admin dashboard', () => {
       expect(new Set(ticks).size, `y ticks are ${ticks.join(' / ')}`).toBe(ticks.length);
     });
 });
+
+// assertPulseVerdictMatchesLine —— 判据是**跨面一致**，这正是本模块的透镜。
+//
+// 侧栏那条 rail 报 7 天新增，卡片那句话报 14 天。7 天是 14 天的**子集**，所以有一条
+// 不依赖任何实例状态的不变量：**rail 说 7 天里有 N>0 条，14 天就不可能"什么都没有"。**
+//
+// 走过两条错路，都记在这里：
+//  ① 第一版写死「必须等于 `nothing new in 14d`」—— 那是把当时那台实例的状态当成了判据，
+//     同文件别的用例往语料里写东西，它就红了，红的是自己的前提。
+//  ② 第二版拿 y 轴顶格当"单日峰值"—— 而 `Sparkline.tsx:41` 是 `Math.max(...data, 1)`：
+//     全零的窗口也会印 `1`（不然轴的高度是 0，画不出来）。**顶格是刻度，不是数据**，
+//     用它推"有没有新增"必然错。判据要读**真正报这个量的那个元素**。
+async function assertPulseVerdictMatchesLine(page: Page): Promise<void> {
+  await gotoAdminSection(page, 'dashboard');
+  const verdict = page.getByTestId('pulse-verdict');
+  await expect(verdict).toBeVisible({ timeout: 5_000 });
+  const rail = page.getByTestId('pulse-rail-delta');
+  await expect(rail).toBeVisible({ timeout: 5_000 });
+
+  // 先取文本再判断 —— `.not.toContainText` 在元素还没出现时也算通过
+  // （[[negated-assertion-passes-while-absent]]）。
+  const railText = (await rail.innerText()).trim();
+  const said = (await verdict.innerText()).trim();
+  const inSevenDays = Number(/([+-]?\d+)\s*in 7d/.exec(railText)?.[1] ?? '0');
+  const claimsNew = /(\d+)\s+new in 14d/.exec(said);
+
+  expect(
+    claimsNew !== null || inSevenDays <= 0,
+    `the rail says "${railText}" and the card says "${said}" — 7d is inside 14d`,
+  ).toBe(true);
+  expect(
+    Number(claimsNew?.[1] ?? '1') > 0,
+    `"${said}" claims activity but names zero entries`,
+  ).toBe(true);
+}
 
 async function assertProviderOutageAnnounced(page: Page): Promise<void> {
   await gotoAdminSection(page, 'dashboard');

@@ -32,7 +32,7 @@ export function RequestsSection() {
     <>
       <SectionHeader
         kicker="access · gate inbox"
-        title="requests"
+        slug="requests"
         count={requestCount(hook)}
       />
       <Intro />

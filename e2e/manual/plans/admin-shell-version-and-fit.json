@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/admin-shell/shots/sweep",
+  "viewport": [1280, 800],
+  "login": false,
+  "shots": [
+    { "name": "sw-27-login-version", "url": "/login", "wait": 2500 }
+  ]
+}

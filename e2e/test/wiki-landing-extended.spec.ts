@@ -156,15 +156,22 @@ function registerSidebarSessionTests(): void {
       await expect(page.getByTestId('wiki-tree')).toContainText('wiki tree');
     });
 
-  // owner: 有 code 会话 → strip 显示 invited(不是 anonymous)+ ask dock 渲染。
-  test('with a code session: strip shows invited and the ask dock renders',
+  // owner: 有 code 会话 → strip 说出**这张码**给的是什么（不是 anonymous，也不是
+  // 对每张码都说的那句 `invited`）+ ask dock 渲染。
+  //
+  // 断言从 `invited` 改成码自己的 label：`SessionStrip.tsx:107` 是 `s.label ?? 'invited'`，
+  // 而 `invited` 是**没有 label 时**的退路。拿退路当判据，等于一张有名字的码和一张没名字的
+  // 码在这条守卫眼里一样 —— 那正是 UX-68 记的那件事（顶栏对每张码都说同一个词）。
+  test('with a code session: the strip names this code’s access and the ask dock renders',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       await createCode(request, csrf, { code: 'READER-PASS', label: 'Reader access' });
       await enterCodeSession(page, 'READER-PASS', 'Sam');
       await goto(page, '/wiki/wiki-extended');
-      await expect(page.getByTestId('session-strip')).toContainText('invited', { timeout: 5_000 });
+      const strip = page.getByTestId('session-strip');
+      await expect(strip).toContainText('Reader access', { timeout: 5_000 });
+      await expect(strip, 'a named code must not be reported as anonymous').not.toContainText('anonymous');
       await expect(page.getByTestId('floating-dock-pill')).toBeVisible();
     });
 

@@ -27,7 +27,7 @@ export function ApiSection() {
     <>
       <SectionHeader
         kicker="integrations · programmatic"
-        title="api · mcp"
+        slug="api-mcp"
         count={titleCount(hook)}
       />
       <ApiBody hook={hook} />

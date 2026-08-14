@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { APIError } from '@/lib/api/api-error';
 import { safeJson } from '@/lib/api/typed-json';
+import { logger } from '@/lib/logger';
+import { markInstanceAnswered, markInstanceUnreachable } from '@/lib/state/instance-liveness';
 
 const CSRF_COOKIE = 'csrftoken';
 
@@ -24,10 +26,15 @@ async function doFetch(method: string, path: string, body?: unknown): Promise<Re
     headers: csrfHeaders(),
     body: body === undefined ? undefined : JSON.stringify(body),
     credentials: 'include',
+  }).catch((e: unknown) => {
+    // 请求没到（网络层）：顶栏那颗灯要知道这件事，然后把错误照常抛出去。
+    markInstanceUnreachable(0);
+    throw e;
   });
   if (!res.ok) {
     return throwAPIError(res, `${method} ${path}`);
   }
+  markInstanceAnswered();
   return res;
 }
 
@@ -49,19 +56,39 @@ const ErrorBodySchema = z.object({
 });
 
 // throwAPIError —— 非 2xx → 抛带 status+code 的 APIError（读后端 envelope 的 code/message；读不出用
-// 兜底串）。带 status 让调用方能分流（401 跳登录 / 409 就地 / 其余 toast）。恒抛，返回 never。
+// 兜底句）。带 status 让调用方能分流（401 跳登录 / 409 就地 / 其余 toast）。恒抛，返回 never。
 async function throwAPIError(res: Response, op: string): Promise<never> {
-  const fallback = `${op} failed: ${res.status}`;
   let code = '';
-  let message = fallback;
+  let message = '';
   try {
     const body = await safeJson(res, ErrorBodySchema);
     code = body.error?.code ?? '';
-    message = body.error?.message ?? fallback;
+    message = body.error?.message ?? '';
   } catch {
-    // envelope 读不出（非 JSON / 网络层）→ 用兜底串
+    // envelope 读不出（非 JSON / 网络层）→ message 留空，下面给人话
   }
-  throw new APIError(res.status, code, message);
+  // 请求行只进日志：owner 要定位问题时它在控制台里，而屏幕上不该出现 HTTP 动词和内部路径。
+  logger.error(`admin api ${op} → ${res.status}`, message);
+  markInstanceUnreachable(res.status);
+  throw new APIError(res.status, code, message === '' ? humanFallback(res.status) : message);
+}
+
+// humanFallback —— 后端没给出一句话时，**这里**必须给一句人能读的。
+//
+// 原来的兜底是 `${method} ${path} failed: ${status}`，而二十来处 section 直接把 message
+// 印在屏幕上 —— prod 上真停一次 backend，`/admin/wiki` 写的就是 `GET /corpus/wiki failed: 500`
+// （F-N-5）。CLAUDE.md 的规矩逐字写着「No raw stack traces, no exit codes, no technical
+// jargon shown to the user」。这条经验产品里已经写过一次（`use-obsidian.ts:70`：
+// 「a human sentence, never `import failed: 400`. The owner is not debugging」），只是没扫到邻居。
+//
+// 按状态分档，因为**下一步动作**不同：5xx 等一会儿再来，4xx 是这次请求本身不成立。
+function humanFallback(status: number): string {
+  if (status >= 500) {
+    return 'the instance didn’t answer that — nothing was changed. Try again in a moment.';
+  }
+  if (status === 404) return 'that isn’t here any more — reload to see the current state.';
+  if (status === 409) return 'something else changed this first — reload and redo your edit.';
+  return 'that request was refused. Check the values and try again.';
 }
 
 export const adminAPI = {

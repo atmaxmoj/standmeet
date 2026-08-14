@@ -29,7 +29,7 @@ export function ApplicationsSection() {
     <>
       <SectionHeader
         kicker="jobs · committed"
-        title="applications"
+        slug="applications"
         count={titleCount(rows.length, loading)}
       />
       <Intro />

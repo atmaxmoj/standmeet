@@ -11,6 +11,7 @@ import { CorpusConstellation } from '@/components/admin/chrome/CorpusConstellati
 import { Pill } from '@/components/admin/atoms/Pill';
 import { useAppVersion } from '@/lib/app-version';
 import { signOut } from '@/lib/admin/sign-out';
+import { useInstanceLiveness } from '@/lib/state/instance-liveness';
 
 type Props = {
   handle: string;
@@ -46,12 +47,25 @@ function TopBarBrand({ handle }: { handle: string }) {
   );
 }
 
+// LiveDot —— 它说的那个字必须**是**这台实例此刻的状态（F-N-6）。
+// 以前它是个常量：后端停机时正文写着这一节加载失败，顶栏照样 `● LIVE`。
+// 现在它读 instance-liveness —— 数据来自已经发生的那些请求，不额外轮询。
 function LiveDot() {
   const t = useTranslations('adminShell.topBar');
+  const liveness = useInstanceLiveness();
+  const live = liveness === 'live';
   return (
     <span className="inline-flex items-center gap-1.5 ml-2">
-      <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-accent) live-dot" />
-      <span className="text-(--color-faint) text-[9.5px] tracking-[0.18em]">{t('live')}</span>
+      <span className={`inline-block w-1.5 h-1.5 rounded-full ${live
+        ? 'bg-(--color-accent) live-dot'
+        : 'bg-(--color-faint)'}`}
+      />
+      <span
+        data-testid="shell-liveness"
+        className="text-(--color-faint) text-[9.5px] tracking-[0.18em]"
+      >
+        {live ? t('live') : t('notAnswering')}
+      </span>
     </span>
   );
 }

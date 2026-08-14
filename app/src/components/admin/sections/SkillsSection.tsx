@@ -53,7 +53,7 @@ export function SkillsSection() {
     <>
       <SectionHeader
         kicker="ai · skills"
-        title="skills"
+        slug="skills"
         count={titleCount(skills)}
         action={<HeaderActions tab={tab} setTab={setTab} onNew={() => setCreating(true)} />}
       />

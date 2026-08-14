@@ -1,11 +1,17 @@
 // SectionHeader —— admin 每个 section 的标题块。
 // design 版：kicker (mono uppercase) + title (serif large) + 可选 count + 可选 action。
-// legacy 版调用方还在传 title / subtitle —— 兼容 fallback。
+//
+// 标题**不收字符串，收 slug**：这一节叫什么由侧栏那份 `NAV_GROUPS` 说了算（F-N-3）。
+// 手写标题的时候，26 节里有 24 节抄得跟牌子一模一样，剩下两节抄错了 —— 而错的那两节
+// (`landing page`→`page` / `custom pages`→`pages`) 恰好是"两个名字只差一个复数"这个
+// 缺陷本身。现在它们不是两份互相追赶的字符串，而是同一份。
 
 import type { ReactNode } from 'react';
 
+import { navLabel, type AdminSlug } from '@/lib/admin/nav';
+
 type Props = {
-  title: string;
+  slug: AdminSlug;
   kicker?: string;
   subtitle?: string;
   count?: ReactNode;
@@ -19,7 +25,7 @@ export function SectionHeader(props: Props) {
       className="flex items-baseline justify-between border-b border-(--color-rule) pb-4 mb-7 gap-6"
     >
       <SectionHeaderTitle
-        title={props.title}
+        title={navLabel(props.slug)}
         kicker={props.kicker}
         subtitle={props.subtitle}
         count={props.count}
@@ -44,7 +50,9 @@ function SectionHeaderTitle(props: {
 function SectionTitleLine({ title, count }: { title: string; count?: ReactNode }) {
   return (
     <h1 className="font-serif text-(--color-ink) text-[32px] tracking-[-0.018em] leading-none">
-      {title}
+      {/* 标题单独挂 testid：header 的文本层里 kicker 在前、count 在后，靠切分取标题
+          会把 `api · mcp` 这种本身带分隔符的标题切坏（F-N-3 的守卫要读的就是它）。 */}
+      <span data-testid="section-title">{title}</span>
       {/* real space so the a11y/text layer reads "raw · 50", not "raw· 50" (UX-12) */}
       {' '}
       <SectionCount count={count} />

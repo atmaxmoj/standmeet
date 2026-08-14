@@ -29,7 +29,7 @@ export function PageSection() {
   const editor = usePageEditor();
   return (
     <>
-      <SectionHeader kicker="settings · public face" title="page" />
+      <SectionHeader kicker="settings · public face" slug="page" />
       <PageBody editor={editor} />
     </>
   );

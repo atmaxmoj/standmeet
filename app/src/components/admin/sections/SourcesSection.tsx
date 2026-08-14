@@ -21,7 +21,7 @@ export function SourcesSection() {
     <>
       <SectionHeader
         kicker="jobs · sources"
-        title="sources"
+        slug="sources"
         count={loading ? '' : `${rows.length} active`}
       />
       <Intro />

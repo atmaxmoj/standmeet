@@ -66,7 +66,7 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
       await (await turnDone).finished();
 
-      const usedSel = '[data-testid="session-strip-gauge"] .sm-session-strip-used';
+      const usedSel = '[data-testid="session-strip-turns-used"]';
       const usedBefore = await page.locator(usedSel).innerText();
       expect(usedBefore).not.toBe('0'); // 问过一句,计数应 ≥ 1
 

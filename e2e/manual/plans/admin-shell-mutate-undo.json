@@ -1,0 +1,21 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/admin-shell/shots/sweep",
+  "viewport": [1280, 900],
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "sw-36-codes-after-revoke", "url": "/admin/codes",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "[data-testid=\"code-revoke-SHELLCOUNT-B15B\"]" },
+        { "wait": 3500 }
+      ],
+      "wait": 1500 },
+    { "name": "sw-37-dashboard-after-revoke", "url": "/admin/codes",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"admin-nav-dashboard\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1500 }
+  ]
+}

@@ -35,7 +35,7 @@ export function RolesSection() {
     <>
       <SectionHeader
         kicker="access · personas"
-        title="roles"
+        slug="roles"
         count={titleCount(hook)}
         action={<NewRoleBtn onClick={() => setCreating(true)} />}
       />

@@ -19,7 +19,7 @@ export function ListingsSection() {
     <>
       <SectionHeader
         kicker="jobs · listings"
-        title="listings"
+        slug="listings"
         count={loading ? '' : `${rows.length} in pool`}
       />
       <Intro />

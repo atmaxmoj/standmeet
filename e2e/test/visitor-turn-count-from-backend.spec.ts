@@ -24,7 +24,8 @@ const OWNER = {
 const CODE = 'COUNT-001';
 const NAME = 'Frank';
 const QUESTION = 'tell me about lucerna';
-const USED_SEL = '[data-testid="session-strip-gauge"] .sm-session-strip-used';
+// 轮数那一格有自己的 testid（名字数那格长得一样但**不是同一个量**，共用类名时谁也指不到）。
+const USED_SEL = '[data-testid="session-strip-turns-used"]';
 
 test.describe('turn 计数以后端 conversation 为唯一 source of truth', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -90,7 +91,7 @@ test.describe('turn 计数以后端 conversation 为唯一 source of truth', () 
   });
 
   test('别的访客占了名额 → reload 后 member_count 按后端纠回', async ({ browser }) => {
-    const namesUsed = '[data-testid="session-strip-names"] .sm-session-strip-members-used';
+    const namesUsed = '[data-testid="session-strip-members-used"]';
 
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();

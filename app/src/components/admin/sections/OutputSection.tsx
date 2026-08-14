@@ -49,7 +49,7 @@ function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHoo
     <>
       <SectionHeader
         kicker="corpus · public-facing"
-        title="outputs"
+        slug="output"
         count={hook.status === 'ready' ? `${hook.rows.length} artifacts` : ''}
         action={<NewBtnGroup onClick={() => setCreating(true)} disabled={creating} />}
       />

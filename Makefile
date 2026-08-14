@@ -154,6 +154,22 @@ prod-app: app-build
 prod-down:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down
 
+# prod-stop-svc / prod-start-svc —— 停/起 prod 里的**一个** service。真实环境审计里反复要的
+# 那件装置：好几条 check 问的是「这东西不在了，产品会怎么说」（F-N-2 的后端停机、admin-shell
+# check 4 的 live 灯、corpus-acl check 6 的加载失败），而那只能真的把它停掉。
+#
+#   make prod-stop-svc SVC=backend   # 注入
+#   make prod-start-svc SVC=backend  # 收工必须做，别把实例留在停机态
+#
+# **它不删数据**：stop 不是 down，卷和容器都还在，起回来就是原样。
+prod-stop-svc:
+	@test -n "$(SVC)" || (echo "usage: make prod-stop-svc SVC=<service>"; exit 2)
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml stop $(SVC)
+
+prod-start-svc:
+	@test -n "$(SVC)" || (echo "usage: make prod-start-svc SVC=<service>"; exit 2)
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml start $(SVC)
+
 # verify-proxy-up —— 起故障注入代理，坐在**真** provider 前面（agent-loop-robustness 的 Real
 # dep 点名要的那件装置）。它在 prod 那张网里，但**不在 prod compose 里**：生产文件不该带一个能
 # 让 LLM 调用限流的服务。

@@ -82,9 +82,18 @@ test.describe('jobs.fetch_new (workable) authed SPI', () => {
         config: { company: 'acme', api_token: 'not-the-token' },
       });
       // the mock 401s on a bad token → the adapter surfaces it (auth is really enforced upstream).
-      await expect(
-        jobsFetchNew(request, token, sid, src.id),
-        'a bad token must error, not return empty',
-      ).rejects.toThrow();
+      //
+      // 判据是**「不许静默变成空」**，不是「必须抛」。工具后来改成逐源报告失败
+      // （一个源坏了不该把整次抓取一起拖垮），那是更好的形状 —— 于是要断的是：
+      // 这一次没有任何岗位，而且那个源被**点名**说清了原因。
+      // 只断 `jobs` 为空的话，一个真的静默吞掉 401 的实现也照样过。
+      const out = await jobsFetchNew(request, token, sid, src.id);
+      expect(out.jobs, 'a 401 upstream must not yield jobs').toHaveLength(0);
+      const failed = (out.failed_sources ?? []).find((f) => f.source_id === src.id);
+      expect(failed, 'the bad source must be named, not silently dropped').toBeTruthy();
+      expect(
+        failed?.reason ?? '',
+        'the reason must carry the real upstream status, not a generic "could not fetch"',
+      ).toMatch(/401|unauthor/i);
     });
 });

@@ -1,0 +1,20 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/nav-page-vs-pages/shots",
+  "viewport": [1280, 900],
+  "shots": [
+    { "name": "nav-04-settings-entry-after", "url": "/admin",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"admin-nav-page\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "nav-05-corpus-entry-after", "url": "/admin",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"admin-nav-custom-pages\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 }
+  ]
+}

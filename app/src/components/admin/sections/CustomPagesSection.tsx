@@ -29,8 +29,8 @@ export function CustomPagesSection() {
   return (
     <>
       <SectionHeader
-        kicker="corpus · public-facing"
-        title="pages"
+        kicker="corpus · microsites"
+        slug="custom-pages"
         count={hook.status === 'ready' ? String(hook.rows.length) : ''}
       />
       <Intro />

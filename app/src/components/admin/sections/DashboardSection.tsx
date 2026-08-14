@@ -36,7 +36,7 @@ export function DashboardSection() {
     <div data-testid="dashboard">
       <SectionHeader
         kicker="overview"
-        title="dashboard"
+        slug="dashboard"
         count={loading ? 'loading…' : 'last refresh · now'}
       />
       <KpiRow stats={stats} loading={loading} />

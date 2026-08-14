@@ -28,7 +28,8 @@ const NAME = 'Fred';
 const GOOD_Q = 'tell me about lucerna';
 const FAIL_Q = 'this turn fails upstream';
 const THIRD_Q = 'and what else have you built';
-const USED = '.sm-session-strip-used';
+// 轮数那一格自己的 testid：名字数那格用的是同一个类名，靠类名会一次命中两个元素。
+const USED = '[data-testid="session-strip-turns-used"]';
 
 test.describe('失败的一轮不进 conversation,刷新后不在也不计数', () => {
   test.beforeAll(async ({ playwright }) => {

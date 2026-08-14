@@ -1,0 +1,25 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/admin-shell/shots/sweep",
+  "viewport": [1280, 900],
+  "shots": [
+    { "name": "sw-33-codes-before", "url": "/admin/codes", "wait": 3500 },
+    { "name": "sw-34-codes-after-create", "url": "/admin/codes",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "button:has-text(\"new code\")" },
+        { "wait": 1500 },
+        { "type": ["[data-testid=\"code-label\"]", "SHELLCOUNT"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"code-create\"]" },
+        { "wait": 3500 }
+      ],
+      "wait": 1500 },
+    { "name": "sw-35-dashboard-after-create", "url": "/admin/codes",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"admin-nav-dashboard\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1500 }
+  ]
+}

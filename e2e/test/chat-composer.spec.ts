@@ -26,6 +26,9 @@ const OWNER = {
 };
 
 const CODE = 'COMP-001';
+// 第二张码**故意不带**建议问题：TRY 那排 chip 只在没有 ghost 时才出现，
+// 而一张带建议的码首轮就有 ghost —— 用同一张码测两种入口，测到的只会是其中一种。
+const PLAIN_CODE = 'COMP-002';
 const STARTERS = ['What do you do?', 'Tell me about your projects'];
 
 test.describe('ChatComposer behavior', () => {
@@ -33,19 +36,33 @@ test.describe('ChatComposer behavior', () => {
     await initOwner(playwright);
   });
 
-  test('coded visitor sees starter chips → click → auto-send → chips gone',
+  // 码**没带**建议问题 → 首轮没有 ghost → TRY 那排 chip 就是唯一的入口，点一下直接发。
+  test('a code with no suggestions: starter chips → click → auto-send → chips gone',
     async ({ page }) => {
-      await enterCodeSession(page, CODE);
+      await enterCodeSession(page, PLAIN_CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // Starter chips should be visible
       const chips = page.getByTestId('starter-chips');
       await expect(chips).toBeVisible({ timeout: 5_000 });
-      // Click first starter
       await chips.locator('button').first().click();
-      // Answer should appear, chips should disappear
       await expect(page.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 15_000 });
       await expect(chips).toBeHidden({ timeout: 5_000 });
+    });
+
+  // 码**带了**建议问题 → 首轮就有 ghost → 两套建议不同屏（UX-35），chip 收起。
+  // 而欢迎语最后那句必须跟着改口：它原本无条件写着「Starters below」，
+  // 指着一个此刻不存在的地方，真正的建议就躺在输入框里、且没人说它能按 Tab 拿走（UX-34）。
+  test('a code with suggestions: the ghost replaces the chips, and the copy says so',
+    async ({ page }) => {
+      await enterCodeSession(page, CODE);
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      await expect(
+        page.getByTestId('chat-ghost-text'), '码带了建议问题,首轮就该有 ghost',
+      ).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('starter-chips')).toHaveCount(0);
+      const wayIn = (await page.getByTestId('welcome-way-in').innerText()).toLowerCase();
+      expect(wayIn, `屏幕上没有 starters,欢迎语却说 "${wayIn}"`).not.toContain('starters below');
+      expect(wayIn, '真正的入口是输入框里那条 ghost —— 得说出怎么拿走它').toContain('tab');
     });
 
   test('manual input → ask → turn + answer render',
@@ -164,5 +181,6 @@ async function initOwner(playwright: Playwright): Promise<void> {
     code: CODE, label: 'Composer test',
     ghosts: STARTERS,
   });
+  await createCode(request, csrf, { code: PLAIN_CODE, label: 'Composer plain' });
   await request.dispose();
 }

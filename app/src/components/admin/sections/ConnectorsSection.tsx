@@ -36,7 +36,7 @@ export function ConnectorsSection() {
     <>
       <SectionHeader
         kicker="integrations"
-        title="connectors"
+        slug="connectors"
         count="calendar · mail live · upload your own"
         action={<AddBtn onOpen={openAdd} />}
       />

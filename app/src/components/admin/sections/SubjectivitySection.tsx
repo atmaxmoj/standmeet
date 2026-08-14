@@ -43,7 +43,7 @@ function Header(
     <>
       <SectionHeader
         kicker="corpus · self-model"
-        title="subjectivity"
+        slug="subjectivity"
         count={hook.state === 'list' ? `${hook.rows.length} notes` : ''}
         action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}
       />

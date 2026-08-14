@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/admin-shell/shots/sweep",
+  "viewport": [1280, 720],
+  "shots": [
+    { "name": "sw-28-short-window-dashboard", "url": "/admin/dashboard", "wait": 3500 },
+    { "name": "sw-29-short-window-system", "url": "/admin/system", "wait": 3500 }
+  ]
+}

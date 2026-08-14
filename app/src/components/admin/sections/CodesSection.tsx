@@ -34,7 +34,7 @@ export function CodesSection() {
     <>
       <SectionHeader
         kicker="access · codes"
-        title="codes"
+        slug="codes"
         count={titleCount(hook)}
         action={<NewCodeBtn open={modals.openCreate} />}
       />

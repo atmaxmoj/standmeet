@@ -23,6 +23,7 @@
     "codedWelcome": "{greeting}. I'm an AI grounded in {handle}'s curated corpus. You've come in on the <accent>{codeLabel}</accent> slice.",
     "codedRedaction": "Private topics outside this code's scope are redacted. {handle} reads transcripts afterward.",
     "codedStarters": "Ask anything. Starters below if you need a way in.",
+    "codedGhostHint": "Ask anything. There's a suggested question waiting in the box — press Tab to take it.",
     "byoaiWelcome": "Hi. I'm an AI grounded in {handle}'s curated corpus. You're running on your own <accent>{provider}</accent> key — public slice only.",
     "byoaiScope": "Work, projects, public takes — fair game. Private topics return a “need a code” response.",
     "sessionFull": "session full",

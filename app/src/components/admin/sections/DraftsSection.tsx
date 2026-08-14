@@ -46,7 +46,7 @@ export function DraftsSection() {
     <>
       <SectionHeader
         kicker="jobs · resume drafts"
-        title="drafts"
+        slug="drafts"
         count={titleCount(rows.length, loading)}
       />
       <Intro />

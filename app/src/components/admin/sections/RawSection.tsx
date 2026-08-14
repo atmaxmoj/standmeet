@@ -38,7 +38,7 @@ export function RawSection() {
   const { unprocessed, tabs } = rawTrueCounts(hook.counts, growth);
   return (
     <>
-      <SectionHeader kicker="corpus · inbox" title="raw" count={`${unprocessed} unprocessed`} />
+      <SectionHeader kicker="corpus · inbox" slug="raw" count={`${unprocessed} unprocessed`} />
       <RawBody hook={hook} tabCounts={tabs} />
     </>
   );

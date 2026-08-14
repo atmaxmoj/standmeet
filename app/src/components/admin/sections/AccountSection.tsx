@@ -26,7 +26,7 @@ export function AccountSection() {
   useEffectErrorToast(account.error);
   return (
     <>
-      <SectionHeader kicker="settings · owner" title="account" />
+      <SectionHeader kicker="settings · owner" slug="account" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <ProfileCard hook={account} session={session} />
         <SecurityCard hook={account} />

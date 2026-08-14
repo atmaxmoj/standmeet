@@ -38,7 +38,7 @@ export function WritingsSection() {
     <>
       <SectionHeader
         kicker="corpus · writing"
-        title="writings"
+        slug="writings"
         count={titleCount(hook)}
         action={<Btn kind="solid" onClick={() => setCreating(true)}>{t('newWriting')}</Btn>}
       />

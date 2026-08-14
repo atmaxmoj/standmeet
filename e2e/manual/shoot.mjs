@@ -115,6 +115,14 @@ for (const shot of plan.shots) {
     step.select && await page.locator(step.select[0]).first().selectOption(step.select[1]);
     // press —— 有些东西只能按键提交（访客对话框没有发送按钮，回车就是发送）。
     step.press && await page.locator(step.press[0]).first().press(step.press[1]);
+    // scroll —— 把鼠标移到某个容器上滚轮。admin 的滚动在**内层容器**里（侧栏自己一个
+    // overflow-y-auto，正文另一个），所以「滚页面」滚不动它们，而 fullPage 也拍不到 ——
+    // 判断「下面那截够不够得着」只能真的滚一次。用法：{"scroll": ["nav", 600]}
+    step.scroll && await (async () => {
+      await page.locator(step.scroll[0]).first().hover();
+      await page.mouse.wheel(0, step.scroll[1]);
+      await page.waitForTimeout(400);
+    })();
     // 懒加载的树：上一次点击要等它把下一层取回来，下一个选择器才存在。
     step.wait && await page.waitForTimeout(step.wait);
   }

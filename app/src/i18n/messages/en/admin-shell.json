@@ -8,6 +8,7 @@
     "brand": "standmeet",
     "admin": "admin",
     "live": "live",
+    "notAnswering": "not answering",
     "viewPublic": "view public ↗",
     "signOut": "sign out"
   },

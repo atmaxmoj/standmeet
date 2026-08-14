@@ -174,7 +174,12 @@ function StripNamesSlot({ s }: { s: VisitorSession }) {
     <>
       <span className="sm-session-strip-sep">·</span>
       <span className="sm-session-strip-gauge-text" data-testid="session-strip-names">
-        <span className="sm-session-strip-used">{s.memberCount}</span>
+        {/* 名字数和轮数长得一样(同一个类),但它们是**两个**量,各自要能被指到。
+            共用一个类名的后果:`.sm-session-strip-used` 一次命中两个元素,谁也定位不了。
+            外观归类名,身份归 testid。 */}
+        <span className="sm-session-strip-used" data-testid="session-strip-members-used">
+          {s.memberCount}
+        </span>
         {' / '}{s.maxMembers}
         <span className="sm-session-strip-turns-suffix">{t('names')}</span>
       </span>
@@ -200,7 +205,7 @@ function StripGauge({ used, max, pct }: { used: number; max: number; pct: number
       data-testid="session-strip-gauge"
     >
       <span className="sm-session-strip-gauge-text">
-        <span className="sm-session-strip-used">{used}</span>
+        <span className="sm-session-strip-used" data-testid="session-strip-turns-used">{used}</span>
         {' / '}
         <span>{max}</span>
         <span className="sm-session-strip-turns-suffix">{t('turns')}</span>

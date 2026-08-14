@@ -21,7 +21,7 @@ export function SecuritySection() {
     <>
       <SectionHeader
         kicker="settings · security"
-        title="ip bans"
+        slug="ip-bans"
         count={hook.status === 'ready' ? `${hook.bans.length}` : ''}
       />
       <Intro />

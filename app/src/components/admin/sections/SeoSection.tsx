@@ -28,7 +28,7 @@ export function SeoSection() {
   useEffectErrorToast(seo.error);
   return (
     <>
-      <SectionHeader kicker="settings · search" title="seo" />
+      <SectionHeader kicker="settings · search" slug="seo" />
       <Intro />
       {seo.settings
         ? <SeoBody settings={seo.settings} stats={seo.stats} save={seo.save} />

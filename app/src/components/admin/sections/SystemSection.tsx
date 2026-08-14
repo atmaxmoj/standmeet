@@ -21,7 +21,7 @@ export function SystemSection() {
     <>
       <SectionHeader
         kicker="settings · runtime"
-        title="system"
+        slug="system"
         action={<button className="sm-btn sm-btn-outline sm-btn-sm" type="button">{t('checkForUpdates')}</button>}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

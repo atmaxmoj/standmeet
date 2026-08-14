@@ -39,14 +39,14 @@ test.describe('max_members: code caps how many names, with a clear full state', 
       const aliceCtx = await browser.newContext();
       const alice = await aliceCtx.newPage();
       await enterCodeSession(alice, CODE, 'Alice');
-      await expect(alice.locator('.sm-session-strip-members-used')).toHaveText('1');
+      await expect(alice.getByTestId('session-strip-members-used')).toHaveText('1');
       await expect(alice.getByTestId('session-strip-names')).toContainText('/ 2');
 
       // Bob(名字 2)→ 进得来,2 / 2。
       const bobCtx = await browser.newContext();
       const bob = await bobCtx.newPage();
       await enterCodeSession(bob, CODE, 'Bob');
-      await expect(bob.locator('.sm-session-strip-members-used')).toHaveText('2');
+      await expect(bob.getByTestId('session-strip-members-used')).toHaveText('2');
 
       // Carol(名字 3)→ 满了,名字选择器显 "code full",没 session。
       const carolCtx = await browser.newContext();

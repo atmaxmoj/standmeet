@@ -41,7 +41,7 @@ test.describe('failed turn does not consume a turn', () => {
       // (会采样到 picker unmount 窗口 → click 10s 超时,check-then-act race)。
       await enterCodeSession(page, CODE);
 
-      const used = page.locator('.sm-session-strip-used');
+      const used = page.getByTestId('session-strip-turns-used');
       const input = page.getByTestId('chat-input-field');
       const answers = page.getByTestId('answer-body');
       await expect(used).toHaveText('0');

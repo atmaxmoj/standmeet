@@ -1,0 +1,12 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/admin-shell/shots/sweep",
+  "viewport": [1280, 720],
+  "shots": [
+    { "name": "sw-30-short-window-sidebar-scrolled", "url": "/admin/dashboard",
+      "steps": [
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"admin-sidebar\"]", 900] }
+      ],
+      "wait": 1000 }
+  ]
+}

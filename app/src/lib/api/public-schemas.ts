@@ -35,16 +35,21 @@ export const WritingViewSchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
   body_md: z.string(), cover_headline: z.string(),
   cover_hue: z.enum(['amber', 'violet', 'acid']),
-  cover_image_asset_id: z.string().optional(),
+  cover_image_asset_id: z.string().nullish().transform((v) => v ?? undefined),
   tags: z.array(z.string()), visibility: z.enum(['public', 'private']),
   cross_refs: z.array(z.string()), path: z.string(), read_minutes: z.number(),
-  locked_body: z.string().optional(), published_at: z.string().optional(),
-  asset_urls: z.record(z.string(), z.string()).optional(),
-  backlinks: z.array(BacklinkRefSchema).optional(),
+  locked_body: z.string().nullish().transform((v) => v ?? undefined),
+  published_at: z.string().nullish().transform((v) => v ?? undefined),
+  asset_urls: z.record(z.string(), z.string()).nullish().transform((v) => v ?? {}),
+  backlinks: z.array(BacklinkRefSchema).nullish().transform((v) => v ?? []),
   // 服务端已挑好那一面；这两个只回答"还有哪些"（切换器用）。
-  // `.optional()`：老实例的响应里没有它们，而 zod 不匹配是**整份挂掉**，
-  // 不是这一个字段变 undefined（[[zod-unknown-is-not-optional]]）。
-  lang: z.string().optional(),
-  languages: z.array(z.object({ code: z.string(), label: z.string() })).optional(),
+  //
+  // **`.nullish()` 不是 `.optional()`**（F-R-5）：Go 的 nil slice 编码出来是 `null`，
+  // 而 `.optional()` 只接受**键不在**，接不住 `null` —— 于是整份 parse 挂掉，
+  // 而 zod 不匹配是**整份挂掉**，不是这一个字段变 undefined（[[zod-unknown-is-not-optional]]）。
+  // 后果不是少一个语言切换器，是 `/writings` 整页 500。这一行上面那几个
+  // `.optional()` 是同一个坑的邻居，一起改了：它们的值也都来自可能为 nil 的 Go 字段。
+  lang: z.string().nullish(),
+  languages: z.array(z.object({ code: z.string(), label: z.string() })).nullish(),
 });
 export type WritingView = z.infer<typeof WritingViewSchema>;

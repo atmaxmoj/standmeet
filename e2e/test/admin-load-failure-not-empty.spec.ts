@@ -43,7 +43,66 @@ test.describe('admin · a failed load must not render as an authoritative empty'
   test('dashboard: a 500 does not become “0 sent”', dashboardCountLoadFailure);
   test('session: a 500 on /me does not become “you are signed out”', meFailureIsNotSignedOut);
   test('session: a 401 on /me still sends the owner to /login', meUnauthedStillRedirects);
+  test('a failed load speaks English, not HTTP', failureSpeaksEnglish);
+  test('the shell stops calling itself live while the instance is not answering', liveDotTracksReachability);
 });
+
+// failureSpeaksEnglish —— F-N-5。上面几条守的是「别把失败说成空」，这条守的是**说出来的那句话
+// 本身**：prod 上真把 backend 停掉，`/admin/wiki` 印的是
+//     GET /corpus/wiki failed: 500
+// —— HTTP 动词、内部路径、状态码，三样都甩到 owner 脸上。CLAUDE.md 的规矩逐字写着
+// 「Errors must be user-friendly at the UI. No raw stack traces, no exit codes, no technical jargon」。
+//
+// 归因在**唯一的汇合点**：`lib/api/admin.ts` 的 `throwAPIError` 把 `${method} ${path} failed: ${status}`
+// 当成 APIError.message 的兜底，而二十来处 section 直接把 message 印在屏幕上。
+// 这条经验产品里已经写过一次 —— `use-obsidian.ts:70` 的注释原话：
+// 「a human sentence, never `import failed: 400`. The owner is not debugging」—— 只是没扫到邻居。
+//
+// 判据断的是**屏幕上的字**：不许出现 HTTP 动词 / `/corpus/` 这种内部路径 / 裸状态码，
+// 且必须真有一句话在（不然「什么都不显示」也能过 —— 那是另一个缺陷，不是修好）。
+async function failureSpeaksEnglish({ adminPage }: { adminPage: Page }): Promise<void> {
+  // 注入的是**没有 envelope 的 500**（真实的进程崩溃 / 反代 502 就是这样），
+  // 因为要验的正是「后端一句话都没给出来时，屏幕上出现的是什么」。
+  // 上面那个 `fail()` 带着 `{error:{message:'boom'}}`，产品会如实印 'boom' ——
+  // 那走的是另一条分支，测不到兜底串。
+  await adminPage.route('**/api/admin/corpus/wiki**', (route) => route.fulfill({
+    status: 500, contentType: 'text/plain', body: 'upstream connect error',
+  }));
+  await reloadAdminSection(adminPage, 'wiki');
+  const shown = adminPage.getByTestId('wiki-error');
+  await expect(shown, 'the owner must be told the list failed to load').toBeVisible({ timeout: 15_000 });
+  const text = (await shown.innerText()).trim();
+  expect(text.length, 'an empty error line tells the owner nothing').toBeGreaterThan(10);
+  expect(text, `owner-facing copy must not be a request line: "${text}"`)
+    .not.toMatch(/\b(GET|POST|PUT|PATCH|DELETE)\b|\/corpus\/|\bfailed: \d{3}\b/);
+}
+
+// liveDotTracksReachability —— F-N-6。顶栏那颗朱红点旁边写着 `live`，而它读的是**空气**：
+// `LiveDot` 里没有任何输入，dev / prod / 后端停机全都长一个样。
+// prod 上真停一次 backend 之后点侧栏：正文写着这一节加载失败，顶栏还在 `● LIVE`。
+//
+// 「哪些还活着」正是状态灯唯一要回答的问题（跟 api·mcp 那张密钥卡上的 `last used` 同一个角色）。
+// 判据：注入故障之后那句 `live` 必须**换掉**（说不出话就别说话），而正常时它必须在 ——
+// 两个方向都钉住，否则「干脆删掉这颗灯」也能让单向断言转绿。
+async function liveDotTracksReachability({ adminPage }: { adminPage: Page }): Promise<void> {
+  const liveWord = adminPage.getByTestId('shell-liveness');
+  await gotoAdminSection(adminPage, 'wiki');
+  await expect(liveWord, 'a healthy instance says live').toHaveText(/live/i, { timeout: 15_000 });
+
+  // 停的是**整台后端**，不是一个端点：一个端点 500 时这台机器仍然在答话，
+  // 那时候还说 live 是对的。要复现的是 prod 上真停 backend 的那一幕 ——
+  // 会话已经在手里（不重载，靠点侧栏换节），每一个请求都够不着。
+  await adminPage.route('**/api/admin/**', (route) => route.fulfill({
+    status: 500, contentType: 'text/plain', body: 'upstream connect error',
+  }));
+  await gotoAdminSection(adminPage, 'raw');
+  await expect(
+    liveWord, `the instance answers nothing and the shell still calls itself live`,
+  ).not.toHaveText(/^live$/i, { timeout: 15_000 });
+  // 说清楚它换成了什么 —— 只断"不是 live"的话，渲染成空白也算过。
+  const word = (await liveWord.innerText()).trim();
+  expect(word.length, 'the dot must say what is wrong, not go blank').toBeGreaterThan(3);
+}
 
 // meUnauthedStillRedirects —— 反方向。没有这条，一个「干脆永不跳转」的实现也能让上面那条转绿，
 // 而真正过期的会话会卡在一句「够不着服务器」上 —— 同一个缺陷换了个方向而已。

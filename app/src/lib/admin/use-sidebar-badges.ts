@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 import { pendingRequests } from '@/lib/admin/access-request-status';
 import { safeJson } from '@/lib/api/typed-json';
+import { useListingsCount } from '@/lib/admin/use-admin-listings';
 import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 import type { SidebarBadges } from '@/components/admin/AdminSidebar';
 
@@ -24,6 +25,10 @@ export function useSidebarBadges(): SidebarBadges {
   // raw 走共享的 growth store(F-L-4 定下的:必须是真 COUNT(*),不是第一页的行数),
   // 于是任何一次语料 mutation 之后它跟标题、tab、pulse 栏一起动。
   const { growth } = useCorpusGrowth();
+  // listings 走**同一个** listings store —— `/admin/listings` 的表头和 dashboard 的
+  // `IN POOL` 数的也是它。徽章位在 NAV_GROUPS / SidebarBadges / BADGE_MAP 三处都声明了，
+  // 却从来没有人产出这个数：池子里 1148 条真岗位，侧栏一声不吭（F-N-4）。
+  const listings = useListingsCount();
   useEffect(() => {
     let cancel = false;
     const run = () => void fetchRequestBadge().then((b) => { cancel || setBadges(b); });
@@ -31,7 +36,13 @@ export function useSidebarBadges(): SidebarBadges {
     const id = setInterval(run, 60_000);
     return () => { cancel = true; clearInterval(id); };
   }, []);
-  return { ...badges, raw: growth?.by_tier.raw_unprocessed };
+  return {
+    ...badges,
+    raw: growth?.by_tier.raw_unprocessed,
+    // 还没拉到就不报数 —— 印 0 等于说"池子是空的"，那是一句可能不成立的陈述
+    // （跟 dashboard 的 `poolCountLabel` 同一条规矩）。
+    listings: listings.loading || listings.error !== null ? undefined : listings.rows.length,
+  };
 }
 
 async function fetchRequestBadge(): Promise<SidebarBadges> {

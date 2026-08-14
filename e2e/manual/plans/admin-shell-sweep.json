@@ -1,0 +1,32 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/admin-shell/shots/sweep",
+  "viewport": [1280, 1400],
+  "shots": [
+    { "name": "sw-01-dashboard", "url": "/admin/dashboard", "wait": 3500 },
+    { "name": "sw-02-raw", "url": "/admin/raw", "wait": 3000 },
+    { "name": "sw-03-wiki", "url": "/admin/wiki", "wait": 3000 },
+    { "name": "sw-04-subjectivity", "url": "/admin/subjectivity", "wait": 3000 },
+    { "name": "sw-05-writings", "url": "/admin/writings", "wait": 3000 },
+    { "name": "sw-06-output", "url": "/admin/output", "wait": 3000 },
+    { "name": "sw-07-custom-pages", "url": "/admin/custom-pages", "wait": 3000 },
+    { "name": "sw-08-conversations", "url": "/admin/conversations", "wait": 3000 },
+    { "name": "sw-09-codes", "url": "/admin/codes", "wait": 3000 },
+    { "name": "sw-10-roles", "url": "/admin/roles", "wait": 3000 },
+    { "name": "sw-11-prompts", "url": "/admin/prompts", "wait": 3000 },
+    { "name": "sw-12-requests", "url": "/admin/requests", "wait": 3000 },
+    { "name": "sw-13-preview", "url": "/admin/preview", "wait": 3500 },
+    { "name": "sw-14-sources", "url": "/admin/sources", "wait": 3000 },
+    { "name": "sw-15-listings", "url": "/admin/listings", "wait": 3500 },
+    { "name": "sw-16-drafts", "url": "/admin/drafts", "wait": 3000 },
+    { "name": "sw-17-applications", "url": "/admin/applications", "wait": 3000 },
+    { "name": "sw-18-skills", "url": "/admin/skills", "wait": 3500 },
+    { "name": "sw-19-connectors", "url": "/admin/connectors", "wait": 3500 },
+    { "name": "sw-20-api-mcp", "url": "/admin/api-mcp", "wait": 3500 },
+    { "name": "sw-21-obsidian", "url": "/admin/obsidian", "wait": 3000 },
+    { "name": "sw-22-page", "url": "/admin/page", "wait": 3500 },
+    { "name": "sw-23-seo", "url": "/admin/seo", "wait": 3000 },
+    { "name": "sw-24-ip-bans", "url": "/admin/ip-bans", "wait": 3000 },
+    { "name": "sw-25-account", "url": "/admin/account", "wait": 3000 },
+    { "name": "sw-26-system", "url": "/admin/system", "wait": 3500 }
+  ]
+}

@@ -10,7 +10,8 @@
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 
-import { ADMIN_SLUGS, AdminSidebar, type AdminSlug } from '@/components/admin/AdminSidebar';
+import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { ADMIN_SLUGS, type AdminSlug } from '@/lib/admin/nav';
 import { TopBar } from '@/components/admin/chrome/TopBar';
 
 import { useAdminSession } from '@/lib/admin/use-admin-session';
