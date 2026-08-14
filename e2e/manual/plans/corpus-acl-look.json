@@ -1,0 +1,19 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2400],
+  "shots": [
+    { "name": "ca-01-roles", "url": "/admin/roles", "wait": 3500 },
+    { "name": "ca-02-codes", "url": "/admin/codes", "wait": 3500 },
+    { "name": "ca-03-wiki-form", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-ea1b1b70-6c6d-43ab-8839-5c358b8b1b33\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"tree-toggle-wiki-row-b73c405b-c4b2-44d1-ba65-126ddc523a44\"]" },
+        { "wait": 2000 },
+        { "click": "[data-testid=\"wiki-edit-98654137-5567-489a-b6ab-937816f3079b\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1500 }
+  ]
+}

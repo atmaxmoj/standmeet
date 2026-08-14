@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "shots": [
+    { "name": "ca-04-wiki-expanded", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "[data-testid=\"role-corpus-picker-invited-toggle-wiki\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1500 }
+  ]
+}
