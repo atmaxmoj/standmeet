@@ -144,5 +144,20 @@
     "gasUnmeter": "remove gauge",
     "gasFilled": "Tank filled",
     "gasFillPlaceholder": "tokens"
+  },
+  "apiKeys": {
+    "heading": "outward api keys",
+    "intro": "Keys a third-party program uses against your public API (smk_…). Different from the MCP keys above: those sign for your own AI client, these are handed to someone else's code. If one leaks, revoke it here.",
+    "labelField": "label",
+    "labelPlaceholder": "who is this key for — e.g. 'zapier'",
+    "roleField": "assumes role",
+    "mint": "mint key",
+    "secretOnce": "copy it now — the secret is shown only once",
+    "dismiss": "dismiss",
+    "empty": "no outward keys yet",
+    "revoke": "revoke",
+    "revokeConfirm": "Revoke this key? Anything using it stops working immediately.",
+    "statusActive": "active",
+    "statusRevoked": "revoked"
   }
 }

@@ -196,7 +196,10 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Corpus: adminroutes.CorpusDeps{
 			Corpus: deps.Admin.Corpus, Face: wire.AdminFace(deps.Dispatch),
 		},
-		CodesAdmin:       adminroutes.CodesDeps{Face: wire.AdminFace(deps.Dispatch)},
+		CodesAdmin: adminroutes.CodesDeps{Face: wire.AdminFace(deps.Dispatch)},
+		// APIKeysAdmin —— 外发 key 的网页面(F-K-1)。同一个 AdminFace:它按 op 的 reach 过滤,
+		// 而那四个 op 现在声明的是 OwnerRead/OwnerAction(两个 owner 面都长),不再是 mcp-only。
+		APIKeysAdmin:     adminroutes.APIKeysAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		PageAdmin:        adminroutes.PageAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		SEOAdmin:         adminroutes.SEOAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Conversations:    adminroutes.ConversationsDeps{Face: wire.AdminFace(deps.Dispatch)},

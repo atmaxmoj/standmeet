@@ -31,12 +31,16 @@ type APIKeysDeps struct {
 	APICandidates func() []string
 }
 
-// mcpOnly —— 这一组为什么只长在 MCP 上。
-func mcpOnly() fp.Reach {
-	return fp.Only(
-		"the API-key facade is MCP-first (facade-directions.md); the panel has no page for it",
-		"mcp")
-}
+// 这一组**两个 owner 面都长**(F-K-1)。
+//
+// 原来是 `fp.Only("…MCP-first…; the panel has no page for it", "mcp")` —— 后半句拿缺失当依据:
+// reach 限死在 MCP 上因为面板没这个页,而面板没这个页因为没人建。设计判的正好相反
+// (`docs/design/facade-directions.md:202-206`):admin HTTP 的 `/api/admin/api-keys` CRUD +
+// revoke、admin UI 的 api 区(列表/铸/吊销)、以及 owner-MCP **twins** —— 同页还写着
+// 「owner-plane ratchet forces twins by construction」。
+//
+// 这不是便利问题:只有 MCP 那一半的时候,**一把泄露的 key 只有在 owner 装好并跑起 MCP 客户端
+// 之后才吊销得掉**。
 
 // APIKeys —— create / list / revoke / update,外加 ACL 那半边(api_keys_acl.go)。
 func APIKeys(d APIKeysDeps) []fp.Op {
@@ -47,7 +51,7 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 				"(smk_…) plus its id and prefix; the secret is never retrievable again.",
 			InputSchema: apiKeyCreateSchema,
 			Kind:        fp.Action,
-			Reach:       mcpOnly(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      createAPIKey(d),
 		},
 		{
@@ -56,7 +60,7 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 				"role / status / rate limit / expiry / last-used). The secret is never returned.",
 			InputSchema: noArgs,
 			Kind:        fp.Read,
-			Reach:       mcpOnly(),
+			Reach:       fp.OwnerRead(),
 			Invoke:      listAPIKeys(d),
 		},
 		{
@@ -65,7 +69,7 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 				"Idempotent on already-revoked keys.",
 			InputSchema: apiKeyIDSchema,
 			Kind:        fp.Action,
-			Reach:       mcpOnly(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      revokeAPIKey(d),
 		},
 		{
@@ -74,7 +78,7 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 				"pass rate_limit_rpm as null to clear to instance default.",
 			InputSchema: apiKeyUpdateSchema,
 			Kind:        fp.Action,
-			Reach:       mcpOnly(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      updateAPIKey(d),
 		},
 	}, apiKeyACLOps(d)...)

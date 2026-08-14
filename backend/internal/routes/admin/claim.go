@@ -23,6 +23,7 @@ import (
 // Handlers 是 admin handlers 需要的依赖。
 type Handlers struct {
 	AccessRequests    AccessRequestsDeps
+	APIKeysAdmin      APIKeysAdminDeps
 	Obsidian          ObsidianDeps
 	WritingsAdmin     WritingsAdminDeps
 	Conversations     ConversationsDeps
@@ -91,6 +92,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountSEO(r)
 	h.MountAppearance(r)
 	h.MountAccessRequests(r)
+	h.MountAPIKeys(r)
 	h.MountHandle(r)
 	h.MountPublicURL(r)
 	h.MountAccount(r)

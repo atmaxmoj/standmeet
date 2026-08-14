@@ -16,6 +16,7 @@ import { MCPClientPanel } from '@/components/admin/sections/api/MCPClientPanel';
 import { MCPDownloadPanel } from '@/components/admin/sections/api/MCPDownloadPanel';
 import { MCPServersPanel } from '@/components/admin/sections/api/MCPServersPanel';
 import { AIProviderPanel } from '@/components/admin/sections/api/AIProviderPanel';
+import { APIKeysPanel } from '@/components/admin/sections/api/APIKeysPanel';
 import { ProviderBookPanel } from '@/components/admin/sections/api/ProviderBookPanel';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useTokens, type TokenItem, type TokensHook } from '@/lib/admin/use-tokens';
@@ -60,6 +61,9 @@ function Ready({ hook }: { hook: TokensHook }) {
     <div className="space-y-10">
       <Intro />
       <TokensBlock hook={hook} />
+      {/* 外发 API key 紧跟在 MCP keypair 后面：两种 key 都在这一页,挨着放才看得出它们是
+          两件事(F-K-1)。上面那批是 owner 自己客户端签名用的,这批是给第三方程序的。 */}
+      <APIKeysPanel />
       <AIProviderPanel />
       <ProviderBookPanel />
       <MCPClientPanel />

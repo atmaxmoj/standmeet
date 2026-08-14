@@ -25,6 +25,21 @@ const (
 	keyDenialKindSkill      = "skill"
 )
 
+// denialsMCPOnly —— 这一组暂时只长在 MCP 上。
+//
+// **理由是范围,不是缺席**(F-K-1 那次把这两者搞混了):CRUD 那四个已经两面都长了,因为一把
+// 泄露的 key 必须在网页上就能吊销。per-key 的拒绝清单和 api-open 的候选开关是**调优**,
+// 不在"出事了怎么止血"那条路上,所以先留在 MCP,等 admin 的 api 区长出 candidates 那一块再搬。
+//
+// 设计确实要它们也上 admin(`facade-directions.md:202-206` 连 denials 和 open/close 一起写了),
+// 所以这句理由是**一张欠条,不是一个论证** —— 别把它读成"这样就对了"。
+func denialsMCPOnly() fp.Reach {
+	return fp.Only(
+		"tuning, not incident response: revocation is the admin path (F-K-1); "+
+			"denials + api-open follow when the admin api section grows its candidates list",
+		"mcp")
+}
+
 func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -33,7 +48,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 				"(per-key ACL: subtracted from what the key's assumed role grants).",
 			InputSchema: keyIDSchema,
 			Kind:        fp.Read,
-			Reach:       mcpOnly(),
+			Reach:       denialsMCPOnly(),
 			Invoke:      listKeyDenials(d),
 		},
 		{
@@ -42,7 +57,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 				"kind is 'capability' or 'skill'; target_id is the capability/skill id.",
 			InputSchema: keyDenialSchema,
 			Kind:        fp.Action,
-			Reach:       mcpOnly(),
+			Reach:       denialsMCPOnly(),
 			Invoke:      writeKeyDenial(d, keyDenialAdders(d), keyDenialVerbDenied),
 		},
 		{
@@ -51,7 +66,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 				"key's assumed role allows). kind is 'capability' or 'skill'.",
 			InputSchema: keyDenialSchema,
 			Kind:        fp.Action,
-			Reach:       mcpOnly(),
+			Reach:       denialsMCPOnly(),
 			Invoke:      writeKeyDenial(d, keyDenialRemovers(d), keyDenialVerbRemoved),
 		},
 		{
@@ -60,7 +75,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 				"Only non-Agentic outward capabilities may be opened.",
 			InputSchema: apiCapabilityIDSchema,
 			Kind:        fp.Action,
-			Reach:       mcpOnly(),
+			Reach:       denialsMCPOnly(),
 			Invoke:      openAPICapability(d),
 		},
 		{
@@ -69,7 +84,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 				"Keys whose role granted it stop reaching it immediately.",
 			InputSchema: apiCapabilityIDSchema,
 			Kind:        fp.Action,
-			Reach:       mcpOnly(),
+			Reach:       denialsMCPOnly(),
 			Invoke:      closeAPICapability(d),
 		},
 		{
@@ -78,7 +93,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 				"(available) and the ones currently opened for the owner (opened).",
 			InputSchema: noArgs,
 			Kind:        fp.Read,
-			Reach:       mcpOnly(),
+			Reach:       denialsMCPOnly(),
 			Invoke:      listAPICandidates(d),
 		},
 	}

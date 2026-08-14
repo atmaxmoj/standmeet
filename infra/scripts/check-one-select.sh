@@ -24,8 +24,10 @@ fail=0
 # 解释(见 [[gate-scope-forces-architecture]]:管太宽的闸门会把代码推去更糟的地方)。
 scan_selects() {
   awk '
-    /^[[:space:]]*(\/\/|\*|\/\*)/ { next }   # 整行注释:跳过
-    /<select/                     { print FILENAME ":" FNR ":" $0 }
+    # 整行注释:跳过。`{/*` 是 JSX 注释的写法 —— 少了它,一句解释"这里为什么不用裸 select"
+    # 的 JSX 注释会把闸门自己绊倒(2026-08-13 就绊了一次)。
+    /^[[:space:]]*(\/\/|\*|\/\*|\{\/\*)/ { next }
+    /<select/                            { print FILENAME ":" FNR ":" $0 }
   ' "$@"
 }
 
@@ -38,10 +40,10 @@ if [ "$n" -lt 50 ]; then
   exit 2
 fi
 
-offenders=$(printf '%s\n' "$files" | xargs -r awk '
-  /^[[:space:]]*(\/\/|\*|\/\*)/ { next }
-  /<select/                     { print FILENAME ":" FNR ":" $0 }
-' || true)
+# 真扫描走 scan_selects —— 之前这里抄了一份同样的 awk,而我刚补的 JSX 注释规则只会落在
+# 其中一份上。**同一个判据不要有两个副本**（[[copied-invalidation-goes-stale]]）。
+# shellcheck disable=SC2086  # $files 是换行分隔的路径列表,这里要的就是词分割
+offenders=$(scan_selects $files || true)
 
 if [ -n "$offenders" ]; then
   echo "check-one-select: a bare <select> bypasses SelectField —— 下拉只能有一种长相:"
