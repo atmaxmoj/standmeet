@@ -1,0 +1,27 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/gate/shots",
+  "viewport": [1280, 1200],
+  "login": false,
+  "shots": [
+    { "name": "gt-12-picker-shown", "url": "/?code=EXTMCP-01", "wait": 4000 },
+    { "name": "gt-13-after-answer", "url": "/?code=EXTMCP-01",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Picker Auditor"] },
+        { "wait": 400 },
+        { "press": ["[data-testid=\"visitor-name-input\"]", "Enter"] },
+        { "wait": 3500 }
+      ],
+      "wait": 1200 },
+    { "name": "gt-14-after-nav-and-turn", "url": "/",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "what do you care about most in your work?"] },
+        { "wait": 400 },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 8000 }
+      ],
+      "wait": 1500 },
+    { "name": "gt-15-after-reload", "url": "/", "wait": 5000 }
+  ]
+}

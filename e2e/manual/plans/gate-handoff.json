@@ -1,0 +1,31 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/gate/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "gt-10-home-ask", "url": "/",
+      "steps": [
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "How do you decide when a system is done being tuned?"] },
+        { "wait": 500 },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 3500 }
+      ],
+      "wait": 1200 },
+    { "name": "gt-11-code-entered", "url": "/",
+      "steps": [
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "How do you decide when a system is done being tuned?"] },
+        { "wait": 500 },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Handoff Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ],
+      "wait": 1500 }
+  ]
+}
