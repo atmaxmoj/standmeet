@@ -1,7 +1,7 @@
 // use-admin-drafts —— /admin/drafts 的 fetch hook。
 // admin session cookie 已经在 AdminShell 层校验过，这里直 fetch + parse。
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
@@ -25,10 +25,13 @@ interface State {
   error: string | null;
 }
 
-export function useAdminDrafts(): State {
+// reload —— commit 之后这一列必须重新拉：那一笔事务把草稿删掉了，而屏幕上还留着它，
+// owner 会以为没成功、再点一次（F-E-9）。
+export function useAdminDrafts(): State & { reload: () => void } {
   const [state, setState] = useState<State>({ rows: [], loading: true, error: null });
-  useEffect(() => { void load(setState); }, []);
-  return state;
+  const reload = useCallback(() => { void load(setState); }, []);
+  useEffect(() => { reload(); }, [reload]);
+  return { ...state, reload };
 }
 
 export function draftPillTone(status: DraftStatus | undefined): string {

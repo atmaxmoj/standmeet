@@ -14,9 +14,11 @@ import { useTranslations } from 'next-intl';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ResumeComposer } from '@/components/admin/ResumeComposer';
 import { DraftThumb } from '@/components/admin/sections/drafts/DraftThumb';
+import { commitDraft } from '@/lib/admin/commit-draft';
 import { useDraftDetail } from '@/lib/admin/draft-detail';
 import type { DraftModel } from '@/lib/admin/draft-model';
 import { listViewKind } from '@/lib/admin/list-view-kind';
+import { useAction } from '@/lib/ui/use-action';
 import {
   draftActionKind,
   draftPillTone,
@@ -25,9 +27,21 @@ import {
 } from '@/lib/admin/use-admin-drafts';
 
 export function DraftsSection() {
-  const { rows, loading, error } = useAdminDrafts();
+  const { rows, loading, error, reload } = useAdminDrafts();
   const [openId, setOpenId] = useState<string | null>(null);
   const detail = useDraftDetail(openId);
+  const run = useAction();
+  // onSend —— 真的发。这里以前是 `onSend={onClose}`：确认框逐条许诺了四件事，
+  // 点下去只是关掉面板，一个请求都不发也不报错（F-E-9）。
+  const onSend = (id: string) => void run(
+    async () => {
+      const c = await commitDraft(id);
+      setOpenId(null);
+      reload();
+      return c;
+    },
+    { success: 'Application committed — access code issued' },
+  );
   return (
     <>
       <SectionHeader
@@ -37,17 +51,20 @@ export function DraftsSection() {
       />
       <Intro />
       <DraftListBody rows={rows} loading={loading} error={error} onOpen={setOpenId} />
-      <ComposerHost model={detail.model} onClose={() => setOpenId(null)} />
+      <ComposerHost
+        model={detail.model} onClose={() => setOpenId(null)}
+        onSend={() => { openId !== null && onSend(openId); }}
+      />
     </>
   );
 }
 
 function ComposerHost({
-  model, onClose,
-}: { model: DraftModel | null; onClose: () => void }) {
+  model, onClose, onSend,
+}: { model: DraftModel | null; onClose: () => void; onSend: () => void }) {
   return model === null
     ? null
-    : <ResumeComposer initial={model} onClose={onClose} onSend={onClose} />;
+    : <ResumeComposer initial={model} onClose={onClose} onSend={onSend} />;
 }
 
 function titleCount(n: number, loading: boolean): string {

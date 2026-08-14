@@ -7,9 +7,13 @@
 // admin.Handlers 大结构体。J phase 把 outbound 求职链拎成 plugin，路由
 // 也独立成包，避免 Handlers 膨胀 (G-1.5 smell E)。
 //
-// 写 / 改 / 删 草稿和 commit application 全走 MCP capabilities
-// (resume.* / applications.commit) —— 见 plugins/jobs/jobsmcp/。
-// 这里只暴露 owner read-only 列表。
+// 改 / 删 草稿走 MCP capabilities (resume.*) —— 见 plugins/jobs/jobsmcp/。
+//
+// **commit 两个面都长**（F-E-9）。这里原来写着「只暴露 owner read-only 列表」，
+// 而面板上那颗 `SEND →` 按钮弹了一张确认框、逐条许诺「冻结快照 / 渲染带 QR 的 PDF /
+// 写 application 行 / 自动发一张 180 天的码」，然后 `onSend` 接的是 `onClose` ——
+// 一个请求都不发。owner 会以为自己投出去了。
+// 两条路打的是**同一个 usecase**（`jobsuc.CommitApplication`），不是第二份实现。
 package jobsadmin
 
 import (
@@ -46,7 +50,11 @@ type Deps struct {
 	Drafts  *jobsuc.ResumeDraftRepo
 	Sources *jobsuc.JobSourceRepo
 	Pool    PoolLister
-	Log     *slog.Logger
+	// Commit —— commit 一份草稿要的那组依赖（渲染器 / owner / role）。跟
+	// applications.commit 那条路**共用同一份**，两个面因此不可能对同一次 commit
+	// 做不同的事。
+	Commit *jobsuc.ApplicationsDeps
+	Log    *slog.Logger
 }
 
 // Mount 挂 /drafts + /applications + /job-sources 到入参 router。caller 负责
@@ -55,6 +63,7 @@ func Mount(r chi.Router, deps Deps) {
 	r.Route("/drafts", func(r chi.Router) {
 		r.Get("/", listDrafts(deps))
 		r.Get("/{id}", getDraft(deps))
+		r.Post("/{id}/commit", commitDraft(deps))
 	})
 	r.Route("/applications", func(r chi.Router) {
 		r.Get("/", listApplications(deps))

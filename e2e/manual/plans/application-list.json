@@ -1,0 +1,5 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "viewport": [1280, 1400],
+  "shots": [ { "name": "ac-05-applications", "url": "/admin/applications", "wait": 6000 } ]
+}
