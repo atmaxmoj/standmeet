@@ -51,6 +51,16 @@ if (plan.acceptDialogs === true) {
   page.on('dialog', (d) => { void d.accept(); });
 }
 
+// downloadDir —— 把页面触发的下载存到磁盘。人点「下载」拿到的就是文件本身;**不是**去截图上
+// 把内容抄下来。抄一段 base64 私钥错一个字符,失败会长得像产品的问题,而不是像我的手误。
+if (typeof plan.downloadDir === 'string') {
+  await mkdir(plan.downloadDir, { recursive: true });
+  page.on('download', (d) => {
+    void d.saveAs(`${plan.downloadDir}/${d.suggestedFilename()}`)
+      .then(() => console.log(`download ${d.suggestedFilename()}`));
+  });
+}
+
 // 登录走**真表单**：填邮箱、填密码、按回车 —— 不注 cookie、不塞 token。
 if (plan.login !== false) {
   await page.goto(`${BASE}/login`);
