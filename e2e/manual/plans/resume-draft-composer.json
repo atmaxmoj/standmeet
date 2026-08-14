@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resume-draft/shots",
+  "viewport": [1280, 2400],
+  "shots": [
+    { "name": "rd-03-composer", "url": "/admin/drafts",
+      "steps": [
+        { "wait": 5000 },
+        { "click": "button:has-text(\"OPEN COMPOSER\")" },
+        { "wait": 6000 }
+      ],
+      "wait": 2000 }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resume-draft/shots",
+  "viewport": [1280, 2400],
+  "shots": [
+    { "name": "rd-01-drafts-list", "url": "/admin/drafts", "wait": 5000 },
+    { "name": "rd-02-draft-preview", "url": "/admin/drafts/6155e02f-086b-401a-8899-bea142be6431", "wait": 7000 }
+  ]
+}

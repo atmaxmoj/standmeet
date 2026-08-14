@@ -67,6 +67,7 @@ app-lint:
 	@infra/scripts/check-no-computed-class.sh
 	@infra/scripts/check-sm-class-defined.sh
 	@infra/scripts/check-peek-signals-more.sh
+	@infra/scripts/check-tool-paths-exist.sh
 	@if [ -d app/node_modules ] && [ -f app/package.json ]; then \
 	  cd app && pnpm lint; \
 	else \

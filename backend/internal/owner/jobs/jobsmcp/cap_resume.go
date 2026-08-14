@@ -64,9 +64,12 @@ func (c *resumeCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 func (c *resumeCapability) draftBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name: "resume.draft",
+		// 那句「preview at /admin/drafts/<id>」曾经是死链接：草稿详情没有自己的路由，
+		// composer 是列表页上的一个按钮。owner 的 AI 会照抄这句话把人送过去（F-E-8）。
 		Description: "Curate a tailored resume for a cached job and stash it as a " +
-			"draft. Returns draft_id plus job_snapshot. Owner opens admin preview " +
-			"at /admin/drafts/<id>. Final PDF (with real recruiter QR) is rendered " +
+			"draft. Returns draft_id plus job_snapshot. Owner reviews it at " +
+			"/admin/drafts — the draft's card there opens the composer (edit + live " +
+			"PDF preview). Final PDF (with real recruiter QR) is rendered " +
 			"by applications.commit. Draft TTL = 24h.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
