@@ -45,7 +45,30 @@ test.describe('ACL · the corpus grant is picked from the real tree', () => {
     dockPickerExcludesRetrieval);
   test('the dock trigger input does not overflow its card (F-A-16 layout)',
     dockTriggerFitsCard);
+  test('the help text says WHEN a grant edit takes effect, and says it once',
+    helpExplainsTheFreezePoint);
 });
+
+// helpExplainsTheFreezePoint —— F-L-29. 那句解释自相矛盾：
+//   "Changes only affect sessions issued from now on (the role is frozen when the code is issued)."
+// 前半句说会话，括号说码。代码说的是会话（`access/usecase/visitor_session.go:40-42`：
+// 「session issue 时 freeze … session 整个生命周期不再回头读 role 行」），行为也早就钉住了
+// （`acl-freeze-isolation.spec.ts` 的 acl-code-frozen-at-issue + acl-code-reissue-reflects）。
+//
+// **为什么一句文案值得一条守卫**：错的那半在**放宽**授权时是危险方向 —— owner 以为已经发出去的
+// 码保持旧范围，于是放宽角色时不担心在野的码；而下一次有人拿旧码开会话，拿到的是新的、更宽的授权。
+//
+// 断的是**正面出现**那句正确的话，不是 `.not.toContain` —— 后者在元素还没渲染时就算通过。
+async function helpExplainsTheFreezePoint({ adminPage }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(adminPage, 'roles');
+  const help = adminPage.getByTestId('role-corpus-help').first();
+  await expect(help).toBeVisible({ timeout: 10_000 });
+  const text = (await help.textContent()) ?? '';
+  expect(text, 'the help must name the moment a change lands: session issue')
+    .toMatch(/frozen when the session is issued/i);
+  expect(text, 'and must not also claim the code freezes it — one sentence, one claim')
+    .not.toMatch(/frozen when the code is issued/i);
+}
 
 // dockTriggerFitsCard —— F-A-16: the dock config's trigger `<input>` is a flex-1 child with a long
 // placeholder; without `min-w-0` a flex item can't shrink below its content, so the input ran off

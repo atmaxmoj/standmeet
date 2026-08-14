@@ -1,6 +1,9 @@
 // acl-freeze-isolation.spec.ts —— §C（冻结 vs 活）+ §D（per-code 隔离）.
 //
-// §C：code 改了**在跑的不动**（role/code issue 时冻结），global 改了**在跑的立刻动**（活）。
+// §C：code 改了**在跑的不动**（**会话**签发时冻结 —— 不是码签发时，见
+//     `access/usecase/visitor_session.go:40-42`；下面 acl-code-reissue-reflects 钉的就是这个差别：
+//     同一张码**重新签发**立刻反映新值。这行原本写的是「role/code issue 时冻结」，
+//     跟三处面板文案错成同一个样子，见 F-L-29），global 改了**在跑的立刻动**（活）。
 // §D：deny 是 per-code 的，不是 per-role —— 同 role 两个 code 各自独立；deny 是集合（多 deny）。
 //
 // 红 until: code-deny 落地（§C frozen/reissue、§D 全部）；acl-global-live-mid-session 复用

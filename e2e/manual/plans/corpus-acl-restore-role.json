@@ -1,0 +1,15 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "shots": [
+    { "name": "ca-36-role-restored-and-copy-fixed", "url": "/admin/roles",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"role-corpus-uris-invited\"]", "output://**\nwiki://**\nwriting://**"] },
+        { "wait": 800 },
+        { "click": "[data-testid=\"role-corpus-save-invited\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

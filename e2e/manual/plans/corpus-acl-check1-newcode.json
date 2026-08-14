@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2000],
+  "shots": [
+    { "name": "ca-34-new-code-after-edit", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "button:has-text(\"new code\")" },
+        { "wait": 2000 },
+        { "type": ["[data-testid=\"code-label\"]", "AFTEREDIT"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"code-create\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1500 }
+  ]
+}

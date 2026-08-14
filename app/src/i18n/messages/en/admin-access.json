@@ -33,7 +33,7 @@
     "publishedSlice": "(whatever you have published — this role keeps no list of its own)",
     "inherited": "corpus · inherited from role",
     "takenBack": "taken back on this code",
-    "help": "The URIs this code takes back from what the role granted, one per line. It can only subtract, never add — whatever you write here will never open what the role didn't grant. Typical use: the role grants subjectivity://** (every opinion), and this code takes back subjectivity://cv (the résumé stays out). Changes only affect sessions issued from now on (the role is frozen when the code is issued)."
+    "help": "The URIs this code takes back from what the role granted, one per line. It can only subtract, never add — whatever you write here will never open what the role didn't grant. Typical use: the role grants subjectivity://** (every opinion), and this code takes back subjectivity://cv (the résumé stays out). Changes only affect sessions issued from now on: the role is frozen when the session is issued, so a visitor already chatting keeps the old scope — but the next session on the same code, however old that code is, gets the new one."
   },
   "members": {
     "loading": "loading members…",
@@ -102,11 +102,11 @@
     "help": "Meter this role against its provider's tank. Off (the default) means no usage check runs at all; on means a visitor is stopped once that provider's tank is empty. A provider with no fuel in it is never metered either way."
   },
   "roleCorpus": {
-    "help": "The positive list of corpus URIs the agent can read, one per line. Match-any: hitting any one line is enough to read, so the grain can be as fine as you like — wiki://thinking/** grants the whole subtree, subjectivity://standpoint grants that one note only. An empty list = nothing at all. Changes only affect sessions issued from now on (the role is frozen when the code is issued).",
+    "help": "The positive list of corpus URIs the agent can read, one per line. Match-any: hitting any one line is enough to read, so the grain can be as fine as you like — wiki://thinking/** grants the whole subtree, subjectivity://standpoint grants that one note only. An empty list = nothing at all. Changes only affect sessions issued from now on: the role is frozen when the session is issued, so a visitor already chatting keeps the old scope — but the next session on the same code, however old that code is, gets the new one.",
     "publicIsPublished": "Whatever you have published — no separate list. This is the identity a visitor gets with no code (and with BYOAI), and it reads an entry only if that entry's own published switch is on. Turn one on from the entry's card under wiki or outputs; there is nothing to edit here, so the two can never say different things."
   },
   "roleTools": {
-    "help": "What this role may call: your skills, and the external MCP servers you registered under api · mcp. Nothing is granted by default — a server you added is reachable only by the roles you tick it on here. Changes only affect sessions issued from now on (the role is frozen when the code is issued).",
+    "help": "What this role may call: your skills, and the external MCP servers you registered under api · mcp. Nothing is granted by default — a server you added is reachable only by the roles you tick it on here. Changes only affect sessions issued from now on: the role is frozen when the session is issued, so a visitor already chatting keeps the old scope — but the next session on the same code, however old that code is, gets the new one.",
     "save": "save tools · {name}"
   },
   "roleDock": {
