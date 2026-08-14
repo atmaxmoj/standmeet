@@ -520,7 +520,12 @@
   border: 1px solid var(--color-rule);
   border-radius: 4px;
 }
-.sm-seg button {
+/* 段本身按**子元素**选，不按 `button` 选：只读的分段（application 的 status）渲染成
+   `<span>`，因为一个不落库的东西不该看起来能点。规则挂在 `button` 上的时候，那一版
+   一条都没生效 —— padding / 等宽 / 大写 / 字距 / 选中反白全丢，四个状态退回默认衬线体
+   连成一串「committed submitted failed withdrawn」，owner 看不出当前是哪个（F-E-10）。
+   能力搬了家，它的边要跟着走（[[move-the-capability-move-its-edges]]）。 */
+.sm-seg > * {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: var(--tk-label);
@@ -530,10 +535,10 @@
   border-radius: 2px;
   background: transparent;
   border: none;
-  cursor: pointer;
 }
+.sm-seg button { cursor: pointer; }
 .sm-seg button:hover { color: var(--color-ink); }
-.sm-seg button.is-on {
+.sm-seg > .is-on {
   background: var(--color-ink);
   color: var(--color-paper);
 }

@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-status-persist/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    { "name": "as-01-detail-open", "url": "/admin/applications",
+      "steps": [
+        { "wait": 5000 },
+        { "click": "text=OPEN" },
+        { "wait": 4000 }
+      ],
+      "wait": 1500 }
+  ]
+}

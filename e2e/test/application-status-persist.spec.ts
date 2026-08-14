@@ -37,9 +37,14 @@ const OWNER = {
   fullName: 'App Status Owner',
 };
 
-// status 枚举跟 applications-model.APPLICATION_STATUSES 对齐（稳定契约，不 import app 内部）。
-// StatusSegmented 每个按钮 data-testid=`status-<s>`，选中项带 `is-on` class。
-const STATUSES = ['silent', 'reviewing', 'replied', 'rejected', 'offer'] as const;
+// status 枚举跟 applications-model 的 SUBMISSION_STATES 对齐（稳定契约，不 import app 内部）。
+// StatusSegmented 每一段 data-testid=`status-<s>`，选中项带 `is-on` class。
+//
+// **这份清单曾经落后于产品**：轴从「recruiter 回没回」(silent/reviewing/replied/rejected/offer)
+// 换成「投递到哪一步」(committed/submitted/failed/withdrawn) 之后（F-E-3），改名只跟到了编译
+// 得到的那一半，这里的硬编码没动 —— 于是 `litStatus` 永远返回空串，这条 spec 从那天起一直红着，
+// 而红的原因跟它要守的东西无关（[[harness-drifts-when-vocabulary-changes]]）。
+const STATUSES = ['committed', 'submitted', 'failed', 'withdrawn'] as const;
 
 // commit 后拿到的真 application_id —— 列表行 testid=`application-row-<id>`。
 let appId = '';
@@ -50,7 +55,37 @@ test.describe('admin /applications · the status control must not claim a status
 
   test('a status shown after an owner click must equal the status shown after a reload',
     statusMustNotOutliveReload);
+  test('the active status is visibly different from the others', litSegmentLooksDifferent);
 });
+
+// litSegmentLooksDifferent —— F-E-10。**判据必须是计算样式，不能是文本或类名。**
+//
+// 真环境上这一格是一个框里挤着 `committed submitted failed withdrawn` —— 四个词连成一串、
+// 没有分隔、看不出当前是哪个。而 DOM 一直是对的：`is-on` 在、`data-testid` 在，
+// 所以任何读文本 / 读类名的断言从头到尾都是绿的（[[text-assertion-cannot-see-layout]]）。
+//
+// 原因：`sm-atoms.css` 里分段样式全挂在 `.sm-seg button` 上，而组件为了「不落库的东西
+// 不该看起来能点」渲染的是 `<span>`。能力搬了家，它的边没跟着走。
+async function litSegmentLooksDifferent({ adminPage: page }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(page, 'applications');
+  await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
+  const modal = await openApplication(page);
+
+  const lit = await litStatus(modal);
+  expect(STATUSES, 'precondition: one segment is lit').toContain(lit);
+  const dim = STATUSES.find((s) => s !== lit)!;
+
+  const paint = (s: string) => modal.getByTestId(`status-${s}`).evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return `${cs.backgroundColor}|${cs.color}`;
+  });
+  expect(
+    await paint(lit),
+    `the lit segment ("${lit}") is painted exactly like an inactive one ("${dim}"), so the owner `
+    + 'cannot tell which status this application is in. The rules live on `.sm-seg button` while '
+    + 'the component renders <span>.',
+  ).not.toBe(await paint(dim));
+}
 
 // statusMustNotOutliveReload —— 换状态 → 读点后亮的 → 关掉 → reload → 重开 → 读 reload 后亮的，
 // 断言两者相等（诚实控件的不变式；现状的假保存违反它）。
