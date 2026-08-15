@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dock-buttons/shots",
+  "viewport": [1440, 1200],
+  "shots": [
+    { "name": "db-31-roles-scrolled", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "scroll": ["[data-testid=\"role-dock-help\"]", 1400] },
+        { "wait": 800 }
+      ],
+      "wait": 1500 }
+  ]
+}

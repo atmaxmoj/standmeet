@@ -1,0 +1,25 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dock-buttons/shots",
+  "viewport": [1440, 1200],
+  "shots": [
+    { "name": "db-32-dock-bound-on-invited", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "select": ["[data-testid=\"role-dock-cap-0\"]", "summarize_conversation"] },
+        { "type": ["[data-testid=\"role-dock-trigger-0\"]", "summarize this conversation so far"] },
+        { "select": ["[data-testid=\"role-dock-cap-1\"]", "calendar.book"] },
+        { "type": ["[data-testid=\"role-dock-trigger-1\"]", "what times are you free next week?"] },
+        { "scroll": ["[data-testid=\"role-dock-save\"]", 200] },
+        { "click": "[data-testid=\"role-dock-save\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 },
+    { "name": "db-33-dock-reads-back-as-titles", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "scroll": ["[data-testid=\"role-dock-save\"]", 200 ] },
+        { "wait": 800 }
+      ],
+      "wait": 1500 }
+  ]
+}

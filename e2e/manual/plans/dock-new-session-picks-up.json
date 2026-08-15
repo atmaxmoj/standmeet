@@ -1,0 +1,24 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dock-buttons/shots",
+  "viewport": [1280, 1000],
+  "shots": [
+    { "name": "db-39-new-session-picks-up-the-change", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Fresh Dock"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 4500 }
+      ],
+      "wait": 1500 },
+    { "name": "db-40-role-dock-restored", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "select": ["[data-testid=\"role-dock-cap-1\"]", "calendar.book"] },
+        { "type": ["[data-testid=\"role-dock-trigger-1\"]", "what times are you free next week?"] },
+        { "scroll": ["[data-testid=\"role-dock-save\"]", 200] },
+        { "click": "[data-testid=\"role-dock-save\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}

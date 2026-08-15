@@ -1,0 +1,27 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dock-buttons/shots",
+  "viewport": [1280, 1000],
+  "shots": [
+    { "name": "db-36-live-session-two-buttons", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Frozen Dock"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 4000 }
+      ],
+      "wait": 1500 },
+    { "name": "db-37-owner-changes-the-role-mid-session", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "select": ["[data-testid=\"role-dock-cap-1\"]", "mail.send"] },
+        { "type": ["[data-testid=\"role-dock-trigger-1\"]", "email sijie about this"] },
+        { "scroll": ["[data-testid=\"role-dock-save\"]", 200] },
+        { "click": "[data-testid=\"role-dock-save\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 },
+    { "name": "db-38-live-session-after-reload-keeps-old-dock", "url": "/",
+      "steps": [{ "wait": 5000 }],
+      "wait": 1500 }
+  ]
+}
