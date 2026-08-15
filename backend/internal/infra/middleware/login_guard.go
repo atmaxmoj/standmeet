@@ -102,6 +102,15 @@ func checkRateOrWrite(
 
 // checkCaptchaOrWrite —— captcha 验证未过 → 写 401 并返 false；通过返 true。
 // noop verifier 永远返 true（feature off）。
+//
+// **说的是那道校验，不是凭据**（F-G-5）。这一关短路在凭据校验之前，所以密码完全正确的 owner
+// 只要 widget 没加载出来（网络被挡、provider 抖、拦截插件）也会走到这里 —— 上一版回的是
+// `invalid credentials`，于是他去改密码，而真因在别处。
+//
+// 「防枚举」不适用：密码错 vs 用户不存在要含糊，是为了不泄露账号是否存在；「人机校验没过」
+// 不是账号预言机，说出来不泄露任何东西。隔壁限流那条分支早就说了真话，这条照做。
+//
+// 也不回 provider 的错误码数组：那是第三方的内部措辞，不是产品该说的话。
 func checkCaptchaOrWrite(
 	w http.ResponseWriter, r *http.Request, v CaptchaVerifier, ip string,
 ) bool {
@@ -109,8 +118,8 @@ func checkCaptchaOrWrite(
 	if err := v.Verify(r.Context(), token, ip); err != nil {
 		slog.Default().Warn("captcha verify failed", "err", err, "ip", ip)
 		writeRateError(
-			w, http.StatusUnauthorized, "unauthorized",
-			"invalid credentials",
+			w, http.StatusUnauthorized, "captcha_failed",
+			"the human check didn’t go through — reload the page and try again",
 		)
 		return false
 	}

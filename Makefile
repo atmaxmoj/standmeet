@@ -555,12 +555,18 @@ test-only: dev-up
 #   1x00000000000000000000AA          sitekey, always passes
 #   1x0000000000000000000000000000000AA  secret, always validates
 #
+# Only the `captcha-on-*` specs run here, and the prefix is load-bearing: with the always-pass
+# secret the provider validates ANY token, so `security-captcha-bypass` — which asserts a forged
+# token is refused — fails on this stack for a reason that is not a defect. That spec belongs to
+# the captcha-OFF default suite. A greedy `captcha` glob pulled it in once and produced exactly
+# that false red.
+#
 # The stack is left running with captcha ON — `make dev-up` puts it back.
 test-captcha:
 	@TURNSTILE_SITE_KEY=1x00000000000000000000AA \
 	 TURNSTILE_SECRET=1x0000000000000000000000000000000AA \
 	 $(MAKE) dev-up
-	@cd e2e && pnpm exec playwright test $(if $(SPEC),$(SPEC),captcha); \
+	@cd e2e && pnpm exec playwright test $(if $(SPEC),$(SPEC),captcha-on-); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
 # test-red —— run one spec against the images that are ALREADY RUNNING. No dev-up, no rebuild.
