@@ -1,0 +1,15 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/calendar-connect/shots",
+  "viewport": [1280, 1100],
+  "shots": [
+    { "name": "cc-20-check-run-2026-08-15", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3500 },
+        { "scroll": ["[data-testid=\"gcal-connector-panel\"]", 400] },
+        { "type": ["[placeholder=\"days\"]", "3"] },
+        { "click": "text=RUN" },
+        { "wait": 9000 }
+      ],
+      "wait": 1500 }
+  ]
+}

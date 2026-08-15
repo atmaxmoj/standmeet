@@ -3,7 +3,7 @@
 // 周末 / lead-time 内的；FreeBusy 拦掉跟现有 busy 重叠的。
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { setMockBusy, setBookingPolicy } from '@/fixtures/gcal';
 import {
@@ -85,23 +85,34 @@ test.describe('Phase E-14c calendar.list_slots via MCP', () => {
     expect(resp).not.toHaveProperty('slots');
   });
 
-  // Regression guard: a named IANA timezone (not empty / UTC) must still
-  // yield slots. The backend evaluates working hours via
-  // time.LoadLocation(owner.profile_timezone) — on a static CGO_ENABLED=0
-  // binary in an image without tzdata that call errors and EVERY candidate
-  // gets rejected (list_slots returns 0). The binary embeds `time/tzdata`
-  // so this passes; this test fails loudly if that import is ever dropped.
-  test('named IANA timezone (America/Toronto) still enumerates slots', async () => {
-    await setBookingPolicy(seed.request, freshCsrf, { timezone: 'America/Toronto' });
-    // +3/+4 days clears the 2-day lead; 14:00–22:00 UTC = 10:00–18:00 EDT,
-    // inside 09:00–18:00 Toronto working hours.
-    const resp = await callTool<ListSlotsResp>(
-      seed.request, apiToken, sid, 'calendar.list_slots',
-      { from_rfc3339: future(3, 14), until_rfc3339: future(4, 22),
-        duration_min: 30, step_min: 60 },
-    );
-    expect(resp.slots.length).toBeGreaterThan(0);
-  });
+  // 这一条替掉了原来那条「named IANA timezone 仍然出得来时段」—— 它只问「还有时段吗」，
+  // **没有人问过那个时区到底有没有被用上**，而 F-B-5 正长在这个洞里：prod 上
+  // `profile_timezone` 是空串，工作时间于是在 UTC 上判，owner 的 09:00–18:00 变成访客眼里的
+  // 凌晨 05:18，而当时每一条相关用例都是绿的。
+  //
+  // 判据要能分辨「用了这个时区」和「用了 UTC」，所以取一个**两边答案相反**的窗口：
+  // 09:00–13:00 UTC 在 UTC 眼里全在工作时间内，在多伦多眼里是 05:00–09:00（上班前）。
+  //
+  // 旧那条的**独有职责也接了过来**：后端走 `time.LoadLocation(owner.profile_timezone)`，
+  // 静态 CGO_ENABLED=0 的二进制若没打进 `time/tzdata`，这一步会报错、所有候选被否掉、
+  // 时段数归零 —— 下面那个**正对照**（下午必须有时段）就是那种情况下最先红的一条。
+  test('working hours are read in the owner’s zone — a UTC-morning window is before work',
+    async () => {
+      await setBookingPolicy(seed.request, freshCsrf, { timezone: 'America/Toronto' });
+
+      // 正对照先立起来：同一天、同样的政策，下午那段（14:00–20:00 UTC = 10:00–16:00 EDT）
+      // 必须有时段。没有它，下面那个 0 可能只是窗口不对/提前期没过。
+      expect(
+        await countSlots(seed.request, apiToken, sid, 14, 20),
+        'mid-afternoon Toronto is inside 09:00–18:00 — this window must yield slots',
+      ).toBeGreaterThan(0);
+
+      expect(
+        await countSlots(seed.request, apiToken, sid, 9, 13),
+        'those same clock hours are 05:00–09:00 in Toronto — offering them would be offering '
+          + 'the owner’s bed, which is exactly what judging working hours in UTC did',
+      ).toBe(0);
+    });
 });
 
 async function prep(playwright: Playwright): Promise<BaseSeed> {
@@ -111,6 +122,20 @@ async function prep(playwright: Playwright): Promise<BaseSeed> {
     allowed_weekdays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
     min_lead_days: 1,
   });
+}
+
+// countSlots —— 同一天（+3 天，清过提前期）的一段 UTC 窗口里有几个时段。
+// 两次问答只差窗口，所以「有」和「没有」的差别只可能来自政策，而政策里唯一在动的是时区。
+async function countSlots(
+  request: APIRequestContext, token: string, sid: string,
+  fromHourUTC: number, untilHourUTC: number,
+): Promise<number> {
+  const resp = await callTool<ListSlotsResp>(
+    request, token, sid, 'calendar.list_slots',
+    { from_rfc3339: future(3, fromHourUTC), until_rfc3339: future(3, untilHourUTC),
+      duration_min: 30, step_min: 60 },
+  );
+  return resp.slots.length;
 }
 
 function future(days: number, hour: number): string {

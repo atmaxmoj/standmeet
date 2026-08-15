@@ -53,18 +53,33 @@ test.describe('admin · booking policy edit', () => {
       expect((await getBookingPolicy(seed.request)).min_lead_days).toBe(3);
     });
 
-  // With no timezone saved yet the picker must default to the VIEWER's own zone, not
-  // option[0] ("-11:00 American Samoa · Midway"), which would silently book slots ~19h
-  // off (UX-11). Runs before the persist test below, so the policy timezone is still empty.
-  test('no saved timezone → picker defaults to the viewer zone, not American Samoa (UX-11)',
+  // 没存过时区时，这个控件**不许显示一个没存过的时区**。
+  //
+  // 上一版显示的是浏览器自己的时区（UX-11：为了躲开 option[0] 那个 "-11:00 American Samoa"）。
+  // 躲开是对的，代价没被接住：屏幕上写着 America/Toronto，而库里是空串，`book.go` 把空串读成
+  // **UTC** —— owner 设的 09:00–18:00 于是在 UTC 上判，访客拿到的第一个时段是多伦多凌晨
+  // 05:18（F-B-5 ⭐）。**显示的时区不是被评估的那个**，而这条用例正是把那件事钉住的地方。
+  //
+  // 这一条跑在下面那条「选一个 → 存下来」之前，所以此刻 policy.timezone 还是空的。
+  test('nothing saved yet → the picker says so, and the panel names what is used meanwhile',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'connectors');
       const select = adminPage.getByTestId('gcal-timezone');
       await expect(select).toBeVisible({ timeout: 10_000 });
-      const detected = await adminPage.evaluate(
-        () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
-      expect(detected).not.toBe('');
-      await expect(select).toHaveValue(detected);
+
+      // 库里是空的 —— 正对照，否则下面两条可能是在一台**已经设过**时区的实例上过的。
+      expect((await getBookingPolicy(seed.request)).timezone).toBe('');
+      // 控件显示的就是那个空 —— 不是任何一个具体时区。
+      await expect(
+        select,
+        'an unsaved timezone must not be shown as if it were configured — the engine reads the '
+          + 'stored value, and a picker showing something else is the screen telling a lie',
+      ).toHaveValue('');
+      // 而空**不等于**没有后果：面板要说清楚在选之前时间按哪儿算。
+      await expect(
+        adminPage.getByTestId('gcal-timezone-unset'),
+        'unset has a consequence (hours are read as UTC) and the owner must be able to see it',
+      ).toContainText('UTC', { timeout: 10_000 });
     });
 
   // timezone is a real <select> (IANA list from @vvo/tzdb), not free text —

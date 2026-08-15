@@ -76,6 +76,8 @@
     "disconnect": "Disconnect (keeps credentials)",
     "policyHeading": "Booking policy",
     "timezone": "timezone (IANA)",
+    "timezoneUnsetOption": "— not set —",
+    "timezoneUnsetHint": "not set, so the hours above are read as UTC. your browser says {detected} — pick it and visitors get the hours you meant.",
     "weekdays": "allowed weekdays"
   },
   "capabilities": {

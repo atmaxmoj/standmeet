@@ -1,0 +1,14 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/booking-slots/shots",
+  "viewport": [1280, 1100],
+  "shots": [
+    { "name": "bs-30-calendar-card-timezone", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3500 },
+        { "scroll": ["[data-testid=\"gcal-connector-panel\"]", 900] },
+        { "scroll": ["[data-testid=\"gcal-connector-panel\"]", 700] },
+        { "wait": 800 }
+      ],
+      "wait": 1500 }
+  ]
+}
