@@ -402,7 +402,10 @@ verify-shots:
 #     CALLS='[{"name":"page.pin","args":{"section":"insights","entry_id":"…"}}]'
 verify-mcp:
 	@test -n "$(CREDS)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>'; exit 2)
-	@test -n "$(CALLS)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>'; exit 2)
+	@# CALLS 用**单引号**包：它是一段 JSON，里面全是双引号，值里还会有空格。双引号那一版
+	@# 在参数带空格时 `test` 会收到一串词而不是一个参数，报「too many arguments」——
+	@# 看起来像用法写错了，其实是引号错了。
+	@test -n '$(CALLS)' || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>'; exit 2)
 	@node e2e/manual/mcp-drive.mjs sdk/packages/mcp-client/bin/standmeet-mcp \
 	  "$${STANDMEET_VERIFY_HOST:-http://localhost:38227}" "$(CREDS)" '$(CALLS)'
 

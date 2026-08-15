@@ -1,0 +1,15 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dock-buttons/shots",
+  "viewport": [1280, 1000],
+  "login": false,
+  "shots": [
+    { "name": "db-44-code-denied-capability-has-no-button", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Denied Dock"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 4500 }
+      ],
+      "wait": 1500 }
+  ]
+}
