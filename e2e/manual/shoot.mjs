@@ -101,7 +101,25 @@ if (plan.login !== false) {
 
 for (const shot of plan.shots) {
   await page.goto(`${BASE}${shot.url}`);
-  for (const step of shot.steps ?? []) {
+  await runSteps(shot.steps ?? []);
+  await page.waitForTimeout(shot.wait ?? 1200);
+  const file = `${plan.out}/${shot.name}.png`;
+  // fullPage —— 一页装不下的东西(reader 的 backlinks rail 在正文之后)要整页拍。
+  // 之前靠「点一下 body」假装滚动,拍出来跟没滚一样,两张图完全相同 —— 那不是证据。
+  await page.screenshot({ path: file, fullPage: shot.fullPage === true });
+  console.log(`shot ${file}`);
+}
+
+async function runSteps(steps) {
+  for (const step of steps) {
+    // repeat —— 把同一串动作做 n 遍：`{"repeat": [32, [ …steps… ]]}`。
+    // 有些判据只在**次数**上成立（登录尝试上限是 30/5min），而把同一段 JSON 抄 32 遍，
+    // 抄错一处会长得像产品的毛病。人也是同一个动作重复做的。
+    step.repeat && await (async () => {
+      for (let i = 0; i < step.repeat[0]; i++) {
+        await runSteps(step.repeat[1]);
+      }
+    })();
     step.click && await page.locator(step.click).first().click();
     step.type && await page.locator(step.type[0]).first().fill(step.type[1]);
     // typeFile —— 从文件粘贴。长正文（一篇笔记）手抄进 plan 的 JSON 里要转义换行、引号、
@@ -143,12 +161,6 @@ for (const shot of plan.shots) {
     // 懒加载的树：上一次点击要等它把下一层取回来，下一个选择器才存在。
     step.wait && await page.waitForTimeout(step.wait);
   }
-  await page.waitForTimeout(shot.wait ?? 1200);
-  const file = `${plan.out}/${shot.name}.png`;
-  // fullPage —— 一页装不下的东西(reader 的 backlinks rail 在正文之后)要整页拍。
-  // 之前靠「点一下 body」假装滚动,拍出来跟没滚一样,两张图完全相同 —— 那不是证据。
-  await page.screenshot({ path: file, fullPage: shot.fullPage === true });
-  console.log(`shot ${file}`);
 }
 
 await browser.close();

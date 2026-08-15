@@ -46,7 +46,9 @@ const (
 //
 // rdb / verifier 必填；nil 直接 panic（composition root bug）。captcha 关闭
 // 时传 security.NewFromConfig(Config{Provider: ProviderNone}, nil) 即可。
-func LoginGuard(rdb *redis.Client, verifier CaptchaVerifier) func(http.Handler) http.Handler {
+func LoginGuard(
+	rdb *redis.Client, verifier CaptchaVerifier, captchaOn bool,
+) func(http.Handler) http.Handler {
 	if rdb == nil {
 		panic("LoginGuard: redis client is nil")
 	}
@@ -55,7 +57,9 @@ func LoginGuard(rdb *redis.Client, verifier CaptchaVerifier) func(http.Handler) 
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			serveLoginGuard(w, r, &loginGuardCtx{rdb: rdb, verifier: verifier, next: next})
+			serveLoginGuard(w, r, &loginGuardCtx{
+				rdb: rdb, verifier: verifier, next: next, captchaOn: captchaOn,
+			})
 		})
 	}
 }
@@ -66,11 +70,22 @@ type loginGuardCtx struct {
 	rdb      *redis.Client
 	verifier CaptchaVerifier
 	next     http.Handler
+	// captchaOn —— 这台实例配没配 captcha（部署事实）。它决定超限时说哪句话，也决定
+	// 那条出路存不存在。两句话见 `tooManyAttemptsWait/Captcha`。
+	captchaOn bool
 }
+
+// tooManyAttemptsWait / tooManyAttemptsCaptcha —— 超限的两句话。说「稍后再试」而那道校验就在
+// 屏幕上，等于让 owner 干等五分钟；说「过一次校验」而这台实例没配 captcha，指的是一个页面上
+// 不存在的控件（F-G-7 的同一条规矩，第三扇门）。
+const (
+	tooManyAttemptsWait    = "too many login attempts, try again later"
+	tooManyAttemptsCaptcha = "too many login attempts — clear the human check and try again"
+)
 
 func serveLoginGuard(w http.ResponseWriter, r *http.Request, c *loginGuardCtx) {
 	ip := clientIP(r)
-	if !checkRateOrWrite(w, r, c.rdb, ip) {
+	if !checkRateOrWrite(w, r, c, ip) {
 		return
 	}
 	if !checkCaptchaOrWrite(w, r, c.verifier, ip) {
@@ -79,25 +94,49 @@ func serveLoginGuard(w http.ResponseWriter, r *http.Request, c *loginGuardCtx) {
 	equalTimeServe(w, r, c.next)
 }
 
-// checkRateOrWrite —— 命中 rate-limit / redis 故障 → 写响应并返 false；放行
-// 返 true。
+// checkRateOrWrite —— 命中 rate-limit / redis 故障 → 写响应并返 false；放行返 true。
+//
+// **超限也有一条出路，只要这台实例给得出**：配了 captcha 时，一张验得过的票就放行并清零。
+// gate 上那两扇门（码 / 留言）早就是这个规矩，而 owner 自己这扇门原来没有钥匙 —— 密码完全
+// 正确、校验也解开了，照样被挡在自己的实例外面，直到窗口自己过去（F-G-8）。
+//
+// 这不是把防线拆了：captcha 开着时，**每一次**登录本来就要过那道校验，爆破者早就在为每次
+// 尝试付代价，这时的次数上限挡不住他，只挡得住那个该进来的人。captcha 关着时没有票可验，
+// 硬锁照旧 —— 那时它是唯一的防线。
 func checkRateOrWrite(
-	w http.ResponseWriter, r *http.Request, rdb *redis.Client, ip string,
+	w http.ResponseWriter, r *http.Request, c *loginGuardCtx, ip string,
 ) bool {
-	outcome, err := checkLoginRate(r.Context(), rdb, ip)
+	outcome, err := checkLoginRate(r.Context(), c.rdb, ip)
 	if err != nil {
 		handleRateError(w, ip, err)
 		return false
 	}
-	if !outcome {
-		slog.Default().Warn("login rate-limited", "ip", ip)
-		writeRateError(
-			w, http.StatusTooManyRequests, "rate_limited",
-			"too many login attempts, try again later",
-		)
-		return false
+	if outcome {
+		return true
 	}
-	return true
+	return liftOrRefuse(w, r, c, ip)
+}
+
+// liftOrRefuse —— 超限之后：票验得过就抬闸清零；否则拒绝，并且**只承诺这里真有的下一步**。
+func liftOrRefuse(
+	w http.ResponseWriter, r *http.Request, c *loginGuardCtx, ip string,
+) bool {
+	token := r.Header.Get(captchaTokenHeader)
+	// `c.captchaOn` 必须在前：captcha 关着时装的是 noop verifier，而它对**任何**票都返回
+	// 成功 —— 少了这一半，默认部署上这道限流会被自己的 no-op 一路抬开，等于没有。
+	// `ipTally.captchaFails` 早就是这么写的，这里差点漏掉同一条（同族：一条道理只修了一处）。
+	if c.captchaOn && c.verifier.Verify(r.Context(), token, ip) == nil {
+		slog.Default().Info("login rate lifted by a solved check", "ip", ip)
+		c.rdb.Del(r.Context(), loginRateLimitKeyPfx+ip)
+		return true
+	}
+	slog.Default().Warn("login rate-limited", "ip", ip)
+	refusal := tooManyAttemptsWait
+	if c.captchaOn {
+		refusal = tooManyAttemptsCaptcha
+	}
+	writeRateError(w, http.StatusTooManyRequests, "rate_limited", refusal)
+	return false
 }
 
 // checkCaptchaOrWrite —— captcha 验证未过 → 写 401 并返 false；通过返 true。

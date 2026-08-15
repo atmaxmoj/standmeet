@@ -1,0 +1,27 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/captcha/shots",
+  "viewport": [1280, 900],
+  "login": false,
+  "shots": [
+    { "name": "cap-18-owner-past-the-attempt-ceiling", "url": "/login",
+      "steps": [
+        { "typeOwner": ["[data-testid=\"email\"]", "email"] },
+        { "type": ["[data-testid=\"password\"]", "definitely-not-it"] },
+        { "wait": 6000 },
+        { "repeat": [32, [
+          { "press": ["[data-testid=\"password\"]", "Enter"] },
+          { "wait": 500 }
+        ]] }
+      ],
+      "wait": 2000 },
+    { "name": "cap-19-owner-still-gets-in", "url": "/login",
+      "steps": [
+        { "typeOwner": ["[data-testid=\"email\"]", "email"] },
+        { "typeOwner": ["[data-testid=\"password\"]", "password"] },
+        { "wait": 6000 },
+        { "press": ["[data-testid=\"password\"]", "Enter"] },
+        { "wait": 6000 }
+      ],
+      "wait": 2000 }
+  ]
+}

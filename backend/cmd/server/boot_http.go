@@ -167,7 +167,9 @@ func mountInternal(r chi.Router, deps *Deps) {
 func mountAdmin(r chi.Router, deps *Deps) {
 	r.Route("/api/admin", func(r chi.Router) {
 		adminH := buildAdminHandlers(deps)
-		adminH.MountUnauthed(r, authmw.LoginGuard(deps.Redis, deps.CaptchaVerifier))
+		adminH.MountUnauthed(r, authmw.LoginGuard(
+			deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
+		))
 		r.Group(func(r chi.Router) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)

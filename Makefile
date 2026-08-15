@@ -667,21 +667,22 @@ prod-psql:
 # every visitor shares (F-F-5). So a verification run would lock the door for everyone until the
 # TTL runs out. This puts it back immediately.
 #
-# BOTH doors, because the gate has two per-IP tallies and they lock independently: `codefail:ip:`
-# counts invalid codes, `requestflood:ip:` counts notes. Clearing only the first left the note door
-# shut with nothing on screen to say so — the escape hatch has to know about every bucket the
-# mechanism grew (`middleware/ip_tally.go` is the one place they are configured).
+# EVERY per-IP tally, because they lock independently: `codefail:ip:` counts invalid codes,
+# `requestflood:ip:` counts notes, `ratelimit:login:` counts login attempts. Clearing only the
+# first left the note door shut with nothing on screen to say so — the escape hatch has to know
+# about every bucket the mechanism grew (`middleware/ip_tally.go` + `login_guard.go` are where
+# they are configured). Add the pattern here in the same commit that adds a tally.
 #
 # It is a verification-stack escape hatch, not an owner feature: an owner who wants to lift a lock
 # solves the captcha, which is the whole point of the surface this exists to test.
-GATE_LOCK_PATTERNS = 'codefail:ip:*' 'requestflood:ip:*'
+GATE_LOCK_PATTERNS = 'codefail:ip:*' 'requestflood:ip:*' 'ratelimit:login:*'
 prod-gate-unlock:
 	@for p in $(GATE_LOCK_PATTERNS); do \
 		docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis \
 			redis-cli --scan --pattern "$$p" | xargs -r docker compose -p standmeet-prod \
 			-f docker-compose.prod.yml exec -T redis redis-cli DEL; \
 	done
-	@echo "[prod] gate lockouts cleared (invalid codes + note flood)"
+	@echo "[prod] per-IP lockouts cleared (invalid codes + note flood + login attempts)"
 
 # prod-psql-file —— same, for multi-line SQL.  usage: make prod-psql-file FILE=/tmp/x.sql
 prod-psql-file:
