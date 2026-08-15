@@ -18,6 +18,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
 import { remarkCallouts } from '@/components/page/markdown-callouts';
+import { remarkVaultLinks } from '@/components/page/markdown-vault-links';
 import {
   escapeCurrencyDollars, mermaidSource, promoteDisplayMath,
 } from '@/components/page/markdown-helpers';
@@ -113,7 +114,7 @@ export function ChatMarkdown(
   return (
     <div className={cls}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath, remarkCallouts]}
+        remarkPlugins={[remarkGfm, remarkMath, remarkCallouts, remarkVaultLinks]}
         // ORDER MATTERS (F-R-3): sanitize FIRST, then katex. rehype-katex emits dozens of spans
         // whose LAYOUT lives in inline `style` (strut heights, vlist offsets, sub/sup positions).
         // rehype-sanitize strips `style` — so if it runs AFTER katex it guts every equation

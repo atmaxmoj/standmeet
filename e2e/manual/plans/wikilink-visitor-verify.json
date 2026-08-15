@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "cr-20-no-wikilink-syntax-for-the-visitor", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Wikilink Reader"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What does sijie think a recursive harness is? Name the notes it builds on."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 75000 }
+      ],
+      "wait": 3000, "fullPage": true }
+  ]
+}

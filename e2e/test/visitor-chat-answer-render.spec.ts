@@ -132,6 +132,13 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
   // `text-red-600`（连调色板都不是）。这跟「错误必须对用户友好」是同一条规矩，
   // 只是这一处的用户是访客，而漏出去的是第三方库的内部消息。
   test('编译不过的图不以报错形态出现在访客面前，正文照常读得到', brokenDiagramStaysHidden);
+
+  // 语料正文里到处是 `[[wikilink]]`（vault 就是这么写的），模型照着写出来，于是访客答案里
+  // 出现一串方括号 slug：点不动、也不解释自己是什么（F-R-7，prod 上真见过）。
+  // 判据不是「变成链接」—— public 场里那条笔记访客未必读得到，渲成链接等于造一个进不去的
+  // 入口；判据是**访客面前不出现 vault 的书写语法**，而**代码块里必须原样保留**（那是源码，
+  // 不是正文）。
+  test('vault 的 [[wikilink]] 语法不出现在访客面前，代码块里原样保留', wikilinksStayOutOfProse);
 });
 
 async function brokenDiagramStaysHidden(
@@ -168,6 +175,63 @@ async function brokenDiagramStaysHidden(
   ).not.toContainText(/parse error|syntax error|expecting/i);
   await ctx.close();
 }
+
+async function wikilinksStayOutOfProse(
+  { browser, request }: { browser: Browser; request: APIRequestContext },
+): Promise<void> {
+  const tag = await scriptMockReplyText(request, WIKILINK_REPLY);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterCodeSession(page, CODE);
+  await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+  const skip = page.getByTestId('visitor-name-skip');
+  if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await skip.click();
+  }
+
+  const input = page.locator('[data-testid="chat-input-field"]');
+  await input.fill(`what is a weak seam${tag}`);
+  await input.press('Enter');
+
+  const answer = page.locator('[data-testid="answer-body"]').first();
+  await expect(answer).toBeVisible({ timeout: 20_000 });
+  // 正对照：正文真的到了，而且**名字还在**（判据是去掉语法，不是把内容删了）。
+  await expect(answer).toContainText('pc-well-founded-recursion', { timeout: 10_000 });
+  await expect(
+    answer, '写了别名的那条，显示的应当是别名而不是路径',
+  ).toContainText('the safe recursion theorem');
+
+  // 断言收窄到**本 spec 自己塞的那两段**：mock provider 会把整份 system prompt 回显进
+  // answer-body，而那里面本来就带方括号 —— 对整个 answer 断言「不含 [[」会红在回显上，
+  // 红得不知所以然（[[red-in-the-wrong-place]]）。
+  await expect(
+    answer.locator('p', { hasText: 'pc-well-founded-recursion' }).first(),
+    'vault 的书写语法不该出现在访客面前 —— 那串方括号点不动，也不解释自己是什么',
+  ).not.toContainText('[[');
+  await expect(
+    answer.locator('p', { hasText: 'the safe recursion theorem' }).first(),
+    '带别名的那种也一样',
+  ).not.toContainText('[[');
+
+  // 代码块里那是**源码**，不是正文：原样保留，否则就是产品在改访客看到的代码。
+  await expect(
+    answer.locator('pre code'),
+    'inside a fence it is source, and source is quoted verbatim',
+  ).toContainText('[[not-a-link]]');
+  await ctx.close();
+}
+
+// WIKILINK_REPLY —— 语料正文里到处是这种写法，模型照着写出来。三种形态各一：裸的、
+// 带别名的、以及**代码块里**那个（后者必须原样留着）。
+const WIKILINK_REPLY = [
+  'A weak seam is where coupling is low — that is what [[pc-well-founded-recursion]] is about.',
+  '',
+  'The tighter statement lives in [[cybernetics/engineering/safe-recursion-theorem|the safe recursion theorem]].',
+  '',
+  '```',
+  'a fence keeps [[not-a-link]] exactly as written',
+  '```',
+].join('\n');
 
 // BROKEN_DIAGRAM_REPLY —— 一段带**编译不过**的 mermaid 的回答。正文自己站得住
 // （图是补充，不是唯一答案），所以图渲不出来时访客仍然读得到该读的东西。
