@@ -100,7 +100,9 @@ if (plan.login !== false) {
 }
 
 for (const shot of plan.shots) {
-  await page.goto(`${BASE}${shot.url}`);
+  // url 省略 = **留在当前这一页**。有些判据说的正是「不换页会怎样」（同一场对话里连着说两轮、
+  // 一个弹窗答过之后还回不回来），而每张图都先 goto 一次的话，那件事根本发生不了。
+  shot.url && await page.goto(`${BASE}${shot.url}`);
   await runSteps(shot.steps ?? []);
   await page.waitForTimeout(shot.wait ?? 1200);
   const file = `${plan.out}/${shot.name}.png`;

@@ -1,0 +1,38 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/gate/shots",
+  "viewport": [1280, 1100],
+  "login": false,
+  "shots": [
+    { "name": "gt-43-picker-asks-once", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Turns Reader"] },
+        { "wait": 500 }
+      ],
+      "wait": 1200 },
+    { "name": "gt-44-first-turn", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Turns Reader"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "In one sentence: what is a weak seam?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 55000 }
+      ],
+      "wait": 2000 },
+    { "name": "gt-45-second-turn-no-picker",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "And in one sentence: why does that matter?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 55000 }
+      ],
+      "wait": 2000 },
+    { "name": "gt-46-after-navigating-away-and-back", "url": "/gate",
+      "steps": [{ "wait": 2500 }],
+      "wait": 1200 },
+    { "name": "gt-47-back-on-chat-reloaded", "url": "/",
+      "steps": [{ "wait": 4000 }],
+      "wait": 1500 }
+  ]
+}
