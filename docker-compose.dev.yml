@@ -67,6 +67,12 @@ services:
       # llm-gateway service below; prod points at real api.anthropic.com.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - SANDBOX_DRIVER=docker
+      # Turnstile —— empty by default, so captcha is OFF for every ordinary spec. `make test-captcha`
+      # brings the stack up with Cloudflare's always-pass TEST keys, which is the only way to drive
+      # the captcha surfaces against the real verification endpoint (F-G-3). Plumbed here for the
+      # same reason as in prod: a knob nobody can set is not a feature (F-G-2).
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
+      - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
       # MinIO / S3 storage for owner-uploaded images + attachments.
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=standmeet

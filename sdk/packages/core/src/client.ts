@@ -39,6 +39,10 @@ export interface IssueSessionInput {
   // 自动退到按 visitor_name / 新建。
   member_id?: string;
   byoai_provider?: string;
+  // captcha_token —— 一次通过校验的人机校验票。**它是解锁用的**：同一 IP 连续试错码超过
+  // 阈值后后端会锁 15 分钟，而带上一张有效票就能立刻过（`code_guard.go` 的
+  // `Locked = enabled && overThreshold && captchaFails`）。captcha 没开时后端不看这个字段。
+  captcha_token?: string;
 }
 
 // BYOAIHeaders —— streamMessage 在 mode=byoai 时透传 4 个 header（**全部必填**，

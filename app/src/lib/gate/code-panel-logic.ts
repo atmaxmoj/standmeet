@@ -44,8 +44,9 @@ export async function submitCodeAndGo(
   code: string,
   name: string,
   deps: SubmitDeps,
+  captchaToken = '',
 ): Promise<void> {
-  const ok = await deps.hook.submitCode(code, name);
+  const ok = await deps.hook.submitCode(code, name, captchaToken);
   if (ok) deps.router.push(postGateHref());
 }
 

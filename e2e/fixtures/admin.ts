@@ -97,11 +97,28 @@ async function claimStatus(
   }
 }
 
+// DUMMY_CAPTCHA_TOKEN —— Cloudflare 的测试 sitekey 出的就是这个票（`XXXX.DUMMY.TOKEN.XXXX`），
+// 配套的测试 secret 认它。`make test-captcha` 把栈拉起来时用的正是那对密钥。
+//
+// 为什么每次登录都带着：captcha 一开，`LoginGuard` 对**每一次** owner 登录都要
+// `X-Captcha-Token`（不只是被锁之后）。captcha 关着时这个头没人看，所以恒定带上是安全的 ——
+// 而少带一次的代价是整批 spec 红在夹具上，看起来像产品坏了（[[red-in-the-wrong-place]]）。
+const DUMMY_CAPTCHA_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
+
+// loginRequest —— 三处登录同一份请求形状。以前各写各的，captcha 一开就得改三遍，
+// 而漏掉的那一处会红在别人身上。
+function loginRequest(email: string, password: string) {
+  return {
+    data: { email, password },
+    headers: { 'X-Captcha-Token': DUMMY_CAPTCHA_TOKEN },
+  };
+}
+
 // claimLanded —— 超时之后核对 claim 到底成没成:拿同一套邮箱/口令登录得上 = 成了。
 async function claimLanded(request: APIRequestContext, body: ClaimBody): Promise<boolean> {
-  const res = await request.post(`${BACKEND}/api/admin/login`, {
-    data: { email: body.email, password: body.password },
-  }).catch(() => null);
+  const res = await request.post(
+    `${BACKEND}/api/admin/login`, loginRequest(body.email, body.password),
+  ).catch(() => null);
   return res?.status() === 200;
 }
 
@@ -118,9 +135,9 @@ async function seedDevAIProvider(
 ): Promise<void> {
   const endpoint = process.env['LLM_GATEWAY_BACKEND_URL']
     ?? 'http://llm-gateway:9300';
-  const loginRes = await request.post(`${BACKEND}/api/admin/login`, {
-    data: { email: creds.email, password: creds.password },
-  });
+  const loginRes = await request.post(
+    `${BACKEND}/api/admin/login`, loginRequest(creds.email, creds.password),
+  );
   if (loginRes.status() !== 200) {
     throw new Error(`seed-ai-provider login failed: ${loginRes.status()}`);
   }
@@ -174,7 +191,7 @@ export async function login(
   email = 'alice@example.com',
   password = DEFAULT_PASSWORD,
 ): Promise<AdminLogin> {
-  const res = await request.post(`${BACKEND}/api/admin/login`, { data: { email, password } });
+  const res = await request.post(`${BACKEND}/api/admin/login`, loginRequest(email, password));
   if (res.status() !== 200) throw new Error(`login failed: ${res.status()}`);
   const body = await res.json() as { csrf_token?: string };
   return { csrf: body.csrf_token ?? '' };

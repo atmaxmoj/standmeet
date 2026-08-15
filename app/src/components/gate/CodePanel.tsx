@@ -17,6 +17,8 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
+import { useCaptchaSiteKey } from '@/lib/auth/use-captcha-site-key';
 import type { GateHook } from '@/lib/gate/use-gate';
 import {
   codeReady,
@@ -35,6 +37,9 @@ export function CodePanel({ hook }: Props) {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  // captchaToken —— 被锁之后那道人机校验出的票。后端拿它解锁（`code_guard.go`）；
+  // 在这之前，这条出路只存在于后端，访客屏幕上什么都没有（F-G-3）。
+  const [captchaToken, setCaptchaToken] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   // 错码 / 网络挂 → 0.4s shake → 清空 + refocus。
   const shake = useShakeOnError(hook.state.error, () => {
@@ -46,8 +51,8 @@ export function CodePanel({ hook }: Props) {
     e.preventDefault();
     const trimmed = code.trim();
     trimmed !== ''
-      && (await submitCodeAndGo(trimmed, name, { router, hook }));
-  }, [code, name, hook, router]);
+      && (await submitCodeAndGo(trimmed, name, { router, hook }, captchaToken));
+  }, [code, name, hook, router, captchaToken]);
 
   const onPaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
     handlePasteEvent(e, (normalized) => {
@@ -67,15 +72,47 @@ export function CodePanel({ hook }: Props) {
           shake={shake}
           error={hook.state.error !== null}
           inputRef={inputRef}
+          // 被锁住时，票没到手就不让提交：否则访客对着一个看起来正常的按钮反复按，
+          // 每次都收到同一句 429，而屏幕上刚出现的那道校验还没出票 —— 他没法知道
+          // 差的是等一秒，还是这张码真的没用。
+          blocked={hook.state.locked && captchaToken === ''}
         />
         {/* 错误行紧贴出错的那个字段。原来它落在 NameRow **之下**，于是
             `TOO MANY INVALID CODES` 读起来像是「我的名字被拒了」，眼睛得往回跳
             才能把错误跟码输入框对上 —— 而这是访客第一次接触这个产品的一屏（UX-73）。 */}
         <HintStatus busy={hook.state.busy} error={hook.state.error} />
+        {/* 锁住之后才出现：没锁时拦一道人机校验，是拿产品的防线去烦正常访客。
+            后端本来就认这张票（`code_guard.go`），这里只是把那条出路显出来（F-G-3）。 */}
+        <LockedCaptcha locked={hook.state.locked} onToken={setCaptchaToken} />
         <NameRow name={name} setName={setName} />
       </form>
       <Hint />
     </section>
+  );
+}
+
+// LockedCaptcha —— 被锁之后那道人机校验。两个条件缺一不可：这台实例真配了 captcha
+// （否则没有 site key，widget 无从渲染，也没必要），而且这位访客真的被锁了。
+function LockedCaptcha(
+  { locked, onToken }: { locked: boolean; onToken: (t: string) => void },
+) {
+  const captcha = useCaptchaSiteKey();
+  return locked && captcha.siteKey !== ''
+    ? <LockedCaptchaBox siteKey={captcha.siteKey} onToken={onToken} />
+    : null;
+}
+
+function LockedCaptchaBox(
+  { siteKey, onToken }: { siteKey: string; onToken: (t: string) => void },
+) {
+  const t = useTranslations('gate.codePanel');
+  return (
+    <div className="space-y-2" data-testid="gate-captcha">
+      <p className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted)">
+        {t('captchaHint')}
+      </p>
+      <TurnstileWidget siteKey={siteKey} onToken={onToken} />
+    </div>
   );
 }
 
@@ -86,12 +123,13 @@ function CodeRow(props: {
   busy: boolean;
   shake: boolean;
   error: boolean;
+  blocked: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   return (
     <div className={`flex items-baseline gap-3 ${props.shake ? 'shake' : ''}`}>
       <CodeInput {...props} />
-      <CodeEnterBtn busy={props.busy} enabled={codeReady(props.code)} />
+      <CodeEnterBtn busy={props.busy} enabled={codeReady(props.code) && !props.blocked} />
     </div>
   );
 }

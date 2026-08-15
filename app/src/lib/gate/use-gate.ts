@@ -147,11 +147,14 @@ export interface BYOAISubmitInput {
   key: string;
 }
 
-type SubmitState = { busy: boolean; error: string | null };
+// SubmitState.locked —— 上一次失败是不是 per-IP 的锁（后端信封 code=`code_locked`）。
+// 它跟「码不对」是两件不同的事，下一步也不同：一个是重新输，另一个是**过一次人机校验**。
+// 后端认这条出路（`code_guard.go`: 有效 token → 立刻解锁），所以界面必须给得出来（F-G-3）。
+type SubmitState = { busy: boolean; error: string | null; locked: boolean };
 
 export interface GateHook {
   state: SubmitState;
-  submitCode: (code: string, visitorName: string) => Promise<boolean>;
+  submitCode: (code: string, visitorName: string, captchaToken?: string) => Promise<boolean>;
   submitBYOAI: (input: BYOAISubmitInput) => Promise<boolean>;
   submitRequest: (input: AccessRequestInput) => Promise<boolean>;
 }
@@ -164,16 +167,19 @@ export interface AccessRequestInput {
 }
 
 export function useGate(): GateHook {
-  const [state, setState] = useState<SubmitState>({ busy: false, error: null });
+  const [state, setState] = useState<SubmitState>({ busy: false, error: null, locked: false });
 
   const submitCode = useCallback(async (
-    code: string, visitorName: string,
+    code: string, visitorName: string, captchaToken = '',
   ): Promise<boolean> => {
     return await runSubmit(setState, async () => {
       const trimmedCode = code.trim();
       const trimmedName = visitorName.trim();
       const sess = await issueCodeSession({
         code: trimmedCode, visitor_name: trimmedName,
+        // 空串不发：captcha 关着时后端不看这个字段，但一个恒定出现的空字段会让人以为
+        // 「票已经带上了」。
+        ...(captchaToken === '' ? {} : { captcha_token: captchaToken }),
       });
       // F-A-5: keep the remembered name in sync with the /gate entry so a later
       // VisitorNamePicker (a genuinely new code) prefills THIS identity, not a
@@ -229,15 +235,22 @@ async function runSubmit(
   setState: (s: SubmitState) => void,
   fn: () => Promise<boolean>,
 ): Promise<boolean> {
-  setState({ busy: true, error: null });
+  setState({ busy: true, error: null, locked: false });
   try {
     const ok = await fn();
-    setState({ busy: false, error: null });
+    setState({ busy: false, error: null, locked: false });
     return ok;
   } catch (e) {
-    setState({ busy: false, error: submitErrorText(e) });
+    setState({ busy: false, error: submitErrorText(e), locked: isLocked(e) });
     return false;
   }
+}
+
+// isLocked —— 这次拒绝是不是 per-IP 的锁。断的是信封里的 `code`，不是那句话的措辞：
+// 文案改一次就失灵的判定，等于没判（同 F-A-23 那一族，那次也是靠 code 而不是 message）。
+function isLocked(e: unknown): boolean {
+  if (typeof e !== 'object' || e === null || !('code' in e)) return false;
+  return e.code === 'code_locked';
 }
 
 // submitErrorText —— 后端为每一种拒绝都写了一句给访客看的话("no such access code…"、

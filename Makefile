@@ -540,6 +540,29 @@ test-only: dev-up
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
+# test-captcha —— bring the dev stack up WITH captcha on, using Cloudflare's published test keys,
+# and run the captcha specs against it.
+#
+# Every other spec runs with captcha off (the vars are empty by default), which is the shipped
+# default and what the rest of the suite should exercise. But "off everywhere" is why the visitor
+# captcha surfaces were never driven at all: the widget only renders when the instance publishes a
+# site key (F-G-3).
+#
+# The keys below are Cloudflare's own always-pass pair, published for exactly this. The widget
+# self-issues a token — there is no challenge being defeated, which is the whole point of a vendor
+# test mode. Real challenges stay off limits.
+#
+#   1x00000000000000000000AA          sitekey, always passes
+#   1x0000000000000000000000000000000AA  secret, always validates
+#
+# The stack is left running with captcha ON — `make dev-up` puts it back.
+test-captcha:
+	@TURNSTILE_SITE_KEY=1x00000000000000000000AA \
+	 TURNSTILE_SECRET=1x0000000000000000000000000000000AA \
+	 $(MAKE) dev-up
+	@cd e2e && pnpm exec playwright test $(if $(SPEC),$(SPEC),captcha); \
+		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
+
 # test-red —— run one spec against the images that are ALREADY RUNNING. No dev-up, no rebuild.
 #
 # This exists for one step of the fix SOP: proving a new test actually fails on the buggy code.
