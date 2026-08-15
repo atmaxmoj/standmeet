@@ -64,44 +64,8 @@ func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
 	}
 }
 
-// RegisterDiscoveredPlugins —— 把发现来源的 manifest 逐个注册成 mcpAppCapability
-// 进同一个 Registry，带指定 origin：
-//   - OriginBuiltin：随产品镜像发的 bundled 内建（外置后的 ask_visitor 等）。这条源
-//     prod 也在；管理面不可删（删 = 改镜像）。
-//   - OriginManaged：部署期经 STANDMEET_PLUGINS 声明装上的第三方/集成插件。
-//
-// 撞 ID(跟别的内建或彼此) → 跳过该条、收进返回的 skipped(caller log),不让一个坏
-// 插件 panic 整个 boot。
-func RegisterDiscoveredPlugins(
-	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
-	dialErrLog func(id string, err error),
-) []string {
-	return RegisterDiscoveredPluginsHooked(reg, manifests, origin, nil, dialErrLog)
-}
-
-// RegisterDiscoveredPluginsHooked —— RegisterDiscoveredPlugins + 给特定 ID 的插件挂
-// per-session 钩子（CapHooks）。由 composition root 注入（连接器 proxy / store / corpus
-// scope 都在那）：booker 用 Gate 做 connector+quota 的 tool 隐藏；retrieval 用 Fragment
-// 做 corpus-scope 的 prompt/enabled 闸。hooks 为 nil / 无此 ID → 无额外钩子（默认）。
-func RegisterDiscoveredPluginsHooked(
-	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
-	hooks map[string]CapHooks, dialErrLog func(id string, err error),
-) []string {
-	skipped := []string{}
-	for i := range manifests {
-		appCap := newMCPAppCapability(&manifests[i])
-		appCap.dialErrLog = dialErrLog
-		if h, ok := hooks[manifests[i].ID]; ok {
-			appCap.gate = h.Gate
-			appCap.fragmentGate = h.Fragment
-			appCap.stateHook = h.State
-		}
-		if err := reg.RegisterOrigin(appCap, origin); err != nil {
-			skipped = append(skipped, manifests[i].ID)
-		}
-	}
-	return skipped
-}
+// 注册那一段（manifest → 注册好的能力、origin、撞 ID、always 名单）住在
+// capreg_mcp_app_register.go。
 
 func (c *mcpAppCapability) ID() string { return c.m.ID }
 

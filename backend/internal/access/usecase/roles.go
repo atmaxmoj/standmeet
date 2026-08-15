@@ -32,12 +32,19 @@ type RolesDeps struct {
 // RoleWriteInput —— Create / Update 共用的入参形态。Update 时 RoleID 必填，
 // Create 时 RoleID 空。
 type RoleWriteInput struct {
-	PromptID    *string // 0..1；nil = 不挂 prompt
-	OwnerID     string
-	RoleID      string // Update 才填
-	Name        string
-	Description string
-	Greeting    string
+	PromptID *string // 0..1；nil = 不挂 prompt
+	// DockableCapabilityIDs —— 「一个技能列表长这样的 role，dock 上挂得住哪些能力」。
+	//
+	// 是个**函数**而不是名单：`acl: role_granted` 的能力要这个 role 的技能真的授了它才算数，
+	// 所以只有拿到**这次写入的** SkillIDs 才答得出来。传名单的那一版问的是「这台实例注册了
+	// 哪些访客能力」，比会话那一侧宽，差集里的按钮后台收得下、访客永远看不到（F-D-13）。
+	// nil = 不校验（内部调用方自己保证）。
+	DockableCapabilityIDs func(ctx context.Context, ownerID string, skillIDs []string) []string
+	OwnerID               string
+	RoleID                string // Update 才填
+	Name                  string
+	Description           string
+	Greeting              string
 	// ProviderID —— 这个 role 用哪条 provider(空 = owner 默认)。码上那条压过它。
 	ProviderID   string
 	CorpusURIs   []string
@@ -47,8 +54,6 @@ type RoleWriteInput struct {
 	Waypoints []entity.Waypoint
 	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮。
 	DockButtons []entity.DockButtonConfig
-	// ValidCapabilityIDs —— route 从能力注册表给出的、dock 按钮可挂的能力 id 集（校验 cap 有效性用）。
-	ValidCapabilityIDs []string
 	// RequireGhostEvidence —— F-A-10 per-role 开关。
 	RequireGhostEvidence bool
 	// GasMetered —— 挂不挂油表。false = 一次 gas 查询都不发。
@@ -78,7 +83,7 @@ func validateCreateRoleInput(
 	if in.OwnerID == "" || in.Name == "" {
 		return apierr.ErrEmptyField
 	}
-	if derr := checkDockButtonsSubset(in); derr != nil {
+	if derr := checkDockButtonsSubset(ctx, in); derr != nil {
 		return derr
 	}
 	if werr := checkWaypointsSubset(in); werr != nil {
@@ -160,7 +165,7 @@ func validateUpdateRoleInput(
 	if cerr := checkRoleRenameAllowed(ctx, deps, in); cerr != nil {
 		return cerr
 	}
-	if derr := checkDockButtonsSubset(in); derr != nil {
+	if derr := checkDockButtonsSubset(ctx, in); derr != nil {
 		return derr
 	}
 	if werr := checkWaypointsSubset(in); werr != nil {

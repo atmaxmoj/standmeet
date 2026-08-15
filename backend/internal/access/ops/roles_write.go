@@ -86,11 +86,12 @@ func toRoleWriteInput(d RolesDeps, ownerID string, in *roleWriteArgs) *usecase.R
 		MCPServerIDs: nonNilStrings(in.MCPServerIDs),
 		Waypoints:    nonNilWaypoints(in.Waypoints),
 		DockButtons:  nonNilDockButtons(in.DockButtons),
-		// dock 按钮上能挂哪些能力,由能力注册表回答 —— 每次写都现问一次。
-		ValidCapabilityIDs:   d.ValidCapabilityIDs(),
-		RequireGhostEvidence: in.RequireGhostEvidence,
-		ProviderID:           in.ProviderID,
-		GasMetered:           in.GasMetered,
+		// dock 按钮上能挂哪些能力,由能力注册表回答 —— 每次写都现问一次,而且**按这个 role
+		// 的技能问**(`acl: role_granted` 的能力要技能授了才算)。
+		DockableCapabilityIDs: d.ValidCapabilityIDs,
+		RequireGhostEvidence:  in.RequireGhostEvidence,
+		ProviderID:            in.ProviderID,
+		GasMetered:            in.GasMetered,
 	}
 }
 
@@ -128,8 +129,12 @@ var roleErrClasses = []struct {
 	{entity.ErrDockButtonEmptyTrigger, func() error {
 		return fp.BadInput("dock button needs a trigger")
 	}},
+	// 两种情况共用这一句，而它对两种都是真话：id 拼错了，或者这个能力要 role 的技能授权而
+	// 这个 role 没授。上一版说的是「unknown dock capability」—— 对后一种是假的（那个能力好好
+	// 地装在实例上），而 owner 会去找一个根本不存在的拼写错误（F-D-13）。
 	{entity.ErrUnknownDockCapability, func() error {
-		return fp.BadInput("unknown dock capability")
+		return fp.BadInput(
+			"this role can't show that capability — check the id, or grant it to the role's skills")
 	}},
 	{usecase.ErrRefPromptNotFound, func() error {
 		return fp.BadInput("prompt id not found for this owner")

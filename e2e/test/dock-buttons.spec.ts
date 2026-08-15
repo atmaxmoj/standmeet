@@ -14,6 +14,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { setCodeCapabilityDenial } from '@/fixtures/code-denials';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { configureMailConnector } from '@/fixtures/mail';
 import {
   createRole, getRoleByName, type DockButtonConfig, type RoleView,
 } from '@/fixtures/roles';
@@ -43,6 +44,13 @@ test.beforeAll(async ({ playwright }) => {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
+  // 先接 mail 连接器，好让 `mail.send` 真的**注册进这台实例**（它 `requires: smtp`，没连就
+  // 整个隐藏）。A5 要分的正是「这个能力不存在」和「存在但这个 role 没有」这两件事：不连的话
+  // 第二种情况会以第一种的理由被拒，红得不知所以然（[[red-in-the-wrong-place]]）。
+  //
+  // **必须排在下面那次登录之前**：它自己会登一次，把这个 context 的 CSRF 换掉 —— 反过来写的
+  // 那一版，整份 spec 的写请求全部 403，看起来像 dock 的校验全崩了。
+  await configureMailConnector(request, OWNER.email, OWNER.password);
   const auth = await loginAPI(request, OWNER.email, OWNER.password);
   csrf = auth.csrf;
 });
@@ -113,15 +121,34 @@ test.describe('dock buttons · A — config storage + validation', () => {
     expect(res.status(), 'a dock button needs a trigger phrase').toBe(400);
   });
 
-  test('A4 capability not granted by the role → rejected', async () => {
-    // corpus_uris empty means corpus.retrieval is not a usable button target for this role;
-    // configuring a button for a capability the role does not grant must be rejected.
+  // A4 的名字说的是「role 没有的能力」，而它发的是 `no-such-capability` —— **根本不存在**的
+  // 那一种。两件事被同一个名字盖住了，于是「存在、但这个 role 拿不到」那一半从没被测过，
+  // 而 F-D-13 就是从那半边过去的。名字改成它实际测的东西，另一半交给 A5。
+  test('A4 capability that does not exist at all → rejected', async () => {
     const res = await postRole(request, {
-      name: 'a4-ungranted', corpus_uris: [],
+      name: 'a4-nonexistent', corpus_uris: [],
       dock_buttons: [{ capability_id: 'no-such-capability', trigger: 'x' }],
     });
-    expect(res.status(), 'cannot dock a capability the role has not').toBe(400);
+    expect(res.status(), 'cannot dock a capability nobody registered').toBe(400);
   });
+
+  // A5 —— F-D-13。`mail.send` 在这台实例上**是注册了的**（beforeAll 接了 mail 连接器），
+  // 但它 `acl: role_granted`，而这个 role 的 skill 列表是空的 → 这个 role 的会话永远拿不到它。
+  // prod 上正是这样：后台**收下**了这颗按钮、卡片上两颗都在，访客那边只出现一颗，两边都没有
+  // 一句话。绑定时校验读的是 `AgentSkills.VisitorCapabilityIDs()`（全实例注册的），渲染时读的
+  // 是这场会话真正拿到的能力集 —— 两个集合都叫 valid，差集就是这颗按钮。
+  test('A5 capability registered on the instance but not granted by this role → rejected',
+    async () => {
+      const res = await postRole(request, {
+        name: 'a5-ungranted-but-real', corpus_uris: ['wiki://**'],
+        dock_buttons: [{ capability_id: 'mail.send', trigger: 'email the owner about this' }],
+      });
+      expect(
+        res.status(),
+        'a button this role can never show must be refused while configuring — otherwise the '
+          + 'owner leaves believing there are two buttons and the visitor gets one',
+      ).toBe(400);
+    });
 
   test('A6 clear dock buttons → roleView empty', async () => {
     const role = await createRole(request, csrf, {

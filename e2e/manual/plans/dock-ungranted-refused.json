@@ -1,0 +1,23 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dock-buttons/shots",
+  "viewport": [1440, 1200],
+  "shots": [
+    { "name": "db-41-ungranted-bind-is-refused", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "select": ["[data-testid=\"role-dock-cap-1\"]", "mail.send"] },
+        { "type": ["[data-testid=\"role-dock-trigger-1\"]", "email sijie about this"] },
+        { "scroll": ["[data-testid=\"role-dock-save\"]", 200] },
+        { "click": "[data-testid=\"role-dock-save\"]" },
+        { "wait": 1200 }
+      ],
+      "wait": 300 },
+    { "name": "db-42-role-unchanged-after-refusal", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "scroll": ["[data-testid=\"role-dock-save\"]", 200] },
+        { "wait": 800 }
+      ],
+      "wait": 1500 }
+  ]
+}

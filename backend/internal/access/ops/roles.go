@@ -28,9 +28,13 @@ import (
 //
 // ValidCapabilityIDs 是**惰性**的:能力注册表要等插件都装完才齐,而收口在那之前就建好了。
 // 存函数而不是快照,否则 dock 按钮会拿到一张空的合法能力表。
+//
+// **它按这次写入的技能列表回答**：`acl: role_granted` 的能力要这个 role 的技能真的授了它，
+// 会话里才会出现。以前这里问的是「这台实例注册了哪些访客能力」，比会话那侧宽 —— 差集里的
+// 能力后台收得下、访客永远看不到，两边都不吭声（F-D-13）。
 type RolesDeps struct {
 	Roles              usecase.RolesDeps
-	ValidCapabilityIDs func() []string
+	ValidCapabilityIDs func(ctx context.Context, ownerID string, skillIDs []string) []string
 	// Extras —— 各能力在一个 role 上占的字段(calendar.book 的 notify_owner 是第一个)。
 	// access 不认识任何一个能力,只认识这个口子。nil = 没有能力声明过 per-role 配置。
 	Extras RoleExtras
@@ -305,7 +309,7 @@ func setRoleDockButtons(d RolesDeps) fp.Invoke {
 		}
 		rl, err := usecase.SetRoleDockButtons(ctx, d.Roles, &usecase.SetDockButtonsInput{
 			OwnerID: ownerID, RoleID: in.RoleID, Buttons: nonNilDockButtons(in.Buttons),
-			ValidCapabilityIDs: d.ValidCapabilityIDs(),
+			DockableCapabilityIDs: d.ValidCapabilityIDs,
 		})
 		if err != nil {
 			return nil, roleErr(err)

@@ -14,6 +14,9 @@
 package wire
 
 import (
+	"context"
+	"slices"
+
 	"github.com/atmaxmoj/standmeet/cmd/server/axiscap"
 	"github.com/atmaxmoj/standmeet/cmd/server/axisconn"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
@@ -174,11 +177,45 @@ func roleDepsOf(d *deps.Runtime) access.OpsRoles {
 			Roles: d.RoleRepo,
 			Refs:  port.NewRoleRefValidator(d),
 		},
-		ValidCapabilityIDs: func() []string { return d.AgentSkills.VisitorCapabilityIDs() },
+		ValidCapabilityIDs: dockableCapabilitiesOf(d),
 		// 各能力在一个 role 上占的字段(calendar.book 的 notify_owner 是第一个),按 manifest
 		// 的 RoleConfig 声明合成一个通用面 —— 跟码那份同一个机制,只换挂载点。
 		Extras: axiscap.RoleFieldSurface(d),
 	}
+}
+
+// dockableCapabilitiesOf —— 「技能是这几个的 role，dock 上挂得住哪些能力」。
+//
+// 两件事在这里合起来，因为**只有根同时看得见它们**：能力注册表知道谁是 `acl: always`、谁要
+// 授权；技能库知道这些技能授出了哪些工具。域那边只声明「给我一个能回答这个问题的函数」。
+//
+// 读技能失败时**退到只认无条件暴露的那几个**（最严），而不是放行整张表：宽松的那一侧正是
+// F-D-13 的病灶 —— 收下一颗访客永远看不到的按钮。
+func dockableCapabilitiesOf(d *deps.Runtime) func(context.Context, string, []string) []string {
+	return func(ctx context.Context, ownerID string, skillIDs []string) []string {
+		return d.AgentSkills.DockableCapabilityIDs(roleAllowedTools(ctx, d, ownerID, skillIDs))
+	}
+}
+
+// roleAllowedTools —— 这些技能一共授出了哪些工具（跟会话装配那侧同一个并集，见
+// `collectRoleSkillBundle`）。
+func roleAllowedTools(
+	ctx context.Context, d *deps.Runtime, ownerID string, skillIDs []string,
+) []string {
+	if len(skillIDs) == 0 {
+		return []string{}
+	}
+	skills, err := d.SkillRepo.ListByOwner(ctx, ownerID)
+	if err != nil {
+		return []string{}
+	}
+	out := []string{}
+	for i := range skills {
+		if slices.Contains(skillIDs, skills[i].ID) {
+			out = append(out, skills[i].AllowedTools...)
+		}
+	}
+	return out
 }
 
 func codeDepsOf(d *deps.Runtime) access.OpsCodes {

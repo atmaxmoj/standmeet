@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 )
 
@@ -31,7 +32,9 @@ type Registry struct {
 	gate   EnableGate
 	depReg *DepRegistry
 	caps   []Capability
-	mu     sync.RWMutex
+	// alwaysGranted —— manifest 写着 `acl: always` 的那些能力 id（见 SetAlwaysGranted）。
+	alwaysGranted []string
+	mu            sync.RWMutex
 }
 
 // NewRegistry —— 新建空 Registry。
@@ -146,8 +149,44 @@ func (r *Registry) AssembleVisitor(
 
 // VisitorStates / visitorStateFor / setCapTitle 见 registry_visitor_state.go。
 
-// VisitorCapabilityIDs —— 非 owner-only 的已注册能力 id 集（访客侧能力）。#109/#110 dock 按钮
-// 只能挂这些；admin 路由 + owner MCP 工具都据此校验 owner 别配个不存在 / owner-only 的能力。
+// SetAlwaysGranted —— 哪些能力的暴露门是「无条件」（manifest `acl: always`）。装配期由
+// capload 交进来（ACL 写在 manifest 里，注册表本身不解析 manifest）。
+//
+// 为什么注册表要知道这件事：`VisitorCapabilityIDs` 回答的是「这台实例注册了哪些访客能力」，
+// 而**能不能挂到某个 role 的 dock 上**是另一个问题 —— `acl: role_granted` 的能力要这个 role
+// 的技能真的授了它才会在会话里出现。两件事以前用同一份名单，于是后台收下了一颗访客永远看不到
+// 的按钮（F-D-13）。
+func (r *Registry) SetAlwaysGranted(ids []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.alwaysGranted = slices.Clone(ids)
+}
+
+// AlwaysGranted —— 已登记的那份名单（分几批注册时要在原有基础上追加）。
+func (r *Registry) AlwaysGranted() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return slices.Clone(r.alwaysGranted)
+}
+
+// DockableCapabilityIDs —— 一个「技能授了 allowedTools 这些工具」的 role，dock 上挂得住哪些
+// 能力：访客形状 且（无条件暴露 或 在这个 role 的授权工具里）。判据跟会话装配那一侧同源
+// （`RoleSnapshot.AllowsCapability`：`aclAlways || allowedTools 含它`）。
+func (r *Registry) DockableCapabilityIDs(allowedTools []string) []string {
+	always := r.AlwaysGranted()
+	ids := r.VisitorCapabilityIDs()
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if slices.Contains(always, id) || slices.Contains(allowedTools, id) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// VisitorCapabilityIDs —— 非 owner-only 的已注册能力 id 集（访客侧能力）。**它回答的是
+// 「这台实例注册了哪些」**；「某个 role 的 dock 挂得住哪些」要问 DockableCapabilityIDs ——
+// 两者以前被当成同一件事（F-D-13）。
 func (r *Registry) VisitorCapabilityIDs() []string {
 	caps := r.List()
 	out := make([]string, 0, len(caps))
