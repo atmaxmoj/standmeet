@@ -111,6 +111,15 @@ type OwnerTool struct {
 // Manifest —— 一条校验通过的 MCP 插件声明。
 type Manifest struct {
 	Requires []string
+	// VisitorTools —— 本插件在**访客侧**提供的工具名。
+	//
+	// 真相在沙箱那边(拨号时 tools/list 回什么就是什么),这里是**拨号之前也要回答的那个问题**
+	// 的声明:「哪个工具是哪个能力的」。没有它,任何在装配之前就要问这句话的地方都问不出来 ——
+	// 一个 skill 声明 `allowed-tools: [calendar_book]`,产品答不上「那需要 calendar 连接器」。
+	//
+	// 因为它是**声明**而真相在别处,所以每次真拨到号,`Verify` 都拿真答案对一遍:不一致就
+	// 记一条 error,而绑定用真的那份。声明可以过期,但不许悄悄过期。
+	VisitorTools []string
 	// OwnerTools —— 本插件在 owner 侧暴露的工具声明(Shape 含 owner 时才有意义)。
 	OwnerTools []OwnerTool
 	// Config —— 本插件的可配置项声明。owner 面板按它渲染,值存进本插件自己的隔离存储。

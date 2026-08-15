@@ -26,9 +26,13 @@ const MarketSkillWireSchema = z.object({
   // repo_stars —— null 就是 null(这个源报不出星数)。不许 `.default(0)`:那正是
   // 每张 GitHub 卡片印出 `★ 0` 的那一步 —— 把"不知道"翻译成了"零颗星"(F-F-2)。
   repo_stars: z.number().nullish(),
-  // needs —— 这个 skill 依赖的连接器（label，如 'Calendar'/'Email'）。可空。
-  // rot-A4：以前 adapt() 把它硬编码成 []，于是「needs X connector」提示对任何真卡都不出现。
-  needs: z.array(z.string()).optional().default([]),
+  // needs —— 这个 skill 要用的工具背后、owner **还没连**的连接器名（'calendar' / 'smtp'）。
+  //   null / 缺席 = 服务端答不上来（没读过它的 SKILL.md，或这台实例解析不了）→ 卡片不说话；
+  //   []          = 答得上，不缺；
+  //   [...]       = 缺这几个。
+  // **差集在服务端做**：「这个技能要什么」和「owner 连了什么」两半都在那边，客户端再算一遍
+  // 就得自己维护一张连接器→标签的对照表，那是同一件事的第三种叫法（F-F-4）。
+  needs: z.array(z.string()).nullish(),
 });
 
 const MarketSkillsResponseSchema = z.array(MarketSkillWireSchema);
@@ -104,7 +108,9 @@ function adapt(w: MarketSkillWire): MarketSkillView {
     category: normalizeCategory(w.category),
     blurb: w.description,
     source_url: w.source_url,
-    needs: w.needs,
+    // null（不知道）跟 []（不缺）在这里都渲染成「不说话」，但它们不是同一件事 ——
+    // 别在这一步把前者折成后者，下游要能分得出（[[empty-is-not-json-null]]）。
+    needs: w.needs ?? null,
   };
 }
 

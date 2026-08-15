@@ -17,13 +17,11 @@ interface Props {
   installed: boolean;
   installing: boolean;
   onInstall: () => void;
-  connected: readonly string[];
 }
 
 export function MarketplaceCard({
-  skill, installed, installing, onInstall, connected,
+  skill, installed, installing, onInstall,
 }: Props) {
-  const missing = skill.needs.filter((n) => !connected.includes(n));
   return (
     <article className={styles.card} data-testid={`market-skill-${skill.id}`}>
       <CardHead skill={skill} />
@@ -34,11 +32,19 @@ export function MarketplaceCard({
         installing={installing}
         onInstall={onInstall}
       />
-      {missing.length > 0 && !installed
-        ? <MissingHint missing={missing} />
-        : null}
+      <MissingHint missing={hintable(skill, installed)} />
     </article>
   );
+}
+
+// hintable —— 这张卡该说哪几个连接器。
+//
+// needs 已经是**差集**（服务端算的：这个技能要的连接器减去 owner 连上的）。这里不再自己
+// 减一次 —— 减法要的两半都在服务端，客户端要算就得自己养一张连接器对照表（F-F-4）。
+// null（服务端答不上来）跟 []（不缺）都是「不说」，装过的也不说：那时该连什么已经是安装
+// 之后的事了。
+function hintable(skill: MarketSkillView, installed: boolean): readonly string[] {
+  return installed ? [] : (skill.needs ?? []);
 }
 
 function CardHead({ skill }: { skill: MarketSkillView }) {
@@ -111,7 +117,12 @@ function InstallBtn({
   );
 }
 
+// MissingHint —— 空就不渲染这一格（连元素都不出现，守卫据此断「它不提示」）。
 function MissingHint({ missing }: { missing: readonly string[] }) {
+  return missing.length === 0 ? null : <MissingHintText missing={missing} />;
+}
+
+function MissingHintText({ missing }: { missing: readonly string[] }) {
   const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <div className={styles.missing} data-testid="marketplace-needs-hint">

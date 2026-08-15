@@ -5,6 +5,10 @@ shape: visitor_only
 acl: always
 raw_tool_names: true
 
+# visitor_tools —— 见 calendar.book 里那段说明。
+visitor_tools:
+  - ask_visitor
+
 transport:
   kind: sandbox_stdio
   command: /plugin/ask-visitor

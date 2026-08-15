@@ -96,6 +96,12 @@ type Runtime struct {
 	PrintStore         *printsess.Store
 	MarketplaceClient  *marketplace.Client
 	AgentSkills        *capreg.Registry
+	// DepRegistry —— 命名依赖(连接器)注册表。registerAgentSkills 建好后回填:
+	// 装配期的 Requires 闸、ext-mcp 的 dep-grant 闸、市场卡的「还缺哪个连接器」共用这一份。
+	DepRegistry *capreg.DepRegistry
+	// ConnectorNeeds —— 市场搜索问的那句「这张卡还缺哪几个连接器」(F-F-4)。
+	// 实现在组装根(connector_needs.go),它持 Runtime,到调用时才去取上面那两张表。
+	ConnectorNeeds marketplace.ConnectorNeeds
 	// MCPProber —— 去问一台已注册的外部 MCP server:答不答话、有哪些工具(F-D-8)。
 	// 域声明这个端口,实现在组装根(mcp_probe.go)—— 那台 server 的认证头是密文,
 	// 只有根这一侧开得了。两个装配点(收口和插件注册表)必须拿**同一个**实现,

@@ -32,14 +32,18 @@ type SearchClient interface {
 // SearchDeps —— bundle for the marketplace search REST route.
 type SearchDeps struct {
 	Client SearchClient
+	// Connectors —— 端口:回答「这张卡还缺哪几个连接器」。nil = 这台实例答不上来,
+	// 于是每条结果的 Needs 留 nil(未知),而不是空列表(不缺)。
+	Connectors ConnectorNeeds
 }
 
 // SearchParams —— search query + source + page window.
 type SearchParams struct {
-	Query  string
-	Source string
-	Limit  int
-	Offset int
+	Query   string
+	Source  string
+	OwnerID string
+	Limit   int
+	Offset  int
 }
 
 // SearchMarketplace —— delegates to the injected client, then returns one
@@ -50,7 +54,9 @@ type SearchParams struct {
 func SearchMarketplace(
 	ctx context.Context, deps SearchDeps, p SearchParams,
 ) []entity.MarketSkill {
-	return pageSlice(deps.Client.Search(ctx, p.Query, p.Source), p.Limit, p.Offset)
+	page := pageSlice(deps.Client.Search(ctx, p.Query, p.Source), p.Limit, p.Offset)
+	fillNeeds(ctx, deps.Connectors, p.OwnerID, page)
+	return page
 }
 
 func pageSlice(items []entity.MarketSkill, limit, offset int) []entity.MarketSkill {
@@ -72,6 +78,9 @@ func pageSlice(items []entity.MarketSkill, limit, offset int) []entity.MarketSki
 type InstallSkillDeps struct {
 	Marketplace SearchClient
 	Skills      *repo.SkillRepo
+	// Connectors —— 搜索那一半要的端口(见 ConnectorNeeds)。nil = 这台实例答不出
+	// 「这张卡还缺哪几个连接器」,于是它不说。
+	Connectors ConnectorNeeds
 }
 
 // InstallSkillInput —— what the admin install endpoint passes through.

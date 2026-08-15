@@ -18,6 +18,7 @@ type descriptor struct {
 	Shape        string          `yaml:"shape"`
 	ACL          string          `yaml:"acl"`
 	Requires     []string        `yaml:"requires"`
+	VisitorTools []string        `yaml:"visitor_tools"`
 	OwnerTools   []ownerToolDesc `yaml:"owner_tools"`
 	Config       []fieldDesc     `yaml:"config"`
 	CodeConfig   []fieldDesc     `yaml:"code_config"`

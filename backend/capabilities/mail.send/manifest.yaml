@@ -8,6 +8,10 @@ raw_tool_names: true
 requires:
   - smtp
 
+# visitor_tools —— 见 calendar.book 里那段说明。
+visitor_tools:
+  - send_email
+
 transport:
   kind: sandbox_stdio
   command: /plugin/mail-sender

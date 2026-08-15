@@ -23,6 +23,71 @@ type RequiresDeps interface {
 	Requires() []string
 }
 
+// ProvidesVisitorTools —— 可选接口:这个能力在访客侧提供哪些工具**名字**(声明,不是拨号
+// 拿到的)。装配之前就要回答「这个工具是谁的」的地方靠它 —— 比如一个 skill 声明
+// `allowed-tools: [calendar_book]`,产品要答得出「那需要 calendar 连接器」(F-F-4)。
+//
+// 跟 RequiresDeps 成对:一个说「我提供哪些工具」,一个说「我要哪些连接器」,合起来才有
+// 「这个工具背后要哪个连接器」。不实现本接口的能力(第三方插件默认)在这条路上是**未知**,
+// 不是「不需要」—— 调用方必须把这两件事分开。
+type ProvidesVisitorTools interface {
+	VisitorToolNames() []string
+}
+
+// DepsForTools —— 这些工具名背后,一共要哪些命名依赖(连接器名)。纯内存,不碰网络也不碰库。
+//
+// 只数得出**声明过自己工具名**的能力;没声明的那些在这里是查不到的,而查不到只说明这张表
+// 不认识那个工具,不代表那个工具不需要连接器。
+func (r *Registry) DepsForTools(tools []string) []string {
+	want := make(map[string]struct{}, len(tools))
+	for _, t := range tools {
+		want[t] = struct{}{}
+	}
+	seen := map[string]struct{}{}
+	out := []string{}
+	for _, c := range r.List() {
+		out = appendDepsIfProvides(out, seen, c, want)
+	}
+	return out
+}
+
+// appendDepsIfProvides —— c 提供了 want 里的任一工具 → 把它的 Requires 并进 out(去重)。
+func appendDepsIfProvides(
+	out []string, seen map[string]struct{}, c Capability, want map[string]struct{},
+) []string {
+	return appendNewDeps(out, seen, depsOfProvider(c, want))
+}
+
+// depsOfProvider —— c 声明了自己的工具、其中有 want 里的 → 返回它要的连接器;否则空。
+func depsOfProvider(c Capability, want map[string]struct{}) []string {
+	pv, isProvider := c.(ProvidesVisitorTools)
+	rd, hasReqs := c.(RequiresDeps)
+	if !isProvider || !hasReqs || !providesAny(pv.VisitorToolNames(), want) {
+		return []string{}
+	}
+	return rd.Requires()
+}
+
+func appendNewDeps(out []string, seen map[string]struct{}, more []string) []string {
+	for _, dep := range more {
+		if _, dup := seen[dep]; dup {
+			continue
+		}
+		seen[dep] = struct{}{}
+		out = append(out, dep)
+	}
+	return out
+}
+
+func providesAny(names []string, want map[string]struct{}) bool {
+	for _, n := range names {
+		if _, hit := want[n]; hit {
+			return true
+		}
+	}
+	return false
+}
+
 // depsConnected —— 该 cap 的所有 Requires 依赖是否都已连（gate 半边）。判定：
 //   - cap 不声明 Requires / 没装 depReg / 无 owner 上下文 → true（不 gate）。
 //   - 任一未连 → false（隐藏）。AllConnected 返 error（E1：DB 读错等）→ 当未连隐藏
@@ -141,4 +206,39 @@ func (r *DepRegistry) AllConnected(
 		}
 	}
 	return true, nil
+}
+
+// Unconnected —— names 里这个 owner **还没连**的那些。
+//
+// 跟 AllConnected 是同一个问题的两种答案:那个只要一个是非（能不能用），这个要**名字**
+// （owner 得知道去连哪一个）。市场卡上那句 "needs X connector" 要的是后者。
+//
+// 没注册的名字算「缺」:这台实例给不出那个依赖,对 owner 来说跟没连是一回事。
+func (r *DepRegistry) Unconnected(
+	ctx context.Context, ownerID string, names []string,
+) ([]string, error) {
+	out := []string{}
+	for _, n := range names {
+		missing, err := r.lacks(ctx, ownerID, n)
+		if err != nil {
+			return nil, err
+		}
+		if missing {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+
+// lacks —— 这个 owner 缺不缺这一个依赖。
+func (r *DepRegistry) lacks(ctx context.Context, ownerID, name string) (bool, error) {
+	p, ok := r.providers[name]
+	if !ok {
+		return true, nil
+	}
+	connected, err := p.Connected(ctx, ownerID)
+	if err != nil {
+		return false, fmt.Errorf("dep %q connected check: %w", name, err)
+	}
+	return !connected, nil
 }

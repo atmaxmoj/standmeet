@@ -25,14 +25,12 @@ const SOURCES: ReadonlyArray<{ value: SourceFilter; label: string }> = [
   { value: 'skillsmp', label: 'skillsmp' },
 ];
 
-export function MarketplaceTab({
-  hook, connected,
-}: { hook: AgentSkillsHook; connected: readonly string[] }) {
+export function MarketplaceTab({ hook }: { hook: AgentSkillsHook }) {
   return (
     <div>
       <Intro />
       <SearchBar hook={hook} />
-      <ResultsGrid hook={hook} connected={connected} />
+      <ResultsGrid hook={hook} />
       <LoadMore hook={hook} />
       <ManualInstall hook={hook} />
     </div>
@@ -188,9 +186,7 @@ function SourceSegmentBtn({
   );
 }
 
-function ResultsGrid({
-  hook, connected,
-}: { hook: AgentSkillsHook; connected: readonly string[] }) {
+function ResultsGrid({ hook }: { hook: AgentSkillsHook }) {
   // install 现在抛错 → useAction 收尾（成功 toast / 失败 report），装败不再只清 spinner 假装没事。
   const run = useAction();
   return hook.marketResults.length === 0 ? (
@@ -204,7 +200,6 @@ function ResultsGrid({
           installed={hook.installedNames.has(m.name)}
           installing={hook.installing === m.id}
           onInstall={() => { void run(() => hook.install(m), { success: 'Skill installed' }); }}
-          connected={connected}
         />
       ))}
     </div>

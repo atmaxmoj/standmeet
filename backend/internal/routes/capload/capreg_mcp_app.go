@@ -210,7 +210,10 @@ func (c *mcpAppCapability) dialWithCachedSpecs(
 // 的，缓存住就不会被某次冷启高负载的 ListTools 把 return_directly/progress_label 丢掉。
 // 执行仍走本次 dial 的 live session（tool name 一致），只有 specs 取缓存。
 func (c *mcpAppCapability) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.Tool {
-	c.toolsOnce.Do(func() { *c.tools = dialed })
+	c.toolsOnce.Do(func() {
+		*c.tools = dialed
+		reportToolDrift(&c.m, dialed)
+	})
 	return *c.tools
 }
 

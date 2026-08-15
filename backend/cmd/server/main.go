@@ -120,6 +120,9 @@ func wireAndServe(
 		setupTokenHolder: setupTokenHolder,
 		storageClient:    storageClient,
 	})
+	// 市场搜索那句「这张卡还缺哪几个连接器」的实现:它持 &rt,到被调用时才去取能力注册表
+	// 和依赖注册表 —— 那两张表要等 registerAgentSkills 才齐,而收口比它先装配(F-F-4)。
+	rt.ConnectorNeeds = &connectorNeeds{rt: &rt}
 	// must precede buildPluginRegistry: owner-MCP caps capture the connector dispatcher there.
 	axisconn.EnsureConnectorSlots(&rt)
 	// 各能力自己的隔离存储先备好:出站收口(码上的字段)、入站收口(沙箱读写)、用量闸

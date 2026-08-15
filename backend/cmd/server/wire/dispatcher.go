@@ -76,6 +76,8 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		// 装一个市场 skill = 抓远端 SKILL.md + 落成一个自己的 skill,所以两头都要。
 		Marketplace: marketplace.InstallSkillDeps{
 			Marketplace: d.MarketplaceClient, Skills: d.SkillRepo,
+			// Connectors —— 搜索结果上那句「还缺哪几个连接器」由它答(F-F-4)。
+			Connectors: d.ConnectorNeeds,
 		},
 		Page:           pageDepsOf(d),
 		SEO:            seoDepsOf(d),

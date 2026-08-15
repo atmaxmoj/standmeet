@@ -20,5 +20,8 @@ export interface MarketSkillView {
   category: SkillCategory;
   blurb: string;
   source_url: string;
-  needs: readonly string[];
+  // needs —— owner 还没连、而这个技能要用的连接器名。**null 是一个值**:服务端答不上来
+  // (没读过这个技能的 SKILL.md)。[] 是「答得上,不缺」。两者卡片上都不出提示,但别把它们
+  // 合成一个类型 —— 合了就没人分得出「不知道」和「没问题」(F-F-4)。
+  needs: readonly string[] | null;
 }

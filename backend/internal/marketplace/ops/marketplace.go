@@ -107,6 +107,12 @@ type marketSkillOut struct {
 	Description string `json:"description"`
 	SourceURL   string `json:"source_url"`
 	Source      string `json:"source"`
+	// Needs —— 这个技能要用的工具背后,这个 owner **还没连**的连接器。
+	//   null = 答不上来(没读过它的正文,或这台实例解析不了) —— 卡片什么都不说;
+	//   []   = 答得上,不缺;
+	//   [..] = 缺这几个。
+	// 同 repo_stars:不许把 null 兜底成 [],那会把「不知道」印成「没问题」(F-F-4)。
+	Needs []string `json:"needs"`
 }
 
 type marketSearchArgs struct {
@@ -117,15 +123,16 @@ type marketSearchArgs struct {
 }
 
 func searchMarketplace(deps usecase.InstallSkillDeps) fp.Invoke {
-	return func(ctx context.Context, _ string, raw json.RawMessage) (json.RawMessage, error) {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodeMarketSearch(raw)
 		if perr != nil {
 			return nil, perr
 		}
 		items := usecase.SearchMarketplace(ctx,
-			usecase.SearchDeps{Client: deps.Marketplace},
+			usecase.SearchDeps{Client: deps.Marketplace, Connectors: deps.Connectors},
 			usecase.SearchParams{
-				Query: in.Query, Source: in.Source, Limit: in.Limit, Offset: in.Offset,
+				Query: in.Query, Source: in.Source, OwnerID: ownerID,
+				Limit: in.Limit, Offset: in.Offset,
 			})
 		return json.Marshal(toMarketSkillOut(items))
 	}
@@ -153,6 +160,7 @@ func toMarketSkillOut(items []entity.MarketSkill) []marketSkillOut {
 			Version: items[i].Version, Category: items[i].Category,
 			Description: items[i].Description, SourceURL: items[i].SourceURL,
 			Source: string(items[i].Source), RepoStars: items[i].RepoStars,
+			Needs: items[i].Needs,
 		})
 	}
 	return out

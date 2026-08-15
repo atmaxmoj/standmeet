@@ -11,6 +11,21 @@ raw_tool_names: true
 requires:
   - calendar
 
+# visitor_tools —— 这个能力在访客侧提供的工具名。真相在沙箱（拨号时 tools/list 回什么就是
+# 什么），这里是**拨号之前**也要答的那句话：「哪个工具是哪个能力的」。装配之后的每一次拨号
+# 都拿真答案对一遍这份声明（不一致 → 记 error，绑定用真的那份）。
+#
+# 谁在拨号之前问：一个 skill 写 `allowed-tools: [calendar_book]`，产品要能答出「那需要
+# calendar 连接器」——不然市场卡上那句 “needs Calendar” 永远说不出口（F-F-4）。
+visitor_tools:
+  - calendar_book
+  - calendar_list_slots
+  - calendar_cancel
+  - calendar_reschedule
+  - calendar_cancel_booking
+  - bookings_list
+  - send_confirmation
+
 transport:
   kind: sandbox_stdio
   command: /plugin/booker

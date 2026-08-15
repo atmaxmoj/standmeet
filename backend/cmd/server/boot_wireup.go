@@ -157,6 +157,8 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	// 按 grant+connected 放行）与 registerDiscoveredPlugins 的 Requires 校验共用同一份。
 	depReg := axisconn.DepRegistry(ctx, d)
 	d.AgentSkills.SetDepRegistry(depReg)
+	// 同一份也挂上 Runtime:出站收口比这里先装配,市场搜索那条路要到**被调用时**才来取它。
+	d.DepRegistry = depReg
 	skills := buildVisitorSkillsDeps(d)
 	skills.DepConnected = depReg
 	capload.RegisterVisitorSkills(d.AgentSkills, &skills, d.ChatRepo)

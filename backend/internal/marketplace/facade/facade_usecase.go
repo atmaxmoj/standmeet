@@ -5,6 +5,7 @@ import "github.com/atmaxmoj/standmeet/internal/marketplace/usecase"
 // 类型（实现:usecase）.
 type (
 	Client             = usecase.Client
+	ConnectorNeeds     = usecase.ConnectorNeeds
 	CreateMCPServerReq = usecase.CreateMCPServerReq
 	CreateSkillReq     = usecase.CreateSkillReq
 	InstallSkillDeps   = usecase.InstallSkillDeps

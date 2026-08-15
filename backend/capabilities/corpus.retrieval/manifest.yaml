@@ -7,6 +7,17 @@ acl: always
 # 工具保 canonical 名：corpus_search 就叫 corpus_search，不加 <id>_ 前缀。
 raw_tool_names: true
 
+# visitor_tools —— 见 calendar.book 里那段说明：拨号之前也要答得出「哪个工具是哪个能力的」。
+visitor_tools:
+  - corpus_search
+  - corpus_read
+  - corpus_list
+  - corpus_links
+  - corpus_map
+  - corpus_resolve
+  - corpus_peek
+  - corpus_grep
+
 transport:
   kind: sandbox_stdio
   command: /plugin/retrieval
