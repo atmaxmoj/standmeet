@@ -133,6 +133,20 @@ async function runSteps(steps) {
     // 那一格就什么也证明不了。`login: false` 的 plan 自己走登录表单时用它。
     step.typeOwner && await page.locator(step.typeOwner[0]).first()
       .fill(step.typeOwner[1] === 'password' ? PASSWORD : EMAIL);
+    // typeSecret —— 把 `verify-creds.env` 里某个变量的值填进某个输入框：
+    // `{"typeSecret": ["sel", "DEEPSEEK_KEY"]}`。plan 进仓库，密钥不进；plan 里只写**名字**。
+    // 这些凭据本来就是为验证开的，产品自己的表单就是它们该去的地方 —— BYOAI 那一格要的正是
+    // 「访客把自己的 key 填进去」，没有 key 就驱不动那条 check。变量不存在时当场停：
+    // 填一个空串下去，产品会说「key 不能为空」，而那句话跟「产品坏了」长得一模一样。
+    step.typeSecret && await (async () => {
+      const v = process.env[step.typeSecret[1]] ?? '';
+      if (v === '') {
+        console.error(`typeSecret: ${step.typeSecret[1]} is not in the environment — run it `
+          + 'through `make verify-shots`, which sources ~/.config/standmeet/verify-creds.env');
+        process.exit(2);
+      }
+      await page.locator(step.typeSecret[0]).first().fill(v);
+    })();
     // pickDir —— 往 `<input type="file" webkitdirectory>` 里选一个**目录**（vault 导入用的
     // 就是这种控件）。人点「import from Obsidian」后在系统对话框里选的也正是一个目录。
     step.pickDir && await page.locator(step.pickDir[0]).setInputFiles(step.pickDir[1]);

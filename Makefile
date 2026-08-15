@@ -373,10 +373,17 @@ verify-round:
 # **它不碰数据**：只登录、导航、截图，一行都不写。别把它跟 e2e 混起来 —— e2e 打 dev 并且
 # 每个 spec 都重置实例，那个动作在 prod 上会把真语料清掉。
 #
+# **凭据来源两处，各有其主**：`~/.config/standmeet/verify-creds.env` 是验证凭据的家；而**推理
+# key** 归 eval-harness 管（`eval-harness/.env` 的 `EVAL_KEY`，那是它自己跑真模型用的），
+# verify-creds 里只留了一行指路的注释 —— 一个密钥抄两份就是两个要轮换的地方。gate 的 BYOAI
+# 那一格要的正是「访客把自己的 key 填进表单」，所以驱动器把两处都读进来，plan 里只写变量名
+# （见 shoot.mjs 的 `typeSecret`）。eval-harness/.env 不存在时不报错：绝大多数 plan 不需要它。
+#
 #   make verify-shots PLAN=e2e/manual/plans/seo.json
 verify-shots:
 	@test -n "$(PLAN)" || (echo 'usage: make verify-shots PLAN=e2e/manual/plans/<name>.json'; exit 2)
-	@set -a; . $$HOME/.config/standmeet/verify-creds.env; set +a; \
+	@set -a; . $$HOME/.config/standmeet/verify-creds.env; \
+	  [ -f eval-harness/.env ] && . ./eval-harness/.env; set +a; \
 	  cd e2e && node manual/shoot.mjs "../$(PLAN)"
 
 # verify-mcp —— 用 owner 的 MCP 那条路驱 prod。**它是 verify-shots 的兄弟**：那条走界面，

@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/gate/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "gt-40-byoai-filled", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "select": ["[data-testid=\"byoai-provider\"]", "deepseek"] },
+        { "wait": 800 },
+        { "typeSecret": ["[data-testid=\"byoai-key\"]", "EVAL_KEY"] },
+        { "click": "[data-testid=\"byoai-load-models\"]" },
+        { "wait": 8000 }
+      ],
+      "wait": 1500, "fullPage": true }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/gate/shots",
+  "viewport": [1280, 1500],
+  "login": false,
+  "shots": [
+    { "name": "gt-41-byoai-public-chat", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "select": ["[data-testid=\"byoai-provider\"]", "deepseek"] },
+        { "wait": 800 },
+        { "typeSecret": ["[data-testid=\"byoai-key\"]", "EVAL_KEY"] },
+        { "click": "[data-testid=\"byoai-load-models\"]" },
+        { "wait": 8000 },
+        { "select": ["[data-testid=\"byoai-model-select\"]", "deepseek-v4-pro"] },
+        { "wait": 600 },
+        { "click": "[data-testid=\"byoai-submit\"]" },
+        { "wait": 9000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What does sijie think a recursive harness is? Answer from what he has written."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 60000 }
+      ],
+      "wait": 3000, "fullPage": true }
+  ]
+}
