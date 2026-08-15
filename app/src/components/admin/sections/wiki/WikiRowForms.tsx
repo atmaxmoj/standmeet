@@ -15,7 +15,7 @@ import {
   type PromoteInput,
   type SEOUpdateInput,
 } from '@/lib/admin/use-corpus-actions';
-import { runWith } from '@/lib/admin/use-corpus-form';
+import { runWith, savedLine } from '@/lib/admin/use-corpus-form';
 import { useToast } from '@/lib/ui/toast';
 import type { WikiSummary } from '@/lib/admin/use-wiki';
 
@@ -83,16 +83,19 @@ export function WikiEditForm({
   );
 }
 
+// saveWikiSEO —— 保存 + **说出这一次真的做成了什么**。
+//
+// 取消发布一条被 pin 的笔记会把它从首页那几个栏目里摘掉（不变量的另一端）。owner 一次点击
+// 做成了两件事，而上一版只回一句 "Wiki saved" —— 他下次打开 landing page 会看见一个空掉的
+// 区块，没有任何线索说是什么时候没的（F-L-31）。回执后端一直在发，是客户端把响应扔了。
 async function saveWikiSEO(
   id: string,
   actions: CorpusActionsHook,
   toast: { success: (m: string) => void },
   input: SEOUpdateInput,
 ): Promise<void> {
-  await runWith(
-    () => actions.updateWikiSEO(id, input),
-    () => toast.success('Wiki saved'),
-  );
+  const res = await actions.updateWikiSEO(id, input);
+  res && toast.success(savedLine(res.unpinned_sections));
 }
 
 export function WikiPromoteRow({

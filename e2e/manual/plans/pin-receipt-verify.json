@@ -1,0 +1,44 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/page-corpus-pinning/shots",
+  "viewport": [1440, 1300],
+  "shots": [
+    { "name": "pp-38a-republish-first", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "button:has-text(\"recursive-harness\")" },
+        { "wait": 2500 },
+        { "click": "[data-testid^=\"wiki-row-\"]:has-text(\"safe-recursion-theorem\") [data-testid^=\"wiki-edit-\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid$=\"-seo-indexed\"]" },
+        { "wait": 600 },
+        { "click": "[data-testid$=\"-seo-save\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 800 },
+    { "name": "pp-38-pin-again-before-unpublish", "url": "/admin/page",
+      "steps": [
+        { "wait": 4000 },
+        { "scroll": ["[data-testid=\"pin-add-insights\"]", 300] },
+        { "click": "[data-testid=\"pin-add-insights\"]" },
+        { "wait": 1200 },
+        { "click": "[data-testid^=\"pin-option-\"]:has-text(\"safe-recursion-theorem\")" },
+        { "wait": 1000 },
+        { "click": "[data-testid=\"save\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1200 },
+    { "name": "pp-39-receipt-names-the-unpinned-section", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "button:has-text(\"recursive-harness\")" },
+        { "wait": 2500 },
+        { "click": "[data-testid^=\"wiki-row-\"]:has-text(\"safe-recursion-theorem\") [data-testid^=\"wiki-edit-\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid$=\"-seo-indexed\"]" },
+        { "wait": 600 },
+        { "click": "[data-testid$=\"-seo-save\"]" },
+        { "wait": 1000 }
+      ],
+      "wait": 200 }
+  ]
+}

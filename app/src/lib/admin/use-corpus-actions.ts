@@ -101,6 +101,15 @@ export interface SEOUpdateInput {
   published: boolean;
 }
 
+// SEOWriteResultSchema —— 这次保存**顺带**做了什么。取消发布一条被 pin 的条目会把它从首页
+// 那几个栏目里摘掉（不变量的另一端，见 `owner/entity/page_content.go`），后端一直在回执里
+// 说这件事，而客户端用 `patchVoid` 把整个响应扔了 —— 于是 owner 一次点击做成两件事，只被
+// 告知了第一件（F-L-31）。
+const SEOWriteResultSchema = z.object({
+  unpinned_sections: z.array(z.string()).nullish().transform((v) => v ?? []),
+});
+export type SEOWriteResult = z.infer<typeof SEOWriteResultSchema>;
+
 export interface CorpusActionsHook {
   pending: boolean;
   error: string | null;
@@ -121,13 +130,15 @@ export interface CorpusActionsHook {
   deleteWiki: (id: string) => Promise<boolean>;
   promoteWiki: (id: string, input: PromoteInput) => Promise<boolean>;
   fetchWikiDetail: (id: string) => Promise<WikiDetail | null>;
-  updateWikiSEO: (id: string, input: SEOUpdateInput) => Promise<boolean>;
+  // updateWikiSEO / updateOutputSEO —— 回执带出去（`unpinned_sections`），调用方才说得出
+  // 这次保存**顺带**做了什么。失败为 null。
+  updateWikiSEO: (id: string, input: SEOUpdateInput) => Promise<SEOWriteResult | null>;
   // output
   createOutput: (input: CorpusEntryInput) => Promise<boolean>;
   updateOutput: (id: string, input: CorpusEntryInput) => Promise<boolean>;
   deleteOutput: (id: string) => Promise<boolean>;
   fetchOutputDetail: (id: string) => Promise<OutputDetail | null>;
-  updateOutputSEO: (id: string, input: SEOUpdateInput) => Promise<boolean>;
+  updateOutputSEO: (id: string, input: SEOUpdateInput) => Promise<SEOWriteResult | null>;
   clearError: () => void;
 }
 
@@ -135,6 +146,7 @@ export function useCorpusActions(): CorpusActionsHook {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = makeRun(setPending, setError);
+  const runValue = makeRunValue(setPending, setError);
   return {
     pending, error,
     updateRaw: useCallback(
@@ -164,7 +176,7 @@ export function useCorpusActions(): CorpusActionsHook {
     fetchWikiDetail: useCallback(
       (id: string) => fetchDetail(`/corpus/wiki/${id}`, WikiDetailSchema, setError, setPending), []),
     updateWikiSEO: useCallback(
-      (id, input) => run(() => doUpdateWikiSEO(id, input)), [run]),
+      (id, input) => runValue(() => doUpdateWikiSEO(id, input)), [runValue]),
     createOutput: useCallback(
       (input) => run(() => doCreateOutput(input)), [run]),
     updateOutput: useCallback(
@@ -174,7 +186,7 @@ export function useCorpusActions(): CorpusActionsHook {
     fetchOutputDetail: useCallback(
       (id: string) => fetchDetail(`/corpus/output/${id}`, OutputDetailSchema, setError, setPending), []),
     updateOutputSEO: useCallback(
-      (id, input) => run(() => doUpdateOutputSEO(id, input)), [run]),
+      (id, input) => runValue(() => doUpdateOutputSEO(id, input)), [runValue]),
     clearError: useCallback(() => setError(null), []),
   };
 }
@@ -198,20 +210,31 @@ async function fetchDetail<T>(
 }
 
 type Runner = (fn: () => Promise<void>) => Promise<boolean>;
+// ValueRunner —— 跟 Runner 同一套 pending/error/失效处理，只是**把写入的回执交出去**而不是
+// 折成一个布尔。有些写会顺带做别的事（取消发布把首页的 pin 摘掉），而那件事只有响应里说得清；
+// 折成布尔之后调用方只能报一句通用的「保存成功」（F-L-31）。失败仍是 null。
+type ValueRunner = <T>(fn: () => Promise<T>) => Promise<T | null>;
 
 function makeRun(
   setPending: (b: boolean) => void, setError: (m: string | null) => void,
 ): Runner {
-  return async (fn) => {
+  const runValue = makeRunValue(setPending, setError);
+  return async (fn) => await runValue(fn) !== null;
+}
+
+function makeRunValue(
+  setPending: (b: boolean) => void, setError: (m: string | null) => void,
+): ValueRunner {
+  return async <T>(fn: () => Promise<T>): Promise<T | null> => {
     setPending(true);
     setError(null);
     try {
-      await fn();
+      const out = await fn();
       onCorpusChanged(); // 树 + 计数一起作废,见 corpus-changed.ts(F-L-16)
-      return true;
+      return out;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'request failed');
-      return false;
+      return null;
     } finally {
       setPending(false);
     }
@@ -302,9 +325,10 @@ async function doPromoteWiki(id: string, input: PromoteInput): Promise<void> {
   outputStore.getState().reset();
 }
 
-async function doUpdateWikiSEO(id: string, input: SEOUpdateInput): Promise<void> {
-  await adminAPI.patchVoid(`/corpus/wiki/${id}/seo`, input);
+async function doUpdateWikiSEO(id: string, input: SEOUpdateInput): Promise<SEOWriteResult> {
+  const res = await adminAPI.patch(`/corpus/wiki/${id}/seo`, input, SEOWriteResultSchema);
   wikiStore.getState().reset();
+  return res;
 }
 
 // ─── output ─────────────────────────────────────────────────
@@ -326,7 +350,8 @@ async function doDeleteOutput(id: string): Promise<void> {
   outputStore.getState().mutate((prev) => (prev ?? []).filter((o) => o.id !== id));
 }
 
-async function doUpdateOutputSEO(id: string, input: SEOUpdateInput): Promise<void> {
-  await adminAPI.patchVoid(`/corpus/output/${id}/seo`, input);
+async function doUpdateOutputSEO(id: string, input: SEOUpdateInput): Promise<SEOWriteResult> {
+  const res = await adminAPI.patch(`/corpus/output/${id}/seo`, input, SEOWriteResultSchema);
   outputStore.getState().reset();
+  return res;
 }

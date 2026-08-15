@@ -1,0 +1,19 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/page-corpus-pinning/shots",
+  "viewport": [1440, 1300],
+  "shots": [
+    { "name": "pp-40-restored-published", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "button:has-text(\"recursive-harness\")" },
+        { "wait": 2500 },
+        { "click": "[data-testid^=\"wiki-row-\"]:has-text(\"safe-recursion-theorem\") [data-testid^=\"wiki-edit-\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid$=\"-seo-indexed\"]" },
+        { "wait": 600 },
+        { "click": "[data-testid$=\"-seo-save\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 800 }
+  ]
+}

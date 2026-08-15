@@ -54,6 +54,14 @@ test.describe('page-corpus pinning · insights/projects are windows onto the cor
 
   test('page.unpin removes the card again',
     async ({ page, playwright }) => { await unpinRemovesCard(page, playwright); });
+
+  // 同一条不变量的**另一张面**。上面那条验的是 MCP 工具结果里 `unpinned_sections` 说了话；
+  // owner 更常做的是在后台把那个 published 开关关掉，而那条路上产品只回了一句 "Wiki saved"
+  // —— 他一次点击做成了两件事（改了可见性、**撤掉了自己首页上的一张卡**），只被告知了第一件
+  // （F-L-31）。回执本身在后端一直都有（`seo.go` 的 `unpinned_sections`），是客户端
+  // `patchVoid` 把响应扔了。
+  test('unpublishing from the admin form says the pin went with it',
+    async ({ page, playwright }) => { await adminUnpublishSaysUnpinned(page, playwright); });
 });
 
 async function seedFixture(playwright: PW): Promise<void> {
@@ -169,6 +177,34 @@ async function unpinRemovesCard(page: Page, playwright: PW): Promise<void> {
   await request.dispose();
   await goto(page, '/');
   await expect(page.getByText("things I've been thinking about")).toHaveCount(0);
+}
+
+// ── admin GUI:取消发布一条被 pin 的条目 → 回执要说出「pin 也跟着没了」──
+async function adminUnpublishSaysUnpinned(page: Page, playwright: PW): Promise<void> {
+  const request = await playwright.request.newContext();
+  await publishEntry(request, apiToken, mcpSID,
+    { genre: 'wiki', id: publishedID, excerpt: EXCERPT_A });
+  await request.dispose();
+
+  await loginViaGUI(page);
+  // 先 pin 上 —— 正对照：没有 pin 的话「回执没提 pin」是对的，这条用例就什么也没测。
+  await goto(page, '/admin/page');
+  await page.getByTestId('pin-add-insights').click();
+  await page.getByTestId(`pin-option-${publishedID}`).click();
+  await page.getByTestId('save').click();
+  await expect(page.getByTestId('saved')).toBeVisible({ timeout: 8_000 });
+
+  // 再去条目那张表关掉 published。
+  await goto(page, '/admin/wiki');
+  await page.getByTestId(`wiki-edit-${publishedID}`).click();
+  await page.getByTestId(`wiki-${publishedID}-seo-indexed`).click();
+  await page.getByTestId(`wiki-${publishedID}-seo-save`).click();
+
+  await expect(
+    page.getByTestId('toaster'),
+    'the owner just did two things in one click — changed a note’s visibility and removed a card '
+      + 'from their own landing page. A receipt that only says "saved" acknowledges one of them',
+  ).toContainText(/insights/i, { timeout: 10_000 });
 }
 
 async function loginViaGUI(page: Page): Promise<void> {

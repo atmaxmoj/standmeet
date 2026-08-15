@@ -12,7 +12,7 @@ import {
   type CorpusActionsHook, type CorpusEntryInput, type SEOUpdateInput,
 } from '@/lib/admin/use-corpus-actions';
 import { useOutputDetail } from '@/lib/admin/use-corpus-detail';
-import { runWith } from '@/lib/admin/use-corpus-form';
+import { runWith, savedLine } from '@/lib/admin/use-corpus-form';
 import type { OutputSummary } from '@/lib/admin/use-output';
 import { useToast } from '@/lib/ui/toast';
 
@@ -105,12 +105,11 @@ function EditFormBody({
   );
 }
 
+// saveOutputSEO —— 同 wiki 那一侧：取消发布会把它从首页栏目里摘掉，回执要说出来（F-L-31）。
 async function saveOutputSEO(
   id: string, actions: CorpusActionsHook,
   toast: { success: (m: string) => void }, input: SEOUpdateInput,
 ): Promise<void> {
-  await runWith(
-    () => actions.updateOutputSEO(id, input),
-    () => toast.success('Output SEO saved'),
-  );
+  const res = await actions.updateOutputSEO(id, input);
+  res && toast.success(savedLine(res.unpinned_sections));
 }

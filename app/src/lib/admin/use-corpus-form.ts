@@ -158,3 +158,13 @@ export async function runWith(
   const ok = await action();
   if (ok) onSuccess();
 }
+
+// savedLine —— 一次保存的回执。**顺带做掉的事也要说**：取消发布一条被 pin 的条目会把它从
+// 首页那几个栏目里摘掉，而 owner 是在「改一条笔记」的界面上做的，不去那一页根本不会知道
+// （F-L-31）。没有连带时就是原来那句。
+export function savedLine(unpinnedSections: readonly string[]): string {
+  if (unpinnedSections.length === 0) {
+    return 'saved';
+  }
+  return `saved — unpublishing also removed it from ${unpinnedSections.join(' and ')}`;
+}
