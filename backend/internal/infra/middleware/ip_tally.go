@@ -59,6 +59,11 @@ func (t *ipTally) reset(ctx context.Context, ip string) {
 	}
 }
 
+// hasLift —— 被拦下的人**现在有没有一条自己走得通的出路**。有 captcha 才有；关着时这把锁
+// 只能等窗口过期。写拒绝那句话的人要问它：说「过一次人机校验就放你过去」而屏幕上没有校验，
+// 跟说「稍后再试」而其实一秒就能过去，是同一种谎的两个方向（[[names-that-lie]]）。
+func (t *ipTally) hasLift() bool { return t != nil && t.captchaOn }
+
 // blocked —— 该 IP 现在该不该被拦：接了 redis 且 已过阈值 且 captcha 没放行。
 func (t *ipTally) blocked(ctx context.Context, ip, captchaToken string) bool {
 	return t.enabled() && t.overThreshold(ctx, ip) && t.captchaFails(ctx, captchaToken, ip)

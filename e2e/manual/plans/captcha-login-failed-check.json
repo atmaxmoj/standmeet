@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/captcha/shots",
+  "viewport": [1280, 900],
+  "login": false,
+  "shots": [
+    { "name": "cap-16-login-with-a-failing-check", "url": "/login",
+      "steps": [
+        { "wait": 4000 },
+        { "typeOwner": ["[data-testid=\"email\"]", "email"] },
+        { "typeOwner": ["[data-testid=\"password\"]", "password"] },
+        { "wait": 3000 },
+        { "press": ["[data-testid=\"password\"]", "Enter"] },
+        { "wait": 5000 }
+      ],
+      "wait": 1500 }
+  ]
+}

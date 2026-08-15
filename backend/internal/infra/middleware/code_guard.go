@@ -49,6 +49,11 @@ func (g *CodeGuard) Locked(ctx context.Context, ip, captchaToken string) bool {
 	return g.t.blocked(ctx, ip, captchaToken)
 }
 
+// HasLift —— 这台实例现在给不给得出那条出路（captcha 开着才有）。拒绝那句话按它选词。
+func (g *CodeGuard) HasLift() bool {
+	return g != nil && g.t.hasLift()
+}
+
 // RecordFail —— 一次无效码。**只计无效**:有效兑换会 Reset,合法访客不被历史失败连累。
 func (g *CodeGuard) RecordFail(ctx context.Context, ip string) {
 	if g != nil {

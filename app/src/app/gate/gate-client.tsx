@@ -36,8 +36,11 @@ export function GateClient({ handle, canDeliverCodes }: Props) {
           <WhatsBehind />
           {/* request-access 整块仅在 owner 能发码(connected mail connector)时展示 —— 发不出就别让访客白填 */}
           {canDeliverCodes ? <RequestPanel handle={handle} hook={hook} /> : null}
+          {/* 这里以前挂着一个页面级的错误行。三扇门共读一份 state 时它是唯一的出口，
+              但它离每一扇门都很远，而且哪扇门出错都由它来喊 —— 现在每扇门自己说自己的话
+              （CodePanel 的 HintStatus / BYOAIError / RequestError），这一行就是多余的
+              第三份复读（F-G-6）。 */}
           <Footnote handle={handle} />
-          <GateError message={hook.state.error} />
         </div>
       </main>
       <GateFooter />
@@ -114,12 +117,6 @@ function GateFooter() {
       </div>
     </footer>
   );
-}
-
-function GateError({ message }: { message: string | null }) {
-  return message
-    ? <p className="mono text-xs text-(--color-accent) mt-6" data-testid="gate-error">{message}</p>
-    : null;
 }
 
 function useClearSessionOnMount(): void {

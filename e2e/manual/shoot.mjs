@@ -64,9 +64,10 @@ if (typeof plan.downloadDir === 'string') {
 // 浏览器侧的日志一律转出来。没有这一勺时，一次登录不动只给得出一句 waitForURL 超时，
 // 而超时对「表单没提交」「请求发了但 4xx」「JS 挂了」三种情况说的是同一句话 ——
 // 于是只能靠推理，而推理三次都错过。
-page.on('console', (m) => {
-  if (m.type() === 'error' || m.type() === 'warning') console.log(`console.${m.type()} ${m.text()}`);
-});
+// 全部转出来，不只 error/warning。产品自己写的回执（`[turnstile] rendered widget id=…`）
+// 是 `console.log`，而只转 error 的那一版把它滤掉了 —— 于是「校验框渲没渲出来」这件事
+// 页面上看不见、控制台也听不见，只剩下推理。
+page.on('console', (m) => console.log(`console.${m.type()} ${m.text()}`));
 page.on('pageerror', (e) => console.log(`pageerror ${e.message}`));
 page.on('requestfailed', (r) => console.log(`requestfailed ${r.method()} ${r.url()} ${r.failure()?.errorText}`));
 page.on('response', (r) => {
@@ -108,6 +109,12 @@ for (const shot of plan.shots) {
     // 人从文件里复制粘贴是真动作。
     step.typeFile && await page.locator(step.typeFile[0]).first()
       .fill(await readFile(step.typeFile[1], 'utf8'));
+    // typeOwner —— 把 owner 自己的邮箱/密码填进某个输入框（值来自 verify-creds.env）。
+    // plan 是提交进仓库的 JSON，密码不能写在里面；而有些 check 要的正是「**正确**的密码
+    // 加上一次失败的人机校验，产品会说哪句话」—— 用一个错密码去驱，两种原因指向同一句话，
+    // 那一格就什么也证明不了。`login: false` 的 plan 自己走登录表单时用它。
+    step.typeOwner && await page.locator(step.typeOwner[0]).first()
+      .fill(step.typeOwner[1] === 'password' ? PASSWORD : EMAIL);
     // pickDir —— 往 `<input type="file" webkitdirectory>` 里选一个**目录**（vault 导入用的
     // 就是这种控件）。人点「import from Obsidian」后在系统对话框里选的也正是一个目录。
     step.pickDir && await page.locator(step.pickDir[0]).setInputFiles(step.pickDir[1]);

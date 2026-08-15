@@ -1,0 +1,87 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/captcha/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "cap-06-note-1", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"request-panel\"] button" },
+        { "type": ["[data-testid=\"request-name\"]", "F-G-4 probe one"] },
+        { "type": ["[data-testid=\"request-org\"]", "verification round"] },
+        { "type": ["[data-testid=\"request-email\"]", "fg4-probe-1@local.test"] },
+        { "type": ["[data-testid=\"request-message\"]", "first note of the flood probe — this one should go straight through."] },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "cap-07-note-2", "url": "/gate",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"request-panel\"] button" },
+        { "type": ["[data-testid=\"request-name\"]", "F-G-4 probe two"] },
+        { "type": ["[data-testid=\"request-email\"]", "fg4-probe-2@local.test"] },
+        { "type": ["[data-testid=\"request-message\"]", "second note of the flood probe — still under the ceiling."] },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "cap-08-note-3", "url": "/gate",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"request-panel\"] button" },
+        { "type": ["[data-testid=\"request-name\"]", "F-G-4 probe three"] },
+        { "type": ["[data-testid=\"request-email\"]", "fg4-probe-3@local.test"] },
+        { "type": ["[data-testid=\"request-message\"]", "third note of the flood probe — still under the ceiling."] },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "cap-09-note-4", "url": "/gate",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"request-panel\"] button" },
+        { "type": ["[data-testid=\"request-name\"]", "F-G-4 probe four"] },
+        { "type": ["[data-testid=\"request-email\"]", "fg4-probe-4@local.test"] },
+        { "type": ["[data-testid=\"request-message\"]", "fourth note of the flood probe — still under the ceiling."] },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "cap-10-note-5-last-free-one", "url": "/gate",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"request-panel\"] button" },
+        { "type": ["[data-testid=\"request-name\"]", "F-G-4 probe five"] },
+        { "type": ["[data-testid=\"request-email\"]", "fg4-probe-5@local.test"] },
+        { "type": ["[data-testid=\"request-message\"]", "fifth note of the flood probe — the last one the window allows."] },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "cap-11-sixth-is-refused-and-offered-a-check", "url": "/gate",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"request-panel\"] button" },
+        { "type": ["[data-testid=\"request-name\"]", "F-G-4 probe six"] },
+        { "type": ["[data-testid=\"request-email\"]", "fg4-probe-6@local.test"] },
+        { "type": ["[data-testid=\"request-message\"]", "sixth note of the flood probe — this one is past the ceiling."] },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1500 },
+    { "name": "cap-12-clearing-the-check-delivers-the-note", "url": "/gate",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "[data-testid=\"request-panel\"] button" },
+        { "type": ["[data-testid=\"request-name\"]", "F-G-4 probe seven"] },
+        { "type": ["[data-testid=\"request-email\"]", "fg4-probe-7@local.test"] },
+        { "type": ["[data-testid=\"request-message\"]", "seventh note of the flood probe — sent after clearing the human check."] },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 9000 },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1500 }
+  ]
+}

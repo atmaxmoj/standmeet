@@ -150,14 +150,23 @@ export interface BYOAISubmitInput {
 // SubmitState.locked —— 上一次失败是不是 per-IP 的锁（后端信封 code=`code_locked`）。
 // 它跟「码不对」是两件不同的事，下一步也不同：一个是重新输，另一个是**过一次人机校验**。
 // 后端认这条出路（`code_guard.go`: 有效 token → 立刻解锁），所以界面必须给得出来（F-G-3）。
-type SubmitState = { busy: boolean; error: string | null; locked: boolean };
+export type SubmitState = { busy: boolean; error: string | null; locked: boolean };
 
+// GateHook —— gate 上有三扇门，**每扇门自己的成败只属于它自己**。
+//
+// 上一版只有一份 state，三扇门共读：留言口被 per-IP 拦下时，「输入访问码」那一栏跟着亮红字、
+// 跟着弹出人机校验，而那扇门根本没上锁 —— 界面替一个不存在的状态作了证，还把另一扇门的
+// 理由印在了它下面（F-G-6）。分成三份不是整洁，是让那件事**写不出来**。
 export interface GateHook {
-  state: SubmitState;
+  code: SubmitState;
+  byoai: SubmitState;
+  request: SubmitState;
   submitCode: (code: string, visitorName: string, captchaToken?: string) => Promise<boolean>;
   submitBYOAI: (input: BYOAISubmitInput) => Promise<boolean>;
   submitRequest: (input: AccessRequestInput) => Promise<boolean>;
 }
+
+const IDLE: SubmitState = { busy: false, error: null, locked: false };
 
 export interface AccessRequestInput {
   email: string;
@@ -170,12 +179,14 @@ export interface AccessRequestInput {
 }
 
 export function useGate(): GateHook {
-  const [state, setState] = useState<SubmitState>({ busy: false, error: null, locked: false });
+  const [code, setCodeState] = useState<SubmitState>(IDLE);
+  const [byoai, setByoaiState] = useState<SubmitState>(IDLE);
+  const [request, setRequestState] = useState<SubmitState>(IDLE);
 
   const submitCode = useCallback(async (
     code: string, visitorName: string, captchaToken = '',
   ): Promise<boolean> => {
-    return await runSubmit(setState, async () => {
+    return await runSubmit(setCodeState, async () => {
       const trimmedCode = code.trim();
       const trimmedName = visitorName.trim();
       const sess = await issueCodeSession({
@@ -200,7 +211,7 @@ export function useGate(): GateHook {
 
   const submitBYOAI = useCallback(
     async (input: BYOAISubmitInput): Promise<boolean> => {
-      return await runSubmit(setState, async () => {
+      return await runSubmit(setByoaiState, async () => {
         const sess = await issueBYOAISession({ byoai_provider: input.provider });
         await storeBYOAI({
           provider: input.provider,
@@ -220,7 +231,7 @@ export function useGate(): GateHook {
   );
 
   const submitRequest = useCallback(async (input: AccessRequestInput): Promise<boolean> => {
-    return await runSubmit(setState, async () => {
+    return await runSubmit(setRequestState, async () => {
       const res = await fetch('/api/v1/access-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -231,7 +242,7 @@ export function useGate(): GateHook {
     });
   }, []);
 
-  return { state, submitCode, submitBYOAI, submitRequest };
+  return { code, byoai, request, submitCode, submitBYOAI, submitRequest };
 }
 
 async function runSubmit(

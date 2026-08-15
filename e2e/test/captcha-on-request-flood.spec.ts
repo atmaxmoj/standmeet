@@ -86,6 +86,32 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
         'a solved check delivers the note — the lock costs a script, not a person',
       ).toBeVisible({ timeout: 15_000 });
     });
+
+  // 承上一条：这时那个 IP 已经过了留言口的阈值，所以这里再发一封必被拦 —— 拦的是**留言口**。
+  // 而 gate 上有三扇门（码 / BYOAI / 留言），上一版 `useGate` 只有一份 SubmitState，
+  // 于是留言被拦时，「输入访问码」那一栏也亮起红字 + 弹出人机校验：一扇根本没上锁的门，
+  // 却对着访客宣布自己锁了，而且宣布的理由是另一扇门的（F-G-6）。
+  test('the refusal shows up on the door that was used, and leaves the other doors alone',
+    async ({ page }) => {
+      await goto(page, '/gate');
+      await sendNote(page, FLOOD + 1);
+
+      // 正对照先立起来：这一封确实被拦了，而且拦在留言口上。少了这一句，下面两条
+      // 「码那栏什么都没有」在页面根本没加载时同样会通过。
+      await expect(
+        page.getByTestId('request-captcha'),
+        'the note door is the one that refused, so the check belongs to it',
+      ).toBeVisible({ timeout: 15_000 });
+
+      await expect(
+        page.getByTestId('code-panel').getByTestId('gate-captcha'),
+        'the code door was never used and is not locked — it must not demand a human check',
+      ).toHaveCount(0);
+      await expect(
+        page.getByTestId('code-panel').getByTestId('gate-error'),
+        'a refusal earned at the note door must not be printed under the code input',
+      ).toHaveCount(0);
+    });
 });
 
 // sendNote —— 像人一样：先点开「write a note ↘」那个折叠，再填四个字段并提交。

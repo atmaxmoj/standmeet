@@ -21,6 +21,9 @@ import (
 // 「拦不拦」「记一笔」，captcha 和 redis 都藏在边界之后，跟 CodeGuard 同一个规矩。
 type RequestGuard interface {
 	Locked(ctx context.Context, ip, captchaToken string) bool
+	// HasLift —— 被拦下的人此刻有没有一条自己走得通的出路（captcha 开着才有）。
+	// 拒绝那句话按它选词，否则它会去描述一个屏幕上不存在的控件。
+	HasLift() bool
 	RecordSubmit(ctx context.Context, ip string)
 }
 
@@ -68,7 +71,7 @@ func (h *AccessRequestsHandlers) guardedSubmit(
 ) {
 	ip := clientIP(r)
 	if h.Guard.Locked(r.Context(), ip, req.CaptchaToken) {
-		writeError(h.Log, w, envRequestFlood())
+		writeError(h.Log, w, h.floodEnvelope())
 		return
 	}
 	out, err := access.SubmitForOwner(
@@ -86,12 +89,30 @@ func (h *AccessRequestsHandlers) guardedSubmit(
 	writeSubmitResp(h.Log, w, &out)
 }
 
-// envRequestFlood —— 说清楚是「这里发得太多了」，并且**指出下一步**（过一次校验）。
-// 光说「稍后再试」会让一个真有话要说的人以为自己被永久拒之门外。
-func envRequestFlood() apierr.Envelope {
+// floodEnvelope —— 说哪一句，取决于这台实例此刻给不给得出那条出路（跟码兑换同一条规矩）。
+func (h *AccessRequestsHandlers) floodEnvelope() apierr.Envelope {
+	if h.Guard.HasLift() {
+		return envRequestFloodCaptcha()
+	}
+	return envRequestFloodWait()
+}
+
+// envRequestFloodWait / envRequestFloodCaptcha —— 「这里发得太多了」的两句话。
+// 光说「稍后再试」会让一个真有话要说的人以为自己被永久拒之门外；而 captcha 关着的部署里
+// 根本没有校验可解，那时说「过一次人机校验」就是在指一个不存在的控件。
+func envRequestFloodWait() apierr.Envelope {
+	return requestFlood("too many notes from here — try again in a few minutes")
+}
+
+func envRequestFloodCaptcha() apierr.Envelope {
+	return requestFlood(
+		"too many notes from here — clear the human check and this one goes through",
+	)
+}
+
+func requestFlood(msg string) apierr.Envelope {
 	return apierr.Envelope{
-		Status: http.StatusTooManyRequests, Code: "request_flood",
-		Message: "too many notes from here — clear the human check and this one will go through",
+		Status: http.StatusTooManyRequests, Code: "request_flood", Message: msg,
 	}
 }
 

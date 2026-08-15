@@ -1,0 +1,34 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/captcha/shots",
+  "viewport": [1280, 1000],
+  "login": false,
+  "shots": [
+    { "name": "cap-17-code-lock-with-no-check-configured", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-201"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-202"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-203"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-204"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-205"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-206"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-207"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-208"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-209"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-210"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 700 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-211"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 4000 }
+      ],
+      "wait": 1500 }
+  ]
+}

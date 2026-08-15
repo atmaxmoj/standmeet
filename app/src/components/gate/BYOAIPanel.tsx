@@ -72,7 +72,7 @@ export function BYOAIPanel({ hook }: Props) {
           onEndpoint={onEndpoint} onModel={onModel}
           apiKey={apiKey} setApiKey={setApiKey}
           reveal={reveal} setReveal={setReveal}
-          onSubmit={onSubmit} busy={hook.state.busy}
+          onSubmit={onSubmit} busy={hook.byoai.busy} error={hook.byoai.error}
           models={models}
         />
       </div>
@@ -115,6 +115,7 @@ type FormProps = {
   setReveal: (v: boolean) => void;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   busy: boolean;
+  error: string | null;
   models: ModelListHook;
 };
 
@@ -143,11 +144,25 @@ function BYOAIForm(p: FormProps) {
         reveal={p.reveal} onToggleReveal={() => p.setReveal(!p.reveal)}
         placeholder={ph.key}
       />
+      {/* 这一句以前落在整页最底下那个共用的错误行里 —— 离出错的表单一千多像素，而访客的
+          眼睛在按钮上。现在它贴着自己的提交键（F-G-6）。 */}
+      <BYOAIError message={p.error} />
       <ReadyRow
         apiKey={p.apiKey} endpoint={p.form.endpoint} model={p.form.model}
         busy={p.busy}
       />
     </form>
+  );
+}
+
+function BYOAIError({ message }: { message: string | null }) {
+  return message === null ? null : (
+    <p
+      className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) mt-4"
+      data-testid="byoai-error"
+    >
+      {message}
+    </p>
   );
 }
 

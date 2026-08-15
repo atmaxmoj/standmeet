@@ -1,0 +1,34 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/captcha/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "cap-15-code-lock-names-the-check", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-101"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-102"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-103"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-104"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-105"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-106"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-107"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-108"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-109"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-110"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 900 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-111"] },
+        { "press": ["[data-testid=\"gate-code\"]", "Enter"] }, { "wait": 6000 }
+      ],
+      "wait": 2000, "fullPage": true }
+  ]
+}

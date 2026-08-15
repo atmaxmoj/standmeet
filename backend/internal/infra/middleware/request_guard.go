@@ -46,6 +46,11 @@ func (g *RequestGuard) Locked(ctx context.Context, ip, captchaToken string) bool
 	return g.t.blocked(ctx, ip, captchaToken)
 }
 
+// HasLift —— 这台实例现在给不给得出那条出路（captcha 开着才有）。拒绝那句话按它选词。
+func (g *RequestGuard) HasLift() bool {
+	return g != nil && g.t.hasLift()
+}
+
 // RecordSubmit —— 记一次提交。**成功也计**：这里数的是量，不是错误。
 func (g *RequestGuard) RecordSubmit(ctx context.Context, ip string) {
 	if g != nil {

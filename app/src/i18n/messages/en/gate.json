@@ -33,7 +33,6 @@
   },
   "codePanel": {
     "enter": "enter",
-    "captchaHint": "too many tries from here — clear this and your code will go through",
     "hint": "codes look like <sample>OAEN-3K2</sample> · the owner bakes them into a QR code or link · case doesn’t matter · paste the whole thing (with or without the dash) and press enter.",
     "nameHint": "your name lets the owner separate visitors who share the same code."
   },
@@ -59,7 +58,6 @@
     "headline": "Tell {handle} who you are",
     "lede": "A short note. If it’s useful to talk — through the AI or in person — they may send you a code. Read by hand, not a queue.",
     "openButton": "write a note ↘",
-    "captchaHint": "a lot of notes from here already — clear this and yours will go through",
     "orgLabel": "where you work",
     "emailLabel": "email",
     "whyLabel": "why you want to talk",

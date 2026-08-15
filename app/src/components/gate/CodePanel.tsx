@@ -42,7 +42,7 @@ export function CodePanel({ hook }: Props) {
   const [captchaToken, setCaptchaToken] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   // 错码 / 网络挂 → 0.4s shake → 清空 + refocus。
-  const shake = useShakeOnError(hook.state.error, () => {
+  const shake = useShakeOnError(hook.code.error, () => {
     setCode('');
     inputRef.current?.focus();
   });
@@ -68,22 +68,22 @@ export function CodePanel({ hook }: Props) {
           code={code}
           setCode={(v) => setCode(normalizeCode(v))}
           onPaste={onPaste}
-          busy={hook.state.busy}
+          busy={hook.code.busy}
           shake={shake}
-          error={hook.state.error !== null}
+          error={hook.code.error !== null}
           inputRef={inputRef}
           // 被锁住时，票没到手就不让提交：否则访客对着一个看起来正常的按钮反复按，
           // 每次都收到同一句 429，而屏幕上刚出现的那道校验还没出票 —— 他没法知道
           // 差的是等一秒，还是这张码真的没用。
-          blocked={hook.state.locked && captchaToken === ''}
+          blocked={hook.code.locked && captchaToken === ''}
         />
         {/* 错误行紧贴出错的那个字段。原来它落在 NameRow **之下**，于是
             `TOO MANY INVALID CODES` 读起来像是「我的名字被拒了」，眼睛得往回跳
             才能把错误跟码输入框对上 —— 而这是访客第一次接触这个产品的一屏（UX-73）。 */}
-        <HintStatus busy={hook.state.busy} error={hook.state.error} />
+        <HintStatus busy={hook.code.busy} error={hook.code.error} />
         {/* 锁住之后才出现：没锁时拦一道人机校验，是拿产品的防线去烦正常访客。
             后端本来就认这张票（`code_guard.go`），这里只是把那条出路显出来（F-G-3）。 */}
-        <LockedCaptcha locked={hook.state.locked} onToken={setCaptchaToken} />
+        <LockedCaptcha locked={hook.code.locked} onToken={setCaptchaToken} />
         <NameRow name={name} setName={setName} />
       </form>
       <Hint />
@@ -102,15 +102,14 @@ function LockedCaptcha(
     : null;
 }
 
+// LockedCaptchaBox —— 只有那个校验框，没有自己的说明文字。说明由**后端那句拒绝**给
+// （`HintStatus` 就在它上面一行）：那句话是随这次拒绝一起到的，它知道这台实例到底给不给得出
+// 这条出路。这里再写一句，屏幕上就有两句措辞不同的话在说同一件事，中间夹着那个控件。
 function LockedCaptchaBox(
   { siteKey, onToken }: { siteKey: string; onToken: (t: string) => void },
 ) {
-  const t = useTranslations('gate.codePanel');
   return (
-    <div className="space-y-2" data-testid="gate-captcha">
-      <p className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted)">
-        {t('captchaHint')}
-      </p>
+    <div data-testid="gate-captcha">
       <TurnstileWidget siteKey={siteKey} onToken={onToken} />
     </div>
   );

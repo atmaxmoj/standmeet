@@ -22,11 +22,25 @@ func serverErr() apierr.Envelope {
 	}
 }
 
-// envCodeLocked —— #169 访问码兑换失败超阈值 → 429 锁定(暴力枚举防护)。
-func envCodeLocked() apierr.Envelope {
+// envCodeLockedWait / envCodeLockedCaptcha —— #169 访问码兑换失败超阈值 → 429 锁定
+// (暴力枚举防护)。**同一个锁，两句话**，按这台实例此刻给不给得出那条出路选：
+//
+//   - captcha 关着（默认部署）：没有校验可解，只能等窗口过去 → 说「稍后再试」。
+//   - captcha 开着：屏幕上就摆着那道校验 → 说「过一次就放你过去」。
+//
+// 混用哪一句都是谎：说「稍后再试」会让人对着眼前的出路干等十五分钟；说「过一次人机校验」
+// 会让人去找一个页面上根本不存在的控件，找不到就以为自己被永久挡住了。
+func envCodeLockedWait() apierr.Envelope {
+	return codeLocked("too many invalid codes from here — try again in a few minutes")
+}
+
+func envCodeLockedCaptcha() apierr.Envelope {
+	return codeLocked("too many invalid codes from here — clear the human check and try again")
+}
+
+func codeLocked(msg string) apierr.Envelope {
 	return apierr.Envelope{
-		Status: http.StatusTooManyRequests, Code: "code_locked",
-		Message: "too many invalid codes — try again later",
+		Status: http.StatusTooManyRequests, Code: "code_locked", Message: msg,
 	}
 }
 

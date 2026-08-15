@@ -54,8 +54,9 @@ export function RequestPanel({ handle, hook }: Props) {
         <RequestHeadline handle={handle} />
         <RequestRight
           open={open} sent={sent} form={form} setField={setField}
-          onSubmit={onSubmit} busy={hook.state.busy} onOpen={() => setOpen(true)}
-          locked={hook.state.locked} captchaToken={captchaToken} onToken={setCaptchaToken}
+          onSubmit={onSubmit} busy={hook.request.busy} onOpen={() => setOpen(true)}
+          error={hook.request.error}
+          locked={hook.request.locked} captchaToken={captchaToken} onToken={setCaptchaToken}
         />
       </div>
     </section>
@@ -100,6 +101,7 @@ type RightProps = {
   onSubmit: (e: React.FormEvent) => Promise<void>;
   busy: boolean;
   onOpen: () => void;
+  error: string | null;
   locked: boolean;
   captchaToken: string;
   onToken: (t: string) => void;
@@ -127,12 +129,27 @@ function RequestForm(p: RightProps) {
       <WhyField value={p.form.why} onChange={(v) => p.setField('why', v)} />
       {/* 发得太多被拦下之后才出现：没被拦时拦一道校验，是拿防线去烦一个只想说句话的人。
           后端本来就认这张票（`request_guard.go`），这里把那条出路显出来（F-G-4）。 */}
+      {/* 先说被拒的理由，再给那个校验框 —— 状态在前，补救在后。理由这句话贴着被拒的那张表：
+          以前它落在整页最底下那个共用的错误行里，既离得远，又同时印在「输入访问码」那一栏
+          下面（F-G-6）。 */}
+      <RequestError message={p.error} />
       <FloodCaptcha locked={p.locked} onToken={p.onToken} />
       <FormFooter
         why={p.form.why} busy={p.busy}
         valid={isValid(p.form) && !(p.locked && p.captchaToken === '')}
       />
     </form>
+  );
+}
+
+function RequestError({ message }: { message: string | null }) {
+  return message === null ? null : (
+    <p
+      className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent)"
+      data-testid="request-error"
+    >
+      {message}
+    </p>
   );
 }
 
@@ -147,15 +164,13 @@ function FloodCaptcha(
     : null;
 }
 
+// FloodCaptchaBox —— 只有那个校验框。说明由后端那句拒绝给（`RequestError` 就在它上面一行），
+// 理由同 CodePanel 的 LockedCaptchaBox：两句措辞不同的话说同一件事，读的人会以为是两件事。
 function FloodCaptchaBox(
   { siteKey, onToken }: { siteKey: string; onToken: (t: string) => void },
 ) {
-  const t = useTranslations('gate.request');
   return (
-    <div className="space-y-2" data-testid="request-captcha">
-      <p className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted)">
-        {t('captchaHint')}
-      </p>
+    <div data-testid="request-captcha">
       <TurnstileWidget siteKey={siteKey} onToken={onToken} />
     </div>
   );

@@ -67,6 +67,14 @@ test.describe('gate · a locked visitor is offered the way out the backend alrea
         'a locked visitor must be offered the captcha the backend accepts, not just refused',
       ).toBeVisible({ timeout: 15_000 });
 
+      // ①b 而且那句拒绝要**指着**这条出路。这台实例配了 captcha，屏幕上就摆着那道校验，
+      // 这时说「稍后再试」等于把它藏起来让人干等十五分钟。反向那一半（没配 captcha 时
+      // 不许承诺一道不存在的校验）由 `gate-lock-offers-only-what-exists` 守着（F-G-7）。
+      await expect(
+        page.getByTestId('code-panel').getByTestId('gate-error'),
+        'with a check on screen the refusal must point at it, not tell the visitor to wait',
+      ).toContainText('human check', { timeout: 10_000 });
+
       // ② 而且它要真接线：测试密钥自己出票，带着票用真码应当进得去。
       //
       // 等按钮从禁用变回可按 —— 那是**票到手**的可见信号。上一版一看见校验框就提交，
@@ -95,10 +103,16 @@ test.describe('gate · a locked visitor is offered the way out the backend alrea
     });
 });
 
-// locked —— 闸落下来了没有：以「那道人机校验出现了」为准，因为那正是这条 check 要的
-// 观察点本身。不用等，问一下当下的状态就走。
+// locked —— 闸落下来了没有：以**后端那句拒绝**为准。
+//
+// 上一版问的是「那道人机校验出现了没有」，而那个盒子里现在只剩一个 Turnstile 的 iframe：
+// 它加载出来之前高度为 0，`isVisible()` 是 false —— 于是循环以为还没锁上，继续敲，而按钮
+// 那时已经被禁用了，敲下去一个请求都不会发，等到的只有超时。**用那个还没画完的东西当判据，
+// 判的是它画完没有，不是闸落下没有。**
 async function locked(page: Page): Promise<boolean> {
-  return await page.getByTestId('gate-captcha').isVisible();
+  const said = await page.getByTestId('code-panel').getByTestId('gate-error')
+    .textContent().catch(() => null);
+  return (said ?? '').includes('human check');
 }
 
 // submitCode —— 像人一样填码点确认，然后**等这一次提交真的有了回音**。

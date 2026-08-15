@@ -55,6 +55,9 @@ type Handlers struct {
 // CodeGuard —— 访问码兑换失败锁定端口(#169)。impl = middleware.CodeGuard,注入进来。
 type CodeGuard interface {
 	Locked(ctx context.Context, ip, captchaToken string) bool
+	// HasLift —— 被锁住的人此刻有没有一条自己走得通的出路（captcha 开着才有）。
+	// 拒绝那句话按它选词，否则它会去描述一个屏幕上不存在的控件。
+	HasLift() bool
 	RecordFail(ctx context.Context, ip string)
 	Reset(ctx context.Context, ip string)
 }

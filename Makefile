@@ -660,20 +660,28 @@ prod-psql:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c "$(SQL)"
 
-# prod-gate-unlock —— clear the code-entry lockout on prod.
+# prod-gate-unlock —— clear the gate's per-IP lockouts on prod.
 #
-# Driving the lockout by hand (F-G-3's ⑤) really locks the gate for fifteen minutes, and on a
-# stack with no proxy setting X-Forwarded-For the bucket is `unknown-source` — ONE bucket that
+# Driving a lockout by hand (F-G-3's ⑤, F-G-4's ⑤) really locks the gate for fifteen minutes, and
+# on a stack with no proxy setting X-Forwarded-For the bucket is `unknown-source` — ONE bucket that
 # every visitor shares (F-F-5). So a verification run would lock the door for everyone until the
 # TTL runs out. This puts it back immediately.
 #
+# BOTH doors, because the gate has two per-IP tallies and they lock independently: `codefail:ip:`
+# counts invalid codes, `requestflood:ip:` counts notes. Clearing only the first left the note door
+# shut with nothing on screen to say so — the escape hatch has to know about every bucket the
+# mechanism grew (`middleware/ip_tally.go` is the one place they are configured).
+#
 # It is a verification-stack escape hatch, not an owner feature: an owner who wants to lift a lock
 # solves the captcha, which is the whole point of the surface this exists to test.
+GATE_LOCK_PATTERNS = 'codefail:ip:*' 'requestflood:ip:*'
 prod-gate-unlock:
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis \
-		redis-cli --scan --pattern 'codefail:ip:*' | xargs -r docker compose -p standmeet-prod \
-		-f docker-compose.prod.yml exec -T redis redis-cli DEL
-	@echo "[prod] code-entry lockouts cleared"
+	@for p in $(GATE_LOCK_PATTERNS); do \
+		docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis \
+			redis-cli --scan --pattern "$$p" | xargs -r docker compose -p standmeet-prod \
+			-f docker-compose.prod.yml exec -T redis redis-cli DEL; \
+	done
+	@echo "[prod] gate lockouts cleared (invalid codes + note flood)"
 
 # prod-psql-file —— same, for multi-line SQL.  usage: make prod-psql-file FILE=/tmp/x.sql
 prod-psql-file:

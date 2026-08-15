@@ -9,6 +9,8 @@
 
 import { useEffect, useRef } from 'react';
 
+import { logger } from '@/lib/logger';
+
 interface TurnstileOpts {
   sitekey: string;
   callback: (token: string) => void;
@@ -69,7 +71,23 @@ async function mountWhenReady(
   ensureScript();
   await waitForTurnstile();
   const api = guard.cancelled ? null : window.turnstile;
-  api && (widgetIDRef.current = api.render(host, buildOpts(siteKey, onToken)));
+  api && (widgetIDRef.current = renderWidget(api, host, siteKey, onToken));
+}
+
+// renderWidget —— 渲一次，并且**说出结果**。没有这一句时，一个渲不出来的校验框在页面上
+// 就是一段空白：访客看见「过一次校验就放你过去」却没有可点的东西，而控制台一片安静 ——
+// 于是只能靠猜。widget id 是产品这一侧唯一拿得到的回执，拿到就报，拿不到也报。
+function renderWidget(
+  api: TurnstileAPI, host: HTMLElement, siteKey: string, onToken: (t: string) => void,
+): string | null {
+  try {
+    const id = api.render(host, buildOpts(siteKey, onToken));
+    logger.info(`turnstile rendered widget id=${id}`);
+    return id;
+  } catch (e) {
+    logger.error('turnstile render failed', e);
+    return null;
+  }
 }
 
 function buildOpts(

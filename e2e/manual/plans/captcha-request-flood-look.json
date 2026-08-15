@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/captcha/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "cap-14-blocked-settled", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"request-panel\"] button" },
+        { "type": ["[data-testid=\"request-name\"]", "F-G-4 probe look"] },
+        { "type": ["[data-testid=\"request-email\"]", "fg4-probe-look@local.test"] },
+        { "type": ["[data-testid=\"request-message\"]", "a refused note, photographed whole-page to see where the lock shows up."] },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 14000 }
+      ],
+      "wait": 1500, "fullPage": true }
+  ]
+}

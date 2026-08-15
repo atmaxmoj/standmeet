@@ -11,6 +11,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // guardedIssueSession —— code-tier 锁定 → 兑换 → 记账。返 (res, true)=可写成功响应;
@@ -60,8 +61,16 @@ func (h *Handlers) codeLocked(
 	if !h.CodeGuard.Locked(r.Context(), ip, captchaToken) {
 		return false
 	}
-	writeError(h.Log, w, envCodeLocked())
+	writeError(h.Log, w, h.codeLockedEnvelope())
 	return true
+}
+
+// codeLockedEnvelope —— 说哪一句，取决于这台实例此刻给不给得出那条出路。
+func (h *Handlers) codeLockedEnvelope() apierr.Envelope {
+	if h.CodeGuard.HasLift() {
+		return envCodeLockedCaptcha()
+	}
+	return envCodeLockedWait()
 }
 
 // noteCodeFail —— 只在**无效码**时累计失败(暴力枚举信号);过期/其他错误不计。
