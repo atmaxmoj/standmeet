@@ -2,13 +2,34 @@
 // transcript modal, filter by code.
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
+
+// BROKEN_DIAGRAM_REPLY —— 正文自己站得住 + 一段编译不过的 mermaid（跟
+// visitor-chat-answer-render 那条用的是同一段：一处形状，两个受众）。
+const BROKEN_DIAGRAM_REPLY = [
+  'The pipeline runs in three stages: fetch, curate, publish.',
+  '',
+  '```mermaid',
+  'graph LR; A --> ; B[[',
+  '```',
+].join('\n');
+
+// seedBrokenDiagramConversation —— 一场答复里带编译不过的图的会话,给闸门的 owner 那一半用。
+async function seedBrokenDiagramConversation(request: APIRequestContext): Promise<void> {
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: 'CONV-A', visitor_name: 'Broken Diagram',
+  });
+  const tag = await scriptMockReplyText(request, BROKEN_DIAGRAM_REPLY);
+  await (await sendMessage(request, sess, `draw it${tag}`)).body();
+}
 
 const OWNER = {
   email: 'conv-ext@example.com',
@@ -43,6 +64,7 @@ test.describe('admin conversations extended', () => {
       handle: OWNER.handle, code: 'CONV-B', visitor_name: 'Visitor B',
     });
     await (await sendMessage(request, sessB, 'hello from B')).body();
+    await seedBrokenDiagramConversation(request);
     await request.dispose();
   });
 
@@ -73,6 +95,22 @@ test.describe('admin conversations extended', () => {
       await expect(adminPage.getByTestId('transcript-body')).toBeVisible({ timeout: 5_000 });
       await expect(adminPage.getByText(/transcript not loaded|placeholder for now/i))
         .toHaveCount(0);
+    });
+
+  // 闸门的另一半。访客那边编译不过的图被藏掉了（正文自己站得住），**但问题不能就此消失**：
+  // owner 是唯一能去改 prompt / 改 skill 的人，而他看逐字稿的地方就是这里。
+  // 只验前一半的话，我造的就是一个把模型错误埋掉的机制。
+  test('transcript modal shows the compile error a visitor was spared',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'conversations');
+      await adminPage.getByText('Broken Diagram', { exact: true }).click();
+      const body = adminPage.getByTestId('transcript-body');
+      await expect(body).toBeVisible({ timeout: 5_000 });
+      await expect(body, '正文照常在').toContainText('three stages');
+      await expect(
+        body.getByTestId('mermaid-error'),
+        'owner 这一侧要看得见那句编译错误',
+      ).toBeVisible({ timeout: 10_000 });
     });
 
   test('filter by code → only matching conversations',

@@ -13,6 +13,7 @@
 // codepath 已经是 env-gated 的 dev/test 路径。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext, Browser } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -123,4 +124,59 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
 
       await ctx.close();
     });
+
+  // 一个模型迟早会写出编译不过的 mermaid —— 它是生成出来的文本，不是人校对过的源码。
+  // 那时访客该看见的是**正文**（图只能是补充），而不是 mermaid 库的原始解析错误。
+  //
+  // 今天红在这里：`MermaidBlock.tsx` 编译失败时把库的报错原样印出来，还用的是
+  // `text-red-600`（连调色板都不是）。这跟「错误必须对用户友好」是同一条规矩，
+  // 只是这一处的用户是访客，而漏出去的是第三方库的内部消息。
+  test('编译不过的图不以报错形态出现在访客面前，正文照常读得到', brokenDiagramStaysHidden);
 });
+
+async function brokenDiagramStaysHidden(
+  { browser, request }: { browser: Browser; request: APIRequestContext },
+): Promise<void> {
+  const tag = await scriptMockReplyText(request, BROKEN_DIAGRAM_REPLY);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterCodeSession(page, CODE);
+  await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+  const skip = page.getByTestId('visitor-name-skip');
+  if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await skip.click();
+  }
+
+  const input = page.locator('[data-testid="chat-input-field"]');
+  await input.fill(`draw me something broken${tag}`);
+  await input.press('Enter');
+
+  const answer = page.locator('[data-testid="answer-body"]').first();
+  await expect(answer).toBeVisible({ timeout: 20_000 });
+  // 先断正文真的到了 —— 不然下面那条「看不到报错」在页面还空着时也算通过
+  // （[[negated-assertion-passes-while-absent]]）。
+  await expect(answer).toContainText('three stages', { timeout: 10_000 });
+
+  // 好结果：这一格什么都不出现，而**不是**一段 mermaid 报错。
+  await expect(
+    answer.getByTestId('mermaid-error'),
+    '访客不该看见 mermaid 库的原始解析错误',
+  ).toHaveCount(0);
+  await expect(
+    answer,
+    '也不该以任何形式漏出解析器的措辞',
+  ).not.toContainText(/parse error|syntax error|expecting/i);
+  await ctx.close();
+}
+
+// BROKEN_DIAGRAM_REPLY —— 一段带**编译不过**的 mermaid 的回答。正文自己站得住
+// （图是补充，不是唯一答案），所以图渲不出来时访客仍然读得到该读的东西。
+const BROKEN_DIAGRAM_REPLY = [
+  'The pipeline runs in three stages: fetch, curate, publish.',
+  '',
+  '```mermaid',
+  'graph LR; A --> ; B[[',
+  '```',
+  '',
+  'Each stage keeps its own receipts.',
+].join('\n');

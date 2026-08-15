@@ -7,6 +7,7 @@
 import { useTranslations } from 'next-intl';
 
 import { ModalShell } from '@/components/admin/modals/ModalShell';
+import { DiagramDiagnostics } from '@/components/page/diagram-diagnostics';
 import { ChatMarkdown } from '@/components/page/markdown';
 import {
   deriveGhostView,
@@ -119,7 +120,10 @@ function MessageBody({ role, body }: { role: 'visitor' | 'assistant'; body: stri
     <p className="reading sm-measure text-(--color-ink) mt-2 font-[380] text-[20px] italic">{body}</p>
   ) : (
     <div className="reading sm-measure text-(--color-ink) mt-2 font-[380] text-[16.5px] not-italic">
-      <ChatMarkdown source={body} />
+      {/* 这是 owner 回看逐字稿的地方 —— 图编译不过的报错要**在这里**显出来。
+          访客那一侧同一个渲染器把它藏掉了（正文自己站得住），但问题不能就此消失：
+          owner 是唯一能去改 prompt / 改 skill 的人。 */}
+      <DiagramDiagnostics><ChatMarkdown source={body} /></DiagramDiagnostics>
     </div>
   );
 }
