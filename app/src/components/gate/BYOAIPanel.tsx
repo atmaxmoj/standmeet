@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import { SelectField } from '@/components/atoms/SelectField';
+import { KeyRow } from '@/components/gate/BYOAIKeyRow';
 import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
 import { lookupPreset, PRESETS, type InferencePreset } from '@/lib/inference/presets';
 import {
@@ -143,6 +144,7 @@ function BYOAIForm(p: FormProps) {
         value={p.apiKey} onChange={p.setApiKey}
         reveal={p.reveal} onToggleReveal={() => p.setReveal(!p.reveal)}
         placeholder={ph.key}
+        keyPrefix={ph.keyPrefix}
       />
       {/* 这一句以前落在整页最底下那个共用的错误行里 —— 离出错的表单一千多像素，而访客的
           眼睛在按钮上。现在它贴着自己的提交键（F-G-6）。 */}
@@ -169,6 +171,8 @@ function BYOAIError({ message }: { message: string | null }) {
 interface Placeholders {
   endpoint: string;
   key: string;
+  // keyPrefix —— 原样透出来给形状提示用（占位符里那个 `…` 版本读起来是例子，不是判据）。
+  keyPrefix: string;
 }
 
 const EMPTY_PRESET: InferencePreset = {
@@ -180,6 +184,7 @@ function placeholdersFor(provider: string): Placeholders {
   return {
     endpoint: epPlaceholder(preset.baseUrl),
     key: keyPlaceholder(preset.keyPrefix),
+    keyPrefix: preset.keyPrefix,
   };
 }
 
@@ -264,45 +269,6 @@ function ModelRow({
         className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1 mb-5"
         inputClassName={MODEL_INPUT_CLASS}
       />
-    </>
-  );
-}
-
-function KeyRow({
-  value, onChange, reveal, onToggleReveal, placeholder,
-}: {
-  value: string; onChange: (v: string) => void;
-  reveal: boolean; onToggleReveal: () => void;
-  placeholder: string;
-}) {
-  const t = useTranslations('gate.byoai');
-  return (
-    <>
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2 flex items-baseline justify-between">
-        <span>{t('apiKey')}</span>
-        <span className="text-(--color-faint) lowercase tracking-[0.06em] text-[10px]">
-          {t('keyNote')}
-        </span>
-      </div>
-      <div className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1">
-        <input
-          type={reveal ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          data-testid="byoai-key"
-          autoComplete="new-password"
-          spellCheck={false}
-          className="flex-1 bg-transparent mono py-2 reading text-(--color-ink) placeholder:text-(--color-faint) text-[15.5px] tracking-[0.02em]"
-        />
-        <button
-          type="button"
-          onClick={onToggleReveal}
-          className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-ink) shrink-0"
-        >
-          {reveal ? t('hide') : t('reveal')}
-        </button>
-      </div>
     </>
   );
 }

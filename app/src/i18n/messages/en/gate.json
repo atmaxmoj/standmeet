@@ -47,6 +47,7 @@
     "model": "model",
     "apiKey": "api key",
     "keyNote": "never uploaded · stored encrypted in your browser",
+    "keyShapeHint": "keys for this provider usually start with {prefix} — if yours is different, go ahead",
     "reveal": "reveal",
     "hide": "hide",
     "readyUsing": "ready · using",

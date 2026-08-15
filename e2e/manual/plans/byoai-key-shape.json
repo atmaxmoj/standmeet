@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-byoai/shots",
+  "viewport": [1280, 1100],
+  "login": false,
+  "shots": [
+    { "name": "bo-10-key-shape-hint", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "select": ["[data-testid=\"byoai-provider\"]", "anthropic"] },
+        { "wait": 600 },
+        { "type": ["[data-testid=\"byoai-key\"]", "pasted-the-wrong-thing"] },
+        { "wait": 800 },
+        { "scroll": ["[data-testid=\"byoai-key\"]", 200] },
+        { "wait": 500 }
+      ],
+      "wait": 1000 }
+  ]
+}

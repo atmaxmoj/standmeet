@@ -36,23 +36,41 @@ test.describe('BYOAI error flows', () => {
       await expect(submitBtn).toBeDisabled();
     });
 
-  test('invalid key format → client-side error shown',
+  // 上一版这条用例叫「invalid key format → client-side error shown」，而它 race 了两个
+  // `.catch(() => null)` 之后**什么都不断言** —— 发生什么它都绿（[[assertion-that-cannot-fail]]）。
+  // 名字还说产品会做客户端格式校验，实际不做：`presets.ts:27` 把 keyPrefix 注释成
+  // 「sanity check」，但全仓没有一处检查它 —— 声明了一个没人接的位子（F-O-4）。
+  //
+  // 判据两条，缺一不可：形状不像时**说一句**（访客能在填的那一格就发现，而不是三步之后
+  // 第一轮推理才失败）；同时**不许拦** —— 自建端点的 key 可以长成任何样子，把提示做成硬拦
+  // 会挡住合法配置，那比现在更糟。
+  test('key that does not look like the provider’s → a hint, and still submittable',
     async ({ page }) => {
       await page.getByRole('link', { name: 'request access ↗' }).click();
       await page.waitForURL('**/gate', { timeout: 10_000 });
       await page.getByTestId('byoai-provider').selectOption('anthropic');
       await page.getByTestId('byoai-model').fill('claude-haiku-4-5-20251001');
       await page.getByTestId('byoai-key').fill('not-a-valid-key');
-      await page.getByTestId('byoai-submit').click();
-      // Should show validation error or proceed (depends on implementation)
-      // At minimum the submit should either be disabled or show an error
-      const error = page.getByTestId('byoai-error');
-      const strip = page.getByTestId('session-strip');
-      // Either we get an error or we get through (mock provider accepts any key)
-      await Promise.race([
-        error.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => null),
-        strip.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => null),
-      ]);
+
+      await expect(
+        page.getByTestId('byoai-key-hint'),
+        'the panel knows what an Anthropic key looks like — say it here, not after the first turn',
+      ).toContainText('sk-ant-', { timeout: 5_000 });
+      await expect(
+        page.getByTestId('byoai-submit'),
+        'a hint is not a gate: a self-hosted endpoint may issue any shape of key',
+      ).toBeEnabled();
+    });
+
+  test('key that matches the provider’s shape → no hint at all',
+    async ({ page }) => {
+      await page.getByRole('link', { name: 'request access ↗' }).click();
+      await page.waitForURL('**/gate', { timeout: 10_000 });
+      await page.getByTestId('byoai-provider').selectOption('anthropic');
+      await page.getByTestId('byoai-model').fill('claude-haiku-4-5-20251001');
+      await page.getByTestId('byoai-key').fill('sk-ant-looks-right');
+      // 正对照：不然「一直显示提示」也能让上面那条过。
+      await expect(page.getByTestId('byoai-key-hint')).toHaveCount(0);
     });
 });
 
