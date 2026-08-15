@@ -13,9 +13,10 @@
 - **Mock gap:** The mock's genre routing is keyword-scripted. The inducement — the model reading its header, inferring that this is a stance question, and electing the genre — cannot be exercised against it. A test that scripts the search defeats the check.
 - **Backing test:** `subjectivity-genre.spec.ts` (mechanics only) · the inducement → `gap`
 
-### 2 — Without the standpoint note the answer goes generic
-- **Steps:** Remove the subjectivity note. Ask the same question. Read the answer.
-- **Expected:** The answer is generic. It no longer speaks a particular documented position. This control run is what proves check 1 measured the note and not the prompt.
+### 2 — The control run: the standpoint notes are what changes
+- **Steps:** Withhold the genre instead of deleting anything — take `subjectivity://**` off the role, ask the same question again, and read both the answer and the transcript's citation list.
+- **Expected:** The citation list changes: the standpoint notes that were named on the granted run are absent on the withheld one. That is the control — it is what proves check 1 measured the notes rather than the prompt.
+- **Do not expect the voice to collapse.** It was assumed once and the run disproved it: on a real vault the owner's stance also lives in wiki notes, so the withheld answer is still opinionated and specific. An Expected that stays true either way measures nothing, and deleting a note would break the mirror the corpus is supposed to be.
 - **Backing test:** `gap`
 
 ### 3 — A grounding note shapes the answer without being cited

@@ -1,0 +1,14 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-subjectivity/shots",
+  "viewport": [1280, 1200],
+  "shots": [
+    { "name": "fa27-03-grant-withdrawn", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"role-corpus-uris-invited\"]", "wiki://**\noutput://**\nwriting://**"] },
+        { "click": "[data-testid=\"role-corpus-save-invited\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 }
+  ]
+}
