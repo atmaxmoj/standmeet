@@ -67,8 +67,10 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		CustomPages: owner.CustomPageDeps{
 			Pages: d.CustomPageRepo, Builds: d.CustomBuildRepo,
 		},
-		Writings:   writingsDepsOf(d),
-		MCPServers: marketplace.MCPServersDeps{Servers: d.MCPServerRepo, Codes: d.CodeRepo},
+		Writings: writingsDepsOf(d),
+		MCPServers: marketplace.MCPServersDeps{
+			Servers: d.MCPServerRepo, Codes: d.CodeRepo, Prober: d.MCPProber,
+		},
 		// skill 用例要 skill repo + code repo(删之前得看有没有邀请码还在用它)。
 		Skills: marketplace.SkillsDeps{Skills: d.SkillRepo, Codes: d.CodeRepo},
 		// 装一个市场 skill = 抓远端 SKILL.md + 落成一个自己的 skill,所以两头都要。

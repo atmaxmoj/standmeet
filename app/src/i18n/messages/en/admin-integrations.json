@@ -36,6 +36,10 @@
     "intro": "MCP servers the visitor agent can call as tools. Add one you got from anywhere — its URL and an optional auth header — then attach it to a role under codes.",
     "empty": "none yet",
     "remove": "remove",
+    "check": "check",
+    "checking": "asking…",
+    "checkTools": "{count, plural, =0 {answers, but offers no tools} one {# tool} other {# tools}}",
+    "checkFailed": "no answer — {reason}",
     "authBadge": "auth: {name}",
     "add": "Add MCP server"
   },

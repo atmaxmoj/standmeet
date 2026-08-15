@@ -96,6 +96,11 @@ type Runtime struct {
 	PrintStore         *printsess.Store
 	MarketplaceClient  *marketplace.Client
 	AgentSkills        *capreg.Registry
+	// MCPProber —— 去问一台已注册的外部 MCP server:答不答话、有哪些工具(F-D-8)。
+	// 域声明这个端口,实现在组装根(mcp_probe.go)—— 那台 server 的认证头是密文,
+	// 只有根这一侧开得了。两个装配点(收口和插件注册表)必须拿**同一个**实现,
+	// 所以它挂在 Runtime 上,而不是各自 new 一个。
+	MCPProber marketplace.MCPServerProber
 	// Dispatch —— 出站收口。assembleRuntime 之后由 main 回填(跟 PluginRegistry 同理);
 	// 全进程唯一一个,各个面都从它投影。
 	Dispatch *dispatcher.Dispatcher

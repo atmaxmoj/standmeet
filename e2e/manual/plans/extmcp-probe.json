@@ -1,0 +1,14 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 2600],
+  "shots": [
+    { "name": "fd8-01-row-before", "url": "/admin/api-mcp", "wait": 3000 },
+    { "name": "fd8-02-row-after-check", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "li:has-text(\"deepwiki\") [data-testid=\"mcp-server-check\"]" },
+        { "wait": 12000 }
+      ],
+      "wait": 1500 }
+  ]
+}

@@ -199,6 +199,8 @@ func assembleRuntimeDeps(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
 		AgentSkills: capreg.NewRegistry(),
+		// 探针在这里造一次:开封器(dialableMCPServers)只在组装根拿得到。
+		MCPProber: &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
 		// capStores —— wireCapabilityStorage 按各能力的声明填(provision 一次)。
 		CapStores:     map[string]*capstore.Store{},
 		SearchClient:  searchClient,

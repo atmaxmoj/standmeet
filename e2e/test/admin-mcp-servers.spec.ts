@@ -50,7 +50,6 @@ test.describe('admin external MCP servers CRUD', () => {
   //
   // 判据：点了探针之后，那一行必须报出**真结果** —— 够得着就说出工具数（用 dev 栈里那台
   // 真 mcp-server-mock，它真会答 tools/list），够不着就说出真原因。不许只是「点了没反应」。
-  // ⚠️ fixme —— **判据是对的，缺的是机制，而机制不是一处改动**（F-D-8）。
   //
   // 探针不能长在 marketplace 域里：那台 server 的认证头是密文，而**域这一侧从不解封**
   // （`capreg_ext_mcp.go:150` 那句注释写得很清楚：「开封发生在实现 MCPServerGetter 的那一侧
@@ -59,9 +58,9 @@ test.describe('admin external MCP servers CRUD', () => {
   // 有哪些工具"），**组装根实现它**（它已经有 `mcpclient.Dial` + `ListTools`，
   // `capreg_ext_mcp.go:149-163` 就是那段代码）。= port + 根接线 + op + 路由 + 面 + 守卫。
   //
-  // 我把判据留在这里而不是删掉：它是这条 check 唯一说得清的成功形态。下一轮照上面那条路做完，
-  // 去掉 fixme 即可 —— 它现在红在「没有这颗按钮」上，做完就红在真结果上。
-  test.fixme('a registered server can be asked whether it answers, and what it offers',
+  // 已按那条路做完：port(marketplace/usecase) + 根接线(cmd/server/mcp_probe.go)
+  // + op(mcp_server_check) + 路由(POST /mcp-servers/{id}/check) + 面(这颗 check) + 本守卫。
+  test('a registered server can be asked whether it answers, and what it offers',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'api-mcp');
       const panel = adminPage.getByTestId('mcp-servers-panel');
@@ -71,16 +70,22 @@ test.describe('admin external MCP servers CRUD', () => {
       await panel.getByTestId('mcp-server-url').fill('http://mcp-server-mock:9100/mcp');
       await panel.getByTestId('mcp-server-add').click();
 
-      const row = adminPage.getByTestId('mcp-servers-list').filter({ hasText: 'probe-me' });
+      // 定位到**那一行**（li），不是整张列表：check 的 testid 在行内唯一，
+      // 多一台 server 时才不会撞上 strict mode。
+      const row = adminPage.getByTestId('mcp-servers-list')
+        .locator('li').filter({ hasText: 'probe-me' });
       await expect(row).toBeVisible({ timeout: 5_000 });
       await row.getByTestId('mcp-server-check').click();
 
       // 真答上了 = 报得出工具数。0 也是个答案，但这台 mock 有工具，所以断的是 ≥1 ——
       // 只断「出现了一句话」的话，一句写死的「checked」也能过。
-      const result = row.getByTestId('mcp-server-check-result');
-      await expect(result, '探针要报出真结果').toBeVisible({ timeout: 20_000 });
-      const said = (await result.innerText()).trim();
-      expect(said, `探针说的是 "${said}"`).toMatch(/[1-9]\d*\s+tools?/i);
+      //
+      // 断的是 `check-result` 的**文本**：那个 testid 只挂在答完之后那一行上，
+      // 进行时是另一个（`check-pending`）。第一版把两种状态挂在同一个名字上，
+      // 于是这里读到的是「asking…」—— 名字说它是结果，手上却是个进行时。
+      await expect(
+        row.getByTestId('mcp-server-check-result'), '探针要报出真结果',
+      ).toHaveText(/[1-9]\d*\s+tools?/i, { timeout: 20_000 });
     });
 });
 

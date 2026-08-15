@@ -76,7 +76,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'role_create', 'role_list', 'role_delete', 'role_update', 'roles.get',
   'roles.set_dock_buttons',
   // mcp servers / skills / capabilities
-  'mcp_server_create', 'mcp_server_list', 'mcp_server_delete', 'mcp_server_grant_dep',
+  // mcp_server_check —— 注册完之后唯一能问的一句:那台 server 答不答话、有哪些工具。
+  // 没有它,一行 ext-MCP 上的证据只有 owner 自己粘进去的那个 URL(F-D-8)。
+  'mcp_server_create', 'mcp_server_list', 'mcp_server_check', 'mcp_server_delete',
+  'mcp_server_grant_dep',
   'skill_create', 'skill_list', 'skill_delete', 'skill_set_enabled',
   'capabilities.list', 'capabilities.set_enabled', 'capabilities.delete',
   // writings

@@ -17,9 +17,31 @@ import (
 )
 
 // MCPServersDeps —— mcp servers CRUD + per-code 关联用的 repo 集合。
+//
+// Prober 是**端口不是仓储**：域声明「去问一句」，出站那一侧实现它（见下）。
 type MCPServersDeps struct {
 	Servers *repo.MCPServerRepo
 	Codes   *access.CodeRepo
+	Prober  MCPServerProber
+}
+
+// MCPServerProber —— 问一台已注册的 server：**它答不答话、都有哪些工具**（F-D-8）。
+//
+// 为什么是端口：那台 server 的认证头在库里是密文，而**这一侧从不解封**（跟 ext-mcp 装配
+// 同一条规矩 —— 拿到的应该是「能直接拨的东西」，不是「打开它的钥匙」）。实现落在组装根：
+// 那里既有开封器（`cmd/server/unseal.go` 的 dialableMCPServers），也有拨号和列表
+// （`mcpclient.Dial` + `ListTools`）—— 装配会话时走的就是那条路，这里只是让 owner
+// **主动问一次**，跟连接器那颗只读探针（F-C-16）是同一个形状。
+//
+// 没接实现（nil）时 `mcp_server_check` 会明说这台实例没有这个能力，而不是假装探过。
+type MCPServerProber interface {
+	Probe(ctx context.Context, ownerID, serverID string) (MCPProbeResult, error)
+}
+
+// MCPProbeResult —— 探针带回来的东西。工具名而不是数量：owner 要认出那一台是不是他想挂的
+// 那一台，「3 个工具」认不出来，`ext_deepwiki_ask` 认得出来。
+type MCPProbeResult struct {
+	Tools []string
 }
 
 // CreateMCPServerReq —— create 入参。AuthHeaderValue 是明文，本函数
@@ -96,6 +118,43 @@ func ListMCPServers(
 	}
 	return rows, nil
 }
+
+// CheckMCPServer —— 去问那台 server 一句：答不答话、有哪些工具（F-D-8）。
+//
+// 先确认这台 server 真属于这个 owner（repo 那一层管归属），再让端口去拨。**读操作**：
+// 它不写任何东西，也不改这台 server 的状态 —— owner 想知道的只是「我刚粘的这个 URL 对不对」。
+func CheckMCPServer(
+	ctx context.Context, deps MCPServersDeps, ownerID, serverID string,
+) (MCPProbeResult, error) {
+	if err := checkProbePrereqs(ctx, deps, ownerID, serverID); err != nil {
+		return MCPProbeResult{}, err
+	}
+	res, perr := deps.Prober.Probe(ctx, ownerID, serverID)
+	if perr != nil {
+		return MCPProbeResult{}, fmt.Errorf("probe mcp server: %w", perr)
+	}
+	return res, nil
+}
+
+// checkProbePrereqs —— 拨号之前要成立的三件事:参数齐、这台实例有探针、这台 server 归他。
+func checkProbePrereqs(
+	ctx context.Context, deps MCPServersDeps, ownerID, serverID string,
+) error {
+	if ownerID == "" || serverID == "" {
+		return apierr.ErrEmptyField
+	}
+	if deps.Prober == nil {
+		return ErrMCPProbeUnavailable
+	}
+	if _, err := deps.Servers.GetByID(ctx, ownerID, serverID); err != nil {
+		return fmt.Errorf("get mcp server: %w", err)
+	}
+	return nil
+}
+
+// ErrMCPProbeUnavailable —— 这台实例没接探针实现。**说出来**，别报成「那台 server 不答话」：
+// 那两件事对 owner 的意思完全相反（同 F-C-23 分开的那两句话）。
+var ErrMCPProbeUnavailable = errors.New("this instance cannot probe MCP servers")
 
 // DeleteMCPServer —— 删除单条；属于 owner 校验经 repo。
 func DeleteMCPServer(

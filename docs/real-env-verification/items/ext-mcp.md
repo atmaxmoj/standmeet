@@ -8,8 +8,8 @@
 ## Checks
 
 ### 1 — A real remote server registers and enumerates its own tools ⭐
-- **Steps:** Open the register form. Paste a real server's URL, its header name and its token. Save. Read the tool list the backend enumerated.
-- **Expected:** The server shows connected and its real advertised tools appear — the ones that server actually publishes, not a fixed set.
+- **Steps:** Open the register form. Paste a real server's URL, its header name and its token. Save. Press the row's **check** and read the tool list the backend enumerated.
+- **Expected:** The row states that the server answers and names its real advertised tools — the ones that server actually publishes, not a fixed set. It is a read-only probe: it dials and lists, it changes nothing.
 - **Backing test:** `admin-mcp-servers.spec.ts`
 
 ### 2 — The tools reach exactly the roles that were given them
@@ -37,7 +37,7 @@
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 
 The register form takes a URL and an auth header, and the token field is masked.
-A registered server states whether it is reachable, so a dial failure is visible where the owner registered it.
+A registered server can be asked whether it is reachable, so a dial failure is visible where the owner registered it — and an instance that cannot probe at all says so, rather than reporting the server as silent.
 When a server's tools disappear because its credential stopped working, the visitor's experience is an ordinary refusal, not an error surface.
 
 ## Note

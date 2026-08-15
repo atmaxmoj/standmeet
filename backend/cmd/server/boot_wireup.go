@@ -113,7 +113,11 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 			Roles: d.RoleRepo,
 			Refs:  port.NewRoleRefValidator(d),
 		},
-		MCPServers:   marketplace.MCPServersDeps{Servers: d.MCPServerRepo, Codes: d.CodeRepo},
+		// Prober —— owner 主动问一台 server「你答不答话」。实现在根上（mcp_probe.go），
+		// 装在 Runtime 上（F-D-8）：收口那一侧拿的必须是同一个,不能各造各的。
+		MCPServers: marketplace.MCPServersDeps{
+			Servers: d.MCPServerRepo, Codes: d.CodeRepo, Prober: d.MCPProber,
+		},
 		Assets:       corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
 		Writings:     corpus.WritingsDeps{Writings: d.WritingRepo},
 		WritingRefs:  d.WritingRefRepo,

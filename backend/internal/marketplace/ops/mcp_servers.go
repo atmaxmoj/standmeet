@@ -53,6 +53,17 @@ func MCPServers(deps usecase.MCPServersDeps) []fp.Op {
 			Invoke:      deleteMCPServer(deps),
 		},
 		{
+			ID: "mcp_server_check",
+			Description: "Ask a registered MCP server whether it answers, and what tools it " +
+				"offers. Read-only: it dials and lists, it changes nothing. Use it after " +
+				"registering one and before attaching it to a role — otherwise the URL you " +
+				"pasted is the only evidence you have.",
+			InputSchema: mcpServerIDSchema,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      checkMCPServer(deps),
+		},
+		{
 			ID: "mcp_server_grant_dep",
 			Description: "Grant this ext-MCP server a connector dependency. ext-MCP is " +
 				"lowest-trust: tools declaring Requires stay uninjected until the owner " +
@@ -165,6 +176,41 @@ func decodeMCPServerCreate(raw json.RawMessage) (mcpServerArgs, error) {
 		return in, perr
 	}
 	return in, fp.RequireArgs([2]string{"name", in.Name}, [2]string{"url", in.URL})
+}
+
+// probeOut —— 探针的回执。具名类型:这份契约在类型里就看得见(同 grantedDep)。
+type probeOut struct {
+	Tools []string `json:"tools"`
+}
+
+// emptyIfNil —— nil slice 会编码成 `null`,而读它的那一侧把 `null` 当成「坏了」。
+// 「答上了但一个工具都没有」是个**答案**,它的形状是 `[]`。
+func emptyIfNil(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
+}
+
+// checkMCPServer —— 探针的出站形状：**工具名的清单**，不是一个数字。
+//
+// owner 要确认的是「这台是不是我想挂的那一台」——「3 个工具」确认不了，
+// `ext_deepwiki_ask_question` 一眼就认得出来。
+func checkMCPServer(deps usecase.MCPServersDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := decodeMCPServerArgs(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		if err := fp.RequireArgs([2]string{"server_id", in.ServerID}); err != nil {
+			return nil, err
+		}
+		res, cerr := usecase.CheckMCPServer(ctx, deps, ownerID, in.ServerID)
+		if cerr != nil {
+			return nil, mcpServerErr(cerr)
+		}
+		return json.Marshal(probeOut{Tools: emptyIfNil(res.Tools)})
+	}
 }
 
 func deleteMCPServer(deps usecase.MCPServersDeps) fp.Invoke {

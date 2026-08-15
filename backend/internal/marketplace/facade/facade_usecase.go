@@ -9,6 +9,8 @@ type (
 	CreateSkillReq     = usecase.CreateSkillReq
 	InstallSkillDeps   = usecase.InstallSkillDeps
 	InstallSkillInput  = usecase.InstallSkillInput
+	MCPProbeResult     = usecase.MCPProbeResult
+	MCPServerProber    = usecase.MCPServerProber
 	MCPServersDeps     = usecase.MCPServersDeps
 	SearchDeps         = usecase.SearchDeps
 	SearchParams       = usecase.SearchParams
