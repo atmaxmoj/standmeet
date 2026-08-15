@@ -15,7 +15,7 @@
 // RED(实现前):grounding 那一块不存在 → 第一条红。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Playwright } from '@playwright/test';
+import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -39,6 +39,12 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // path 由 subjectivity_write 回参给出(树派生),不自己拼。
 const STANCE_TITLE = 'verify-stance';
 let stancePath = '';
+
+// 另一条 standpoint 笔记,**opt-in 的**(show_as_source=true):它会真的进引用列表,
+// 也就是 `messages.cited_subjectivity_ids`。F-A-39 守的就是这一条 —— prod 上一轮
+// 引用了 6 条 subjectivity,而 owner 的逐字稿一行引用都没显示。
+const CITABLE_TITLE = 'verify-stance-public';
+let citablePath = '';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
@@ -79,6 +85,17 @@ test.describe.serial('transcript · the owner can see which standpoint notes gro
       await request.dispose();
     });
 
+  // F-A-39:**被引用的** subjectivity 也得在 owner 的逐字稿上看得见。
+  //
+  // 这跟上面那条是同一个 item 的两件事:上面守的是「grounded 但没被引用」的那一类(私有笔记,
+  // 塑造语气),这条守的是「已经进了引用列表」的那一类 —— prod 上真跑出来的那一轮
+  // `cited_subjectivity_ids` 有 6 条,而逐字稿底下**一行引用都没有**;同一页上只有 wiki 的
+  // 那些轮次照常列五行。数据在库里,面把它扔了(`ConvTranscriptModal` 只把 wikiIds/outputIds
+  // 交给 CitedTail)。
+  //
+  // 断的是**标题**而不是「有几行」:owner 要认的是「哪几条笔记」,数字答不了那个问题。
+  test('a cited subjectivity note is named in the owner transcript', citedStanceIsNamed);
+
   // F-A-28:访客那一侧必须一个字都拿不到。
   //
   // 这条一开始是红的,红的原因跟 F-A-27 无关 —— 访客自己的 GET /api/v1/conversations/{id} 把落库的
@@ -118,6 +135,35 @@ test.describe.serial('transcript · the owner can see which standpoint notes gro
   });
 });
 
+// citedStanceIsNamed —— 见上面那段说明（F-A-39）。
+async function citedStanceIsNamed(
+  { adminPage, playwright }: { adminPage: Page; playwright: Playwright },
+): Promise<void> {
+  const request = await playwright.request.newContext();
+  const session = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'Cites Stance',
+  });
+  const tag = await scriptMockToolCall(request, {
+    name: 'corpus_read', args: { path: citablePath },
+  });
+  await sendAndDrain(request, session, `where does taste come in${tag}`);
+
+  await gotoAdminSection(adminPage, 'conversations');
+  await adminPage.getByText('Cites Stance', { exact: true }).click();
+  const modal = adminPage.getByTestId('transcript-body');
+  await expect(modal).toBeVisible({ timeout: 10_000 });
+  // 先证这一轮真的落进了逐字稿,否则下面那条断言是在一张空模态上找不到东西。
+  await expect(modal, 'the turn is in the transcript').toContainText('where does taste come in');
+
+  await expect(
+    modal,
+    'a cited subjectivity note must be named in the transcript — the owner has to know '
+      + 'WHICH notes were cited, and a count cannot answer that',
+  ).toContainText(CITABLE_TITLE, { timeout: 10_000 });
+
+  await request.dispose();
+}
+
 async function setup(
   playwright: Playwright,
 ): Promise<{ request: APIRequestContext; sid: string; apiToken: string }> {
@@ -139,6 +185,14 @@ async function setup(
     },
   );
   stancePath = wrote.path;
+  const citable = await callTool<{ subjectivity_id: string; path: string }>(
+    request, apiToken, sid, 'subjectivity_write',
+    {
+      title: CITABLE_TITLE, tags: [], show_as_source: true,
+      body: 'Taste is the part of the work that cannot be delegated.',
+    },
+  );
+  citablePath = citable.path;
   const role = await createRole(request, csrf, {
     name: 'grounding-role', description: 'grounding spec',
     corpus_uris: ['subjectivity://**', 'wiki://**'],

@@ -1,6 +1,8 @@
 // ConvTranscriptModal —— 弹层显示一个 conversation 完整 transcript。
-// 每条 assistant message 下面挂 "cited · output/wiki · <title>" 列表，
-// title 通过 wikiRefs/outputRefs 索引按 message.cited_*_ids 查到。
+// 每条 assistant message 下面挂 "cited · <genre> · <title>" 列表：**四种体裁都在**
+// （output / wiki / subjectivity / writing），title 按 `message.cited[genre]` 里的 id
+// 去 `transcript.refs[genre]` 索引里查。曾经这里只认 wiki 和 output，于是一轮引用了
+// 6 条 subjectivity 的答复在 owner 的逐字稿上一行引用都没有（F-A-39）。
 
 'use client';
 
@@ -12,6 +14,7 @@ import { ChatMarkdown } from '@/components/page/markdown';
 import {
   deriveGhostView,
   pickTranscriptState,
+  type CitedGenre,
   type ConvTranscript,
   type ConvTranscriptMessage,
   type GhostLog,
@@ -45,13 +48,7 @@ function TranscriptBody({ transcript }: { transcript: ConvTranscript }) {
     loading: <Loading />,
     error: <ErrorBlock message={transcript.error ?? ''} />,
     empty: <EmptyState />,
-    list: (
-      <MessageList
-        messages={transcript.messages}
-        wikiRefs={transcript.wikiRefs}
-        outputRefs={transcript.outputRefs}
-      />
-    ),
+    list: <MessageList messages={transcript.messages} refs={transcript.refs} />,
   } as const;
   return map[pickTranscriptState(transcript)];
 }
@@ -75,38 +72,29 @@ function EmptyState() {
 }
 
 function MessageList({
-  messages, wikiRefs, outputRefs,
+  messages, refs,
 }: {
   messages: readonly ConvTranscriptMessage[];
-  wikiRefs: Record<string, string>;
-  outputRefs: Record<string, string>;
+  refs: Record<CitedGenre, Record<string, string>>;
 }) {
   return (
     <ul className="space-y-6">
-      {messages.map((m) => (
-        <MessageItem key={m.id} message={m} wikiRefs={wikiRefs} outputRefs={outputRefs} />
-      ))}
+      {messages.map((m) => <MessageItem key={m.id} message={m} refs={refs} />)}
     </ul>
   );
 }
 
 function MessageItem({
-  message, wikiRefs, outputRefs,
+  message, refs,
 }: {
   message: ConvTranscriptMessage;
-  wikiRefs: Record<string, string>;
-  outputRefs: Record<string, string>;
+  refs: Record<CitedGenre, Record<string, string>>;
 }) {
   return (
     <li>
       <MessageLabel role={message.role} at={message.created_at} />
       <MessageBody role={message.role} body={message.body} />
-      <CitedTail
-        wikiIds={message.cited_wiki_ids}
-        outputIds={message.cited_output_ids}
-        wikiRefs={wikiRefs}
-        outputRefs={outputRefs}
-      />
+      <CitedTail cited={message.cited} refs={refs} />
     </li>
   );
 }
@@ -142,22 +130,24 @@ function MessageLabel({ role, at }: { role: 'visitor' | 'assistant'; at: string 
   );
 }
 
-// CitedTail —— output 排前面（"polished, quote verbatim"，跟 visitor chat
-// 优先级一致）。如果某个 id 在 refs 索引里找不到 title（数据脏 / 已删除）
-// 就跳过那条 —— 显示 "<missing>" 比让 UI 整块崩好，但实际上很难触发。
+// CITED_ORDER —— 显示顺序：output 排前面（"polished, quote verbatim"，跟 visitor chat
+// 优先级一致），然后 wiki，然后 owner 自己的两类。**四种全在**：以前这里只有 wiki 和
+// output，于是一轮引用了 6 条 subjectivity 的答复在逐字稿上一行引用都没有（F-A-39）。
+const CITED_ORDER: readonly CitedGenre[] = ['output', 'wiki', 'subjectivity', 'writing'];
+
+// CitedTail —— 一条答复引用了哪些条目，四种体裁走**同一条**渲染路（多抄一份就是下一个
+// 会漏掉的体裁）。某个 id 在 refs 索引里找不到 title（数据脏 / 已删除）就跳过那条 ——
+// 显示 "<missing>" 比让 UI 整块崩好，但实际上很难触发。
 function CitedTail({
-  wikiIds, outputIds, wikiRefs, outputRefs,
+  cited, refs,
 }: {
-  wikiIds: readonly string[];
-  outputIds: readonly string[];
-  wikiRefs: Record<string, string>;
-  outputRefs: Record<string, string>;
+  cited: Record<CitedGenre, readonly string[]>;
+  refs: Record<CitedGenre, Record<string, string>>;
 }) {
   const t = useTranslations('adminAccess');
-  const items = [
-    ...outputIds.map((id) => ({ kind: 'output' as const, id, title: outputRefs[id] })),
-    ...wikiIds.map((id) => ({ kind: 'wiki' as const, id, title: wikiRefs[id] })),
-  ].filter((c) => c.title);
+  const items = CITED_ORDER.flatMap((kind) =>
+    cited[kind].map((id) => ({ kind, id, title: refs[kind][id] })),
+  ).filter((c) => c.title);
   return items.length === 0 ? null : (
     <ul
       className="mt-2 space-y-0.5 mono text-[10px] tracking-[0.12em] uppercase"

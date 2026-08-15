@@ -41,13 +41,20 @@ export interface TitledRef {
   title: string;
 }
 
+// CITED_GENRES —— 一条答复可以引用的四种体裁。**一处列举**：后端四个都发
+// （`conversations_shape.go` 的 messageOut），而这边曾经只读两个，于是 owner 引用了
+// 6 条 subjectivity 的那一轮在逐字稿上一行引用都没有（F-A-39）。
+// 加第五种体裁时改这一行，其余地方跟着走。
+export const CITED_GENRES = ['output', 'wiki', 'subjectivity', 'writing'] as const;
+export type CitedGenre = (typeof CITED_GENRES)[number];
+
 export interface ConvTranscriptMessage {
   id: string;
   role: 'visitor' | 'assistant';
   body: string;
   created_at: string;
-  cited_wiki_ids: string[];
-  cited_output_ids: string[];
+  // cited —— 每种体裁被引用的 id。空数组 = 这一轮没引这一类。
+  cited: Record<CitedGenre, readonly string[]>;
 }
 
 // GhostLog —— H.13.e: 一行 shown 日志。owner 在详情页看到这条
@@ -66,9 +73,9 @@ export interface ConvTranscript {
   loading: boolean;
   error: string | null;
   messages: ConvTranscriptMessage[];
-  // id → title 索引，前端按 cited_*_ids[i] 找 title 渲染 "cited: <title>"。
-  wikiRefs: Record<string, string>;
-  outputRefs: Record<string, string>;
+  // id → title 索引，前端按 cited[genre][i] 找 title 渲染 "cited: <title>"。
+  // 四种体裁各一份，跟 CITED_GENRES 同一套名字。
+  refs: Record<CitedGenre, Record<string, string>>;
   // grounding —— 塑造了这段对话、但没 opt-in 的 subjectivity 笔记标题(F-A-27)。
   // 按整段对话给,不按 message:owner 要判的是「哪几条在起作用」。
   grounding: string[];
@@ -77,9 +84,14 @@ export interface ConvTranscript {
 
 const TitledRefSchema = z.object({ id: z.string(), title: z.string() });
 
+// citedIDs —— Go 的 nil slice 编码成 `null`，所以是 nullish 而不是 optional
+// （[[zod-unknown-is-not-optional]] 那一族：`.optional()` 接不住 null，整份 parse 会挂）。
+const citedIDs = z.array(z.string()).nullish().transform((v) => v ?? []);
+
 const ConvMessageSchema = z.object({
   id: z.string(), role: z.string(), body: z.string(), created_at: z.string(),
-  cited_wiki_ids: z.array(z.string()), cited_output_ids: z.array(z.string()),
+  cited_wiki_ids: citedIDs, cited_output_ids: citedIDs,
+  cited_subjectivity_ids: citedIDs, cited_writing_ids: citedIDs,
 });
 
 const GhostLogSchema = z.object({
@@ -96,6 +108,9 @@ const ConvTranscriptRespSchema = z.object({
   messages: z.array(ConvMessageSchema),
   wiki_refs: z.array(TitledRefSchema).optional(),
   output_refs: z.array(TitledRefSchema).optional(),
+  // 后端一直在发这两份（`transcriptOut`），这边曾经不读 —— F-A-39 就是那半边。
+  subjectivity_refs: z.array(TitledRefSchema).optional(),
+  writing_refs: z.array(TitledRefSchema).optional(),
   // grounding_refs —— 没 opt-in 的 subjectivity,后端只给 title/path(无正文,F-A-27)。
   grounding_refs: z.array(TitledRefSchema).optional(),
   ghosts: z.array(GhostLogSchema).optional(),
@@ -143,7 +158,7 @@ const transcriptStore = create<TranscriptState>((set) => ({
       openId: id,
       transcript: {
         conversationID: id, loading: true, error: null,
-        messages: [], wikiRefs: {}, outputRefs: {}, grounding: [], ghosts: [],
+        messages: [], refs: emptyRefs(), grounding: [], ghosts: [],
       },
     });
     void loadTranscript(id, (t) => set({ transcript: t }));
@@ -185,16 +200,13 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
       conversationID: id,
       loading: false,
       error: null,
-      messages: data.messages.map((m) => ({
-        id: m.id,
-        role: m.role === 'visitor' ? 'visitor' : 'assistant',
-        body: m.body,
-        created_at: m.created_at,
-        cited_wiki_ids: m.cited_wiki_ids,
-        cited_output_ids: m.cited_output_ids,
-      })),
-      wikiRefs: indexRefs(data.wiki_refs),
-      outputRefs: indexRefs(data.output_refs),
+      messages: data.messages.map(toTranscriptMessage),
+      refs: {
+        wiki: indexRefs(data.wiki_refs),
+        output: indexRefs(data.output_refs),
+        subjectivity: indexRefs(data.subjectivity_refs),
+        writing: indexRefs(data.writing_refs),
+      },
       grounding: (data.grounding_refs ?? []).map((r) => r.title),
       ghosts: toGhostLogs(data.ghosts),
     });
@@ -204,12 +216,32 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
       loading: false,
       error: e instanceof Error ? e.message : 'load failed',
       messages: [],
-      wikiRefs: {},
-      outputRefs: {},
+      refs: emptyRefs(),
       grounding: [],
       ghosts: [],
     });
   }
+}
+
+function toTranscriptMessage(m: z.infer<typeof ConvMessageSchema>): ConvTranscriptMessage {
+  return {
+    id: m.id,
+    role: m.role === 'visitor' ? 'visitor' : 'assistant',
+    body: m.body,
+    created_at: m.created_at,
+    cited: {
+      wiki: m.cited_wiki_ids,
+      output: m.cited_output_ids,
+      subjectivity: m.cited_subjectivity_ids,
+      writing: m.cited_writing_ids,
+    },
+  };
+}
+
+// emptyRefs —— 四种体裁各一份空索引。加载中/出错时用它 —— 少一份就是又一个
+// 「这一类在这一面上不存在」。
+export function emptyRefs(): Record<CitedGenre, Record<string, string>> {
+  return { wiki: {}, output: {}, subjectivity: {}, writing: {} };
 }
 
 function toGhostLogs(
