@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-subjectivity/shots",
+  "viewport": [1280, 1800],
+  "login": false,
+  "shots": [
+    { "name": "fa27-01-stance-answer", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Stance Reader"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What kind of work do you refuse to take on, and why does that line sit where it does for you?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 110000 }
+      ],
+      "wait": 3000, "fullPage": true }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-subjectivity/shots",
+  "viewport": [1280, 1800],
+  "shots": [
+    { "name": "fa27-02-owner-transcript", "url": "/admin/conversations",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "text=Stance Reader" },
+        { "wait": 4000 },
+        { "scroll": ["[data-testid=\"transcript-body\"]", 3000] },
+        { "wait": 1000 },
+        { "scroll": ["[data-testid=\"transcript-body\"]", 3000] },
+        { "wait": 1000 },
+        { "scroll": ["[data-testid=\"transcript-body\"]", 3000] },
+        { "wait": 1000 },
+        { "scroll": ["[data-testid=\"transcript-body\"]", 3000] },
+        { "wait": 1200 }
+      ],
+      "wait": 1500 }
+  ]
+}
