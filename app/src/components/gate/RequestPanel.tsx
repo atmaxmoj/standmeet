@@ -10,6 +10,8 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
+import { useCaptchaSiteKey } from '@/lib/auth/use-captcha-site-key';
 import type { AccessRequestInput, GateHook } from '@/lib/gate/use-gate';
 
 type Props = {
@@ -26,6 +28,8 @@ export function RequestPanel({ handle, hook }: Props) {
   const [open, setOpen] = useState(false);
   const [sent, setSent] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
+  // captchaToken —— 发得太多被拦下之后那道校验出的票（F-G-4）。
+  const [captchaToken, setCaptchaToken] = useState('');
 
   const setField = useCallback((key: keyof FormState, v: string) => {
     setForm((prev) => ({ ...prev, [key]: v }));
@@ -38,10 +42,11 @@ export function RequestPanel({ handle, hook }: Props) {
       org: form.org,
       email: form.email,
       message: form.why,
+      ...(captchaToken === '' ? {} : { captcha_token: captchaToken }),
     };
     const ok = await hook.submitRequest(input);
     setSent(ok);
-  }, [form, hook]);
+  }, [form, hook, captchaToken]);
 
   return (
     <section id="request" className="mt-20 pt-14 border-t border-(--color-rule)" data-testid="request-panel">
@@ -50,6 +55,7 @@ export function RequestPanel({ handle, hook }: Props) {
         <RequestRight
           open={open} sent={sent} form={form} setField={setField}
           onSubmit={onSubmit} busy={hook.state.busy} onOpen={() => setOpen(true)}
+          locked={hook.state.locked} captchaToken={captchaToken} onToken={setCaptchaToken}
         />
       </div>
     </section>
@@ -94,6 +100,9 @@ type RightProps = {
   onSubmit: (e: React.FormEvent) => Promise<void>;
   busy: boolean;
   onOpen: () => void;
+  locked: boolean;
+  captchaToken: string;
+  onToken: (t: string) => void;
 };
 
 // RequestRight —— 右栏永远有东西。
@@ -116,8 +125,39 @@ function RequestForm(p: RightProps) {
         <EmailField value={p.form.email} onChange={(v) => p.setField('email', v)} />
       </div>
       <WhyField value={p.form.why} onChange={(v) => p.setField('why', v)} />
-      <FormFooter why={p.form.why} busy={p.busy} valid={isValid(p.form)} />
+      {/* 发得太多被拦下之后才出现：没被拦时拦一道校验，是拿防线去烦一个只想说句话的人。
+          后端本来就认这张票（`request_guard.go`），这里把那条出路显出来（F-G-4）。 */}
+      <FloodCaptcha locked={p.locked} onToken={p.onToken} />
+      <FormFooter
+        why={p.form.why} busy={p.busy}
+        valid={isValid(p.form) && !(p.locked && p.captchaToken === '')}
+      />
     </form>
+  );
+}
+
+// FloodCaptcha —— 被拦下时那道人机校验。两个条件缺一不可：这台实例真配了 captcha
+// （没有 site key 就渲染不出来，也没必要），而且这次提交真的被拦了。
+function FloodCaptcha(
+  { locked, onToken }: { locked: boolean; onToken: (t: string) => void },
+) {
+  const captcha = useCaptchaSiteKey();
+  return locked && captcha.siteKey !== ''
+    ? <FloodCaptchaBox siteKey={captcha.siteKey} onToken={onToken} />
+    : null;
+}
+
+function FloodCaptchaBox(
+  { siteKey, onToken }: { siteKey: string; onToken: (t: string) => void },
+) {
+  const t = useTranslations('gate.request');
+  return (
+    <div className="space-y-2" data-testid="request-captcha">
+      <p className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted)">
+        {t('captchaHint')}
+      </p>
+      <TurnstileWidget siteKey={siteKey} onToken={onToken} />
+    </div>
   );
 }
 

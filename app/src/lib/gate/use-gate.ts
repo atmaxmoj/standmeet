@@ -164,6 +164,9 @@ export interface AccessRequestInput {
   name: string;
   org: string;
   message: string;
+  // captcha_token —— 发得太多被拦下之后放行用的那张票（F-G-4）。字段名跟线路上一致，
+  // 因为它是直接 JSON.stringify 出去的。
+  captcha_token?: string;
 }
 
 export function useGate(): GateHook {
@@ -223,7 +226,7 @@ export function useGate(): GateHook {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
-      if (!res.ok) throw new Error(`submit access request: ${res.status}`);
+      if (!res.ok) throw await requestError(res);
       return true;
     });
   }, []);
@@ -246,11 +249,36 @@ async function runSubmit(
   }
 }
 
-// isLocked —— 这次拒绝是不是 per-IP 的锁。断的是信封里的 `code`，不是那句话的措辞：
-// 文案改一次就失灵的判定，等于没判（同 F-A-23 那一族，那次也是靠 code 而不是 message）。
+// requestError —— 把留言口的错误信封读出来（code + message），别折成一句
+// `submit access request: 429`。后端为这次拒绝写了一句给访客看的话，而上一版把它扔了 ——
+// 于是「发得太多了、过一次校验就行」变成一个没人看得懂的状态码（同 F-A-23 那一族）。
+async function requestError(res: Response): Promise<Error> {
+  const body: unknown = await res.json().catch(() => ({}));
+  const env = envelopeOf(body);
+  return Object.assign(new Error(`submit access request: ${res.status}`), {
+    code: env.code, serverMessage: env.message,
+  });
+}
+
+function envelopeOf(body: unknown): { code: string; message: string } {
+  if (typeof body !== 'object' || body === null || !('error' in body)) {
+    return { code: '', message: '' };
+  }
+  const err: unknown = body.error;
+  if (typeof err !== 'object' || err === null) return { code: '', message: '' };
+  const code = 'code' in err && typeof err.code === 'string' ? err.code : '';
+  const message = 'message' in err && typeof err.message === 'string' ? err.message : '';
+  return { code, message };
+}
+
+// LOCK_CODES —— 「被这道闸拦下，而一次人机校验就能过」的那几种拒绝。
+// 码兑换是 `code_locked`，留言口是 `request_flood` —— 两个口子、同一台机器（ipTally）、
+// 同一条出路。断的是信封里的 `code`，不是那句话的措辞：文案改一次就失灵的判定等于没判。
+const LOCK_CODES = ['code_locked', 'request_flood'];
+
 function isLocked(e: unknown): boolean {
   if (typeof e !== 'object' || e === null || !('code' in e)) return false;
-  return e.code === 'code_locked';
+  return typeof e.code === 'string' && LOCK_CODES.includes(e.code);
 }
 
 // submitErrorText —— 后端为每一种拒绝都写了一句给访客看的话("no such access code…"、

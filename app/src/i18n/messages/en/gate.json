@@ -59,6 +59,7 @@
     "headline": "Tell {handle} who you are",
     "lede": "A short note. If it’s useful to talk — through the AI or in person — they may send you a code. Read by hand, not a queue.",
     "openButton": "write a note ↘",
+    "captchaHint": "a lot of notes from here already — clear this and yours will go through",
     "orgLabel": "where you work",
     "emailLabel": "email",
     "whyLabel": "why you want to talk",

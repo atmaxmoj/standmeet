@@ -260,6 +260,11 @@ func mountPublic(r chi.Router, deps *Deps) {
 	deps.Public.CodeGuard = authmw.NewCodeGuard(
 		deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
 	)
+	// 留言口那道闸（F-G-4）：同一处装配、同一套零件，只是数的东西不同 —— 那边数猜错的码，
+	// 这边数发出来的留言。少了它，owner 亲手读的那个队列前面只有一层 fail-open 限流。
+	deps.PublicAccessRequests.Guard = authmw.NewRequestGuard(
+		deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
+	)
 	r.Route("/api/v1", func(r chi.Router) {
 		// CORS 最外层：embed 从任意 origin 跨源加载，preflight + ACAO 头得先于
 		// Ban/Rate 挂上（即便后面 403/429 也要能被跨源 JS 读到）。D.2 wide-open。
