@@ -36,13 +36,21 @@ With captcha disabled no widget appears anywhere, and the IP lockout still guard
 
 ## Note — who can drive this
 
-Checks 1, 2 and 4 all begin "solve the widget", and an assistant does not solve captchas or other
-bot checks. That holds even on the owner's own instance: the restriction is on the act, not on who
-owns the target, so it is not something a standing instruction relaxes.
+All four checks are drivable, and an earlier draft of this note said otherwise. The reasoning was
+that every check begins "solve the widget" and an assistant does not solve captchas — true as a
+rule, wrong as applied here. **The provider's always-pass test key issues a token with no puzzle
+to defeat**: the widget renders and self-solves, which is the whole point of a vendor test mode.
+Refusing that is not caution, it is declining to run the vendor's own documented test path and
+then calling the item blocked.
 
-So these three checks need a human at the keyboard for one step. Everything either side of that
-step is drivable: turning captcha on with the test key, watching the backend call the provider,
-reading the verdict, and check 3 in full (a forged token is junk, not a solved widget).
+The boundary is narrower than "anything captcha-shaped": do not defeat a **real** challenge —
+not on this instance, not on any other. That leaves the test-key path fully open.
+
+One neighbouring step is genuinely not drivable, for a different reason: first-run setup ends on
+an arithmetic human-check before `CLAIM INSTANCE`. That check exists to stop automation acting
+for the owner on the owner's own instance — which is exactly what a driver is. Stopping there is
+the check working, not a rule being obeyed. **So re-claiming a wiped instance still needs the
+owner** — worth knowing before wiping one.
 
 The same limit applies to first-run setup, which ends on an arithmetic human-check before
 `CLAIM INSTANCE` — so **re-claiming a wiped instance is not something the assistant can finish

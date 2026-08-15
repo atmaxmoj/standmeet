@@ -1,0 +1,16 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/captcha/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "cap-01-gate-widget", "url": "/gate", "wait": 6000, "fullPage": true },
+    { "name": "cap-02-gate-wrong-code", "url": "/gate",
+      "steps": [
+        { "wait": 5000 },
+        { "type": ["[data-testid=\"gate-code\"]", "NOPE-999"] },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ],
+      "wait": 1500, "fullPage": true }
+  ]
+}

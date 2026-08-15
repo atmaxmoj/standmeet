@@ -68,6 +68,17 @@ services:
       # provider 也由 owner 在 admin/MCP 配 (ai_endpoint)。两者都不走 env。
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - SANDBOX_DRIVER=docker
+      # Turnstile captcha —— OFF unless the owner sets both in .env. The backend reads these
+      # two; before F-G-2 neither compose file passed them, so "captcha is opt-in" was true of
+      # the code and false of the product: there was no way for an owner to opt in.
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
+      - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
+      # Meilisearch —— optional lexical search. Unset = corpus search runs on Postgres FTS,
+      # which is the default this stack ships with (no meili service here). Set both to point
+      # at your own instance. Same reason as above: a knob the product reads has to be settable
+      # by the person running it.
+      - MEILI_URL=${MEILI_URL:-}
+      - MEILI_KEY=${MEILI_KEY:-}
       # MinIO / S3 storage for owner-uploaded images + attachments.
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-standmeet}

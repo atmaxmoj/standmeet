@@ -17,6 +17,8 @@ lint: env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint verify-it
 env-lint:
 	@LINT_ENV_EXCLUDE="standmeet-client standmeet-server standmeet-e2e" \
 	  infra/scripts/lint-env "$$(pwd)"
+	@infra/scripts/check-knobs-reachable.sh
+	@infra/scripts/check-knobs-reachable-test.sh
 
 backend-lint:
 	@$(MAKE) -C backend lint
@@ -232,9 +234,23 @@ eval-smoke: gateway-up
 # with the REAL corpus tools wired (retrieval plugin over a host socket), fresh fictional
 # persona (Dana Rivera). Asserts the model actually GROUNDS the answer (calls the tools) and
 # synthesizes — not planning narration, not an ungrounded riff. Real LLM, no mock; skips
-# without a key (EVAL_KEY / provider key in eval-harness/.env).
-eval-narration:
-	@cd eval-harness && go test -run TestNarrationLive -count=1 -v ./...
+# without a key.
+#
+# The key comes from ~/.config/standmeet/verify-creds.env — the same one home every other real
+# credential lives in (verify-shots sources it the same way). It is NOT copied into a repo .env:
+# a second copy of a secret is a second place to leak it from, and the harness already reads
+# whatever the environment gives it (eval-harness/env.go falls back to a .env only if unset).
+eval-narration: eval-creds
+	@$(EVAL_ENV) cd eval-harness && go test -run TestNarrationLive -count=1 -v ./...
+
+# EVAL_ENV / eval-creds —— load the real provider key into the recipe's environment.
+# One home for credentials; the recipe fails loudly if that home is missing, rather than
+# skipping the test and reporting a green that never ran the model.
+EVAL_ENV = set -a; . $$HOME/.config/standmeet/verify-creds.env; set +a;
+eval-creds:
+	@test -f $$HOME/.config/standmeet/verify-creds.env || \
+	  (echo "missing ~/.config/standmeet/verify-creds.env — the real-env credentials live there"; \
+	   exit 2)
 
 # eval-booking-fabrication —— F-A-37 eval: on prod the agent told a visitor a meeting was booked
 # while making ZERO tool calls (empty calendar, no card). A mock spec cannot catch that: every
@@ -243,8 +259,8 @@ eval-narration:
 # REAL prod loop with the REAL booker plugin (canned calendar behind it) and asserts one thing:
 # if the answer says a meeting is booked, the capability store must hold that booking.
 # Probabilistic, so drive rounds: EVAL_ROUNDS=20 make eval-booking-fabrication.
-eval-booking-fabrication:
-	@cd eval-harness && go test -run TestBookingFabricationLive -count=1 -v -timeout 1800s ./...
+eval-booking-fabrication: eval-creds
+	@$(EVAL_ENV) cd eval-harness && go test -run TestBookingFabricationLive -count=1 -v -timeout 1800s ./...
 
 # eval-ask —— 给被测 agent (owner persona) 喂一个问题,看它怎么答 + 查了哪些
 # corpus。被测对象 = owner 的 system prompt + corpus,真 LLM (DeepSeek v4-pro,
