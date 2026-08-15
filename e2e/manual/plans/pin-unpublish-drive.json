@@ -1,0 +1,29 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/page-corpus-pinning/shots",
+  "viewport": [1440, 1300],
+  "shots": [
+    { "name": "pp-34-unpublish-the-pinned-entry", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "button:has-text(\"recursive-harness\")" },
+        { "wait": 2500 },
+        { "click": "[data-testid^=\"wiki-row-\"]:has-text(\"safe-recursion-theorem\") [data-testid^=\"wiki-edit-\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid$=\"-seo-indexed\"]" },
+        { "wait": 600 },
+        { "click": "[data-testid$=\"-seo-save\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500 },
+    { "name": "pp-35-page-section-after-unpublish", "url": "/admin/page",
+      "steps": [
+        { "wait": 4000 },
+        { "scroll": ["[data-testid=\"pin-add-insights\"]", 300] },
+        { "wait": 800 }
+      ],
+      "wait": 1200 },
+    { "name": "pp-36-public-home-after-unpublish", "url": "/",
+      "steps": [{ "wait": 4000 }],
+      "wait": 1500, "fullPage": true }
+  ]
+}
