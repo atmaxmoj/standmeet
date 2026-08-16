@@ -59,16 +59,29 @@ test.describe('admin sandbox management · #147', () => {
       expect(typeof swept.removed, 'sweep returns removed count').toBe('number');
     });
 
-  // 前端:admin system section 有 sandbox 管理面板,owner 能点 sweep。
-  test('admin system section renders the sandbox panel with a working sweep button',
+  // 前端:admin system section 有 sandbox 管理面板。
+  //
+  // **这条以前点的是一颗没有东西可扫的按钮**（「点了不炸」）——而那正是 F-E-26 记下的缺陷：
+  // 一颗永远可点、有时什么都不发生的按钮，会把「没生效」教成正常。判据因此改成两面：
+  // 没有 workspace 时它禁用**而且**屏幕上说得出为什么；有 workspace 时它可点。
+  test('没有 workspace 时 sweep 是禁用的,而且屏幕上说得出为什么',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'system');
       await page.waitForURL('**/admin/system', { timeout: 5_000 });
       const panel = page.getByTestId('sandbox-panel');
       await expect(panel).toBeVisible();
       await expect(panel).toContainText(/mcp sandbox/i);
-      // sweep 按钮点了不炸(无过期工作区 → removed 0,面板照常)。
-      await page.getByTestId('sandbox-sweep').click();
-      await expect(panel).toBeVisible();
+      // 先确认这一刻真的一个都没有 —— 否则下面断的是别的东西。
+      const list = await request.get(`${BACKEND}/api/admin/sandbox/workspaces`);
+      const { workspaces } = await list.json() as WorkspaceList;
+      expect(workspaces.length, 'precondition: 这一刻没有工作区').toBe(0);
+
+      await expect(
+        page.getByTestId('sandbox-sweep'),
+        '没有东西可扫的时候，这颗按钮不该看起来能做事',
+      ).toBeDisabled();
+      // 理由要在**屏幕上**，不是只挂在 title 里 —— 禁用的按钮 hover 都未必触发。
+      await expect(page.getByTestId('sandbox-empty')).toBeVisible();
+      await expect(page.getByTestId('sandbox-empty')).toContainText(/no workspaces/i);
     });
 });

@@ -32,7 +32,7 @@ import {
   setSandboxWorkspaceTTL, runSandboxWorkspaceSweep, listSandboxWorkspaces,
 } from '@/fixtures/sandbox';
 import { scriptMockToolCall, scriptMockReplyText } from '@/fixtures/mock-llm-script';
-import { enterCodeSession } from '@/fixtures/navigate';
+import { enterCodeSession, gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'wsttl@example.com',
@@ -47,6 +47,9 @@ const PLUGIN_ID = 'wsfs';
 
 let code = '';
 let request: APIRequestContext;
+
+// adminPage 要用 owner 的凭据登录 —— 这份 spec 以前只走 API 和访客那条路。
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -121,4 +124,40 @@ test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
     });
 
   test.afterAll(async () => { await request.dispose(); });
+});
+
+// F-E-26 的另一面。`admin-sandbox` 那条守的是「没有东西可扫时那颗按钮是禁用的」，
+// 而**只有这一面守不住**：把按钮永久禁用也能让它绿。这一条要的是有工作区时它真的能扫 ——
+// 而这份 spec 是这个仓库里唯一造得出真工作区的地方（一次真访客会话 + 一次真写文件）。
+// 接着上一组跑：上一条最后留下的正是一个新鲜的工作区。
+test.describe('sweep 那颗按钮在有东西可扫时是活的', () => {
+  // 自己开一个请求上下文：上一组在 afterAll 里把它那个关掉了。
+  let req: APIRequestContext;
+  test.beforeAll(async ({ playwright }) => { req = await playwright.request.newContext(); });
+  test.afterAll(async () => { await req.dispose(); });
+
+  test('有 workspace 时,面板上那颗 sweep 可点,而且点完真的扫掉了',
+    async ({ adminPage }) => {
+      test.setTimeout(90_000);
+      // 上一条留下一个新鲜的工作区；把 TTL 压到 0，让它变成「该扫的」。
+      const request = req;
+      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+      await setSandboxWorkspaceTTL(request, csrf, { seconds: 0 });
+      expect(
+        (await listSandboxWorkspaces(request)).length,
+        'precondition: 屏幕上要有东西可扫',
+      ).toBe(1);
+
+      await gotoAdminSection(adminPage, 'system');
+      const sweep = adminPage.getByTestId('sandbox-sweep');
+      await expect(sweep, '有工作区时这颗按钮该是活的').toBeEnabled({ timeout: 10_000 });
+      await sweep.click();
+
+      // 判的是**库那边真的少了一个**，不是屏幕上出现了一句 toast（[[nonunique-signal-not-a-receipt]]）。
+      await expect.poll(
+        async () => (await listSandboxWorkspaces(request)).length,
+        { timeout: 10_000, intervals: [250] },
+      ).toBe(0);
+      await expect(sweep, '扫完之后它自己变回禁用').toBeDisabled();
+    });
 });

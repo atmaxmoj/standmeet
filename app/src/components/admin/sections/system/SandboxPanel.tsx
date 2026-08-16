@@ -28,15 +28,17 @@ export function SandboxPanel() {
           这一块以前是个裸的 10px mono div，跟字段名同一号，扫页时看不出「这里开始新的一节」。 */}
       {/* 扫除按钮挂在标题那条线的右端（`aside`）—— 之前它在标题外面另起一个 flex 行，那条
           横线就只画到按钮前面为止，跟同一页另外五张卡的整幅横线对不上。
-          0 个 workspace 时这颗按钮点下去什么都不会发生 —— 那是 F-E-26，**不在设计列里改**：
-          禁用它会改变一条守卫断言的行为，而设计列的边界是「纯呈现，改完不需要动测试」
-          （[[设计列的边界]]）。这里只留 hover 时的一句说明，行为一个字没动。 */}
+          **没有 workspace 时它是禁用的**（F-E-26）：一颗永远可点、有时无事发生的按钮，
+          会把「没生效」教成正常（同族：F-C-24 画上去的 CONNECT、F-D-13 那颗访客看不见的
+          dock 按钮）。理由不只挂在 title 上 —— 禁用的按钮 hover 事件都未必来；
+          底下那块空态（`sandbox-empty`）本来就写着「现在一个都没有、什么时候会有」。 */}
       <AdminSectionHead
         className="mb-3"
         aside={
           <button
             className="sm-btn sm-btn-outline sm-btn-sm" type="button"
             data-testid="sandbox-sweep" onClick={onSweep}
+            disabled={sandbox.workspaces.length === 0}
             title={sandbox.workspaces.length === 0 ? t('sweepNothing') : undefined}
           >
             {t('sweepNow')}
