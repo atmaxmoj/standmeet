@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resume-draft/shots/thumb-truth",
+  "viewport": [1280, 1400],
+  "shots": [
+    {
+      "name": "dt-03-experience-panel",
+      "url": "/admin/drafts",
+      "wait": 4500,
+      "steps": [
+        { "click": "text=open composer →" },
+        { "wait": 2500 },
+        { "click": "button:text-is('experience')" },
+        { "wait": 1200 }
+      ]
+    }
+  ]
+}

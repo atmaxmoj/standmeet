@@ -116,7 +116,46 @@ test.describe('admin /drafts · composer live preview wires ResumePage', () => {
       expect(text, '没有履历就不该印 experience 这个标题').not.toContain('experience');
       expect(text, '没有学历就不该印 education 这个标题').not.toContain('education');
     });
+
 });
+
+// 空了之后**谁来补**（F-E-22）。起草那一步只认语料里带日期的条目,而 owner 的履历
+// 只以散文形态活着 —— 所以这一跳归 owner。原来产品里没有做这一跳的地方:
+// 面板上既没有一句说明,也没有一颗"加一条"的按钮,空着就只是空着。
+// 用上一组种下的那两份草稿(同一个实例,按文件顺序跑在它后面)。
+test.describe('履历空了之后谁来补', () => {
+  test('履历空的时候:面板说清这一跳归谁,而且真的加得进去',
+    async ({ adminPage }) => {
+      await openDrafts(adminPage);
+      // 第二张卡（Nadia）就是那份没有履历的草稿。
+      const card = adminPage.getByTestId('draft-thumb')
+        .filter({ hasText: 'nadia noon' }).first();
+      await expect(card).toBeVisible({ timeout: 5_000 });
+      await adminPage.getByText('open composer →').nth(await indexOfNadia(adminPage)).click();
+      const composer = adminPage.getByTestId('resume-composer');
+      await composer.getByRole('button', { name: 'experience', exact: true }).click();
+
+      const hint = composer.getByTestId('composer-exp-empty');
+      await expect(hint, '空面板要说清为什么空、以及空着会怎样').toBeVisible();
+      await expect(hint).toContainText('yours to write');
+      await expect(hint, '还要说清留空的后果').toContainText('left out of the document');
+
+      // 加一条,填进去,预览上要出现 —— 「说得出」还不够,得**做得到**。
+      await composer.getByTestId('composer-exp-add').click();
+      await composer.getByLabel('org').first().fill('Lucerna');
+      await expect(
+        composer.getByTestId('resume-page').first(),
+        '刚加的那条要出现在预览里',
+      ).toContainText('Lucerna', { timeout: 3_000 });
+    });
+});
+
+// indexOfNadia —— Nadia 那张卡在列表里的位置。卡片是 newest-first,而两份草稿
+// 是同一次 seed 建的,顺序不该靠猜。
+async function indexOfNadia(page: Page): Promise<number> {
+  const texts = await page.getByTestId('draft-thumb').allInnerTexts();
+  return texts.findIndex((t) => t.includes('nadia noon'));
+}
 
 async function seedDraft(playwright: Playwright): Promise<void> {
   resetInstance();

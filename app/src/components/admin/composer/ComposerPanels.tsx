@@ -4,11 +4,18 @@
 // ResumeComposer 持的 draft model。
 //
 // 设计源 docs/design/project/admin.js ResumeComposer。
-// experience / education 的 add/remove 这一版先用 push-only（不删，
-// 改 bullets 用 split-by-newline）；先把 UX 跑通，后续再加 inline ✕ 按钮。
+//
+// experience / education **加得进、删不掉**（删要等 inline ✕）。注释以前写着「push-only」，
+// 而实际上连 push 都没有：这两段是空的时候面板上什么都没有 —— 没有一条说明，也没有
+// 一颗按钮。而在这个实例上「空」是常态：起草那一步只认语料里带日期的条目，owner 的履历
+// 只以散文形态活着，于是它交回来的一直是空数组（F-E-22）。「这一跳该谁做」没有归属，
+// 是因为**产品里没有做这一跳的地方**。
 
 'use client';
 
+import {
+  AddBtn, EmptyHint, Field, Section, blankEducation, blankExperience,
+} from '@/components/admin/composer/ComposerAtoms';
 import { SelectField } from '@/components/atoms/SelectField';
 import type {
   DraftCustom,
@@ -139,12 +146,24 @@ function parseSkills(raw: string): string[] {
   return raw.split(/,\s*/).map((s) => s.trim()).filter((s) => s !== '');
 }
 
-function ExperiencePanel({ model, onPatchExp }: Props) {
+function ExperiencePanel({ model, onPatch, onPatchExp }: Props) {
   return (
     <Section title="experience" hint="most recent first · bullets one per line">
       {model.experience.map((e) => (
         <ExperienceItem key={e.id} exp={e} onPatch={onPatchExp} />
       ))}
+      <EmptyHint
+        show={model.experience.length === 0}
+        what="roles"
+        testid="composer-exp-empty"
+      />
+      <AddBtn
+        label="+ add a role"
+        testid="composer-exp-add"
+        onClick={() => onPatch({
+          experience: [...model.experience, blankExperience(model.experience.length)],
+        })}
+      />
     </Section>
   );
 }
@@ -195,12 +214,24 @@ function ExperienceItem({
   );
 }
 
-function EducationPanel({ model, onPatchEdu }: Props) {
+function EducationPanel({ model, onPatch, onPatchEdu }: Props) {
   return (
     <Section title="education" hint="institution · degree · range">
       {model.education.map((e) => (
         <EducationItem key={e.id} edu={e} onPatch={onPatchEdu} />
       ))}
+      <EmptyHint
+        show={model.education.length === 0}
+        what="schools"
+        testid="composer-edu-empty"
+      />
+      <AddBtn
+        label="+ add a school"
+        testid="composer-edu-add"
+        onClick={() => onPatch({
+          education: [...model.education, blankEducation(model.education.length)],
+        })}
+      />
     </Section>
   );
 }
@@ -324,30 +355,3 @@ function CoverPanel({ model, onPatch }: Props) {
   );
 }
 
-function Section({
-  title, hint, children,
-}: { title: string; hint: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-4">
-      <header>
-        <div className="sm-smallcaps">{title}</div>
-        <p className="sm-reading text-(--color-muted) text-[13.5px] mt-1">{hint}</p>
-      </header>
-      <div className="space-y-4">{children}</div>
-    </section>
-  );
-}
-
-function Field({
-  label, hint, children,
-}: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <label className="sm-field">
-      <span className="sm-field-label">
-        {label}
-        {hint && <span className="sm-field-hint">{hint}</span>}
-      </span>
-      {children}
-    </label>
-  );
-}
