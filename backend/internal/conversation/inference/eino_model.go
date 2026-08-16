@@ -41,6 +41,18 @@ const (
 	providerAnthrop  = "anthropic"
 )
 
+// BoundaryMaxTokens —— 边界那一次合成（forceFinalAnswer）自己的输出预算。
+//
+// **为什么它不能用默认那个 4096**：prod 上驱 F-A-40 的 ⑤ 时量到的 —— 边界确实点着了
+// （`forcing synthesis from evidence evidence_items:24`），40 秒之后回来的却是**空串、
+// 没有报错**，于是那一轮照旧 `answer_chars:0`。owner 这台用的是 reasoning 模型
+// （deepseek-v4-pro），思考 token 跟正文共用同一个输出预算：让它把二十多条证据合成成
+// 一段话，4096 全花在思考上，content 一个字都没剩。
+//
+// 这正是这条缺陷自己的道理**又发生了一遍**：任何预算都会被耗尽，所以救场的那一步
+// 不能跟它要救的那一步共用同一个额度。边界给自己一份更大的。
+const BoundaryMaxTokens = 12288
+
 // BuildChatModel —— 按 cred 选具体 adapter。anthropic 走自家
 // Messages API；其它 provider (deepseek / kimi / groq / together /
 // openrouter / siliconflow / custom self-host) 全走 openai-compat
@@ -48,19 +60,39 @@ const (
 //
 //nolint:ireturn // dispatch by provider; caller 持 model.ToolCallingChatModel interface
 func BuildChatModel(ctx context.Context, cred *Cred) (model.ToolCallingChatModel, error) {
+	return BuildChatModelBudgeted(ctx, cred, 0)
+}
+
+// BuildChatModelBudgeted —— 同上，但调用方可以指定这一次的输出预算（0 = 用默认）。
+// 只有边界那次合成需要它（见 BoundaryMaxTokens）：其余每一处都该用同一个默认值，
+// 不然「一次回答能有多长」就变成散落各处的常数了。
+//
+//nolint:ireturn // dispatch by provider; caller 持 model.ToolCallingChatModel interface
+func BuildChatModelBudgeted(
+	ctx context.Context, cred *Cred, maxTokens int,
+) (model.ToolCallingChatModel, error) {
 	if err := checkCredBasics(cred); err != nil {
 		return nil, err
 	}
 	if verr := validateUntrustedEndpoint(ctx, cred); verr != nil {
 		return nil, verr
 	}
+	tok := outputBudget(maxTokens)
 	if cred.Provider == providerAnthrop {
-		return buildClaudeModel(ctx, cred)
+		return buildClaudeModel(ctx, cred, tok)
 	}
 	if _, known := Lookup(cred.Provider); !known {
 		return nil, fmt.Errorf("eino: unknown provider %q", cred.Provider)
 	}
-	return buildOpenAICompatModel(ctx, cred)
+	return buildOpenAICompatModel(ctx, cred, tok)
+}
+
+// outputBudget —— 调用方给了就用它，没给就用默认。「一次回答能有多长」只在这里定一次。
+func outputBudget(requested int) int {
+	if requested > 0 {
+		return requested
+	}
+	return defaultMaxTokens
 }
 
 func checkCredBasics(cred *Cred) error {
@@ -87,11 +119,13 @@ func validateUntrustedEndpoint(ctx context.Context, cred *Cred) error {
 }
 
 //nolint:ireturn // dispatch helper returns the interface BuildChatModel exposes
-func buildClaudeModel(ctx context.Context, cred *Cred) (model.ToolCallingChatModel, error) {
+func buildClaudeModel(
+	ctx context.Context, cred *Cred, maxTok int,
+) (model.ToolCallingChatModel, error) {
 	cfg := &claude.Config{
 		APIKey:    cred.Key,
 		Model:     cred.Model,
-		MaxTokens: defaultMaxTokens,
+		MaxTokens: maxTok,
 	}
 	if cred.Endpoint != "" {
 		ep := cred.Endpoint
@@ -105,8 +139,9 @@ func buildClaudeModel(ctx context.Context, cred *Cred) (model.ToolCallingChatMod
 }
 
 //nolint:ireturn // dispatch helper returns the interface BuildChatModel exposes
-func buildOpenAICompatModel(ctx context.Context, cred *Cred) (model.ToolCallingChatModel, error) {
-	maxTok := defaultMaxTokens
+func buildOpenAICompatModel(
+	ctx context.Context, cred *Cred, maxTok int,
+) (model.ToolCallingChatModel, error) {
 	cfg := &openai.ChatModelConfig{
 		APIKey:    cred.Key,
 		Model:     cred.Model,

@@ -226,12 +226,35 @@ func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
 	if scripted, scriptedStop, ok := s.queue.takeReplyFor(req.markerText()); ok {
 		text, stop = scripted, scriptedStop
 	}
+	// **空正文 + max_tokens 是真厂商做得出来的事**：预算全花在工具调用上时，
+	// Anthropic 关流时一个 text block 都不发（prod 上量到过：`stop=max_tokens
+	// answer_chars=0`，51 次检索之后访客一个字没拿到 —— F-A-40）。
+	// 这里以前无条件走 composeFinalReply，于是**这个 mock 比真厂商客气**：哪怕脚本
+	// 写的是空串，它也会回一大段 `[system:…]` 回声，那条路上的边界因此永远测不出来
+	// （[[stand-in-is-politer-than-reality]]）。规则收窄成「脚本明确要空正文 + 预算
+	// 用完」这一种，别的调用照旧带回声。
+	if text == "" && stop == stopMaxTokens {
+		s.emitEmptyBudgetStop(sse)
+		return
+	}
 	text = composeFinalReply(req, text)
 	if err := emitTextBlock(sse, 0, text); err != nil {
 		s.log.Warn("emit text", "err", err)
 		return
 	}
 	if err := emitMessageDelta(sse, stop); err != nil {
+		s.log.Warn("emit message_delta", "err", err)
+		return
+	}
+	if err := emitMessageStop(sse); err != nil {
+		s.log.Warn("emit message_stop", "err", err)
+	}
+}
+
+// emitEmptyBudgetStop —— 收流,但一个 text block 都不发。见 emitFinalReply 里的注释:
+// 这是真厂商在「预算全花在工具调用上」时的收场形状。
+func (s *server) emitEmptyBudgetStop(sse *sseWriter) {
+	if err := emitMessageDelta(sse, stopMaxTokens); err != nil {
 		s.log.Warn("emit message_delta", "err", err)
 		return
 	}

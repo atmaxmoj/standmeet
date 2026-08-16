@@ -106,12 +106,66 @@ func evidenceDigest(ev []gatheredEvidence, total int) string {
 // logTurnStop —— 这一轮**为什么**结束。属于这个文件而不是驱动那边：这是预算耗尽的
 // 第四种情形，而这份文件正是「预算只是一半，边界是另一半」的那一半。
 //
-// 前三种（迭代、超时、终止错误）都有 handleTerminalError / forceFinalAnswer 收口。
-// 第四种 —— 模型自己的**输出预算**用完 —— 不是 error：流正常关闭，正文停在半句上。
-// 于是它在日志里跟说完了的 turn 一模一样，owner 事后判不出来（F-A-34）。记下来，
-// 访客那一侧则由 done 帧的 stop_reason 挂出「这条没说完」。
+// 前三种（迭代、超时、终止错误）走 handleTerminalError / forceFinalAnswer 收口。
+// 第四种 —— 模型自己的**输出预算**用完 —— 不是 error：流正常关闭，正文停在半句上，
+// 甚至一个字都没有。它在日志里曾经跟说完了的 turn 一模一样（F-A-34 把它记了下来），
+// 而**收口是这一轮才补的**（F-A-40，见 ensureProduct）。`recovered` 一起记：
+// 「预算用完了」和「预算用完但我们把答案救回来了」是两回事。
 func logTurnStop(log *slog.Logger, state *turnState) {
-	log.Info("agent turn stop", "stop", state.stop, "answer_chars", len(state.product))
+	log.Info("agent turn stop",
+		"stop", state.stop, "answer_chars", len(state.product), "recovered", state.recovered)
+}
+
+// ensureProduct —— **第四条路的边界**：流正常结束，而访客一个字都没拿到（F-A-40）。
+//
+// prod 上驱出来的样子：`SEARCHED 51 · READ 4` → 正文空白 → 一句「this answer was cut
+// short — ask for the rest」，而根本没有 rest。日志是 `stop=max_tokens answer_chars=0`：
+// 没撞超时、没撞迭代上限，是模型把**自己的输出预算**全花在工具调用上，一个字没写。
+// 那不是 error，所以它绕过了 handleTerminalError，直接硬停。
+//
+// 判据第一句写着「**The boundary is engineered; a bigger budget is not a boundary**」——
+// 而这条路上以前只有预算。这里补的就是那个边界：**证据早就攒好了**（51 次检索的结果都在
+// `state.evidence` 里），所以走跟其它三条完全相同的收口 —— 一次无 tool 的合成。
+//
+// 条件写成 `product == ""` 而不是 `stop == "max_tokens"`：任何「正常收场却没有产物」的
+// 结局都该被这道边界接住，而不是等下一种 finish_reason 出现时再补一遍
+// （[[lesson-not-swept-to-neighbours]]）。
+func ensureProduct(ctx context.Context, em *loopEmit, state *turnState) {
+	if state.product != "" || state.forcedFinal {
+		return
+	}
+	// 一次 tool 都没跑过、也没有任何证据：模型是**什么都没做就空手收场**。再发一次合成
+	// 也只是让访客多等一次往返 —— 这跟 surfaceInsteadOfForce 里那条「provider 挂了就别
+	// 再拖」是同一个判断。
+	if len(state.evidence) == 0 {
+		em.log.Warn("agent turn ended with no answer and no evidence", "stop", state.stop)
+		return
+	}
+	em.log.Warn("agent turn ended with no answer; forcing synthesis from evidence",
+		"stop", state.stop, "evidence_items", len(state.evidence))
+	recovered := forceFinalAnswer(ctx, em, state)
+	if recovered == "" {
+		return
+	}
+	em.sink.Text(recovered)
+	state.assistantText += recovered
+	state.product += recovered
+	state.recovered = true
+}
+
+// doneStop —— 交给访客那一侧的收场词。
+//
+// 救回来之后**不能再说 max_tokens**：浏览器把它渲成「this answer was cut short — ask for
+// the rest」，而现在有答案、也没有「rest」可问了（那句话本身也是 F-A-35 记的那半句错）。
+// 日志那边照旧记真实的 stop + recovered，两个读者要的东西不一样。
+//
+// **claim gate 的判决压过它**：那一轮说自己办成了一件事而拿不出回执（F-A-37），
+// 这件事跟答案是不是救回来的无关，访客那一侧必须照旧收到 claim_unbacked。
+func doneStop(state *turnState) string {
+	if state.recovered && state.stop != StopClaimUnbacked {
+		return "end_turn"
+	}
+	return state.stop
 }
 
 // recordTurnUsage —— #106: turn 收尾把累计 token 交给注入的 RecordUsage(有 cred/model + 有用量时)。
@@ -150,10 +204,12 @@ func handleTerminalError(
 	// this also covers the no-text cases (hallucinated tool name, mid-stream blip).
 	em.log.Warn("agent turn forcing final answer", logErrKey, err,
 		"evidence_items", len(state.evidence))
+	state.forcedFinal = true // ensureProduct 不再补第二次(那只是多一次往返)
 	if recovered := forceFinalAnswer(ctx, em, state); recovered != "" {
 		em.sink.Text(recovered)
 		state.assistantText += recovered
 		state.product += recovered // the forced synthesis IS the answer
+		state.recovered = true
 		return false
 	}
 	if maxIter {
@@ -211,7 +267,12 @@ func forceFinalAnswer(ctx context.Context, em *loopEmit, state *turnState) strin
 		})
 	}
 	sys := em.in.Req.System + forceFinalNudge(len(state.evidence))
-	out, err := Generate(ctx, em.in.Cred, &ChatRequest{System: sys, Messages: msgs})
+	// 自己的输出预算（BoundaryMaxTokens）：默认那个 4096 在 reasoning 模型上会被思考
+	// token 吃干净 —— prod 上量到过，边界点着了、40 秒之后回来一个空串、没有报错。
+	// 救场的那一步不能跟它要救的那一步共用同一个额度（F-A-40 的 ⑤）。
+	out, err := Generate(ctx, em.in.Cred, &ChatRequest{
+		System: sys, Messages: msgs, MaxTokens: BoundaryMaxTokens,
+	})
 	if err != nil {
 		em.log.Warn("agent turn force-final generate", logErrKey, err)
 		return ""

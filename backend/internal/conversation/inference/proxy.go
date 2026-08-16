@@ -47,11 +47,15 @@ import (
 )
 
 // ChatRequest —— 浏览器 POST 的 body。
+// MaxTokens —— 这一次调用的输出预算（0 = 用默认那个）。只有 turn 的边界合成会设它：
+// 它要在一个 reasoning 模型上把二十多条证据合成成一段话，而默认额度会被思考 token
+// 吃干净、正文回来是空的（F-A-40 的 ⑤ 在 prod 上量到的）。
 type ChatRequest struct {
-	System   string            `json:"system"`
-	Model    string            `json:"model,omitempty"`
-	Messages []ChatRequestMsg  `json:"messages"`
-	Tools    []ChatRequestTool `json:"tools,omitempty"`
+	System    string            `json:"system"`
+	Model     string            `json:"model,omitempty"`
+	Messages  []ChatRequestMsg  `json:"messages"`
+	Tools     []ChatRequestTool `json:"tools,omitempty"`
+	MaxTokens int               `json:"max_tokens,omitempty"`
 }
 
 // ChatRequestMsg —— pi 风格平字符串消息。assistant 调 tool 时把 tool_calls

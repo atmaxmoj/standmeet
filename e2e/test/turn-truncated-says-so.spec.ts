@@ -25,7 +25,9 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { scriptMockReplyText, scriptMockReplyTruncated } from '@/fixtures/mock-llm-script';
+import {
+  scriptMockReplyText, scriptMockReplyTruncated, scriptMockToolCall,
+} from '@/fixtures/mock-llm-script';
 import { enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -70,6 +72,47 @@ test.describe('F-A-34 · a turn cut short by the output budget says so', () => {
         .toBeVisible({ timeout: 20_000 });
       expect(await notice.count(),
         'a complete answer adds no cut-short notice of its own').toBe(1);
+
+      await request.dispose();
+    });
+
+  // F-A-40 —— 同一条路的**更狠的一头**：预算用完时正文是**空的**。
+  //
+  // prod 上真模型驱出来的样子：`SEARCHED 51 · READ 4` → 正文空白 → 一句「this answer was
+  // cut short — ask for the rest」，而根本没有 rest。日志 `stop=max_tokens answer_chars=0`：
+  // 没撞超时、没撞迭代上限，是模型把**自己的输出预算**全花在工具调用上，一个字没写。
+  // 那不是 error，所以它绕开了 handleTerminalError 那道收口 —— 这条路上以前只有预算，
+  // 没有边界，而判据第一句就写着「the boundary is engineered; a bigger budget is not one」。
+  //
+  // 这里造的正是那个形状：先跑一次真检索（于是证据在手），再让那一轮以 max_tokens + 空正文
+  // 收场。断言访客**拿到了一个答案**（边界那次无 tool 合成的产物），而不是一句
+  // 「去问剩下的」。
+  test('预算用完、一个字都没写的那一轮:访客拿到的是答案,不是一句「去问剩下的」',
+    async ({ page, playwright }) => {
+      const request = await playwright.request.newContext();
+      await enterCodeSession(page, CODE, 'Reader');
+
+      const toolTag = await scriptMockToolCall(request, {
+        name: 'corpus_search', args: { query: 'voice' },
+      });
+      // 空正文 + max_tokens：模型把预算全花在工具上了。
+      const emptyTag = await scriptMockReplyTruncated(request, '');
+      await ask(page, `crawl everything about voice ${toolTag}${emptyTag}`);
+
+      // 边界那一次合成没有脚本可用 → mock 回默认那句。**有字**才是这条要证的东西。
+      // 取**最后一条**：这一屏上还有进场时那条欢迎语，`answer-body` 不止一个。
+      //
+      // 判据落在**边界那次合成的指纹**上，而不是「屏幕上有字」：mock 会把 system 原样回声，
+      // 而只有强制收口那一次的 system 里带着那句 nudge（`forceFinalNudge`）。
+      // 光断「非空」的话，将来哪天正常那一轮漏出半句也能让它绿。
+      await expect(
+        page.getByTestId('answer-body').last(),
+        '预算用完不等于访客空手而归 —— 证据都在手上,边界要把它合成成一个答案',
+      ).toContainText('used your search budget for this turn', { timeout: 30_000 });
+      expect(
+        await page.getByTestId('answer-partial-notice').count(),
+        '救回来之后不该再说「这条没说完、去问剩下的」—— 没有剩下的',
+      ).toBe(0);
 
       await request.dispose();
     });

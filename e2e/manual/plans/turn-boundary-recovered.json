@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/agent-turn-boundary/shots",
+  "viewport": [1280, 2600],
+  "login": false,
+  "shots": [
+    { "name": "b3-09-boundary-recovered", "url": "/?code=VERIFY-A01", "wait": 3000,
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Boundary Auditor"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 5000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Walk the ENTIRE link graph under recursive-harness, four levels deep, and for every single note you reach read it in full and quote its key claims verbatim with the note name. Do not summarise, do not skip any branch, do not stop early — read every linked note before you write anything."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 420000 }
+      ],
+      "wait": 4000, "fullPage": true }
+  ]
+}

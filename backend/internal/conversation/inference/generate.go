@@ -15,7 +15,7 @@ import (
 // Generate —— build ChatModel + run Generate；返 assistant content。
 // Tools 字段允许带 (eino 会发给上游)，但目前 visitor_summary 不带。
 func Generate(ctx context.Context, cred *Cred, req *ChatRequest) (string, error) {
-	cm, err := BuildChatModel(ctx, pickModelCred(cred, req.Model))
+	cm, err := BuildChatModelBudgeted(ctx, pickModelCred(cred, req.Model), req.MaxTokens)
 	if err != nil {
 		return "", fmt.Errorf("eino: build chat model: %w", err)
 	}
