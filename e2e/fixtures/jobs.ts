@@ -41,9 +41,21 @@ interface SourceFailureView {
   kind: string;
   reason: string;
 }
+// SourceTallyView —— 一个源这一趟的账。没有它，一次取数的结果读不出发生了什么：
+// 「HN 回了 1 条」在回执里跟「取数一路失败被静默跳过」长得一模一样（F-E-19）。
+interface SourceTallyView {
+  source_id: string;
+  label: string;
+  kind: string;
+  seen: number;
+  pooled: number;
+  duplicate: number;
+}
 export interface JobsFetchResp {
   jobs: FetchedJobView[];
   failed_sources?: SourceFailureView[];
+  sources?: SourceTallyView[];
+  cross_source_dropped?: number;
 }
 export interface OkResp { ok: boolean }
 

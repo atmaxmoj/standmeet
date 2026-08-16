@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -63,18 +64,34 @@ func (f *hnHiringFetcher) Fetch(
 	return f.collectComments(ctx, thread, threadID), nil
 }
 
+// collectComments —— 逐条取顶层评论。**每一次跳过都要数，而且要按原因数**。
+//
+// 这里原来是 `if ferr != nil || !isPostingComment(comment) { continue }` —— 一次**取数失败**
+// 和一条**被删的评论**走同一条 `continue`，不计数也不记日志。于是「今天真没人招」
+// 「firebase 把我们限流了」「判定条件写错了」三件事产出完全相同的回执：一个数字。
+// 真实环境里就是这样：8 月那帖 262 条顶层评论，池子里进了 **1** 条，而没有任何一处
+// 说得出另外那些去哪了（F-E-19）。数出来、记下来，就不必推理。
 func (f *hnHiringFetcher) collectComments(
 	ctx context.Context, thread *hnItem, threadID int64,
 ) []jobsmodel.FetchedJob {
 	limit := min(len(thread.Kids), hnMaxComments)
 	out := make([]jobsmodel.FetchedJob, 0, limit)
+	failed, dropped := 0, 0
 	for i := range limit {
 		comment, ferr := f.fetchItem(ctx, thread.Kids[i])
-		if ferr != nil || !isPostingComment(comment) {
+		if ferr != nil {
+			failed++
+			continue
+		}
+		if !isPostingComment(comment) {
+			dropped++
 			continue
 		}
 		out = append(out, hnCommentToDomain(comment, threadID))
 	}
+	slog.InfoContext(ctx, "hn hiring thread walked",
+		"thread", threadID, "kids", len(thread.Kids), "read", limit,
+		"kept", len(out), "fetch_failed", failed, "deleted_or_empty", dropped)
 	return out
 }
 

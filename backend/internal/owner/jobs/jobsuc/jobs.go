@@ -91,6 +91,29 @@ func UnregisterJobSource(
 type FetchResult struct {
 	Jobs     []jobsmodel.FetchedJob
 	Failures []SourceFailure
+	// Tallies —— 每个源这一次的账。**没有它，一次取数的结果就无法被判读**：
+	// 「HN 回了 1 条」可能是今天真没人招、可能是被限流、可能是判定条件写错，三者
+	// 产出完全相同的回执（F-E-19）；「greenhouse 回 435 而板子说 441」也没有一处
+	// 说得出那 6 条去哪了。数出来，就不必推理。
+	Tallies []SourceTally
+	// CrossSourceDropped —— 跨源去重挡掉的条数。判据 check 2 问的正是这件事
+	// （同一条 posting 从两个源来只留一行），而它以前只能靠「池子总数比两源之和小」
+	// 这种算术去推 —— 推出来的结论不算驱过。
+	CrossSourceDropped int
+}
+
+// SourceTally —— 一个源这一次取数的账：上游给了几条、真进池子几条、被按源去重挡掉几条。
+//
+// `Seen` 是 adapter 交回来的条数（它自己内部跳过的另算，见各 adapter）；`Pooled` 是这次
+// 真正新写进池子的；`Duplicate` = 之前已经见过的同一条。三个数放在一起才回答得了
+// 「这次取数到底发生了什么」。
+type SourceTally struct {
+	SourceID  string `json:"source_id"`
+	Label     string `json:"label"`
+	Kind      string `json:"kind"`
+	Seen      int    `json:"seen"`
+	Pooled    int    `json:"pooled"`
+	Duplicate int    `json:"duplicate"`
 }
 
 // SourceFailure —— 某一个源没抓成，其余源照常。带上 owner 认得出来的东西（label / kind），
@@ -125,20 +148,26 @@ func FetchNewJobs(
 	}
 	var allNew []jobsmodel.FetchedJob
 	var failures []SourceFailure
+	var tallies []SourceTally
 	for i := range sources {
-		nu, ferr := fetchOneSourceAndDedup(ctx, deps, &sources[i])
+		run, ferr := fetchOneSourceAndDedup(ctx, deps, &sources[i])
 		if ferr != nil {
 			failures = append(failures, failureOf(&sources[i], ferr))
 			continue
 		}
-		allNew = append(allNew, nu...)
+		allNew = append(allNew, run.jobs...)
+		tallies = append(tallies, run.tally)
 	}
 	// J.6c: 跨源去重 (canonical URL + composite key)。在 fetchOneSourceAndDedup
 	// 的 per-source seen-by-external-id 之上再加一层 — 那层只防同一 source
 	// 内的重复 post，cross-source 用 ATS namespace 不同的 external_id 就漏。
 	// 此处不动 per-source seen 记录 (那条仍按 fetcher 返的 ID 标 seen)，
 	// 只对 visible-to-Claude 的 surface 做去重。
-	return FetchResult{Jobs: dedup.Apply(allNew), Failures: failures}, nil
+	visible := dedup.Apply(allNew)
+	return FetchResult{
+		Jobs: visible, Failures: failures, Tallies: tallies,
+		CrossSourceDropped: len(allNew) - len(visible),
+	}, nil
 }
 
 // failureOf —— 把一个源的失败写成 owner 能据以行动的一行。
@@ -170,18 +199,32 @@ func selectSourcesToFetch(
 	return list, nil
 }
 
+// sourceRun —— 一个源跑完的两样东西：进池子的行，和这一趟的账。
+// 收成一个结构而不是多返一个值，理由跟 FetchResult 一样：两半必须一起被接住。
+type sourceRun struct {
+	jobs  []jobsmodel.FetchedJob
+	tally SourceTally
+}
+
 func fetchOneSourceAndDedup(
 	ctx context.Context, deps JobsDeps, src *jobsmodel.JobSource,
-) ([]jobsmodel.FetchedJob, error) {
+) (sourceRun, error) {
 	raw, err := fetchAndStampSourceID(ctx, deps, src)
 	if err != nil {
-		return nil, err
+		return sourceRun{}, err
 	}
 	newJobs, err := keepUnseen(ctx, deps, src.ID, raw)
 	if err != nil {
-		return nil, err
+		return sourceRun{}, err
 	}
-	return persistNewJobs(ctx, deps, src, newJobs)
+	pooled, err := persistNewJobs(ctx, deps, src, newJobs)
+	if err != nil {
+		return sourceRun{}, err
+	}
+	return sourceRun{jobs: pooled, tally: SourceTally{
+		SourceID: src.ID, Label: src.Label, Kind: src.Kind,
+		Seen: len(raw), Pooled: len(pooled), Duplicate: len(raw) - len(newJobs),
+	}}, nil
 }
 
 func persistNewJobs(

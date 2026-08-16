@@ -224,8 +224,16 @@ func (c *jobsCapability) handleFetchNew(
 	}
 	// failures 跟 jobs 一起返回,**不是**换成一个 error:一个源的错 token 不该把另外六个源
 	// 抓到的东西扔掉。owner 需要同时知道「拿到了什么」和「哪个源没成、为什么」。
-	return mcputil.MarshalResult(c.log, "jobs.fetch_new",
-		map[string]any{"jobs": fetchedJobViews(res.Jobs), "failed_sources": res.Failures})
+	//
+	// `sources` 那份账是第三件必需品：光看 jobs 的条数，**读不出**「HN 回了 1 条」是
+	// 今天真没人招、还是取数一路失败被静默跳过（F-E-19）。每个源报 seen/pooled/duplicate，
+	// 再加一个跨源去重挡掉了几条 —— 判据 check 2 问的正是最后那个数。
+	return mcputil.MarshalResult(c.log, "jobs.fetch_new", map[string]any{
+		"jobs":                 fetchedJobViews(res.Jobs),
+		"failed_sources":       res.Failures,
+		"sources":              res.Tallies,
+		"cross_source_dropped": res.CrossSourceDropped,
+	})
 }
 
 // ───── jobs.show ────────────────────────────────────────────────

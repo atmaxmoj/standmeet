@@ -62,5 +62,23 @@ test.describe('jobs.fetch_new cross-source dedup', () => {
       // company_name 是 Greenhouse 那条的；JBA fixture 写的是 "beta-labs"，
       // GH 写的也是 "beta-labs"。两者一致是巧合；这里只断保留的就是 GH 那条。
       expect(overlap[0]?.company).toBe('beta-labs');
+
+      // **去重要有回执**（F-E-19）。以前判「跨源去重成立了吗」只能靠 6 < 2+5 这种算术，
+      // 而算术推出来的结论不算驱过 —— 真实环境里 435 vs 441 那 6 条差额就是这么无从解释的。
+      // 现在产品自己说：每个源 seen/pooled，外加跨源挡掉了几条。
+      expect(fetched.cross_source_dropped, '同一条 URL 从两个源来，要报「挡掉了 1 条」')
+        .toBe(1);
+      const tallies = fetched.sources ?? [];
+      expect(tallies, '两个源各要有一份账').toHaveLength(2);
+      const gh = tallies.find((t) => t.kind === 'greenhouse');
+      const jba = tallies.find((t) => t.kind === 'jba');
+      expect(gh?.seen, 'greenhouse 上游给了 2 条').toBe(2);
+      expect(gh?.pooled, '两条都是新的').toBe(2);
+      expect(jba?.seen, 'jba 上游给了 5 条').toBe(5);
+      expect(jba?.pooled, '五条对这个源来说都是新的（跨源那一层在池子之后）').toBe(5);
+      // seen 之和 - 跨源挡掉 = 屏幕上看到的条数。这一行让三个数互相咬住，
+      // 少报或多报任何一个都会红。
+      expect((gh?.seen ?? 0) + (jba?.seen ?? 0) - (fetched.cross_source_dropped ?? 0))
+        .toBe(fetched.jobs.length);
     });
 });

@@ -55,8 +55,14 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
     });
     const fetched = await jobsFetchNew(request, token, sid);
     const hn = fetched.jobs.filter((j) => j.source_kind === 'hn_hiring');
-    // 前置条件要能红：fixture 没被取到的话，下面的循环一次都不跑，断言就永远绿。
-    expect(hn.length, 'precondition: the HN fixture produced postings').toBeGreaterThan(0);
+    // 前置条件要**准确**，不是 `> 0`。这一帖的 fixture 有 8 条顶层评论、没有一条被删，
+    // 所以应当是 8 条。`toBeGreaterThan(0)` 在真实环境里眼睁睁放过了一次
+    // **98 条塌成 1 条**（F-E-24）：HN 的 URL 是 `item?id=…`，而跨源去重的 canonical
+    // key 把 query string 整个丢掉，于是全帖每一条的 key 都是同一个
+    // `https://news.ycombinator.com/item`（[[assertion-that-cannot-fail]]）。
+    expect(hn, '这一帖 fixture 的 8 条顶层评论都要活下来').toHaveLength(8);
+    const urls = new Set(hn.map((j) => j.url));
+    expect(urls.size, '每条各有各的 URL（塌成一条的话这里是 1）').toBe(8);
 
     for (const j of hn) {
       expectReadable(`hn title (${j.cache_id})`, j.title);

@@ -74,6 +74,14 @@ func dropDuplicate(
 // 真实碰撞场景：JBA 把 Greenhouse 抓的 absolute_url 透传出来，跟 owner
 // 直接注册的 Greenhouse source 自己拉到的 absolute_url 一字不差。L1 就抓
 // 这条直球。
+// canonicalURL —— L1 的键。**query string 不能整个丢掉**：有的板子把岗位的身份放在
+// query 里（HN 的 `item?id=49315850`），丢掉之后同一帖的每一条都变成同一个键
+// `https://news.ycombinator.com/item`，于是**整帖塌成一条**。真环境里就是这样：
+// 一次抓回 98 条，屏幕上只剩 1 条（F-E-24）。
+//
+// 所以只剥**追踪参数**（utm_*、gh_src 这类跟身份无关的），其余按 key 排序后留下。
+// 剥不掉的那种微差（Greenhouse 的 `gh_jid`）本来就该由 L2 的 composite key 兜住 ——
+// 这个包顶上的注释写的正是这个分工。
 func canonicalURL(raw string) string {
 	if raw == "" {
 		return ""
@@ -83,7 +91,30 @@ func canonicalURL(raw string) string {
 		return ""
 	}
 	path := strings.TrimRight(u.Path, "/")
-	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host) + path
+	base := strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host) + path
+	if q := identifyingQuery(u); q != "" {
+		return base + "?" + q
+	}
+	return base
+}
+
+// trackingParams —— 跟岗位身份无关的 query 参数，比键的时候剥掉。
+var trackingParams = map[string]bool{
+	"utm_source": true, "utm_medium": true, "utm_campaign": true,
+	"utm_term": true, "utm_content": true,
+	"gh_src": true, "source": true, "ref": true, "src": true,
+}
+
+// identifyingQuery —— 去掉追踪参数、按 key 排序后的 query。排序是为了让
+// `?a=1&b=2` 和 `?b=2&a=1` 得到同一个键。
+func identifyingQuery(u *url.URL) string {
+	q := u.Query()
+	for k := range q {
+		if trackingParams[strings.ToLower(k)] {
+			q.Del(k)
+		}
+	}
+	return q.Encode() // Encode 本身就按 key 排序
 }
 
 // compositeKey —— normalize(company) "::" normalize(title) "::" bucket(location)。
