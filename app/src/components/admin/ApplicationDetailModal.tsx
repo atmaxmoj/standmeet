@@ -6,14 +6,17 @@
 
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { ResumePage } from '@/components/admin/resume-page/ResumePage';
 import {
   SUBMISSION_STATES,
   timelineFor,
   type Application,
   type TimelineEvent,
 } from '@/lib/admin/applications-model';
+import { draftToJobContext, draftToResumeContent } from '@/lib/admin/draft-model';
 
 interface Props {
   app: Application;
@@ -155,49 +158,77 @@ function NotesBlock({ notes }: { notes: string }) {
   );
 }
 
+// SNAPSHOT_SCALE_SMALL / _FULL —— 卡片里那张缩小的存档页，和「看大一点」之后的样子。
+// 不开新窗口、也不下载：内容就在手上，放大是纯呈现。
+const SNAPSHOT_SCALE_SMALL = 0.42;
+const SNAPSHOT_SCALE_FULL = 0.92;
+
 function RightCol({
   app, state,
 }: {
   app: Application;
   state: string;
 }) {
+  const [full, setFull] = useState(false);
   return (
     <div>
-      <ResumeSnapshot app={app} />
-      <SnapshotActions />
+      <ResumeSnapshot app={app} scale={full ? SNAPSHOT_SCALE_FULL : SNAPSHOT_SCALE_SMALL} />
+      <SnapshotActions full={full} onToggle={() => { setFull(!full); }} />
       <StatusBlock state={state} />
     </div>
   );
 }
 
-function ResumeSnapshot({ app }: { app: Application }) {
+// ResumeSnapshot —— **发出去的那一份，画出来**。
+//
+// 这块以前是一个标题 + 一条横线 + 一行 `resumeDelta`，而那个字段在前端只被赋成空串：
+// 于是「我到底发出去了什么」在整个产品里没有一处能回答（F-E-23）。内容一直都在申请行里
+// （commit 那一刻的 PDF 就是从它渲的），缺的只是把它渲出来 —— 用的还是同一个
+// `ResumePage`，跟 composer 预览、跟真 PDF 是同一个组件，所以这里看到的就是寄出去的样子。
+function ResumeSnapshot({ app, scale }: { app: Application; scale: number }) {
   const t = useTranslations('adminJobs');
   return (
     <section>
       <div className="sm-smallcaps">{t('detail.snapshotHead')}</div>
-      <div className="sm-app-snapshot mt-1.5">
-        <div className="font-serif text-[18px] font-medium">{t('detail.resume')}</div>
-        <div className="mono text-[9px] text-(--color-muted) tracking-[0.06em] mt-0.5">
-          {t('detail.tailoredFor', { company: app.company, role: app.role })}
-        </div>
-        <hr className="border-(--color-rule) my-2.5" />
-        <p className="font-serif italic text-(--color-accent) text-[12px] leading-[1.4]">
-          {app.resumeDelta}
-        </p>
+      <div className="mono text-[9px] text-(--color-muted) tracking-[0.06em] mt-0.5">
+        {t('detail.tailoredFor', { company: app.company, role: app.role })}
+      </div>
+      <div className="mt-1.5 overflow-auto" data-testid="application-resume-snapshot">
+        <ResumePage
+          content={draftToResumeContent(app.resumeContent)}
+          job={draftToJobContext(app.resumeContent)}
+          qrURL={SNAPSHOT_QR_URL}
+          pageIndex={0}
+          pageCount={1}
+          scale={scale}
+        />
       </div>
     </section>
   );
 }
 
-function SnapshotActions() {
+// SNAPSHOT_QR_URL —— 这里画的是**存档**，不是要再发一次的文件。真 PDF 上那颗 QR 指向
+// 这次申请自己的 access code，而 code 的明文只在 commit 那一刻存在过一次；这里放一个
+// 说明性的占位，不假装它是可扫的。
+const SNAPSHOT_QR_URL = '';
+
+function SnapshotActions(
+  { full, onToggle }: { full: boolean; onToggle: () => void },
+) {
   const t = useTranslations('adminJobs');
   return (
     <div className="flex items-baseline gap-1.5 mt-2">
-      {/* 两颗都禁用中，而且不只是没接线：**那份 PDF 没有存在任何地方**。`applications` 表没有
-          PDF 列，渲染出来的字节只在 `applications.commit` 的回参里出现一次（作为 embedded
-          resource 交给 owner 的 AI）。面板要能看/能下，得先决定存 bytes 还是按需重渲 ——
-          那是产品决定，不在这一刀里发明（F-E-13）。 */}
-      <button type="button" disabled title={t('detail.pdfNotKept')} className="sm-btn sm-btn-outline sm-btn-sm">{t('detail.viewFull')}</button>
+      <button
+        type="button" onClick={onToggle}
+        data-testid="application-resume-zoom"
+        className="sm-btn sm-btn-outline sm-btn-sm"
+      >
+        {full ? t('detail.viewSmaller') : t('detail.viewFull')}
+      </button>
+      {/* 下载那颗还禁着，而且不是没接线：**那份 PDF 没有存在任何地方**。`applications` 表
+          没有 PDF 列，字节只在 `applications.commit` 的回参里出现过一次。要能下载，得先决定
+          存 bytes 还是按需重渲（F-E-13）。**但「看不到内容」已经不成立了** —— 上面那块画的
+          就是寄出去的那一份。 */}
       <button type="button" disabled title={t('detail.pdfNotKept')} className="sm-btn sm-btn-ghost sm-btn-sm">{t('detail.downloadPdf')}</button>
     </div>
   );

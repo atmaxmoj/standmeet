@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
+import { toDraftModel } from '@/lib/admin/draft-detail';
 import {
   pillToneFor,
   submissionLabel,
@@ -119,8 +120,8 @@ function List({
   );
 }
 
-// toDetailApp —— 用真 list row 拼一个 detail（notes / snapshot / timeline 等
-// jsonb 字段后端还没出,留空,不编假数据)。detail-by-id endpoint 落地后换真 fetch。
+// toDetailApp —— 用真 list row 拼一个 detail（notes / contact 等 jsonb 字段后端还没出,
+// 留空,不编假数据)。**简历那一份是真的**：它就在这一行里（F-E-23）。
 function toDetailApp(row: AdminApplicationRow): Application {
   return {
     id: row.id,
@@ -132,7 +133,10 @@ function toDetailApp(row: AdminApplicationRow): Application {
     contact: '—',
     notes: '',
     state: submissionLabel(row.status),
-    resumeDelta: '',
+    resumeContent: toDraftModel({
+      id: row.id, company: row.company, role: row.role,
+      resume_content: row.resume_content,
+    }),
   };
 }
 

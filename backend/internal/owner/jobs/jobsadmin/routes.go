@@ -19,7 +19,6 @@ package jobsadmin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -190,103 +189,23 @@ func writeSourcesList(
 }
 
 // ───── drafts ────────────────────────────────────────────────
-
-// draftView —— 列表里的一份草稿。**带上 resume_content**：卡片上那张缩略图画的就是这一份，
-// 而它以前画的是一份设计期的假简历（挂着 owner 的真名声称 Stanford 博士、Google Brain 任职，
-// 两份不同的草稿画出同一张图 —— F-E-20）。内容本来就在 ListByOwner 取回的行里，这里只是
-// 别再把它丢掉：让缩略图有真数据可用，比让它"看起来像每份不同"重要得多。
-type draftView struct {
-	UpdatedAt     time.Time               `json:"updated_at"`
-	ID            string                  `json:"id"`
-	Company       string                  `json:"company"`
-	Role          string                  `json:"role"`
-	ForJob        string                  `json:"for_job"`
-	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
-}
-
-func listDrafts(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := authmw.OwnerIDFrom(r.Context())
-		drafts, err := deps.Drafts.ListByOwner(r.Context(), ownerID)
-		if err != nil {
-			deps.Log.Error("list drafts", logErrKey, err)
-			writeServerErr(deps.Log, w)
-			return
-		}
-		writeDraftsList(deps.Log, w, drafts)
-	}
-}
-
-// draftDetailView —— #52: composer 打开时拿真 resume_content(+ job context),
-// 替代 mockDraft 占位。resume_content 直接透传 domain 形状(已有 json tags)。
-type draftDetailView struct {
-	ID            string                  `json:"id"`
-	Company       string                  `json:"company"`
-	Role          string                  `json:"role"`
-	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
-}
-
-func getDraft(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := authmw.OwnerIDFrom(r.Context())
-		draft, err := deps.Drafts.GetByID(r.Context(), ownerID, chi.URLParam(r, "id"))
-		if err != nil {
-			handleDraftDetailErr(deps.Log, w, err)
-			return
-		}
-		view := draftDetailView{
-			ID: draft.ID, Company: draft.JobSnapshot.Company,
-			Role: draft.JobSnapshot.Title, ResumeContent: draft.ResumeContent,
-		}
-		w.Header().Set(ctHeader, ctJSON)
-		w.WriteHeader(http.StatusOK)
-		if eerr := json.NewEncoder(w).Encode(view); eerr != nil {
-			deps.Log.Error("encode draft detail", logErrKey, eerr)
-		}
-	}
-}
-
-func handleDraftDetailErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, jobsmodel.ErrResumeDraftNotFound) {
-		writeJSONErr(log, w, apierr.Envelope{
-			Status: http.StatusNotFound, Code: "draft_not_found", Message: "draft not found",
-		})
-		return
-	}
-	log.Error("get draft", logErrKey, err)
-	writeServerErr(log, w)
-}
-
-func writeDraftsList(
-	log *slog.Logger, w http.ResponseWriter, drafts []jobsmodel.ResumeDraft,
-) {
-	items := make([]draftView, 0, len(drafts))
-	for i := range drafts {
-		items = append(items, draftView{
-			ID:            drafts[i].ID,
-			Company:       drafts[i].JobSnapshot.Company,
-			Role:          drafts[i].JobSnapshot.Title,
-			ForJob:        drafts[i].JobCacheID,
-			UpdatedAt:     drafts[i].CreatedAt,
-			ResumeContent: drafts[i].ResumeContent,
-		})
-	}
-	w.Header().Set(ctHeader, ctJSON)
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		log.Error("encode drafts", logErrKey, err)
-	}
-}
+//
+// drafts 那一族住在 drafts.go（这个文件到了 350 行上限）。
 
 // ───── applications ──────────────────────────────────────────
 
+// applicationView —— 一条已提交的申请。**带上 resume_content**：详情卡的
+// 「RESUME SENT · SNAPSHOT」那一块要回答的正是「我到底发出去了什么」，而它以前只渲一行
+// 空的 delta —— 内容明明持久化在申请行里（commit 那一刻的 PDF 就是从它渲的），
+// 面板却看不到（F-E-23）。这里不多查一次库：`ListByOwner` 取回的行本来就带着它。
 type applicationView struct {
-	SubmittedAt time.Time `json:"submitted_at"`
-	CreatedAt   time.Time `json:"created_at"`
-	ID          string    `json:"id"`
-	Company     string    `json:"company"`
-	Role        string    `json:"role"`
-	Status      string    `json:"status"`
+	SubmittedAt   time.Time               `json:"submitted_at"`
+	CreatedAt     time.Time               `json:"created_at"`
+	ID            string                  `json:"id"`
+	Company       string                  `json:"company"`
+	Role          string                  `json:"role"`
+	Status        string                  `json:"status"`
+	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
 }
 
 func listApplications(deps Deps) http.HandlerFunc {
@@ -308,12 +227,13 @@ func writeApplicationsList(
 	items := make([]applicationView, 0, len(apps))
 	for i := range apps {
 		items = append(items, applicationView{
-			ID:          apps[i].ID,
-			Company:     apps[i].JobSnapshot.Company,
-			Role:        apps[i].JobSnapshot.Title,
-			Status:      apps[i].Status,
-			SubmittedAt: nullTime(apps[i].SubmittedAt),
-			CreatedAt:   apps[i].CreatedAt,
+			ID:            apps[i].ID,
+			Company:       apps[i].JobSnapshot.Company,
+			Role:          apps[i].JobSnapshot.Title,
+			Status:        apps[i].Status,
+			SubmittedAt:   nullTime(apps[i].SubmittedAt),
+			CreatedAt:     apps[i].CreatedAt,
+			ResumeContent: apps[i].ResumeContent,
 		})
 	}
 	w.Header().Set(ctHeader, ctJSON)

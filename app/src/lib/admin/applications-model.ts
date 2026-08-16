@@ -13,6 +13,8 @@
 // 所以:能显示的只有 committed / submitted / failed / withdrawn,而没见过的值**原样显示**——
 // 兜底成某个已知状态正是上一版制造假象的那一步。
 
+import type { DraftModel } from '@/lib/admin/draft-model';
+
 // SubmissionState —— 库里那一列的取值(见 jobsmodel/application.go)。'pending' 在界面上
 // 叫 committed:owner 已经点头,只是还没投出去。
 export type SubmissionState = 'committed' | 'submitted' | 'failed' | 'withdrawn';
@@ -48,8 +50,11 @@ export interface Application {
   method: string;
   contact: string;
   notes: string;
-  // resume snapshot 简化版：标题行 + 一段 delta（tailored 给该 job 的 punch）
-  resumeDelta: string;
+  // resumeContent —— **发出去的那一份**。详情卡的 snapshot 那块渲的就是它。
+  // 这里以前是 `resumeDelta: string`（"tailored 给该 job 的一句 punch"），而它在整个
+  // 前端里从来只被赋成空串 —— 一个名字承诺内容、实际什么都不带的字段，于是那块
+  // 只剩标题和一片空白（F-E-23）。
+  resumeContent: DraftModel;
 }
 
 export interface TimelineEvent {

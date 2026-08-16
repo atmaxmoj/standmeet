@@ -58,7 +58,28 @@ test.describe('admin /applications · the status control must not claim a status
   test('the active status is visibly different from the others', litSegmentLooksDifferent);
   test('private notes do not accept an edit they cannot keep', notesDoNotPretendToSave);
   test('no control in the modal promises something nothing can perform', modalActionsAreHonest);
+  test('「我到底发出去了什么」在这张卡上答得出来', snapshotShowsWhatWasSent);
 });
+
+// snapshotShowsWhatWasSent —— F-E-23。**「RESUME SENT · SNAPSHOT」那块要真的显示那一份。**
+//
+// 它以前是一个标题、一条横线，底下一片空白：渲的是 `resumeDelta`，而那个字段在前端
+// 只被赋成空串。内容一直都在申请行里（commit 那一刻的 PDF 就是从它渲的），
+// 于是「我到底发出去了什么」在整个产品里一处都答不出来。
+//
+// 断的是**内容**（种进去的那份简历里的字），不是「那块在不在」—— 空盒子也在。
+async function snapshotShowsWhatWasSent({ adminPage: page }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(page, 'applications');
+  await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
+  const modal = await openApplication(page);
+
+  const snap = modal.getByTestId('application-resume-snapshot');
+  await expect(snap, 'precondition: 那块在屏幕上').toBeVisible();
+  // sampleResumeContent 的名字 / 雇主 / 学校。ResumePage 把名字渲成小写。
+  await expect(snap, '发出去的那份的名字').toContainText('alice anderson');
+  await expect(snap, '发出去的那份的经历').toContainText('Acme');
+  await expect(snap, '发出去的那份的学历').toContainText('UC Berkeley');
+}
 
 // modalActionsAreHonest —— F-E-12 + F-E-13。**这张弹窗上任何看起来能点的东西，要么真能做，
 // 要么明说做不了。**

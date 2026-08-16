@@ -1,0 +1,21 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-status-persist/shots/snapshot-truth",
+  "viewport": [1280, 1600],
+  "shots": [
+    { "name": "as-20-applications", "url": "/admin/applications", "wait": 4500 },
+    {
+      "name": "as-21-detail-snapshot",
+      "steps": [
+        { "click": "[data-testid^=\"application-row-\"] button" },
+        { "wait": 2500 }
+      ]
+    },
+    {
+      "name": "as-22-snapshot-larger",
+      "steps": [
+        { "click": "[data-testid=\"application-resume-zoom\"]" },
+        { "wait": 1500 }
+      ]
+    }
+  ]
+}
