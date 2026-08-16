@@ -169,11 +169,11 @@ func selectSourcesToFetch(
 func fetchOneSourceAndDedup(
 	ctx context.Context, deps JobsDeps, src *jobsmodel.JobSource,
 ) (sourceRun, error) {
-	raw, err := fetchAndStampSourceID(ctx, deps, src)
+	acc, err := fetchAndStampSourceID(ctx, deps, src)
 	if err != nil {
 		return sourceRun{}, err
 	}
-	newJobs, err := keepUnseen(ctx, deps, src.ID, raw)
+	newJobs, err := keepUnseen(ctx, deps, src.ID, acc.Jobs)
 	if err != nil {
 		return sourceRun{}, err
 	}
@@ -183,7 +183,11 @@ func fetchOneSourceAndDedup(
 	}
 	return sourceRun{jobs: pooled, tally: SourceTally{
 		SourceID: src.ID, Label: src.Label, Kind: src.Kind,
-		Seen: len(raw), Pooled: len(pooled), Duplicate: len(raw) - len(newJobs),
+		Seen: len(acc.Jobs), Pooled: len(pooled), Duplicate: len(acc.Jobs) - len(newJobs),
+		// adapter 自己那一层的账（逐条取的源才有）：上游一共多少、我们看了多少、
+		// 按原因跳过多少、是不是撞上限截断了。
+		Available: acc.Available, Read: acc.Read,
+		Skipped: acc.Skipped, Truncated: acc.Truncated,
 	}}, nil
 }
 
@@ -205,15 +209,15 @@ func persistNewJobs(
 
 func fetchAndStampSourceID(
 	ctx context.Context, deps JobsDeps, src *jobsmodel.JobSource,
-) ([]jobsmodel.FetchedJob, error) {
-	raw, err := deps.Registry.Fetch(ctx, src.Kind, src.Config)
+) (jobfetch.Accounted, error) {
+	acc, err := deps.Registry.FetchAccounted(ctx, src.Kind, src.Config)
 	if err != nil {
-		return nil, fmt.Errorf("fetch source %s: %w", src.ID, err)
+		return jobfetch.Accounted{}, fmt.Errorf("fetch source %s: %w", src.ID, err)
 	}
-	for i := range raw {
-		raw[i].SourceID = src.ID
+	for i := range acc.Jobs {
+		acc.Jobs[i].SourceID = src.ID
 	}
-	return raw, nil
+	return acc, nil
 }
 
 func keepUnseen(

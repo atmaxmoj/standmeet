@@ -51,15 +51,28 @@ func newHNHiringFetcher(client *http.Client, envBase string) *hnHiringFetcher {
 }
 
 func (f *hnHiringFetcher) Fetch(
-	ctx context.Context, _ []byte,
+	ctx context.Context, cfgRaw []byte,
 ) ([]jobsmodel.FetchedJob, error) {
-	threadID, err := f.findLatestHiringThread(ctx)
+	acc, err := f.FetchAccounted(ctx, cfgRaw)
 	if err != nil {
 		return nil, err
 	}
+	return acc.Jobs, nil
+}
+
+// FetchAccounted —— 逐条取的那条路**必须交代自己跳过了什么**（Accountant）。
+// 一帖 262 条评论、我们只读前 100 条、其中 2 条被删 —— 这三个数字放在一起，
+// 「今天没人招」「被限流了」「判定条件写错了」才分得开（F-E-19）。
+func (f *hnHiringFetcher) FetchAccounted(
+	ctx context.Context, _ []byte,
+) (Accounted, error) {
+	threadID, err := f.findLatestHiringThread(ctx)
+	if err != nil {
+		return Accounted{}, err
+	}
 	thread, err := f.fetchItem(ctx, threadID)
 	if err != nil {
-		return nil, err
+		return Accounted{}, err
 	}
 	return f.collectComments(ctx, thread, threadID), nil
 }
@@ -73,7 +86,7 @@ func (f *hnHiringFetcher) Fetch(
 // 说得出另外那些去哪了（F-E-19）。数出来、记下来，就不必推理。
 func (f *hnHiringFetcher) collectComments(
 	ctx context.Context, thread *hnItem, threadID int64,
-) []jobsmodel.FetchedJob {
+) Accounted {
 	limit := min(len(thread.Kids), hnMaxComments)
 	out := make([]jobsmodel.FetchedJob, 0, limit)
 	failed, dropped := 0, 0
@@ -92,7 +105,11 @@ func (f *hnHiringFetcher) collectComments(
 	slog.InfoContext(ctx, "hn hiring thread walked",
 		"thread", threadID, "kids", len(thread.Kids), "read", limit,
 		"kept", len(out), "fetch_failed", failed, "deleted_or_empty", dropped)
-	return out
+	return Accounted{
+		Jobs: out, Available: len(thread.Kids), Read: limit,
+		Skipped:   map[string]int{"fetch_failed": failed, "deleted_or_empty": dropped},
+		Truncated: len(thread.Kids) > limit,
+	}
 }
 
 func isPostingComment(c *hnItem) bool {

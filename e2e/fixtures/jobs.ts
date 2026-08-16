@@ -50,6 +50,11 @@ interface SourceTallyView {
   seen: number;
   pooled: number;
   duplicate: number;
+  // 逐条取的源才有：上游一共多少 / 我们看了多少 / 按原因跳过多少 / 是否截断。
+  available?: number;
+  read?: number;
+  skipped?: Record<string, number>;
+  truncated?: boolean;
 }
 export interface JobsFetchResp {
   jobs: FetchedJobView[];

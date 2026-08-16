@@ -64,6 +64,16 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
     const urls = new Set(hn.map((j) => j.url));
     expect(urls.size, '每条各有各的 URL（塌成一条的话这里是 1）').toBe(8);
 
+    // **逐条取的源要交代自己跳过了什么**（F-E-19）：光看条数读不出「今天没人招」
+    // 「被限流了」「判定条件写错了」的区别。账要说：上游一共几条、我们看了几条、
+    // 按原因各跳过几条。
+    const tally = (fetched.sources ?? []).find((t) => t.kind === 'hn_hiring');
+    expect(tally?.available, '上游那帖一共 8 条顶层评论').toBe(8);
+    expect(tally?.read, '我们把这 8 条都过了一遍').toBe(8);
+    expect(tally?.skipped, '跳过要按原因分开计数，不是一个总数').toEqual({
+      fetch_failed: 0, deleted_or_empty: 0,
+    });
+
     for (const j of hn) {
       expectReadable(`hn title (${j.cache_id})`, j.title);
     }

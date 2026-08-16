@@ -39,12 +39,20 @@ type FetchResult struct {
 // 真正新写进池子的；`Duplicate` = 之前已经见过的同一条。三个数放在一起才回答得了
 // 「这次取数到底发生了什么」。
 type SourceTally struct {
-	SourceID  string `json:"source_id"`
-	Label     string `json:"label"`
-	Kind      string `json:"kind"`
-	Seen      int    `json:"seen"`
-	Pooled    int    `json:"pooled"`
-	Duplicate int    `json:"duplicate"`
+	// Skipped —— adapter 内部按**原因**跳过的条数（逐条取的源才有）。
+	// 「取失败」和「这条被删了」必须分得开：混成一个数字就等于没数（F-E-19）。
+	Skipped   map[string]int `json:"skipped,omitempty"`
+	SourceID  string         `json:"source_id"`
+	Label     string         `json:"label"`
+	Kind      string         `json:"kind"`
+	Seen      int            `json:"seen"`
+	Pooled    int            `json:"pooled"`
+	Duplicate int            `json:"duplicate"`
+	// Available / Read —— 上游一共有多少（它自己说的）、我们真的过了一遍多少。
+	// 两个数不等就是**截断**，而截断跟「上游就这么多」在 `Seen` 上长得一模一样。
+	Available int  `json:"available,omitempty"`
+	Read      int  `json:"read,omitempty"`
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 // SourceFailure —— 某一个源没抓成，其余源照常。带上 owner 认得出来的东西（label / kind），

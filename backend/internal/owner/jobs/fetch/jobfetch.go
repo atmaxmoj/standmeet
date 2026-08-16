@@ -61,6 +61,31 @@ type Fetcher interface {
 	Fetch(ctx context.Context, cfgRaw []byte) ([]jobsmodel.FetchedJob, error)
 }
 
+// Accountant —— **可选**实现：交代这一趟 adapter 自己内部做了什么取舍。
+//
+// 为什么是可选的：大多数 adapter 一次请求把上游给的全拿回来，没有内部取舍可交代。
+// 而**逐条取的源**（HN 一条评论一次请求）不一样 —— 它会跳过取失败的、跳过被删的、
+// 撞到条数上限就停，而这三件事在 `[]FetchedJob` 里长得一模一样：条数变少而已。
+// 真环境里因此出现过「262 条评论进来 1 条，没有任何一处说得出为什么」（F-E-19）。
+//
+// 实现它的 adapter 由 Registry 优先走这条路；没实现的照旧走 Fetch。
+type Accountant interface {
+	FetchAccounted(ctx context.Context, cfgRaw []byte) (Accounted, error)
+}
+
+// Accounted —— 一趟取数的账：拿到了什么 + 上游一共有多少 + 我们看了多少 + 按原因跳过多少。
+//
+// `Available` 是**上游自己说的**总量（不知道就是 0）；`Read` 是我们真的过了一遍的条数；
+// `Skipped` 按原因分开计数 —— 「取失败」和「这条被删了」必须分得开，
+// 混成一个数字就等于没数（那正是 F-E-19 的成因）。
+type Accounted struct {
+	Skipped   map[string]int
+	Jobs      []jobsmodel.FetchedJob
+	Available int
+	Read      int
+	Truncated bool
+}
+
 // Registry —— kind → Fetcher 的注册中心。usecases 拿这个 dispatch。
 type Registry struct {
 	fetchers map[string]Fetcher
@@ -111,15 +136,37 @@ func New(b *BaseURLs) *Registry {
 func (r *Registry) Fetch(
 	ctx context.Context, kind string, cfgRaw []byte,
 ) ([]jobsmodel.FetchedJob, error) {
+	acc, err := r.FetchAccounted(ctx, kind, cfgRaw)
+	if err != nil {
+		return nil, err
+	}
+	return acc.Jobs, nil
+}
+
+// FetchAccounted —— 跟 Fetch 同一条路，但**把账也带回来**。实现了 Accountant 的 adapter
+// 走它自己的那条；没实现的，账就是「拿到几条、看了几条，没有跳过」。
+func (r *Registry) FetchAccounted(
+	ctx context.Context, kind string, cfgRaw []byte,
+) (Accounted, error) {
 	f, ok := r.fetchers[kind]
 	if !ok {
-		return nil, fmt.Errorf("fetch kind %q: %w", kind, jobsmodel.ErrJobSourceKindInvalid)
+		return Accounted{}, fmt.Errorf("fetch kind %q: %w",
+			kind, jobsmodel.ErrJobSourceKindInvalid)
 	}
-	jobs, err := f.Fetch(ctx, cfgRaw)
-	if err != nil {
-		return nil, fmt.Errorf("fetch %s: %w", kind, err)
+	if a, isAcc := f.(Accountant); isAcc {
+		acc, aerr := a.FetchAccounted(ctx, cfgRaw)
+		if aerr != nil {
+			return Accounted{}, fmt.Errorf("fetch %s: %w", kind, aerr)
+		}
+		acc.Jobs = readableJobs(acc.Jobs)
+		return acc, nil
 	}
-	return readableJobs(jobs), nil
+	jobs, ferr := f.Fetch(ctx, cfgRaw)
+	if ferr != nil {
+		return Accounted{}, fmt.Errorf("fetch %s: %w", kind, ferr)
+	}
+	out := readableJobs(jobs)
+	return Accounted{Jobs: out, Read: len(out)}, nil
 }
 
 // readableJobs —— 每个源交回来的字都要变成**文字**再进池子（F-E-7）。
