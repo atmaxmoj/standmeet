@@ -92,7 +92,7 @@ func outputItem(o *entity.Output, path string) corpusItemOut {
 // 是这一族缺陷的老样子，而且是我加搜索时自己引进来的（⑤ 眼验当场抓到）。
 // 片段全是结构 → LeadLine 返回空 → 卡片不显示预览，跟普通列表的行为一致。
 func metaPreview(snippet string) string {
-	return usecase.LeadLine(snippet, previewMaxLen)
+	return usecase.SearchSnippet(snippet, previewMaxLen)
 }
 
 func wikiMetaItem(m *repo.WikiMeta) corpusItemOut {
@@ -102,7 +102,7 @@ func wikiMetaItem(m *repo.WikiMeta) corpusItemOut {
 		ParentID:  m.ParentID,
 		Published: m.Published,
 		Tags:      []string{}, SourceRawIDs: []string{}, SourceWikiIDs: []string{},
-		UpdatedAt: rfc3339(time.Unix(m.UpdatedAt, 0).UTC()),
+		UpdatedAt: rfc3339OrEmpty(m.UpdatedAt),
 	}
 }
 
@@ -113,19 +113,36 @@ func outputMetaItem(m *repo.OutputMeta) corpusItemOut {
 		ParentID:  m.ParentID,
 		Published: m.Published,
 		Tags:      []string{}, SourceRawIDs: []string{}, SourceWikiIDs: []string{},
-		UpdatedAt: rfc3339(time.Unix(m.UpdatedAt, 0).UTC()),
+		UpdatedAt: rfc3339OrEmpty(m.UpdatedAt),
 	}
 }
 
-// noteMetaItem —— raw 和 subjectivity 走的是同一份 meta 形状（`NoteMeta` 没有 UpdatedAt：
-// 搜索那条查询没取它，**空着比填一个假时间诚实**）。
+// noteMetaItem —— raw 和 subjectivity 走的是同一份 meta 形状。
+//
+// 四个 genre 现在都带 UpdatedAt（搜索那条查询把它取上了），取不到时**留空**。
+// 这里原来写着「搜索那条查询没取它，**空着比填一个假时间诚实**」—— 道理是对的，
+// 只是当初只扫到了 raw/subjectivity 两个 genre，wiki/output 照旧把零值渲成
+// `1970-01-01T00:00:00Z` 发出去（F-L-46 / [[lesson-not-swept-to-neighbours]]）。
+// 现在四个 genre 共用 `rfc3339OrEmpty`，那条道理由一个函数落实，不靠记性。
 func noteMetaItem(m *repo.NoteMeta, genre string) corpusItemOut {
 	return corpusItemOut{
 		Genre: genre, ID: m.ID, Title: m.Title,
-		Preview:  metaPreview(m.Snippet),
-		ParentID: m.ParentID,
-		Tags:     []string{}, SourceRawIDs: []string{}, SourceWikiIDs: []string{},
+		Preview:   metaPreview(m.Snippet),
+		ParentID:  m.ParentID,
+		Published: m.Published,
+		UpdatedAt: rfc3339OrEmpty(m.UpdatedAt),
+		Tags:      []string{}, SourceRawIDs: []string{}, SourceWikiIDs: []string{},
 	}
+}
+
+// rfc3339OrEmpty —— 0 = 这条路没取到时间，**留空**。零值渲成 `1970-01-01T00:00:00Z`
+// 是把「不知道」说成一个具体日期（F-L-46）。搜索那条查询现在取 updated_at 了，
+// 所以正常情况下不会走到空的那一支；留着它是因为「没有值」永远好过「假值」。
+func rfc3339OrEmpty(unix int64) string {
+	if unix <= 0 {
+		return ""
+	}
+	return rfc3339(time.Unix(unix, 0).UTC())
 }
 
 func pathOrNil(p string) *string {

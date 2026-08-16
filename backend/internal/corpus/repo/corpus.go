@@ -132,7 +132,8 @@ func (r *RawRepo) Search(
 	for i := range rows {
 		out = append(out, NoteMeta{
 			ID: pgstore.FormatUUID(rows[i].ID), ParentID: pgstore.OptUUIDStr(rows[i].ParentID),
-			Title: rows[i].Title, Published: rows[i].Published, Snippet: rows[i].Snippet,
+			Title: rows[i].Title, Published: rows[i].Published,
+			Snippet: string(rows[i].Snippet), UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
 		})
 	}
 	return out, nil

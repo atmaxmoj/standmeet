@@ -51,11 +51,13 @@ type Note struct {
 }
 
 // NoteMeta —— 无 body 的轻量 meta（树导航 / 搜索 / 算 path 用）。Snippet 仅搜索结果有值。
+// UpdatedAt 同理（unix 秒；0 = 这条路没取）。
 type NoteMeta struct {
 	ParentID    *string
 	ID          string
 	Title       string
 	Snippet     string
+	UpdatedAt   int64
 	Published   bool
 	HasChildren bool
 }
@@ -225,7 +227,8 @@ func (r *NoteRepo) Search(
 	for i := range rows {
 		out = append(out, NoteMeta{
 			ID: pgstore.FormatUUID(rows[i].ID), ParentID: pgstore.OptUUIDStr(rows[i].ParentID),
-			Title: rows[i].Title, Published: rows[i].Published, Snippet: rows[i].Snippet,
+			Title: rows[i].Title, Published: rows[i].Published,
+			Snippet: string(rows[i].Snippet), UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
 		})
 	}
 	return out, nil

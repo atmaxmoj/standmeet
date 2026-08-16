@@ -25,6 +25,24 @@ const OWNER = {
 const NEEDLE = 'thermosiphon';
 const TARGET = 'Thermosiphon Note';
 
+// CALLOUT_* —— **真 vault 的形状**：这个 owner 的笔记几乎都以一个 `> [!i18n]` 语言切换
+// callout 开头，正文在它后面。摘要取「正文开头 200 字节」时，这一段把它整块吃掉，
+// 清洗之后一个字不剩（F-L-45）。夹具的正文以前是纯文本、第一行就是内容，
+// 于是这条守卫在 CI 上永远看不见真环境里的空摘要（[[which-path-is-the-green-on]]）。
+const CALLOUT_NEEDLE = 'psychrometric';
+const CALLOUT_TARGET = 'Callout-Led Note';
+const CALLOUT_HEAD = [
+  '> [!i18n]',
+  '> <label><input type="radio" name="callout-led-lang" checked>EN</label>'
+  + '<label><input type="radio" name="callout-led-lang">中文</label>',
+  '>',
+  '> > [!lang] en',
+  '> > # Callout-Led Note',
+  '> >',
+  '> > > Parent: [[key-designs]]',
+  '',
+].join('\n');
+
 let mcpToken = '';
 let sid = '';
 
@@ -46,6 +64,11 @@ test.describe('owner 找得到自己语料里的一条', () => {
     await seedWiki(request, mcpToken, sid, {
       title: TARGET, body: `A note about the ${NEEDLE} loop and passive circulation.`,
     });
+    // 真 vault 形状的那一条：开头 200 字节全是 i18n callout，命中词在后面。
+    await seedWiki(request, mcpToken, sid, {
+      title: CALLOUT_TARGET,
+      body: `${CALLOUT_HEAD}The ${CALLOUT_NEEDLE} chart is the one I keep coming back to.`,
+    });
     for (let i = 0; i < 12; i++) {
       await seedWiki(request, mcpToken, sid, {
         title: `Filler Note ${i}`, body: `Unrelated filler body number ${i}.`,
@@ -62,6 +85,30 @@ test.describe('owner 找得到自己语料里的一条', () => {
       const titles = found.map((r) => r.title);
       expect(titles, `搜 "${NEEDLE}" 该命中那一条`).toContain(TARGET);
       expect(found.length, '只有那一条含这个词').toBe(1);
+
+      // 搜索结果得**说得出它为什么被搜到**，而且不能报一个假时间（F-L-45 / F-L-46）。
+      // 真 vault 上这两条都不成立：摘要取的是「正文开头 200 字节」，而那些笔记开头
+      // 几乎都是 `> [!i18n]` 那个语言切换 callout，清洗后一个字不剩；`updated_at`
+      // 那一列查询根本没取，却照样渲成 `1970-01-01T00:00:00Z`。
+      const row = found[0] as unknown as { preview?: string; updated_at?: string };
+      expect(row.preview ?? '', '每一行都要有摘要，否则 owner 拿到的只是一串 slug')
+        .not.toBe('');
+      expect(row.updated_at ?? '', '没取到的时间不许渲成 1970 —— 空着比填个假时间诚实')
+        .not.toContain('1970');
+    });
+
+  test('owner-MCP：真 vault 形状（i18n callout 开头）的笔记也有摘要，而且摘要来自命中处',
+    async ({ request }) => {
+      const found = await callTool<{ id: string; title: string }[]>(
+        request, mcpToken, sid, 'corpus.search', { genre: 'wiki', query: CALLOUT_NEEDLE },
+      );
+      expect(found.map((r) => r.title), '先确认搜得到它').toContain(CALLOUT_TARGET);
+      const row = found.find((r) => r.title === CALLOUT_TARGET) as unknown as
+        { preview?: string };
+      // 「正文开头 200 字节」在这种笔记上全是标记，清洗后是空串 —— 真 vault 上每一行都这样。
+      expect(row?.preview ?? '', '开头是 callout 的笔记同样要有摘要').not.toBe('');
+      expect(row?.preview ?? '', '摘要要来自命中处，这样它同时回答了「为什么是这条」')
+        .toContain(CALLOUT_NEEDLE);
     });
 
   test('后台：搜索框按内容找得到它，并说清这次看的是整个语料',

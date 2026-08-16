@@ -206,7 +206,8 @@ func (r *OutputRepo) Search(
 func outputSearchRowMeta(row *db.SearchNotesRow) OutputMeta {
 	return OutputMeta{
 		ID: pgstore.FormatUUID(row.ID), ParentID: pgstore.OptUUIDStr(row.ParentID),
-		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
+		Title: row.Title, Published: row.Published, Snippet: string(row.Snippet),
+		UpdatedAt: row.UpdatedAt.Time.Unix(),
 	}
 }
 

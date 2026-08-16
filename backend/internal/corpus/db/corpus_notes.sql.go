@@ -1238,7 +1238,11 @@ func (q *Queries) QueryCorpusNotes(ctx context.Context, arg QueryCorpusNotesPara
 }
 
 const searchNotes = `-- name: SearchNotes :many
-SELECT id, parent_id, title, published, left(body, 200) AS snippet
+SELECT id, parent_id, title, published, updated_at,
+       ts_headline('english', body,
+         replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery,
+         'StartSel=,StopSel=,MaxWords=28,MinWords=12,MaxFragments=1'
+       ) AS snippet
 FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
   AND to_tsvector('english',
@@ -1265,11 +1269,21 @@ type SearchNotesRow struct {
 	ParentID  pgtype.UUID
 	Title     string
 	Published bool
-	Snippet   string
+	UpdatedAt pgtype.Timestamptz
+	Snippet   []byte
 }
 
 // 全量关键词搜（DB 端 full-text）；返 meta + snippet（不返完整 body），翻页。自然语言问句按 OR
 // 命中任一词项（' & '→' | '，防 "tell"/"me" 噪声词把 plainto 默认 AND 卡死）；ts_rank 关联度排序。
+//
+// **snippet 取的是命中处（`ts_headline`），不是正文开头。** 原来是 `left(body, 200)`，
+// 而这个 vault 的笔记几乎都以一个 `> [!i18n]` 语言切换 callout 开头 —— 那 200 字节全是标记，
+// 清洗之后一个字不剩，于是 owner 搜出来的每一行都没有摘要（F-L-45）。命中处还顺带回答了
+// 「这一行为什么被搜到」，那正是搜索结果该说的话。`StartSel/StopSel` 置空：不要 `<b>` 标记，
+// 摘要要能直接渲给人看（F-L-42 那族：原始标记不许漏到界面上）。
+//
+// updated_at 也一并取上 —— 它以前没被 select，而 wiki/output 那条映射照样把零值渲成
+// `1970-01-01T00:00:00Z` 发出去（F-L-46）。
 func (q *Queries) SearchNotes(ctx context.Context, arg SearchNotesParams) ([]SearchNotesRow, error) {
 	rows, err := q.db.Query(ctx, searchNotes,
 		arg.OwnerID,
@@ -1290,6 +1304,7 @@ func (q *Queries) SearchNotes(ctx context.Context, arg SearchNotesParams) ([]Sea
 			&i.ParentID,
 			&i.Title,
 			&i.Published,
+			&i.UpdatedAt,
 			&i.Snippet,
 		); err != nil {
 			return nil, err
