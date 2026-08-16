@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import {
   useCapabilities, dependencyHint,
   type CapabilityRow, type CapabilitiesHook,
@@ -35,11 +36,8 @@ function Header() {
   const t = useTranslations('adminIntegrations.capabilities');
   return (
     <div className="mb-4">
-      <p className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted)">
-        {t('kicker')}
-      </p>
-      <h3 className="mt-1 text-lg text-(--color-ink)">{t('heading')}</h3>
-      <p className="mt-1 text-sm text-(--color-muted)">
+      <AdminSectionHead aside={t('kicker')}>{t('heading')}</AdminSectionHead>
+      <p className="mt-2 text-sm text-(--color-muted)">
         {t('intro')}
       </p>
     </div>

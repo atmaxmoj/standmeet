@@ -7,6 +7,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { ProviderAddForm } from '@/components/admin/sections/api/ProviderAddForm';
 import { ProviderBookRow } from '@/components/admin/sections/api/ProviderBookRow';
 import { InlineSkeleton } from '@/components/skeletons/InlineSkeleton';
@@ -20,9 +21,7 @@ export function ProviderBookPanel() {
   useEffectErrorToast(hook.error);
   return (
     <div data-testid="provider-book-panel">
-      <h3 className="sm-section-h mb-3">
-        {t('heading')}
-      </h3>
+      <AdminSectionHead className="mb-3">{t('heading')}</AdminSectionHead>
       <p className="reading-tight text-(--color-muted) text-[14.5px] max-w-[54em] mb-4">
         {t('intro')}
       </p>

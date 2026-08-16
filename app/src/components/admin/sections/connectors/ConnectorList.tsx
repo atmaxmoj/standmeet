@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import {
   originOf, type ConnectorListHook, type ConnectorRow,
 } from '@/lib/admin/use-connector-list';
@@ -14,12 +15,16 @@ import { useAction } from '@/lib/ui/use-action';
 
 export function ConnectorList({ hook }: { hook: ConnectorListHook }) {
   const run = useAction();
+  const t = useTranslations('adminIntegrations.connectors');
   // 只列 owner 自建（上传/协议）连接器；内置（已配的 gcal/smtp…）是 catalog 卡，不在这重复渲染，
   // 否则配好的内置会同时以 connector-row-{id}（卡）和 connector-row-{category}（这）出现，撞 testid。
   const uploaded = hook.connectors.filter((c) => originOf(c) === 'uploaded');
   // loadError 时哪怕列表空也要出提示：空 vs「没拉到」owner 分得清（§2 不静默成空）。
   return (!hook.loadError && uploaded.length === 0) ? null : (
     <div className="mb-8 space-y-3">
+      <AdminSectionHead className="mb-3" aside={t('uploadedCount', { count: String(uploaded.length) })}>
+        {t('uploadedHeading')}
+      </AdminSectionHead>
       <LoadError show={hook.loadError} />
       {uploaded.map((row) => (
         <ConnectorRowItem

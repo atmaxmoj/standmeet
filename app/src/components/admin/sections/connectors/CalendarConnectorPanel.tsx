@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { useGCal } from '@/lib/admin/use-gcal';
 import { PolicyEditor } from '@/components/admin/sections/connectors/CalendarBookingPolicy';
 import { useAction } from '@/lib/ui/use-action';
@@ -37,12 +38,9 @@ export function CalendarConnectorPanel() {
 function Header({ status }: { status: ReturnType<typeof useGCal>['status'] }) {
   const t = useTranslations('adminIntegrations.calendar');
   return (
-    <div className="flex items-baseline justify-between mb-4">
-      <h3 className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted)">
-        {t('heading')}
-      </h3>
-      <StatusBadge status={status} />
-    </div>
+    <AdminSectionHead className="mb-4" aside={<StatusBadge status={status} />}>
+      {t('heading')}
+    </AdminSectionHead>
   );
 }
 

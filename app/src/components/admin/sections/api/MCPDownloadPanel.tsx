@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+
 // useMcpEndpoint —— 本实例的 MCP 端点(单域部署下 origin/mcp)。mount 后读 window 避免 SSR 不一致。
 function useMcpEndpoint(): string {
   const [origin, setOrigin] = useState('');
@@ -37,10 +39,7 @@ export function MCPDownloadPanel() {
 function Header() {
   const t = useTranslations('adminIntegrations.mcpDownload');
   return (
-    <div className="sm-section-h mb-3">
-      <h3 className="mr-auto">{t('heading')}</h3>
-      <span className="mono text-[10.5px] tracking-[0.06em] normal-case text-(--color-faint)">{t('badge')}</span>
-    </div>
+    <AdminSectionHead className="mb-3" aside={t('badge')}>{t('heading')}</AdminSectionHead>
   );
 }
 

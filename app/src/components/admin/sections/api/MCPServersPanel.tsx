@@ -12,6 +12,7 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { useMCPServers, type CreateMCPServerInput, type MCPProbe, type MCPServersHook, type MCPServerView } from '@/lib/admin/use-mcp-servers';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -43,10 +44,9 @@ export function MCPServersPanel() {
 function Head({ count }: { count: number }) {
   const t = useTranslations('adminIntegrations.mcpServers');
   return (
-    <div className="sm-section-h mb-2">
-      <h3 className="mr-auto">{t('heading')}</h3>
-      <span className="mono text-[10.5px] normal-case tracking-normal text-(--color-faint)">{t('count', { count: String(count) })}</span>
-    </div>
+    <AdminSectionHead className="mb-2" aside={t('count', { count: String(count) })}>
+      {t('heading')}
+    </AdminSectionHead>
   );
 }
 

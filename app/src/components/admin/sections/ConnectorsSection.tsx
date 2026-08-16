@@ -10,6 +10,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConnectorAddModal } from '@/components/admin/ConnectorAddModal';
 import { CalendarConnectorPanel } from '@/components/admin/sections/connectors/CalendarConnectorPanel';
@@ -89,9 +90,15 @@ function SectionBody({
 
 // CatalogCards —— 内置连接器（外置装配进来的）各一张归一卡，owner 在卡里填凭据 + Connect。
 function CatalogCards({ catalog }: { catalog: ConnectorCatalogHook }) {
+  const t = useTranslations('adminIntegrations.connectors');
   // loadError 时哪怕空也要出提示：空 vs「没拉到」得分得清（§2 不静默成空）。
   return (!catalog.loadError && catalog.entries.length === 0) ? null : (
     <div className="mb-8 space-y-3">
+      {/* 这一堆卡以前直接从 intro 底下开始，跟下面 owner 自己传的那份列表之间没有任何分界
+          —— 于是「现成的」和「我传的」在一页上看起来是一件事（UX-79）。 */}
+      <AdminSectionHead className="mb-3" aside={t('builtinCount', { count: String(catalog.entries.length) })}>
+        {t('builtinHeading')}
+      </AdminSectionHead>
       <CatalogLoadError show={catalog.loadError} />
       {catalog.entries.map((entry) => (
         <ConnectorCard key={entry.id} entry={entry} />

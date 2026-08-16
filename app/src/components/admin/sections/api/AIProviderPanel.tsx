@@ -16,6 +16,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
 import { InlineSkeleton } from '@/components/skeletons/InlineSkeleton';
 import { type AIProviderPresetView } from '@/lib/api/admin';
@@ -37,9 +38,7 @@ export function AIProviderPanel() {
   useEffectErrorToast(hook.state.error);
   return (
     <div data-testid="ai-provider-panel">
-      <h3 className="sm-section-h mb-3">
-        {t('heading')}
-      </h3>
+      <AdminSectionHead className="mb-3">{t('heading')}</AdminSectionHead>
       <Intro />
       <PanelBody hook={hook} />
     </div>

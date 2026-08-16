@@ -7,6 +7,7 @@
 import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { useSandbox, type SandboxWorkspace } from '@/lib/admin/use-sandbox';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -23,23 +24,27 @@ export function SandboxPanel() {
       className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2"
       data-testid="sandbox-panel"
     >
-      {/* 标题走 `.sm-section-h`（12px + 朱红竖条）—— 跟 api·mcp 的六个大节同一个骨架。
+      {/* 标题走 AdminSectionHead（12px + 朱红竖条）—— 跟 api·mcp 的六个大节同一个骨架。
           这一块以前是个裸的 10px mono div，跟字段名同一号，扫页时看不出「这里开始新的一节」。 */}
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <div className="sm-section-h grow border-b-0 pb-0">
-          {t('title', { n: sandbox.workspaces.length })}
-        </div>
-        {/* 0 个 workspace 时这颗按钮点下去什么都不会发生 —— 那是 F-E-26，**不在设计列里改**：
-            禁用它会改变一条守卫断言的行为，而设计列的边界是「纯呈现，改完不需要动测试」
-            （[[设计列的边界]]）。这里只留 hover 时的一句说明，行为一个字没动。 */}
-        <button
-          className="sm-btn sm-btn-outline sm-btn-sm" type="button"
-          data-testid="sandbox-sweep" onClick={onSweep}
-          title={sandbox.workspaces.length === 0 ? t('sweepNothing') : undefined}
-        >
-          {t('sweepNow')}
-        </button>
-      </div>
+      {/* 扫除按钮挂在标题那条线的右端（`aside`）—— 之前它在标题外面另起一个 flex 行，那条
+          横线就只画到按钮前面为止，跟同一页另外五张卡的整幅横线对不上。
+          0 个 workspace 时这颗按钮点下去什么都不会发生 —— 那是 F-E-26，**不在设计列里改**：
+          禁用它会改变一条守卫断言的行为，而设计列的边界是「纯呈现，改完不需要动测试」
+          （[[设计列的边界]]）。这里只留 hover 时的一句说明，行为一个字没动。 */}
+      <AdminSectionHead
+        className="mb-3"
+        aside={
+          <button
+            className="sm-btn sm-btn-outline sm-btn-sm" type="button"
+            data-testid="sandbox-sweep" onClick={onSweep}
+            title={sandbox.workspaces.length === 0 ? t('sweepNothing') : undefined}
+          >
+            {t('sweepNow')}
+          </button>
+        }
+      >
+        {t('title', { n: sandbox.workspaces.length })}
+      </AdminSectionHead>
       <WorkspaceBody rows={sandbox.workspaces} />
     </div>
   );

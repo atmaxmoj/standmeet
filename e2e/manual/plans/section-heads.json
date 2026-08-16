@@ -1,0 +1,9 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/admin-shell/shots/section-heads",
+  "viewport": [1280, 3600],
+  "shots": [
+    { "name": "sh-01-api-mcp", "url": "/admin/api-mcp", "wait": 3500 },
+    { "name": "sh-02-connectors", "url": "/admin/connectors", "wait": 3500 },
+    { "name": "sh-03-system", "url": "/admin/system", "wait": 3500 }
+  ]
+}

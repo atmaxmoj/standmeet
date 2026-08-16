@@ -5,6 +5,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { useInferenceUsage, type UsageRow } from '@/lib/admin/use-inference-usage';
 
 export function InferenceUsagePanel() {
@@ -15,9 +16,7 @@ export function InferenceUsagePanel() {
       className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50"
       data-testid="inference-usage-panel"
     >
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mb-3">
-        {t('title')}
-      </div>
+      <AdminSectionHead className="mb-3">{t('title')}</AdminSectionHead>
       <UsageTotals
         calls={usage.total.calls}
         inTok={usage.total.input_tokens}

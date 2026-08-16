@@ -14,6 +14,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useAPIKeys, type APIKeyItem } from '@/lib/admin/use-api-keys';
 import { useRoles } from '@/lib/admin/use-roles';
@@ -32,7 +33,7 @@ export function APIKeysPanel() {
   const roles = useRoles();
   return (
     <div data-testid="api-keys-panel">
-      <div className="sm-section-h">{t('heading')}</div>
+      <AdminSectionHead>{t('heading')}</AdminSectionHead>
       <p className="sm-measure text-[13px] text-(--color-muted) mb-3">{t('intro')}</p>
       <NewSecret created={hook.justCreated} onDismiss={hook.dismissCreated} />
       <MintRow

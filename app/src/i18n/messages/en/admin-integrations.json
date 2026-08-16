@@ -66,7 +66,11 @@
     "catalogError": "Couldn’t load the connector catalog — reload and retry.",
     "overwritePrompt": "A <mono>{category}</mono> connector already exists. Overwrite it?",
     "overwrite": "Overwrite",
-    "add": "+ add connector"
+    "add": "+ add connector",
+    "builtinHeading": "Ready to connect",
+    "builtinCount": "{count} available",
+    "uploadedHeading": "Connectors you uploaded",
+    "uploadedCount": "{count} installed"
   },
   "calendar": {
     "heading": "Google Calendar",

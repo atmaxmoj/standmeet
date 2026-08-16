@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { MCP_CLIENTS, type MCPClient } from '@/lib/admin/use-tokens';
 
 const HOST = 'https://standmeet.local';
@@ -37,13 +38,9 @@ function pickClient(id: MCPClient['id']): MCPClient {
 function PanelHead() {
   const t = useTranslations('adminIntegrations.mcpClient');
   return (
-    // 大节标题走 .sm-section-h（唯一定义处），副标题挂在同一条线的右端。
-    <div className="sm-section-h mb-4 flex-wrap">
-      <h3 className="mr-auto">{t('heading')}</h3>
-      <span className="mono text-[10.5px] tracking-[0.06em] normal-case text-(--color-faint)">
-        {t('subhead')}
-      </span>
-    </div>
+    <AdminSectionHead className="mb-4 flex-wrap" aside={t('subhead')}>
+      {t('heading')}
+    </AdminSectionHead>
   );
 }
 

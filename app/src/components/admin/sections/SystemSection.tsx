@@ -6,6 +6,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
@@ -41,7 +42,7 @@ function DeploymentBlock({ info }: { info: SystemInfo | null }) {
   const d = deployView(info);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-terminal">
-      <div className="sm-smallcaps mb-3">{t('deployment')}</div>
+      <AdminSectionHead className="mb-3">{t('deployment')}</AdminSectionHead>
       <div className="border border-(--color-rule) rounded-[3px] p-3 bg-[color-mix(in_oklab,var(--color-ink)_6%,var(--color-paper))] mono text-[11.5px] leading-[1.7] text-(--color-muted)">
         <div><span className="text-(--color-accent)">$</span> {t('statusCmd')}</div>
         <div><span className="text-(--color-faint)">{t('treeBranch')}</span> {t('version')} <span className="text-(--color-ink)" data-testid="system-version">{d.version}</span></div>
@@ -59,7 +60,7 @@ function ResourcesBlock({ info }: { info: SystemInfo | null }) {
   const stats = resourceStats(info);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-resources">
-      <div className="sm-smallcaps mb-3">{t('resources')}</div>
+      <AdminSectionHead className="mb-3">{t('resources')}</AdminSectionHead>
       <div className="grid grid-cols-2 gap-3">
         {stats.map((s) => (
           <ResourceStat key={s.label} label={s.label} value={s.value} sub={s.sub} />
@@ -85,7 +86,7 @@ function JobsTable() {
   const rows = jobRowViews(jobs);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2" data-testid="system-jobs">
-      <div className="sm-smallcaps mb-3">{t('backgroundJobs')}</div>
+      <AdminSectionHead className="mb-3">{t('backgroundJobs')}</AdminSectionHead>
       <table className="w-full border-collapse">
         <thead>
           <tr className="mono text-[9.5px] tracking-[0.2em] uppercase text-(--color-muted)">
@@ -122,7 +123,7 @@ function HealthChecks({ info }: { info: SystemInfo | null }) {
   const t = useTranslations('adminShell.system');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2" data-testid="system-health">
-      <div className="sm-smallcaps mb-3">{t('healthChecks')}</div>
+      <AdminSectionHead className="mb-3">{t('healthChecks')}</AdminSectionHead>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {healthList(info).map((c) => (
           <HealthRow key={c.name} name={c.name} status={c.ok ? 'ok' : 'down'} detail={c.detail} />

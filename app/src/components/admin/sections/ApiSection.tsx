@@ -8,6 +8,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { NewlyCreatedBanner } from '@/components/admin/sections/api/NewlyCreatedBanner';
 import { NewTokenInline } from '@/components/admin/sections/api/NewTokenInline';
@@ -88,9 +89,7 @@ function TokensBlock({ hook }: { hook: TokensHook }) {
   const t = useTranslations('adminIntegrations.api');
   return (
     <div>
-      <h3 className="sm-section-h mb-3">
-        {t('keysHeading')}
-      </h3>
+      <AdminSectionHead className="mb-3">{t('keysHeading')}</AdminSectionHead>
       <NewlyCreatedBanner created={bannerView(hook.justCreated)} dismiss={hook.dismissCreated} />
       <NewTokenInline createToken={hook.createToken} error={hook.error} />
       <TokenList tokens={hook.tokens} deleteToken={hook.deleteToken} />
