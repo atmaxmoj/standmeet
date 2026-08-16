@@ -77,63 +77,13 @@ export interface DraftModel {
   coverLetter: string;
 }
 
-// mockDraft —— 没接后端时用的占位 draft，让 ResumeComposer 能跑起来。
-// REST endpoint 落地后这层 fixture 改成 fetcher。
-export function mockDraft(id: string): DraftModel {
-  return {
-    id,
-    company: 'Anthropic',
-    role: 'Member of Technical Staff · retrieval',
-    name: 'sijie wang',
-    summary: 'Building Lucerna — retrieval substrate for personal corpora. '
-      + 'Previously led retrieval-quality at Google Brain. The eval is the '
-      + 'product; the model is the tax.',
-    contact: {
-      email: 'sijie@standmeet.com',
-      phone: '',
-      location: 'Markham, Ontario',
-      site: 'standmeet.com/sijie',
-    },
-    skills: [
-      'retrieval / RAG',
-      'evaluation methodology',
-      'llm post-training',
-      'distributed systems',
-      'python / typescript / rust',
-    ],
-    experience: [
-      {
-        id: 'e-1', org: 'Lucerna', role: 'founder · technical',
-        range: '2024-01 — present', loc: 'Markham',
-        bullets: [
-          'Founded Lucerna, retrieval substrate for personal corpora.',
-          'Built the eval methodology — faithfulness, attribution, refusal-when-absent.',
-          'Wrote ~60% of production code; held technical bar across four-person team.',
-        ],
-      },
-      {
-        id: 'e-2', org: 'Google Brain', role: 'research engineer',
-        range: '2019-01 — 2024-01', loc: 'SF',
-        bullets: [
-          'Led retrieval quality for 2023 product launch — top-1 38% → 71% in nine months.',
-          'Half the gain came from rebuilding the eval rubric. The reframing was the contribution.',
-        ],
-      },
-    ],
-    education: [
-      { id: 'ed-1', school: 'Stanford', degree: 'PhD, representation learning', range: '2013-09 — 2019-06' },
-      { id: 'ed-2', school: 'Tsinghua', degree: 'BSc, applied mathematics', range: '2009-09 — 2013-06' },
-    ],
-    social: [
-      { id: 's-1', kind: 'linkedin', handle: 'linkedin.com/in/your-handle' },
-      { id: 's-2', kind: 'github', handle: 'github.com/your-handle' },
-    ],
-    custom: [
-      { id: 'c-1', label: 'languages', value: 'English · Mandarin · learning German' },
-    ],
-    coverLetter: '',
-  };
-}
+// **这里曾经有一个 `mockDraft()`** —— 设计期的占位简历，挂在 owner 的真名下面声称
+// Stanford 博士、Google Brain 任职。后端接上之后（#52）composer 换成了真数据，而
+// drafts 卡片上那张缩略图还在画它：两份完全不同的草稿画出同一份虚构履历（F-E-20）。
+//
+// 删掉，不是改小。一份"看起来像真简历"的假数据待在求职产品里，迟早会有第二处渲染它 ——
+// 而它越逼真，越没人会当场认出那是假的。缺数据的地方现在渲染成空（F-E-21：空段落连
+// 标题都不印），空比编好。
 
 // confidenceScore —— ResumeComposer 顶栏的 match% gauge：这份简历对**投递的那个职位**的覆盖度。
 //

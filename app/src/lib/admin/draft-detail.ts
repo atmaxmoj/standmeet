@@ -11,7 +11,10 @@ import { safeJson } from '@/lib/api/typed-json';
 
 const PeriodSchema = z.object({ start: z.string(), end: z.string().nullable().optional() });
 
-const ResumeContentSchema = z.object({
+// ResumeContentSchema / toDraftModel 都是 **export** 的：列表那条路（缩略图）读的是同一份
+// `resume_content`，而它以前画的是一份写死的假简历（F-E-20）。两处各写一份映射的话，
+// 卡片和 composer 会慢慢画出两种东西 —— 而这里的"两种东西"正是那条缺陷的形状。
+export const ResumeContentSchema = z.object({
   identity: z.object({
     name: z.string(), email: z.string(), phone: z.string(),
     location_line: z.string(), site: z.string().optional().default(''),
@@ -36,7 +39,7 @@ const DraftDetailSchema = z.object({
   id: z.string(), company: z.string(), role: z.string(),
   resume_content: ResumeContentSchema,
 });
-type DraftDetail = z.infer<typeof DraftDetailSchema>;
+export type DraftDetail = z.infer<typeof DraftDetailSchema>;
 
 interface DetailState {
   model: DraftModel | null;
@@ -66,7 +69,7 @@ async function load(id: string, setState: (s: DetailState) => void): Promise<voi
   }
 }
 
-function toDraftModel(d: DraftDetail): DraftModel {
+export function toDraftModel(d: DraftDetail): DraftModel {
   const rc = d.resume_content;
   return {
     id: d.id, company: d.company, role: d.role,

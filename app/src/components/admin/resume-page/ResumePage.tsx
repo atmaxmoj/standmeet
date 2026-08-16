@@ -205,9 +205,12 @@ function flattenSkills(sets: ResumeContent['skills'] | undefined): readonly stri
   return (sets ?? []).flatMap((set) => set.items);
 }
 
+// 空的段落**整段不出现** —— 标题也不印（F-E-21）。这是给招聘方的文档：底下什么都没有的
+// `EDUCATION` 读起来像「渲染坏了」或者「他没上过学」，而不是「这一段不适用」。
+// 跟 landing page 那条早就定过的原则同一条（[[page-corpus-pinning-design]]:空的区块不显示）。
 function SkillsRail({ items }: { items: readonly string[] }) {
   const t = useTranslations('adminJobs');
-  return (
+  return items.length === 0 ? null : (
     <>
       <div className={styles.label}>{t('resume.skills')}</div>
       <ul className={styles.skillList}>
@@ -223,7 +226,7 @@ function SkillsRail({ items }: { items: readonly string[] }) {
 
 function EducationRail({ educations }: { educations: readonly ResumeContent['educations'][number][] }) {
   const t = useTranslations('adminJobs');
-  return (
+  return educations.length === 0 ? null : (
     <>
       <div className={styles.labelMt}>{t('resume.education')}</div>
       <div className={styles.eduList}>
@@ -271,12 +274,16 @@ function MainColumn(props: { works: ResumeContent['works'] }) {
   const t = useTranslations('adminJobs');
   return (
     <div className={styles.mainColumn}>
-      <div className={styles.label}>{t('resume.experience')}</div>
-      <div className={styles.workList}>
-        {props.works.slice(0, 2).map((w) => (
-          <WorkEntry key={w.company + w.title} work={w} />
-        ))}
-      </div>
+      {props.works.length === 0 ? null : (
+        <>
+          <div className={styles.label}>{t('resume.experience')}</div>
+          <div className={styles.workList}>
+            {props.works.slice(0, 2).map((w) => (
+              <WorkEntry key={w.company + w.title} work={w} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

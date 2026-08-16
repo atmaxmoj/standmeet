@@ -191,12 +191,17 @@ func writeSourcesList(
 
 // ───── drafts ────────────────────────────────────────────────
 
+// draftView —— 列表里的一份草稿。**带上 resume_content**：卡片上那张缩略图画的就是这一份，
+// 而它以前画的是一份设计期的假简历（挂着 owner 的真名声称 Stanford 博士、Google Brain 任职，
+// 两份不同的草稿画出同一张图 —— F-E-20）。内容本来就在 ListByOwner 取回的行里，这里只是
+// 别再把它丢掉：让缩略图有真数据可用，比让它"看起来像每份不同"重要得多。
 type draftView struct {
-	UpdatedAt time.Time `json:"updated_at"`
-	ID        string    `json:"id"`
-	Company   string    `json:"company"`
-	Role      string    `json:"role"`
-	ForJob    string    `json:"for_job"`
+	UpdatedAt     time.Time               `json:"updated_at"`
+	ID            string                  `json:"id"`
+	Company       string                  `json:"company"`
+	Role          string                  `json:"role"`
+	ForJob        string                  `json:"for_job"`
+	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
 }
 
 func listDrafts(deps Deps) http.HandlerFunc {
@@ -258,11 +263,12 @@ func writeDraftsList(
 	items := make([]draftView, 0, len(drafts))
 	for i := range drafts {
 		items = append(items, draftView{
-			ID:        drafts[i].ID,
-			Company:   drafts[i].JobSnapshot.Company,
-			Role:      drafts[i].JobSnapshot.Title,
-			ForJob:    drafts[i].JobCacheID,
-			UpdatedAt: drafts[i].CreatedAt,
+			ID:            drafts[i].ID,
+			Company:       drafts[i].JobSnapshot.Company,
+			Role:          drafts[i].JobSnapshot.Title,
+			ForJob:        drafts[i].JobCacheID,
+			UpdatedAt:     drafts[i].CreatedAt,
+			ResumeContent: drafts[i].ResumeContent,
 		})
 	}
 	w.Header().Set(ctHeader, ctJSON)

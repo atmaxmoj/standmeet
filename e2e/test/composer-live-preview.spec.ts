@@ -79,11 +79,42 @@ test.describe('admin /drafts · composer live preview wires ResumePage', () => {
       await adminPage.getByText('open composer →').first().click();
       const composer = adminPage.getByTestId('resume-composer');
       await composer.getByTestId('composer-name').fill('Jordan Lee');
-      // ResumePage lowercases the name; preview (scoped inside composer)
-      // should reflect it. The thumb on the page beneath uses mockDraft
-      // independently, so we scope to composer to avoid matching it.
+      // ResumePage lowercases the name; the preview (scoped inside the composer)
+      // should reflect it. Scoped to the composer because the card underneath
+      // renders the SAVED draft — typing here has not been saved yet.
       await expect(composer.getByTestId('resume-page').first()
         .getByText('jordan lee')).toBeVisible({ timeout: 2_000 });
+    });
+
+  // 卡片上那张缩略图画的必须是**这一份草稿**（F-E-20）。以前它画的是一份写死的假简历：
+  // owner 的真名底下写着 Stanford 博士、Google Brain 任职,而且每张卡都是同一张图 ——
+  // 在一个投简历的产品上,这是最坏的错法(扫一眼卡片就是 owner 判断"可以发了"的方式)。
+  test('卡片上的缩略图画的是这份草稿自己的内容,不是一份样例',
+    async ({ adminPage }) => {
+      await openDrafts(adminPage);
+      const thumbs = adminPage.getByTestId('draft-thumb');
+      await expect(thumbs).toHaveCount(2, { timeout: 5_000 });
+      const texts = await thumbs.allInnerTexts();
+      // 两份草稿种的是两个人（Alice / Nadia）。**两张图都要各画各的** ——
+      // 原来它们是同一份写死的文档,只有页眉那一条公司/职位不同。
+      expect(texts.join('|'), '一张画的是 Alice 那份').toContain('alice anderson');
+      expect(texts.join('|'), '另一张画的是 Nadia 那份').toContain('nadia noon');
+      expect(texts[0], '两张缩略图不是同一份文档').not.toBe(texts[1]);
+      expect(texts.join('|'), 'Alice 那份的经历也在图上').toContain('Acme');
+    });
+
+  // 空的段落连标题都不印（F-E-21）。这是要发给招聘方的文档,一个底下什么都没有的
+  // `education` 读起来像"渲染坏了"或者"他没上过学",而不是"这一段不适用"。
+  test('没有履历的草稿:空段落整段不出现,不是一个空标题',
+    async ({ adminPage }) => {
+      await openDrafts(adminPage);
+      const empty = adminPage.getByTestId('draft-thumb')
+        .filter({ hasText: 'nadia noon' }).first();
+      await expect(empty).toBeVisible({ timeout: 5_000 });
+      await expect(empty, '有 summary 的段落照常出现').toContainText('summary');
+      const text = await empty.innerText();
+      expect(text, '没有履历就不该印 experience 这个标题').not.toContain('experience');
+      expect(text, '没有学历就不该印 education 这个标题').not.toContain('education');
     });
 });
 
@@ -103,6 +134,19 @@ async function seedDraft(playwright: Playwright): Promise<void> {
   const fetched = await jobsFetchNew(request, token, sid, source.id);
   await resumeDraft(
     request, token, sid, fetched.jobs[0]!.cache_id, sampleResumeContent(),
+  );
+  // 第二份草稿:**没有 works / educations**。这个实例上这不是极端情况而是常态 ——
+  // owner 的履历只以散文形态活在语料里,`resume.draft` 拿不到带日期的条目,
+  // 两次真实驱动交上来的都是空数组（F-E-22）。同一次 fetch 的另一条岗位:
+  // 换个源再 fetch 一次拿到的是**空的**(那批岗位已经进过池子,跨源去重把它们挡掉了)。
+  await resumeDraft(
+    request, token, sid, fetched.jobs[1]!.cache_id, sampleResumeContent({
+      identity: {
+        name: 'Nadia Noon', email: 'nadia@example.com', phone: '',
+        location_line: 'Toronto, ON', site: '',
+      },
+      works: [], educations: [], skills: [],
+    }),
   );
   await request.dispose();
 }
