@@ -81,19 +81,26 @@ test.describe('jobs.fetch_new (workable) authed SPI', () => {
         label: 'Workable wrong token',
         config: { company: 'acme', api_token: 'not-the-token' },
       });
-      // the mock 401s on a bad token → the adapter surfaces it (auth is really enforced upstream).
+      // **mock 现在照真 Workable 的样子回**：坏 token → `302 → /oops`（一张 HTML 页），
+      // 不是体面的 401 JSON（2026-08-16 用假 token 直接问过真 endpoint）。
+      // 老 mock 那个 401 比真实世界客气，于是这条 check 在 CI 上一直看着是对的，
+      // 而真环境里 owner 收到的是「upstream schema mismatch: invalid character '<'」——
+      // 指向的下一步是错的：去查适配器，而不是去换 token（F-E-17）。
       //
       // 判据是**「不许静默变成空」**，不是「必须抛」。工具后来改成逐源报告失败
       // （一个源坏了不该把整次抓取一起拖垮），那是更好的形状 —— 于是要断的是：
       // 这一次没有任何岗位，而且那个源被**点名**说清了原因。
-      // 只断 `jobs` 为空的话，一个真的静默吞掉 401 的实现也照样过。
       const out = await jobsFetchNew(request, token, sid, src.id);
-      expect(out.jobs, 'a 401 upstream must not yield jobs').toHaveLength(0);
+      expect(out.jobs, 'a rejected token must not yield jobs').toHaveLength(0);
       const failed = (out.failed_sources ?? []).find((f) => f.source_id === src.id);
       expect(failed, 'the bad source must be named, not silently dropped').toBeTruthy();
       expect(
         failed?.reason ?? '',
-        'the reason must carry the real upstream status, not a generic "could not fetch"',
-      ).toMatch(/401|unauthor/i);
+        '要说的是「凭据被拒」，而不是「上游 schema 不匹配」—— 后者把 owner 指向错的下一步',
+      ).toMatch(/credential|token|auth/i);
+      expect(
+        failed?.reason ?? '',
+        'schema mismatch 是解析器的问题，不是这一次的问题',
+      ).not.toMatch(/schema mismatch/i);
     });
 });

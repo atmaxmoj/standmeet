@@ -188,6 +188,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /bamboohr/careers/list", s.serveBambooHR)
 	// Workable SPI jobs (authed): Bearer token required, wrong/missing → 401.
 	mux.HandleFunc("GET /workable/spi/v3/accounts/{company}/jobs", s.serveWorkable)
+	mux.HandleFunc("GET /oops", s.serveOops)
 
 	// 素材托管方的替身:owner 的图在别人家,后端按 https 地址去取。
 	// 三条"故意不对"的路径给取回那一步的守卫用 —— 只测 happy path 的守卫等于没有。
@@ -294,14 +295,27 @@ func (s *server) serveLever(w http.ResponseWriter, r *http.Request) {
 // owner's api_token). A wrong/missing token 401s, exercising the adapter's real authed path.
 const workableSPIToken = "wk-spi-secret-token"
 
+// serveWorkable —— 坏 token 时**照真 Workable 的样子**回：**302 → `/oops`**，
+// 那是一张 HTML 页，不是 401 JSON（2026-08-16 用一把假 token 直接问过
+// `apply.workable.com/spi/v3/accounts/anthropic/jobs`：`HTTP/2 302`、
+// `location: /oops`、`content-type: text/plain`）。
+//
+// 这里原来回的是一个体面的 401 JSON —— 比真实世界客气，于是「错 token 会怎样」
+// 这条 check 在 CI 上永远看起来是对的，而真环境里 owner 收到的是
+// 「upstream schema mismatch: invalid character '<'」（F-E-17）。
 func (s *server) serveWorkable(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Authorization") != "Bearer "+workableSPIToken {
-		w.Header().Set("Content-Type", jsonMIME)
-		w.WriteHeader(http.StatusUnauthorized)
-		writeBody(s.log, w, []byte(`{"error":"invalid or missing SPI token"}`))
+		http.Redirect(w, r, "/oops", http.StatusFound)
 		return
 	}
 	s.serveJSONKind(w, r, "workable", r.PathValue("company"), nil)
+}
+
+// serveOops —— 重定向的落点：一张 HTML 页。跟着跳的客户端拿到的是 200 + HTML，
+// 于是 JSON 解码炸在「<」上 —— 真 vendor 就是这么把认证失败伪装成 schema 问题的。
+func (s *server) serveOops(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	writeBody(s.log, w, []byte("<!doctype html><html><body><h1>Oops</h1></body></html>"))
 }
 
 func (s *server) serveAshby(w http.ResponseWriter, r *http.Request) {

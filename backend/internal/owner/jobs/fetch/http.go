@@ -36,7 +36,24 @@ func getBodyAuth(ctx context.Context, client *http.Client, url, bearer string) (
 		return nil, err
 	}
 	defer closeQuiet(resp.Body)
+	if bearer != "" && authRejected(resp, url) {
+		return nil, fmt.Errorf("%s: %w: check this source's api_token", url, ErrUpstreamAuth)
+	}
 	return readOK(resp, url)
+}
+
+// authRejected —— 这一次带凭据的请求是不是被拒了。
+//
+// 两种形状：直白的 401/403，以及**被重定向走**。后者是真 Workable 的做法 ——
+// 坏 token 回 `302 → /oops`，而 Go 的 client 默认跟着跳，于是拿到的是那张 HTML 页的 200，
+// JSON 解码炸在「<」上，最后报给 owner 的是「upstream schema mismatch」。
+// 一个**带凭据的数据请求被重定向到别的路径**，只可能是上游不认这把凭据（F-E-17）。
+func authRejected(resp *http.Response, requested string) bool {
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return true
+	}
+	return resp.Request != nil && resp.Request.URL != nil &&
+		resp.Request.URL.String() != requested
 }
 
 func sendGET(ctx context.Context, client *http.Client, url, bearer string) (*http.Response, error) {

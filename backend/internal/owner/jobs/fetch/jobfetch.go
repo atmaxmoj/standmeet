@@ -175,3 +175,8 @@ var ErrUpstream = errors.New("upstream job board error")
 // ErrUpstreamSchema —— 源回了 2xx 但 payload shape 不符（字段缺、JSON 解不开）。
 // 通常是 fixture 漂移或源改 API 字段。
 var ErrUpstreamSchema = errors.New("upstream schema mismatch")
+
+// ErrUpstreamAuth —— 上游拒了这把凭据。**必须跟 ErrUpstreamSchema 分开**：owner 要采取的
+// 下一步完全不同（换 token vs. 修适配器），而真 Workable 把认证失败伪装成后者 ——
+// 坏 token 它回 `302 → /oops`（HTML），跟着跳就变成「2xx 但解不开」（F-E-17）。
+var ErrUpstreamAuth = errors.New("upstream rejected the credential")
