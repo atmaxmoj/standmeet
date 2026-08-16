@@ -43,6 +43,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -187,6 +188,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /workday/wday/cxs/{tenant}/{site}/jobs", s.serveWorkday)
 	mux.HandleFunc("GET /bamboohr/careers/list", s.serveBambooHR)
 	// Workable SPI jobs (authed): Bearer token required, wrong/missing → 401.
+	mux.HandleFunc("GET /smartrecruiters/v1/companies/{company}/postings", s.serveSmartRecruiters)
 	mux.HandleFunc("GET /workable/spi/v3/accounts/{company}/jobs", s.serveWorkable)
 	mux.HandleFunc("GET /oops", s.serveOops)
 
@@ -309,6 +311,89 @@ func (s *server) serveWorkable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.serveJSONKind(w, r, "workable", r.PathValue("company"), nil)
+}
+
+// smartRecruitersMaxLimit —— 真 SmartRecruiters 的每页上限。量出来的，不是猜的：
+// 2026-08-16 请求 `?limit=200`，响应体里回的是 `"limit":100` —— **它悄悄压到 100**，
+// 既不报错也不说自己压过。所以「一次要 200 条」这种写法拿到的其实是前 100 条。
+const smartRecruitersMaxLimit = 100
+
+// pagedCompany —— 合成一家「岗位多到必须翻页」的公司。
+//
+// 为什么合成而不是再摆一份夹具：要逼出翻页，fixture 得超过 100 条 —— 那是一百多行
+// 只为凑数的 JSON，读的人一行也不会看。这里合成的是**形状**（跟 visa.day1.json 同构），
+// 数量才是判据。跟这个 mock 早就在做的 day2 派生同一个理由：让磁盘上的夹具保持单一来源。
+const (
+	pagedCompany  = "pagedco"
+	pagedPostings = 137
+)
+
+// serveSmartRecruiters —— GET /v1/companies/{company}/postings?limit&offset。
+// **照厂商的规矩答**：limit 超过 100 悄悄压到 100（不是报错），offset 真翻页，
+// `totalFound` 报全集大小。没有这三条，adapter「只取第一页」的静默截断在 CI 里看不出来（F-E-16）。
+func (s *server) serveSmartRecruiters(w http.ResponseWriter, r *http.Request) {
+	limit := min(queryInt(r, "limit", smartRecruitersMaxLimit), smartRecruitersMaxLimit)
+	offset := queryInt(r, "offset", 0)
+	all, err := s.smartRecruitersAll(r.PathValue("company"))
+	if err != nil {
+		s.notFound(w, r, err)
+		return
+	}
+	start := min(max(offset, 0), len(all))
+	end := min(start+limit, len(all))
+	body, merr := json.Marshal(struct {
+		Content    []json.RawMessage `json:"content"`
+		Offset     int               `json:"offset"`
+		Limit      int               `json:"limit"`
+		TotalFound int               `json:"totalFound"`
+	}{Content: all[start:end], Offset: start, Limit: limit, TotalFound: len(all)})
+	if merr != nil {
+		s.notFound(w, r, merr)
+		return
+	}
+	w.Header().Set("Content-Type", jsonMIME)
+	writeBody(s.log, w, body)
+}
+
+// smartRecruitersAll —— 这家公司的全部 posting：合成的那家按数量造，其余读夹具。
+func (s *server) smartRecruitersAll(company string) ([]json.RawMessage, error) {
+	if company == pagedCompany {
+		out := make([]json.RawMessage, 0, pagedPostings)
+		for i := range pagedPostings {
+			out = append(out, json.RawMessage(fmt.Sprintf(
+				`{"id":"sr-%04d","name":"Engineer %04d","refNumber":"REF-%04d",`+
+					`"releasedDate":"2026-08-01T00:00:00.000Z",`+
+					`"department":{"label":"Engineering"},"industry":{"label":"Software"},`+
+					`"typeOfEmployment":{"label":"Full-time"},"experienceLevel":{"label":"Mid"},`+
+					`"location":{"country":"us","region":"CA","city":"San Francisco","remote":false}}`,
+				i, i, i)))
+		}
+		return out, nil
+	}
+	raw, err := s.readFixture("smartrecruiters", company, jsonExt)
+	if err != nil {
+		return nil, err
+	}
+	var doc struct {
+		Content []json.RawMessage `json:"content"`
+	}
+	if uerr := json.Unmarshal(raw, &doc); uerr != nil {
+		return nil, fmt.Errorf("smartrecruiters fixture decode: %w", uerr)
+	}
+	return doc.Content, nil
+}
+
+// queryInt —— 取一个整型 query 参数，缺席/不合法时用默认值（跟真 endpoint 一样宽容）。
+func queryInt(r *http.Request, key string, fallback int) int {
+	v := r.URL.Query().Get(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return fallback
+	}
+	return n
 }
 
 // serveOops —— 重定向的落点：一张 HTML 页。跟着跳的客户端拿到的是 200 + HTML，
