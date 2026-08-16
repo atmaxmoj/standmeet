@@ -14,6 +14,12 @@ It only DETECTS. Fixing is a hand-written, non-destructive ALTER (this is a gree
 with no migration runner): read the definition out of schema.sql and add the column with its
 default. Never re-apply schema.sql to a live volume — it drops nothing, but it is not idempotent
 either, and a fresh-volume file is not a migration.
+
+Defaults count as drift too. This script used to compare names only, so a column whose DEFAULT
+had been changed in the file read as "in sync" while the live table kept minting rows with the
+old value — the exact shape of F-L-38 (cover_hue defaulted to 'amber', so "the owner never
+picked a hue" had no representation, and the file said otherwise). A checker that cannot see
+the change you just made is worse than no checker: it answers the question you asked.
 """
 
 import os
@@ -29,23 +35,51 @@ SCHEMA = os.path.join(os.path.dirname(__file__), "..", "..", "backend", "db", "s
 
 
 def live_columns():
-    """{table: {column}} as the running database reports it."""
+    """{table: {column: default}} as the running database reports it ('' = no default)."""
     out = subprocess.run(
         ["docker", "exec", CONTAINER, "psql", "-U", "standmeet", "-d", "standmeet", "-At",
-         "-c", "select table_name||'|'||column_name from information_schema.columns "
-               "where table_schema='public'"],
+         "-c", "select table_name||'|'||column_name||'|'||coalesce(column_default,'') "
+               "from information_schema.columns where table_schema='public'"],
         capture_output=True, text=True, check=True).stdout
     live = {}
     for line in out.splitlines():
-        if "|" not in line:
+        parts = line.strip().split("|", 2)
+        if len(parts) != 3:
             continue
-        t, c = line.strip().split("|", 1)
-        live.setdefault(t, set()).add(c)
+        t, c, d = parts
+        live.setdefault(t, {})[c] = d
     return live
 
 
+# DEFAULT_RE —— the DEFAULT of one declared column. It ends at the trailing comma, or at a
+# same-line CHECK — `id int PRIMARY KEY DEFAULT 1 CHECK (id = 1)` defaults to 1, and reading the
+# constraint as part of the value made this script's first run report its own parse as drift.
+DEFAULT_RE = re.compile(r"\bdefault\s+(.+?)\s*(?:\bcheck\b.*)?,?\s*$", re.I)
+
+
+def normalize_default(d):
+    """One side of a default, reduced to something comparable — or None if it cannot be.
+
+    Postgres does not echo a default the way it was written: it appends the cast ("''::text"),
+    re-spaces literals ('["a", "b"]' for '["a","b"]'), writes an empty bytea as '\\x', and
+    re-renders expressions entirely (`now() + interval '1 day'` comes back as
+    `(now() + '1 day'::interval)`). Two of those are notation, and they reduce; the last is a
+    rewrite, and pretending to compare it would report drift that isn't there. Expressions
+    return None and the caller skips them — better a checker that names what it does not cover
+    than one that cries wolf until nobody reads it.
+    """
+    d = re.sub(r"::[\w\s\[\]\.\"]+$", "", d.strip()).strip()
+    if "(" in d:
+        return None
+    if len(d) >= 2 and d[0] == "'" and d[-1] == "'":
+        d = d[1:-1]
+    if d == "\\x":  # an empty bytea, as postgres writes it
+        d = ""
+    return re.sub(r"\s+", "", d).lower()
+
+
 def declared_columns():
-    """{table: [column]} as schema.sql declares it.
+    """{table: {column: default}} as schema.sql declares it (missing key = no DEFAULT written).
 
     Column names are taken only from lines that START a definition at paren depth 1 — a
     multi-line CHECK (…) constraint would otherwise contribute its wrapped values as if they
@@ -54,7 +88,7 @@ def declared_columns():
     sql = open(SCHEMA, encoding="utf-8").read()
     tables = {}
     for m in re.finditer(r"CREATE TABLE(?: IF NOT EXISTS)?\s+(\w+)\s*\((.*?)\n\);", sql, re.S):
-        table, body, depth, cols = m.group(1), m.group(2), 0, []
+        table, body, depth, cols = m.group(1), m.group(2), 0, {}
         for raw in body.splitlines():
             line = raw.strip()
             starts_at_top = depth == 0
@@ -64,28 +98,74 @@ def declared_columns():
             word = line.split()[0].lower()
             if word in ("primary", "foreign", "unique", "check", "constraint", "exclude"):
                 continue
-            cols.append(word)
+            hit = DEFAULT_RE.search(line.split("--")[0])
+            cols[word] = hit.group(1) if hit else None
         tables[table] = cols
     return tables
 
 
+def default_diffs(live, declared):
+    """[(table, column, declared, live)] where both sides name a default and they disagree.
+
+    Only compares columns that declare a DEFAULT in schema.sql: a column with no declared
+    default says nothing about what a live table may carry, and reporting that as drift would
+    bury the real cases.
+    """
+    out = []
+    for t, cols in declared.items():
+        for c, want in cols.items():
+            if want is None or t not in live or c not in live[t]:
+                continue
+            got = live[t][c]
+            if got == "":
+                continue
+            wn, gn = normalize_default(want), normalize_default(got)
+            if wn is None or gn is None:
+                continue
+            if wn != gn:
+                out.append((t, c, want, got))
+    return sorted(out)
+
+
+def self_test(declared):
+    """The parser must actually see defaults — otherwise every comparison below is vacuous.
+
+    A regex that stops matching (a formatting change, a rewritten column line) would make this
+    script print "in sync" for the very drift it was extended to catch.
+    """
+    seen = sum(1 for cols in declared.values() for d in cols.values() if d is not None)
+    if seen < 50:
+        print(f"schema-drift: SELF-TEST FAILED — only {seen} DEFAULTs parsed out of schema.sql; "
+              "the default comparison below would be blind")
+        return False
+    return True
+
+
 def main():
     live, declared = live_columns(), declared_columns()
+    if not self_test(declared):
+        return 2
     missing_tables = sorted(t for t in declared if t not in live)
     missing_cols = sorted(
         (t, c) for t, cols in declared.items() if t in live
         for c in cols if c not in live[t]
     )
+    diffs = default_diffs(live, declared)
     print(f"schema-drift: {CONTAINER} vs backend/db/schema.sql")
-    if not missing_tables and not missing_cols:
-        print("  in sync — every declared table and column exists in the live database.")
+    if not missing_tables and not missing_cols and not diffs:
+        print("  in sync — every declared table and column exists in the live database, "
+              "and every declared DEFAULT matches.")
         return 0
     for t in missing_tables:
         print(f"  MISSING TABLE   {t}")
     for t, c in missing_cols:
         print(f"  MISSING COLUMN  {t}.{c}")
+    for t, c, want, got in diffs:
+        print(f"  DEFAULT DIFFERS {t}.{c} — schema.sql says {want}, the database says {got}")
     print("\nApply them by hand, non-destructively — copy each definition out of "
-          "backend/db/schema.sql (every added column carries a default or is nullable).")
+          "backend/db/schema.sql (every added column carries a default or is nullable). "
+          "A changed DEFAULT is an ALTER COLUMN … SET DEFAULT; it does not touch existing rows, "
+          "so decide separately whether those rows should be backfilled.")
     return 1
 
 

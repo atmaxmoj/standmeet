@@ -6,6 +6,7 @@
     "kindAttachment": "attachment",
     "insert": "insert in body",
     "setCover": "use as cover",
+    "unsetCover": "stop using as cover",
     "isCover": "cover",
     "remove": "remove"
   },

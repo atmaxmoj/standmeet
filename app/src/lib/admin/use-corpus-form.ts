@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { heroField } from '@/lib/admin/hero-field';
 import type {
   CorpusEntryInput, PromoteInput,
 } from '@/lib/admin/use-corpus-actions';
@@ -88,14 +89,16 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
         // FALSE, so omitting it silently turned citation OFF on every edit (the note stayed
         // readable but stopped being attributable). Carry it explicitly.
         show_as_source: citable,
-        // hero 在后端是**指针字段**:不发 = 不动,发空串 = 清掉。所以只在编辑态(表单
-        // 真的载到过一个值,或 owner 刚点了封面)才发它 —— 新建表单发空串会把
-        // "没设过封面"写成"明确清空",两者在后端不是同一件事。
-        cover_image_asset_id: coverAssetID === '' ? undefined : coverAssetID,
-        cover_headline: coverHeadline === '' ? undefined : coverHeadline,
-        cover_hue: coverHue === '' ? undefined : coverHue,
+        // hero 三格发什么由 heroField 一处判(跟**载入时**的值比,不是跟空比) ——
+        // 这样「他从没设过」和「他要撤掉」才分得开。
+        cover_image_asset_id: heroField(coverAssetID, seed.coverAssetID),
+        cover_headline: heroField(coverHeadline, seed.coverHeadline),
+        cover_hue: heroField(coverHue, seed.coverHue),
       }),
-      [title, body, tagsRaw, parentID, citable, coverAssetID, coverHeadline, coverHue],
+      [
+        title, body, tagsRaw, parentID, citable, coverAssetID, coverHeadline, coverHue,
+        seed.coverAssetID, seed.coverHeadline, seed.coverHue,
+      ],
     ),
     toPromoteInput: useCallback(
       () => ({ title: title.trim(), tags: parseTags(tagsRaw) }),

@@ -1,0 +1,50 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-media/shots/hero-clear",
+  "viewport": [1280, 1600],
+  "shots": [
+    { "name": "hc-01-wiki-list", "url": "/admin/wiki", "wait": 4000 },
+    {
+      "name": "hc-02-edit-form-before",
+      "steps": [
+        { "click": "button[data-testid^=\"wiki-edit-\"]" },
+        { "wait": 2500 }
+      ]
+    },
+    {
+      "name": "hc-03-picked-violet",
+      "steps": [
+        { "select": ["select[data-testid$=\"-cover-hue\"]", "violet"] },
+        { "wait": 500 },
+        { "click": "button[data-testid^=\"wiki-edit-form-\"][data-testid$=\"-submit\"]" },
+        { "wait": 2500 }
+      ]
+    },
+    {
+      "name": "hc-04-reopened-shows-violet",
+      "url": "/admin/wiki",
+      "wait": 4000,
+      "steps": [
+        { "click": "button[data-testid^=\"wiki-edit-\"]" },
+        { "wait": 2500 }
+      ]
+    },
+    {
+      "name": "hc-05-picked-default",
+      "steps": [
+        { "select": ["select[data-testid$=\"-cover-hue\"]", ""] },
+        { "wait": 500 },
+        { "click": "button[data-testid^=\"wiki-edit-form-\"][data-testid$=\"-submit\"]" },
+        { "wait": 2500 }
+      ]
+    },
+    {
+      "name": "hc-06-reopened-still-violet",
+      "url": "/admin/wiki",
+      "wait": 4000,
+      "steps": [
+        { "click": "button[data-testid^=\"wiki-edit-\"]" },
+        { "wait": 2500 }
+      ]
+    }
+  ]
+}

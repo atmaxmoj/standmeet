@@ -16,6 +16,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { heroField } from '@/lib/admin/hero-field';
 import type {
   CorpusActionsHook, OutputDetail, RawDetail, SubjectivityDetail, WikiDetail,
 } from '@/lib/admin/use-corpus-actions';
@@ -36,10 +37,14 @@ export function useWikiDetail(id: string, actions: CorpusActionsHook): WikiDetai
 }
 
 // RawHeroForm —— raw 行内编辑框里 hero 那三样的可编辑状态。
+//
+// `loaded` 是**载入时**的那一份,提交时要拿它比对:三格都是指针字段,「他从没设过」
+// 和「他刚撤掉」都是空串,只有跟载入值比才分得开(见 [[hero-field]] 那个函数的注释)。
 export interface RawHeroForm {
   cover: string;
   coverHeadline: string;
   coverHue: string;
+  loaded: { cover: string; coverHeadline: string; coverHue: string };
   setCover: (v: string) => void;
   setCoverHeadline: (v: string) => void;
   setCoverHue: (v: string) => void;
@@ -53,28 +58,36 @@ export function useRawHeroForm(id: string, actions: CorpusActionsHook): RawHeroF
   const [cover, setCover] = useState('');
   const [coverHeadline, setCoverHeadline] = useState('');
   const [coverHue, setCoverHue] = useState('');
+  const [loaded, setLoaded] = useState(EMPTY_HERO);
   const report = useReportError();
   const fetchDetail = actions.fetchRawDetail;
   useEffect(() => {
     let alive = true;
     void fetchDetail(id)
-      .then((d) => { alive && d && seedHero(d, setCover, setCoverHeadline, setCoverHue); })
+      .then((d) => {
+        alive && d && seedHero(d, setCover, setCoverHeadline, setCoverHue, setLoaded);
+      })
       .catch((e: unknown) => { alive && report(e); });
     return () => { alive = false; };
   }, [id, fetchDetail, report]);
-  return { cover, coverHeadline, coverHue, setCover, setCoverHeadline, setCoverHue };
+  return {
+    cover, coverHeadline, coverHue, loaded,
+    setCover, setCoverHeadline, setCoverHue,
+  };
 }
 
-// heroInput —— 表单状态 → 更新入参。**空串不发** —— hero 在后端是指针字段,
-// 不发 = 不动;发空串 = 明确清空。owner 这次没碰的那几项不该被抹掉。
+const EMPTY_HERO = { cover: '', coverHeadline: '', coverHue: '' };
+
+// heroInput —— 表单状态 → 更新入参。发什么由 heroField 判:跟**载入时**的值比,
+// 而不是跟空比 —— 否则 owner 撤不掉自己设过的封面/那句话/色调(F-L-38(a))。
 export function heroInput(f: RawHeroForm): {
   cover_image_asset_id?: string; cover_headline?: string; cover_hue?: string;
 } {
-  const out: Record<string, string> = {};
-  if (f.cover !== '') out['cover_image_asset_id'] = f.cover;
-  if (f.coverHeadline !== '') out['cover_headline'] = f.coverHeadline;
-  if (f.coverHue !== '') out['cover_hue'] = f.coverHue;
-  return out;
+  return {
+    cover_image_asset_id: heroField(f.cover, f.loaded.cover),
+    cover_headline: heroField(f.coverHeadline, f.loaded.coverHeadline),
+    cover_hue: heroField(f.coverHue, f.loaded.coverHue),
+  };
 }
 
 function seedHero(
@@ -82,10 +95,16 @@ function seedHero(
   setCover: (v: string) => void,
   setHeadline: (v: string) => void,
   setHue: (v: string) => void,
+  setLoaded: (v: { cover: string; coverHeadline: string; coverHue: string }) => void,
 ): void {
   setCover(d.cover_image_asset_id);
   setHeadline(d.cover_headline);
   setHue(d.cover_hue);
+  setLoaded({
+    cover: d.cover_image_asset_id,
+    coverHeadline: d.cover_headline,
+    coverHue: d.cover_hue,
+  });
 }
 
 export function useSubjectivityDetail(

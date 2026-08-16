@@ -123,10 +123,12 @@ test.describe('hero 三样都在面板上', () => {
     await expect(page.getByTestId(`${prefix}-cover-headline`))
       .toHaveValue('a line over the cover', { timeout: 15_000 });
     await expect(page.getByTestId(`${prefix}-cover-hue`)).toHaveValue('violet');
+    // 按 testid 找那个标记,不按文本 —— 同一行里「use as cover」那颗按钮的文案也含 cover,
+    // 按文本判的话封面撤掉之后它照样绿([[assertion-that-cannot-fail]])。
     await expect(
-      page.getByTestId(new RegExp(`^${prefix}-asset-row-`)),
+      page.getByTestId(`${prefix}-asset-is-cover-${assetID}`),
       '那份素材仍标着是封面',
-    ).toContainText('cover');
+    ).toBeVisible();
   });
 
   test('不收的文件:界面上说清楚为什么,不是一句"出错了"', async ({ adminPage: page }) => {
@@ -148,6 +150,61 @@ test.describe('hero 三样都在面板上', () => {
       .toContainText(/content mismatch|not accepted/i);
     await expect(toast).not.toContainText(/goroutine|panic|500/i);
     await expect(page.getByTestId(new RegExp(`^${prefix}-asset-row-`))).toHaveCount(0);
+  });
+});
+
+// 设得上还不够 —— **撤得掉才算 owner 说了算**(F-L-38(a))。上面那条测的注释里
+// 早写着这个陷阱(「空串不发……哪天改成发空串就把它抹了」),而它描述的正是当时的状态:
+// 三样都只进不出。prod 上的实测:hue 选成 violet 存下,再选回 `— default —` 存,
+// 重开还是 violet。owner 手里没有任何撤销的办法,而界面看起来是他挑的。
+test.describe('hero 撤得掉', () => {
+  test('设过之后撤得掉:三样都回得到「没设过」', async ({ adminPage: page }) => {
+    await gotoAdminSection(page, 'wiki');
+    const id = await createWikiEntry(page, 'Panel hero undo note');
+    const prefix = `wiki-edit-form-${id}`;
+    await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId(`${prefix}-asset-input`).setInputFiles({
+      name: 'undo-cover.png', mimeType: 'image/png', buffer: PNG_BYTES,
+    });
+    const assetID = await firstAssetID(page, prefix);
+    await page.getByTestId(`${prefix}-asset-cover-${assetID}`).click();
+    await page.getByTestId(`${prefix}-cover-headline`).fill('a line to take back');
+    await page.getByTestId(`${prefix}-cover-hue`).selectOption('violet');
+    await page.getByTestId(`${prefix}-submit`).click();
+
+    // 前置条件:三样确实设上了 —— 不然下面的「撤掉」可能撤的是本来就空的东西。
+    await page.getByTestId(`wiki-edit-${id}`).click();
+    await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId(`${prefix}-cover-hue`)).toHaveValue('violet', { timeout: 15_000 });
+
+    // 撤:三样各按各的方式回到空 —— 把那句话删干净、色调选回 `— default —`、
+    // 封面那颗按钮再按一次(它这时说的是「撤掉封面」)。
+    await page.getByTestId(`${prefix}-asset-cover-${assetID}`).click();
+    await page.getByTestId(`${prefix}-cover-headline`).fill('');
+    await page.getByTestId(`${prefix}-cover-hue`).selectOption('');
+    await page.getByTestId(`${prefix}-submit`).click();
+
+    // 重开:三样都空。**这里判的是落库之后重新读回来的值**,不是屏幕上还没提交的那份 ——
+    // 表单自己的状态在点保存那一刻就是空的,它证明不了服务器收到了「清空」。
+    await page.getByTestId(`wiki-edit-${id}`).click();
+    await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByTestId(`${prefix}-cover-hue`),
+      '色调回到「没挑过」',
+    ).toHaveValue('', { timeout: 15_000 });
+    await expect(
+      page.getByTestId(`${prefix}-cover-headline`),
+      '压在封面上那句话删掉了',
+    ).toHaveValue('');
+    await expect(
+      page.getByTestId(new RegExp(`^${prefix}-asset-row-`)),
+      '那份素材还在',
+    ).toHaveCount(1);
+    await expect(
+      page.getByTestId(`${prefix}-asset-is-cover-${assetID}`),
+      '但它不再是封面',
+    ).toHaveCount(0);
   });
 });
 

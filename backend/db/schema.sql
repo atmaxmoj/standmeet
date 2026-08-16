@@ -189,7 +189,11 @@ CREATE TABLE corpus_notes (
     visibility       text          NOT NULL DEFAULT 'public',
     locked_body      text          NOT NULL DEFAULT '',
     cover_headline   text          NOT NULL DEFAULT '',
-    cover_hue        text          NOT NULL DEFAULT 'amber',
+    -- cover_hue —— '' means the owner never picked one. The default used to be 'amber', so
+    -- "never picked" had no representation at all: every note in the corpus reported a hue the
+    -- owner had not chosen, and the panel's "— default —" option could not be stored (F-L-38).
+    -- Writings still land on amber, but explicitly — their create path normalises the value.
+    cover_hue        text          NOT NULL DEFAULT '',
     -- FK to assets(id) added via ALTER after the assets table (assets is declared later in this file).
     cover_image_asset_id  uuid     NULL,
     read_minutes     int           NOT NULL DEFAULT 0,

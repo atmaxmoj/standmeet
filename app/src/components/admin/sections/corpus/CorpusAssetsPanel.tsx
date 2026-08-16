@@ -115,8 +115,17 @@ function AssetRow(
       <span className="text-(--color-ink) truncate max-w-[16rem]">{asset.original_filename}</span>
       <span className="text-(--color-faint)">{formatBytes(asset.size_bytes)}</span>
       <span className="text-(--color-faint)">{asset.kind}</span>
-      {isCover ? <span className="text-(--color-accent)">{t('isCover')}</span> : null}
-      <BodyBoundBtns asset={asset} props={props} />
+      {/* 这个标记有自己的 testid:行里另一颗按钮的文案也含 "cover"，按文本找它的断言
+          在封面撤掉之后照样通过（[[assertion-that-cannot-fail]]）。 */}
+      {isCover ? (
+        <span
+          className="text-(--color-accent)"
+          data-testid={`${props.testidPrefix}-asset-is-cover-${asset.asset_id}`}
+        >
+          {t('isCover')}
+        </span>
+      ) : null}
+      <BodyBoundBtns asset={asset} props={props} isCover={isCover} />
       <RowBtn
         label={t('remove')}
         testid={`${props.testidPrefix}-asset-remove-${asset.asset_id}`}
@@ -129,8 +138,13 @@ function AssetRow(
 }
 
 // BodyBoundBtns —— 那两个**改的是正文/表单状态**的动作。
+//
+// 封面那颗是**开关**:已经是封面时它说的是「撤掉封面」并发空串。原来它只有「设为封面」
+// 这一个方向 —— 设上之后想撤，唯一的办法是把这份素材整个删掉（F-L-38(a) 同一族）。
 function BodyBoundBtns(
-  { asset, props }: { asset: CorpusAsset; props: CorpusAssetsPanelProps },
+  { asset, props, isCover }: {
+    asset: CorpusAsset; props: CorpusAssetsPanelProps; isCover: boolean;
+  },
 ) {
   const t = useTranslations('adminCorpus.assets');
   return (
@@ -141,9 +155,9 @@ function BodyBoundBtns(
         onClick={() => { props.insertIntoBody(assetMarkdown(asset)); }}
       />
       <RowBtn
-        label={t('setCover')}
+        label={isCover ? t('unsetCover') : t('setCover')}
         testid={`${props.testidPrefix}-asset-cover-${asset.asset_id}`}
-        onClick={() => { props.onSetCover(asset.asset_id); }}
+        onClick={() => { props.onSetCover(isCover ? '' : asset.asset_id); }}
       />
     </>
   );
