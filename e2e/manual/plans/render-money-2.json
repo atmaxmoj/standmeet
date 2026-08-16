@@ -1,0 +1,27 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "cr-14-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Render Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ],
+      "wait": 1500 },
+    { "name": "cr-15-money-scrolled", "url": "/wiki/knowledge-management/trust-follows-provenance",
+      "steps": [
+        { "wait": 5000 },
+        { "scroll": ["[data-testid=\"wiki-body\"]", 3200] },
+        { "wait": 900 },
+        { "scroll": ["[data-testid=\"wiki-body\"]", 1400] },
+        { "wait": 900 }
+      ],
+      "wait": 1200 }
+  ]
+}

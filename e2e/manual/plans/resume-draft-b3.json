@@ -1,0 +1,9 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resume-draft/shots",
+  "viewport": [1400, 1100],
+  "shots": [
+    { "name": "b3-03-two-drafts", "url": "/admin/drafts", "wait": 3000 },
+    { "name": "b3-04-composer-b", "wait": 4000,
+      "steps": [{ "click": "text=OPEN COMPOSER" }, { "wait": 4000 }] }
+  ]
+}

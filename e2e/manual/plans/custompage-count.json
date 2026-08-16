@@ -1,0 +1,9 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-pages/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "shots": [
+    { "name": "cp-13-admin-count-one", "url": "/admin/custom-pages",
+      "steps": [{ "wait": 4500 }], "wait": 1200 }
+  ]
+}

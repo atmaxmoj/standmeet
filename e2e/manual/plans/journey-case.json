@@ -1,0 +1,9 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1000],
+  "login": false,
+  "shots": [
+    { "name": "mc-39-code-param-uppercase", "url": "/?code=INV-ILBRO6",
+      "steps": [{ "wait": 5000 }], "wait": 1200 }
+  ]
+}

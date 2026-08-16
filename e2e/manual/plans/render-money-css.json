@@ -1,0 +1,24 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 2600],
+  "login": false,
+  "shots": [
+    { "name": "cr-10-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Render Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ],
+      "wait": 1500 },
+    { "name": "cr-11-money-and-math", "url": "/wiki/knowledge-management/trust-follows-provenance",
+      "steps": [{ "wait": 5000 }], "wait": 1500 },
+    { "name": "cr-12-appearance-css", "url": "/api/v1/appearance.css",
+      "steps": [{ "wait": 2500 }], "wait": 800 },
+    { "name": "cr-13-theorem-callout", "url": "/wiki/cybernetics/engineering/recursive-harness/safe-recursion-theorem",
+      "steps": [{ "wait": 5000 }], "wait": 1500 }
+  ]
+}

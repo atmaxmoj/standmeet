@@ -1,0 +1,19 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1280, 2200],
+  "login": true,
+  "shots": [
+    { "name": "ak-06-share-modal", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "[data-testid=\"code-qr-open\"]" },
+        { "wait": 2500 }
+      ], "wait": 1200 },
+    { "name": "ak-07-after-revoke", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "[data-testid=\"code-revoke-AUDITCARD-EC2B\"]" },
+        { "wait": 3500 }
+      ], "wait": 1500 }
+  ]
+}

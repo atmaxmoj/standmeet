@@ -1,4 +1,5 @@
 {
+  "_comment": "bulletFields is an ARRAY here because that is what a real Workday tenant sends (nvidia, 2026-08-16). It used to be a bare string, and that let a dead `BulletFields string` field live in the adapter until it crashed the decode against the real vendor — the fixture's shape is the guard.",
   "total": 2,
   "jobPostings": [
     {
@@ -6,14 +7,14 @@
       "locationsText": "San Francisco, CA",
       "externalPath": "/en-US/careers/job/Senior-Software-Engineer-Backend_R-1234",
       "postedOn": "Posted 3 Days Ago",
-      "bulletFields": "R-1234"
+      "bulletFields": ["R-1234"]
     },
     {
       "title": "Staff Data Scientist",
       "locationsText": "Remote, US",
       "externalPath": "/en-US/careers/job/Staff-Data-Scientist_R-5678",
       "postedOn": "Posted Today",
-      "bulletFields": "R-5678"
+      "bulletFields": ["R-5678"]
     }
   ]
 }

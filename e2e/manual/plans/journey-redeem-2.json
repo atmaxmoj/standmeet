@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "mc-36-code-typed-by-hand", "url": "/gate",
+      "steps": [
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"gate-code\"]", "inv-ilbro6"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Journey Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 7000 }
+      ], "wait": 1500 }
+  ]
+}

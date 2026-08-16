@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/job-fetch/shots",
+  "viewport": [1280, 2000],
+  "shots": [
+    { "name": "b3-00-sources", "url": "/admin/sources", "wait": 2500 },
+    { "name": "b3-01-listings", "url": "/admin/listings", "wait": 3000 }
+  ]
+}

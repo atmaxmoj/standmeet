@@ -185,6 +185,9 @@ const getAccessCode = `-- name: GetAccessCode :one
 SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
 `
 
+// **不要在这里加 lower()**:`code` 列是 `citext`(见 schema.sql:245),比较本来就不分大小写。
+// 我曾以为「?code= 进不去是因为查码逐字比较」并改成 `lower(code)=lower($1)` —— 那是错的,
+// 而且有害:它让 citext 上那个 UNIQUE 索引用不上。**列的类型就是那条规矩**,别在查询里再写一遍。
 func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, getAccessCode, code)
 	var i AccessCode

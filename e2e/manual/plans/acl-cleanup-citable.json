@@ -1,0 +1,33 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "login": true,
+  "shots": [
+    { "name": "ac-26-takebacks-cleared", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "type": ["[data-testid=\"code-corpus-denied-VOICE-01\"]", ""] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"code-corpus-save-VOICE-01\"]" },
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"code-corpus-denied-SBOX-01\"]", ""] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"code-corpus-save-SBOX-01\"]" },
+        { "wait": 2500 }
+      ], "wait": 1200 },
+    { "name": "ac-27-takebacks-cleared-reload", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "scroll": ["[data-testid=\"code-corpus-VOICE-01\"]", 200] },
+        { "wait": 800 }
+      ], "wait": 1200 },
+    { "name": "ac-28-wiki-edit-form", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "text=EDIT" },
+        { "wait": 3000 },
+        { "scroll": ["text=EDIT", 700] },
+        { "wait": 900 }
+      ], "wait": 1200 }
+  ]
+}

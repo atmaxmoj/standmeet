@@ -40,7 +40,10 @@ test.describe('wiki landing extended cases', () => {
 
 // registerHeroTests —— cover hero / locked / metadata strip / no inline ask。
 function registerHeroTests(): void {
-  test('wiki page shows cover hero with title and date',
+  // 名字原先叫「shows cover hero with title and date」,而它断的是 meta 里那个 h1 ——
+  // hero 一个字段都没断过。这条笔记没设 hero,现在也就不该有 hero(F-L-32),
+  // 名字改成它真正看的东西:标题落在页面上。
+  test('wiki page renders the entry: landing + title',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
       await goto(page, '/wiki/wiki-extended');
@@ -262,9 +265,13 @@ async function seedTaggedWiki(request: APIRequestContext): Promise<void> {
     body: 'Tagged wiki content.', title: 'Tagged Entry',
   });
   // tags 只能经 corpus.update 设(promote/seed 不带)。
+  // cover_headline —— owner 往 hero 上写了一句话,也就是**他要这块 hero**。没有它这条笔记
+  // 不该有封面(F-L-32:没设 hero 的不渲空壳),而下面那条断言守的是封面上那行小标的文案。
+  // **不能用 cover_hue 当那个证据**:`cover_hue` 的库默认值就是 `amber`,每条笔记都非空,
+  // 拿它当「owner 设过 hero」等于恒真。
   await callTool(request, token, sid, 'corpus.update', {
     genre: 'wiki', id: wikiID, title: 'Tagged Entry', body: 'Tagged wiki content.',
-    tags: ['lucerna', 'eval', 'thinking'],
+    tags: ['lucerna', 'eval', 'thinking'], cover_headline: 'a tagged cover',
   });
   await publishEntry(request, token, sid, {
     genre: 'wiki', id: wikiID, excerpt: 'A tagged wiki.',

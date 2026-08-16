@@ -1,0 +1,9 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "login": true,
+  "shots": [
+    { "name": "ac-00-roles-section", "url": "/admin/codes",
+      "steps": [{ "wait": 4000 }], "wait": 1500 }
+  ]
+}

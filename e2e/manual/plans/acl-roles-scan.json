@@ -1,0 +1,20 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "login": true,
+  "shots": [
+    { "name": "ac-01-codes-lower", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4000 },
+        { "scroll": ["text=TAKEN BACK ON THIS CODE", 4200] },
+        { "wait": 1200 }
+      ], "wait": 1200 },
+    { "name": "ac-02-codes-bottom", "url": "",
+      "steps": [
+        { "scroll": ["text=TAKEN BACK ON THIS CODE", 4200] },
+        { "wait": 1200 }
+      ], "wait": 1200 },
+    { "name": "ac-03-roles", "url": "/admin/roles",
+      "steps": [{ "wait": 4000 }], "wait": 1500 }
+  ]
+}

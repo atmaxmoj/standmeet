@@ -1,0 +1,15 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "login": true,
+  "shots": [
+    { "name": "ac-37-math-page2", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "[data-testid=\"wiki-tag-filter\"] >> text=math" },
+        { "wait": 2500 },
+        { "scroll": ["text=kleene-theorem", 2300] },
+        { "wait": 1500 }
+      ], "wait": 1200 }
+  ]
+}

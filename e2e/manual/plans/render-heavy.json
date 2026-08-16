@@ -1,0 +1,30 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "cr-16-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Render Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ],
+      "wait": 1500 },
+    { "name": "cr-17-heavy-ghost-steering",
+      "url": "/wiki/software/project/standmeet/architecture/key-designs/agent-core/ghost-steering",
+      "settle": ["[data-testid=\"wiki-body\"]", 30000], "wait": 2500 },
+    { "name": "cr-18-heavy-backend-modules",
+      "url": "/wiki/software/project/standmeet/architecture/key-designs/structure/backend-domain-modules",
+      "settle": ["[data-testid=\"wiki-body\"]", 30000], "wait": 2500 },
+    { "name": "cr-19-heavy-jspace",
+      "url": "/wiki/math/rate-reduction/jspace-as-rate-reduction-subspace",
+      "settle": ["[data-testid=\"wiki-body\"] .katex", 30000], "wait": 2500 },
+    { "name": "cr-20-heavy-account-bootstrap",
+      "url": "/wiki/marketing/awareness/account-bootstrap",
+      "settle": ["[data-testid=\"wiki-body\"]", 30000], "wait": 2500 }
+  ]
+}

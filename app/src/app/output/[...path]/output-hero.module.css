@@ -1,0 +1,22 @@
+/* output-hero.module.css —— output 落地页 hero 的色调。
+   跟 wiki 的 hero 和 writings 的 Cover 同一套写法:**按 data-hue 出渐变**,
+   属性即机制 —— 页面上写着 acid 就一定是 acid 那块渐变。
+
+   owner 在 hero 编辑器里挑的色调以前到不了这条路上:output 的 hero 一直是一块固定底色,
+   三件套里的第三件在 output 上根本没有渲染位(F-L-34)。 */
+
+.hero[data-hue='amber'] {
+  background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-amber) 30%, transparent), transparent 70%),
+    color-mix(in oklab, var(--color-surface) 40%, transparent);
+}
+.hero[data-hue='violet'] {
+  background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-violet) 22%, transparent), transparent 70%),
+    color-mix(in oklab, var(--color-surface) 40%, transparent);
+}
+.hero[data-hue='acid'] {
+  background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-acid) 26%, transparent), transparent 70%),
+    color-mix(in oklab, var(--color-surface) 40%, transparent);
+}

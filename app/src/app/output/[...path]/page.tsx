@@ -21,6 +21,8 @@ import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchOutputLanding } from '@/lib/api/public';
 
+import styles from '@/app/output/[...path]/output-hero.module.css';
+
 // catch-all [...path]：path 可含 `/` 分组分段。
 type Params = { path: string[] };
 
@@ -63,6 +65,7 @@ function OutputLandingContent({ out, handle, slug }: {
           title={out.title} handle={handle} updatedAt={out.updated_at}
           coverURL={coverURL(out.cover_image_asset_id, out.asset_urls)}
           headline={out.cover_headline ?? ''}
+          hue={out.cover_hue ?? ''}
         />
         <article className="mx-auto max-w-2xl px-6 py-16" data-testid="output-landing">
           <PageHeader />
@@ -81,13 +84,21 @@ function OutputLandingContent({ out, handle, slug }: {
 
 // OutputCoverHero —— owner 设了封面图就铺那张图,没设就是原来那块底色。
 // headline 优先用 owner 写的那句(压在图上的那行),没写才回落到标题。
-async function OutputCoverHero({ title, handle, updatedAt, coverURL: cover, headline }: {
+//
+// hero 三件套的第三件(色调)以前在这条路上**没有渲染位**:owner 在编辑器里挑了 acid,
+// 后端存了、载荷也发了,而 output 的 hero 一直是一块固定底色(F-L-34)。他没挑就还是那块底色 ——
+// 这块 hero 跟 wiki 那块不同,它托着标题和日期,不是"没设就不该存在"的空壳。
+async function OutputCoverHero({ title, handle, updatedAt, coverURL: cover, headline, hue }: {
   title: string; handle: string; updatedAt: string;
-  coverURL?: string; headline: string;
+  coverURL?: string; headline: string; hue: string;
 }) {
   const t = await getTranslations('reader');
   return (
-    <div className="relative border-b border-(--color-rule) bg-(--color-surface)/40 py-16 px-6 overflow-hidden">
+    <div
+      className={`relative border-b border-(--color-rule) bg-(--color-surface)/40 py-16 px-6 overflow-hidden ${styles['hero']}`}
+      data-hue={hue}
+      data-testid="output-cover"
+    >
       <CoverImage url={cover} testid="output-cover-image" />
       <div className="relative mx-auto max-w-2xl">
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-4 flex items-baseline gap-2">

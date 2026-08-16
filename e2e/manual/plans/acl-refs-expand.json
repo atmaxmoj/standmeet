@@ -1,0 +1,29 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2200],
+  "login": true,
+  "shots": [
+    { "name": "ac-32-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Refs Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ], "wait": 1500 },
+    { "name": "ac-33-refs-expanded", "url": "/",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What does the good regulator theorem say, and why does it mean control is modeling?"] },
+        { "wait": 600 },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 45000 },
+        { "click": "text=REFERENCES" },
+        { "wait": 2000 },
+        { "scroll": ["[data-testid=\"chat-input-field\"]", 1600] },
+        { "wait": 1200 }
+      ], "wait": 1500 }
+  ]
+}

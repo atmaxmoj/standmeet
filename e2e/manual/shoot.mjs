@@ -40,9 +40,21 @@ const plan = JSON.parse(await readFile(planPath, 'utf8'));
 const [vw, vh] = plan.viewport ?? [1280, 900];
 await mkdir(plan.out, { recursive: true });
 
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: vw, height: vh } });
-const page = await ctx.newPage();
+// profile —— 用一份**已经登着账号的浏览器 profile** 起浏览器（`"profile": "~/.playwright-mcp-profile"`）。
+// 为什么需要：有几格的器材是**第三方发的密钥**（Cal.com 那把 2026-08-11 到期了），而换一把要
+// 去 vendor 自己的设置页点一下。owner 那份 profile 里 Google 是登着的，于是「用 Google 登录」
+// 只是点一下同意，不是输密码 —— 那条边界只挡输密码。**只在取器材时用**：驱产品的 plan 不带它，
+// 免得 prod 的 owner 会话跟第三方会话共用一份磁盘状态。
+const profileDir = typeof plan.profile === 'string'
+  ? plan.profile.replace(/^~/, process.env.HOME ?? '~') : '';
+const persistent = profileDir !== '';
+const browser = persistent ? null : await chromium.launch();
+const ctx = persistent
+  ? await chromium.launchPersistentContext(profileDir, {
+    channel: 'chrome', headless: false, viewport: { width: vw, height: vh },
+  })
+  : await browser.newContext({ viewport: { width: vw, height: vh } });
+const page = persistent ? (ctx.pages()[0] ?? await ctx.newPage()) : await ctx.newPage();
 
 // acceptDialogs —— 原生 confirm()/alert() 一律点「确定」。**必须逐个 plan 显式打开**：
 // 人点 OK 是真实动作，但默认接受会让别的 plan 里的破坏性确认被静默点掉，而那种事发生时
@@ -103,6 +115,16 @@ for (const shot of plan.shots) {
   // url 省略 = **留在当前这一页**。有些判据说的正是「不换页会怎样」（同一场对话里连着说两轮、
   // 一个弹窗答过之后还回不回来），而每张图都先 goto 一次的话，那件事根本发生不了。
   shot.url && await page.goto(`${BASE}${shot.url}`);
+  // settle —— 等某个选择器出现，并**报出从 goto 到它出现花了多久**。
+  // 有几条判据问的是「重的真笔记渲得快不快」，而「看起来还行」不是一个测量：
+  // 判断得有数字，数字得说清是从哪一刻量到哪一刻。`{"settle": ["sel", 20000]}`。
+  if (shot.settle) {
+    const t0 = Date.now();
+    await page.locator(shot.settle[0]).first()
+      .waitFor({ timeout: shot.settle[1] ?? 20_000 })
+      .catch(() => console.log(`settle TIMEOUT ${shot.name} : ${shot.settle[0]}`));
+    console.log(`settle ${shot.name} : ${Date.now() - t0}ms (${shot.settle[0]})`);
+  }
   await runSteps(shot.steps ?? []);
   await page.waitForTimeout(shot.wait ?? 1200);
   const file = `${plan.out}/${shot.name}.png`;
@@ -122,7 +144,13 @@ async function runSteps(steps) {
         await runSteps(step.repeat[1]);
       }
     })();
-    step.click && await page.locator(step.click).first().click();
+    // click —— 选择器，或 `["选择器", n]` 点第 n 个（0 起）。
+    // 列表页上同一个动作按钮每行都有一个（575 条语料的 `edit`），而人是**看着位置**点的：
+    // 先把列表筛短、看清第几行，再点那一行。没有序号就只能永远点第一行。
+    step.click && await (async () => {
+      const [sel, n] = Array.isArray(step.click) ? step.click : [step.click, 0];
+      await page.locator(sel).nth(n).click();
+    })();
     step.type && await page.locator(step.type[0]).first().fill(step.type[1]);
     // typeFile —— 从文件粘贴。长正文（一篇笔记）手抄进 plan 的 JSON 里要转义换行、引号、
     // 方括号，抄错一个字符会长得像产品把内容弄坏了，而不是像我的手误（跟 downloadDir 同一条理由）。
@@ -179,4 +207,4 @@ async function runSteps(steps) {
   }
 }
 
-await browser.close();
+await (persistent ? ctx.close() : browser.close());

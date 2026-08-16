@@ -13,6 +13,7 @@ type OpsWritingsDeps = ops.WritingsDeps
 var (
 	AssetOps        = ops.AssetOps
 	CorpusReadOps   = ops.CorpusReads
+	CorpusSearchOps = ops.CorpusSearch
 	CorpusWriteOps  = ops.CorpusWrites
 	CorpusI18nOps   = ops.I18nOps
 	SubjectivityOps = ops.Subjectivity

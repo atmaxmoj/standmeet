@@ -436,3 +436,33 @@ input:focus, textarea:focus, select:focus { outline: none; }
   text-align: center;
   line-height: 1.5;
 }
+
+/* ── owner 的 Obsidian 词汇表（F-L-36）────────────────────────────────────────
+   owner 的 snippet 是照 Obsidian 的变量方言写的，那是他 vault 里 lint 过的东西 ——
+   **合规的是他的 CSS，缺契约的是这一侧**。以前站点收下 snippet、消毒、加 `.corpus-content`
+   前缀，然后规则里的 `var(--background-modifier-border)` / `--callout-color` 一个都没人定义：
+   管道通了、载荷落空，同一篇里 `[!definition]`(他定义为绿) 和 `[!theorem]`(蓝) 渲成同一块淡红。
+
+   所以在 scope 锚点上把 Obsidian 那套名字铺出来，值映射到站点自己的调色板 ——
+   owner 的 snippet 于是按他写的样子生效，而没写 snippet 的笔记外观一点不变。 */
+.corpus-content {
+  --background-primary: var(--color-paper);
+  --background-primary-alt: var(--color-raised);
+  --background-secondary: var(--color-surface);
+  --background-secondary-alt: var(--color-surface);
+  --background-modifier-border: var(--color-rule);
+  --background-modifier-hover: color-mix(in srgb, var(--color-rule) 45%, transparent);
+  --text-normal: var(--color-ink);
+  --text-muted: var(--color-muted);
+  --text-faint: var(--color-faint);
+  --text-accent: var(--color-accent);
+  --text-on-accent: var(--color-paper);
+  --interactive-accent: var(--color-accent);
+  --interactive-normal: var(--color-surface);
+  --font-monospace: var(--font-mono);
+  --font-text: var(--font-serif);
+  /* Obsidian 的 callout 颜色是 **`R, G, B` 三元组**（`rgb(var(--callout-color))` 用），
+     不是一个颜色值。默认给站点的 vermillion #B5391C，这样没被 snippet 覆盖的 callout
+     跟以前长得一模一样。 */
+  --callout-color: 181, 57, 28;
+}

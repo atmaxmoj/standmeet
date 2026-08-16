@@ -1,0 +1,16 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1800],
+  "login": false,
+  "shots": [
+    { "name": "mc-34-code-link-opened", "url": "/?code=inv-ilbro6",
+      "steps": [{ "wait": 6000 }], "wait": 1500 },
+    { "name": "mc-35-turn-in-that-session", "url": "",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "I came in from the emailed code — what does this corpus say about how you decide something is done?"] },
+        { "wait": 600 },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 45000 }
+      ], "wait": 2500 }
+  ]
+}

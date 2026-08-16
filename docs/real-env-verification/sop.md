@@ -162,6 +162,42 @@ judges — composition and balance.
 - **Don't stop, don't fix on the spot.** The first hole must not derail the round. Finish this module / the round's remaining modules.
 
 ### 3 · After all manual verification → attribute each finding to a test (TDD fix)
+
+> **⚠️ Step 3 runs on a BATCH of findings, not on one. The unit of cost is an IMAGE BUILD.**
+>
+> Steps ①–⑤ are written per finding, so read literally they schedule one red run, one build and
+> one manual pass **per finding** — and that is how this loop keeps ending up at ~3 modules a day.
+> The steps describe what each finding must pass through, not how many times to start the machine.
+>
+> **The rule, mechanically:**
+> 1. Pick a batch — **a GROUP OF MODULES, not a group of findings.** Drive the whole group by
+>    hand first, recording only (§2), and cut the group so its members share a stack state and a
+>    build: all-frontend surfaces together, connector/external-service modules together, and so
+>    on. A batch of one finding is the per-finding loop wearing a batch's name — too small.
+>    (Owner, 2026-08-15: "剩下的分三批做". The round's three batches are listed in its `STATUS.md`.)
+> 2. **Nothing runs until the batch ends** (owner, 2026-08-15: "只有批次结尾才能跑测试").
+>    Inside the batch you drive surfaces by hand, write tests and write fixes — you do not start
+>    the machine. Not even `test-red`.
+> 3. At the batch boundary, in this exact order — it is what keeps ③🧪 honest while still running
+>    tests only once:
+>    1. `make test-red SPEC=…` over **every** spec the batch touched. It runs against the images
+>       **already running**, which do not contain this batch's fixes → this IS the RED proof, and
+>       it is why the tests must not run earlier and the images must not be rebuilt earlier.
+>    2. **one** `make dev-app` / `make dev-up`.
+>    3. **one** `make test-only` over the same specs → GREEN (④🟩).
+>    4. **one** `make lint`.
+>    5. **one** `make app-build && make prod-up`, then walk the real GUI once, covering every
+>       finding in the batch (⑤🙌).
+>
+> **Budget: at most one dev build and one prod build per batch.** If you are about to start a
+> second build for the same batch, the batch was cut wrong — fold the remaining work in first.
+> `test-red` is not free either: it is free of *builds*, so use it to red the whole batch at once
+> rather than once per finding.
+>
+> This is not a preference. The owner asked for it twice (2026-08-12, 2026-08-15) and it kept
+> being lost, because a rule that lives in one chat message loses to a rule that is re-issued
+> every turn. It lives here now, next to the steps it modifies.
+
 For every row in `findings.md`:
 1. **Find its backing e2e test** — the module's `Backing e2e` header points to it.
 2. **Read the test + attribute — "fix the test" or "add a test"?** real-red + e2e-green ⇒ necessarily *inaccurate* or *incomplete*. Decide which, because it decides the move:
@@ -188,6 +224,9 @@ Terminal: `⛔ blocked` (missing cred/hardware), `🚫 de-scoped` (decided not t
    of that round lives in its timestamped directory. A step with no screenshot did not happen.
 1. **The manual test is the only trigger.** Manual green ⇒ stop (§1). No finding, no test, no code change without a real symptom first.
 2. **No code changes during the manual phase** — record only. Fixes are batched into step 3, TDD-style.
+2b. **A batch spends one build, not one build per finding (§3).** Count image builds, not test
+   invocations: one `test-red` for the batch, one dev build, one lint, one prod build, one manual
+   pass. A second build for the same batch means the batch was cut wrong.
 3. Every Finding must land as a **test change** (RED→GREEN). No "fix the code without touching a test" — otherwise the real env breaks again next time. **Exactly two exceptions, both named below (4a/4b). Everything else gets a test.**
 4. **The two "no test" exceptions — never silently, always told to the owner:**
    - **4a · CAN'T test** (non-reproducible real branches: real-phone optics, real-provider rate limits, real ACME…) → mark `manual-only`: document why it can't be tested and how to verify it by hand. **Do not fabricate a fake test.**

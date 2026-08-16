@@ -1,0 +1,26 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 2600],
+  "login": false,
+  "shots": [
+    { "name": "cr-05-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Render Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ],
+      "wait": 1500 },
+    { "name": "cr-06-gauss-map-math", "url": "/wiki/math/orbit/gauss-map",
+      "steps": [{ "wait": 5000 }], "wait": 1500 },
+    { "name": "cr-07-symbolic-dynamics", "url": "/wiki/math/orbit/symbolic-dynamics",
+      "steps": [{ "wait": 5000 }], "wait": 1500 },
+    { "name": "cr-08-architecture", "url": "/wiki/software/project/standmeet/architecture",
+      "steps": [{ "wait": 5000 }], "wait": 1500 },
+    { "name": "cr-09-ui-cards-mermaid", "url": "/wiki/software/project/standmeet/architecture/key-designs/capabilities/ui-cards",
+      "steps": [{ "wait": 5000 }], "wait": 1500 }
+  ]
+}

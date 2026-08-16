@@ -1,0 +1,31 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 1600],
+  "login": true,
+  "shots": [
+    { "name": "ac-12-session-B-issued", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Freeze Auditor B"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ], "wait": 1500 },
+    { "name": "ac-13-B-blocked-on-gauss", "url": "/wiki/math/orbit/gauss-map",
+      "steps": [{ "wait": 6000 }], "wait": 1500 },
+    { "name": "ac-14-B-reads-the-granted-one", "url": "/wiki/cybernetics/theory/good-regulator-theorem",
+      "steps": [{ "wait": 6000 }], "wait": 1500 },
+    { "name": "ac-15-role-restored", "url": "/admin/roles",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"role-corpus-uris-invited\"]", "output://**\nwiki://**\nwriting://**"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"role-corpus-save-invited\"]" },
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"role-corpus-uris-invited\"]", 260] },
+        { "wait": 600 }
+      ], "wait": 1200 }
+  ]
+}

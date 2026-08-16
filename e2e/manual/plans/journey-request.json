@@ -1,0 +1,26 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "mc-30-request-form", "url": "/gate",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "text=WRITE A NOTE" },
+        { "wait": 1500 }
+      ], "wait": 1000 },
+    { "name": "mc-31-request-sent", "url": "",
+      "steps": [
+        { "type": ["[data-testid=\"request-name\"]", "Journey Auditor"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"request-org\"]", "the audit"] },
+        { "wait": 300 },
+        { "typeSecret": ["[data-testid=\"request-email\"]", "GMAIL_SMTP_USER"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"request-message\"]", "Driving access-codes check 3 / mail-connector check 1: approve this and I read the code out of the real inbox."] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"request-submit\"]" },
+        { "wait": 5000 }
+      ], "wait": 1500 }
+  ]
+}

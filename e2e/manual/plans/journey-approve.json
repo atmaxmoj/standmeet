@@ -1,0 +1,15 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1600],
+  "login": true,
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "mc-32-requests-list", "url": "/admin/requests",
+      "steps": [{ "wait": 4500 }], "wait": 1200 },
+    { "name": "mc-33-after-approve", "url": "",
+      "steps": [
+        { "click": "[data-testid^=\"request-approve-\"] button" },
+        { "wait": 6000 }
+      ], "wait": 1500 }
+  ]
+}

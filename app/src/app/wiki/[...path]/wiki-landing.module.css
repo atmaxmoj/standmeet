@@ -59,17 +59,20 @@
   text-align: right;
 }
 
-.hueAmber {
+/* 色调按 data-hue 出 —— 跟 writings 的 Cover.module.css 同一套写法。
+   属性即机制:页面上写着 data-hue="acid" 就一定是 acid 那块渐变,不会出现
+   "标记说一个、上色是另一个"。 */
+.cover[data-hue='amber'] {
   background:
     radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-amber) 30%, transparent), transparent 70%),
     var(--color-surface);
 }
-.hueViolet {
+.cover[data-hue='violet'] {
   background:
     radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-violet) 22%, transparent), transparent 70%),
     var(--color-surface);
 }
-.hueAcid {
+.cover[data-hue='acid'] {
   background:
     radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-acid) 26%, transparent), transparent 70%),
     var(--color-surface);

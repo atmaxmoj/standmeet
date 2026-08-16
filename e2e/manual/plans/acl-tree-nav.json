@@ -1,0 +1,15 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "login": true,
+  "shots": [
+    { "name": "ac-40-tree-expand", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "text=TREE" },
+        { "wait": 2000 },
+        { "click": "text=cybernetics" },
+        { "wait": 2500 }
+      ], "wait": 1200 }
+  ]
+}

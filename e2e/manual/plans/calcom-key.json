@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 900],
+  "profile": "~/.playwright-mcp-profile",
+  "login": false,
+  "shots": [
+    { "name": "calkey-02-account-picked", "url": "/auth/login", "wait": 8000,
+      "steps": [
+        { "wait": 3000 },
+        { "click": "text=Sign in with Google" },
+        { "wait": 6000 },
+        { "click": "[data-identifier]" },
+        { "wait": 9000 }
+      ] },
+    { "name": "calkey-03-api-keys", "url": "/settings/developer/api-keys", "wait": 7000 }
+  ]
+}

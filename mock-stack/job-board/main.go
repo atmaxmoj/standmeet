@@ -61,6 +61,9 @@ const (
 	jsonExt        = "json"
 	rssExt         = "rss"
 	jsonMIME       = "application/json"
+	// workdayMaxLimit —— 真 Workday CXS 的每页上限。量出来的，不是猜的：
+	// `redhat` / `nvidia` 两个真租户上 `limit:20` → 200、`limit:21` → 400。
+	workdayMaxLimit = 20
 )
 
 func main() {
@@ -377,9 +380,83 @@ func (s *server) readJBAFixture(filename string) ([]byte, error) {
 // serveWorkday —— POST /workday/wday/cxs/{tenant}/{site}/jobs → fixture
 // 名按 {tenant}-{site}.day1.json (site 决定哪个 board 子集；e2e 多数情况
 // 一个 tenant 只 fixture 一个 site)。
+//
+// **它照着真 Workday 的两条规矩答**（2026-08-16 对着两个真租户量过：
+// `nvidia` 和 `redhat`，`limit:20` → 200，**`limit:21` → 400**）：
+//  1. `limit > 20` 一律 400 —— 这条规矩之前没被模仿，于是 adapter 里写死的
+//     `limit:100` 在 CI 上一路绿、对真 Workday 却**每一次都是 400**（F-E-15）；
+//  2. `offset` 真的翻页，`total` 报的是**全集**大小 —— 只有这样「每一页都读完」
+//     才是可判的（F-E-16）。
 func (s *server) serveWorkday(w http.ResponseWriter, r *http.Request) {
+	limit, offset := workdayPageArgs(r)
+	if limit > workdayMaxLimit {
+		s.log.Warn("workday limit above vendor max", "limit", limit)
+		w.Header().Set("Content-Type", jsonMIME)
+		w.WriteHeader(http.StatusBadRequest)
+		writeBody(s.log, w, []byte(`{"errorCode":"HTTP_400","error":"limit above maximum"}`))
+		return
+	}
 	slug := r.PathValue("tenant") + "-" + r.PathValue("site")
-	s.serveJSONKind(w, r, "workday", slug, nil)
+	body, err := s.readFixture("workday", slug, jsonExt)
+	if err != nil {
+		s.notFound(w, r, err)
+		return
+	}
+	page, perr := workdayPage(body, limit, offset)
+	if perr != nil {
+		s.notFound(w, r, perr)
+		return
+	}
+	w.Header().Set("Content-Type", jsonMIME)
+	writeBody(s.log, w, page)
+}
+
+// workdayPageArgs —— 从 POST body 里取 limit/offset。取不到时按 vendor 的默认值
+// (limit 20 / offset 0)，因为**真 endpoint 对空 body 也会答**，模仿要模仿到这一层。
+func workdayPageArgs(r *http.Request) (limit, offset int) {
+	limit, offset = workdayMaxLimit, 0
+	var in struct {
+		Limit  *int `json:"limit"`
+		Offset *int `json:"offset"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		return limit, offset
+	}
+	if in.Limit != nil {
+		limit = *in.Limit
+	}
+	if in.Offset != nil {
+		offset = *in.Offset
+	}
+	return limit, offset
+}
+
+// workdayPage —— 把整份 fixture 切成一页：`total` 仍是全集大小，`jobPostings`
+// 只给 [offset, offset+limit)。切不动（越界）时给空数组，不是错误 —— 真 endpoint
+// 走到集合末尾也是这样答的，而「空的最后一页」正是 adapter 的收敛条件。
+func workdayPage(body []byte, limit, offset int) ([]byte, error) {
+	var doc struct {
+		JobPostings []json.RawMessage `json:"jobPostings"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		return nil, fmt.Errorf("workday fixture decode: %w", err)
+	}
+	total := len(doc.JobPostings)
+	start := min(max(offset, 0), total)
+	end := min(start+limit, total)
+	// **`total` 只在第一页报真数，后面的页报 0** —— 这是真 Workday 的行为，不是我们的简化：
+	// 2026-08-16 在 nvidia 上量的，`offset=0` → `total:2000`，`offset=20/40/60` → `total:0`，
+	// 而每页照样给 20 条。adapter 要是信了后续页那个 0，第二页就会当成「取完了」，
+	// 2000 条只拿回 40 条 —— 比一个 400 更难看见的静默截断。
+	reported := total
+	if start > 0 {
+		reported = 0
+	}
+	out := struct {
+		JobPostings []json.RawMessage `json:"jobPostings"`
+		Total       int               `json:"total"`
+	}{JobPostings: doc.JobPostings[start:end], Total: reported}
+	return json.Marshal(out)
 }
 
 // serveBambooHR —— GET /bamboohr/careers/list?company={slug} → fixture

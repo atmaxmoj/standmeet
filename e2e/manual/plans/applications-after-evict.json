@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resume-draft/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    { "name": "b3-07-snapshot-view-full", "url": "/admin/applications", "wait": 2500,
+      "steps": [
+        { "click": "text=OPEN" },
+        { "wait": 3000 },
+        { "click": "text=VIEW FULL" },
+        { "wait": 4000 }
+      ] }
+  ]
+}

@@ -14,6 +14,7 @@ import type { Metadata } from 'next';
 import { WikiReaderClient } from '@/components/visitor/WikiReaderClient';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiContext, fetchWikiLanding, fetchWikiTreeStats } from '@/lib/api/public';
+import { parseWikiLanding } from '@/lib/visitor/wiki-landing';
 
 // catch-all [...path]：path 可含 `/` (projects/lucerna 这种分组)。
 type Params = { path: string[] };
@@ -52,7 +53,10 @@ export default async function WikiLandingPage(
   ]);
   return (
     <WikiReaderClient
-      initialWiki={wiki ?? null}
+      // parseWikiLanding —— 带 token 重取那条路用的**同一个**解析。以前这里把载荷直接递
+      // 进去,reader 那边的类型又刚好宽到收得下,于是已发布笔记的 hero 图 / hero 那句话 /
+      // 正文配图全部到不了页面上,而且没有任何一处报错(F-L-33)。
+      initialWiki={parseWikiLanding(wiki)}
       handle={instance.handle}
       ownerName={instance.name || instance.handle}
       slug={slug}

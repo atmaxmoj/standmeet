@@ -20,7 +20,6 @@ import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
 import { coverURL, expandBody } from '@/lib/corpus/media';
 import { CorpusContent } from '@/components/page/CorpusContent';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
-import type { LanguageOption } from '@/lib/api/public';
 import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
@@ -28,9 +27,7 @@ import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { WikiScopedSubEntries } from '@/components/visitor/WikiScopedSubEntries';
 import { WikiTopBar } from '@/components/visitor/WikiTopBar';
 import { WikiTreeView } from '@/components/visitor/WikiTreeView';
-import {
-  loadScopedLanding, type WikiAsset, type WikiLandingEntry,
-} from '@/lib/visitor/scoped-reader';
+import { loadScopedLanding, type WikiLandingEntry } from '@/lib/visitor/scoped-reader';
 import type { WikiTreeStats } from '@/lib/api/public';
 import type { TreeContext, TreeNode } from '@/lib/corpus/tree';
 
@@ -38,35 +35,12 @@ import styles from '@/app/wiki/[...path]/wiki-landing.module.css';
 
 export type WikiRef = { path: string; title: string };
 
-export type WikiEntry = {
-  title: string; body: string; excerpt: string; updated_at: string;
-  assetURLs?: Readonly<Record<string, string>>;
-  // assets —— 挂在这条上的文件。附件渲成下载区;图片走正文里的 asset URI。
-  assets?: readonly WikiAsset[];
-  // hero —— owner 设的封面图 + 压在图上那句话。空 = 没设,退回程序生成的色板。
-  coverAssetID?: string;
-  coverHeadline?: string;
-  tags: readonly string[];
-  css_classes?: readonly string[];
-  related: readonly WikiRef[];
-  cited_by: readonly WikiRef[];
-  sources_count: number;
-  // 多语:body 已经是选中语言的那一份(服务端选的)。languages 空 = 单语,不出切换器。
-  lang?: string;
-  languages?: readonly LanguageOption[];
-};
-
-// scopedToEntry —— WikiLandingEntry (bearer re-fetch wire) → the reader's WikiEntry shape.
-function scopedToEntry(e: WikiLandingEntry): WikiEntry {
-  return {
-    title: e.title, body: e.body, excerpt: e.excerpt, updated_at: e.updated_at,
-    assetURLs: e.asset_urls, assets: e.assets,
-    coverAssetID: e.cover_image_asset_id, coverHeadline: e.cover_headline,
-    tags: e.tags, css_classes: e.css_classes,
-    related: e.related, cited_by: e.cited_by, sources_count: e.sources_count,
-    lang: e.lang, languages: e.languages,
-  };
-}
+// WikiEntry —— reader 读的那条笔记,**就是** landing 载荷解析出来的形状(见
+// `parseWikiLanding`)。这里以前另有一份手写的 camelCase 类型 + 一个只有客户端重取那条路
+// 会调的映射函数;SSR 那条路把后端载荷直接传进来,而两边同名的字段刚好够类型检查通过 ——
+// 已发布笔记的 hero 图、hero 那句话、正文配图于是一声不响地全没了(F-L-33)。
+// 一个形状,没有第二份可漏。
+export type WikiEntry = WikiLandingEntry;
 
 export function WikiReaderClient({
   initialWiki, handle, ownerName, slug, initialCtx, stats, lang = '',
@@ -77,9 +51,7 @@ export function WikiReaderClient({
   const [wiki, setWiki] = useState<WikiEntry | null>(initialWiki);
   const [ctx, setCtx] = useState<TreeContext>(initialCtx);
   useEffect(
-    () => loadScopedLanding(
-      slug, initialWiki !== null, (e) => setWiki(scopedToEntry(e)), setCtx, lang,
-    ),
+    () => loadScopedLanding(slug, initialWiki !== null, setWiki, setCtx, lang),
     [initialWiki, slug, lang],
   );
   return wiki
@@ -105,14 +77,14 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
             ancestors={ctx.ancestors} current={wiki.title} updatedAt={wiki.updated_at}
             sourcesCount={wiki.sources_count}
           />
-          <OgCover entry={wiki} seed={slug} />
+          <OgCoverMaybe entry={wiki} seed={slug} />
           <MetaStrip entry={wiki} ownerName={ownerName} />
           <div className="max-w-[680px] mx-auto mt-3">
             <LanguageSwitch languages={wiki.languages ?? []} current={wiki.lang ?? ''} />
           </div>
           <article className="max-w-[680px] mx-auto mt-2">
             <WikiBody
-              body={wiki.body} assetURLs={wiki.assetURLs} cssClasses={wiki.css_classes}
+              body={wiki.body} assetURLs={wiki.asset_urls} cssClasses={wiki.css_classes}
             />
             <Attachments assets={wiki.assets} testid="wiki-attachments" />
           </article>
@@ -129,28 +101,44 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
   );
 }
 
-// OgCover —— 21:9 hero。owner 设了封面图就铺那张图,没设就退回按 slug hash 生成的色板。
+// OgCoverMaybe —— hero 是 owner **设出来的**东西:三件套(图 / 压在图上那句 / 色调)
+// 一件都没设 = 这条笔记没有 hero,顶上什么也不渲。
 //
-// 以前**只有**色板那一支:owner 通过 MCP 设了 cover_image_asset_id,访客这边照样是一块
-// 程序生成的颜色 —— 而且看不出哪里不对,因为它本来就长得像个封面。
+// 以前它无条件铺一块 21:9(约 400px)。没有封面图时那块是按 slug 哈希生成的渐变,上面只印
+// 标题和日期 —— 而这两样下面那条 meta 里各有一份。真 vault 的一条稠密数学笔记,第一屏几乎
+// 全是空色块,正文被顶到折叠线以下。corpus-media 的 check 4 把这件事逐字写了两遍:
+// 「An entry with no hero renders no empty hero shell」(F-L-32)。
+function OgCoverMaybe({ entry, seed }: { entry: WikiEntry; seed: string }) {
+  return hasHero(entry) ? <OgCover entry={entry} seed={seed} /> : null;
+}
+
+// hasHero —— owner **写进去过**东西才算他要这块 hero:一张封面图,或者压在上面那句话。
 //
-// ⚠️ UX-78 想改的正是这里：没有封面图时这块 21:9 是 ~400px 的生成渐变，上面只有标题和
-// 日期，而两者下面那条 meta 里各有一份 —— 真 vault 的一条稠密数学笔记，第一屏几乎全是
-// 空色块。**但那不是我能在设计列里做的改动**：`wiki-meta-row.spec.ts:51` 明确守着
-// 「没有 tag 的封面显示 `wiki`」，也就是**无图时那块色板是被守卫钉住的行为**；
-// 而 corpus-media 的 check 4 又写着「没有 hero 的条目不许渲染空的 hero 壳」。
-// 两份文件对同一件事的说法相反 —— 这是 owner 的产品决定，不是排版偏好。
-// 在它定下来之前，这里保持原样（[[design-column-boundary]]：改完要动测试的，就不是设计列的）。
+// ⚠️ **色调不算证据**,哪怕它有值。`corpus_notes.cover_hue` 是 `NOT NULL DEFAULT 'amber'`
+// (`backend/db/schema.sql:192`),所以每一条笔记读回来都带着 `amber` —— 包括 owner 从没打开过
+// 编辑器的那 575 条。把「hue 非空」当成「他挑过色调」,这个判断对整个真实语料**恒为真**,
+// F-L-32 的修法就等于没改(admin 表单里那个 `— default —` 选项同理:存进去也还是 amber,
+// 那个「未设置」的状态在库里根本表达不出来)。
+// 这一条是在真实环境驱 corpus-acl-editing 时,从表单上看到「HUE: amber」而那条笔记
+// 显然没有封面,才顺着 schema 查出来的。
+function hasHero(entry: WikiEntry): boolean {
+  return entry.cover_image_asset_id !== '' || entry.cover_headline !== '';
+}
+
 function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
   const { head, sub } = splitTitle(entry.title);
   return (
-    <div className={`${styles['cover']} ${pickHue(seed)}`} data-testid="wiki-cover">
+    <div
+      className={styles['cover']}
+      data-hue={heroHue(entry.cover_hue, seed)}
+      data-testid="wiki-cover"
+    >
       <CoverImage
-        url={coverURL(entry.coverAssetID, entry.assetURLs)} testid="wiki-cover-image"
+        url={coverURL(entry.cover_image_asset_id, entry.asset_urls)} testid="wiki-cover-image"
       />
       <span className={styles['tag']}>{coverTag(entry.tags)}</span>
       <span className={styles['no']}>{formatDate(entry.updated_at)}</span>
-      <span className={styles['head']}>{entry.coverHeadline || head}</span>
+      <span className={styles['head']}>{entry.cover_headline || head}</span>
       {sub ? <span className={styles['sub']}>{sub}</span> : null}
     </div>
   );
@@ -291,9 +279,23 @@ function TrustBox({ handle }: { handle: string }) {
   );
 }
 
-function pickHue(seed: string): string {
+// heroHue —— 上色用哪一个。**owner 选的那个优先**:他在 hero 编辑器里挑了 acid,后端存了、
+// 载荷也发了,而这里以前直接按 slug 哈希 —— 那个选择从来没到过页面上(F-L-34)。
+// 他没挑(只设了图或只写了句话)才按 slug 派一个,同一条笔记每次都是同一个色。
+function heroHue(chosen: string, seed: string): Hue {
+  return isHue(chosen) ? chosen : hashHue(seed);
+}
+
+const HUES = ['amber', 'violet', 'acid'] as const;
+type Hue = (typeof HUES)[number];
+
+function isHue(v: string): v is Hue {
+  return HUES.some((h) => h === v);
+}
+
+function hashHue(seed: string): Hue {
   const sum = [...seed].reduce((a, c) => a + c.charCodeAt(0), 0);
-  return [styles['hueAmber'], styles['hueViolet'], styles['hueAcid']][sum % 3] ?? '';
+  return HUES[sum % HUES.length] ?? 'amber';
 }
 
 function splitTitle(title: string): { head: string; sub: string } {

@@ -14,6 +14,10 @@ import { CorpusEntryForm, corpusParentOptions } from '@/components/admin/section
 import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/WikiRowForms';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
+import { CorpusSearchRow } from '@/components/admin/sections/corpus/CorpusSearchRow';
+import { TagFilterRow } from '@/components/admin/sections/corpus/TagFilterRow';
+import { corpusListing, filterByTag, taggedPagePath } from '@/lib/admin/corpus-listing';
+import { useCorpusSearch } from '@/lib/admin/use-corpus-search';
 import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 import { useGenreTags } from '@/lib/admin/use-genre-tags';
 import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
@@ -140,23 +144,30 @@ function ReadyBody({
     setActiveTag(t);
     t === null || setView('grid');
   }, [setActiveTag, setView]);
-  const shown = filterByTag(rows, activeTag);
+  // 「装的是哪一份集合、从哪儿翻页」由 corpusListing 推导（那不是渲染）。
+  const search = useCorpusSearch('wiki');
+  const listing = corpusListing({
+    search, searchRows: search.rows, tagRows: filterByTag(rows, activeTag), view,
+    gridSource: {
+      pagePath: taggedPagePath('/corpus/wiki/page', activeTag), schema: WikiSummarySchema,
+    },
+  });
   // 地址树派生 + 级联删:每条算子孙数,删它时警告会连带删掉几条。
-  const childCounts = descendantCounts(shown);
+  const childCounts = descendantCounts(listing.rows);
   return (
     <>
+      <CorpusSearchRow hook={search} />
       <div className="flex items-baseline justify-between gap-4 mb-5 flex-wrap">
         <TagFilterRow tags={tags} activeTag={activeTag} setActiveTag={pickTag} />
-        <CorpusViewToggle view={view} onChange={setView} />
+        {/* 搜索时网格是被强制的,开关就得显示 grid —— 否则它写着 TREE 而屏幕上是卡片,
+            那是控件在说一句假话。 */}
+        <CorpusViewToggle view={listing.view} onChange={setView} />
       </div>
       <CorpusTreeGrid
-        view={view} rows={shown} testid="wiki-list"
+        view={listing.view} rows={listing.rows} testid="wiki-list"
         rowTestid={(r) => `wiki-row-${r.id}`}
         loadChildren={loadWikiTreeChildren}
-        gridSource={{
-          pagePath: taggedPagePath('/corpus/wiki/page', activeTag),
-          schema: WikiSummarySchema,
-        }}
+        {...listing.gridProps}
         renderCard={(row, { hasChildren }) => (
           <WikiCard
             entry={row} actions={actions}
@@ -165,39 +176,6 @@ function ReadyBody({
         )}
       />
     </>
-  );
-}
-
-// filterByTag —— 只给**树**视图用:树是懒加载的层级,一次一层,标签在这里是「把这一层筛一下」。
-// 网格视图**不**走这里 —— 它是分页视图,筛选必须下推到取页那一步(taggedPagePath),否则筛的就
-// 只是已加载的那一页,而面板会把结果当成整个语料的答案(F-L-23:137 条 math 显示成 1 条)。
-function filterByTag(rows: readonly WikiSummary[], tag: string | null): readonly WikiSummary[] {
-  return tag === null ? rows : rows.filter((r) => r.tags.includes(tag));
-}
-
-// taggedPagePath —— 把选中的标签带进分页地址。分页源不再因为「选了标签」就被关掉:关掉它
-// 正是 F-L-23 的成因。
-function taggedPagePath(base: string, tag: string | null): string {
-  return tag === null ? base : `${base}?tag=${encodeURIComponent(tag)}`;
-}
-
-function TagFilterRow({
-  tags, activeTag, setActiveTag,
-}: {
-  tags: readonly string[];
-  activeTag: string | null;
-  setActiveTag: (t: string | null) => void;
-}) {
-  const msg = useTranslations('adminCorpus.wiki');
-  return (
-    <div className="flex items-baseline gap-1.5 flex-wrap" data-testid="wiki-tag-filter">
-      <Chip active={activeTag === null} onClick={() => setActiveTag(null)}>{msg('all')}</Chip>
-      {tags.map((t) => (
-        <Chip key={t} active={activeTag === t} onClick={() => setActiveTag(activeTag === t ? null : t)}>
-          {t}
-        </Chip>
-      ))}
-    </div>
   );
 }
 

@@ -1,0 +1,37 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "login": true,
+  "shots": [
+    { "name": "ac-16-takeback-typed", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "type": ["[data-testid=\"code-corpus-denied-VOICE-01\"]", "wiki://math/**"] },
+        { "wait": 600 },
+        { "click": "[data-testid=\"code-corpus-save-VOICE-01\"]" },
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"code-corpus-VOICE-01\"]", 200] },
+        { "wait": 600 }
+      ], "wait": 1200 },
+    { "name": "ac-17-takeback-after-reload", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "scroll": ["[data-testid=\"code-corpus-VOICE-01\"]", 200] },
+        { "wait": 800 }
+      ], "wait": 1200 },
+    { "name": "ac-18-narrowed-code-session", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Takeback Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ], "wait": 1500 },
+    { "name": "ac-19-takeback-blocks-math", "url": "/wiki/math/orbit/gauss-map",
+      "steps": [{ "wait": 6000 }], "wait": 1500 },
+    { "name": "ac-20-takeback-leaves-the-rest", "url": "/wiki/cybernetics/theory/good-regulator-theorem",
+      "steps": [{ "wait": 6000 }], "wait": 1500 }
+  ]
+}

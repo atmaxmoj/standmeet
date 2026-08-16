@@ -17,6 +17,9 @@ WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
 -- name: GetAccessCode :one
+-- **不要在这里加 lower()**:`code` 列是 `citext`(见 schema.sql:245),比较本来就不分大小写。
+-- 我曾以为「?code= 进不去是因为查码逐字比较」并改成 `lower(code)=lower($1)` —— 那是错的,
+-- 而且有害:它让 citext 上那个 UNIQUE 索引用不上。**列的类型就是那条规矩**,别在查询里再写一遍。
 SELECT * FROM access_codes WHERE code = $1 AND status = 'active';
 
 -- name: GetAccessCodeAnyStatus :one

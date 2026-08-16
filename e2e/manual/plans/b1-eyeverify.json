@@ -1,0 +1,21 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 2000],
+  "login": false,
+  "shots": [
+    { "name": "b1-00-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "B1 Verifier"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ], "wait": 1500 },
+    { "name": "b1-01-no-hero-shell", "url": "/wiki/cybernetics/theory/good-regulator-theorem",
+      "settle": ["[data-testid=\"wiki-body\"]", 20000], "wait": 2000 },
+    { "name": "b1-02-callout-colors", "url": "/wiki/math/orbit/gauss-map",
+      "settle": ["[data-testid=\"wiki-body\"] .katex", 20000], "wait": 2000 }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "downloadDir": "../e2e/manual-runs/2026-08-07T0027/downloads",
+  "viewport": [1280, 1800],
+  "login": true,
+  "shots": [
+    { "name": "ac-38-mint-keypair", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4500 },
+        { "type": ["[data-testid=\"token-name\"]", "b1-audit-drive"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"token-create\"]" },
+        { "wait": 4000 }
+      ], "wait": 1500 },
+    { "name": "ac-39-pem-downloaded", "url": "",
+      "steps": [
+        { "click": "[data-testid=\"key-pem-download\"]" },
+        { "wait": 3000 }
+      ], "wait": 1200 }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1000],
+  "login": false,
+  "shots": [
+    { "name": "mc-37-gate-with-code-param", "url": "/gate?code=inv-ilbro6",
+      "steps": [{ "wait": 5000 }], "wait": 1200 },
+    { "name": "mc-38-handle-path-with-code", "url": "/sijie?code=inv-ilbro6",
+      "steps": [{ "wait": 5000 }], "wait": 1200 }
+  ]
+}

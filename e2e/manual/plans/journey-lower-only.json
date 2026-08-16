@@ -1,0 +1,9 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 900],
+  "login": false,
+  "shots": [
+    { "name": "mc-40-lowercase-fresh-context", "url": "/?code=inv-ilbro6",
+      "steps": [{ "wait": 8000 }], "wait": 1500 }
+  ]
+}

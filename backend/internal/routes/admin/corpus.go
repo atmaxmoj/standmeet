@@ -11,6 +11,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -42,6 +43,9 @@ func (h *Handlers) MountCorpus(r chi.Router) {
 	face := h.Corpus.Face
 	r.Get("/corpus/{genre}", h.dispatchOp(face, "corpus.list", corpusListArgs, jsonOK))
 	r.Post("/corpus/{genre}", h.dispatchOp(face, "corpus.create", corpusBodyArgs, jsonCreated))
+	// search —— 按内容找一条。列表只给最新的一页,而 owner 的语料是上千条:
+	// 「打开我那条 good-regulator-theorem」以前在这个面上做不到(F-L-39)。
+	r.Get("/corpus/{genre}/search", h.dispatchOp(face, "corpus.search", corpusSearchArgs, jsonOK))
 	r.Get("/corpus/{genre}/tree", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.treeRaw(), "wiki": h.treeWiki(), "output": h.treeOutput(),
 		"subjectivity": h.treeSubjectivity(),
@@ -79,10 +83,43 @@ func corpusListArgs(r *http.Request) (json.RawMessage, error) {
 	fields := map[string]json.RawMessage{
 		paramGenre: quoteJSON(chi.URLParam(r, paramGenre)),
 	}
-	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 {
-		fields["limit"] = json.RawMessage(strconv.Itoa(n))
-	}
+	addPositiveInts(fields, r.URL.Query(), "limit")
 	return marshalArgs(fields)
+}
+
+// corpusSearchArgs —— genre 在路径,查询词和翻页在 query。`?q=` 空 = 域那边报缺参数,
+// 不在这里编一个空搜索:一次没给词的搜索和一次搜不到的搜索,不该长成同一个回答。
+func corpusSearchArgs(r *http.Request) (json.RawMessage, error) {
+	fields := map[string]json.RawMessage{
+		paramGenre: quoteJSON(chi.URLParam(r, paramGenre)),
+		"query":    quoteJSON(r.URL.Query().Get("q")),
+	}
+	addPositiveInts(fields, r.URL.Query(), "limit", "offset")
+	return marshalArgs(fields)
+}
+
+// addPositiveInts —— query 上那几个可选的正整数,有就带上。
+//
+// 抽出来是因为 `check-routes-cyclo` 说的那句话是对的:**分支意味着业务,face 只该声明和调用**。
+// 「?limit=abc 不是错误,是没说」这条判断原先在两条路由里各抄了一遍 —— 抄第二遍的时候
+// 就该抽了。
+func addPositiveInts(fields map[string]json.RawMessage, q url.Values, names ...string) {
+	for _, n := range names {
+		if raw, ok := positiveInt(q, n); ok {
+			fields[n] = raw
+		}
+	}
+}
+
+func positiveInt(q url.Values, name string) (json.RawMessage, bool) {
+	v, err := strconv.Atoi(q.Get(name))
+	if err != nil {
+		return nil, false
+	}
+	if v <= 0 {
+		return nil, false
+	}
+	return json.RawMessage(strconv.Itoa(v)), true
 }
 
 // corpusBodyArgs —— body 里的字段 + 路径上的 genre。

@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 1600],
+  "login": true,
+  "shots": [
+    { "name": "b1-03-owner-search", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 5000 },
+        { "type": ["[data-testid=\"corpus-search-input\"]", "good regulator"] },
+        { "wait": 3000 }
+      ], "wait": 1500 }
+  ]
+}

@@ -110,6 +110,34 @@ func (r *RawRepo) ListByOwner(
 	return out, nil
 }
 
+// Search —— raw 的全文搜（title + body），返 meta + 命中片段;翻页。
+//
+// wiki / output / subjectivity 早就有这一条,raw **没有** —— 而 raw 恰恰是条数最多、
+// 标题多半是自动生成的那一类（这个实例里 450 条）。owner 想找回自己扔进去的某段话时,
+// 最需要搜的就是它（F-L-39/41）。底下的 `SearchNotes` 本来就按 genre 参数化,缺的只是这一层。
+func (r *RawRepo) Search(
+	ctx context.Context, ownerID, query string, limit, offset int32,
+) ([]NoteMeta, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	rows, qerr := db.New(r.pool).SearchNotes(ctx, db.SearchNotesParams{
+		OwnerID: ownerUUID, Genre: genreRaw, PlaintoTsquery: query, Limit: limit, Offset: offset,
+	})
+	if qerr != nil {
+		return nil, fmt.Errorf("search raw: %w", qerr)
+	}
+	out := make([]NoteMeta, 0, len(rows))
+	for i := range rows {
+		out = append(out, NoteMeta{
+			ID: pgstore.FormatUUID(rows[i].ID), ParentID: pgstore.OptUUIDStr(rows[i].ParentID),
+			Title: rows[i].Title, Published: rows[i].Published, Snippet: rows[i].Snippet,
+		})
+	}
+	return out, nil
+}
+
 // GetByID 拿 owner 的某条 raw；不命中返回 ErrRawNotFound。
 func (r *RawRepo) GetByID(ctx context.Context, ownerID, id string) (entity.Raw, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)

@@ -1,0 +1,41 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 1600],
+  "login": true,
+  "shots": [
+    { "name": "ac-07-role-restored-wide", "url": "/admin/roles",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"role-corpus-uris-invited\"]", "output://**\nwiki://**\nwriting://**"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"role-corpus-save-invited\"]" },
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"role-corpus-uris-invited\"]", 260] },
+        { "wait": 600 }
+      ], "wait": 1000 },
+    { "name": "ac-08-session-A-issued", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Freeze Auditor A"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ], "wait": 1500 },
+    { "name": "ac-09-A-reads-gauss", "url": "/wiki/math/orbit/gauss-map",
+      "settle": ["[data-testid=\"wiki-body\"]", 20000], "wait": 2000 },
+    { "name": "ac-10-role-narrowed-mid-session", "url": "/admin/roles",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"role-corpus-uris-invited\"]", "wiki://cybernetics/theory/good-regulator-theorem"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"role-corpus-save-invited\"]" },
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"role-corpus-uris-invited\"]", 260] },
+        { "wait": 600 }
+      ], "wait": 1000 },
+    { "name": "ac-11-A-still-reads-gauss", "url": "/wiki/math/orbit/gauss-map",
+      "settle": ["[data-testid=\"wiki-body\"]", 20000], "wait": 2500 }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1280, 2600],
+  "login": true,
+  "shots": [
+    { "name": "ak-00-dashboard-figure", "url": "/admin/dashboard",
+      "steps": [{ "wait": 4500 }], "wait": 1200 },
+    { "name": "ak-01-codes-top", "url": "/admin/codes",
+      "steps": [{ "wait": 4500 }], "wait": 1200 },
+    { "name": "ak-02-codes-bottom", "url": "",
+      "steps": [
+        { "scroll": ["text=TAKEN BACK ON THIS CODE", 4200] },
+        { "wait": 1500 },
+        { "scroll": ["text=TAKEN BACK ON THIS CODE", 4200] },
+        { "wait": 1500 }
+      ], "wait": 1200 }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-render/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "cr-21-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Render Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ],
+      "wait": 1500 },
+    { "name": "cr-22-katex-settle-gauss", "url": "/wiki/math/orbit/gauss-map",
+      "settle": ["[data-testid=\"wiki-body\"] .katex", 30000], "wait": 2000 },
+    { "name": "cr-23-katex-settle-recursion",
+      "url": "/wiki/cybernetics/engineering/recursive-harness/safe-recursion-theorem",
+      "settle": ["[data-testid=\"wiki-body\"] .katex", 30000], "wait": 2000 },
+    { "name": "cr-24-mermaid-settle-uicards",
+      "url": "/wiki/software/project/standmeet/architecture/key-designs/capabilities/ui-cards",
+      "settle": ["[data-testid=\"mermaid-svg\"] svg", 30000], "wait": 2000 }
+  ]
+}

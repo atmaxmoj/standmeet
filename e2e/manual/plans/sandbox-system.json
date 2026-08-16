@@ -1,0 +1,7 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/sandbox/shots",
+  "viewport": [1280, 2600],
+  "shots": [
+    { "name": "b3-03-system-panel", "url": "/admin/system", "wait": 3000 }
+  ]
+}

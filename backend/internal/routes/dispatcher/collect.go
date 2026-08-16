@@ -46,8 +46,9 @@ type Deps struct {
 func Collect(d *Deps) []Resource {
 	return []Resource{
 		{Name: "subjectivity", Ops: corpus.SubjectivityOps(d.Corpus)},
-		{Name: "corpus", Ops: append(append(
-			corpus.CorpusReadOps(d.Corpus), corpus.CorpusWriteOps(d.Corpus)...),
+		{Name: "corpus", Ops: append(append(append(
+			corpus.CorpusReadOps(d.Corpus), corpus.CorpusSearchOps(d.Corpus)...),
+			corpus.CorpusWriteOps(d.Corpus)...),
 			corpus.CorpusI18nOps()...)},
 		{Name: "assets", Ops: corpus.AssetOps(d.Corpus)},
 		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},

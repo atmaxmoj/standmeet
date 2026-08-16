@@ -1,0 +1,28 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-acl-editing/shots",
+  "viewport": [1280, 2600],
+  "login": true,
+  "shots": [
+    { "name": "ac-04-narrowed-typed", "url": "/admin/roles",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"role-corpus-uris-invited\"]", "wiki://cybernetics/theory/good-regulator-theorem"] },
+        { "wait": 600 },
+        { "scroll": ["[data-testid=\"role-corpus-uris-invited\"]", 300] },
+        { "wait": 500 }
+      ], "wait": 1000 },
+    { "name": "ac-05-narrowed-saved", "url": "",
+      "steps": [
+        { "click": "[data-testid=\"role-corpus-save-invited\"]" },
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"role-corpus-uris-invited\"]", 300] },
+        { "wait": 600 }
+      ], "wait": 1000 },
+    { "name": "ac-06-narrowed-after-reload", "url": "/admin/roles",
+      "steps": [
+        { "wait": 4500 },
+        { "scroll": ["[data-testid=\"role-corpus-uris-invited\"]", 300] },
+        { "wait": 600 }
+      ], "wait": 1200 }
+  ]
+}

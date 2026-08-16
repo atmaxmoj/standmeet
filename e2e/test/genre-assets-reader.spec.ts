@@ -44,6 +44,8 @@ let outputCoverID = '';
 let outputDocID = '';
 
 const COVER_LINE = 'the line laid over the hero';
+// OUTPUT_HUE —— owner 在 hero 编辑器里挑的那一个。**不是**代码派生的那一个。
+const OUTPUT_HUE = 'violet';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 test.describe('访客在页面上看得见素材（可见性纯继承文章）', () => {
@@ -182,6 +184,16 @@ test.describe('output 的 reader 也渲素材', () => {
       .toContainText(/\d+(\.\d+)?\s?(B|KB|MB)/);
   });
 
+  // hero 是**三件套**(图 + 那句话 + 色调)。前两件上面已经断了,第三件在 output 上一直
+  // 没有渲染位:owner 挑了色调,后端存了也发了,页面永远是同一块底色(F-L-34)。
+  test('owner 挑的色调也上到 hero 上', async ({ page }) => {
+    await goto(page, `/output/${outputPath}`);
+    const hero = page.getByTestId('output-cover');
+    await expect(hero).toBeVisible({ timeout: 8_000 });
+    // data-hue 就是上色的机制本身(CSS 按属性选择器出渐变),不是只给测试看的标记。
+    await expect(hero, 'owner 挑了 violet').toHaveAttribute('data-hue', OUTPUT_HUE);
+  });
+
 });
 
 // seedIllustratedNote —— 一条 wiki,身上挂三份素材:正文里的配图、hero 封面、一份 PDF 附件。
@@ -227,6 +239,7 @@ async function seedIllustratedOutput(): Promise<void> {
     body: `here: ![shot](standmeet-asset:${inline.asset_id})`,
     cover_image_asset_id: cover.asset_id,
     cover_headline: COVER_LINE,
+    cover_hue: OUTPUT_HUE,
   });
   // 发布 —— output 的落地页是**公开**的,没发布读不到。发布没有 MCP op(它是面板
   // SEO 面上的开关),所以这一步走 admin 路由。

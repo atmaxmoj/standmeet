@@ -185,13 +185,17 @@
 }
 
 /* Obsidian callout —— remark-callouts 把 `> [!type]` blockquote 转成
-   `.callout[data-callout]` + `.callout-title`。base 用 vermillion accent;
-   owner 可用 snippet(`.callout[data-callout="theorem"]{…}`)按 type 覆盖。
-   :global 因为 class 是 remark 注入的(非 CSS-module 哈希名)。 */
+   `.callout[data-callout]` + `.callout-title`。:global 因为 class 是 remark 注入的
+   (非 CSS-module 哈希名)。
+
+   **颜色走 `--callout-color`**（Obsidian 的契约：一个 `R, G, B` 三元组），默认值在
+   `globals.css` 的 `.corpus-content` 上给的是站点 vermillion，所以没被覆盖的 callout
+   跟以前一模一样。owner 的 snippet 写 `.callout[data-callout="theorem"]{--callout-color:79,140,230}`
+   就真的变蓝 —— 以前这里硬编码 `var(--color-accent)`，他设的颜色**没有任何读者**（F-L-36）。 */
 .body :global(.callout),
 .article :global(.callout) {
-  border-left: 3px solid var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  border-left: 3px solid rgb(var(--callout-color, 181, 57, 28));
+  background: color-mix(in srgb, rgb(var(--callout-color, 181, 57, 28)) 6%, transparent);
   padding: 0.75em 1.05em;
   margin: 1.4em 0;
   border-radius: 3px;
@@ -206,7 +210,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--color-accent);
+  color: rgb(var(--callout-color, 181, 57, 28));
   margin: 0 0 0.5em;
 }
 .body :global(.callout > :last-child),

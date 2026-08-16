@@ -5,52 +5,15 @@
 // same progressive-enhancement shape for the sub-entries rail). No token / out of scope / bad
 // response → null, and the reader keeps the RestrictedDoc it already showed.
 
-import { z } from 'zod';
-
 import { baseURL, fetchWikiContext } from '@/lib/api/public';
 import { loadStoredSession } from '@/lib/gate/use-gate';
+import { parseWikiLanding, type WikiLandingEntry } from '@/lib/visitor/wiki-landing';
 import type { TreeContext } from '@/lib/corpus/tree';
 
-const WikiRefViewSchema = z.object({ path: z.string(), title: z.string() });
-
-// WikiAssetSchema —— 一份挂在这条语料上的文件。**要真实字节数**:下载按钮上写"3.4 MB"
-// 是访客决定点不点的依据,写"下载"等于什么都没说。
-const WikiAssetSchema = z.object({
-  asset_id: z.string(),
-  kind: z.string(),
-  content_type: z.string(),
-  original_filename: z.string(),
-  url: z.string(),
-  size_bytes: z.number(),
-});
-export type WikiAsset = z.infer<typeof WikiAssetSchema>;
-const WikiLandingEntrySchema = z.object({
-  path: z.string(),
-  title: z.string(),
-  body: z.string(),
-  excerpt: z.string(),
-  updated_at: z.string(),
-  tags: z.array(z.string()).nullish().transform((v) => v ?? []),
-  css_classes: z.array(z.string()).nullish().transform((v) => v ?? []),
-  related: z.array(WikiRefViewSchema).nullish().transform((v) => v ?? []),
-  cited_by: z.array(WikiRefViewSchema).nullish().transform((v) => v ?? []),
-  sources_count: z.number(),
-  // asset_urls —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
-  // 没有它，正文里那条 URI 渲不出来（react-markdown 的 urlTransform 会把非标准
-  // scheme 直接剥掉），访客看到的是一个空的图位。
-  asset_urls: z.record(z.string(), z.string()).nullish().transform((v) => v ?? {}),
-  // assets —— 挂在这条上的文件。图片进正文,附件渲成下载区。
-  assets: z.array(WikiAssetSchema).nullish().transform((v) => v ?? []),
-  // hero 三件套。cover_image_asset_id 为空 = owner 没设封面 → 退回程序生成的色板。
-  cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
-  cover_headline: z.string().nullish().transform((v) => v ?? ''),
-  cover_hue: z.string().nullish().transform((v) => v ?? ''),
-  // 多语:body 已经是选中语言的那一份。languages 空 = 单语,不出切换器。
-  lang: z.string().nullish().transform((v) => v ?? ''),
-  languages: z.array(z.object({ code: z.string(), label: z.string() }))
-    .nullish().transform((v) => v ?? []),
-});
-export type WikiLandingEntry = z.infer<typeof WikiLandingEntrySchema>;
+// 形状和解析住在 `wiki-landing.ts` —— 这个文件 import 了 use-gate(client hook),
+// 服务端那条路 import 不得(见那边开头的说明)。
+export type { WikiLandingEntry } from '@/lib/visitor/wiki-landing';
+export { parseWikiLanding } from '@/lib/visitor/wiki-landing';
 
 export async function fetchWikiLandingScoped(
   slug: string, token: string, lang = '',
@@ -62,8 +25,7 @@ export async function fetchWikiLandingScoped(
       headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
     });
     if (!res.ok) return null;
-    const parsed = WikiLandingEntrySchema.safeParse(await res.json());
-    return parsed.success ? parsed.data : null;
+    return parseWikiLanding(await res.json());
   } catch {
     return null;
   }

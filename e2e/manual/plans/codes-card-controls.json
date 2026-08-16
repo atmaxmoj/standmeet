@@ -1,0 +1,25 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1280, 2200],
+  "login": true,
+  "shots": [
+    { "name": "ak-03-new-code-form", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "text=NEW CODE" },
+        { "wait": 2000 },
+        { "type": ["[data-testid=\"code-label\"]", "AUDIT-CARD"] },
+        { "wait": 600 }
+      ], "wait": 1200 },
+    { "name": "ak-04-code-created", "url": "",
+      "steps": [
+        { "click": "[data-testid=\"code-create\"]" },
+        { "wait": 4000 }
+      ], "wait": 1500 },
+    { "name": "ak-05-card-detail", "url": "",
+      "steps": [
+        { "scroll": ["[data-testid=\"code-list\"]", 300] },
+        { "wait": 1200 }
+      ], "wait": 1200 }
+  ]
+}

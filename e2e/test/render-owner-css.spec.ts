@@ -5,6 +5,7 @@
 // computed style 反映 owner 规则;(c) 未设 → 无效果;(d) scope 安全:规则动不了 app chrome。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
@@ -68,4 +69,45 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
       ).catch(() => false);
       expect(navHidden).toBe(false);
     });
+
+  // owner 的 snippet 是照 **Obsidian 的变量方言**写的 —— 那是他 vault 里 lint 过的东西。
+  // 站点收下它、消毒、加 scope 前缀，却一个变量都没定义 → 规则生效了但**什么也没改变**
+  // （F-L-36：真 vault 里 `[!definition]`(绿) 和 `[!theorem]`(蓝) 渲成同一块淡红）。
+  // 这两条守的就是那份契约：**owner 写什么，页面上就得是什么。**
+  test('owner 的 callout 颜色（Obsidian 的 --callout-color 三元组）真的上到 callout 上',
+    async ({ request, page }) => {
+      const status = await adminSetCSS(
+        request, OWNER,
+        '.callout[data-callout="theorem"] { --callout-color: 79, 140, 230; }',
+      );
+      expect(status).toBe(200);
+      await seedCalloutNote(request, 'theorem-note', 'theorem', 'T1');
+
+      await goto(page, '/wiki/theorem-note');
+      const callout = page.getByTestId('wiki-body').locator('.callout[data-callout="theorem"]');
+      await expect(callout).toBeVisible({ timeout: 8_000 });
+      // 左边那道竖线就是上色的机制本身 —— owner 说蓝，它就得是蓝，不是站点的 vermillion。
+      await expect(callout).toHaveCSS('border-left-color', 'rgb(79, 140, 230)');
+    });
+
+  test('没写 snippet 的 callout 保持站点自己的 accent（默认值没被改坏）',
+    async ({ request, page }) => {
+      await seedCalloutNote(request, 'plain-callout', 'note', 'N1');
+      await goto(page, '/wiki/plain-callout');
+      const callout = page.getByTestId('wiki-body').locator('.callout[data-callout="note"]');
+      await expect(callout).toBeVisible({ timeout: 8_000 });
+      await expect(callout).toHaveCSS('border-left-color', 'rgb(181, 57, 28)');
+    });
 });
+
+// seedCalloutNote —— 一条已发布的笔记，正文就是一个 callout。
+async function seedCalloutNote(
+  request: APIRequestContext, slug: string, kind: string, title: string,
+): Promise<void> {
+  await uploadVault(request, OWNER, [
+    {
+      rel: `wiki/${slug}.md`,
+      body: makeVaultMD({ publish: true }, `> [!${kind}] ${title}\n> body.\n`),
+    },
+  ]);
+}

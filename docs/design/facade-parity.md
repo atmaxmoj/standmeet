@@ -1,5 +1,46 @@
 # Facade parity — one capability registry, every facade conforms or the build breaks
 
+**Status:** **half of this is now the wrong shape (owner, 2026-08-15).** The invariant below
+still holds; the *mechanism* does not.
+
+> "facadeparity 不是结构保障，dispatcher 是结构保障，不应该有明文写的任何 parity。所有的程序
+> 向外的接口由 dispatcher 走，route 自己 wire，mcp 组装也从这边组装 —— 没有任何人要明着说
+> '这是个 parity'。**结构 = 没有职责类。**"
+
+The invariant offers two ways to satisfy it — *generated from* the registry, or *verified
+against* it. **Only the first one is structural.** The second is a responsibility class: a
+`Reach` someone must declare, a `Conform()` someone must run, a `Violation` someone must read,
+and (worst) `internal/infra/paritymanifest`, a 123-op hand-kept ledger whose own comments already
+sentence it to death ("台账在替结构记账 … 这正是这个包最后要消失的方式").
+
+**What the code shows today (verified 2026-08-15):**
+
+| Facade | How it is built | What `Conform()` can find there |
+|---|---|---|
+| owner MCP | **generated** — `mcphandle/from_dispatcher.go:36` walks the dispatcher's ops; taking them *is* registering them | nothing: "missing" is structurally impossible |
+| admin HTTP | **hand-written** — ~40 lines of `r.Get("/corpus/{genre}", h.dispatchOp(face, "corpus.list", …))` | everything: this is the only face that can forget |
+
+So the entire verification apparatus exists to cover **one** hand-wired facade. Adding one op
+(`corpus.search`, 2026-08-15) took **three** hand edits — the domain's alias table, the
+dispatcher's `Collect`, and an admin route — and each is a place to forget.
+
+**Target shape:** the admin HTTP face is generated from the same op set, exactly as MCP is.
+`Kind` already fixes the verb (Read→GET, Query→QUERY, Action→POST/PATCH/DELETE), so a route per
+op is derivable; args stay JSON, which the dispatcher already speaks. Then:
+
+- `Reach`, `Facade`, `Exposure`, `Violation`, `Conform`, `Report` — **delete**; nothing left to check.
+- `internal/infra/paritymanifest` — **delete** (its shrink-only ratchet was the countdown).
+- What survives in `facadeparity` is only the **declaration vocabulary** (`Op`, `Invoke`, `File`,
+  the error helpers) — and that should move under a name that says what it is, since "parity"
+  will no longer be a thing anyone can write.
+- Adding an op becomes: declare it in the domain. One place. No ledger, no check, no reason to
+  name the concept at all.
+
+Everything below is the 2026-07-09 design as written, kept for the reasoning that produced the
+one-registry invariant. Read the mechanism half as history.
+
+---
+
 **Status:** design (2026-07-09). Supersedes the `[[ui-mcp-parity]]` placeholder in todo.md.
 
 ## The problem
