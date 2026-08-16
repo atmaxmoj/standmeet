@@ -262,19 +262,23 @@ RETURNING *;
 --
 -- updated_at 也一并取上 —— 它以前没被 select，而 wiki/output 那条映射照样把零值渲成
 -- `1970-01-01T00:00:00Z` 发出去（F-L-46）。
+-- 索引和摘要都走 `corpus_searchable(body)`（定义在 schema.sql）：vault 的 i18n 契约里那一行
+-- 语言切换按钮是**呈现件**，不是 owner 写下的字。它以前既进索引（搜「中文」会命中每一条
+-- 多语笔记，哪怕正文一个中文字都没有）又进摘要（每条摘要都从 `EN 中文` 开头）——UX-78。
+-- 两处必须用同一个表达式：只清摘要的话，搜得到却看不出为什么，那更糟。
 SELECT id, parent_id, title, published, updated_at,
-       ts_headline('english', body,
+       ts_headline('english', corpus_searchable(body),
          replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery,
          'StartSel="",StopSel="",MaxWords=28,MinWords=12,MaxFragments=1'
        ) AS snippet
 FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
   AND to_tsvector('english',
-        title || ' ' || body || ' ' || array_to_string(tags, ' '))
+        title || ' ' || corpus_searchable(body) || ' ' || array_to_string(tags, ' '))
       @@ replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery
 ORDER BY ts_rank(
         to_tsvector('english',
-          title || ' ' || body || ' ' || array_to_string(tags, ' ')),
+          title || ' ' || corpus_searchable(body) || ' ' || array_to_string(tags, ' ')),
         replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery
       ) DESC, updated_at DESC
 LIMIT $4 OFFSET $5;

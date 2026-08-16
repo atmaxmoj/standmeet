@@ -40,6 +40,11 @@ const CALLOUT_HEAD = [
   '> > # Callout-Led Note',
   '> >',
   '> > > Parent: [[key-designs]]',
+  '>',
+  // 第二个语言面 —— 契约允许 N 个。`[!lang] zh` 这一行是**脚手架**，而它以前跟切换器
+  // 一样进了索引：搜 `zh` 会命中每一条带中文面的笔记，哪怕正文里没这个词。
+  '> > [!lang] zh',
+  '> > # 湿度图那一条',
   '',
 ].join('\n');
 
@@ -115,6 +120,12 @@ test.describe('owner 找得到自己语料里的一条', () => {
       for (const junk of [',StopSel', 'StartSel', '[!', '<label', '<input', 'i18n]']) {
         expect(row?.preview ?? '', `摘要里不该出现 ${junk}`).not.toContain(junk);
       }
+      // 切换器**按钮上的字**也不算内容（UX-78）。清洗抓不到它:postgres 的 `ts_headline`
+      // 自己就把 `<label>`/`<input>` 去掉了,交到 Go 手上时只剩 `EN 中文` 两个词,
+      // 结构上跟散文一模一样。夹具的正文全是英文,所以 preview 里但凡出现中文,
+      // 来源只可能是那一行切换器。
+      expect(row?.preview ?? '', '语言切换按钮上的字不是这条笔记的内容')
+        .not.toContain('中文');
     });
 
   test('后台：搜索框按内容找得到它，并说清这次看的是整个语料',
@@ -128,5 +139,40 @@ test.describe('owner 找得到自己语料里的一条', () => {
       // 状态那句话要区分「这一页」和「整个语料」—— 屏幕不说，owner 会把
       // 「这一页里没有」读成「我的语料里没有」。
       await expect(adminPage.getByTestId('corpus-search-state')).toContainText('whole corpus');
+    });
+});
+
+// 摘要那一半在上面；这一组问的是**索引**：契约里的脚手架（切换器的按钮、`[!lang]` 标记）
+// 会不会让一条笔记因为它自己没写过的词被搜出来。上面那组用同一批夹具，所以这组接着跑。
+test.describe('契约里的脚手架不该被搜到', () => {
+  // 同一件事的另一半:按钮上的字不该**被搜到**。
+  // **不要按 `label` / `radio` 判**:那两个词在标签名里,而 postgres 的 `english` 分析器
+  // 本来就把 HTML 标签当 tag token 扔掉 —— 那样的断言在修之前就是绿的,什么也不证明
+  // （[[assertion-that-cannot-fail]]，第一版就是这么写的）。漏进索引的恰恰是标签之间的
+  // **文字**:`EN` 和 `中文`。真 vault 里每条多语笔记都带这两个词,于是搜「中文」会
+  // 把它们全部搜出来。
+  test('owner-MCP：切换器上的字不进索引 —— 搜「中文」搜不出这条英文笔记',
+    async ({ request }) => {
+      const found = await callTool<{ id: string; title: string }[]>(
+        request, mcpToken, sid, 'corpus.search', { genre: 'wiki', query: '中文' },
+      );
+      expect(
+        found.map((r) => r.title),
+        '「中文」是切换器按钮上的字,这条笔记的正文一个中文字都没有',
+      ).not.toContain(CALLOUT_TARGET);
+    });
+
+  // 区块自己的标记也一样。`> > [!lang] zh` 里的 `zh` 是契约的脚手架 ——
+  // ⑤ 在真语料上看到过一条摘要以孤零零一个 `en` 开头（`ts_headline` 的窗口从标记中间切开，
+  // 事后再清片段的人**看不到足够的上下文**认出它）。所以标记要在 postgres 读之前就没了。
+  test('owner-MCP：语言标记不进索引 —— 搜 "zh" 搜不出这条笔记',
+    async ({ request }) => {
+      const found = await callTool<{ id: string; title: string }[]>(
+        request, mcpToken, sid, 'corpus.search', { genre: 'wiki', query: 'zh' },
+      );
+      expect(
+        found.map((r) => r.title),
+        '`zh` 是 `[!lang]` 标记里的语言码,不是笔记写下的词',
+      ).not.toContain(CALLOUT_TARGET);
     });
 });

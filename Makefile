@@ -719,6 +719,14 @@ dev-psql:
 	@docker compose -p standmeet-dev -f docker-compose.dev.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c "$(SQL)"
 
+# dev-psql-file —— same, for multi-line SQL.  usage: make dev-psql-file FILE=/tmp/x.sql
+# The one-liner form goes through the shell twice, so a `$` inside the SQL (a regex anchor, say)
+# arrives mangled and postgres reports a syntax error in a statement you did not write.
+dev-psql-file:
+	@test -f "$(FILE)" || (echo 'usage: make dev-psql-file FILE=<path.sql>'; exit 2)
+	@docker compose -p standmeet-dev -f docker-compose.dev.yml exec -T db \
+		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 < "$(FILE)"
+
 # docker-gc —— reclaim buildkit cache + dangling images. Safe: never touches running containers,
 # named volumes (pgdata/redis/minio), or tagged images in use. Run when the Docker VM disk fills from
 # many rebuilds (symptom: `docker system df` hangs, builds crawl).

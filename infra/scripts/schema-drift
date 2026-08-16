@@ -104,6 +104,27 @@ def declared_columns():
     return tables
 
 
+def missing_functions():
+    """[name] for every function schema.sql declares that the live database does not have.
+
+    A query that calls a missing function does not fail quietly — it fails on every request that
+    reaches it. Columns were the only thing this script watched because columns were the only
+    thing the schema had; the first declared function (corpus_searchable) would otherwise have
+    shipped as "in sync" right up until the owner typed something into search.
+    """
+    sql = open(SCHEMA, encoding="utf-8").read()
+    declared = re.findall(r"CREATE(?:\s+OR\s+REPLACE)?\s+FUNCTION\s+(\w+)", sql, re.I)
+    if not declared:
+        return []
+    out = subprocess.run(
+        ["docker", "exec", CONTAINER, "psql", "-U", "standmeet", "-d", "standmeet", "-At",
+         "-c", "select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace "
+               "where n.nspname = 'public'"],
+        capture_output=True, text=True, check=True).stdout
+    live = set(out.split())
+    return sorted(f for f in declared if f not in live)
+
+
 def default_diffs(live, declared):
     """[(table, column, declared, live)] where both sides name a default and they disagree.
 
@@ -151,15 +172,18 @@ def main():
         for c in cols if c not in live[t]
     )
     diffs = default_diffs(live, declared)
+    missing_funcs = missing_functions()
     print(f"schema-drift: {CONTAINER} vs backend/db/schema.sql")
-    if not missing_tables and not missing_cols and not diffs:
-        print("  in sync — every declared table and column exists in the live database, "
-              "and every declared DEFAULT matches.")
+    if not missing_tables and not missing_cols and not diffs and not missing_funcs:
+        print("  in sync — every declared table, column and function exists in the live "
+              "database, and every declared DEFAULT matches.")
         return 0
     for t in missing_tables:
         print(f"  MISSING TABLE   {t}")
     for t, c in missing_cols:
         print(f"  MISSING COLUMN  {t}.{c}")
+    for f in missing_funcs:
+        print(f"  MISSING FUNCTION {f}()")
     for t, c, want, got in diffs:
         print(f"  DEFAULT DIFFERS {t}.{c} — schema.sql says {want}, the database says {got}")
     print("\nApply them by hand, non-destructively — copy each definition out of "

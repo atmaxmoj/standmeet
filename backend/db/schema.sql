@@ -12,6 +12,35 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- gen_random_uuid()
 
+-- corpus_searchable —— a note's body with the language switcher taken out, for search only.
+--
+-- The vault's i18n contract puts a row of radio buttons inside the `> [!i18n]` block, above the
+-- language panes. It is Obsidian's presentation — this product renders its own switcher — and the
+-- Go parser that reads the contract already drops that line (corpus/i18n/parse.go: a line inside
+-- the block but outside any pane). Search never saw that decision: it reads `body` straight, so
+-- the switcher's *button text* ("EN", "中文") is indexed as if the owner had written it. Searching
+-- 中文 returned every multilingual note, and every snippet opened with EN 中文 before its first
+-- real word (UX-78).
+--
+-- Why the cleaning happens here and not in Go: `ts_headline` strips HTML before the fragment ever
+-- reaches us, so by then the tags are gone and only their text is left — indistinguishable from
+-- prose. The line has to go before postgres reads it.
+--
+-- Deliberately narrow: a line is dropped only when it carries one of the switcher's own tags.
+-- `<` alone would eat mathematics (`a < b` is prose in this corpus), and dropping tags rather than
+-- the whole line is what leaves the orphan button text behind.
+--
+-- The block's own markers go the same way — `> [!i18n]` and `> > [!lang] zh` are the contract's
+-- scaffolding, and a search hit near one used to open with a bare "en" or "zh" (the fragment
+-- window can start in the middle of a marker, so cleaning the fragment afterwards never sees
+-- enough of it to recognise). Only these two markers: `[!tip] Something` carries a title the
+-- owner wrote, and dropping that line would lose content.
+CREATE FUNCTION corpus_searchable(body text) RETURNS text
+    LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+    RETURN regexp_replace(
+        regexp_replace(body, '(?in)^.*</?(label|input)[ />].*$', '', 'g'),
+        '(?in)^[ \t>]*\[!(i18n|lang)\][+-]?[ \t]*[a-z-]*[ \t]*$', '', 'g');
+
 -- Owners —— v1 单 owner（instance_settings.multi_tenant=false 锁定）；
 -- 但 schema 已经按 multi-tenant 形状建（每张领域表都会带 owner_id FK）。
 CREATE TABLE owners (
