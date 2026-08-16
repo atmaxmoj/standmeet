@@ -1241,7 +1241,7 @@ const searchNotes = `-- name: SearchNotes :many
 SELECT id, parent_id, title, published, updated_at,
        ts_headline('english', body,
          replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery,
-         'StartSel=,StopSel=,MaxWords=28,MinWords=12,MaxFragments=1'
+         'StartSel="",StopSel="",MaxWords=28,MinWords=12,MaxFragments=1'
        ) AS snippet
 FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
@@ -1281,6 +1281,9 @@ type SearchNotesRow struct {
 // 清洗之后一个字不剩，于是 owner 搜出来的每一行都没有摘要（F-L-45）。命中处还顺带回答了
 // 「这一行为什么被搜到」，那正是搜索结果该说的话。`StartSel/StopSel` 置空：不要 `<b>` 标记，
 // 摘要要能直接渲给人看（F-L-42 那族：原始标记不许漏到界面上）。
+// **两个空值必须带引号**（`StartSel=""`）：写成 `StartSel=,` 的话 postgres 把后面那截当成值，
+// 于是每个命中词前面都印出一串 `,StopSel=` —— ⑤ 在真语料上当场抓到，而守卫当时没红，
+// 因为它只断了「摘要非空且含命中词」，那串垃圾同时满足这两条。
 //
 // updated_at 也一并取上 —— 它以前没被 select，而 wiki/output 那条映射照样把零值渲成
 // `1970-01-01T00:00:00Z` 发出去（F-L-46）。

@@ -25,8 +25,17 @@ var (
 	quotePrefixRe = regexp.MustCompile(`^(?:\s*>+\s?)+`)
 	// calloutMarkerRe —— Obsidian 的 callout 标记（`[!i18n]` / `[!lang] en`）。
 	calloutMarkerRe = regexp.MustCompile(`\[![a-zA-Z0-9_-]+\]\s*[a-zA-Z-]*`)
-	// htmlTagRe —— 片段里混着的裸 HTML（语言切换那排 `<label><input …>`）。
-	htmlTagRe = regexp.MustCompile(`<[^>]*>`)
+	// orphanCalloutRe —— 片段是从正文**中间**切下来的，`[!i18n]` 的左半截可能落在窗口外面，
+	// 只剩一个 `i18n]` 挂在开头。⑤ 在真语料上看到的就是这个（`i18n] EN 中文 …`）。
+	orphanCalloutRe = regexp.MustCompile(`^[a-zA-Z0-9_-]*\]\s*`)
+	// markupLineRe —— 这一行里出现过 HTML 标签（i18n 切换器的 `<label><input …>`）。
+	// **整行丢掉，不是只去标签**：片段是从中间切的，标签常常是半开的，去掉标签之后
+	// 屏幕上会剩下孤零零的 `EN 中文` —— 那是切换器的按钮文字，不是这条笔记的内容
+	// （⑤ 在真语料上看到的就是它）。一行带着切换器 = 这行不是散文。
+	markupLineRe = regexp.MustCompile(`</?(?:label|input|div|span|br)\b`)
+	// frontmatterLineRe —— raw 那一档的片段常常从 frontmatter 里切出来
+	// （`tags: - node - flexmesh ---`）。键值行、列表项、`---` 围栏都不是正文。
+	frontmatterLineRe = regexp.MustCompile(`^(?:---\s*$|[a-zA-Z_][\w-]*:\s*$|-\s+\S+\s*$)`)
 	// headingHashRe —— 行首的 `#`，去掉之后标题行本身可以当摘要用。
 	headingHashRe = regexp.MustCompile(`^#{1,6}\s*`)
 )
@@ -50,8 +59,11 @@ func SearchSnippet(fragment string, limit int) string {
 // unwrapSnippetLine —— 一行：拆包装、去标记，返回可读的那部分（没有就返回空串）。
 func unwrapSnippetLine(raw string) string {
 	line := quotePrefixRe.ReplaceAllString(strings.TrimSpace(raw), "")
+	if markupLineRe.MatchString(line) || frontmatterLineRe.MatchString(line) {
+		return ""
+	}
 	line = calloutMarkerRe.ReplaceAllString(line, "")
-	line = htmlTagRe.ReplaceAllString(line, "")
+	line = orphanCalloutRe.ReplaceAllString(line, "")
 	line = headingHashRe.ReplaceAllString(line, "")
 	return cleanLead(line)
 }

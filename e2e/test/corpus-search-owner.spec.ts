@@ -109,6 +109,12 @@ test.describe('owner 找得到自己语料里的一条', () => {
       expect(row?.preview ?? '', '开头是 callout 的笔记同样要有摘要').not.toBe('');
       expect(row?.preview ?? '', '摘要要来自命中处，这样它同时回答了「为什么是这条」')
         .toContain(CALLOUT_NEEDLE);
+      // **「非空且含命中词」还不够**：⑤ 在真语料上看到的第一版摘要是
+      // `i18n] EN 中文 The as-,StopSel=MCP facade …` —— 它同时满足上面两条。
+      // 三样都不许漏到 owner 眼前：ts_headline 的选项串、callout 的残骸、裸标签。
+      for (const junk of [',StopSel', 'StartSel', '[!', '<label', '<input', 'i18n]']) {
+        expect(row?.preview ?? '', `摘要里不该出现 ${junk}`).not.toContain(junk);
+      }
     });
 
   test('后台：搜索框按内容找得到它，并说清这次看的是整个语料',
