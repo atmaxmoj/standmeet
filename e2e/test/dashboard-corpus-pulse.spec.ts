@@ -40,8 +40,15 @@ async function pulseFollowsSeries({ adminPage: page }: { adminPage: Page }): Pro
   await page.route(/\/api\/admin\/stats\/growth/, (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
+    // **载荷必须满足客户端的 schema**（`CorpusGrowthSchema`：total / delta_7d / by_tier / series）。
+    // 少了 total 和 delta_7d 时 zod 整份拒掉，卡片退回空态（`nothing new in 14d` / `0 entries`），
+    // 而这条用例只断「画了几个点」，于是它在**别的原因**下也会红/绿 —— 2026-08-16 换了新 dev 卷
+    // 之后就是这样红的（[[zod-unknown-is-not-optional]]：服务端形状变了，客户端 schema 整份挂掉，
+    // 而且是静默的）。
     body: JSON.stringify({
-      by_tier: { raw: 14, wiki: 0, output: 0, raw_unprocessed: 0 },
+      total: RAMP.reduce((n, d) => n + d.count, 0),
+      delta_7d: RAMP.slice(-7).reduce((n, d) => n + d.count, 0),
+      by_tier: { raw: 14, wiki: 0, output: 0, writing: 0, raw_unprocessed: 0 },
       series: RAMP,
     }),
   }));
