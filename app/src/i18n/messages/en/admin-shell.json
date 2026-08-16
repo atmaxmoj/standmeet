@@ -195,7 +195,9 @@
     "sweepNow": "sweep now",
     "colWorkspace": "session workspace",
     "colAge": "age",
-    "empty": "no active workspaces",
+    "empty": "No workspaces right now",
+    "emptyHint": "A workspace appears when a visitor session uses a tool that writes files, and it is swept once it has been idle past its TTL. None here means none in use — not that something is broken.",
+    "sweepNothing": "Nothing to sweep — there are no workspaces",
     "ageSecs": "{n}s"
   }
 }
