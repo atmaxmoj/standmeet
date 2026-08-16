@@ -136,9 +136,12 @@ func FetchNewJobs(
 // owner 已经拿到了岗位（或拿到了失败原因），因为记不下这笔账而把整次调用变成错误，
 // 是拿次要的事故盖住主要的结果。写不进去就记日志。
 func markAttempt(ctx context.Context, deps JobsDeps, sourceID string, ferr error) {
+	// 存的是**给人看的那一句**，不是整条错误链 —— 那一行会原样渲在 /admin/sources 上，
+	// 而链条前面两截是源 uuid 和内部动词，对 owner 没有用（UX-77）。
+	// 完整的链仍然在 `SourceFailure.Reason` 里交给 owner 的 AI，也在日志里。
 	reason := ""
 	if ferr != nil {
-		reason = ferr.Error()
+		reason = sourceFailureSentence(ferr)
 	}
 	if merr := deps.Sources.MarkAttempt(ctx, sourceID, reason); merr != nil {
 		slog.WarnContext(ctx, "job source attempt not recorded",

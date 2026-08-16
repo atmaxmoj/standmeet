@@ -7,7 +7,12 @@
 
 package jobsuc
 
-import "github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
+import (
+	"errors"
+
+	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
+)
 
 // FetchResult —— 一次抓取的完整结果:**拿到了什么** + **哪些源没成**。
 //
@@ -56,6 +61,35 @@ type SourceFailure struct {
 type sourceRun struct {
 	jobs  []jobsmodel.FetchedJob
 	tally SourceTally
+}
+
+// sourceFailureSentence —— 存进源那一行、**给人看**的一句话。
+//
+// 跟 `SourceFailure.Reason` 分工不同：那一份是给 owner 的 AI 读的完整错误链（源 id、
+// 内部动词、URL 都有用，F-E-6 就是为了它才不再吞掉细节）；而 `/admin/sources` 上那一行
+// 是给**人**看的 —— 把整条链铺上去会得到三行折行的文字，前面两截还是 uuid 和内部动词（UX-77）。
+//
+// 措辞纪律跟 mailFailureReason / calendarFailureReason 同一套：**每一句都指出下一步**，
+// 不放状态码、不放主机名、不放栈。
+func sourceFailureSentence(err error) string {
+	for _, c := range failureSentences {
+		if errors.Is(err, c.kind) {
+			return c.say
+		}
+	}
+	// 含还没归过类的：对 owner 都是同一件事 —— 他改不了，过一会儿再试。
+	return "couldn't reach the board — try again later"
+}
+
+// failureSentences —— 归类表。**顺序即优先级**：先匹配的赢。
+var failureSentences = []struct {
+	kind error
+	say  string
+}{
+	{jobfetch.ErrUpstreamAuth, "this source's credential was rejected — replace the token"},
+	{jobfetch.ErrUpstreamSchema, "the board's answer wasn't the shape this source sends"},
+	{jobsmodel.ErrJobSourceConfigInvalid, "this source's settings are incomplete — re-register"},
+	{jobfetch.ErrUpstream, "the board turned the request away — it may have moved"},
 }
 
 // failureOf —— 把一个源的失败写成 owner 能据以行动的一行。

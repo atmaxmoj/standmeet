@@ -73,7 +73,13 @@ test.describe('admin sources list', () => {
       // 先取文本再判：元素还没出现时 `.not.toContainText` 也算通过（[[negated-assertion-passes-while-absent]]）。
       expect(text, '试过就不该说「从没取过」').not.toMatch(/never fetched/i);
       expect(text, '要说出上次试过、失败了').toMatch(/failed/i);
-      expect(text, '要带上原因，owner 才知道下一步做什么').toMatch(/credential|token|auth/i);
+      expect(text, '要带上原因，owner 才知道下一步做什么').toMatch(/credential|token/i);
+      // **给人看的一句话，不是整条错误链**（UX-77）：链条前面两截是源 uuid 和内部动词，
+      // 铺在这一行上会折成三行，而 owner 需要的是最后那半句。完整的链留给 owner 的 AI
+      // （`failed_sources[].reason`）和日志。
+      expect(text, '不该把源的 uuid 摆在屏幕上').not.toContain(src.id);
+      expect(text, '不该出现内部动词').not.toMatch(/fetch source|fetch workable/i);
+      expect(text, '不该出现上游 URL').not.toMatch(/https?:\/\//);
     });
 });
 
