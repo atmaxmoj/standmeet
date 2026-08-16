@@ -13,6 +13,10 @@ const AdminSourceRowSchema = z.object({
   kind: z.string(),
   label: z.string(),
   last_fetched_at: z.string().nullable().optional(),
+  // 上一次**试过**是什么时候、结果如何（空串 = 成了）。少了这两个，界面分不出
+  // 「每次都失败」和「从没试过」（F-E-18）。
+  last_attempted_at: z.string().nullable().optional(),
+  last_error: z.string().optional(),
   created_at: z.string(),
 });
 export type AdminSourceRow = z.infer<typeof AdminSourceRowSchema>;

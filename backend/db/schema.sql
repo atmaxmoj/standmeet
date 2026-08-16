@@ -697,6 +697,13 @@ CREATE TABLE job_sources (
     config          jsonb         NOT NULL DEFAULT '{}'::jsonb,
     label           text          NOT NULL,
     last_fetched_at timestamptz,
+    -- last_attempted_at / last_error —— **「取过但每次都失败」跟「从没取过」必须分得开**。
+    -- 只有 last_fetched_at 的时候，一个每次 400 的源和一个从没被碰过的源在
+    -- /admin/sources 上是同一行字 `never fetched`，而这一页存在的理由就是回答
+    -- 「我这个源还活着吗」（F-E-18）。成败都写这两列；成功时 last_error 是空串，
+    -- 不是 NULL —— 这一列永远有值，读的人不必分辨「没写」和「没错」。
+    last_attempted_at timestamptz,
+    last_error      text          NOT NULL DEFAULT '',
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 

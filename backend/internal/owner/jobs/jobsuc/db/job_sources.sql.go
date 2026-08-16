@@ -14,7 +14,8 @@ import (
 const createJobSource = `-- name: CreateJobSource :one
 INSERT INTO job_sources (owner_id, kind, config, label)
 VALUES ($1, $2, $3, $4)
-RETURNING id, owner_id, kind, config, label, last_fetched_at, created_at
+RETURNING id, owner_id, kind, config, label, last_fetched_at,
+          last_attempted_at, last_error, created_at
 `
 
 type CreateJobSourceParams struct {
@@ -39,6 +40,8 @@ func (q *Queries) CreateJobSource(ctx context.Context, arg CreateJobSourceParams
 		&i.Config,
 		&i.Label,
 		&i.LastFetchedAt,
+		&i.LastAttemptedAt,
+		&i.LastError,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -89,7 +92,8 @@ func (q *Queries) GetExistingFingerprints(ctx context.Context, arg GetExistingFi
 }
 
 const getJobSource = `-- name: GetJobSource :one
-SELECT id, owner_id, kind, config, label, last_fetched_at, created_at
+SELECT id, owner_id, kind, config, label, last_fetched_at,
+       last_attempted_at, last_error, created_at
 FROM job_sources
 WHERE id = $1 AND owner_id = $2
 `
@@ -109,6 +113,8 @@ func (q *Queries) GetJobSource(ctx context.Context, arg GetJobSourceParams) (Job
 		&i.Config,
 		&i.Label,
 		&i.LastFetchedAt,
+		&i.LastAttemptedAt,
+		&i.LastError,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -131,7 +137,8 @@ func (q *Queries) InsertJobFingerprint(ctx context.Context, arg InsertJobFingerp
 }
 
 const listJobSourcesByOwner = `-- name: ListJobSourcesByOwner :many
-SELECT id, owner_id, kind, config, label, last_fetched_at, created_at
+SELECT id, owner_id, kind, config, label, last_fetched_at,
+       last_attempted_at, last_error, created_at
 FROM job_sources
 WHERE owner_id = $1
 ORDER BY created_at DESC
@@ -153,6 +160,8 @@ func (q *Queries) ListJobSourcesByOwner(ctx context.Context, ownerID pgtype.UUID
 			&i.Config,
 			&i.Label,
 			&i.LastFetchedAt,
+			&i.LastAttemptedAt,
+			&i.LastError,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -163,6 +172,25 @@ func (q *Queries) ListJobSourcesByOwner(ctx context.Context, ownerID pgtype.UUID
 		return nil, err
 	}
 	return items, nil
+}
+
+const markJobSourceAttempt = `-- name: MarkJobSourceAttempt :exec
+UPDATE job_sources
+SET last_attempted_at = now(), last_error = $2
+WHERE id = $1
+`
+
+type MarkJobSourceAttemptParams struct {
+	ID        pgtype.UUID
+	LastError string
+}
+
+// 每一次取数都写一笔，成败都写。**「取过但每次都失败」和「从没取过」必须分得开** ——
+// 只记 last_fetched_at 的时候，两者在 /admin/sources 上是同一行字（F-E-18）。
+// 成功时 last_error 写空串（不是 NULL）：这一列永远有值，读的人不必分辨「没写」和「没错」。
+func (q *Queries) MarkJobSourceAttempt(ctx context.Context, arg MarkJobSourceAttemptParams) error {
+	_, err := q.db.Exec(ctx, markJobSourceAttempt, arg.ID, arg.LastError)
+	return err
 }
 
 const touchJobSourceFetched = `-- name: TouchJobSourceFetched :exec

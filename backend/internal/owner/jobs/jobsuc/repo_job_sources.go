@@ -16,6 +16,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
 )
 
+// errParseSourceID —— source id 解析失败的统一 wrap 前缀（跟 pgstore.ErrParseOwnerIDPrefix 同一形态）。
+const errParseSourceID = "parse source id: %w"
+
 // JobSourceRepo —— job_sources + job_fingerprints 两张表的 Repository。
 type JobSourceRepo struct {
 	pool *pgstore.Pool
@@ -62,7 +65,7 @@ func (r *JobSourceRepo) GetByID(
 	}
 	sourceUUID, err := pgstore.ParseUUID(id)
 	if err != nil {
-		return jobsmodel.JobSource{}, fmt.Errorf("parse source id: %w", err)
+		return jobsmodel.JobSource{}, fmt.Errorf(errParseSourceID, err)
 	}
 	q := db.New(r.pool)
 	row, err := q.GetJobSource(ctx, db.GetJobSourceParams{
@@ -105,7 +108,7 @@ func (r *JobSourceRepo) Delete(ctx context.Context, ownerID, id string) error {
 	}
 	sourceUUID, err := pgstore.ParseUUID(id)
 	if err != nil {
-		return fmt.Errorf("parse source id: %w", err)
+		return fmt.Errorf(errParseSourceID, err)
 	}
 	q := db.New(r.pool)
 	if derr := q.DeleteJobSource(ctx, db.DeleteJobSourceParams{
@@ -120,11 +123,31 @@ func (r *JobSourceRepo) Delete(ctx context.Context, ownerID, id string) error {
 func (r *JobSourceRepo) TouchFetched(ctx context.Context, sourceID string) error {
 	sourceUUID, err := pgstore.ParseUUID(sourceID)
 	if err != nil {
-		return fmt.Errorf("parse source id: %w", err)
+		return fmt.Errorf(errParseSourceID, err)
 	}
 	q := db.New(r.pool)
 	if terr := q.TouchJobSourceFetched(ctx, sourceUUID); terr != nil {
 		return fmt.Errorf("touch fetched: %w", terr)
+	}
+	return nil
+}
+
+// MarkAttempt —— 每一次取数都写一笔，**成败都写**。reason 空串 = 这次成了。
+//
+// 只写 last_fetched_at 是不够的：一个每次都 400 的源和一个从没被碰过的源，在
+// /admin/sources 上会是同一行 `never fetched`，而那一页存在的理由就是回答
+// 「我这个源还活着吗」（F-E-18）。失败的详情以前只活在 owner 那一次 MCP 调用的
+// 回执里，关掉窗口就没了。
+func (r *JobSourceRepo) MarkAttempt(ctx context.Context, sourceID, reason string) error {
+	sourceUUID, err := pgstore.ParseUUID(sourceID)
+	if err != nil {
+		return fmt.Errorf(errParseSourceID, err)
+	}
+	q := db.New(r.pool)
+	if merr := q.MarkJobSourceAttempt(ctx, db.MarkJobSourceAttemptParams{
+		ID: sourceUUID, LastError: reason,
+	}); merr != nil {
+		return fmt.Errorf("mark attempt: %w", merr)
 	}
 	return nil
 }
@@ -154,7 +177,7 @@ func (r *JobSourceRepo) RecordSeenExternalIDs(
 	}
 	sourceUUID, err := pgstore.ParseUUID(sourceID)
 	if err != nil {
-		return fmt.Errorf("parse source id: %w", err)
+		return fmt.Errorf(errParseSourceID, err)
 	}
 	q := db.New(r.pool)
 	for _, eid := range externalIDs {
@@ -172,7 +195,7 @@ func (r *JobSourceRepo) lookupSeen(
 ) ([]string, error) {
 	sourceUUID, err := pgstore.ParseUUID(sourceID)
 	if err != nil {
-		return nil, fmt.Errorf("parse source id: %w", err)
+		return nil, fmt.Errorf(errParseSourceID, err)
 	}
 	q := db.New(r.pool)
 	seen, err := q.GetExistingFingerprints(ctx, db.GetExistingFingerprintsParams{
@@ -213,6 +236,11 @@ func toDomainJobSource(o *db.JobSource) jobsmodel.JobSource {
 		t := o.LastFetchedAt.Time
 		out.LastFetchedAt = &t
 	}
+	if o.LastAttemptedAt.Valid {
+		t := o.LastAttemptedAt.Time
+		out.LastAttemptedAt = &t
+	}
+	out.LastError = o.LastError
 	return out
 }
 

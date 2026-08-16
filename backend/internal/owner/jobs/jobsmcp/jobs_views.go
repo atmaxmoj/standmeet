@@ -10,12 +10,16 @@ import (
 )
 
 type jobSourceViewT struct {
-	LastFetchedAt *string         `json:"last_fetched_at,omitempty"`
-	ID            string          `json:"id"`
-	Kind          string          `json:"kind"`
-	Label         string          `json:"label"`
-	CreatedAt     string          `json:"created_at"`
-	Config        json.RawMessage `json:"config"`
+	LastFetchedAt *string `json:"last_fetched_at,omitempty"`
+	// LastAttemptedAt / LastError —— 上一次**试过**是什么时候、结果如何。
+	// 只报 last_fetched_at 的话，「每次都失败」跟「从没试过」是同一个空缺（F-E-18）。
+	LastAttemptedAt *string         `json:"last_attempted_at,omitempty"`
+	LastError       string          `json:"last_error,omitempty"`
+	ID              string          `json:"id"`
+	Kind            string          `json:"kind"`
+	Label           string          `json:"label"`
+	CreatedAt       string          `json:"created_at"`
+	Config          json.RawMessage `json:"config"`
 }
 
 type fetchedJobView struct {
@@ -48,6 +52,11 @@ func jobSourceView(s *jobsmodel.JobSource) jobSourceViewT {
 		t := s.LastFetchedAt.Format(mcpTimeFmt)
 		v.LastFetchedAt = &t
 	}
+	if s.LastAttemptedAt != nil {
+		t := s.LastAttemptedAt.Format(mcpTimeFmt)
+		v.LastAttemptedAt = &t
+	}
+	v.LastError = s.LastError
 	return v
 }
 

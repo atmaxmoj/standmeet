@@ -9,7 +9,7 @@ import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { claimFreshOwner } from '@/fixtures/seed';
 import { initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
-import { jobsRegisterSource } from '@/fixtures/jobs';
+import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
 
 const OWNER = {
   email: 'sources@example.com',
@@ -49,6 +49,31 @@ test.describe('admin sources list', () => {
       await adminPage.waitForURL('**/admin/sources', { timeout: 5_000 });
       await expect(adminPage.getByTestId('sources-list')).toBeVisible({ timeout: 5_000 });
       await expect(adminPage.getByText(LABEL)).toBeVisible();
+    });
+  // 这一页要回答的是「我这个源还活着吗」。**取过但每次都失败**的源，以前跟
+  // **从没被碰过**的源印同一句话 `never fetched`（F-E-18，真环境里三行都是这样）。
+  // 用一把错 token 的 workable 源制造一次真失败：它注册得成、取数一定失败。
+  test('a source that was tried and failed does not read as "never fetched"',
+    async ({ request, adminPage }) => {
+      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+      const token = await createAPIToken(request, csrf, 'sources-failing');
+      const sid = await initMCP(request, token);
+      const src = await jobsRegisterSource(request, token, sid, {
+        kind: 'workable',
+        label: 'Failing Board',
+        config: { company: 'acme', api_token: 'not-the-token' },
+      });
+      await jobsFetchNew(request, token, sid, src.id);
+
+      await gotoAdminSection(adminPage, 'sources');
+      await adminPage.waitForURL('**/admin/sources', { timeout: 5_000 });
+      const state = adminPage.getByTestId(`source-state-${src.id}`);
+      await expect(state).toBeVisible({ timeout: 5_000 });
+      const text = await state.innerText();
+      // 先取文本再判：元素还没出现时 `.not.toContainText` 也算通过（[[negated-assertion-passes-while-absent]]）。
+      expect(text, '试过就不该说「从没取过」').not.toMatch(/never fetched/i);
+      expect(text, '要说出上次试过、失败了').toMatch(/failed/i);
+      expect(text, '要带上原因，owner 才知道下一步做什么').toMatch(/credential|token|auth/i);
     });
 });
 

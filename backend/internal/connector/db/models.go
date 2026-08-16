@@ -274,13 +274,15 @@ type JobFingerprint struct {
 }
 
 type JobSource struct {
-	ID            pgtype.UUID
-	OwnerID       pgtype.UUID
-	Kind          string
-	Config        []byte
-	Label         string
-	LastFetchedAt pgtype.Timestamptz
-	CreatedAt     pgtype.Timestamptz
+	ID              pgtype.UUID
+	OwnerID         pgtype.UUID
+	Kind            string
+	Config          []byte
+	Label           string
+	LastFetchedAt   pgtype.Timestamptz
+	LastAttemptedAt pgtype.Timestamptz
+	LastError       string
+	CreatedAt       pgtype.Timestamptz
 }
 
 type McpAppState struct {

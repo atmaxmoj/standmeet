@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
+import { sourceFailed, sourceStateLine } from '@/lib/admin/source-state';
 import {
   useAdminSources, pickSourcesBodyState, type AdminSourceRow,
 } from '@/lib/admin/use-admin-sources';
@@ -70,15 +71,25 @@ function SourceRow({ source }: { source: AdminSourceRow }) {
           {source.kind}
         </span>
       </span>
-      <span className="mono text-[10.5px] text-(--color-faint) shrink-0">
-        {fmtLast(source.last_fetched_at)}
-      </span>
+      <SourceState source={source} />
     </li>
   );
 }
 
-function fmtLast(iso: string | null | undefined): string {
-  return iso ? `last · ${iso.slice(0, 10)}` : 'never fetched';
+// SourceState —— 这一行右侧那句话。**三种状态，三句不同的话**：
+// 从没试过 / 上次试了但失败（带原因）/ 上次成了（带日期）。
+// 以前只有 `last_fetched_at` 一个来源，于是「每次都 400 的源」和「从没被碰过的源」
+// 都印 `never fetched` —— 而这一页存在的理由就是回答「我这个源还活着吗」（F-E-18）。
+function SourceState({ source }: { source: AdminSourceRow }) {
+  const tone = sourceFailed(source) ? 'text-(--color-accent)' : 'text-(--color-faint)';
+  return (
+    <span
+      className={`mono text-[10.5px] shrink-0 text-right max-w-[52%] ${tone}`}
+      data-testid={`source-state-${source.id}`}
+    >
+      {sourceStateLine(source)}
+    </span>
+  );
 }
 
 // F-E-1: the old "+ rss/scraper" / "+ board" header buttons were dead (no onClick) and

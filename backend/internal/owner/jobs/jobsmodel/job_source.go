@@ -19,13 +19,18 @@ import (
 // [...]} / 空对象），各 adapter 自己 unmarshal 到 typed struct，让 domain
 // 不沾 schemaless `any`。
 type JobSource struct {
-	CreatedAt     time.Time
+	CreatedAt time.Time
+	// LastFetchedAt —— 上一次**成功**取到东西是什么时候。
 	LastFetchedAt *time.Time
-	ID            string
-	OwnerID       string
-	Kind          string
-	Label         string
-	Config        []byte
+	// LastAttemptedAt / LastError —— 上一次**试过**是什么时候、结果如何（空串 = 成了）。
+	// 少了这两个，「取过但每次都失败」在界面上跟「从没取过」是同一句话（F-E-18）。
+	LastAttemptedAt *time.Time
+	LastError       string
+	ID              string
+	OwnerID         string
+	Kind            string
+	Label           string
+	Config          []byte
 }
 
 // JobFingerprint —— JobSource aggregate 内的 child entity。

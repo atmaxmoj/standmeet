@@ -143,10 +143,15 @@ func tagsOrEmpty(tags []string) []string {
 
 type sourceView struct {
 	LastFetchedAt *time.Time `json:"last_fetched_at"`
-	CreatedAt     time.Time  `json:"created_at"`
-	ID            string     `json:"id"`
-	Kind          string     `json:"kind"`
-	Label         string     `json:"label"`
+	// LastAttemptedAt / LastError —— 上一次**试过**是什么时候、结果如何（空串 = 成了）。
+	// 这一页要回答的是「我这个源还活着吗」，而只有 last_fetched_at 时，
+	// 一个每次都失败的源跟一个从没被碰过的源在屏幕上是同一句话（F-E-18）。
+	LastAttemptedAt *time.Time `json:"last_attempted_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+	ID              string     `json:"id"`
+	Kind            string     `json:"kind"`
+	Label           string     `json:"label"`
+	LastError       string     `json:"last_error"`
 }
 
 func listSources(deps Deps) http.HandlerFunc {
@@ -168,11 +173,13 @@ func writeSourcesList(
 	items := make([]sourceView, 0, len(sources))
 	for i := range sources {
 		items = append(items, sourceView{
-			ID:            sources[i].ID,
-			Kind:          sources[i].Kind,
-			Label:         sources[i].Label,
-			LastFetchedAt: sources[i].LastFetchedAt,
-			CreatedAt:     sources[i].CreatedAt,
+			ID:              sources[i].ID,
+			Kind:            sources[i].Kind,
+			Label:           sources[i].Label,
+			LastFetchedAt:   sources[i].LastFetchedAt,
+			LastAttemptedAt: sources[i].LastAttemptedAt,
+			LastError:       sources[i].LastError,
+			CreatedAt:       sources[i].CreatedAt,
 		})
 	}
 	w.Header().Set(ctHeader, ctJSON)

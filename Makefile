@@ -441,6 +441,17 @@ dev-rebuild: app-build
 dev-down:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans
 
+# dev-fresh —— down + 丢掉 dev 的 pg 卷 + 重新起。**schema 改动之后要跑这个**：
+# schema.sql 只在**全新卷**上应用一次，长命的 dev 卷停在它出生时的样子，于是后加的列
+# 只活在文件里，backend 照常起来，直到某条查询才炸（[[schema-lives-in-the-volume-not-the-image]]）。
+#
+# 跟 prod-clean 不同，这条**不要** I_MEAN_IT：dev 里的数据本来就是一次性的（每个 spec
+# 自己重置实例），而 prod 的卷装着真语料和真凭据。两条命令危险程度差着量级，
+# 不该用同一道门槛 —— 一道人人都懂得绕过的确认，比没有确认更糟。
+dev-fresh:
+	@docker compose -f docker-compose.dev.yml down --remove-orphans -v
+	@$(MAKE) dev-up
+
 # meili-stop / meili-start —— 手动停/起 meilisearch,给 retrieval-degrade e2e 验降级 + 自愈用。
 # (e2e workers:1 串行;degrade spec 在 afterAll 保证重启,不影响其他 spec)。
 meili-stop:
