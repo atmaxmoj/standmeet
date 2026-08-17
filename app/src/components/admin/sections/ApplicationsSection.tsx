@@ -130,7 +130,10 @@ function toDetailApp(row: AdminApplicationRow): Application {
     committedAt: row.created_at,
     submittedAt: realDate(row.submitted_at),
     method: 'autofill',
-    contact: '—',
+    // 两个都留**空串** —— "没有"这件事由渲染层说一次(`EmptyMark`),不在模型里编一个破折号
+    // 当数据。以前 contact 在这里写死 `—`、notes 在视图里 `notes || '—'`,同一句"没有"分在
+    // 两层说,而且两层的字体不同 —— 屏幕上就是一短一长两种记号并排(UX-89)。
+    contact: '',
     notes: '',
     state: submissionLabel(row.status),
     resumeContent: toDraftModel({
@@ -161,18 +164,33 @@ function Row({
   );
 }
 
+// ValueCell —— 一格「标签 + 值」。**空态由这一格自己说,而且两格说得一模一样**(UX-89)。
+//
+// 以前 contact 在模型里写死一个 `—` 当数据、notes 在视图里 `notes || '—'`,同一句"没有"分在
+// 两层;而且两格的字体不同(等宽 11px 对衬线 12px),于是并排的两条杠一短一长。
+// 只把破折号统一成等宽还不够:内联的字号能统一,**基线不能** —— 行盒里的基线位置由父级字体的
+// 度量决定,Newsreader 和 JetBrains Mono 摆不到同一条线上。所以空的时候**整格**走等宽档,
+// 有值的时候才用各自该有的字体(联系人是数据、备注是散文)。
+function ValueCell({ label, value, full }: { label: string; value: string; full: string }) {
+  const empty = value === '';
+  return (
+    <div className="min-w-0">
+      <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">
+        {label}
+      </div>
+      <div className={`${empty ? 'mono text-[11px] text-(--color-faint)' : `${full} text-(--color-muted)`} truncate`}>
+        {empty ? '—' : value}
+      </div>
+    </div>
+  );
+}
+
 function AppCardFooter({ contact, notes, onOpen }: { contact: string; notes: string; onOpen: () => void }) {
   const t = useTranslations('adminJobs');
   return (
     <div className="grid grid-cols-3 gap-3 px-4 py-3 border-t border-(--color-rule)/60">
-      <div className="min-w-0">
-        <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">{t('applications.contact')}</div>
-        <div className="mono text-[11px] text-(--color-muted) truncate">{contact}</div>
-      </div>
-      <div className="min-w-0">
-        <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">{t('applications.notes')}</div>
-        <div className="reading text-[12px] text-(--color-muted) truncate">{notes || '—'}</div>
-      </div>
+      <ValueCell label={t('applications.contact')} value={contact} full="mono text-[11px]" />
+      <ValueCell label={t('applications.notes')} value={notes} full="reading text-[12px]" />
       <div className="flex items-center justify-end">
         <button
           type="button" onClick={onOpen}

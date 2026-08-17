@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-status-persist/shots",
+  "viewport": [1440, 1200],
+  "login": true,
+  "shots": [
+    { "name": "as-30-applications-list", "url": "/admin/applications", "wait": 5000, "fullPage": true }
+  ]
+}
