@@ -37,7 +37,12 @@ function CardHead(
 ) {
   return (
     <div className="flex items-center justify-between mb-3">
-      <span className="text-sm text-(--color-ink)">{category}</span>
+      {/* 卡名要比卡里的字段重。以前是 `text-sm`，跟右边的 `not connected`、下面的
+          `bearer` / `TOKEN` 几乎平起平坐 —— 而这张卡是一个**可操作的对象**，字段是它的
+          内容。同一段里 GOOGLE CALENDAR 那张已经是这个层级，三张品类卡当时没跟上。 */}
+      <span className="font-serif text-[17px] tracking-[-0.01em] text-(--color-ink)">
+        {category}
+      </span>
       <span data-testid="connector-status" className="mono text-[11px] text-(--color-muted)">
         {statusText(connected, connecting)}
       </span>
