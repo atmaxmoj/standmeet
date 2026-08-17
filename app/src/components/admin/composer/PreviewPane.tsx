@@ -97,7 +97,10 @@ function PreviewToolbar({
   const t = useTranslations('adminShell.previewPane');
   return (
     <div className={styles.toolbar}>
-      <span className={styles.fileName}>{t('fileName', { name: fileName })}</span>
+      {/* title —— 截断之后完整的名字还查得到（鼠标停一下）。截断本身在 CSS 里。 */}
+      <span className={styles.fileName} title={fileName}>
+        {t('fileName', { name: fileName })}
+      </span>
       <div className={styles.right}>
         <span className={styles.pageCount}>{pageCount} {pageCount === 1 ? 'page' : 'pages'}</span>
         <span className={styles.dot}>·</span>

@@ -16,18 +16,29 @@
   border-bottom: 1px solid var(--color-rule);
 }
 
+/* fileName —— 产物的名字，可以很长（`resume_american-academy-of-achievement.pdf` 是 44 个
+   大写字符）。它**让位给右边的控件**：缩放和页数是 owner 要按的东西，名字只是身份，
+   而公司名再长一点就会把它们挤出去（UX-52 的右半边）。所以这里 min-width:0 + 截断，
+   完整的名字留在 title 上。 */
 .fileName {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* right —— 不许被压缩：flex 默认允许收缩，于是长名字会先把缩放按钮挤扁再挤没
+   （[[text-assertion-cannot-see-layout]] 那条的同一种物理）。 */
 .right {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .pageCount {
