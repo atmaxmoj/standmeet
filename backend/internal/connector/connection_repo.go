@@ -33,6 +33,10 @@ type SaveConnectorCredsInput struct {
 	Category    string
 	Kind        string
 	Credentials []byte
+	// ResetConnected —— 凭据**真的变了**才置 true：D-5 要求改身份/凭据后重新验证，而那条
+	// 规则的前提是「改了」。面板每次点 Connect 都会先存一遍凭据，无条件清掉的话，一条好
+	// 连接会在授权开始之前就显示成「没连」（F-C-30）。判断在 usecase 层做，repo 只照办。
+	ResetConnected bool
 }
 
 // SaveConnectorTokensInput —— 存 OAuth token 入参（明文，repo 内加密）。
@@ -64,6 +68,7 @@ func (r *Repo) SaveCredentials(ctx context.Context, in *SaveConnectorCredsInput)
 	_, qerr := db.New(r.pool).UpsertConnectorCredentials(ctx, db.UpsertConnectorCredentialsParams{
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID,
 		Category: in.Category, Kind: in.Kind, CredentialsEnc: enc,
+		ResetConnected: in.ResetConnected,
 	})
 	if qerr != nil {
 		return fmt.Errorf("upsert connector credentials: %w", qerr)

@@ -92,6 +92,37 @@ export async function connectMail(request: APIRequestContext, csrf: string): Pro
   return res.status();
 }
 
+// saveMailCredsPartial —— **只发 owner 敲过的那几个字段**，跟面板一模一样。
+//
+// 面板的 `setField` 只把改动过的键写进请求体（`use-connector-card.ts`），所以 owner 改一个
+// 端口时，上行的就是 `{"port":"587"}` 一个键。`saveMailCreds` 永远发满七个字段，因此
+// **驱不出**「没给的键会怎么样」—— 而那正是 owner 真实的操作形状（F-C-35）。
+export async function saveMailCredsPartial(
+  request: APIRequestContext, csrf: string, fields: Record<string, string>,
+): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/credentials`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: fields,
+  });
+  if (res.status() !== 200) throw new Error(`mail credentials (partial) failed: ${res.status()}`);
+}
+
+// MailConnectorStatus —— 面板徽标读的那两个事实（GET，只读）。
+export interface MailConnectorStatus {
+  connected: boolean;
+  hasCredentials: boolean;
+}
+
+// mailConnectorStatus —— 卡上「connected / not connected」那个徽标的来源。
+export async function mailConnectorStatus(
+  request: APIRequestContext,
+): Promise<MailConnectorStatus> {
+  const res = await request.get(`${BACKEND}/api/admin/connectors/${SMTP_ID}/status`);
+  if (res.status() !== 200) throw new Error(`mail status: ${res.status()}`);
+  const body = await res.json() as { connected?: boolean; has_credentials?: boolean };
+  return { connected: body.connected === true, hasCredentials: body.has_credentials === true };
+}
+
 // ConnectOutcome —— /connect 的**回执**：连上没有、没连上是为什么。
 export interface ConnectOutcome {
   connected: boolean;

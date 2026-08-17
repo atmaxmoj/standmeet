@@ -94,21 +94,6 @@ func (s *Service) Catalog() []Connection {
 	return out
 }
 
-// SaveCredentials —— 存凭据（原样 JSON）。category/kind 由内置 manifest 定；未知 id → ErrNotFound。
-func (s *Service) SaveCredentials(ctx context.Context, ownerID, id string, body []byte) error {
-	m, merr := s.manifestFor(ctx, ownerID, id)
-	if merr != nil {
-		return merr
-	}
-	if err := s.d.Repo.SaveCredentials(ctx, &SaveConnectorCredsInput{
-		OwnerID: ownerID, ConnectorID: id,
-		Category: m.Category, Kind: m.Kind, Credentials: body,
-	}); err != nil {
-		return fmt.Errorf("save connector credentials: %w", err)
-	}
-	return nil
-}
-
 // ConnectResult —— Connect 的结果：oauth → AuthURL+State；非 dance → Connected=true。
 type ConnectResult struct {
 	AuthURL   string

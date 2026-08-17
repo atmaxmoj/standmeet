@@ -500,7 +500,10 @@ ON CONFLICT (owner_id, connector_id) DO UPDATE
 SET credentials_enc = EXCLUDED.credentials_enc,
     category = EXCLUDED.category,
     kind = EXCLUDED.kind,
-    connected_at = NULL,
+    connected_at = CASE
+        WHEN $6::boolean THEN NULL
+        ELSE owner_connectors.connected_at
+    END,
     updated_at = now()
 RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, created_at, updated_at
 `
@@ -511,12 +514,18 @@ type UpsertConnectorCredentialsParams struct {
 	Category       string
 	Kind           string
 	CredentialsEnc []byte
+	ResetConnected bool
 }
 
 // owner_connectors.sql —— #155 统一连接器连接状态的读写（归一：任意 kind/品类一张表）。
-// 存/覆盖一个连接器的凭据（owner 填的 app creds / apiKey / smtp config）。轮换凭据 → 重置
-// connected_at（§三 D-5：改身份/凭据必须重新验证；非凭据配置如 booking policy 不走这条，不
-// 受影响）。category/kind 随首次写入定。
+// 存/覆盖一个连接器的凭据（owner 填的 app creds / apiKey / smtp config）。category/kind 随
+// 首次写入定。
+//
+// connected_at 由 `reset_connected` 决定，**而不是无条件清掉**（F-C-30）：
+// §三 D-5 要的是「改身份/凭据必须重新验证」—— 那是「**改了**」才该触发的规则。而面板点
+// Connect 的第一件事就是 POST /credentials，于是「已连接」在授权还没开始之前就没了；owner
+// 只要打开卡片重存一次（值一个字都没动），一条好端端的连接就显示成「没连」，而 token 还活着。
+// 调用方比对合并后的凭据跟原值：真的变了才传 true。
 func (q *Queries) UpsertConnectorCredentials(ctx context.Context, arg UpsertConnectorCredentialsParams) (OwnerConnector, error) {
 	row := q.db.QueryRow(ctx, upsertConnectorCredentials,
 		arg.OwnerID,
@@ -524,6 +533,7 @@ func (q *Queries) UpsertConnectorCredentials(ctx context.Context, arg UpsertConn
 		arg.Category,
 		arg.Kind,
 		arg.CredentialsEnc,
+		arg.ResetConnected,
 	)
 	var i OwnerConnector
 	err := row.Scan(
