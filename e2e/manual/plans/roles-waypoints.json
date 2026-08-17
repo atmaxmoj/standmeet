@@ -1,0 +1,25 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-ghost/shots",
+  "viewport": [1280, 2200],
+  "shots": [
+    { "name": "gx-04-roles-page", "url": "/admin/roles", "wait": 4000 },
+    {
+      "name": "gx-05-waypoint-filled",
+      "steps": [
+        { "click": "[data-testid=\"role-wp-add\"]" },
+        { "wait": 800 },
+        { "type": ["[data-testid=\"role-wp-id-0\"]", "recursive-harness"] },
+        { "type": ["[data-testid=\"role-wp-desc-0\"]", "read the recursive-harness note"] },
+        { "type": ["[data-testid=\"role-wp-evidence-0\"]", "wiki://recursive-harness"] },
+        { "wait": 500 }
+      ]
+    },
+    {
+      "name": "gx-06-waypoint-saved",
+      "steps": [
+        { "click": "[data-testid=\"role-wp-save\"]" },
+        { "wait": 2500 }
+      ]
+    }
+  ]
+}

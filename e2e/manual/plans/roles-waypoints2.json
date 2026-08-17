@@ -1,0 +1,17 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-ghost/shots",
+  "viewport": [1280, 2200],
+  "shots": [
+    { "name": "gx-09-second-waypoint", "url": "/admin/roles", "wait": 4000,
+      "steps": [
+        { "click": "[data-testid=\"role-wp-add\"]" },
+        { "wait": 800 },
+        { "type": ["[data-testid=\"role-wp-id-1\"]", "cybernetics"] },
+        { "type": ["[data-testid=\"role-wp-desc-1\"]", "read the cybernetics note"] },
+        { "type": ["[data-testid=\"role-wp-evidence-1\"]", "wiki://cybernetics"] },
+        { "wait": 500 },
+        { "click": "[data-testid=\"role-wp-save\"]" },
+        { "wait": 2500 }
+      ] }
+  ]
+}

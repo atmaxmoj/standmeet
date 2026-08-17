@@ -3,24 +3,18 @@
   "viewport": [1280, 2000],
   "login": false,
   "shots": [
-    { "name": "gx-01-entry", "url": "/?code=VOICE-01", "wait": 3000,
+    { "name": "gx-10-entry", "url": "/?code=VOICE-01", "wait": 3000,
       "steps": [
         { "wait": 2000 },
-        { "type": ["[data-testid=\"visitor-name-input\"]", "Ghost Auditor"] },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Ghost Auditor Two"] },
         { "click": "button:has-text(\"START\")" },
         { "wait": 4000 }
       ] },
-    { "name": "gx-02-after-turn",
+    { "name": "gx-11-after-turn",
       "steps": [
-        { "type": ["[data-testid=\"chat-input-field\"]", "What is the recursive harness, in two sentences?"] },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What did you build for the job-application side of this product?"] },
         { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
-        { "wait": 90000 }
-      ] },
-    { "name": "gx-03-after-second-turn",
-      "steps": [
-        { "type": ["[data-testid=\"chat-input-field\"]", "And what breaks first when a split is too fine?"] },
-        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
-        { "wait": 90000 }
+        { "wait": 120000 }
       ] }
   ]
 }

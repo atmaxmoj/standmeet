@@ -38,16 +38,20 @@ export function GhostText({ text }: { text: string | null }) {
 // 说得出来**：ghost 是输入框里一段浅色衬线文字，跟 `ask…` 那个占位符长得一模一样，
 // 于是访客没有理由认为它可以被接受，也不知道无视它会不会丢东西（UX-34）。
 //
-// 提示跟在句尾而不是另起一行：它是这句话的属性，不是屏幕上多一条消息。
+// **它自己占一行，不再压在句尾**：第一版把它绝对定位到右下角，指望 ghost 的最后一行
+// 到不了那里。真环境上一驱就撞了 —— 模型出的 ghost 是任意长度的散文，两行那条的末尾
+// 正好穿过提示（`chat-ghost/shots/gx-11`，UX-83）。给它自己一行，重叠就不可能发生，
+// 而不是赌文字有多长（[[computed-class-generates-nothing]] 的同一类教训：靠巧合成立的
+// 排版，换一条数据就不成立）。
 function AcceptHint() {
   const t = useTranslations('visitor.chatRoom');
   return (
-    <span
+    <div
       aria-hidden
       data-testid="chat-ghost-accept-hint"
-      className="pointer-events-none absolute right-0 bottom-0 mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint) whitespace-nowrap bg-(--color-paper) pl-2"
+      className="pointer-events-none mt-0.5 text-right mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint)"
     >
       {t('ghostAccept')}
-    </span>
+    </div>
   );
 }
