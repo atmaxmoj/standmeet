@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 
 import { ConnectorOps } from '@/components/admin/sections/connectors/ConnectorOps';
 import { SelectField } from '@/components/atoms/SelectField';
+import { useConnectorRedirectURI } from '@/lib/admin/redirect-uri';
 import { useConnectorCard, type ConnectorCardHook } from '@/lib/admin/use-connector-card';
 import type { CatalogEntry } from '@/lib/admin/use-connector-catalog';
 
@@ -132,12 +133,15 @@ function isSecret(key: string): boolean {
 }
 
 // RedirectUri —— oauth2 才有：owner 拿去 SaaS 注册 OAuth client 的回调地址（只读）。
+// **必须是绝对地址**：provider 的控制台只收完整 URI（F-C-32）。origin 取自 owner 此刻
+// 访问这一页用的那个地址 —— 见 lib/admin/redirect-uri.ts。
 function RedirectUri({ id, authType }: { id: string; authType: string }) {
+  const uri = useConnectorRedirectURI(id);
   return authType === 'oauth2' ? (
     <input
       data-testid="connector-redirect-uri"
       readOnly
-      value={`/api/admin/connectors/${id}/callback`}
+      value={uri}
       className="w-full mb-3 bg-(--color-surface)/40 border border-(--color-rule) rounded-sm p-2 mono text-[11px] text-(--color-muted)"
     />
   ) : null;

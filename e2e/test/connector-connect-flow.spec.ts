@@ -101,10 +101,20 @@ test.describe('connector · connect flow happy (§8 area D)', () => {
       // owner 要拿这个 URI 去 SaaS 注册 OAuth client；连接前就得能看到、且只读。
       const redirect = card.getByTestId('connector-redirect-uri');
       await expect(redirect).toBeVisible();
-      await expect(redirect).toHaveValue(
-        new RegExp(`/api/admin/connectors/${OAUTH2_CONNECTOR_ID}/callback`),
-      );
       await expect(redirect).toHaveAttribute('readonly', '');
+
+      // F-D-…/F-C-32：这一格的**唯一**用途是被粘进第三方控制台的 "Authorized redirect
+      // URIs"，而那里只收**绝对**地址。这条断言以前写的是 `/api/admin/…/callback` ——
+      // 把缺陷本身写成了判据：相对路径照样绿，改对了反而红。判据换成 URI 本身能不能成立。
+      const value = await redirect.inputValue();
+      expect(() => new URL(value),
+        `the redirect URI must be absolute — a provider cannot register ${value}`)
+        .not.toThrow();
+      expect(new URL(value).protocol, 'the redirect URI is an http(s) URL')
+        .toMatch(/^https?:$/);
+      expect(new URL(value).pathname,
+        'and it still points at this connector\'s callback')
+        .toBe(`/api/admin/connectors/${OAUTH2_CONNECTOR_ID}/callback`);
     });
 
   // 仍 fixme：需 mock provider 暴露可编程的 authorize-scope 记录端点（/__mock/oauth/{reset,
