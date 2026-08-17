@@ -78,7 +78,10 @@ func BuildVisitorAgent(ctx context.Context, d Driver, in *LaunchInput) (*Visitor
 	}
 	fr := capreg.FlattenBindings(reg.AssembleVisitor(ctx, assemble))
 	return &VisitorAgent{
-		SystemPrompt:   composePrompt(ctx, reg, &snapshot, assemble, in.SystemPromptOverride),
+		SystemPrompt: composePrompt(ctx, reg, assemble, &promptSource{
+			snapshot: &snapshot, ownerName: env.persona.OwnerName,
+			override: in.SystemPromptOverride,
+		}),
 		Tools:          fr.Tools,
 		Labels:         fr.Labels,
 		ReturnDirectly: fr.ReturnDirectly,
@@ -115,16 +118,25 @@ func fetchDriverEnv(ctx context.Context, d Driver) (driverEnv, error) {
 	return driverEnv{persona: persona, skill: skill, mcpURL: mcpURL, plugins: plugins}, nil
 }
 
+// promptSource —— where this launch's persona comes from (packed to keep the
+// argument count down): the role framing, who the owner is, and the experiment
+// override that replaces both when set.
+type promptSource struct {
+	snapshot  *access.RoleSnapshot
+	ownerName string
+	override  string
+}
+
 // composePrompt —— the override IS the prompt when set (experiment injection);
 // otherwise compose the faithful prod prompt (base persona + capability fragments).
 func composePrompt(
 	ctx context.Context, reg *capreg.Registry,
-	snapshot *access.RoleSnapshot, in *capreg.AssembleInput, override string,
+	in *capreg.AssembleInput, src *promptSource,
 ) string {
-	if override != "" {
-		return override
+	if src.override != "" {
+		return src.override
 	}
-	base := conversation.ComposeBasePersona(snapshot)
+	base := conversation.ComposeBasePersona(src.snapshot, src.ownerName)
 	return reg.ComposeSystemPrompt(ctx, base, in)
 }
 

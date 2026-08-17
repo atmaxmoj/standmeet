@@ -20,13 +20,18 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // DiagSessionDeps —— deps for /diag/session.
 type DiagSessionDeps struct {
 	Sessions *access.VisitorSessionStore
 	Registry *capreg.Registry
-	Log      *slog.Logger
+	// Owners —— 取 owner 的名字。persona 第一句就是「你是谁」(UX-66)，而这个端点存在的意义
+	// 是「hash 反映实际下行 prompt」—— 少了这一段，它报的哈希跟真发出去的那份对不上，
+	// 而一个会说谎的诊断比没有诊断更糟。
+	Owners owner.OpsHostLookup
+	Log    *slog.Logger
 }
 
 // MountDiagSession —— /diag/session.
@@ -79,7 +84,8 @@ func writeDiagSession(
 	ctx context.Context, deps *DiagSessionDeps,
 	w http.ResponseWriter, data *access.VisitorSessionData,
 ) {
-	resp := buildDiagSessionResp(ctx, deps.Registry, data)
+	resp := buildDiagSessionResp(ctx, deps.Registry, data,
+		owner.FullNameOf(ctx, deps.Owners, data.OwnerID))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if eerr := json.NewEncoder(w).Encode(&resp); eerr != nil {
@@ -91,9 +97,11 @@ func writeDiagSession(
 // 让 handler 自身 cyclo ≤ 3，分支挪到 helper。
 // 与 real SendMessage 路径走同一 AssembleVisitor / ComposeSystemPrompt，
 // hash 反映实际下行 prompt。
+// ownerName 取不到就空串：诊断少一段总比 500 好，而 `ComposeBasePersona` 对空名字的
+// 处理跟没有身份那一版逐字相同。
 func buildDiagSessionResp(
 	ctx context.Context, reg *capreg.Registry,
-	data *access.VisitorSessionData,
+	data *access.VisitorSessionData, ownerName string,
 ) diagSessionResp {
 	in := &capreg.AssembleInput{
 		RoleSnapshot: data.RoleSnapshot,
@@ -104,7 +112,7 @@ func buildDiagSessionResp(
 		// ConversationID 留空：diag endpoint 不绑定具体 conversation；
 		// capability 实现按需 fallback (booker 没 conv ID 就跳 DB lookup)。
 	}
-	basePersona := conversation.ComposeBasePersona(data.RoleSnapshot)
+	basePersona := conversation.ComposeBasePersona(data.RoleSnapshot, ownerName)
 	return diagSessionResp{
 		Capabilities:     reg.VisitorStates(ctx, in),
 		ToolSpecs:        toolSpecsFor(ctx, reg, in),

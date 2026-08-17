@@ -19,6 +19,22 @@ type MetaLookup interface {
 	GetByID(ctx context.Context, ownerID string) (entity.Owner, error)
 }
 
+// FullNameOf —— owner 的全名，best-effort：没接 lookup / 取不到 → 空串。
+//
+// 「这个实例背后是谁」是 persona 的第一句话(UX-66)，而**每条**装配 persona 的路都要问同
+// 一个问题：/sessions 装真访客那份，/diag/session 装它自证的那份。放在这里是为了两边问的
+// 是同一件事 —— 一边悄悄换个字段，另一边报的 hash 就跟真发出去的那份对不上了。
+func FullNameOf(ctx context.Context, owners MetaLookup, ownerID string) string {
+	if owners == nil || ownerID == "" {
+		return ""
+	}
+	row, err := owners.GetByID(ctx, ownerID)
+	if err != nil {
+		return ""
+	}
+	return row.FullName
+}
+
 // HostOps —— owner.meta。
 func HostOps(owners MetaLookup) []hostop.Op {
 	return []hostop.Op{{

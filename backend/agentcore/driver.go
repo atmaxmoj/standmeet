@@ -50,9 +50,14 @@ type Driver interface {
 }
 
 // Persona —— owner voice + grounding corpus, plain data.
+//
+// OwnerName —— **谁**在说话。它跟语料**没有关系**，所以单独在这儿(UX-66)：以前身份只能靠
+// 检索碰巧捞到一条介绍自己的笔记；公开切片收窄之后那条不在里面，于是这个 AI 会对着陌生人说
+// 它不认识 owner。"用 owner 的声音回答"是个承诺，承诺得有机制兑现，不能靠副作用。
 type Persona struct {
-	RoleBody string
-	Corpus   []VisitorCorpusEntry
+	OwnerName string
+	RoleBody  string
+	Corpus    []VisitorCorpusEntry
 }
 
 // SkillRun —— the RunSkill effect's input (the sandbox boundary), plain data so a

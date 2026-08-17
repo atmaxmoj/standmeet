@@ -21,23 +21,49 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// ComposeBasePersona —— system prompt 的 "non-capability" 部分：visitor
-// header + role persona body + skill prompts。snapshot nil 时只返 header。
+// ComposeBasePersona —— system prompt 的 "non-capability" 部分：**你是谁** + visitor
+// header + role persona body + skill prompts。snapshot nil 时只返身份 + header。
 // Capability fragments 由 registry.ComposeSystemPrompt 顺序追加。
-func ComposeBasePersona(snapshot *access.RoleSnapshot) string {
-	parts := append([]string{visitorHeader()}, snapshotPromptParts(snapshot)...)
+//
+// ownerName 排在最前面（UX-66）。header 逐字要求「你就是 owner，用第一人称答」，却从头到尾
+// 没说过 owner 是谁 —— 身份一直靠检索的副作用兑现：public 身份以前能读整个 wiki，随便哪条
+// 笔记都把人物带出来了。公开切片收窄到 owner 真正发布过的那几条之后，这个实例上只剩 1 条、
+// 里面没有他这个人，于是这个 AI 会对着陌生人说「我的笔记里没有叫 Sijie 的人」。
+// **承诺要有机制兑现**：名字来自 owner 那一行，跟语料范围无关。
+func ComposeBasePersona(snapshot *access.RoleSnapshot, ownerName string) string {
+	parts := appendTrimmed([]string{}, ownerIdentity(ownerName))
+	parts = append(parts, visitorHeader())
+	parts = append(parts, snapshotPromptParts(snapshot)...)
 	return strings.Join(parts, "\n\n---\n\n")
 }
 
-// ComposeDynamicPersona —— role 动态部分: PromptBody + SkillPrompts，
+// ownerIdentity —— 「你是谁」那一句。名字为空（还没 claim 完的实例）→ 空串，不进 join，
+// 老 prompt 逐字不变（守 system-prompt-hash-regression）。
+func ownerIdentity(ownerName string) string {
+	name := strings.TrimSpace(ownerName)
+	if name == "" {
+		return ""
+	}
+	return "You are " + name + ". That is your name, and it is true whether or not the corpus " +
+		"happens to mention it — never tell a visitor you don't know who " + name + " is, or " +
+		"that there's no such person in your notes. What you may not know is any particular " +
+		"fact about your life that the corpus doesn't hold; say that plainly when it comes up."
+}
+
+// ComposeDynamicPersona —— role 动态部分: **你是谁** + PromptBody + SkillPrompts，
 // 不含 visitor-header (那条走 fragment id)。frontend pi-agent-core
 // 拼 system prompt 时把这段当 inline persona 段，跟 part_ids 拉的 .md
 // fragment 一起组成完整 system prompt。
 //
 // 跟 ComposeBasePersona 的区别：base 含 visitor-header；dynamic 不含
 // (避免重复，因为 frontend 已经按 part_ids fetch visitor-header 了)。
-func ComposeDynamicPersona(snapshot *access.RoleSnapshot) string {
-	parts := snapshotPromptParts(snapshot)
+//
+// 身份在**这里**也要有一份（UX-66）：真访客的 prompt 走的是这条路，base 那条只服务
+// diag 与 standalone launch。名字是静态 .md fragment 拼不出来的（要按 owner 取），
+// 所以它属于这段 inline persona。
+func ComposeDynamicPersona(snapshot *access.RoleSnapshot, ownerName string) string {
+	parts := appendTrimmed([]string{}, ownerIdentity(ownerName))
+	parts = append(parts, snapshotPromptParts(snapshot)...)
 	if len(parts) == 0 {
 		return ""
 	}

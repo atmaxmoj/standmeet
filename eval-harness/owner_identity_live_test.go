@@ -27,11 +27,12 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// ownerFirstName / ownerFullName —— 访客嘴里的那个名字。语料里一个字都没有他这个人；
+// ownerFirstName / ownerFullName —— 访客嘴里的那个名字。语料里一个字都没有这个人；
 // 它只能从 owner 那一行来（`owner.meta` 的 full_name），跟语料范围无关。
+// 全名跟 driver 交出去的那个是**同一个常量**：分成两份写，一边改名另一边照绿。
 const (
 	ownerFirstName = "Sijie"
-	ownerFullName  = "Sijie Wang"
+	ownerFullName  = evalOwnerName
 )
 
 // denialRe —— 「我不认识这个人」的各种说法。**只抓身份否认**，不抓"约不了"：
@@ -180,7 +181,7 @@ func deniedThisRound(t *testing.T, cred *agentcore.Cred, round int) bool {
 func askAboutOwner(round int) string {
 	qs := []string{
 		"Can I book 30 minutes with " + ownerFirstName + " this week?",
-		"Who is " + ownerFirstName + ", and what does he work on?",
+		"Who is " + ownerFirstName + ", and what do they work on?",
 		"Is " + ownerFirstName + " the person whose notes these are?",
 	}
 	return qs[round%len(qs)]

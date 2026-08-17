@@ -17,6 +17,10 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
+// evalOwnerName —— 这个 eval 实例背后的那个人。prod 从 owner 那一行取全名；eval 用这个常量。
+// 它**不在语料里**（`corpusWithoutTheOwner`），所以任何一条答案里出现它，只可能来自 persona。
+const evalOwnerName = "Sijie Wang"
+
 // EvalDriver —— canned environment for a standalone launch: owner persona + corpus,
 // an optional granted skill (+ its canned stdout), an optional ext-mcp URL, and the
 // LLM cred. Construct one per launch; it carries no shared state, so N can run in
@@ -30,8 +34,12 @@ type EvalDriver struct {
 	cred     agentcore.Cred
 }
 
+// Persona —— owner 的名字跟语料**分开**给（UX-66）：prod 从 owner 那一行取，eval 从这里，
+// 而两边都不是「碰巧检索到一条自我介绍」。留空只在专门验空名字那条用例里。
 func (d *EvalDriver) Persona(_ context.Context) (agentcore.Persona, error) {
-	return agentcore.Persona{RoleBody: d.roleBody, Corpus: d.corpus}, nil
+	return agentcore.Persona{
+		OwnerName: evalOwnerName, RoleBody: d.roleBody, Corpus: d.corpus,
+	}, nil
 }
 
 func (d *EvalDriver) Skill(_ context.Context) (*agentcore.VisitorSkillSpec, error) {

@@ -22,7 +22,7 @@ func snapWithPrompts(rolePrompt, codePrompt string) *access.RoleSnapshot {
 func TestComposeDynamicPersona_AppendsCodePrompt(t *testing.T) {
 	t.Parallel()
 	out := ComposeDynamicPersona(
-		snapWithPrompts("You are Alice's assistant.", "For THIS code: focus on hiring."),
+		snapWithPrompts("You are Alice's assistant.", "For THIS code: focus on hiring."), "",
 	)
 	if !strings.Contains(out, "You are Alice's assistant.") {
 		t.Fatalf("role persona missing: %q", out)
@@ -40,7 +40,7 @@ func TestComposeDynamicPersona_NoCodePrompt_ByteForByteUnchanged(t *testing.T) {
 	t.Parallel()
 	// A code with no prompt (or any non-code session) must produce EXACTLY the role-only
 	// persona — no separator, no empty part — so existing sessions' system-prompt hash is stable.
-	out := ComposeDynamicPersona(snapWithPrompts("You are Alice's assistant.", ""))
+	out := ComposeDynamicPersona(snapWithPrompts("You are Alice's assistant.", ""), "")
 	if out != "You are Alice's assistant." {
 		t.Fatalf("empty code prompt must leave the persona byte-for-byte unchanged, got %q", out)
 	}
@@ -49,8 +49,21 @@ func TestComposeDynamicPersona_NoCodePrompt_ByteForByteUnchanged(t *testing.T) {
 func TestComposeDynamicPersona_CodePromptOnly(t *testing.T) {
 	t.Parallel()
 	// public role (empty persona) + a code prompt → just the code prompt, no leading separator.
-	out := ComposeDynamicPersona(snapWithPrompts("", "Only the code speaks."))
+	out := ComposeDynamicPersona(snapWithPrompts("", "Only the code speaks."), "")
 	if out != "Only the code speaks." {
 		t.Fatalf("code-prompt-only persona wrong: %q", out)
+	}
+}
+
+// TestComposeDynamicPersona_OwnerIdentityLeads —— UX-66：名字在最前面，而且在 role persona
+// 之前。访客那条路走的是 dynamic 这一支，所以身份必须在**这里**兑现，不能只在 base 那支。
+func TestComposeDynamicPersona_OwnerIdentityLeads(t *testing.T) {
+	t.Parallel()
+	out := ComposeDynamicPersona(snapWithPrompts("Speak plainly.", ""), "Alice Zhang")
+	if !strings.Contains(out, "Alice Zhang") {
+		t.Fatalf("the persona must say who the owner is: %q", out)
+	}
+	if strings.Index(out, "Alice Zhang") > strings.Index(out, "Speak plainly.") {
+		t.Fatalf("identity comes before the role persona: %q", out)
 	}
 }

@@ -34,8 +34,11 @@ import (
 
 // Handlers —— public routes deps.
 type Handlers struct {
-	Visitor      conversation.VisitorSessionDeps
-	Outbound     owner.OutboundSender // 送得出去吗 —— /sessions 回参里那个开关
+	Visitor  conversation.VisitorSessionDeps
+	Outbound owner.OutboundSender // 送得出去吗 —— /sessions 回参里那个开关
+	// Owners —— persona 第一句「你是谁」的名字来源(UX-66)。它跟语料范围无关，
+	// 所以取自 owner 那一行，不指望检索碰巧捞到一条自我介绍。
+	Owners       owner.OpsHostLookup
 	Usage        UsageRecorder
 	Reports      conversation.ReportStore
 	Corpus       conversation.DialogCorpusLookup

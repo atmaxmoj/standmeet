@@ -61,6 +61,25 @@ test.describe('F-A-36 · the persona the owner wrote reaches the model', () => {
         .toBeVisible({ timeout: 20_000 });
       await request.dispose();
     });
+
+  // UX-66 —— header 逐字要求「你就是 owner，用第一人称答」，却从头到尾没说过 owner 是谁。
+  // 身份一直是检索的**副作用**：public 身份以前能读整个 wiki，随便哪条笔记都把人物带出来。
+  // 公开切片收窄到 owner 真正发布过的那几条之后，这个 AI 会对着陌生人说「我的笔记里没有
+  // 叫 Sijie 的人」。名字来自 owner 那一行，跟语料范围无关 —— 所以判据放在这里：
+  // **这个 role 的 corpus 里没有 owner 的名字，名字还是必须到模型手上**。
+  test('the model is told who the owner is, even though no note says so',
+    async ({ page, playwright }) => {
+      const request = await playwright.request.newContext();
+      const tag = await scriptMockReplyText(request, 'noted.');
+      await enterCodeSession(page, CODE, 'Reader');
+      await page.getByTestId('chat-input-field').fill(`who are you ${tag}`);
+      await page.getByTestId('chat-input-field').press('Enter');
+
+      await expect(page.getByText(OWNER.fullName, { exact: false }),
+        'the prompt the model got says the owner is ' + OWNER.fullName)
+        .toBeVisible({ timeout: 20_000 });
+      await request.dispose();
+    });
 });
 
 async function initOwner(playwright: Playwright): Promise<string> {

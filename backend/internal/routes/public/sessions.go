@@ -226,13 +226,14 @@ func writeCreateSession(
 	// 冷拨两遍,两个网络沙箱插件能把 /sessions 顶到 ~16s(超 e2e 15s 等待)。
 	bundle := deps.AgentSkills.AssembleVisitorBundle(ctx, in)
 	resp := createSessionResponse{
-		SessionToken:        res.Session.Token,
-		ConversationID:      res.Chat.ID,
-		Code:                res.Code,
-		MemberID:            res.MemberID,
-		CodeLabel:           res.CodeLabel,
-		VisitorName:         res.VisitorName,
-		SystemPromptPersona: conversation.ComposeDynamicPersona(res.Session.Data.RoleSnapshot),
+		SessionToken:   res.Session.Token,
+		ConversationID: res.Chat.ID,
+		Code:           res.Code,
+		MemberID:       res.MemberID,
+		CodeLabel:      res.CodeLabel,
+		VisitorName:    res.VisitorName,
+		SystemPromptPersona: conversation.ComposeDynamicPersona(res.Session.Data.RoleSnapshot,
+			owner.FullNameOf(ctx, h.Owners, res.Session.Data.OwnerID)),
 		Capabilities:        bundle.States,
 		ToolSpecs:           bundle.ToolSpecs,
 		SystemPromptPartIDs: bundle.PromptPartIDs,

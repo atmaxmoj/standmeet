@@ -144,7 +144,10 @@ func buildDiagSessionDeps(d *deps.Runtime) sysroutes.DiagSessionDeps {
 	return sysroutes.DiagSessionDeps{
 		Sessions: d.VisitorStore,
 		Registry: d.AgentSkills,
-		Log:      d.Log,
+		// 跟 owner.meta 同一个来源:persona 里的名字要跟真发出去那份一致,
+		// 否则这个端点报的 hash 对不上(UX-66)。
+		Owners: d.OwnerRepo,
+		Log:    d.Log,
 	}
 }
 
@@ -244,6 +247,7 @@ func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 		Visitor:      newVisitorSessionDeps(d),
 		SecureCookie: d.SecureCookie,
 		Outbound:     port.OutboundSender(d),
+		Owners:       d.OwnerRepo,
 		Resolver:     d.ProviderResolver,
 		Reports:      d.ChatReportRepo,
 		Sessions:     d.VisitorStore,

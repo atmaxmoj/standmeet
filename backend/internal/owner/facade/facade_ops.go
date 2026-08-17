@@ -22,7 +22,9 @@ type (
 var (
 	AccessRequestOps = ops.AccessRequests
 	// HostOps —— 开给沙箱能力的:读 owner 的白名单字段。
-	HostOps       = ops.HostOps
+	HostOps = ops.HostOps
+	// FullNameOf —— persona 第一句「你是谁」要的那个名字(UX-66)。
+	FullNameOf    = ops.FullNameOf
 	AccountOps    = ops.Account
 	AppearanceOps = ops.Appearance
 	CustomPageOps = ops.CustomPages
