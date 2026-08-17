@@ -1,9 +1,8 @@
 {
   "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-links/shots",
-  "viewport": [1280, 1400],
+  "viewport": [1280, 2200],
   "login": false,
   "shots": [
-    { "name": "vl-18-reader-full", "url": "/wiki/cybernetics/engineering/recursive-harness",
-      "wait": 3000, "fullPage": true }
+    { "name": "vl-17-reader-after-hero-fix", "url": "/wiki/optimization", "wait": 4000 }
   ]
 }

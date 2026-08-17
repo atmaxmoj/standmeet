@@ -24,6 +24,14 @@
   color: var(--color-ink);
 }
 
+/* actions —— 对这份报告的两个动作是**一组**，一起挂右端；
+   身份（左）和动作（右）之间才是这条栏真正的那条缝。 */
+.actions {
+  display: flex;
+  align-items: baseline;
+  gap: 1.2em;
+}
+
 .printBtn {
   font-family: var(--font-mono);
   font-size: 11px;

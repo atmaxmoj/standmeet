@@ -31,10 +31,16 @@ export function ReportArtifactPage({ reportID }: Props) {
 
   return (
     <div className={styles['shell']} data-testid="report-page">
+      {/* 两颗动作归一组挂在右端。原来三个孩子直接吃 `space-between`，于是
+          `DOWNLOAD PDF` 落在这条栏的**正中间**、`PRINT` 在右端 —— 同一类东西（对这份
+          报告的动作）被排版拆成两处，读的人得逐个认。跟 UX-52 是同一族：一条栏上
+          几类东西之间要有分组，而不是等距摊开。 */}
       <header className={styles['bar']}>
         <span className={styles['title']}>{t('report.title', { id: reportID.slice(0, 8) })}</span>
-        <DownloadBtn reportID={reportID} ready={state.kind === 'ready'} />
-        <PrintBtn iframeRef={iframeRef} ready={state.kind === 'ready'} />
+        <div className={styles['actions']}>
+          <DownloadBtn reportID={reportID} ready={state.kind === 'ready'} />
+          <PrintBtn iframeRef={iframeRef} ready={state.kind === 'ready'} />
+        </div>
       </header>
       <ReportBody state={state} iframeRef={iframeRef} />
     </div>
