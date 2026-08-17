@@ -220,4 +220,30 @@ test.describe('connectors · a configured-but-unreachable relay names its own cl
         { timeout: OUTBOUND_ANSWER_BUDGET_MS });
       await request.dispose();
     });
+
+  // F-C-37 —— 服务端**答了**，而且答得又快又清楚（`400 to is required`，33ms）。屏幕却说
+  // 「Couldn't reach your instance — check your connection and retry」，把 owner 推去查网络，
+  // 而他要做的只是往那个框里填个地址。
+  //
+  // 三态本来是设计对的（「没走通 / 跑了但没成 / 成了」），塌在唯一做判断的那一处：
+  // `use-connector-op.ts` 的 `.catch(() => ({ reached: false }))` —— 任何拒绝都算没走通，
+  // 包括一个带着完好信封的 400。
+  test('a request the server answered names its reason, not the network',
+    async ({ adminPage, playwright }) => {
+      const request = await playwright.request.newContext();
+      await configureMailConnector(request, OWNER.email, OWNER.password);
+
+      await gotoAdminSection(adminPage, 'connectors');
+      const op = adminPage.getByTestId(`connector-op-${OP}`);
+      // 收件人**留空**就跑 —— owner 最容易做的那个动作。
+      await op.getByTestId('connector-op-run').click();
+
+      // 断信封里那句（"to is required"）。断「不等于那句 unreachable」会放过任何第三种
+      // 措辞，而这一格的价值正在于它说出了**服务端给的原因**。
+      await expect(
+        op.getByTestId('connector-op-result'),
+        'the server said what was wrong; the screen must say that, not blame the connection',
+      ).toContainText(/required/i);
+      await request.dispose();
+    });
 });

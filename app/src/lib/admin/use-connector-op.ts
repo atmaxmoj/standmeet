@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 import type { OwnerOp } from '@/lib/admin/use-connector-catalog';
 import { adminAPI } from '@/lib/api/admin';
+import { APIError } from '@/lib/api/api-error';
 
 // OP_PREFIX —— 声明的操作 id 统一以此开头,去掉就是路由段。跟后端 declaredOpPrefix
 // (routes/admin/connectors.go)是同一条约定 —— 路由 `/connectors/ops/<段>` 本来就是公开的。
@@ -57,6 +58,26 @@ function coerce(value: string, type: string): string | number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+// failedOutcome —— 这一笔为什么没成。**服务端答过话就不许说「够不着」**（F-C-37）。
+//
+// 以前这里是 `.catch(() => ({ reached: false … }))` —— 任何拒绝都算「请求没走通」，
+// 包括一个 `400 to is required`：后端 33 毫秒就把原因说清楚了，屏幕却让 owner 去查网络，
+// 而他要做的只是往那个框里填个地址。三态（没走通 / 跑了但没成 / 成了）是这个组件**设计
+// 里就有的**（见 ConnectorOps 那段注释），塌在了唯一做判断的这一处。
+//
+// `APIError` 就是后端 envelope 的前端镜像（status + code + message），它在手里就说明
+// **实例答过话**：那是「跑了但没成」，把它的话原样交出去。真正的传输失败没有 APIError。
+function failedOutcome(e: unknown): OpOutcome {
+  const answered = e instanceof APIError;
+  return {
+    reached: answered,
+    ok: false,
+    reason: answered ? e.message : '',
+    viaKind: '',
+    summary: '',
+  };
+}
+
 export function useConnectorOp(op: OwnerOp): ConnectorOpHook {
   const [running, setRunning] = useState(false);
   const [outcome, setOutcome] = useState<OpOutcome | null>(null);
@@ -71,9 +92,7 @@ export function useConnectorOp(op: OwnerOp): ConnectorOpHook {
         reached: true, ok: r.ok ?? false, reason: r.reason ?? '',
         viaKind: r.via_kind ?? '', summary: r.summary ?? '',
       }))
-      .catch(() => setOutcome({
-        reached: false, ok: false, reason: '', viaKind: '', summary: '',
-      }))
+      .catch((e: unknown) => setOutcome(failedOutcome(e)))
       .finally(() => setRunning(false));
   }, [segment]);
 
