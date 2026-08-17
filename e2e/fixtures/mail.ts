@@ -92,6 +92,29 @@ export async function connectMail(request: APIRequestContext, csrf: string): Pro
   return res.status();
 }
 
+// ConnectOutcome —— /connect 的**回执**：连上没有、没连上是为什么。
+export interface ConnectOutcome {
+  connected: boolean;
+  error: string;
+}
+
+// connectMailOutcome —— 同一个端点，但读**响应体**。
+//
+// `connectMail` 只回 HTTP status，而这个端点连不上时照样返 **200**，把结果写在体里
+// （`connectInitResp{connected,error}`）—— 于是「200」不是「连上了」的回执。拿 status
+// 当回执的用例会在连接明明失败时照样往下走（我在 F-C-34 的守卫里正是这么栽的：
+// 端口 9 上 connect 返 200，红落在装配断言上而不是产品身上）。
+export async function connectMailOutcome(
+  request: APIRequestContext, csrf: string,
+): Promise<ConnectOutcome> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/connect`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  if (res.status() !== 200) throw new Error(`mail connect: ${res.status()}`);
+  const body = await res.json() as { connected?: boolean; error?: string };
+  return { connected: body.connected === true, error: body.error ?? '' };
+}
+
 // activateMail —— 占用 mail 品类槽（§9：发信解析的是 active 连接器）。
 async function activateMail(request: APIRequestContext, csrf: string): Promise<void> {
   const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/activate`, {

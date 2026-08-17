@@ -13,11 +13,19 @@
 //
 // 两条腿都断**正面**结果:一条断没连时那句"下一步是什么",一条断发成之后 Mailpit 真的收到了
 // ——UI 上那句 "sent" 是客户端说的话,收件箱里那封信才是回执。
+//
+// F-C-34 —— 失败分类有三支,这里三支都有守卫了:没连接器 / 中继拒收 / **够不着**。
+// 第三支是驱 prod 时补的:那次 owner 敲错端口,Connect 给了好句子,紧接着 test-send 却说
+// 「你还没配过邮件连接器」。**这条守卫复现不了那一格** —— 连接器仍在 active 槽里时,产品
+// 说的是对的那句。prod 上的差别是那次失败的 Connect 把它**踢出了 active 槽**,而「没有 active」
+// 正是映射成「还没配」的那个条件(`connector/slots.go:260`)。造出那个状态是 F-C-30 的活,
+// 两条同一个根。这里留下的是「够不着这一支活着」的回归守卫。
 
-import { claim } from '@/fixtures/admin';
+import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
-  armSMTPFault, clearMailpit, configureMailConnector, resetSMTPFault, waitForMailEnvelopeTo,
+  armSMTPFault, clearMailpit, configureMailConnector, connectMailOutcome,
+  resetSMTPFault, saveMailCreds, waitForMailEnvelopeTo,
 } from '@/fixtures/mail';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { test, expect } from '@/fixtures/test';
@@ -30,6 +38,12 @@ const OWNER = {
 // OP —— smtp 在自己 manifest 里声明的那个操作,去掉 `connectors.` 前缀后就是路由段,
 // 也是卡上那一块的 testid 后缀。写死品类名的是**声明**,不是这一层。
 const OP = 'mail_test_send';
+
+// DEAD_PORT —— mock 中继那台机器上没人听的一个号。要的是「连得到主机、连不上服务」
+// 这一类真失败，不是 DNS 查不到（那是另一类）。
+// 先试的是 2525 —— 而 mail-mock 恰好在那儿也听着，于是 connect 返 200，红落在了我的
+// 装配断言上而不是产品身上（[[red-in-the-wrong-place]]）。9 是 discard 端口，没人开。
+const DEAD_PORT = 9;
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
@@ -117,6 +131,39 @@ test.describe.serial('connectors · a declared owner op has a face on the card (
       ).toHaveText('the mail provider rejected this message — check the recipient address');
 
       await resetSMTPFault(request);
+      await request.dispose();
+    });
+
+});
+
+// 第三种失败：连接器**在**（配过、连过、占着品类槽），但够不着。见文件头 F-C-34 那一段。
+// 单独一个 describe：跟上面那组共用文件级的 ownerCredentials 和已 claim 的实例，
+// 但自己配连接器、自己造失败，不依赖上面留下的状态。
+test.describe('connectors · a configured-but-unreachable relay names its own class (F-C-34)', () => {
+  test('it says it could not reach the provider, not that none was ever set up',
+    async ({ adminPage, playwright }) => {
+      const request = await playwright.request.newContext();
+      // 先配好、连上、占住品类槽 —— 这一格要的是「配过」，不是「没配过」。
+      await configureMailConnector(request, OWNER.email, OWNER.password);
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+      // 然后把端口改成没人听的那个，重连（会失败）—— owner 敲错一个字的样子。
+      await saveMailCreds(request, csrf, { port: String(DEAD_PORT) });
+      // 读**回执**，不是 HTTP status：这个端点连不上时照样返 200，把结果写在体里。
+      const outcome = await connectMailOutcome(request, csrf);
+      expect(outcome.connected, 'connecting to a dead port must not report connected').toBe(false);
+
+      await gotoAdminSection(adminPage, 'connectors');
+      const op = adminPage.getByTestId(`connector-op-${OP}`);
+      await op.getByTestId('connector-op-field-to').fill('nobody@standmeet.test');
+      await op.getByTestId('connector-op-run').click();
+
+      // 断**正面**：这一类该说的是「够不着，等一会儿」。断「不等于那句 not-configured」
+      // 会放过任何第四种措辞，而这一格的价值就在于它说对了哪一类。
+      await expect(
+        op.getByTestId('connector-op-result'),
+        'a configured-but-unreachable relay must not be reported as "never set up"',
+      ).toHaveText("couldn't reach the mail provider — please try again later");
+
       await request.dispose();
     });
 });
