@@ -62,6 +62,13 @@ test.describe('page-corpus pinning · insights/projects are windows onto the cor
   // `patchVoid` 把响应扔了。
   test('unpublishing from the admin form says the pin went with it',
     async ({ page, playwright }) => { await adminUnpublishSaysUnpinned(page, playwright); });
+
+  // 这条 spec 的每一条用例都**亲手把 excerpt 递给了产品**（`publishEntry(… excerpt: EXCERPT_A)`），
+  // 于是「真 vault 里的笔记根本没有 excerpt」这件事在这里从来没发生过（[[stand-in-is-politer-than-reality]]）。
+  // 真语料 1047 条，excerpt 非空的是 **0 条** —— 同步不产生它，而正文的散文全都住在
+  // `> > ` 两层引用里（i18n 契约就是这么定的）。
+  test('真 vault 那种笔记（没有 excerpt、正文包在 i18n 里）也要有一句人话',
+    async ({ page, playwright }) => { await vaultShapedCardHasALine(page, playwright); });
 });
 
 async function seedFixture(playwright: PW): Promise<void> {
@@ -205,6 +212,38 @@ async function adminUnpublishSaysUnpinned(page: Page, playwright: PW): Promise<v
     'the owner just did two things in one click — changed a note’s visibility and removed a card '
       + 'from their own landing page. A receipt that only says "saved" acknowledges one of them',
   ).toContainText(/insights/i, { timeout: 10_000 });
+}
+
+// VAULT_SHAPED —— 真 vault 里一条笔记长什么样:散文全在 `> > ` 两层引用里(i18n 契约),
+// 开头是 callout 标记和那排语言按钮的 HTML,标题行是 `# …`。**不设 excerpt** —— 同步不产生它。
+const VAULT_SHAPED = [
+  '> [!i18n]',
+  '> <label><input type="radio" name="vs-lang" checked>EN</label><label>中文</label>',
+  '>',
+  '> > [!lang] en',
+  '> > # Contraction keeps recursion honest',
+  '> > A gate is worth its cost only when reassembly damps error instead of amplifying it.',
+].join('\n');
+const VAULT_LEAD = 'A gate is worth its cost only when reassembly damps error';
+
+// vaultShapedCardHasALine —— 首页那张 pin 卡在**真语料形状**下也得说出这条笔记讲什么。
+// 判据两条,缺一不可:(a) 有一句正文里的人话;(b) 那句话不是原始标记 ——
+// 「有东西显示」和「显示的是能读的东西」是两件事([[display-fallback-reintroduces-the-bug]])。
+async function vaultShapedCardHasALine(page: Page, playwright: PW): Promise<void> {
+  const request = await playwright.request.newContext();
+  const n = await seedWiki(request, apiToken, mcpSID,
+    { title: 'Vault Shaped', body: VAULT_SHAPED, path: 'vault-shaped' });
+  await publishEntry(request, apiToken, mcpSID, { genre: 'wiki', id: n.wikiID });
+  await callTool(request, apiToken, mcpSID, 'page.pin',
+    { section: 'insights', wiki_id: n.wikiID });
+  await request.dispose();
+
+  await goto(page, '/');
+  const card = page.getByTestId('insight-card-vault-shaped');
+  await expect(card).toBeVisible({ timeout: 8_000 });
+  const text = await card.innerText();
+  expect(text, '卡上要有正文里的那句人话,不能只剩一个 slug').toContain(VAULT_LEAD);
+  expect(text, '不许把 callout / 切换器的原始标记摆给访客').not.toMatch(/\[!|<label|<input|radio/);
 }
 
 async function loginViaGUI(page: Page): Promise<void> {

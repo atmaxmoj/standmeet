@@ -128,7 +128,8 @@ WHERE id = $1 AND owner_id = $2 AND genre = $3;
 -- name: ListNoteCardsByIDs :many
 -- Page-pin join:被 pin 的条目 → 卡内容(title + excerpt + published 兜底过滤)。
 -- 顺序由 caller 按 pin 列表重排,这里不 ORDER。
-SELECT id, title, excerpt, published
+-- body 也取:owner 没写 excerpt 时,卡上那句话从正文里派生(F-L-47)。被 pin 的条目最多几条。
+SELECT id, title, excerpt, body, published
 FROM corpus_notes
 WHERE owner_id = $1 AND id = ANY($2::uuid[]);
 

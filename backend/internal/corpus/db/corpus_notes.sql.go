@@ -778,7 +778,7 @@ func (q *Queries) ListDistinctTagsByGenre(ctx context.Context, arg ListDistinctT
 }
 
 const listNoteCardsByIDs = `-- name: ListNoteCardsByIDs :many
-SELECT id, title, excerpt, published
+SELECT id, title, excerpt, body, published
 FROM corpus_notes
 WHERE owner_id = $1 AND id = ANY($2::uuid[])
 `
@@ -792,11 +792,13 @@ type ListNoteCardsByIDsRow struct {
 	ID        pgtype.UUID
 	Title     string
 	Excerpt   string
+	Body      string
 	Published bool
 }
 
 // Page-pin join:被 pin 的条目 → 卡内容(title + excerpt + published 兜底过滤)。
 // 顺序由 caller 按 pin 列表重排,这里不 ORDER。
+// body 也取:owner 没写 excerpt 时,卡上那句话从正文里派生(F-L-47)。被 pin 的条目最多几条。
 func (q *Queries) ListNoteCardsByIDs(ctx context.Context, arg ListNoteCardsByIDsParams) ([]ListNoteCardsByIDsRow, error) {
 	rows, err := q.db.Query(ctx, listNoteCardsByIDs, arg.OwnerID, arg.Column2)
 	if err != nil {
@@ -810,6 +812,7 @@ func (q *Queries) ListNoteCardsByIDs(ctx context.Context, arg ListNoteCardsByIDs
 			&i.ID,
 			&i.Title,
 			&i.Excerpt,
+			&i.Body,
 			&i.Published,
 		); err != nil {
 			return nil, err

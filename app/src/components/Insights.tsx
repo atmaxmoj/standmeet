@@ -29,7 +29,10 @@ function InsightRow({ idx, card, numbered }: {
   idx: number; card: PagePinCard; numbered: boolean;
 }) {
   return (
-    <li className={numbered ? 'grid grid-cols-[28px_1fr] gap-5' : ''}>
+    <li
+      className={numbered ? 'grid grid-cols-[28px_1fr] gap-5' : ''}
+      data-testid={`insight-card-${card.path}`}
+    >
       <RowOrdinal idx={idx} show={numbered} />
       <div>
         <Link href={`/wiki/${card.path}`} className="group block">

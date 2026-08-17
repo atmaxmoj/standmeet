@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
@@ -100,10 +101,28 @@ func ResolvePinCards(
 			continue
 		}
 		out = append(out, entity.PagePinCard{
-			WikiID: id, Title: card.Title, Excerpt: card.Excerpt, Path: paths[id],
+			WikiID: id, Title: card.Title, Excerpt: cardLine(&card), Path: paths[id],
 		})
 	}
 	return out
+}
+
+// cardLineMax —— 卡上那句话的上限。比检索行长一些:这是首页,读者停在这儿的时间更长。
+const cardLineMax = 180
+
+// cardLine —— 卡上标题下面那句话。**owner 写过就用他的**;没写就从正文派生首句(F-L-47)。
+//
+// 为什么不是"没写就空着":真 vault 同步不产生 excerpt(1047 条,非空 0 条),于是首页那一栏
+// 只剩两行 slug —— 而这一栏正是「我在想什么」。「必须记得手填」的规矩迟早有一次没人记得,
+// 能从数据反解的东西不该手填。owner 那份仍然是覆盖:他写了就永远赢。
+//
+// 派生不出来(整条笔记全是结构)就返回空串 —— 卡上只剩标题,好过把 `> [!i18n] <label…` 摆出去
+// ([[display-fallback-reintroduces-the-bug]]:兜底不能把原始标记放出来)。
+func cardLine(card *corpus.WikiCard) string {
+	if strings.TrimSpace(card.Excerpt) != "" {
+		return card.Excerpt
+	}
+	return corpus.LeadLine(card.Body, cardLineMax)
 }
 
 // PinJoin —— 两个栏目 pin 的一次性 join 结果:卡内容 + 全量树路径。

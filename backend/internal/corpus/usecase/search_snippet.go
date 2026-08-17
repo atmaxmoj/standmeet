@@ -57,6 +57,10 @@ func SearchSnippet(fragment string, limit int) string {
 }
 
 // unwrapSnippetLine —— 一行：拆包装、去标记，返回可读的那部分（没有就返回空串）。
+//
+// 这条路**按行拆引用**，而 `LeadLine` 不这么做（F-L-47）：片段是从正文中间切下来的，
+// 手里没有结构可用，只能一行一行地看；而一条完整的笔记有结构，那边先按 i18n 契约渲成单语，
+// 于是 pane 里的旁注（`> Parent: …`）还能被认出来是旁注。
 func unwrapSnippetLine(raw string) string {
 	line := quotePrefixRe.ReplaceAllString(strings.TrimSpace(raw), "")
 	if markupLineRe.MatchString(line) || frontmatterLineRe.MatchString(line) {

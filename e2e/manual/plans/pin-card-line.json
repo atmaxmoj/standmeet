@@ -1,0 +1,21 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/page-corpus-pinning/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "shots": [
+    { "name": "pp-41-pin-picker-on-prod", "url": "/admin/page",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"pin-add-insights\"]" },
+        { "wait": 1500 }
+      ], "wait": 1000 },
+    { "name": "pp-42-picked-and-saved", "url": "",
+      "steps": [
+        { "click": "[data-testid^=\"pin-option-\"]" },
+        { "wait": 1200 },
+        { "click": "[data-testid=\"save\"]" },
+        { "wait": 3000 }
+      ], "wait": 1200 },
+    { "name": "pp-43-card-says-what-it-is", "url": "/", "wait": 4500 }
+  ]
+}

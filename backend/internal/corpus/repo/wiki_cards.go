@@ -15,10 +15,14 @@ import (
 
 // WikiCard —— 一条被 pin 条目的卡内容。Published 是渲染侧兜底过滤输入
 // (不变量 pinned ⊆ published 由写入端维护)。
+//
+// Body 在这里,是因为卡上那句话**owner 没写就从正文派生**(F-L-47):真 vault 的 1047 条笔记
+// excerpt 全空,同步不产生它。派生放在 usecase 那一层(repo 不决定显示什么),这里只负责把料带上。
 type WikiCard struct {
 	ID        string
 	Title     string
 	Excerpt   string
+	Body      string
 	Published bool
 }
 
@@ -52,8 +56,8 @@ func cardsFromRows(rows []db.ListNoteCardsByIDsRow) map[string]WikiCard {
 	for i := range rows {
 		id := pgstore.FormatUUID(rows[i].ID)
 		out[id] = WikiCard{
-			ID: id, Title: rows[i].Title,
-			Excerpt: rows[i].Excerpt, Published: rows[i].Published,
+			ID: id, Title: rows[i].Title, Excerpt: rows[i].Excerpt,
+			Body: rows[i].Body, Published: rows[i].Published,
 		}
 	}
 	return out
