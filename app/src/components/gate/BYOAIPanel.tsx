@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
@@ -25,6 +25,7 @@ import {
 } from '@/lib/inference/provider-form';
 import { useModelList, type ModelListHook } from '@/lib/inference/use-model-list';
 import { postGateHref } from '@/lib/gate/code-panel-logic';
+import { keyStorageAvailable } from '@/lib/gate/key-storage';
 import type { GateHook } from '@/lib/gate/use-gate';
 import { useToast } from '@/lib/ui/toast';
 
@@ -51,6 +52,10 @@ export function BYOAIPanel({ hook }: Props) {
   const [reveal, setReveal] = useState(false);
   const onToastError = useCallback((m: string) => toast.error(m), [toast]);
   const models = useModelList(onToastError);
+  // 挂载后再问浏览器「这里存得住 key 吗」（F-D-14）。SSR 那一帧按正常部署走，
+  // 否则每个 https 访客都要先闪一下不该看见的警告。
+  const [canStore, setCanStore] = useState(true);
+  useEffect(() => setCanStore(keyStorageAvailable()), []);
 
   const onProvider = useCallback((name: string) => {
     setForm((prev) => switchProvider(prev, name, defaultsFor(name)));
@@ -74,7 +79,7 @@ export function BYOAIPanel({ hook }: Props) {
           apiKey={apiKey} setApiKey={setApiKey}
           reveal={reveal} setReveal={setReveal}
           onSubmit={onSubmit} busy={hook.byoai.busy} error={hook.byoai.error}
-          models={models}
+          models={models} canStore={canStore}
         />
       </div>
     </section>
@@ -118,6 +123,8 @@ type FormProps = {
   busy: boolean;
   error: string | null;
   models: ModelListHook;
+  // canStore —— 这个浏览器存不存得住 key（F-D-14）。存不住时整条 BYOAI 路都走不通。
+  canStore: boolean;
 };
 
 function BYOAIForm(p: FormProps) {
@@ -149,11 +156,28 @@ function BYOAIForm(p: FormProps) {
       {/* 这一句以前落在整页最底下那个共用的错误行里 —— 离出错的表单一千多像素，而访客的
           眼睛在按钮上。现在它贴着自己的提交键（F-G-6）。 */}
       <BYOAIError message={p.error} />
+      <InsecureOriginNote canStore={p.canStore} />
       <ReadyRow
         apiKey={p.apiKey} endpoint={p.form.endpoint} model={p.form.model}
-        busy={p.busy}
+        busy={p.busy} canStore={p.canStore}
       />
     </form>
+  );
+}
+
+// InsecureOriginNote —— 这一页是用 http 从别的机器打开的，于是这个浏览器**没有** `crypto.subtle`，
+// 那把 key 无处可存（F-D-14）。它出现在按钮**上方**、按钮同时禁用：这条路走不通的时候，
+// 不该让人一路填完再撞一句「再试一次」——那句话在这里是谎话，重试永远不会成功。
+// 说的是出路（找 owner 要 https 地址），不是状态。
+function InsecureOriginNote({ canStore }: { canStore: boolean }) {
+  const t = useTranslations('gate.byoai');
+  return canStore ? null : (
+    <p
+      className="mono text-[10.5px] tracking-[0.06em] leading-[1.7] text-(--color-accent) mt-4"
+      data-testid="byoai-insecure-origin"
+    >
+      {t('insecureOrigin')}
+    </p>
   );
 }
 
@@ -274,13 +298,17 @@ function ModelRow({
 }
 
 function ReadyRow({
-  apiKey, endpoint, model, busy,
-}: { apiKey: string; endpoint: string; model: string; busy: boolean }) {
+  apiKey, endpoint, model, busy, canStore,
+}: {
+  apiKey: string; endpoint: string; model: string; busy: boolean; canStore: boolean;
+}) {
   const trimmedKey = apiKey.trim();
-  const valid = isValid(trimmedKey, endpoint, model);
+  // 存不住 key 的时候「填齐了」也不算 ready —— 那句 `ready · using ●●●●99c2` 曾经在
+  // 密文一个字节都没落盘的情况下照常显示（F-D-14 同一屏的第二句谎）。
+  const valid = isValid(trimmedKey, endpoint, model) && canStore;
   return (
     <div className="mt-4 mono text-[10px] tracking-[0.06em] text-(--color-muted) flex items-baseline justify-between gap-3 flex-wrap">
-      <ReadyHint valid={valid} apiKey={trimmedKey} />
+      <ReadyHint valid={valid} apiKey={trimmedKey} canStore={canStore} />
       <SubmitButton disabled={!valid || busy} busy={busy} />
     </div>
   );
@@ -290,11 +318,18 @@ function isValid(key: string, endpoint: string, model: string): boolean {
   return key.length > 12 && endpoint.trim() !== '' && model.trim() !== '';
 }
 
-function ReadyHint({ valid, apiKey }: { valid: boolean; apiKey: string }) {
+// ReadyHint —— 存不住 key 时整条让位给上面那句朱红说明（F-D-14）。留着它会变成第三句错话：
+// 三个字段明明填满了，它却在喊「fill endpoint, model + key」—— 指使人去做一件已经做完、
+// 而且做完也没用的事。
+function ReadyHint(
+  { valid, apiKey, canStore }: { valid: boolean; apiKey: string; canStore: boolean },
+) {
   const t = useTranslations('gate.byoai');
-  return valid
-    ? <span>{t('readyUsing')} <MaskedKey value={apiKey} /></span>
-    : <span className="text-(--color-faint)">{t('fillHint')}</span>;
+  return !canStore
+    ? <span />
+    : valid
+      ? <span>{t('readyUsing')} <MaskedKey value={apiKey} /></span>
+      : <span className="text-(--color-faint)">{t('fillHint')}</span>;
 }
 
 function MaskedKey({ value }: { value: string }) {

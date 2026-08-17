@@ -52,6 +52,7 @@
     "hide": "hide",
     "readyUsing": "ready · using",
     "fillHint": "fill endpoint, model + key to unlock the public chat.",
+    "insecureOrigin": "this page is served over plain http, so your browser won't let any site store a key here — bring-your-own-AI needs an https address. ask the owner for one, or use an access code instead.",
     "warmingUp": "warming up…",
     "submit": "start public chat ↗"
   },

@@ -25,6 +25,16 @@ export async function goto(page: Page, path: string): Promise<void> {
   await page.goto(url);
 }
 
+// gotoOnHost —— 同一个实例，换一个**来源**打开（F-D-14）。
+//
+// 浏览器把 `localhost` / `127.0.0.1` 当 secure context，别的主机名走 http 时不是。而
+// 真访客和 owner 必定从别的机器打开这个实例 —— 所以有些行为**只在非 localhost 的来源上**
+// 才成立，用默认 baseURL 是驱不出来的。host 由 caller 用 `--host-resolver-rules` 指回本机。
+export async function gotoOnHost(page: Page, host: string, path: string): Promise<void> {
+  const base = APP_BASE.replace(/\/\/[^:/]+/, `//${host}`);
+  await page.goto(`${base}${path.startsWith('/') ? path : `/${path}`}`);
+}
+
 // enterCodeSession —— 走 `?code=` 入口拿到一个 code session。
 //
 // defer-issue 后 /sessions 不在扫码时发,而是在名字选择器**选名字(或 skip)**
