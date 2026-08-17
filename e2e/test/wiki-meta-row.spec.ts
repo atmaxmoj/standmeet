@@ -58,13 +58,27 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
     await request.dispose();
   });
 
-  test('meta row shows N corpus sources; breadcrumb shows N sources cited; owner full name',
+  // **这条以前把重复钉死了**：它的名字逐字写着「meta row shows N corpus sources;
+  // breadcrumb shows N sources cited」—— 于是同一个数在一屏上说两遍、还换了一套词
+  // （UX-85），而任何想去重的改动都会撞红这条守卫，被记成「留给 owner 定」。
+  // 守卫记录的是那份重复本身，不是产品要求（[[parked-test-carries-a-wrong-diagnosis]]）。
+  //
+  // 判据换成设计语言那一条：**一件事在一屏上只说一遍**。分工也定死：
+  // 面包屑只回答「我在哪」，meta 行回答「这是什么、谁写的、什么时候、引了几条」。
+  test('日期和来源数各只出现一次:面包屑只导航,meta 行讲这条笔记',
     async ({ page }) => {
       await goto(page, `/wiki/${PATH}`);
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('wiki-sources-count')).toHaveText('1 corpus sources');
-      await expect(page.getByTestId('wiki-breadcrumb')).toContainText('1 sources cited');
       await expect(page.getByTestId('wiki-meta')).toContainText(OWNER.fullName);
+
+      const crumb = page.getByTestId('wiki-breadcrumb');
+      // 取文本再判 —— `.not.toContainText` 在元素还没出现时也算通过
+      // （[[negated-assertion-passes-while-absent]]）。
+      await expect(crumb).toBeVisible();
+      const crumbText = await crumb.innerText();
+      expect(crumbText, '来源数只在 meta 行说一次').not.toContain('sources');
+      expect(crumbText, '日期只在 meta 行说一次').not.toMatch(/\d{4}/);
     });
 
   // 这条守的是**封面上那行小标的文案**:没有 tag 时它只写「wiki」,不再硬兜底成

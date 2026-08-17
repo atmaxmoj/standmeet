@@ -209,7 +209,7 @@ func writeWritingResp(
 // F-R-6：上一刀只接了 `.Body`，`Lang` / `Languages` 被丢在返回值里，于是读者拿到英文那一面、
 // 无从知道还有中文 —— 而 wiki reader 一直有那对按钮。修一层露出下一层，边没接就是没接。
 func applyWritingI18n(r *http.Request, view *writingView) {
-	got := corpus.I18nViewFor(view.BodyMD, r.URL.Query().Get("lang"), "")
+	got := corpus.I18nViewFor(view.BodyMD, r.URL.Query().Get("lang"), "", view.Title)
 	view.BodyMD = got.Body
 	view.Lang = got.Lang
 	view.Languages = toWritingLanguageViews(got.Languages)

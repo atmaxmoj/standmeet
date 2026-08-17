@@ -3,6 +3,7 @@
   "viewport": [1280, 2400],
   "login": false,
   "shots": [
-    { "name": "vl-18-published-reader", "url": "/wiki/cybernetics/engineering/recursive-harness", "wait": 4500 }
+    { "name": "vl-20-title-said-once", "url": "/wiki/cybernetics/engineering/recursive-harness", "wait": 4500 },
+    { "name": "vl-21-pane-title-is-content", "url": "/wiki/cybernetics/engineering/recursive-harness/safe-recursion-theorem", "wait": 4500 }
   ]
 }

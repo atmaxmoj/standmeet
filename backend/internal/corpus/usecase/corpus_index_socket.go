@@ -145,7 +145,7 @@ func readWire(
 		body = ResolveQueryBlocks(ctx, qr, req.OwnerID, corpusScopeOf(req), body)
 	}
 	// 多语:一次一种。两种都灌进上下文 = 同一件事付两遍 token,而且自相矛盾。
-	view := ViewFor(body, want, identityLangOf(ctx, l, req.OwnerID, entry.ID))
+	view := ViewFor(body, want, identityLangOf(ctx, l, req.OwnerID, entry.ID), entry.Title)
 	wire := &readResultWire{
 		ID: entry.ID, Genre: entry.Genre, Body: view.Body,
 		Path: entry.Path, Title: entry.Title, CSSClasses: entry.CSSClasses,

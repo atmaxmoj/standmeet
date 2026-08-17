@@ -13,7 +13,7 @@
 // backtick 原始串里误用了 Go 字符串拼接 `"+`)。Go 侧有 schema_valid_test 兜底,这条在
 // e2e 把"真客户端能发现完整工具面"钉死。
 //
-// golden = 全部 owner_only 工具(内建 126 + jobs 插件 10 + 连接器 manifest 声明的 1 = 137)。
+// golden = 全部 owner_only 工具(内建 128 + jobs 插件 10 + 连接器 manifest 声明的 1 = 139)。
 // 加/删 owner 工具时这条会红 —— 那是**有意**的:逼你同步更新工具面预期。
 //
 // **owner 工具有三个来源**,不是两个:host 侧写死的、能力插件的、以及**连接器 manifest 里的
@@ -31,7 +31,7 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN —— tools/list 必须逐字返回这 136 个 owner 工具(排序后比,顺序噪声由 mcp-go
+// GOLDEN —— tools/list 必须逐字返回这 139 个 owner 工具(排序后比,顺序噪声由 mcp-go
 // 注册顺序决定、不在本条职责内)。facade-parity 全额付清后(56→0):每个 admin 面的
 // owner 能力都有一个 owner-MCP 孪生工具。新增/删除 owner 工具必须同步更新本 golden。
 const GOLDEN_TOOLSET: readonly string[] = [
@@ -52,7 +52,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   //  delete_{wiki,output} / promote_to_wiki / promote_wiki_to_output / corpus_get_entry),
   // 而且 MCP 上建不了 wiki、改不了 raw —— 那四个格子是收成一个参数之后自动补齐的。
   'subjectivity_write',
-  'corpus.list', 'corpus.get',
+  'corpus.list', 'corpus.get', 'corpus.search',
   'corpus.create', 'corpus.update', 'corpus.delete', 'corpus.promote',
   // check_i18n —— 多语结构只看不写。owner 的 AI 在写一条带 `> [!i18n]` 的笔记之前先问一次,
   // 拿到的诊断跟 corpus.create 拒绝时用的是同一份(两处各判一套的话,"检查过了却写不进去"

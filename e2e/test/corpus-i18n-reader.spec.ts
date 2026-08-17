@@ -149,6 +149,55 @@ test.describe('multilingual reader · the switcher', () => {
     });
 });
 
+// 页头印了标题,正文第一行又印一次 —— vault 里两种形状都有:
+//   · 199 个 pane 的开头 `# 标题` 跟文件名同字(recursive-harness / # Recursive harness)
+//   · 985 个 pane 的开头是**另一句话**(the-business-model-wedge / # Attack the business model…)
+// 后者是内容,不是重复 —— 它必须原样留着。所以判据是**同字才去**,不是"开头的标题一律去"。
+test.describe('multilingual reader · 标题不在一屏上说两遍', () => {
+  test.beforeAll(async () => {
+    const echo = await seedWiki(O.request, O.apiToken, O.sid, {
+      title: 'Echo', path: 'projects/echo',
+      body: [
+        '> [!i18n]', '> > [!lang] en', '> > # Echo', '> > The English body of the echo note.',
+        '>', '> > [!lang] zh', '> > # 回声', '> > 回声这条笔记的中文正文。',
+      ].join('\n'),
+    });
+    await setPublished(O.request, O.csrf, echo.wikiID, true);
+    const plain = await seedWiki(O.request, O.apiToken, O.sid, {
+      title: 'Solo', path: 'projects/solo',
+      body: '# Solo\n\nThe body of a note that is not multilingual.',
+    });
+    await setPublished(O.request, O.csrf, plain.wikiID, true);
+  });
+
+  test('pane 开头那句跟标题同字 → 正文里不再出现,页头留着那一份', async ({ page }) => {
+    await goto(page, '/wiki/projects/echo');
+    const body = page.getByTestId('wiki-body');
+    await expect(body, '正文照渲').toContainText('The English body of the echo note');
+    await expect(
+      body.getByRole('heading', { name: 'Echo', exact: true }),
+      '页头已经说过 Echo 了',
+    ).toHaveCount(0);
+    await expect(page.getByTestId('wiki-meta'), '页头那一份还在').toContainText('Echo');
+  });
+
+  test('非多语笔记也一样:开头那句跟标题同字就去掉', async ({ page }) => {
+    await goto(page, '/wiki/projects/solo');
+    const body = page.getByTestId('wiki-body');
+    await expect(body).toContainText('The body of a note that is not multilingual');
+    await expect(body.getByRole('heading', { name: 'Solo', exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('wiki-meta')).toContainText('Solo');
+  });
+
+  test('开头那句是另一句话 → 它是内容,一个字都不许动', async ({ page }) => {
+    await readIn(page, '');
+    await expect(
+      page.getByTestId('wiki-body').getByRole('heading', { name: 'The fixed point' }),
+      '「The fixed point」不是标题 Dynamics 的重复',
+    ).toBeVisible();
+  });
+});
+
 test.describe('multilingual reader · a note without any of this', () => {
   test('a monolingual note renders exactly as before, with no switcher', async ({ page }) => {
     const plain = await seedWiki(O.request, O.apiToken, O.sid, {

@@ -39,11 +39,16 @@ type I18nView struct {
 }
 
 // ViewFor —— 按 want 选一面。不是多语笔记 → 原样返回,Languages 空(读者页据此不出切换器)。
-func ViewFor(body, want, identity string) I18nView {
+//
+// title 是这条笔记的标题:**正文开头再说一遍标题的那一行不发出去**(UX-85)——
+// 页头已经印了它。判据是同字(`i18n.StripTitleEcho`),不同字的开头是内容,原样留着。
+// 收在这里而不是各读者页各删一遍:这一个函数是读者页、检索、agent 上下文共同的那条路。
+func ViewFor(body, want, identity, title string) I18nView {
 	doc := i18n.Parse(body)
 	if !doc.Multilingual() {
-		return I18nView{Body: body, Languages: []string{}}
+		return I18nView{Body: i18n.StripLeadingTitle(body, title), Languages: []string{}}
 	}
+	i18n.StripTitleEcho(&doc, title)
 	return I18nView{
 		Body:      i18n.Render(&doc, want, identity),
 		Lang:      i18n.Resolve(&doc, want, identity),

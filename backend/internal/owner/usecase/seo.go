@@ -167,7 +167,7 @@ func assembleWikiLanding(
 	}
 	media := landingMedia(ctx, deps, ownerID, id)
 	view := landingI18n(ctx, deps,
-		&landingNote{ownerID: ownerID, id: id, body: body}, loc.lang)
+		&landingNote{ownerID: ownerID, id: id, body: body, title: w.Title()}, loc.lang)
 	return WikiLanding{
 		Body: view.body, Related: sides.Related, CitedBy: sides.CitedBy, Wiki: w,
 		AssetURLs: media.URLs, Hero: media.Hero, Assets: media.Assets, I18n: view.meta,

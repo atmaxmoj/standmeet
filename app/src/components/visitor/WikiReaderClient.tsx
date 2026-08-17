@@ -73,10 +73,7 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
       <SessionStrip />
       <ReaderLayout mainTestId="wiki-landing" aside={<WikiTreeView activePath={slug} stats={stats} />}>
         <div className="max-w-[920px] mx-auto pt-10 pb-24">
-          <Breadcrumb
-            ancestors={ctx.ancestors} current={wiki.title} updatedAt={wiki.updated_at}
-            sourcesCount={wiki.sources_count}
-          />
+          <Breadcrumb ancestors={ctx.ancestors} current={wiki.title} />
           <OgCoverMaybe entry={wiki} seed={slug} />
           <MetaStrip entry={wiki} ownerName={ownerName} />
           <div className="max-w-[680px] mx-auto mt-3">
@@ -181,15 +178,17 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
   );
 }
 
-// Breadcrumb —— 位置 + 右边那行 `{date} · {count} sources cited`。
+// Breadcrumb —— **只回答「我在哪」**。
 //
-// ⚠️ UX-78 的另一半：同样这两件事下面那条 meta 里各有一份（`… · BY … · 0 CORPUS SOURCES`），
-// 而且换了一套词（`sources cited` 对 `corpus sources`）—— 同一屏说两遍、还说得不一样。
-// **但 `wiki-meta-row.spec.ts:42` 这条守卫的名字就是「meta row shows N corpus sources;
-// breadcrumb shows N sources cited」** —— 这份重复是被人明确要求过的，删掉它要改那条守卫，
-// 于是它不属于设计列（[[design-column-boundary]]）。留在这里等 owner 定。
-function Breadcrumb({ ancestors, current, updatedAt, sourcesCount }: {
-  ancestors: TreeNode[]; current: string; updatedAt: string; sourcesCount: number;
+// 它右端曾经还挂着 `{date} · {count} sources cited`，而同样这两件事在下面那条 meta 里
+// 各有一份（`… · BY … · 0 CORPUS SOURCES`）—— 同一屏说两遍、还换了一套词（UX-85）。
+// 这份重复以前被记成「留给 owner 定」，理由是 `wiki-meta-row.spec.ts` 那条守卫的名字
+// 逐字写着两处各说一遍。**那条守卫记录的是这份重复本身，不是产品要求**
+// （[[parked-test-carries-a-wrong-diagnosis]]）：判据（一件事一屏说一遍）赢，守卫跟着改。
+//
+// 分工现在是死的：面包屑导航，meta 行讲这条笔记（谁写的、什么时候、引了几条）。
+function Breadcrumb({ ancestors, current }: {
+  ancestors: TreeNode[]; current: string;
 }) {
   const t = useTranslations('reader');
   return (
@@ -207,9 +206,6 @@ function Breadcrumb({ ancestors, current, updatedAt, sourcesCount }: {
           {current}
         </span>
       </div>
-      <span className="mono text-[10.5px] text-(--color-muted) tracking-[0.06em]">
-        {t('wiki.crumbMeta', { date: formatDate(updatedAt), count: sourcesCount })}
-      </span>
     </nav>
   );
 }
