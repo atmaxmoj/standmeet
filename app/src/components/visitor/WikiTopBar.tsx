@@ -11,7 +11,6 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 import { useTheme } from '@/lib/page/use-theme';
-import { useVisitorSessionStore, type VisitorSession } from '@/lib/visitor/session-store';
 
 const NAV_CLS =
   'mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) '
@@ -53,7 +52,6 @@ function Brand({ handle, reading }: { handle: string; reading?: string }) {
       <span className="text-(--color-faint)">·</span>
       <Link href="/wiki" className="text-(--color-accent) no-underline">{t('wiki')}</Link>
       <ReadingTag reading={reading} />
-      <UnlockedTag />
     </div>
   );
 }
@@ -70,21 +68,11 @@ function ReadingTag({ reading }: { reading?: string }) {
   ) : null;
 }
 
-const isUnlocked = (s: VisitorSession): boolean => s.code !== null || s.byoai;
-
-function UnlockedTag() {
-  const session = useVisitorSessionStore((s) => s.session);
-  return session && isUnlocked(session)
-    ? <UnlockedTagBody session={session} />
-    : null;
-}
-
-function UnlockedTagBody({ session }: { session: VisitorSession }) {
-  const text = session.byoai ? 'byoai · public scope' : `unlocked · ${session.code ?? ''}`;
-  return (
-    <span className="ml-2 inline-flex items-center gap-1.5 normal-case">
-      <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-accent) live-dot" />
-      <span className="text-(--color-faint) text-[10px] tracking-[0.16em]">{text}</span>
-    </span>
-  );
-}
+// 这条顶栏**不再讲这次会话**(UX-80)。它以前挂着一个 `● unlocked · VOICE-01`,
+// 而它正下方那条会话横条同时写着 `● VOICE · CODE · VOICE-01 · you · <名字> … EXIT SESSION`
+// —— 同一件事、两条整宽横条、两颗 live dot，摞在正文前面。
+//
+// 两者的出现条件**逐字相同**(`session.code !== null || session.byoai`,也就是横条的渲染条件),
+// 所以去掉这个标签一个信息都不丢:会话的事归会话横条,这条顶栏只回答「这是谁的站、我在哪一区、
+// 去哪儿」。聊天那一屏在 UX-53 已经这么收过一次(把站点身份塞进横条的槽);读者页两条都要留着 ——
+// 它没有会话时也得有导航 —— 所以这里收的是**重复**，不是横条本身。

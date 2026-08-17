@@ -1,0 +1,19 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-voice-persistence/shots",
+  "viewport": [1440, 900],
+  "login": false,
+  "shots": [
+    { "name": "cv-40-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "Chrome Bars Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ], "wait": 1500 },
+    { "name": "cv-41-chat-top", "url": "/", "wait": 5000 },
+    { "name": "cv-42-reader-top", "url": "/wiki/cybernetics/engineering/recursive-harness", "wait": 4500 }
+  ]
+}
