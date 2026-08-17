@@ -3,16 +3,16 @@
   "viewport": [1280, 2000],
   "login": false,
   "shots": [
-    { "name": "gx-10-entry", "url": "/?code=VOICE-01", "wait": 3000,
+    { "name": "gx-12-entry-after-hint-fix", "url": "/?code=VOICE-01", "wait": 3000,
       "steps": [
         { "wait": 2000 },
-        { "type": ["[data-testid=\"visitor-name-input\"]", "Ghost Auditor Two"] },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Ghost Auditor Three"] },
         { "click": "button:has-text(\"START\")" },
         { "wait": 4000 }
       ] },
-    { "name": "gx-11-after-turn",
+    { "name": "gx-13-hint-on-its-own-line",
       "steps": [
-        { "type": ["[data-testid=\"chat-input-field\"]", "What did you build for the job-application side of this product?"] },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What is your view on where evaluation belongs in an agent product?"] },
         { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
         { "wait": 120000 }
       ] }
