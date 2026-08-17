@@ -70,6 +70,14 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    height:document.documentElement.scrollHeight+8},"*");}
  function fmtDay(d){return d.toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"});}
  function fmtTime(d){return d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});}
+ // slotZone —— 这些 chip 用的是哪个区(渲染这一格的浏览器的区)。抬头上说一次。
+ function slotZone(){
+   try{
+     var parts=new Intl.DateTimeFormat([],{timeZoneName:"short"}).formatToParts(new Date());
+     for(var i=0;i<parts.length;i++){if(parts[i].type==="timeZoneName")return parts[i].value;}
+   }catch(_){}
+   return "your time";
+ }
  function dayKey(d){return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
  function el(tag,cls,txt){var e=document.createElement(tag);
    if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e;}
@@ -100,7 +108,9 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    var det=el("details"); det.open=true;
    det.setAttribute("data-testid","tool-card-calendar_list_slots");
    var sum=el("summary");
-   var kick=el("span","kicker","available · "+slots.length+" slots");
+   // 时区**在抬头上说一次**(UX-69 的邻居):这一格里每颗 chip 都是同一个区,
+   // 逐颗印会把这排数字变成噪声 —— 而选时段这件事眼睛要比对数字。
+   var kick=el("span","kicker","available · "+slots.length+" slots · times in "+slotZone());
    kick.setAttribute("data-testid","bookings-kicker");
    sum.appendChild(kick); det.appendChild(sum);
    if(slots.length===0){
@@ -173,7 +183,19 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    if(isNaN(a.getTime()))return "";
    var d=a.toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"});
    var t=function(x){return x.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});};
-   return d+" · "+t(a)+"–"+t(b);
+   // 时区跟在时间后面(UX-69)。这张卡是访客留下的**凭证** —— 正文里那两套时区会被滚上去,
+   // 卡片留下来;裸的「8:00 AM」对不在这个时区的人没有意义。
+   // 末尾只印一次:两端同一个区,印两遍是噪声。
+   return d+" · "+t(a)+"–"+t(b)+" "+zoneOf(b);
+ }
+ // zoneOf —— 这一格实际渲染所在的时区缩写(EDT / GMT+8 …)。卡在**访客**浏览器里渲染,
+ // 所以这里报的是访客自己的区 —— 正是他需要确认的那一个。
+ function zoneOf(x){
+   try{
+     var parts=new Intl.DateTimeFormat([],{timeZoneName:"short"}).formatToParts(x);
+     for(var i=0;i<parts.length;i++){if(parts[i].type==="timeZoneName")return parts[i].value;}
+   }catch(_){}
+   return "";
  }
  function callTool(name,args,cb){
    var id="t"+(++seq); pending[id]=cb;

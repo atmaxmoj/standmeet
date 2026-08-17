@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/booking-book/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "bbook-27-turn1", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Zone Auditor Four"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Please book Tuesday Aug 25 at 3:00 PM America/Toronto, 30 minutes, topic \"intro call\". Everything you need is in this message — go ahead and confirm."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 130000 }
+      ],
+      "wait": 4000, "fullPage": true }
+  ]
+}

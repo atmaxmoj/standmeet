@@ -45,6 +45,15 @@ test.describe('connector · booked card is a ui:// sandbox iframe (§1 externali
       const frame = page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
       await expect(frame.getByTestId('book-card-time')).toBeVisible({ timeout: 10_000 });
 
+      // **这张卡就是访客留下的凭证,时间必须带时区**(UX-69)。正文里写全了两套时区,
+      // 但正文会被滚上去,卡片留下来 —— 一个别的时区的招聘官看到「8:00 AM」,
+      // 没有任何东西告诉他这是谁的 8 点。booking-slots 的 LOOK 判据逐字要求过这件事:
+      // "Every time carries its zone, because a bare clock time is ambiguous to anyone
+      //  not in the owner's zone."
+      const when = await frame.getByTestId('book-card-time').innerText();
+      expect(when, `卡上的时间要带时区,拿到的是 ${when}`)
+        .toMatch(/\b(UTC|GMT|[A-Z]{2,5}T|GMT[+-]\d{1,2})\b/);
+
       await ctx.close();
     });
 });
