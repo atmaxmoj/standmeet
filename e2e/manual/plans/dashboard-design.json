@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dashboard-corpus-pulse/shots",
+  "viewport": [1440, 1100],
+  "login": true,
+  "shots": [
+    { "name": "dp-30-dashboard", "url": "/admin/dashboard", "wait": 6000, "fullPage": true }
+  ]
+}

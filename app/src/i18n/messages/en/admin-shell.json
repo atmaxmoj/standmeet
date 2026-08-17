@@ -139,7 +139,7 @@
     "nothingFetchedHint": "ask Claude to run jobs.fetch_new; results land in /admin/listings for a day",
     "recentError": "Couldn’t load recent visitors. Reload and retry.",
     "noConversations": "no conversations yet — visitors will appear here once they start chatting",
-    "visitorMeta": "{label} · {turns} turns · {last}",
+    "visitorMeta": "{label} · {turns, plural, one {# turn} other {# turns}} · {last}",
     "privHits": "{n} priv",
     "nothingPending": "Nothing pending — corpus is current.",
     "review": "review →"

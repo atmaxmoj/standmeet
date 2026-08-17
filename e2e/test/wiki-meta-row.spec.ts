@@ -69,7 +69,9 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
     async ({ page }) => {
       await goto(page, `/wiki/${PATH}`);
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByTestId('wiki-sources-count')).toHaveText('1 corpus sources');
+      // 一条来源就说 “1 corpus source”。这条断言以前逐字钉着 `1 corpus sources` ——
+      // 把一个复数 bug 记成了产品要求（[[parked-test-carries-a-wrong-diagnosis]] 同一形状）。
+      await expect(page.getByTestId('wiki-sources-count')).toHaveText('1 corpus source');
       await expect(page.getByTestId('wiki-meta')).toContainText(OWNER.fullName);
 
       const crumb = page.getByTestId('wiki-breadcrumb');
