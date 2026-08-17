@@ -164,11 +164,25 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    font:12px ui-monospace,monospace}
  button:hover:not(:disabled){background:#1B1814;color:#F3EFE6}
  button:disabled{opacity:.5;cursor:default}
+ /* 一组动作里只有一个主角(UX-92)。以前这一格四个动作**完全平级**:两个"发信"、一个
+    "不发"、一个"取消会议",同框同字号,访客得逐个读完才知道该按哪个。
+    主动作实心,退出那条降成文字链 —— 跟产品别处(gate 的 ENTER / 弹窗的 CREATE CODE)一致。 */
+ button.primary{background:#1B1814;color:#F3EFE6}
+ button.primary:hover:not(:disabled){background:#000}
+ button.quiet{border:0;background:none;padding:5px 2px;color:#6b5d4f;text-decoration:underline}
+ button.quiet:hover:not(:disabled){background:none;color:#1B1814}
  .prompt{margin-top:10px;border-top:1px solid #d9d0c2;padding-top:8px}
  .label{font:12px ui-serif,Georgia,serif;margin-bottom:6px}
  input{padding:5px 7px;border:1px solid #1B1814;background:#fff;font:12px ui-monospace,monospace;flex:1;min-width:120px}
  .err{margin-top:6px;color:#B5391C;font-size:12px}
  .muted{color:#6b5d4f}
+ /* 「在做」要看得出是**动的**(UX-92)。以前是一行灰小字 + 按钮同时变灰 —— 两个弱信号叠着,
+    看起来像坏了而不是在忙,而这一步慢的时候要十几秒。 */
+ .busy{color:#6b5d4f;font:12px ui-serif,Georgia,serif;margin-top:6px}
+ .busy .dot{animation:sm-blink 1.1s infinite}
+ .busy .dot:nth-child(2){animation-delay:.15s}
+ .busy .dot:nth-child(3){animation-delay:.3s}
+ @keyframes sm-blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
  [data-cancelled=true] .time{text-decoration:line-through;color:#6b5d4f}
 </style></head><body>
 <script>
@@ -207,13 +221,14 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    p.setAttribute("data-sent","false");
    p.appendChild(el("div","label","Send a confirmation email?"));
    var row=el("div","row");
-   var useProfile=el("button",null,"Use my email");
+   // 主动作是「用我的邮箱发」—— 访客既然登记过邮箱,那是他最可能按的那个。
+   var useProfile=el("button","primary","Use my email");
    useProfile.setAttribute("data-testid","booking-email-use-profile");
    var input=el("input"); input.setAttribute("data-testid","booking-email-other");
    input.placeholder="a different address";
    var sendTyped=el("button",null,"Send");
    sendTyped.setAttribute("data-testid","booking-email-send");
-   var skip=el("button",null,"No thanks");
+   var skip=el("button","quiet","No thanks");
    skip.setAttribute("data-testid","booking-email-skip");
    skip.onclick=function(){
      p.setAttribute("data-sent","true");
@@ -225,8 +240,9 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
      // 进行中要**说出来**。这一步后端要起沙箱,空闲时 ~1s,机器压满时见过 19 秒 ——
      // 而在这行之前,访客看到的只有"按钮变灰",十几秒毫无动静。他会以为没点上、
      // 再点一次(幂等 marker 挡住了重复发信,但他看见的仍然是一个死掉的按钮)。
-     var busy=el("div","label muted","sending…");
+     var busy=el("div","busy","sending");
      busy.setAttribute("data-testid","booking-email-sending");
+     ["·","·","·"].forEach(function(c){busy.appendChild(el("span","dot",c));});
      p.appendChild(busy);
      function clearBusy(){ if(busy&&busy.parentNode) busy.parentNode.removeChild(busy); }
      callTool("send_confirmation",{recipient:recipient,tz:tz()},function(res){
@@ -247,7 +263,11 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    useProfile.onclick=function(){send("",[useProfile,sendTyped]);};
    sendTyped.onclick=function(){send(input.value,[useProfile,sendTyped]);};
    // 引用按钮（发到 session email）只在访客进入时留了 email 时出现；没留 → 只给透传输入框。
-   if(d.invited_email){ row.appendChild(useProfile); }
+   //
+   // **主角随之改变**(UX-92):留了邮箱时,「用我的邮箱」是最可能按的那个,它当实心;
+   // 没留邮箱时那颗按钮根本不渲染 —— 这时候还把 primary 挂在它身上,整行就一个实心都没有,
+   // 又回到「四个动作一样重」。所以谁在场谁当主角。
+   if(d.invited_email){ row.appendChild(useProfile); } else { sendTyped.className="primary"; }
    row.appendChild(input); row.appendChild(sendTyped);
    row.appendChild(skip);
    p.appendChild(row);
