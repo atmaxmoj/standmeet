@@ -114,7 +114,8 @@ function QuotasField({ form }: Props) {
       <QuotaInput
         label="bookings per code · blank = unlimited"
         testid="code-max-bookings"
-        placeholder="e.g. 3 (role must have calendar.book skill)"
+        placeholder="e.g. 3"
+        hint="the role must grant calendar.book"
         value={form.values.maxBookings}
         onChange={form.setMaxBookings}
       />
@@ -122,12 +123,17 @@ function QuotasField({ form }: Props) {
   );
 }
 
+// QuotaInput —— 三个配额格并排。**条件写在 hint 里,不写在占位符里**(UX-88):
+// 占位符是**例子**,不是说明 —— 它一打字就没,而且这一格只有约 220px 宽,
+// `e.g. 3 (role must have calendar.book skill)` 在屏幕上被切成 `e.g. 3 (role must have cal`,
+// **切掉的正是那个条件本身**。同一个形状 UX-49 在 role 的触发词那格出现过一次。
 function QuotaInput({
-  label, testid, placeholder, value, onChange,
+  label, testid, placeholder, hint, value, onChange,
 }: {
   label: string;
   testid: string;
   placeholder: string;
+  hint?: string;
   value: string;
   onChange: (v: string) => void;
 }) {
@@ -144,6 +150,7 @@ function QuotaInput({
         placeholder={placeholder}
         className="sm-field-input sm-mono"
       />
+      {hint !== undefined && <span className="sm-field-hint block mt-1">{hint}</span>}
     </label>
   );
 }

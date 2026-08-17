@@ -105,6 +105,23 @@ function GrantedList({
   );
 }
 
+// TakenBackHelp —— 那段 60 词的说明**收进一个折叠里**(UX-88)。
+//
+// 它以前是每张卡都摊开印一遍:这一页上 13 张码 = 同一段话印 13 遍,把「谁还进得来」这件事
+// 埋进说明书里。它讲的是这个控件本身,所以留在控件旁边(不搬去页头);但一个人只需要读一次,
+// 所以默认收起。`<details>` 是这个产品已有的折叠件(skills 面板的 show prompt 同款)。
+function TakenBackHelp() {
+  const t = useTranslations('adminAccess');
+  return (
+    <details className="reading-tight text-[11px] text-(--color-muted)">
+      <summary className="mono text-[10px] text-(--color-faint) cursor-pointer hover:text-(--color-ink)">
+        {t('codeCorpus.helpSummary')}
+      </summary>
+      <p className="mt-1">{t('codeCorpus.help')}</p>
+    </details>
+  );
+}
+
 function GrantedGlobs({ granted }: { granted: readonly string[] }) {
   const t = useTranslations('adminAccess');
   return granted.length === 0
@@ -132,7 +149,7 @@ export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLa
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mt-1">
         {t('codeCorpus.takenBack')}
       </span>
-      <p className="reading-tight text-[11px] text-(--color-muted)">{t('codeCorpus.help')}</p>
+      <TakenBackHelp />
       {/* 收回和授权是同一种语言（一组 glob），所以是同一个 picker（F-A-14）。 */}
       <CorpusScopePicker
         value={text.split('\n').map((s) => s.trim()).filter((s) => s !== '')}

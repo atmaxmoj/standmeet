@@ -26,10 +26,21 @@ type Props = {
   onRevoke: (c: CodeView) => void;
 };
 
+// 一张吊销的码卡**要退到后面去**(UX-88)。这一页回答的是「现在谁进得来」,而 13 张卡里
+// 有 7 张已经吊销 —— 以前它们跟活着的码同样浓:同样的标题字重、同样的二维码、同样的配额条,
+// 只差一个小词。眼睛没法在一屏里分出哪几张还算数。
+//
+// 退的是**浓度**不是内容:owner 还要能查一张旧码当初开了什么(所以不折叠、不隐藏)。
+const DEAD_CARD = 'opacity-55 saturate-50';
+
 export function CodeCard({ code, onEdit, onPreview, onShowQR, onRevoke }: Props) {
   const link = buildShareLink(code.code);
+  const dead = code.status !== 'active';
   return (
-    <article className="crosshair border border-(--color-rule) bg-(--color-surface)/30 p-5 rounded-sm" data-testid={`code-card-${code.code}`}>
+    <article
+      className={`crosshair border border-(--color-rule) bg-(--color-surface)/30 p-5 rounded-sm${dead ? ` ${DEAD_CARD}` : ''}`}
+      data-testid={`code-card-${code.code}`}
+    >
       <span className="ch-tl" /><span className="ch-br" />
       <CodeCardHeader code={code} onEdit={onEdit} onPreview={onPreview} onRevoke={onRevoke} />
       <div className="mt-5">

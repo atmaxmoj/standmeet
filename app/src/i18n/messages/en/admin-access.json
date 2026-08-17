@@ -34,6 +34,7 @@
     "publishedSlice": "(whatever you have published — this role keeps no list of its own)",
     "inherited": "corpus · inherited from role",
     "takenBack": "taken back on this code",
+    "helpSummary": "how taking back works ▸",
     "help": "The URIs this code takes back from what the role granted, one per line. It can only subtract, never add — whatever you write here will never open what the role didn't grant. Typical use: the role grants subjectivity://** (every opinion), and this code takes back subjectivity://cv (the résumé stays out). Changes only affect sessions issued from now on: the role is frozen when the session is issued, so a visitor already chatting keeps the old scope — but the next session on the same code, however old that code is, gets the new one."
   },
   "members": {

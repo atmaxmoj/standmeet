@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/access-codes/shots",
+  "viewport": [1440, 1200],
+  "login": true,
+  "shots": [
+    { "name": "ac-50-codes-page", "url": "/admin/codes", "wait": 5000, "fullPage": true },
+    { "name": "ac-51-new-code-modal", "url": "",
+      "steps": [
+        { "click": "button:has-text('new code')" },
+        { "wait": 1500 }
+      ], "wait": 1000 }
+  ]
+}
