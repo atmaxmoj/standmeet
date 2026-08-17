@@ -70,6 +70,18 @@ export function useIsQuotaExhausted(): boolean {
   return session.max > 0 && session.used >= session.max;
 }
 
+// useVisitorChatAvailable —— **这一页上能不能接着问**。
+//
+// 一个来源,两个读者:浮窗按它决定渲不渲 pill,页尾那张 about 卡按它决定说哪句话。
+// 以前只有浮窗自己判(`mode === 'public' → null`),而卡片**无条件**写着「在下面接着问」——
+// 于是匿名访客读到的是一句这一页自己证伪了的承诺(UX-86)。两处各判一次的话,下次改浮窗
+// 的条件还会漏掉卡片([[copied-invalidation-goes-stale]]);所以判据只有这一个。
+//
+// public(没有 session)= 没人付推理钱:owner 不替路过的访客买单,访客也没带 key。
+export function useVisitorChatAvailable(): boolean {
+  return useVisitorSessionStore((s) => s.session) !== null;
+}
+
 export const useVisitorSessionStore = create<SessionState>((set, get) => ({
   session: null,
   setSession: (s) => {

@@ -21,6 +21,7 @@ import { coverURL, expandBody } from '@/lib/corpus/media';
 import { CorpusContent } from '@/components/page/CorpusContent';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
+import { ReaderAboutCard } from '@/components/visitor/ReaderAboutCard';
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
@@ -89,7 +90,7 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
             <WikiScopedSubEntries slug={slug} initial={ctx.children} />
             <RelatedRail items={wiki.related} title="read next" testid="related-rail-read-next" />
             <RelatedRail items={wiki.cited_by} title="cited by" testid="related-rail-cited-by" />
-            <TrustBox handle={handle} />
+            <ReaderAboutCard genre="wiki" handle={handle} />
           </div>
         </div>
       </ReaderLayout>
@@ -259,18 +260,6 @@ function WikiBody(
       <CorpusContent classes={cssClasses}>
         <ChatMarkdown source={rendered} variant="article" />
       </CorpusContent>
-    </div>
-  );
-}
-
-function TrustBox({ handle }: { handle: string }) {
-  const t = useTranslations('reader');
-  return (
-    <div className="mt-12 px-4 py-3 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
-      <div className="smallcaps mb-1.5">{t('wiki.aboutHeading')}</div>
-      <p className="reading text-(--color-muted) text-[13.5px] m-0">
-        {t('wiki.aboutBody', { handle })}
-      </p>
     </div>
   );
 }

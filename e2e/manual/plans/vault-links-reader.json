@@ -4,6 +4,7 @@
   "login": false,
   "shots": [
     { "name": "vl-20-title-said-once", "url": "/wiki/cybernetics/engineering/recursive-harness", "wait": 4500 },
-    { "name": "vl-21-pane-title-is-content", "url": "/wiki/cybernetics/engineering/recursive-harness/safe-recursion-theorem", "wait": 4500 }
+    { "name": "vl-21-pane-title-is-content", "url": "/wiki/cybernetics/engineering/recursive-harness/safe-recursion-theorem", "wait": 4500 },
+    { "name": "vl-22-reader-tail", "url": "/wiki/cybernetics/engineering/recursive-harness", "wait": 4500, "fullPage": true }
   ]
 }

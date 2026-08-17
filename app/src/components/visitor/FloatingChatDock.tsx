@@ -26,15 +26,21 @@ import type { SessionMode } from '@/lib/page/use-chat';
 import type { DocContext } from '@standmeet/agent-core';
 import { ChatTranscript, ChatProgress } from '@/components/visitor/ChatTranscript';
 import { useGhostLogger } from '@/lib/page/use-ghost-logger';
-import { useVisitorSessionStore, useIsQuotaExhausted } from '@/lib/visitor/session-store';
+import {
+  useVisitorSessionStore, useIsQuotaExhausted, useVisitorChatAvailable,
+} from '@/lib/visitor/session-store';
 import { useCurrentGhost } from '@/lib/visitor/ghosts-store';
 import { dispatchGhostKey, pickGhost } from '@/lib/visitor/ghost-text';
 
 // docContext —— 访客当前所在 doc(wiki/writing/output 页传进来),让浮窗里问
 // 「this/这篇/这个项目」时 AI 解析得到(#36)。挂在主 chat 全屏不传 = undefined。
+// 渲不渲 pill 跟页尾那张 about 卡说哪句话,读的是**同一个**判据
+// (`useVisitorChatAvailable`)。以前这里自己判 `mode === 'public'`,而卡片无条件写着
+// 「在下面接着问」—— 匿名访客读到的是一句这一页自己证伪了的承诺(UX-86)。
 export function FloatingChatDock({ docContext }: { docContext?: DocContext }) {
+  const canAsk = useVisitorChatAvailable();
   const mode = useModeFromVisitorStore();
-  return mode === 'public' ? null : <FloatingChatDockInner mode={mode} docContext={docContext} />;
+  return canAsk ? <FloatingChatDockInner mode={mode} docContext={docContext} /> : null;
 }
 
 function FloatingChatDockInner({ mode, docContext }: { mode: SessionMode; docContext?: DocContext }) {

@@ -1,0 +1,19 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-links/shots",
+  "viewport": [1280, 2400],
+  "login": false,
+  "shots": [
+    { "name": "vl-23-about-anonymous", "url": "/wiki/cybernetics/engineering/recursive-harness", "wait": 4500, "fullPage": true },
+    { "name": "vl-24-code-in", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "VOICE-01"] },
+        { "wait": 400 },
+        { "type": ["[data-testid=\"gate-visitor-name\"]", "About Card Auditor"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 6000 }
+      ], "wait": 1500 },
+    { "name": "vl-25-about-with-code", "url": "/wiki/cybernetics/engineering/recursive-harness", "wait": 5000, "fullPage": true }
+  ]
+}

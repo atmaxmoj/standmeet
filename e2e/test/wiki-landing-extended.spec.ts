@@ -35,8 +35,49 @@ test.describe('wiki landing extended cases', () => {
   registerHeroTests();
   registerLayoutTests();
   registerSidebarSessionTests();
+  registerAboutCardTests();
   registerGraphTests();
 });
+
+// registerAboutCardTests —— 页尾那张「about this entry」说的话必须是这位访客做得到的事。
+//
+// 同一条 spec 里已经证过:没有会话时 dock 不渲染(`floating-dock-pill` count 0)。所以
+// 「ask follow-ups below」这句话对匿名访客是一句**这一页自己证伪了的承诺**(UX-86)。
+// 两条断言写在同一个 case 里,就是为了让这份自相矛盾没法被拆到两条用例里各自绿着。
+function registerAboutCardTests(): void {
+  test('匿名访客:卡片不许叫他「在下面接着问」,而要给出他真走得到的那条路',
+    async ({ request, page }) => {
+      await seedIndexedWiki(request);
+      await goto(page, '/wiki/wiki-extended');
+      const about = page.getByTestId('reader-about');
+      await expect(about).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('floating-dock-pill'), '这一页确实没有入口').toHaveCount(0);
+      const text = await about.innerText();
+      expect(text, '没有入口就别说「下面」').not.toMatch(/below/i);
+      await expect(
+        about.getByRole('link', { name: /access code/i }),
+        '产品对他有正路:进 /gate 输码',
+      ).toHaveAttribute('href', '/gate');
+    });
+
+  test('有码会话:卡片才说「在下面接着问」,而那个下面确实在', async ({ request, page }) => {
+    await seedIndexedWiki(request);
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    await createCode(request, csrf, { code: 'ABOUT-PASS', label: 'About access' });
+    await enterCodeSession(page, 'ABOUT-PASS', 'Robin');
+    await goto(page, '/wiki/wiki-extended');
+    await expect(page.getByTestId('floating-dock-pill')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('reader-about')).toContainText('below');
+  });
+
+  // owner 的性别这个实例根本没存过。卡片以前逐字写着 "in his voice"。
+  test('卡片不替 owner 认性别', async ({ request, page }) => {
+    await seedIndexedWiki(request);
+    await goto(page, '/wiki/wiki-extended');
+    const text = await page.getByTestId('reader-about').innerText();
+    expect(text, '实例没存过 owner 的性别').not.toMatch(/\b(his|her|hers)\b/i);
+  });
+}
 
 // registerHeroTests —— cover hero / locked / metadata strip / no inline ask。
 function registerHeroTests(): void {

@@ -16,6 +16,7 @@ import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
 import { coverURL, expandBody } from '@/lib/corpus/media';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
+import { ReaderAboutCard } from '@/components/visitor/ReaderAboutCard';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { fetchInstance } from '@/lib/api/instance';
@@ -73,7 +74,7 @@ function OutputLandingContent({ out, handle, slug }: {
           <PDFPreviewCard />
           <OutputBody body={expandBody(out.body, out.asset_urls)} />
           <Attachments assets={out.assets} testid="output-attachments" />
-          <TrustBox handle={handle} />
+          <ReaderAboutCard genre="output" handle={handle} />
         </article>
         <AskAboutThis title={out.title} kind="output" />
       </main>
@@ -135,18 +136,6 @@ async function Breadcrumb({ slug }: { slug: string }) {
       <Link href="/writings" className="hover:text-(--color-ink)">{t('output.writings')}</Link>
       <span className="text-(--color-faint)">/</span>
       <span className="text-(--color-ink)">{t('output.breadcrumbCurrent', { slug })}</span>
-    </div>
-  );
-}
-
-async function TrustBox({ handle }: { handle: string }) {
-  const t = await getTranslations('reader');
-  return (
-    <div className="mt-12 px-4 py-3 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1.5">{t('output.aboutHeading')}</div>
-      <p className="reading text-(--color-muted) text-[13.5px] m-0">
-        {t('output.aboutBody', { handle })}
-      </p>
     </div>
   );
 }
