@@ -318,7 +318,7 @@ function EditTagsField({
       <input
         type="text" value={value} onChange={(e) => onChange(e.target.value)}
         data-testid={testid} spellCheck={false}
-        className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
+        className="sm-field-input sm-mono"
       />
     </label>
   );

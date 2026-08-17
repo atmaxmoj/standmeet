@@ -135,7 +135,7 @@ function CredentialsRow({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
+        className="sm-field-input sm-mono"
       />
     </label>
   );

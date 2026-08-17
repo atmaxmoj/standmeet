@@ -114,7 +114,7 @@ function StepIdentity({ form }: { form: SetupFormHook }) {
           type="text" value={form.form.full}
           onChange={(e) => form.setField('full', e.target.value)}
           data-testid="full"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+          className="sm-field-input"
         />
       </Field>
       <Field label="handle" hint="internal owner identifier · used by admin URLs and login response">
@@ -122,7 +122,7 @@ function StepIdentity({ form }: { form: SetupFormHook }) {
           type="text" value={form.form.handle}
           onChange={(e) => form.setField('handle', e.target.value)}
           data-testid="handle"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+          className="sm-field-input"
         />
       </Field>
       <Field label="public URL" hint="full URL recruiters land on via QR · e.g. https://alice.dev or http://localhost:38127">
@@ -131,7 +131,7 @@ function StepIdentity({ form }: { form: SetupFormHook }) {
           onChange={(e) => form.setField('publicUrl', e.target.value)}
           placeholder="https://alice.dev"
           data-testid="public-url"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+          className="sm-field-input"
         />
       </Field>
     </div>
@@ -146,7 +146,7 @@ function StepCredentials({ form }: { form: SetupFormHook }) {
           type="email" value={form.form.email}
           onChange={(e) => form.setField('email', e.target.value)}
           data-testid="email" autoComplete="email"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+          className="sm-field-input"
         />
       </Field>
       <div className="grid grid-cols-2 gap-5">
@@ -156,7 +156,7 @@ function StepCredentials({ form }: { form: SetupFormHook }) {
             onChange={(e) => form.setField('password', e.target.value)}
             placeholder="8+ characters"
             data-testid="password" autoComplete="new-password"
-            className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+            className="sm-field-input"
           />
         </Field>
         <Field label="confirm">
@@ -164,7 +164,7 @@ function StepCredentials({ form }: { form: SetupFormHook }) {
             type="password" value={form.form.passwordConfirm}
             onChange={(e) => form.setField('passwordConfirm', e.target.value)}
             data-testid="password-confirm" autoComplete="new-password"
-            className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+            className="sm-field-input"
           />
         </Field>
       </div>
@@ -243,7 +243,7 @@ function ProviderKeyField({ form }: { form: SetupFormHook }) {
         onChange={(e) => form.setField('aiKey', e.target.value)}
         placeholder={p.prefix} disabled={!p.needsKey}
         data-testid="setup-ai-key" autoComplete="new-password"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 text-(--color-ink) placeholder:text-(--color-faint) mono text-[15px] tracking-[0.04em] disabled:opacity-60"
+        className="sm-field-input sm-mono disabled:opacity-60"
       />
     </Field>
   );
@@ -256,7 +256,7 @@ function ProviderModelField({ form }: { form: SetupFormHook }) {
         type="text" value={form.form.aiModel}
         onChange={(e) => form.setField('aiModel', e.target.value)}
         data-testid="setup-ai-model"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 text-(--color-ink) mono text-[15px] tracking-[0.02em]"
+        className="sm-field-input sm-mono"
       />
     </Field>
   );

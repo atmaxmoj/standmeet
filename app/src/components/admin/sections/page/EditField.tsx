@@ -59,7 +59,7 @@ function FieldTextarea({
       placeholder={placeholder}
       rows={rows}
       data-testid={testid}
-      className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading-tight text-[15.5px] resize-none"
+      className="sm-field-input resize-none"
     />
   );
 }
@@ -77,7 +77,7 @@ function FieldSingleLine({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       data-testid={testid}
-      className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading-tight text-[15.5px]"
+      className="sm-field-input"
     />
   );
 }

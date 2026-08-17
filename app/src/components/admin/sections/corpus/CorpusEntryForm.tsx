@@ -142,7 +142,7 @@ export function HeroFields(
           spellCheck={false}
           placeholder={t('headlinePlaceholder')}
           data-testid={`${testid}-cover-headline`}
-          className="w-full bg-transparent border-b border-(--color-rule) py-1.5 reading-tight text-[15px]"
+          className="sm-field-input"
         />
       </label>
       <label className="block">
@@ -212,7 +212,7 @@ function TitleField({ form, testid }: { form: CorpusFormHook; testid: string }) 
         onChange={(e) => form.setTitle(e.target.value)}
         spellCheck={false}
         data-testid={`${testid}-title`}
-        className="w-full bg-transparent border-b border-(--color-rule) py-1.5 reading-tight text-[17px]"
+        className="sm-field-input sm-field-lg"
       />
     </label>
   );
@@ -254,7 +254,7 @@ function TagsField({ form, testid }: { form: CorpusFormHook; testid: string }) {
         spellCheck={false}
         placeholder="architecture, ai, indie"
         data-testid={`${testid}-tags`}
-        className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
+        className="sm-field-input sm-mono"
       />
     </label>
   );

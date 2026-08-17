@@ -1,0 +1,9 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dock-buttons/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "db-47-gate-fields", "url": "/gate", "wait": 4000 },
+    { "name": "db-48-login-fields", "url": "/login", "wait": 3000 }
+  ]
+}

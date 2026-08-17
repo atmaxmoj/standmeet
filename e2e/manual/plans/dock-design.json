@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/dock-buttons/shots",
+  "viewport": [1440, 1200],
+  "login": true,
+  "shots": [
+    { "name": "db-46-dock-field-focused", "url": "/admin/roles",
+      "steps": [
+        { "wait": 5000 },
+        { "click": "[data-testid=\"role-dock-trigger-0\"]" },
+        { "wait": 800 }
+      ], "wait": 1200 }
+  ]
+}

@@ -209,7 +209,7 @@ function BaseUrlRow({ onText }: { onText: (t: string) => void }) {
         data-testid="connector-spec-base-url"
         onChange={(e) => onText(e.target.value)}
         placeholder="https://api.example.com/v2"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 mono text-[12px]"
+        className="sm-field-input sm-mono"
       />
     </label>
   );
@@ -309,7 +309,7 @@ function SpecUrlRow({ onFetch }: { onFetch: (url: string) => void }) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://api.example.com/openapi.json"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 mono text-[12px]"
+          className="sm-field-input sm-mono"
         />
       </label>
       <button

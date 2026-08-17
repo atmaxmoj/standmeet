@@ -191,7 +191,7 @@ function FullNameBlock({ hook, initialValue }: { hook: AccountHook; initialValue
           onChange={(e) => setRaw(e.target.value)}
           spellCheck={false}
           data-testid="account-full-name-input"
-          className="flex-1 min-w-0 bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
+          className="sm-field-input sm-field-lg flex-1 min-w-0"
         />
         <SaveBtn
           testid="account-full-name-save"
@@ -235,7 +235,7 @@ function EmailBlock({ hook, initialValue }: { hook: AccountHook; initialValue: s
           autoComplete="email"
           placeholder="you@example.com"
           data-testid="account-email-new"
-          className="flex-1 min-w-0 bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
+          className="sm-field-input sm-field-lg flex-1 min-w-0"
         />
         <SaveBtn
           testid="account-email-save"
@@ -341,7 +341,7 @@ function PasswordField({ testid, value, onChange, label }: PasswordFieldProps) {
         autoComplete="off"
         spellCheck={false}
         data-testid={testid}
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
+        className="sm-field-input sm-field-lg"
       />
     </label>
   );

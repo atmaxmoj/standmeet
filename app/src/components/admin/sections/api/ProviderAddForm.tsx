@@ -137,7 +137,7 @@ function TextInput({
       onChange={(e) => onChange(e.target.value)}
       spellCheck={false}
       autoComplete="off"
-      className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
+      className="sm-field-input sm-mono"
     />
   );
 }

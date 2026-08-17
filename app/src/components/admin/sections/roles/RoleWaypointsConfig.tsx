@@ -66,7 +66,7 @@ function WaypointRow({
       <div className="flex gap-2 min-w-0">
         <input
           type="text"
-          className="w-[38%] min-w-0 bg-transparent border-b border-(--color-rule) py-1 mono text-[12px]"
+          className="sm-field-input sm-mono w-[38%] min-w-0"
           value={wp.waypoint_id}
           onChange={(e) => onField(idx, { waypoint_id: e.target.value })}
           placeholder={t('roleWaypoints.idPlaceholder')}
@@ -74,7 +74,7 @@ function WaypointRow({
         />
         <input
           type="text"
-          className="flex-1 min-w-0 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13px]"
+          className="sm-field-input flex-1 min-w-0"
           value={wp.description}
           onChange={(e) => onField(idx, { description: e.target.value })}
           placeholder={t('roleWaypoints.descPlaceholder')}
@@ -83,7 +83,7 @@ function WaypointRow({
       </div>
       <input
         type="text"
-        className="w-full min-w-0 bg-transparent border-b border-(--color-rule)/60 py-1 mono text-[11px] text-(--color-muted)"
+        className="sm-field-input sm-mono sm-field-xs min-w-0"
         value={wp.evidence_refs.join(', ')}
         onChange={(e) => onField(idx, { evidence_refs: parseEvidence(e.target.value) })}
         placeholder={t('roleWaypoints.evidencePlaceholder')}
@@ -111,7 +111,7 @@ function WaypointMeta({
         </span>
         <input
           type="number"
-          className="w-14 bg-transparent border-b border-(--color-rule) py-0.5 text-center"
+          className="sm-field-input sm-mono sm-field-xs w-14 text-center"
           value={wp.weight}
           onChange={(e) => onField(idx, { weight: Number(e.target.value) || 0 })}
           data-testid={`role-wp-weight-${idx}`}

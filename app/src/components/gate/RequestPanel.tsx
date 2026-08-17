@@ -309,7 +309,7 @@ function TextInput({ value, onChange, testid, placeholder, type = 'text' }: Text
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       data-testid={testid}
-      className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-(--color-ink) placeholder:text-(--color-faint) text-[16px]"
+      className="sm-field-input"
     />
   );
 }

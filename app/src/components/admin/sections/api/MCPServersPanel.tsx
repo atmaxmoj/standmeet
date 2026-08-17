@@ -335,7 +335,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 mono text-[12.5px]"
+        className="sm-field-input sm-mono"
       />
     </label>
   );

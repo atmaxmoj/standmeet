@@ -165,7 +165,7 @@ function PolicyInput({
         onChange={(e) => setLocal(e.target.value)}
         onBlur={() => { local !== value && onBlur(local); }}
         placeholder={placeholder}
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
+        className="sm-field-input sm-mono"
       />
     </label>
   );

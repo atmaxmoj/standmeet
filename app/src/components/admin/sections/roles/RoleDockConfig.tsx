@@ -90,7 +90,7 @@ function DockSlotRow({
       </SelectField>
       <input
         type="text"
-        className="w-full min-w-0 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13px]"
+        className="sm-field-input min-w-0"
         value={slot.trigger}
         onChange={(e) => onSlot(idx, { trigger: e.target.value })}
         placeholder={t('roleDock.triggerPlaceholder')}

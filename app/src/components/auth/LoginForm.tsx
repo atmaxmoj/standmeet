@@ -75,7 +75,7 @@ function LoginFormBody({ form, captcha, onSubmit }: ShellProps) {
           disabled={form.busy}
           data-testid="email"
           autoComplete="email"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+          className="sm-field-input"
         />
       </Field>
       <PasswordField form={form} />
@@ -103,7 +103,7 @@ function PasswordField({ form }: { form: ReturnType<typeof useLoginForm> }) {
           disabled={form.busy}
           data-testid="password"
           autoComplete="current-password"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 pr-9 reading text-base"
+          className="sm-field-input pr-9"
         />
         <button
           type="button"

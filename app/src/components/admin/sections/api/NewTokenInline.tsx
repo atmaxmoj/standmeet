@@ -57,7 +57,7 @@ function NameField({ name, onChange }: { name: string; onChange: (v: string) => 
         onChange={(e) => onChange(e.target.value)}
         placeholder="device label — e.g. 'mojat-mbp'"
         data-testid="token-name"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading-tight text-base"
+        className="sm-field-input"
       />
     </label>
   );

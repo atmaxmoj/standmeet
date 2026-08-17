@@ -201,7 +201,7 @@ function EndpointRow({
         spellCheck={false}
         autoComplete="off"
         data-testid="ai-provider-endpoint"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
+        className="sm-field-input sm-mono"
       />
     </div>
   );
@@ -247,7 +247,7 @@ function KeyRow({
         spellCheck={false}
         autoComplete="off"
         data-testid="ai-provider-key"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
+        className="sm-field-input sm-mono"
       />
       <KeyHint configured={configured} typing={keyText !== ''} />
     </div>

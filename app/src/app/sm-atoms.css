@@ -465,6 +465,20 @@
   font-size: 13px;
   letter-spacing: 0.02em;
 }
+/* 两个尺码修饰符,来自 UX-87 的清点:41 处手抄的下划线输入里,字号已经分裂成九种。
+   把它们收回来时只有两种尺码是**真需要**的,其余都是随手写的差别:
+     · sm-field-lg —— 一张卡片的主字段(账户里的名字、语料条目的标题):它是那一屏的题目。
+     · sm-field-xs —— 一行里的密集元字段(waypoint 的证据、provider 的油量数字)。
+   要第三种尺码之前先问它是不是又一次"随手写的差别"。 */
+.sm-field-input.sm-field-lg {
+  font-size: var(--t-body-l);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.sm-field-input.sm-field-xs {
+  font-size: 11px;
+  color: var(--color-muted);
+}
 
 /* ── select ────────────────────────────────────────────────────────────
    下拉此前是全 app 唯一不守这套视觉语言的控件(UX-47):19 个 `<select>`,**五种**

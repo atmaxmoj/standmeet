@@ -32,7 +32,7 @@ export function ProviderGasControl({
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={t('gasFillPlaceholder')}
-        className="w-28 bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1 mono text-[11px]"
+        className="sm-field-input sm-mono sm-field-xs w-28"
       />
       <button
         type="button"

@@ -57,7 +57,7 @@ function LabelInput({ form }: Props) {
         value={form.values.label}
         onChange={(e) => form.setLabel(e.target.value)}
         placeholder="e.g. OpenAI eng loop"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading-tight text-[15.5px]"
+        className="sm-field-input"
       />
     </label>
   );
@@ -72,7 +72,7 @@ function PurposeInput({ form }: Props) {
         value={form.values.purpose}
         onChange={(e) => form.setPurpose(e.target.value)}
         placeholder="e.g. staff eng interview screening"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading-tight text-[15.5px]"
+        className="sm-field-input"
       />
     </label>
   );
@@ -88,7 +88,7 @@ function CodeInput({ form }: Props) {
         value={form.values.code}
         onChange={(e) => form.setCode(e.target.value)}
         placeholder="OPENAI-001"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[15px] uppercase"
+        className="sm-field-input sm-mono uppercase"
       />
     </label>
   );
@@ -142,7 +142,7 @@ function QuotaInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[15px]"
+        className="sm-field-input sm-mono"
       />
     </label>
   );

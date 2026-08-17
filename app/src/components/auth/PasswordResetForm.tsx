@@ -87,7 +87,7 @@ function ResetFormBody({ hook, onSubmit }: ResetUIProps) {
           disabled={hook.busy}
           data-testid="reset-new-password"
           autoComplete="new-password"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+          className="sm-field-input"
         />
       </Field>
       <Field label="confirm new password">
@@ -98,7 +98,7 @@ function ResetFormBody({ hook, onSubmit }: ResetUIProps) {
           disabled={hook.busy}
           data-testid="reset-confirm-password"
           autoComplete="new-password"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+          className="sm-field-input"
         />
       </Field>
       <ErrorLine message={hook.error} />
