@@ -1,0 +1,25 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-voice-persistence/shots",
+  "viewport": [1280, 1600],
+  "login": false,
+  "shots": [
+    { "name": "cv-50-full-page-light", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Voice Reader"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "In two or three sentences: what do you think makes a good abstraction?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 90000 }
+      ],
+      "wait": 3000, "fullPage": true },
+    { "name": "cv-51-dark-toggle-on-reader", "url": "/wiki/cybernetics/engineering/recursive-harness",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "[data-testid=\"wiki-theme-toggle\"]" },
+        { "wait": 1200 }
+      ], "wait": 800 },
+    { "name": "cv-52-full-page-dark", "url": "/", "wait": 6000, "fullPage": true }
+  ]
+}

@@ -10,6 +10,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale } from 'next-intl/server';
 
 import '@/app/globals.css';
+import { ThemeSync } from '@/components/page/ThemeSync';
 import { ToastProvider, Toaster } from '@/lib/ui/toast';
 
 const newsreader = Newsreader({
@@ -40,6 +41,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <NextIntlClientProvider>
           <ToastProvider>
+            {/* 明暗挂在这里,每一面都有,谁都不用记得(UX-94)。 */}
+            <ThemeSync />
             {children}
             <Toaster />
           </ToastProvider>

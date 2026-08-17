@@ -219,6 +219,27 @@ function registerSidebarSessionTests(): void {
       await expect(page.getByTestId('floating-dock-pill')).toBeVisible();
     });
 
+  // 主题是**整份文档**的事，不是某一页的事：在读者页点了 dark，走到聊天面还得是 dark。
+  // 带码的访客大部分时间就待在聊天面上，而那一面以前**根本不读这个偏好**（UX-94）。
+  test('在读者页切到 dark，带码进聊天面还是 dark', async ({ request, page }) => {
+    await seedIndexedWiki(request);
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    await createCode(request, csrf, { code: 'THEME-PASS', label: 'Theme access' });
+    await enterCodeSession(page, 'THEME-PASS', 'Nour');
+
+    await goto(page, '/wiki/wiki-extended');
+    await page.getByTestId('wiki-theme-toggle').click();
+    await expect.poll(() => page.evaluate(() =>
+      document.documentElement.classList.contains('dark'))).toBe(true);
+
+    await goto(page, '/');
+    await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 8_000 });
+    await expect.poll(
+      () => page.evaluate(() => document.documentElement.classList.contains('dark')),
+      { timeout: 5_000 },
+    ).toBe(true);
+  });
+
   // owner: dock 只在有 AI(code/BYOAI)时出 —— 无会话(public)时不渲染。
   test('without a session: the ask dock does not render (AI not powering)',
     async ({ request, page }) => {
