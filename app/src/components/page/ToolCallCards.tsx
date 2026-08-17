@@ -118,13 +118,20 @@ function nonSandboxCard(ctx: CardCtx) {
   return kind === 'none' ? null : NON_SANDBOX_CARDS[kind](ctx);
 }
 
-// GenericDumpCard —— skill_* / ext_* tool 结果。debug-grade JSON pretty
-// dump；让 owner 观察 visitor 这边到底跑了啥；不强调视觉。
+// GenericDumpCard —— skill_* / ext_* tool 结果的兜底卡。
+//
+// **它的受众是 owner，但它渲染在访客的逐字稿里**（F-D-10）。原来的写法把结果直接 `<pre>`
+// 摊开：prod 上一个第三方 MCP 工具回了 374 KB，访客看到的就是一大块没解转义的 JSON ——
+// 开头那个引号和满屏 `\n` 字面量都在，而他要读的答案在那底下。
+//
+// 检索族早就折成一行（`RetrievalSummary`），自带卡的能力走沙盒卡，**只有这个兜底还在摊**。
+// 所以这里也折起来：默认只留一行「跑了哪个工具」，owner 想看载荷点开就有 —— 兜底不该把
+// 「没配卡」变成「把原始载荷糊到用户脸上」（[[display-fallback-reintroduces-the-bug]]）。
 function GenericDumpCard({ call }: { call: ToolCallView }) {
   return (
-    <div className={styles['genericCard']} data-testid={`tool-card-${call.name}`}>
-      <div className={styles['kicker']}>{call.name}</div>
+    <details className={styles['genericCard']} data-testid={`tool-card-${call.name}`}>
+      <summary className={styles['kicker']}>{call.name}</summary>
       <pre className={styles['dump']}>{jsonPretty(call.result)}</pre>
-    </div>
+    </details>
   );
 }

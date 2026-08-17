@@ -56,7 +56,22 @@ test.describe('visitor chat · GenericDumpCard (skill_*/ext_* fallback card)', (
     const card = page.getByTestId('tool-card-skill_use');
     await expect(card).toBeVisible({ timeout: 20_000 });
     await expect(card).toContainText('skill_use');       // kicker
-    await expect(card).toContainText(BODY_MARKER);        // result JSON carries the SKILL.md body
+
+    // **载荷默认不摊在访客脸上**(F-D-10)。这张卡的注释写着它是「debug-grade dump，让 *owner*
+    // 观察 visitor 这边跑了啥」—— 可它渲染在**访客**的 transcript 里。prod 上真拍到的样子是
+    // 一大块等宽 JSON，`\n` 字面量和开头那个引号都在。
+    // 这条断言以前**逐字要求那份原文可见**（`toContainText(BODY_MARKER)`），
+    // 又一次「守卫记录的是缺陷本身」（[[parked-test-carries-a-wrong-diagnosis]]）。
+    // 判据换成：**默认收起**（owner 展开还看得到，访客不用先越过它）。
+    // 断在**卡里面**那一份:mock LLM 会把工具结果回声进答案正文,页面上因此有两处带这个标记,
+    // 而这条守的是卡（[[stand-in-is-politer-than-reality]] 的反面 —— 替身在这里比真实世界更吵）。
+    await expect(
+      card.getByText(BODY_MARKER),
+      '技能正文默认不该摊开在访客的逐字稿里',
+    ).toBeHidden();
+    // owner 要的那份没丢：展开就在。
+    await card.locator('summary').click();
+    await expect(card.getByText(BODY_MARKER)).toBeVisible({ timeout: 5_000 });
     await ctx.close();
   });
 });
