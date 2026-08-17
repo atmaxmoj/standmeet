@@ -263,6 +263,14 @@ eval-creds:
 eval-booking-fabrication: eval-creds
 	@$(EVAL_ENV) cd eval-harness && go test -run TestBookingFabricationLive -count=1 -v -timeout 1800s ./...
 
+# eval-slots-restated —— UX-93 eval: 时段卡已经把时间摆出来了，答案正文又列一遍（两种截断规则，
+# 读的人得自己判断哪份是真的）。**mock 驱不动这条**：正文是模型自己写的，而 mock LLM 只返回测试
+# 注册过的那句话 —— 被告不出庭。所以跟 F-A-37 那条一样走真模型 + 真 booker。
+# 判据数的是钟点个数（卡在的那一轮，答案里至多一个），不是"感觉重复"。
+# 概率性的，多驱几轮：EVAL_ROUNDS=5 make eval-slots-restated。
+eval-slots-restated: eval-creds
+	@$(EVAL_ENV) cd eval-harness && go test -run TestSlotsRestatedLive -count=1 -v -timeout 1800s ./...
+
 # eval-ask —— 给被测 agent (owner persona) 喂一个问题,看它怎么答 + 查了哪些
 # corpus。被测对象 = owner 的 system prompt + corpus,真 LLM (DeepSeek v4-pro,
 # harness 自读 .env)。面试官不是这里的 —— 面试官是 operator spawn 的 Claude

@@ -220,7 +220,15 @@ func listSlotsTool() mcpgo.Tool {
 		"List available [start, end] slots on the owner's calendar between "+
 			"from_rfc3339 and until_rfc3339 that pass booking policy and don't "+
 			"overlap any busy window. Returns up to 50 slots. Use this before "+
-			"calendar_book so the visitor can pick an actual free time.",
+			"calendar_book so the visitor can pick an actual free time. "+
+			// UX-93：这个结果**会自己渲成一张可点的时段卡**摆在访客眼前(日期药丸 + 时段
+			// chip，点一下就下单)。所以答案里不要把时段再列一遍 —— 卡是全的、答案里那份
+			// 往往只列前几个，两份表示两种截断，读的人得自己判断哪份是真的。
+			// 提一个具体时间是可以的(「你要的 3:00 那格不空」是在回答问题)，成串复述不行。
+			"The result renders for the visitor as a clickable slot picker, so do NOT "+
+			"re-list the times in your reply — the card already shows them, and a second "+
+			"partial list contradicts it. Say what the picker is and let them pick; "+
+			"naming one specific time is fine when answering about that time.",
 		json.RawMessage(`{
 			"type":"object",
 			"properties":{
