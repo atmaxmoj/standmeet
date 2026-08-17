@@ -1,0 +1,12 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-ghost/shots",
+  "viewport": [1280, 1600],
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "gx-17-code-revoked", "url": "/admin/codes", "wait": 4000,
+      "steps": [
+        { "click": "[data-testid=\"code-revoke-GHOST-01\"]" },
+        { "wait": 2500 }
+      ] }
+  ]
+}

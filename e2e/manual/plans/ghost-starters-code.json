@@ -1,0 +1,22 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-ghost/shots",
+  "viewport": [1280, 2200],
+  "shots": [
+    { "name": "gx-14-code-modal", "url": "/admin/codes", "wait": 4000,
+      "steps": [
+        { "click": "button:has-text(\"new code\")" },
+        { "wait": 1500 },
+        { "type": ["[data-testid=\"code-label\"]", "Ghost Starters"] },
+        { "type": ["[data-testid=\"code-input\"]", "GHOST-01"] },
+        { "click": "button:has-text(\"＋ add\")" },
+        { "wait": 500 },
+        { "type": ["input[placeholder=\"a question the visitor might ask\"]", "What is the recursive harness?"] },
+        { "wait": 500 }
+      ] },
+    { "name": "gx-15-code-created",
+      "steps": [
+        { "click": "[data-testid=\"code-create\"]" },
+        { "wait": 3000 }
+      ] }
+  ]
+}
