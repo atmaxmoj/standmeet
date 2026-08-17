@@ -1,6 +1,7 @@
 package connector
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -87,7 +88,7 @@ func TestSendRejectsIncompleteConfig(t *testing.T) {
 	t.Parallel()
 	cfg := Config{Port: testSMTPPort} // no host / from
 	msg := Message{ToAddress: "v@x.com", Subject: "s", Body: "b"}
-	if err := Send(&cfg, &msg, fixedTime()); err == nil {
+	if err := Send(context.Background(), &cfg, &msg, fixedTime()); err == nil {
 		t.Fatal("expected error for incomplete config, got nil")
 	}
 }

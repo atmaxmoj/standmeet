@@ -5,7 +5,10 @@
 
 package connector
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // Builder —— 一封待发信的链式构造器。
 type Builder struct {
@@ -43,6 +46,8 @@ func (b *Builder) HTML(s string) *Builder {
 }
 
 // Send —— 发出。
-func (b *Builder) Send() error {
-	return Send(&b.cfg, &b.msg, time.Now())
+// Send —— 发出去。**ctx 要一路传到拨号**：调用方的截止时间就是 owner 还愿意等的时间，
+// 而以前这条路上拨号根本不看它（F-C-36）。
+func (b *Builder) Send(ctx context.Context) error {
+	return Send(ctx, &b.cfg, &b.msg, time.Now())
 }

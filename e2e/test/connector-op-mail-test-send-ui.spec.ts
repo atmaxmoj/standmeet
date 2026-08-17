@@ -25,7 +25,7 @@ import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
   armSMTPFault, clearMailpit, configureMailConnector, connectMailOutcome,
-  resetSMTPFault, saveMailCreds, waitForMailEnvelopeTo,
+  resetSMTPFault, saveMailCreds, saveMailCredsPartial, waitForMailEnvelopeTo,
 } from '@/fixtures/mail';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { test, expect } from '@/fixtures/test';
@@ -44,6 +44,14 @@ const OP = 'mail_test_send';
 // 先试的是 2525 —— 而 mail-mock 恰好在那儿也听着，于是 connect 返 200，红落在了我的
 // 装配断言上而不是产品身上（[[red-in-the-wrong-place]]）。9 是 discard 端口，没人开。
 const DEAD_PORT = 9;
+
+// BLACKHOLE_HOST —— 不可路由地址：拨它不会被拒，只会挂着，直到 TCP 自己放弃。
+// 「被拒」和「石沉大海」对 owner 是同一件事（都够不着），对**时间**完全不是。
+const BLACKHOLE_HOST = '10.255.255.1';
+
+// OUTBOUND_ANSWER_BUDGET_MS —— owner 还愿意盯着屏幕等的时间。prod 上那次是 75 秒，
+// 浏览器早就自己超时并改口说「够不着你的实例」，顶栏还翻成 NOT ANSWERING。
+const OUTBOUND_ANSWER_BUDGET_MS = 20_000;
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
@@ -139,7 +147,23 @@ test.describe.serial('connectors · a declared owner op has a face on the card (
 // 第三种失败：连接器**在**（配过、连过、占着品类槽），但够不着。见文件头 F-C-34 那一段。
 // 单独一个 describe：跟上面那组共用文件级的 ownerCredentials 和已 claim 的实例，
 // 但自己配连接器、自己造失败，不依赖上面留下的状态。
+// 这一组要等真实的拨号失败，其中一条还要等「挂住」的那种（不可路由地址）。预算放在
+// describe 上而不是用例体里：fixture 建 adminPage 的时间**也算**在用例超时里，而体内的
+// `test.setTimeout` 那时还没执行到 —— 红会落在装配上，看起来像用例慢。
+test.describe.configure({ timeout: 150_000 });
+
 test.describe('connectors · a configured-but-unreachable relay names its own class (F-C-34)', () => {
+  // 自己 claim，**不蹭上面那组的 beforeAll**。蹭的话单跑这一组（`GREP=`）时实例根本没被
+  // claim，adminPage 登不进去 → 30 秒后超时，而红看起来像「产品没在时限内回话」。
+  // 我在这上面栽过一次：截图里明明白白写着 `invalid credentials`，我却先去猜拨号把页面挂住了。
+  test.beforeAll(async ({ playwright }) => {
+    test.setTimeout(180_000);
+    resetInstance();
+    const request = await playwright.request.newContext();
+    await claim(request, findSetupToken(), OWNER);
+    await request.dispose();
+  });
+
   test('it says it could not reach the provider, not that none was ever set up',
     async ({ adminPage, playwright }) => {
       const request = await playwright.request.newContext();
@@ -164,6 +188,36 @@ test.describe('connectors · a configured-but-unreachable relay names its own cl
         'a configured-but-unreachable relay must not be reported as "never set up"',
       ).toHaveText("couldn't reach the mail provider — please try again later");
 
+      await request.dispose();
+    });
+
+  // F-C-36 —— 拨不通有两种：**被拒**（立刻回 connection refused）和**石沉大海**（包被丢掉，
+  // 一直等到 TCP 自己超时）。mock 中继给的永远是前者，所以「慢」这件事在它面前不存在；
+  // prod 上把端口改错时是后者，backend 等了 **75 秒**才回。
+  //
+  // 那 75 秒的后果不是「慢一点」：浏览器早就超时，屏幕上显示的是客户端自己那句
+  // 「Couldn't reach your instance」，顶栏的健康灯翻成 NOT ANSWERING —— 三句话全是假的，
+  // 而后端其实**已经把话说对了**（"temporarily unavailable"），只是没人还在看。
+  //
+  // 判据因此是**带时限的正确措辞**：owner 必须在还愿意等的时间内，拿到那句对的话。
+  // 黑洞地址用不可路由的 10.255.255.1 —— 容器里拨它不会被拒，只会挂着，跟真事故同形。
+  test('an outbound dial that hangs still answers the owner in time',
+    async ({ adminPage, playwright }) => {
+      const request = await playwright.request.newContext();
+      await configureMailConnector(request, OWNER.email, OWNER.password);
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+      await saveMailCredsPartial(request, csrf, { host: BLACKHOLE_HOST });
+
+      await gotoAdminSection(adminPage, 'connectors');
+      const op = adminPage.getByTestId(`connector-op-${OP}`);
+      await op.getByTestId('connector-op-field-to').fill('nobody@standmeet.test');
+      await op.getByTestId('connector-op-run').click();
+
+      await expect(
+        op.getByTestId('connector-op-result'),
+        'a hung dial must come back with the real reason while the owner is still watching',
+      ).toHaveText("couldn't reach the mail provider — please try again later",
+        { timeout: OUTBOUND_ANSWER_BUDGET_MS });
       await request.dispose();
     });
 });

@@ -116,7 +116,7 @@ func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg contract.M
 	if msg.HTML != "" {
 		b = b.HTML(msg.HTML)
 	}
-	if serr := b.Send(); serr != nil {
+	if serr := b.Send(ctx); serr != nil {
 		// 原始错误留在 %w 链里给日志 —— 面那一侧只读哨兵。
 		return fmt.Errorf("%w: %w", smtpFailureClass(serr), serr)
 	}

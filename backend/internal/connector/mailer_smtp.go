@@ -4,6 +4,7 @@
 package connector
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/smtp"
@@ -35,18 +36,62 @@ type Message struct {
 // Send relays one message through cfg's SMTP server. Auth is attached only when
 // a username is set, so an unauthenticated catcher (Mailpit) and an
 // authenticated provider both work through the same path.
-func Send(cfg *Config, msg *Message, now time.Time) error {
+func Send(ctx context.Context, cfg *Config, msg *Message, now time.Time) error {
 	if cfg.Host == "" || cfg.FromAddress == "" {
 		return errors.New("mailer: incomplete config (host/from)")
 	}
-	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	var auth smtp.Auth
-	if cfg.Username != "" {
-		auth = smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
-	}
 	raw := buildMessage(cfg, msg, now)
-	if err := smtp.SendMail(addr, auth, cfg.FromAddress, []string{msg.ToAddress}, raw); err != nil {
+	// **拨号要有上限**。以前这里是 `smtp.SendMail(addr, …)` —— 它自己拨，不接 ctx、没有
+	// deadline，于是拨一个「包被丢掉」的地址要等满 OS 的 TCP 超时：prod 上量到 **75 秒**
+	// （`dur_ms=75018`）。那时浏览器早超时了，屏幕显示的是客户端自己那句「够不着你的实例」，
+	// 顶栏还翻成 NOT ANSWERING —— 后端其实已经把话说对了，只是没人还在看（F-C-36）。
+	// 复用 dialSMTP：跟连接测试同一条拨号路径、同一个上限，两处不会再各走各的。
+	if err := sendVia(ctx, cfg, msg, raw); err != nil {
 		return fmt.Errorf("smtp send: %w", err)
+	}
+	return nil
+}
+
+// sendVia —— 带上限地拨号，然后把一封信交出去。
+func sendVia(ctx context.Context, cfg *Config, msg *Message, raw []byte) (err error) {
+	c, derr := dialSMTP(ctx, cfg)
+	if derr != nil {
+		return derr
+	}
+	defer func() {
+		if cerr := c.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	if herr := handshake(c, cfg); herr != nil {
+		return herr
+	}
+	return writeMessage(c, cfg, msg.ToAddress, raw)
+}
+
+// writeMessage —— MAIL FROM / RCPT TO 两步信封，然后把正文写进去。
+func writeMessage(c *smtp.Client, cfg *Config, to string, raw []byte) error {
+	if err := c.Mail(cfg.FromAddress); err != nil {
+		return fmt.Errorf("mail from: %w", err)
+	}
+	if err := c.Rcpt(to); err != nil {
+		return fmt.Errorf("rcpt to: %w", err)
+	}
+	return writeBody(c, raw)
+}
+
+// writeBody —— DATA 那一段：开、写、关。关也要报错 —— 中继常常把「收不收」留到 QUIT 前
+// 的那一声里说，Close 吞掉就等于把拒收当成了成功。
+func writeBody(c *smtp.Client, raw []byte) error {
+	w, err := c.Data()
+	if err != nil {
+		return fmt.Errorf("data: %w", err)
+	}
+	if _, werr := w.Write(raw); werr != nil {
+		return fmt.Errorf("write body: %w", werr)
+	}
+	if cerr := w.Close(); cerr != nil {
+		return fmt.Errorf("close body: %w", cerr)
 	}
 	return nil
 }
