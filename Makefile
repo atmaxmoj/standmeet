@@ -268,6 +268,13 @@ eval-booking-fabrication: eval-creds
 # 注册过的那句话 —— 被告不出庭。所以跟 F-A-37 那条一样走真模型 + 真 booker。
 # 判据数的是钟点个数（卡在的那一轮，答案里至多一个），不是"感觉重复"。
 # 概率性的，多驱几轮：EVAL_ROUNDS=5 make eval-slots-restated。
+# eval-owner-identity —— UX-66 eval: 公开切片收窄之后，owner 的 AI 对着陌生人说它不认识 owner。
+# 语料**故意不含**介绍 owner 本人的笔记（真 prod 的公开切片就是这样），判据只有一句：
+# 不许否认认识那个人。拒绝订会、说没日历都允许 —— 那些是对的答案。
+# EVAL_ROUNDS=3 make eval-owner-identity。
+eval-owner-identity: eval-creds
+	@$(EVAL_ENV) cd eval-harness && go test -run TestOwnerIdentityLive -count=1 -v -timeout 1800s ./...
+
 eval-slots-restated: eval-creds
 	@$(EVAL_ENV) cd eval-harness && go test -run TestSlotsRestatedLive -count=1 -v -timeout 1800s ./...
 
