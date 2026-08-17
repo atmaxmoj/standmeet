@@ -136,13 +136,22 @@ function KeyList({ keys, hook }: { keys: readonly APIKeyItem[]; hook: ReturnType
     );
 }
 
+const ROW_BASE = 'flex items-baseline gap-3 border-b border-(--color-rule)/60 pb-2';
+
+// rowCls —— 活着的行原样,吊销的行退浓度。
+const rowCls = (live: boolean): string => (live ? ROW_BASE : `${ROW_BASE} opacity-55 saturate-50`);
+
 // KeyRow —— 一把 key 一行。**只显示 prefix**，明文不在这儿。
+//
+// 吊销过的那一行**退到后面去**(UX-91,跟 codes 那边的 UX-88 同一条规矩):这张表回答的是
+// 「现在谁的程序连得进来」,而吊销的行以前跟活着的行同样浓,只差一个词。退浓度不退内容 ——
+// owner 还要能查一把旧 key 当初给了谁。
 function KeyRow({ row, hook }: { row: APIKeyItem; hook: ReturnType<typeof useAPIKeys> }) {
   const t = useTranslations('adminIntegrations.apiKeys');
   const run = useAction();
   const live = row.status === 'active';
   return (
-    <li className="flex items-baseline gap-3 border-b border-(--color-rule)/60 pb-2">
+    <li className={rowCls(live)}>
       <span className="font-serif text-[15px] flex-1">{row.label}</span>
       <code className="mono text-[11px] text-(--color-muted)">{row.prefix}…</code>
       <span className="mono text-[10px] uppercase tracking-[0.14em] text-(--color-faint)">

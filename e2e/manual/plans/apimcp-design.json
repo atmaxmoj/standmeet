@@ -1,0 +1,8 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/api-key-facade/shots",
+  "viewport": [1440, 1200],
+  "login": true,
+  "shots": [
+    { "name": "ak-40-api-mcp", "url": "/admin/api-mcp", "wait": 6000, "fullPage": true }
+  ]
+}
