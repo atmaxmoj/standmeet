@@ -157,6 +157,24 @@ func splitScopes(scope string) []string {
 	return strings.Fields(scope)
 }
 
+// grantedScopeFor —— token 响应里的 `scope`：**这次实际授出去的范围**。
+//
+// 真 provider（Google 就是）在 token 响应里回显本次授权的 scope —— 那是「我到底拿到了
+// 什么权限」的唯一权威来源，产品也正是从这里存下已授范围。这个 mock 以前无条件回一个
+// 常量，比真实世界客气：无论 owner 勾了什么，它都说「你拿到了 calendar」。于是「勾选的
+// 子集能不能读回来」这件事在 mock 上永远看不出真假（F-C-33）。
+//
+// 现在照真 provider 的规矩来：回显这个 client 在 authorize 那一步收到的 scope。
+// 没有记录（没走过 authorize，比如直接 refresh）→ 退回常量，行为跟从前一致。
+func (s *server) grantedScopeFor(clientID string) string {
+	var got []string
+	s.withState(func(st *gcalState) { got = st.lastAuthScopes[clientID] })
+	if len(got) == 0 {
+		return mockScope
+	}
+	return strings.Join(got, " ")
+}
+
 // ─── /google-oauth/token ───────────────────────────────────────
 
 type oauthTokenResponse struct {
@@ -216,7 +234,7 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := oauthTokenResponse{
 		AccessToken: "mock-access-" + randomHex(mockAccessTokenLen),
-		Scope:       mockScope,
+		Scope:       s.grantedScopeFor(r.PostForm.Get("client_id")),
 		TokenType:   scopeOAuthTokenType,
 		ExpiresIn:   defaultExpiresIn,
 	}

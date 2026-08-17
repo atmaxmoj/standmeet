@@ -160,5 +160,19 @@ func (s *Service) CredentialForm(ctx context.Context, ownerID, id string) (Crede
 	if derr != nil {
 		return CredentialForm{}, fmt.Errorf(wrapSentinel, ErrInvalidManifest, derr)
 	}
+	form.Granted = s.grantedScopes(ctx, ownerID, id)
 	return form, nil
+}
+
+// grantedScopes —— 这条连接**当初授出去的**范围。跟 form.Scopes（spec 派生的**可选清单**）
+// 是两件事：一个是「这个连接器支持哪些」，一个是「我授了哪些」。面板要显示后者，而以前
+// 它无处可取 —— 存储一直存着（`decodeConnectorConn` 就解出来了），只是没人往外报（F-C-33）。
+//
+// 取不到就空：没连接、读失败，都只是「没有已授范围可显示」，不该让整张凭据表单 500。
+func (s *Service) grantedScopes(ctx context.Context, ownerID, id string) []string {
+	conn, err := s.d.Repo.Get(ctx, ownerID, id)
+	if err != nil {
+		return []string{}
+	}
+	return conn.Scopes
 }

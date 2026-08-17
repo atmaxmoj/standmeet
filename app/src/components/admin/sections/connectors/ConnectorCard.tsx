@@ -155,6 +155,12 @@ function Scopes({ hook }: { hook: ConnectorCardHook }) {
           <input
             type="checkbox"
             data-testid={`connector-scope-${scope}`}
+            // 已授的要勾上（F-C-33）。以前这里既没有 checked 也没有 defaultChecked ——
+            // 于是这排框只能往里写、读不出来，一条连着的连接看起来像什么权限都没有。
+            // 用 defaultChecked + key 而不是受控：勾选状态归浏览器管（setScope 已经在存），
+            // 而 key 带上 granted，表单**重新拉到**已授范围时这一排会按新值重建。
+            key={`${scope}:${hook.granted.includes(scope)}`}
+            defaultChecked={hook.granted.includes(scope)}
             onChange={(e) => hook.setScope(scope, e.target.checked)}
           />
           {scope}

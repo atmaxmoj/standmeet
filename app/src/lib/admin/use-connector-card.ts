@@ -17,6 +17,9 @@ const FormSchema = z.object({
   fields: z.array(z.object({ key: z.string() })).nullish(),
   scopes: z.array(z.string()).nullish(),
   schemes: z.array(z.string()).nullish(),
+  // granted_scopes —— **已授**的那些（`scopes` 是这个连接器**支持**哪些）。两件事分开
+  // 才谈得上把勾选框勾上；以前后端根本不报它，于是一条连着的连接看起来像什么权限都没有（F-C-33）。
+  granted_scopes: z.array(z.string()).nullish(),
 });
 const ConnectSchema = z.object({
   auth_url: z.string().nullish(),
@@ -28,6 +31,8 @@ export interface ConnectorCardHook {
   authType: string;
   fields: readonly string[];
   scopes: readonly string[];
+  /** 已授出去的范围。`scopes` 是可选清单，这是实际授了哪些 —— 勾选框读它（F-C-33）。 */
+  granted: readonly string[];
   schemes: readonly string[];
   connected: boolean;
   /** 后端说这个连接器已经存了凭据。值本身永远不回来 —— 卡片据此说「有」，而不是摆空框。 */
@@ -46,6 +51,8 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   const [authType, setAuthType] = useState('');
   const [fields, setFields] = useState<string[]>([]);
   const [scopes, setScopes] = useState<string[]>([]);
+  // granted —— 这条连接**已经授出去**的范围（勾选框的初值）。
+  const [granted, setGranted] = useState<string[]>([]);
   const [schemes, setSchemes] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
   // hasCredentials —— 后端一直在回它（`connector-security` 验过：status 只回
@@ -78,6 +85,11 @@ export function useConnectorCard(id: string): ConnectorCardHook {
         setFields((f.fields ?? []).map((x) => x.key));
         setScopes(f.scopes ?? []);
         setSchemes(f.schemes ?? []);
+        // 已授的那些是**下一次保存的起点**：owner 想加一个 scope 时，发出去的必须是
+        // 「原有 + 新勾的」，而不是「只有新勾的」—— 否则看一眼面板就悄悄缩小了授权范围。
+        const granted = f.granted_scopes ?? [];
+        chosen.current = new Set(granted);
+        setGranted(granted);
       })
       // 表单没拉到别静默：否则卡片一片空白、owner 无从填凭据也不知为何。
       .catch(() => setError('Couldn’t load this connector’s setup form. Reload and retry.'));
@@ -127,7 +139,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   }, [id]);
 
   return {
-    authType, fields, scopes, schemes, connected, hasCredentials, connecting, error,
+    authType, fields, scopes, granted, schemes, connected, hasCredentials, connecting, error,
     setField: (k, v) => { values.current[k] = v; saveCreds(); },
     setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); saveCreds(); },
     connect, disconnect,

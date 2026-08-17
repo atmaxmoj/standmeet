@@ -183,6 +183,9 @@ type credFormResp struct {
 	Fields   []credFormField `json:"fields"`
 	Scopes   []string        `json:"scopes"`
 	Schemes  []string        `json:"schemes"`
+	// GrantedScopes —— 已授的那些（Scopes 是可选清单，这是实际授出去的）。面板据此把
+	// 勾选框勾上；少了它，一条连着的连接看起来像什么权限都没有（F-C-33）。
+	GrantedScopes []string `json:"granted_scopes"`
 }
 
 // connectorCredentialForm —— 派生的凭据表单（owner 该填哪些字段连这个连接器）。
@@ -208,6 +211,7 @@ func toCredFormResp(f *connector.CredentialForm) credFormResp {
 	return credFormResp{
 		AuthType: f.AuthType, Fields: fields,
 		Scopes: orEmpty(f.Scopes), Schemes: orEmpty(f.Schemes),
+		GrantedScopes: orEmpty(f.Granted),
 	}
 }
 

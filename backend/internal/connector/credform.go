@@ -25,6 +25,10 @@ type CredentialForm struct {
 	Fields   []string
 	Scopes   []string
 	Schemes  []string
+	// Granted —— 这条连接**当初授出去的**范围。跟 Scopes 是两件事：Scopes 是这个连接器
+	// **支持哪些**（spec 派生），Granted 是 owner **授了哪些**（存储里那一行）。面板要
+	// 把已授的勾上，而在此之前**没有任何一处报过它** —— 于是那排勾选框永远是空的（F-C-33）。
+	Granted []string
 }
 
 // DeriveCredentialForm —— 派生 owner 要填的凭据表单。openapi 连接器从 spec 的

@@ -29,6 +29,10 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright, Locator } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
+import {
+  ensureDisconnected, expectConnected, fillOAuth2Creds,
+  openConnectorCard, resetMockOAuthRecord, selectScope,
+} from '@/fixtures/connector-card';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -147,6 +151,7 @@ test.describe('connector · connect flow happy (§8 area D)', () => {
       expect(requested).toContain(SCOPE_READ);
       expect(requested).not.toContain(SCOPE_WRITE);
     });
+
 });
 
 // ════════ oauth2 错误分支 ══════════════════════════════════════════
@@ -278,29 +283,6 @@ test.describe('connector · generic oauth2 token silent refresh (§8 area D)', (
 
 // ─── 卡片定位 + 表单 + 断言 helper ─────────────────────────────────
 
-async function openConnectorCard(page: Page, id: string): Promise<Locator> {
-  await page.getByTestId('admin-nav-connectors').click();
-  await page.waitForURL('**/admin/connectors**');
-  const card = page.getByTestId(`connector-row-${id}`);
-  await expect(card).toBeVisible();
-  return card;
-}
-
-// ensureDisconnected —— 若卡片当前是 connected，点 UI 的 disconnect 让它回到未连接。
-// 幂等：未连接时按钮不在，直接返回。
-async function ensureDisconnected(card: Locator): Promise<void> {
-  const btn = card.getByTestId('connector-disconnect-button');
-  await (await btn.count() > 0 ? btn.click() : Promise.resolve());
-}
-
-async function fillOAuth2Creds(
-  card: Locator, clientId: string, clientSecret: string,
-): Promise<void> {
-  // 派生表单：oauth2 → client_id + client_secret 字段；token 不填（dance 自动拿）。
-  await card.getByTestId('connector-field-client_id').fill(clientId);
-  await card.getByTestId('connector-field-client_secret').fill(clientSecret);
-}
-
 // runOAuth2Dance —— 进卡片 → 填凭据 → 点 Connect → 等回 connectors 区。
 // 返回卡片 Locator 供调用方断言连接结果。
 async function runOAuth2Dance(
@@ -311,13 +293,6 @@ async function runOAuth2Dance(
   await card.getByTestId('connector-connect-button').click();
   await page.waitForURL('**/admin/connectors**');
   return card;
-}
-
-// expectConnected —— 锚定成**整串** 'connected'。原来写的是 /connected|已连接/i，而
-// toHaveText 的正则不加锚点就是子串匹配 —— "not connected" 同样命中。那是一条不会红的断言：
-// 未连接的卡片照样让它通过。
-async function expectConnected(card: Locator): Promise<void> {
-  await expect(card.getByTestId('connector-status')).toHaveText(/^(connected|已连接)$/i);
 }
 
 async function expectNotConnected(card: Locator): Promise<void> {
@@ -365,23 +340,9 @@ async function programMockOAuth(page: Page, outcome: MockOAuthOutcome): Promise<
   }
 }
 
-// ─── scope 多选 helper（新 testid：连接器派生表单里的 scope 勾选项）──────
-// 假设 scope 在派生表单里渲染成可勾选项，testid = connector-scope-{scope}。
-// 这是 §4「scope 多选」落到 UI 的形态；正式 testid 实现时定，红测先挂着。
-async function selectScope(card: Locator, scope: string, checked: boolean): Promise<void> {
-  const box = card.getByTestId(`connector-scope-${scope}`);
-  if (checked) await box.check();
-  else await box.uncheck();
-}
-
 // ─── mock OAuth 记录读取（GET；eslint 允许）──────────────────────────
 // 复用 gcal mock 的可编程 OAuth provider，新增「记录上次 authorize 收到的
 // scope param」+「token 端点命中计数」+「reset」。GET 触发，避开 POST 限制。
-
-async function resetMockOAuthRecord(page: Page): Promise<void> {
-  const res = await page.request.get(`${MOCK}/__mock/oauth/reset`);
-  if (res.status() !== 200) throw new Error(`reset mock oauth record: ${res.status()}`);
-}
 
 // getRecordedAuthorizeScopes —— mock 记录的、本次 authorize 请求里 scope
 // param 拆出来的 scope 列表。断言「勾选子集被原样带进 dance」对着它做。

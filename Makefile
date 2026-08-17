@@ -126,6 +126,11 @@ dev-up: app-build
 # changed; the normal dev-up path reuses their cached images).
 dev-rebuild-mocks:
 	@docker compose -f docker-compose.dev.yml build mcp-server-mock external-mock llm-gateway mail-mock
+	@# build 只造镜像,**不换正在跑的容器** —— 少了这一步,改完 mock-stack/ 再跑用例,
+	@# 跑的还是旧那个进程,而红看起来跟产品的红一模一样(2026-08-17 在 F-C-33 上吃了一次:
+	@# external-mock 已经起了 19 小时,我却以为新行为上线了)。
+	@docker compose -f docker-compose.dev.yml up -d --wait \
+		mcp-server-mock external-mock llm-gateway mail-mock
 
 # prod-up —— bring up the real production stack (self-contained: app + backend +
 # db + redis + gotenberg + minio, no mocks). Reads .env (cp from .env.example).
