@@ -215,15 +215,29 @@ function BaseUrlRow({ onText }: { onText: (t: string) => void }) {
   );
 }
 
+// BindingTextarea —— 这一格以前**只有占位符没有标签**（UX-81）：同一扇弹窗里，上面那格有
+// `PASTE AN OPENAPI SPEC` + 一句解释、下面那格有 `BASE URL —— ONLY IF…`，唯独它没有。
+// 而占位符里那句 "maps operations to a category contract" 是这一格**唯一的解释**，
+// owner 一打字它就消失了 —— placeholder-as-label。
+// 现在标签常驻、解释常驻，占位符退回去只举一个例子。
 function BindingTextarea({ onText }: { onText: (t: string) => void }) {
+  const t = useTranslations('adminShell.specIngest');
   return (
-    <textarea
-      data-testid="connector-binding-input"
-      onChange={(e) => onText(e.target.value)}
-      placeholder="optional JSONata binding (YAML) — maps operations to a category contract"
-      rows={4}
-      className="w-full mt-2 bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
-    />
+    <label className="block mt-2">
+      <span className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) block mb-1">
+        {t('bindingLabel')}
+      </span>
+      <textarea
+        data-testid="connector-binding-input"
+        onChange={(e) => onText(e.target.value)}
+        placeholder={'book:\n  operation: createBooking'}
+        rows={4}
+        className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
+      />
+      <span className="reading-tight text-[11.5px] text-(--color-muted) block mt-1">
+        {t('bindingHint')}
+      </span>
+    </label>
   );
 }
 
@@ -282,15 +296,27 @@ function SubmitButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+// FileInput —— 上传一份 spec 文件。
+//
+// 以前这里是**浏览器原生**的 `Choose File / No file chosen`（UX-81）—— 整扇弹窗里唯一
+// 没被设计过的控件，就贴在被设计过的 `USE THIS SPEC` 旁边。原生控件的长相由操作系统决定，
+// 跟这个产品的任何一处都对不上。
+//
+// 藏起那个 input、让包着它的 `<label>` 当按钮：**点击行为一模一样**（label 天然把点击转发给
+// 内部的 input），改的只是长相。testid 留在真正的 input 上，驱动方式不变。
 function FileInput({ onFile }: { onFile: (f: File) => void }) {
+  const t = useTranslations('adminShell.specIngest');
   return (
-    <input
-      type="file"
-      data-testid="connector-spec-file"
-      accept=".json,.yaml,.yml,application/json,text/yaml"
-      onChange={(e) => { const f = e.target.files?.[0]; f && onFile(f); }}
-      className="mono text-[11px] text-(--color-muted)"
-    />
+    <label className="sm-btn sm-btn-ghost sm-btn-sm cursor-pointer">
+      {t('uploadSpec')}
+      <input
+        type="file"
+        data-testid="connector-spec-file"
+        accept=".json,.yaml,.yml,application/json,text/yaml"
+        onChange={(e) => { const f = e.target.files?.[0]; f && onFile(f); }}
+        className="sr-only"
+      />
+    </label>
   );
 }
 
@@ -312,10 +338,13 @@ function SpecUrlRow({ onFetch }: { onFetch: (url: string) => void }) {
           className="sm-field-input sm-mono"
         />
       </label>
+      {/* FETCH 跟 USE THIS SPEC 是**并列的两条路**（把 spec 交进来），以前一个是深色实心按钮、
+          一个是最右边的浅色文字链 —— 权重差了一个量级（UX-81）。两条都是「提交这一格里的东西」，
+          所以给同一种描边按钮：主次留给它们下面那个真正的主动作（ASSEMBLE）。 */}
       <button
         type="button" onClick={() => onFetch(url)}
         data-testid="connector-spec-fetch-button"
-        className="sm-btn sm-btn-ghost sm-btn-sm"
+        className="sm-btn sm-btn-outline sm-btn-sm"
       >
         {t('fetch')}
       </button>
