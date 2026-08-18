@@ -13,6 +13,7 @@ import {
 import {
   isAssemblable, type AssembleInput, type AssembleState,
 } from '@/lib/admin/use-connector-upload';
+import { FilePicker } from '@/components/admin/atoms/FilePicker';
 import { ConnectorCredForm } from '@/components/admin/ConnectorCredForm';
 import { ConnectorCard } from '@/components/admin/sections/connectors/ConnectorCard';
 
@@ -296,27 +297,17 @@ function SubmitButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-// FileInput —— 上传一份 spec 文件。
-//
-// 以前这里是**浏览器原生**的 `Choose File / No file chosen`（UX-81）—— 整扇弹窗里唯一
-// 没被设计过的控件，就贴在被设计过的 `USE THIS SPEC` 旁边。原生控件的长相由操作系统决定，
-// 跟这个产品的任何一处都对不上。
-//
-// 藏起那个 input、让包着它的 `<label>` 当按钮：**点击行为一模一样**（label 天然把点击转发给
-// 内部的 input），改的只是长相。testid 留在真正的 input 上，驱动方式不变。
+// FileInput —— 上传一份 spec 文件。UX-81 在这里抓到浏览器原生的 `Choose File / No file chosen`，
+// 现在走 FilePicker atom（同样的东西还站在另外两个地方，见 atom 的说明）。
 function FileInput({ onFile }: { onFile: (f: File) => void }) {
   const t = useTranslations('adminShell.specIngest');
   return (
-    <label className="sm-btn sm-btn-ghost sm-btn-sm cursor-pointer">
-      {t('uploadSpec')}
-      <input
-        type="file"
-        data-testid="connector-spec-file"
-        accept=".json,.yaml,.yml,application/json,text/yaml"
-        onChange={(e) => { const f = e.target.files?.[0]; f && onFile(f); }}
-        className="sr-only"
-      />
-    </label>
+    <FilePicker
+      label={t('uploadSpec')}
+      testid="connector-spec-file"
+      accept=".json,.yaml,.yml,application/json,text/yaml"
+      onPick={(files) => { const f = files?.[0]; f && onFile(f); }}
+    />
   );
 }
 

@@ -33,6 +33,11 @@ export interface CorpusEntryFormProps {
   onCancel: () => void;
   submitLabel: string;
   testidPrefix: string;
+  // heading —— 这张卡管哪一半。**只有旁边还站着另一张带自己提交的卡时才传**（编辑态：下面
+  // 那张 PUBLIC LANDING）。UX-60 的最后一半：两个提交边界叠在一个滚动面里，下面那张卡有名字、
+  // 上面这张没有，于是「按哪个」这件事只有一边说得清。promote / 新建那两条路只有一个提交，
+  // 给它安个标题反而是凭空多一层结构。
+  heading?: string;
   bodyVisible?: boolean;
   parentOptions?: readonly CorpusParentOption[];
   // renderAssets —— 素材区。写成回调而不是一个 ReactNode,是因为"插进正文"要改 body,
@@ -60,6 +65,11 @@ export function CorpusEntryForm(props: CorpusEntryFormProps) {
       className="space-y-3 border border-(--color-rule) p-4 bg-(--color-surface)/60 rounded-sm"
       data-testid={`${props.testidPrefix}-form`}
     >
+      {props.heading ? (
+        <h4 className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
+          {props.heading}
+        </h4>
+      ) : null}
       <TitleField form={form} testid={props.testidPrefix} />
       <BodySlot
         form={form} testid={props.testidPrefix}

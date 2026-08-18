@@ -2,6 +2,7 @@
   "assets": {
     "heading": "files",
     "empty": "no files attached yet",
+    "choose": "choose a file",
     "kindImage": "image",
     "kindAttachment": "attachment",
     "insert": "insert in body",
@@ -49,7 +50,8 @@
   },
   "form": {
     "title": "title",
-    "parent": "parent node (optional)"
+    "parent": "parent node (optional)",
+    "entryHeading": "the note itself (body, files, tags)"
   },
   "seoEditor": {
     "heading": "public landing (url is tree-derived from the title)",
@@ -111,6 +113,7 @@
     "parent": "parent (reader tree)",
     "publishImmediately": "publish immediately",
     "coverImage": "cover image (optional)",
+    "chooseCover": "choose an image",
     "noImg": "no img",
     "clear": "clear"
   },
@@ -136,7 +139,8 @@
   "obsidian": {
     "manualMode": "○ manual mode",
     "importExport": "import / export",
-    "help": "import picks your Obsidian vault folder (wiki / subjectivity / raw / writings) and upserts the matching corpus notes by their vault path. export downloads your corpus as a vault of markdown + frontmatter. No live sync / file watcher — two manual actions."
+    "help": "Import picks your Obsidian vault folder (wiki / subjectivity / raw / writings) and upserts the matching corpus notes by their vault path. Export downloads your corpus as a vault of markdown + frontmatter.",
+    "noSync": "No live sync, no file watcher — these two actions are the whole mechanism, and neither runs unless you run it."
   },
   "seo": {
     "intro": "Defaults applied across the public site. Per-output / per-post SEO lives with the individual entry. Site title is edited here; the social description and canonical host mirror your hero prose and domain — edit those where they live.",

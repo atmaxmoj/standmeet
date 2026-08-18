@@ -65,6 +65,7 @@ function EditFormBody({
   onDone: () => void;
 }) {
   const toast = useToast();
+  const tf = useTranslations('adminCorpus.form');
   return (
     <>
       <CorpusEntryForm
@@ -79,7 +80,9 @@ function EditFormBody({
           cover_hue: detail.cover_hue,
         }}
         busy={actions.pending}
-        // "save entry"：同 wiki —— 这一屏下面还有一张带自己提交的 PUBLIC LANDING 卡（UX-60）。
+        // "save entry" + heading：同 wiki —— 这一屏下面还有一张带自己提交的 PUBLIC LANDING 卡，
+        // 两张卡各自点名管哪一半（UX-60）。
+        heading={tf('entryHeading')}
         submitLabel="save entry"
         testidPrefix={`output-edit-form-${entry.id}`}
         onSubmit={onSubmit}

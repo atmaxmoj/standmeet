@@ -23,6 +23,7 @@ export function WikiEditForm({
   entry, actions, onDone,
 }: { entry: WikiSummary; actions: CorpusActionsHook; onDone: () => void }) {
   const t = useTranslations('adminCorpus.common');
+  const tf = useTranslations('adminCorpus.form');
   const toast = useToast();
   const detail = useWikiDetail(entry.id, actions);
   const onSubmit = (input: CorpusEntryInput) => void runWith(
@@ -51,6 +52,7 @@ export function WikiEditForm({
             // "save entry" 而不是 "save"：这一屏下面还有一张 PUBLIC LANDING 卡，
             // 带**它自己**的提交。两个都只写 save 的时候，owner 填完下半张最自然会去按
             // 上面这个更显眼的按钮，而它不管那一半（UX-60）。
+            heading={tf('entryHeading')}
             submitLabel="save entry"
             testidPrefix={`wiki-edit-form-${entry.id}`}
             onSubmit={onSubmit}

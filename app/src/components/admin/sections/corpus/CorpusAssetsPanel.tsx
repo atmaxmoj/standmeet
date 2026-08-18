@@ -14,6 +14,7 @@ import { useRef, useState } from 'react';
 
 import { useTranslations } from 'next-intl';
 
+import { FilePicker } from '@/components/admin/atoms/FilePicker';
 import { SelectField } from '@/components/atoms/SelectField';
 import {
   clearFileInput, formatBytes, useCorpusAssets,
@@ -85,13 +86,12 @@ function UploadRow({ media, testid }: { media: CorpusAssetsHook; testid: string 
         <option value="image">{t('kindImage')}</option>
         <option value="attachment">{t('kindAttachment')}</option>
       </SelectField>
-      <input
-        ref={inputRef}
-        type="file"
+      <FilePicker
+        label={t('choose')}
+        testid={`${testid}-asset-input`}
         disabled={media.busy}
-        onChange={(e) => onPick(e.target.files?.[0])}
-        data-testid={`${testid}-asset-input`}
-        className="mono text-[11px] text-(--color-muted) disabled:opacity-50"
+        inputRef={inputRef}
+        onPick={(files) => onPick(files?.[0])}
       />
     </div>
   );

@@ -12,6 +12,7 @@
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 
+import { FilePicker } from '@/components/admin/atoms/FilePicker';
 import type { useToast } from '@/lib/ui/toast';
 import { newPendingID, type PendingFile } from '@/lib/writings/upload-asset';
 
@@ -83,13 +84,13 @@ interface PickerInputProps {
 }
 
 function PickerInput({ onPicked, onPending, onError }: PickerInputProps) {
+  const t = useTranslations('adminCorpus.writings');
   return (
-    <input
-      type="file"
+    <FilePicker
+      label={t('chooseCover')}
+      testid="writing-field-cover-image"
       accept="image/*"
-      data-testid="writing-field-cover-image"
-      onChange={(e) => handlePick(e.target.files, onPicked, onPending, onError)}
-      className="mono text-[11px]"
+      onPick={(files) => handlePick(files, onPicked, onPending, onError)}
     />
   );
 }
