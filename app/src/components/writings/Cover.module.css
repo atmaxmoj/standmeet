@@ -45,6 +45,19 @@
   z-index: var(--z-local);
 }
 
+/* .veil —— 只在**有封面图**时才铺（没有图的封面是纯排版 + 渐变，压什么都没有）。
+   颜色来自 --sm-cover-veil 那一个来源（不是 --sm-scrim，两者职责不同，见 globals.css）。
+   **层级靠 DOM 顺序，不靠更大的 z-index**：`--z-local` 是 0，而标题/副标/角标都没有 z-index
+   （即 auto）—— auto 和 0 在同一个绘制层里按文档顺序画。所以 veil 跟图同层、排在图之后、
+   文字之前就正好。给它 +1 反而会连字一起盖住（我第一版就是这么写的）。 */
+.veil {
+  position: absolute;
+  inset: 0;
+  background: var(--sm-cover-veil);
+  z-index: var(--z-local);
+  pointer-events: none;
+}
+
 .cover[data-locked] {
   filter: grayscale(0.7) blur(0.5px);
 }

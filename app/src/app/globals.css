@@ -36,6 +36,21 @@
      `subjectivity://cv`，owner 分不出哪一层在前。提到 66%。 */
   --sm-scrim: color-mix(in oklab, var(--color-ink) 66%, transparent);
 
+  /* --sm-cover-veil —— 封面上的**护字层**。跟 --sm-scrim 是两件事，所以是两个 token：
+     scrim 的职责是**遮住底下**（模态背后的东西不该被读），veil 的职责是**保住图像**
+     ——它要让压在照片上的标题认得出来，同时那张照片仍然是一张照片。
+     拿 66% 墨去铺封面会把图糊掉，那是把「遮」当成「护」用。
+     形状是从标题那个角出发的渐变：字所在的左上最厚，往右下退到全透明。
+     为什么需要它（UX-83）：真环境上给一条笔记设了一张**密排文字的真照片**当封面，
+     标题直接压上去，字和底图的正文糊在一起。CI 永远问不出这条 —— 它的 fixture 是
+     1×1 像素，任何字压上去都「通过」。 */
+  --sm-cover-veil: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--color-paper) 88%, transparent) 0%,
+    color-mix(in oklab, var(--color-paper) 62%, transparent) 42%,
+    transparent 78%
+  );
+
   /* --sm-chevron —— 下拉的箭头**形状**（不是颜色）。
      原生箭头是系统件，`appearance: none` 之后要自己画；而 data URI 里塞不进 `var()`，
      所以这里若写 `stroke='%23B5391C'` 就等于把朱红抄了第二份。

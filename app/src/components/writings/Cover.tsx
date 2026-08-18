@@ -32,6 +32,7 @@ export function Cover({ cover, locked, no, assetURLs }: Props) {
       data-locked={locked ? '1' : undefined}
     >
       <CoverImageMaybe url={imgURL} />
+      <CoverVeilMaybe url={imgURL} />
       <CoverRule />
       <CoverHeadline text={cover.cover_headline} />
       <CoverSub text={cover.excerpt} />
@@ -40,6 +41,11 @@ export function Cover({ cover, locked, no, assetURLs }: Props) {
       <CoverLockOverlayMaybe locked={locked} />
     </div>
   );
+}
+
+// CoverVeilMaybe —— 有图才铺护字层（UX-83）。没有图的封面本来就是纸色底，不需要护。
+function CoverVeilMaybe({ url }: { url?: string }) {
+  return url ? <div className={styles.veil} /> : null;
 }
 
 function CoverImageMaybe({ url }: { url?: string }) {

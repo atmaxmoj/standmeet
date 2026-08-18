@@ -134,12 +134,22 @@ function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
       <CoverImage
         url={coverURL(entry.cover_image_asset_id, entry.asset_urls)} testid="wiki-cover-image"
       />
+      <CoverVeilMaybe id={entry.cover_image_asset_id} />
       <span className={styles['tag']}>{coverTag(entry.tags)}</span>
       <span className={styles['no']}>{formatDate(entry.updated_at)}</span>
       <span className={styles['head']}>{entry.cover_headline || head}</span>
       {sub ? <span className={styles['sub']}>{sub}</span> : null}
     </div>
   );
+}
+
+// CoverVeilMaybe —— 有封面图才铺护字层（UX-83）。**位置就是层级**：排在图之后、四段文字之前。
+//
+// 为什么需要它：真环境上给一条笔记设了一张密排文字的真照片当封面，`cover_headline` 直接压上去，
+// 字和底图糊在一起。CI 永远问不出这条 —— 它的 fixture 是 1×1 像素，任何字压上去都「通过」。
+// 没有图时不渲：那种封面本来就是纸色 + hue 渐变，没有要护的东西。
+function CoverVeilMaybe({ id }: { id: string }) {
+  return id === '' ? null : <div className={styles['veil']} />;
 }
 
 // coverTag —— 封面左上角那行小标。没有 tag 就只写 genre。

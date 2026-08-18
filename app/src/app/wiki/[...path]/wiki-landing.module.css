@@ -11,6 +11,20 @@
   container-type: inline-size;
 }
 
+/* .veil —— 封面图之上、所有文字之下的护字层（UX-83）。
+   只在**有封面图**时才渲（组件那边判），没有图的封面本来就是纸色 + hue 渐变。
+   颜色来自 --sm-cover-veil 这一个来源 —— 它跟模态用的 --sm-scrim 是两件事：
+   scrim 遮住底下，veil 保住图像。两处 hero（writings 的 Cover、这里的 OgCover）
+   用同一个 token，免得下次只改到其中一处。
+   **层级靠 DOM 顺序**：图和文字都没有 z-index（auto），同一个绘制层按文档顺序画，
+   所以 veil 排在图之后、文字之前就够了。给它 z-index 反而会把字一起盖住。 */
+.veil {
+  position: absolute;
+  inset: 0;
+  background: var(--sm-cover-veil);
+  pointer-events: none;
+}
+
 .tag {
   position: absolute;
   top: 14px;
