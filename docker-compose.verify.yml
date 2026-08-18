@@ -1,30 +1,57 @@
 # docker-compose.verify.yml —— 真实环境审计用的**故障注入侧车**，独立于 prod compose。
 #
-# 为什么单独一个文件：docker-compose.prod.yml 是生产用的，里面不该躺着一个能让 LLM 调用限流的
+# 为什么单独一个文件：docker-compose.prod.yml 是生产用的，里面不该躺着一个能让调用失败的
 # 服务。审计要它、生产不要它，那就分开，别靠"记得不要启动"。
 #
-# 它加进 prod 那张网（external），所以 prod backend 用 `http://llm-fault-proxy:9500` 就能打到，
-# 而 owner 在 admin 的 AI provider 表单里把 endpoint 指过来 —— 走产品自己的界面，不改环境变量。
+# 它加进 prod 那张网（external），所以 prod 的容器用服务名就能打到。
 #
+# ── 两个实例，同一个镜像，差别只有上游 ────────────────────────────────────
+#
+# **llm-fault** —— 坐在真 LLM provider 前面（agent-loop-robustness）。
 #   make verify-proxy-up UPSTREAM=https://api.deepseek.com
-#   make verify-proxy-down
+#   owner 在 admin 的 AI provider 表单里把 endpoint 改成 http://llm-fault:9500
+#   —— 走产品自己的界面，不改环境变量。
 #
-# 装故障（在宿主上；9500 也映射出来了）：
-#   curl -XPOST localhost:39500/__mock/llm/fail -d '{"mode":"ratelimit","retry_after_seconds":5}'
-#   curl -XPOST localhost:39500/__mock/llm/fail -d '{"mode":"clamp_tokens","max_tokens":64}'
-#   curl -XPOST localhost:39500/__mock/llm/reset
+# **api-fault** —— 坐在本实例的 backend 前面（corpus-acl-editing check 6 那类
+#   「某一个 admin 接口加载失败，界面怎么说」）。这个**没法走产品界面接上** ——
+#   app→backend 的地址是基础设施，所以配一个 prod override：
+#   make verify-api-fault-up   （起代理 + 把 prod app 的 BACKEND_URL 指过来）
+#   make verify-api-fault-down （撤回去）
+#
+# 装故障（在宿主上；两个端口都映射出来了）：
+#   curl -XPOST localhost:39500/__mock/fault/arm -d '{"mode":"ratelimit","retry_after_seconds":5}'
+#   curl -XPOST localhost:39500/__mock/fault/arm -d '{"mode":"clamp_tokens","max_tokens":64}'
+#   curl -XPOST localhost:39600/__mock/fault/arm -d '{"mode":"http_error","path_prefix":"/api/admin/roles"}'
+#   curl -XPOST localhost:39600/__mock/fault/reset
+#
+# path_prefix 就是「窄故障」和「整栈停机」的分界：不给 = 挡住一切（那验的是另一条路，
+# 见 F-N-2）；给了 = 只挡那一块，页面别的块照常加载。
 
 services:
-  llm-fault-proxy:
+  llm-fault:
     build:
       context: ./mock-stack
-      target: llm-fault-proxy
+      target: fault-proxy
     environment:
       # UPSTREAM_BASE_URL —— 真 provider。没给就起不来（代理没有上游就没有意义，
       # 与其静默转成 404 不如立刻死掉说清楚）。
       UPSTREAM_BASE_URL: ${UPSTREAM_BASE_URL:?set UPSTREAM_BASE_URL to the real provider base URL}
     ports:
       - "39500:9500"
+    networks:
+      - default
+    restart: "no"
+
+  api-fault:
+    build:
+      context: ./mock-stack
+      target: fault-proxy
+    environment:
+      # 上游是本实例的 backend。它跟 llm-fault 用同一个镜像 —— 差别只有这一行。
+      UPSTREAM_BASE_URL: http://backend:8000
+      PORT: "9600"
+    ports:
+      - "39600:9600"
     networks:
       - default
     restart: "no"

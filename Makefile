@@ -180,22 +180,62 @@ prod-start-svc:
 
 # verify-proxy-up —— 起故障注入代理，坐在**真** provider 前面（agent-loop-robustness 的 Real
 # dep 点名要的那件装置）。它在 prod 那张网里，但**不在 prod compose 里**：生产文件不该带一个能
-# 让 LLM 调用限流的服务。
+# 让调用失败的服务。
 #
 #   make verify-proxy-up UPSTREAM=https://api.deepseek.com
 #
-# 起来之后在 admin 的 AI provider 表单把 endpoint 改成 http://llm-fault-proxy:9500 —— 走产品
+# 起来之后在 admin 的 AI provider 表单把 endpoint 改成 http://llm-fault:9500 —— 走产品
 # 自己的界面接线，不改环境变量。**驱完记得改回去**，否则代理一停，这个实例就没有模型可用了。
 verify-proxy-up:
 	@test -n "$(UPSTREAM)" || { echo "usage: make verify-proxy-up UPSTREAM=https://api.provider.com"; exit 2; }
 	@UPSTREAM_BASE_URL=$(UPSTREAM) docker compose -p standmeet-verify \
-		-f docker-compose.verify.yml up -d --build
+		-f docker-compose.verify.yml up -d --build llm-fault
 	@echo "[verify] proxy on http://localhost:39500 → $(UPSTREAM)"
-	@echo "[verify] backend reaches it at http://llm-fault-proxy:9500"
+	@echo "[verify] backend reaches it at http://llm-fault:9500"
 
 verify-proxy-down:
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml down
+
+# verify-api-fault-up —— 同一个代理，上游换成本实例的 backend，然后把 prod app 的 BACKEND_URL
+# 指过来。给的是**窄故障**：让某一个 admin 接口自己失败，看那一块说什么
+# （corpus-acl-editing check 6 —— 加载失败不许穿空状态的衣服）。
+#
+# 为什么不是「停掉 backend」：那是整栈停机，验的是另一条路（已驱过，撞出 F-N-2）。窄故障要的是
+# **同一页上别的块照常加载**，只有一块坏了 —— 空状态和加载失败长得一样，正是在这种情况下才分得出。
+#
+#   make verify-api-fault-up
+#   curl -XPOST localhost:39600/__mock/fault/arm \
+#     -d '{"mode":"http_error","path_prefix":"/api/admin/roles"}'
+#   …驱…
+#   curl -XPOST localhost:39600/__mock/fault/reset
+#   make verify-api-fault-down
+#
+# ⚠️ **为什么这里要重建 app 而不是只改环境变量**：`/api/*` 走的是 next.config.ts 的 rewrite，
+# 而 rewrite 的目标地址被**烤进构建产物**（`.next/required-server-files.json` 里逐字写着
+# `http://backend:8000`）。第一版这条配方只在 compose 里改 `BACKEND_URL`，容器里的变量确实变了，
+# 代理却一条流量都没收到 —— 因为那半边根本不在运行时读。同一个变量另外四个使用点
+# （`api/v1/agent/turn`、`print-payload`、`lib/api/public`、`lib/api/instance`）**是**运行时读的，
+# 所以它半边动半边不动。这件事本身是一条缺陷（F-C-40），这里先按真相把配方写对。
+verify-api-fault-up:
+	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
+		-f docker-compose.verify.yml up -d --build api-fault
+	@BACKEND_URL=http://api-fault:9600 $(MAKE) app-build
+	@docker compose -p standmeet-prod \
+		-f docker-compose.prod.yml -f docker-compose.verify-app.yml up -d --no-deps --build app
+	@echo "[verify] api-fault on http://localhost:39600 → http://backend:8000"
+	@echo "[verify] prod app rebuilt with the rewrite pointing at it"
+	@echo "[verify] arm:  curl -XPOST localhost:39600/__mock/fault/arm -d '{\"mode\":\"http_error\",\"path_prefix\":\"/api/admin/roles\"}'"
+
+# verify-api-fault-down —— app 重建回 http://backend:8000，代理停掉。
+# **先把 app 摘回来再停代理** —— 反过来的话中间那几秒 app 指着一个已经没了的地址。
+# 同样要重建：地址烤在产物里，不重建就一直指着一个已经不在的代理（见上面那段）。
+verify-api-fault-down:
+	@$(MAKE) app-build
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --no-deps --build app
+	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
+		-f docker-compose.verify.yml rm -sf api-fault
+	@echo "[verify] prod app back on http://backend:8000"
 
 # prod-clean —— down + drop the prod volumes (pgdata/redis/minio). schema.sql
 # only applies on a FRESH pg volume, so a stale prod volume must be recreated

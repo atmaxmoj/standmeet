@@ -15,6 +15,7 @@ import (
 const (
 	modeRateLimit   = "ratelimit"
 	modeClampTokens = "clamp_tokens"
+	modeHTTPError   = "http_error"
 )
 
 func (s *server) forward(w http.ResponseWriter, r *http.Request) {
@@ -23,9 +24,13 @@ func (s *server) forward(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "read body", http.StatusBadRequest)
 		return
 	}
-	got := s.take()
+	got := s.take(r.URL.Path)
 	if got != nil && got.Mode == modeRateLimit {
 		s.writeRateLimit(w, got)
+		return
+	}
+	if got != nil && got.Mode == modeHTTPError {
+		s.writeHTTPError(w, r.URL.Path, got)
 		return
 	}
 	if got != nil && got.Mode == modeClampTokens {
@@ -34,7 +39,28 @@ func (s *server) forward(w http.ResponseWriter, r *http.Request) {
 	s.pipe(w, r, body)
 }
 
-// writeRateLimit —— 唯一伪造响应的地方。形状照真 provider:429 + `Retry-After` 秒数 +
+// writeHTTPError —— 让**这一条路径**回一个失败状态,其余照常转发。
+//
+// 体是一个朴素的 JSON,不冒充任何一家上游的错误形状:这个 mode 的被测对象是**调用方的界面**
+// (「一块加载不出来时它说什么」),而不是解析上游错误体的那段代码。冒充一份具体的错误形状
+// 反而会让驱动的人以为验过了那条解析路径。
+func (s *server) writeHTTPError(w http.ResponseWriter, path string, f *fault) {
+	code := f.Status
+	if code <= 0 {
+		code = http.StatusInternalServerError
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"error": map[string]string{
+			"type":    "injected_failure",
+			"message": "injected by fault-proxy",
+		},
+	})
+	s.log.Info("injected http error", "status", code, "path", path)
+}
+
+// writeRateLimit —— 形状照真 provider:429 + `Retry-After` 秒数 +
 // 一个 provider 风格的 JSON 体(有些客户端只读体不读头,两边都给才像真的)。
 func (s *server) writeRateLimit(w http.ResponseWriter, f *fault) {
 	secs := f.RetryAfterSeconds
