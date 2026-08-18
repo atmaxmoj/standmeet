@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
+import { ListPane } from '@/components/admin/ListPane';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConvTranscriptModal } from '@/components/admin/sections/conversations/ConvTranscriptModal';
 import { GhostTelemetryPanel } from '@/components/admin/sections/conversations/GhostTelemetryPanel';
@@ -66,18 +67,17 @@ function FilterChip({ code }: { code: string | undefined }) {
   ) : null;
 }
 
-function isConvLoading(hook: ConversationsHook): boolean {
-  return hook.status === 'idle' || hook.status === 'loading';
-}
-
 function ConvTable({ hook }: { hook: ConversationsHook }) {
-  return isConvLoading(hook)
-    ? <ListSkeleton count={6} />
-    : <ConvTableReady hook={hook} />;
-}
-
-function ConvTableReady({ hook }: { hook: ConversationsHook }) {
-  return hook.rows.length === 0 ? <EmptyState /> : <ReadyTable hook={hook} />;
+  return (
+    <ListPane
+      status={hook.status}
+      count={hook.rows.length}
+      empty={<EmptyState />}
+      skeleton={<ListSkeleton count={6} />}
+    >
+      <ReadyTable hook={hook} />
+    </ListPane>
+  );
 }
 
 const HEAD_KEYS = [

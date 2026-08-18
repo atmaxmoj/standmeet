@@ -59,7 +59,7 @@ function Ready({ hook, tabCounts }: { hook: RawHook; tabCounts: Record<RawFilter
         submitError={hook.submitError}
         onAdd={hook.addRaw}
       />
-      <RawRowList rows={hook.filteredRows} />
+      <RawRowList rows={hook.filteredRows} status={hook.status} />
     </div>
   );
 }

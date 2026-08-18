@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { ListPane } from '@/components/admin/ListPane';
 import {
   useCapabilities, dependencyHint,
   type CapabilityRow, type CapabilitiesHook,
@@ -44,18 +45,20 @@ function Header() {
   );
 }
 
+// Body —— 这一面板本来就把三种结局分对了（它是产品里少数几个做对的地方之一）。
+// 之所以仍然收进 ListPane：**做对的方式是手写**，而手写的正确性下一次改动没人保得住。
+// 顺序归一处之后，这里只剩「拉的时候显示什么」和「真空了说什么」两句话（F-N-7）。
 function Body({ hook }: { hook: CapabilitiesHook }) {
-  return hook.status === 'idle' || hook.status === 'loading'
-    ? <Msg text="loading…" />
-    : <Loaded hook={hook} />;
-}
-
-function Loaded({ hook }: { hook: CapabilitiesHook }) {
-  return hook.status === 'error'
-    ? <Msg text="couldn’t load capabilities." accent />
-    : hook.rows.length === 0
-      ? <Msg text="no capabilities registered." />
-      : <CapList hook={hook} />;
+  return (
+    <ListPane
+      status={hook.status}
+      count={hook.rows.length}
+      empty={<Msg text="no capabilities registered." />}
+      skeleton={<Msg text="loading…" />}
+    >
+      <CapList hook={hook} />
+    </ListPane>
+  );
 }
 
 function Msg({ text, accent = false }: { text: string; accent?: boolean }) {

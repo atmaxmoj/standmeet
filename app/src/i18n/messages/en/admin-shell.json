@@ -19,6 +19,9 @@
   "constellation": {
     "empty": "no links yet"
   },
+  "listPane": {
+    "loadFailed": "Couldn't load this list — so this is not “none”, it's “unknown”. Reload to try again."
+  },
   "modal": {
     "close": "close ✕"
   },

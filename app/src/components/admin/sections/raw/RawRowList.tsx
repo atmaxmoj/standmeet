@@ -8,6 +8,7 @@ import { useState } from 'react';
 
 import { Chip } from '@/components/admin/atoms/Chip';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
+import { ListPane } from '@/components/admin/ListPane';
 import { CorpusAssetsPanel } from '@/components/admin/sections/corpus/CorpusAssetsPanel';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { HeroFields, PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
@@ -25,15 +26,19 @@ import { stampDay } from '@/lib/ui/format-time';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 import type { RawAdminView } from '@/lib/api/admin';
+import type { ResourceStatus } from '@/lib/state/status';
 
-type Props = { rows: readonly RawAdminView[] };
+// status —— 这一列的三种结局要分得开（F-N-7）。以前只有 `rows.length === 0 ? 空态 : 列表`，
+// 于是 `/admin/raw` 的 GET 挂掉时页面会说「还没有 raw 条目，从 MCP 客户端推一条」——
+// 一句 owner 会照做的话，而真相是没拉到。
+type Props = { rows: readonly RawAdminView[]; status: ResourceStatus };
 
-export function RawRowList({ rows }: Props) {
+export function RawRowList({ rows, status }: Props) {
   const actions = useCorpusActions();
   const [view, setView] = useCorpusView('raw');
   useEffectErrorToast(actions.error);
-  return rows.length === 0 ? <EmptyState /> : (
-    <>
+  return (
+    <ListPane status={status} count={rows.length} empty={<EmptyState />}>
       <div className="flex justify-end mb-4">
         <CorpusViewToggle view={view} onChange={setView} />
       </div>
@@ -45,7 +50,7 @@ export function RawRowList({ rows }: Props) {
           <RawRow row={row} actions={actions} hasChildren={hasChildren} />
         )}
       />
-    </>
+    </ListPane>
   );
 }
 

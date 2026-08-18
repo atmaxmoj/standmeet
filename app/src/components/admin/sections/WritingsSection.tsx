@@ -14,7 +14,7 @@ import { useCorpusView } from '@/lib/admin/corpus-view';
 import { pickExcerpt } from '@/lib/admin/corpus-tree';
 import { EditorSideRail } from '@/components/admin/sections/writings/EditorSideRail';
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { ListPane } from '@/components/admin/ListPane';
 import { ObsidianBar } from '@/components/admin/sections/writings/ObsidianBar';
 import {
   WritingForm, EMPTY_VALUES,
@@ -108,16 +108,11 @@ function InlineEditor({ writing, hook, onClose }: {
 }
 
 function WritingsListBody({ hook, onEdit }: { hook: WritingsHook; onEdit: EditFn }) {
-  const loading = hook.status === 'idle' || hook.status === 'loading';
-  return loading
-    ? <CardGridSkeleton />
-    : <WritingsListReady hook={hook} onEdit={onEdit} />;
-}
-
-function WritingsListReady({ hook, onEdit }: { hook: WritingsHook; onEdit: EditFn }) {
-  return hook.writings.length === 0
-    ? <EmptyState />
-    : <WritingList hook={hook} onEdit={onEdit} />;
+  return (
+    <ListPane status={hook.status} count={hook.writings.length} empty={<EmptyState />}>
+      <WritingList hook={hook} onEdit={onEdit} />
+    </ListPane>
+  );
 }
 
 function EmptyState() {

@@ -13,6 +13,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { ListPane } from '@/components/admin/ListPane';
 import { useMCPServers, type CreateMCPServerInput, type MCPProbe, type MCPServersHook, type MCPServerView } from '@/lib/admin/use-mcp-servers';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -35,7 +36,9 @@ export function MCPServersPanel() {
       <span className="ch-tl" /><span className="ch-br" />
       <Head count={hook.servers.length} />
       <Intro />
-      <ServerList servers={hook.servers} onRemove={removeWithToast} onCheck={hook.check} />
+      <ListPane status={hook.status} count={hook.servers.length} empty={<ServerListEmpty />}>
+        <ServerList servers={hook.servers} onRemove={removeWithToast} onCheck={hook.check} />
+      </ListPane>
       <AddForm hook={hook} />
     </section>
   );
@@ -66,15 +69,13 @@ function ServerList({
   onRemove: (id: string) => Promise<void>;
   onCheck: (id: string) => Promise<MCPProbe>;
 }) {
-  return servers.length === 0
-    ? <ServerListEmpty />
-    : (
-      <ul className="space-y-2 mb-5" data-testid="mcp-servers-list">
-        {servers.map((s) => (
-          <ServerRow key={s.id} server={s} onRemove={onRemove} onCheck={onCheck} />
-        ))}
-      </ul>
-    );
+  return (
+    <ul className="space-y-2 mb-5" data-testid="mcp-servers-list">
+      {servers.map((s) => (
+        <ServerRow key={s.id} server={s} onRemove={onRemove} onCheck={onCheck} />
+      ))}
+    </ul>
+  );
 }
 
 function ServerListEmpty() {

@@ -20,7 +20,7 @@ import { useTranslations } from 'next-intl';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { ListPane } from '@/components/admin/ListPane';
 import { MarketplaceTab } from '@/components/admin/sections/agent-skills/MarketplaceTab';
 import { SkillsTabs, type SkillsTab } from '@/components/admin/sections/skills/SkillsTabs';
 import { useAgentSkills } from '@/lib/admin/use-agent-skills';
@@ -88,22 +88,23 @@ function titleCount(hook: SkillsHook): string {
 // ─── my skills：这份 registry 的 CRUD 列表 ─────────────────────
 
 function PersonaSkillsBlock({ hook }: { hook: SkillsHook }) {
-  const loading = hook.status === 'idle' || hook.status === 'loading';
-  return loading ? <CardGridSkeleton /> : <PersonaList hook={hook} />;
+  return (
+    <ListPane status={hook.status} count={hook.skills.length} empty={<SkillsEmpty />}>
+      <PersonaList hook={hook} />
+    </ListPane>
+  );
 }
 
 function PersonaList({ hook }: { hook: SkillsHook }) {
-  return hook.skills.length === 0
-    ? <SkillsEmpty />
-    : (
-      <ul className="flex flex-col gap-4" data-testid="skill-list">
-        {hook.skills.map((s) => (
-          <li key={s.id} data-testid={`skill-row-${s.name}`}>
-            <SkillCard skill={s} onDelete={hook.deleteSkill} onToggle={hook.toggleSkill} />
-          </li>
-        ))}
-      </ul>
-    );
+  return (
+    <ul className="flex flex-col gap-4" data-testid="skill-list">
+      {hook.skills.map((s) => (
+        <li key={s.id} data-testid={`skill-row-${s.name}`}>
+          <SkillCard skill={s} onDelete={hook.deleteSkill} onToggle={hook.toggleSkill} />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function SkillsEmpty() {

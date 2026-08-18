@@ -31,6 +31,10 @@ const OWNER = {
 
 // LIES —— 每句都是某个 `.catch(() => set<空>())` 会印出来的、owner 会当真的陈述。
 const GRANTS_NOTHING = /role grants nothing/i;
+// F-N-7 的两句。它们跟上面那句是同一族，只是归因换了层：不是 catch 吞掉了错，
+// 而是**渲染这一侧根本没有 error 分支** —— 失败之后列表是空数组，于是直落空态。
+const NO_ROLES_YET = /no roles yet/i;
+const NOTHING_BANNED = /no ips banned/i;
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('admin · a failed load must not render as an authoritative empty', () => {
@@ -45,7 +49,69 @@ test.describe('admin · a failed load must not render as an authoritative empty'
   test('session: a 401 on /me still sends the owner to /login', meUnauthedStillRedirects);
   test('a failed load speaks English, not HTTP', failureSpeaksEnglish);
   test('the shell stops calling itself live while the instance is not answering', liveDotTracksReachability);
+  test('roles: a 500 does not become “no roles yet”', rolesLoadFailure);
+  test('security: a 500 does not become “no IPs banned”', securityLoadFailure);
+  test('a genuinely empty list still shows its empty state', emptyStateStillShows);
 });
+
+// rolesLoadFailure —— F-N-7。**真实环境驱出来的**：prod 上让只有 `/api/admin/roles` 回 500
+// （别的块照常加载），`/admin/roles` 印的是「No roles yet — public is normally seeded on owner
+// claim.」，而那台实例有三个角色。
+//
+// 为什么这一页比别处更要命：它是**权限的总闸**，而空态那句话既是一句关于世界的陈述
+// （「这个实例还没有角色」），又指向一个动作（`+ NEW ROLE`）。owner 会在一份没读到的配置上面
+// 新建，或者据此以为访客现在什么都读不到。
+async function rolesLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
+  // 正则而不是 glob：真实路径是 `/api/admin/roles/`（带尾斜杠），而 glob 里的 `*` 不跨 `/`。
+  // 第一版写成 `**/api/admin/roles*` —— 一发都没拦到，页面照常渲出三张角色卡，
+  // 而断言仍然红（红在「没有失败提示」这句上）。**那种红跟真缺陷长得一模一样**
+  // （[[read-the-failure-before-theorising]]）：是翻失败截图才看出来的。
+  const probe = fail(adminPage, /\/api\/admin\/roles/);
+  await reloadAdminSection(adminPage, 'roles');
+  await expectInjected(probe, 'roles');
+  await expect(
+    adminPage.getByTestId('section-load-failed'),
+    'the owner must be told the role list failed to load',
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    adminPage.getByText(NO_ROLES_YET),
+    'the fetch failed — “no roles yet” is a claim about the world, and this instance has roles',
+  ).toHaveCount(0);
+}
+
+// securityLoadFailure —— 同一族里方向最危险的一句：「No IPs banned. The public surface is open」。
+// 失败时印它，等于在 owner 问「我封了谁」的时候回答「谁也没封，门开着」—— 而真相是没读到。
+async function securityLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
+  const probe = fail(adminPage, /\/api\/admin\/ip-bans/);
+  await reloadAdminSection(adminPage, 'ip-bans');
+  await expectInjected(probe, 'ip-bans');
+  await expect(
+    adminPage.getByTestId('section-load-failed'),
+    'the owner must be told the ban list failed to load',
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    adminPage.getByText(NOTHING_BANNED),
+    'a failed load must not answer “nobody is banned, the surface is open”',
+  ).toHaveCount(0);
+}
+
+// emptyStateStillShows —— **反方向**。没有这条，一个「干脆永不渲染空态」的实现也能让上面两条转绿，
+// 而真正空的实例会盯着一片什么都不说的地方（[[assertion-that-cannot-fail]] 的邻居：
+// 只钉一个方向的守卫，会被最省事的错误实现满足）。
+//
+// 这里不注入故障 —— 拉成功、且真的是空的那一种。这台实例发过码、建过角色，所以要一个
+// **本来就空**的列表：`security` 的封禁表在一台干净实例上就是空的。
+async function emptyStateStillShows({ adminPage }: { adminPage: Page }): Promise<void> {
+  await reloadAdminSection(adminPage, 'ip-bans');
+  await expect(
+    adminPage.getByText(NOTHING_BANNED),
+    'a genuinely empty list must still say so — silence is not an empty state',
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    adminPage.getByTestId('section-load-failed'),
+    'nothing failed here — do not cry load failure on a healthy empty list',
+  ).toHaveCount(0);
+}
 
 // failureSpeaksEnglish —— F-N-5。上面几条守的是「别把失败说成空」，这条守的是**说出来的那句话
 // 本身**：prod 上真把 backend 停掉，`/admin/wiki` 印的是
@@ -131,7 +197,7 @@ async function meUnauthedStillRedirects({ adminPage }: { adminPage: Page }): Pro
 // 在没修的代码上也绿，而绿的原因是**故障根本没注入进去**。owner 遇到的那一幕正是重载
 // （服务器挂了，他刷新一下、或者新开一个标签页）。
 async function meFailureIsNotSignedOut({ adminPage }: { adminPage: Page }): Promise<void> {
-  await fail(adminPage, '**/api/admin/me');
+  fail(adminPage, '**/api/admin/me');
   await reloadAdminSection(adminPage, 'roles');
   // 等**两种结局里先出现的那一个**（登录表单，或者那句话），再判 —— 这样不必睡固定时长，
   // 而且两条断言都还能红。只等那句话的话，缺陷在时失败信息会是"找不到元素"，
@@ -151,18 +217,37 @@ async function meFailureIsNotSignedOut({ adminPage }: { adminPage: Page }): Prom
 }
 
 // fail —— 把某个 admin GET 钉死成 500（真实故障的确定性替身：prod 上它是缺表）。
-async function fail(page: Page, glob: string | RegExp): Promise<void> {
-  await page.route(glob, (route) => route.fulfill({
-    status: 500,
-    contentType: 'application/json',
-    body: JSON.stringify({ error: { message: 'boom' } }),
-  }));
+//
+// 返回一个**命中计数**，调用方要断它 > 0。理由这份文件已经付过一次账（见
+// `dashboardCountLoadFailure` 那段），而我今天又付了一次：`'**/api/admin/roles*'` 里的 `*`
+// 不跨 `/`，真实路径 `/api/admin/roles/` **一发都没拦到**，页面照常渲出三张角色卡 ——
+// 可断言仍然红（红在「没有失败提示」上），跟真缺陷长得一模一样。
+// 先证「这一发真的被钉成 500 了」，那种假红就不可能再发生。
+function fail(page: Page, glob: string | RegExp): { hits: () => number } {
+  let hits = 0;
+  void page.route(glob, (route) => {
+    hits += 1;
+    return route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { message: 'boom' } }),
+    });
+  });
+  return { hits: () => hits };
+}
+
+// expectInjected —— 断言那一发真的被拦到了。
+async function expectInjected(probe: { hits: () => number }, what: string): Promise<void> {
+  await expect.poll(probe.hits, {
+    message: `the ${what} GET must actually be intercepted — otherwise this case asserts nothing`,
+    timeout: 15_000,
+  }).toBeGreaterThan(0);
 }
 
 // corpusLoadFailure —— RED（修复前）：catch 把 loaded 设成 true，granted 留空 → 卡片印出
 // 「(role grants nothing)」。那句话是错的，且错在**让人放心**的方向。
 async function corpusLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
-  await fail(adminPage, '**/api/admin/codes/*/denials');
+  fail(adminPage, '**/api/admin/codes/*/denials');
   await gotoAdminSection(adminPage, 'codes');
   await expect(adminPage.getByTestId('code-list')).toBeVisible({ timeout: 10_000 });
   await expect(
@@ -174,7 +259,7 @@ async function corpusLoadFailure({ adminPage }: { adminPage: Page }): Promise<vo
 // corpusLoadFailureIsVisible —— 光是「不说谎」不够：owner 得知道这里没拉到，否则控制盘上少了
 // 一块而无人察觉。断言的是**好结果**（错误在场），不是「没崩」。
 async function corpusLoadFailureIsVisible({ adminPage }: { adminPage: Page }): Promise<void> {
-  await fail(adminPage, '**/api/admin/codes/*/denials');
+  fail(adminPage, '**/api/admin/codes/*/denials');
   await gotoAdminSection(adminPage, 'codes');
   await expect(adminPage.getByTestId('code-list')).toBeVisible({ timeout: 10_000 });
   await expect(

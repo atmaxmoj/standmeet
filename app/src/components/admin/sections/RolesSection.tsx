@@ -17,8 +17,8 @@ import { RoleDockConfig } from '@/components/admin/sections/roles/RoleDockConfig
 import { RoleProviderConfig } from '@/components/admin/sections/roles/RoleProviderConfig';
 import { RoleGhostConfig } from '@/components/admin/sections/roles/RoleGhostConfig';
 import { RoleWaypointsConfig } from '@/components/admin/sections/roles/RoleWaypointsConfig';
+import { ListPane } from '@/components/admin/ListPane';
 import { SelectField } from '@/components/atoms/SelectField';
-import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import {
   roleUpdatePayload, useRoles, type RolesHook, type RoleView, type WriteRoleInput,
@@ -98,26 +98,30 @@ function Intro() {
   );
 }
 
+// RolesBody —— 三种结局交给 ListPane 排序（F-N-7）。这里原本是
+// `loading ? skeleton : (length === 0 ? 空态 : 列表)` —— 没有 error 分支，于是 500 之后
+// 页面写着「还没有角色」，而实例有三个。
 function RolesBody({ hook }: { hook: RolesHook }) {
-  const loading = hook.status === 'idle' || hook.status === 'loading';
-  return loading ? <CardGridSkeleton /> : <RoleList hook={hook} />;
+  return (
+    <ListPane status={hook.status} count={hook.roles.length} empty={<EmptyRoles />}>
+      <RoleList hook={hook} />
+    </ListPane>
+  );
 }
 
 function RoleList({ hook }: { hook: RolesHook }) {
-  return hook.roles.length === 0
-    ? <EmptyRoles />
-    : (
-      <ul
-        className="grid grid-cols-1 lg:grid-cols-2 gap-3.5"
-        data-testid="role-list"
-      >
-        {hook.roles.map((r) => (
-          <li key={r.id} data-testid={`role-row-${r.name}`}>
-            <RoleCard role={r} onDelete={hook.deleteRole} />
-          </li>
-        ))}
-      </ul>
-    );
+  return (
+    <ul
+      className="grid grid-cols-1 lg:grid-cols-2 gap-3.5"
+      data-testid="role-list"
+    >
+      {hook.roles.map((r) => (
+        <li key={r.id} data-testid={`role-row-${r.name}`}>
+          <RoleCard role={r} onDelete={hook.deleteRole} />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function EmptyRoles() {

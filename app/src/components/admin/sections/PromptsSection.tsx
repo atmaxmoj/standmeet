@@ -9,7 +9,7 @@ import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { ListPane } from '@/components/admin/ListPane';
 import {
   usePrompts, type PromptsHook, type PromptView, type WritePromptInput,
 } from '@/lib/admin/use-prompts';
@@ -66,25 +66,26 @@ function Intro() {
 }
 
 function PromptsBody({ hook }: { hook: PromptsHook }) {
-  const loading = hook.status === 'idle' || hook.status === 'loading';
-  return loading ? <CardGridSkeleton /> : <PromptList hook={hook} />;
+  return (
+    <ListPane status={hook.status} count={hook.prompts.length} empty={<EmptyPrompts />}>
+      <PromptList hook={hook} />
+    </ListPane>
+  );
 }
 
 function PromptList({ hook }: { hook: PromptsHook }) {
-  return hook.prompts.length === 0
-    ? <EmptyPrompts />
-    : (
-      <ul
-        className="grid grid-cols-1 lg:grid-cols-2 gap-3.5"
-        data-testid="prompt-list"
-      >
-        {hook.prompts.map((p) => (
-          <li key={p.id} data-testid={`prompt-row-${p.name}`}>
-            <PromptCard prompt={p} onDelete={hook.deletePrompt} />
-          </li>
-        ))}
-      </ul>
-    );
+  return (
+    <ul
+      className="grid grid-cols-1 lg:grid-cols-2 gap-3.5"
+      data-testid="prompt-list"
+    >
+      {hook.prompts.map((p) => (
+        <li key={p.id} data-testid={`prompt-row-${p.name}`}>
+          <PromptCard prompt={p} onDelete={hook.deletePrompt} />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function EmptyPrompts() {

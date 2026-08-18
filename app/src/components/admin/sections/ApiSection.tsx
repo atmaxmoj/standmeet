@@ -9,6 +9,7 @@
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { ListPane } from '@/components/admin/ListPane';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { NewlyCreatedBanner } from '@/components/admin/sections/api/NewlyCreatedBanner';
 import { NewTokenInline } from '@/components/admin/sections/api/NewTokenInline';
@@ -92,7 +93,9 @@ function TokensBlock({ hook }: { hook: TokensHook }) {
       <AdminSectionHead className="mb-3">{t('keysHeading')}</AdminSectionHead>
       <NewlyCreatedBanner created={bannerView(hook.justCreated)} dismiss={hook.dismissCreated} />
       <NewTokenInline createToken={hook.createToken} error={hook.error} />
-      <TokenList tokens={hook.tokens} deleteToken={hook.deleteToken} />
+      <ListPane status={hook.status} count={hook.tokens.length} empty={<EmptyTokens />}>
+        <TokenList tokens={hook.tokens} deleteToken={hook.deleteToken} />
+      </ListPane>
     </div>
   );
 }
@@ -110,13 +113,11 @@ function bannerView(c: TokensHook['justCreated']):
 function TokenList({
   tokens, deleteToken,
 }: { tokens: readonly TokenItem[]; deleteToken: (id: string) => Promise<void> }) {
-  return tokens.length === 0
-    ? <EmptyTokens />
-    : (
-      <ul className="space-y-3" data-testid="token-list">
-        {tokens.map((t) => <TokenRow key={t.id} token={t} deleteToken={deleteToken} />)}
-      </ul>
-    );
+  return (
+    <ul className="space-y-3" data-testid="token-list">
+      {tokens.map((t) => <TokenRow key={t.id} token={t} deleteToken={deleteToken} />)}
+    </ul>
+  );
 }
 
 function EmptyTokens() {

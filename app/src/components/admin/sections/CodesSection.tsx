@@ -13,7 +13,7 @@ import { CodeCard } from '@/components/admin/sections/codes/CodeCard';
 import { CodeCreateModal } from '@/components/admin/modals/CodeCreateModal';
 import { CodeQRModal } from '@/components/admin/modals/CodeQRModal';
 import { VisitorPreviewModal } from '@/components/admin/modals/VisitorPreviewModal';
-import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { ListPane } from '@/components/admin/ListPane';
 import { useCodeModalState } from '@/lib/admin/use-code-modals';
 import { useCodes, type CodeView, type CodesHook } from '@/lib/admin/use-codes';
 import { useAction } from '@/lib/ui/use-action';
@@ -94,9 +94,8 @@ function CodeListBody({
   openPreview: (c: CodeView) => void;
   revokeCode: (id: string) => Promise<void>;
 }) {
-  return hook.status === 'idle' || hook.status === 'loading'
-    ? <CardGridSkeleton />
-    : (
+  return (
+    <ListPane status={hook.status} count={hook.codes.length} empty={<EmptyState />}>
       <CodeGrid
         codes={hook.codes}
         openEdit={openCreate}
@@ -104,7 +103,8 @@ function CodeListBody({
         openPreview={openPreview}
         revokeCode={revokeCode}
       />
-    );
+    </ListPane>
+  );
 }
 
 function CodeGrid({
@@ -116,23 +116,21 @@ function CodeGrid({
   openPreview: (c: CodeView) => void;
   revokeCode: (id: string) => Promise<void>;
 }) {
-  return codes.length === 0
-    ? <EmptyState />
-    : (
-      <ul className="grid grid-cols-1 xl:grid-cols-2 gap-5" data-testid="code-list">
-        {codes.map((c) => (
-          <li key={c.id} data-testid={`code-row-${c.code}`}>
-            <CodeCard
-              code={c}
-              onEdit={openEdit}
-              onPreview={openPreview}
-              onShowQR={openQR}
-              onRevoke={(x) => void revokeCode(x.id)}
-            />
-          </li>
-        ))}
-      </ul>
-    );
+  return (
+    <ul className="grid grid-cols-1 xl:grid-cols-2 gap-5" data-testid="code-list">
+      {codes.map((c) => (
+        <li key={c.id} data-testid={`code-row-${c.code}`}>
+          <CodeCard
+            code={c}
+            onEdit={openEdit}
+            onPreview={openPreview}
+            onShowQR={openQR}
+            onRevoke={(x) => void revokeCode(x.id)}
+          />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function EmptyState() {

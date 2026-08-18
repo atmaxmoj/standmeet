@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { ListPane } from '@/components/admin/ListPane';
 import { useIPBans, type IPBansHook, type BanView } from '@/lib/admin/use-ip-bans';
 import { useAction } from '@/lib/ui/use-action';
 import { useEffectErrorToast } from '@/lib/ui/toast';
@@ -89,23 +89,27 @@ function Field({
   );
 }
 
+// BansBody —— 这一页的空态是全 admin 里方向最危险的一句：「No IPs banned. The public surface
+// is open」。拉失败时印它，等于在 owner 问「我封了谁」的时候回答「谁也没封，门开着」。
+// 三种结局交给 ListPane 排序（F-N-7）。
 function BansBody({ hook }: { hook: IPBansHook }) {
-  const loading = hook.status === 'idle' || hook.status === 'loading';
-  return loading ? <CardGridSkeleton /> : <BansList hook={hook} />;
+  return (
+    <ListPane status={hook.status} count={hook.bans.length} empty={<EmptyBans />}>
+      <BansList hook={hook} />
+    </ListPane>
+  );
 }
 
 function BansList({ hook }: { hook: IPBansHook }) {
-  return hook.bans.length === 0
-    ? <EmptyBans />
-    : (
-      <ul className="flex flex-col gap-2" data-testid="ip-bans-list">
-        {hook.bans.map((b) => (
-          <li key={b.id} data-testid={`ban-row-${b.ip}`}>
-            <BanRow ban={b} onUnban={hook.unbanIP} />
-          </li>
-        ))}
-      </ul>
-    );
+  return (
+    <ul className="flex flex-col gap-2" data-testid="ip-bans-list">
+      {hook.bans.map((b) => (
+        <li key={b.id} data-testid={`ban-row-${b.ip}`}>
+          <BanRow ban={b} onUnban={hook.unbanIP} />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function EmptyBans() {
