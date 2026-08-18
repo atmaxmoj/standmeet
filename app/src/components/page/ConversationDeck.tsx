@@ -19,6 +19,7 @@ import { useTranslations } from 'next-intl';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
+import { PartialNotice } from '@/components/visitor/PartialNotice';
 import { useThinkingWord } from '@/lib/page/thinking-words';
 import type { Answer, Citation, Dialog, ToolThrobberView } from '@/lib/page/use-chat';
 
@@ -192,19 +193,6 @@ function AnswerParas({ answer }: { answer: Answer }) {
         </div>
       ))}
       <PartialNotice notice={answer.notice} />
-    </div>
-  );
-}
-
-// PartialNotice —— 「这一轮没说完」。跟正文分开渲(F-A-32);两个 chat 面共用同一个 testid,
-// 因为它们该有同样的行为。
-function PartialNotice({ notice }: { notice?: string }) {
-  return notice === undefined || notice === '' ? null : (
-    <div
-      data-testid="answer-partial-notice"
-      className="mono text-[11px] tracking-[0.06em] text-(--color-accent) border-l-2 border-(--color-accent) pl-3 mt-5"
-    >
-      {notice}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import { useTranslations } from 'next-intl';
 import { useThinkingWord } from '@/lib/page/thinking-words';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
+import { PartialNotice } from '@/components/visitor/PartialNotice';
 import { VisitorQuestion } from '@/components/visitor/ComposerAttachments';
 import type { Citation, Dialog, ToolThrobberView } from '@/lib/page/use-chat';
 
@@ -127,19 +128,6 @@ function AnswerView({ answer }: { answer: Dialog['answer'] }) {
       ))}
       <PartialNotice notice={answer.notice} />
       <CitationsList citations={answer.citations} />
-    </div>
-  );
-}
-
-// PartialNotice —— 「这一轮没说完」。跟正文分开渲,因为一段被截断的文字和「它被截断了」
-// 是两件事;混进正文就读成了作者自己那么写的(F-A-32)。
-function PartialNotice({ notice }: { notice?: string }) {
-  return notice === undefined || notice === '' ? null : (
-    <div
-      data-testid="answer-partial-notice"
-      className="mono text-[11px] tracking-[0.06em] text-(--color-accent) border-l-2 border-(--color-accent) pl-3 mt-5"
-    >
-      {notice}
     </div>
   );
 }

@@ -61,8 +61,19 @@ test.describe('F-A-34 · a turn cut short by the output budget says so', () => {
         'the visitor is told the answer stopped early, instead of reading half a clause as finished')
         .toBeVisible({ timeout: 20_000 });
       // 取文本再判：`.not.toContainText` 在元素还没出现时也算通过。
+      //
+      // 判据不是「有没有提示」，是**它跟隔壁那个到头态说同一种话**（UX-84）：
+      // 一次轮次配额到头是 `SESSION FULL`，一次输出预算到头就是 `TURN FULL` —— 同一个词根。
+      // 原来这里断的是 `/cut short/`，那句是我自造的、没设计过的长句，而且多许了一个
+      // 「ask for the rest」（`answer_chars=0` 时根本没有 rest）。
       const said = (await notice.innerText()).toLowerCase();
-      expect(said, '说的是它没说完，而不是报错').toMatch(/cut short/);
+      expect(said, '到头了要跟隔壁的 session full 说同一种话，而不是自造一句')
+        .toMatch(/turn full/);
+      expect(said, '不许许诺一个不存在的「剩下的部分」').not.toMatch(/rest/);
+      // **每种墙写自己的原因**（UX-84）：光断 `turn full` 的话，把它写死成一句常量也能绿，
+      // 而那正是这条缺陷的形状。这里断的是**它说出了是哪一种墙** —— 这一轮撞的是输出预算。
+      expect(said, '要说出撞的是哪一种墙，而不是所有情形共用一句')
+        .toMatch(/output budget/);
 
       // 2) 反向：正常说完的那一轮**不许**挂这个提示 —— 每条都提示等于没提示。
       // 数总数：第一轮那条还在（1），第二轮不许再添一条。

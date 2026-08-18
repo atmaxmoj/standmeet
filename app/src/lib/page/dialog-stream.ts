@@ -96,9 +96,15 @@ export interface DialogAccumulator {
   // ghostReceived —— 这一 turn 是否收到过 `ghost_received` 帧。F-A-9:policy 沉默(没帧)的 turn
   // 收尾时要**清掉**上一条 ghost,否则输入框会一直挂着已访问 waypoint 的陈旧 ghost。
   ghostReceived: boolean;
-  // truncated —— 这一轮是**输出预算用完**才停的(done 帧的 stop_reason=max_tokens),不是说完了。
-  // 它不是错误:流正常关闭,正文只是停在半句上。不标出来的话,半句话就冒充了完整答案(F-A-34)。
-  truncated: boolean;
+  // stopReason —— 这一轮**为什么**停（done 帧原样带来的那个值）。
+  //
+  // 存的是原值而不是一个 `truncated: boolean`（UX-84）：布尔只能回答「是不是没说完」，
+  // 而访客要知道的是**哪一种墙** —— 输出预算用完和一路调工具调到墙，对他意味着不同的下一步。
+  // 收窄成布尔的那一刻，「每种撞墙写自己的原因」这件事就已经做不到了
+  // （同 [[empty-is-not-json-null]]：把区别抹平在入口，下游再想分就没有依据）。
+  //
+  // `end_turn` = 正常说完；其余值查 STOP_NOTICE，查不到就不显示提示。
+  stopReason: string;
   // claimUnbacked —— 这一轮的答案说它办成了一件事，而本轮**没有那件事的回执**（done 帧的
   // stop_reason=claim_unbacked）。判定在后端，因为只有它知道这一轮调过哪些工具、回执成没成。
   claimUnbacked: boolean;
@@ -108,7 +114,7 @@ export function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedIDs: new Set(),
     currentTool: null, toolSeq: 0, toolCalls: [], retrying: false, errorMsg: '',
-    ghostReceived: false, truncated: false, claimUnbacked: false,
+    ghostReceived: false, stopReason: 'end_turn', claimUnbacked: false,
   };
 }
 
@@ -165,10 +171,11 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
     return;
   }
   if (ev.type === 'turn_finished') {
-    // 一次生成的三种收场里，只有 max_tokens 意味着「话没说完」。这个值一路从 provider 经
-    // 后端 sink.Done 传到浏览器，**以前在 SSE 解析完就被扔了** —— 于是没人知道这一段是
-    // 收尾了还是被截断。
-    accum.truncated = ev.stopReason === 'max_tokens';
+    // 收场原因**原样留下**。这个值一路从 provider 经后端 sink.Done 传到浏览器，
+    // 以前在 SSE 解析完就被扔了 —— 于是没人知道这一段是收尾了还是被截断（F-A-34）；
+    // 后来我把它收成一个 `truncated` 布尔，那又把「哪一种墙」抹掉了（UX-84）。
+    // 存原值，由 STOP_NOTICE 决定说什么。
+    accum.stopReason = ev.stopReason;
     // claim_unbacked 不是模型给的收场，是**产品判的**：这一轮说它办成了一件事，而本轮没有
     // 那件事的回执（F-A-37）。
     accum.claimUnbacked = ev.stopReason === 'claim_unbacked';
@@ -245,10 +252,34 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
 // F-A-32:以前这里是「有 errorMsg 就整段换成那句话」,于是一次跑了 47 次读、攒了 43 条引用
 // 的turn 一旦没收尾,访客眼前的东西会**全部消失**,只剩一句「连接断了」。反过来同样糟:什么都
 // 不说的话,半截的计划旁白就冒充成了答案。两样都留才对。
-// TRUNCATED_NOTICE —— 输出预算用完时挂在答案下面的那句话。说两件事：**它没说完**，
-// 以及**下一步做什么**。走的是 F-A-32 建的同一个 notice 槽（残缺正文 + 引用 + 一句人话
-// 都留着），因为这两种情形对访客是同一件事：眼前这段不是完整的答案。
-const TRUNCATED_NOTICE = 'this answer was cut short — ask for the rest, or narrow the question';
+// TRUNCATED_NOTICE —— 输出预算用完时挂在答案下面的那句话。
+//
+// **这句话的措辞和形状不是这里发明的**（UX-84）：它跟「这场问完了」是同一类事情 ——
+// 一次配额到头，产品停下来告诉访客。50/50 之后那一侧说的是 `session full`
+// （`ChatRoom.tsx` 的 `ComposerAction`，朱红等宽小写），所以这一侧说 `turn full`，
+// 同一个词根、同一套字。**一件事一种说法**：我原来在这里自造了一句
+// 「this answer was cut short — ask for the rest, or narrow the question」，
+// 那既没设计过，还多许了一个「rest」——`answer_chars=0` 的时候根本没有 rest。
+//
+// 走的是 F-A-32 建的同一个 notice 槽（残缺正文 + 引用 + 一句人话都留着）。
+// STOP_NOTICE —— **每一种撞墙自己写自己的原因**（UX-84）。
+//
+// 不写死一句：撞墙不止一种，而「为什么停」正是访客唯一想知道的事。写死一句的话，
+// 下一种停法出现时只会沿用上一种的说法 —— 那正是这条缺陷的来历（我原来给
+// `stop_reason=max_tokens` 写了一句「ask for the rest」，而 `answer_chars=0` 时没有 rest）。
+//
+// 词根跟隔壁那个到头态对齐（`ChatRoom.tsx` 的 `SESSION FULL`）：一次配额到头就是
+// `… FULL`，其余各说各的。后端加一种停法 → 这里加一行；**没登记的停法不显示提示**
+// （宁可不说，也不要拿别人的理由顶上）。
+//
+// 后端那侧的对应物是 `normalizedStop`（proxy_wire.go）：产品自己判出来的原样透传，
+// 上游的走归一化。两边加的是同一件事的两半。
+const STOP_NOTICE: Readonly<Record<string, string>> = {
+  // 模型的输出预算用完 —— 跟「这场问完了」同一类，一次配额到头。
+  max_tokens: 'turn full · output budget',
+  // 一直在调工具、到墙为止（F-A-35 的第一个现场：`stop=tool_use, answer_chars=0`）。
+  tool_use: 'turn full · spent on lookups',
+};
 
 // UNBACKED_CLAIM_NOTICE —— 上面那段话说它替你办成了一件事，而这一轮**没有那件事的回执**
 // （F-A-37：真实环境里 "Booked. ✅ … Invite went to …" 那一轮一个工具都没调，日历上什么都
@@ -279,8 +310,7 @@ function answerFor(accum: DialogAccumulator): Answer {
 // 一段没说完的话让人再问一次，一句没发生的承诺让人白等一场会。
 function noticeFor(accum: DialogAccumulator): string {
   if (accum.claimUnbacked) return UNBACKED_CLAIM_NOTICE;
-  if (accum.truncated) return TRUNCATED_NOTICE;
-  return '';
+  return STOP_NOTICE[accum.stopReason] ?? '';
 }
 
 export function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {
