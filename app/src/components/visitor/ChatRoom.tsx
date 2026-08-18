@@ -230,8 +230,12 @@ function ComposerForm(p: ComposerProps) {
   return (
     <form onSubmit={(e) => { e.preventDefault(); submit(); }} data-testid="chat-input">
       <AttachmentChips attachments={att.attachments} onRemove={att.remove} />
-      <div className="flex items-end gap-4 py-3 border-t border-b border-(--color-ink) relative">
-        <span className="text-(--color-accent) font-serif shrink-0 text-[26px] leading-none pb-1">›</span>
+      {/* 两端各归各位（UX-85）：`›` 标的是「这里开始写」，属于**第一行**；`ASK` 是「写完了按这个」，
+          属于**最后一行**。所以行盒子顶对齐（管住 caret），ASK 自己 `self-end` 沉到底。
+          原来整行是 `items-end`，于是文字一换行，caret 也被拖到了末尾。
+          行高只有一行时两种对齐看不出差别 —— 这个错要等到有人写长句才现形。 */}
+      <div className="flex items-start gap-4 py-3 border-t border-b border-(--color-ink) relative">
+        <span className="text-(--color-accent) font-serif shrink-0 text-[26px] leading-none pt-1">›</span>
         {/* ghost 在场时由 GhostText 撑出这一格的高度(它会换行),textarea 浮在它上面;
             访客一打字 pickGhost 就返回 null,textarea 回到常流,由 useAutoGrowTextarea 管高。 */}
         <div className="relative flex-1 min-w-0">
@@ -275,10 +279,10 @@ function isComposerReady(msg: string, pending: boolean, exhausted: boolean): boo
 function ComposerAction({ pending, exhausted }: { pending: boolean; exhausted: boolean }) {
   const t = useTranslations('visitor.chatRoom');
   return exhausted ? (
-    <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) shrink-0 pt-1">{t('sessionFull')}</span>
+    <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) shrink-0 self-end pb-1">{t('sessionFull')}</span>
   ) : (
     <button type="submit" disabled={pending}
-      className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 pt-1">
+      className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 self-end pb-1">
       {t.rich('ask', { big: (c) => <span className="text-[14px]">{c}</span> })}
     </button>
   );
