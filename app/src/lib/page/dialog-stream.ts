@@ -275,10 +275,16 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
 // 后端那侧的对应物是 `normalizedStop`（proxy_wire.go）：产品自己判出来的原样透传，
 // 上游的走归一化。两边加的是同一件事的两半。
 const STOP_NOTICE: Readonly<Record<string, string>> = {
-  // 模型的输出预算用完 —— 跟「这场问完了」同一类，一次配额到头。
+  // 模型的输出预算用完，**正文在、只是没说完** —— 跟「这场问完了」同一类，一次配额到头。
   max_tokens: 'turn full · output budget',
-  // 一直在调工具、到墙为止（F-A-35 的第一个现场：`stop=tool_use, answer_chars=0`）。
+  // 一直在调工具、到墙为止，正文在（F-A-35 的第一个现场是它的空答案版本）。
   tool_use: 'turn full · spent on lookups',
+  // **一个字都没答出来，也救不回来**（后端 `doneStop` 判的，F-A-35）。
+  //
+  // 措辞跟上面两条**不同**是有意的：那两条说「没说完」，可以问「剩下的呢」；这一条说
+  // 「什么都没有」，唯一有用的下一步是把问题缩小。以前这一类跟它们共用一句
+  // 「ask for the rest」—— 在没有 rest 的时候许诺了一个 rest。
+  no_answer: 'no answer this turn · try a narrower question',
 };
 
 // UNBACKED_CLAIM_NOTICE —— 上面那段话说它替你办成了一件事，而这一轮**没有那件事的回执**

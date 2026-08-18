@@ -127,6 +127,33 @@ test.describe('F-A-34 · a turn cut short by the output budget says so', () => {
 
       await request.dispose();
     });
+
+  // F-A-35 —— **一个字都没答出来、而且救不回来**那一支。
+  //
+  // 跟上面那条（有证据 → 边界合成出一个答案）的区别只在证据：这里**一次工具都没调**，
+  // `ensureProduct` 里 `len(evidence) == 0` 那条早退直接放行，正文留空。
+  // 以前这一轮跟「说了一半」共用同一句「ask for the rest」—— 而访客手里**一个字都没有**，
+  // 没有 rest 可问。判据是他读到的那句话认得出这两种处境的差别。
+  test('一个字都没答出来、也救不回来:说的是「这一轮没有答案」,不是「去问剩下的」',
+    async ({ page, playwright }) => {
+      const request = await playwright.request.newContext();
+      await enterCodeSession(page, CODE, 'Reader');
+
+      // 空正文 + max_tokens，**且不预约任何工具调用** → 没有证据可合成。
+      const emptyTag = await scriptMockReplyTruncated(request, '');
+      await ask(page, `tell me everything ${emptyTag}`);
+
+      const notice = page.getByTestId('answer-partial-notice');
+      await expect(notice).toBeVisible({ timeout: 20_000 });
+      const said = (await notice.innerText()).toLowerCase();
+      expect(said, '手里一个字都没有的时候，要说的是「这一轮没有答案」')
+        .toMatch(/no answer this turn/);
+      expect(said, '没有 rest 可问，就不许提 rest').not.toMatch(/rest/);
+      expect(said, '这一类不是「满了」—— 满了意味着有东西装进去了')
+        .not.toMatch(/turn full/);
+
+      await request.dispose();
+    });
 });
 
 async function ask(page: Page, q: string): Promise<void> {

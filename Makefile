@@ -14,6 +14,11 @@
 # 准含 mock-only 代码"约束。
 lint: env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint verify-items
 
+# lint-cached —— 跑 lint，但同一棵树只跑一次（见脚本头部：这是 2026-08-18 效率复盘的产物）。
+# `pre-commit` 走这条；人手动跑 `make lint` 时也该走它。逃生门 FORCE_LINT=1。
+lint-cached:
+	@infra/scripts/lint-if-dirty.sh
+
 env-lint:
 	@LINT_ENV_EXCLUDE="standmeet-client standmeet-server standmeet-e2e" \
 	  infra/scripts/lint-env "$$(pwd)"
@@ -158,6 +163,7 @@ prod-up:
 # `app-build`, reusing the running prod backend/db/etc. Use to ship an app-only fix when a full
 # prod-up (which also rebuilds the backend) is unnecessary or blocked by an unrelated backend WIP.
 prod-app: app-build
+	@infra/scripts/build-cadence.sh prod-app
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml build app
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait app
 	@echo "[prod] app rebuilt (backend reused) — http://localhost:38227"
@@ -173,6 +179,7 @@ prod-app: app-build
 # 镜像建了三次，屏幕上一点没变，binary 里 grep 不到新加的 class。
 # 同一族：`prod-app` 要先 `app-build`（镜像 COPY 的是主机产物）。**产物在哪，就先产在哪。**
 prod-backend:
+	@infra/scripts/build-cadence.sh prod-backend
 	@infra/plugins/provision.sh
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml build backend
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait backend

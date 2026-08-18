@@ -253,7 +253,7 @@ func mapFinishReason(r string) string {
 // normalizedStop —— 发给客户端的收场值。产品自己判出来的那些**原样透传**;其余走上游归一化。
 // 加一种产品判定就要在这儿加一行,否则它会被 mapFinishReason 的 default 静默改写成"说完了"。
 func normalizedStop(r string) string {
-	if r == StopClaimUnbacked {
+	if r == StopClaimUnbacked || r == StopNoAnswer {
 		return r
 	}
 	return mapFinishReason(r)

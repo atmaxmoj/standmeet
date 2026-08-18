@@ -10,5 +10,8 @@ pre-commit:
   commands:
     lint-env:
       run: infra/scripts/lint-env "$(git rev-parse --show-toplevel)"
+    # lint-cached 而不是 lint：同一棵树只跑一次。人在提交前手动跑过一遍 lint 是常态
+    # （要先看绿再提交），而那之后树没变，pre-commit 再跑一遍是纯等待 —— 今晚 11 次提交里
+    # 6 次是这个形状。缓存按内容指纹判，忘不忘记都一样。逃生门：FORCE_LINT=1。
     lint:
-      run: make lint
+      run: make lint-cached

@@ -153,17 +153,38 @@ func ensureProduct(ctx context.Context, em *loopEmit, state *turnState) {
 	state.recovered = true
 }
 
+// StopNoAnswer —— 停止原因：这一轮**一个字都没答出来**，而且救不回来（F-A-35）。
+//
+// 为什么它必须是独立的一种，而不是复用 max_tokens / tool_use：那两个说的是**怎么停的**，
+// 而访客要知道的是**结果是什么**。「说了一半」和「一个字没说」对他意味着不同的下一步 ——
+// 前者可以问「剩下的呢」，后者只能重问一个更小的问题。产品以前对这两种说同一句
+// 「ask for the rest」，于是在没有 rest 的时候许诺了一个 rest。
+const StopNoAnswer = "no_answer"
+
 // doneStop —— 交给访客那一侧的收场词。
 //
-// 救回来之后**不能再说 max_tokens**：浏览器把它渲成「this answer was cut short — ask for
-// the rest」，而现在有答案、也没有「rest」可问了（那句话本身也是 F-A-35 记的那半句错）。
+// 三条分支，各自对应访客手里**不同的东西**：
+//   - 救回来了 → 有一个完整答案 → `end_turn`（不能再说 max_tokens：没有 rest 可问了）
+//   - 没救回来、正文是空的 → **手里什么都没有** → `no_answer`
+//   - 其余 → 原样透传（正文在，只是没说完）
+//
+// 判据落在 `product == ""` 而不是某个具体 stop reason：任何「正常收场却没有产物」的结局
+// 都是同一件事，不该等下一种 finish_reason 出现时再补一遍（[[lesson-not-swept-to-neighbours]]，
+// 跟 ensureProduct 里那个条件同源）。
+//
 // 日志那边照旧记真实的 stop + recovered，两个读者要的东西不一样。
 //
-// **claim gate 的判决压过它**：那一轮说自己办成了一件事而拿不出回执（F-A-37），
-// 这件事跟答案是不是救回来的无关，访客那一侧必须照旧收到 claim_unbacked。
+// **claim gate 的判决压过全部**：那一轮说自己办成了一件事而拿不出回执（F-A-37），
+// 这件事跟答案空不空、是不是救回来的都无关，访客那一侧必须照旧收到 claim_unbacked。
 func doneStop(state *turnState) string {
-	if state.recovered && state.stop != StopClaimUnbacked {
+	if state.stop == StopClaimUnbacked {
+		return state.stop
+	}
+	if state.recovered {
 		return "end_turn"
+	}
+	if state.product == "" {
+		return StopNoAnswer
 	}
 	return state.stop
 }
