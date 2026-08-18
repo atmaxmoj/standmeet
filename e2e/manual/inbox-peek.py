@@ -9,7 +9,11 @@
 这不是「往第三方表单里输密码」，是用已配好的凭据走协议客户端，跟 SMTP 那一半同性质。
 
 用法：
-  python3 e2e/manual/inbox-peek.py "subject substring" [minutes]
+  python3 e2e/manual/inbox-peek.py "subject substring" [last_n] [--body]
+
+--body：把纯文本正文的前 25 行原样打出来。加它是因为**不是每封信里的东西都长得像链接或访问码**——
+恢复短语是一串词，两条既有的正则都匹配不到，于是「信到了」看得见、「信里写了什么」看不见。
+判据要读的是内容时，只印链接等于没读（同 [[receipt-check-belongs-next-to-the-action]]）。
 """
 import email
 import imaplib
@@ -21,8 +25,11 @@ from email.header import decode_header, make_header
 HOST = "imap.gmail.com"
 USER = os.environ.get("GMAIL_SMTP_USER", "")
 PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
-NEEDLE = sys.argv[1] if len(sys.argv) > 1 else ""
-LAST_N = int(sys.argv[2]) if len(sys.argv) > 2 else 8
+ARGS = [a for a in sys.argv[1:] if a != "--body"]
+SHOW_BODY = "--body" in sys.argv
+NEEDLE = ARGS[0] if ARGS else ""
+LAST_N = int(ARGS[1]) if len(ARGS) > 1 else 8
+BODY_LINES = 25
 
 
 def body_text(msg):
@@ -62,6 +69,10 @@ def main():
             print(f"    link: {url}")
         for code in dict.fromkeys(re.findall(r"\b[A-Z][A-Z0-9]{2,11}-[A-Z0-9]{3,6}\b", text)):
             print(f"    code: {code}")
+        if SHOW_BODY:
+            plain = re.sub(r"<[^>]+>", " ", text)
+            for line in [ln.strip() for ln in plain.splitlines() if ln.strip()][:BODY_LINES]:
+                print(f"    | {line}")
     print(f"inbox-peek: {hits} message(s) matching {NEEDLE!r} in the last {LAST_N}")
     box.logout()
     return 0
