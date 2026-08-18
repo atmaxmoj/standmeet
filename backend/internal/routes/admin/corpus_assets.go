@@ -79,11 +79,42 @@ func readAssetRequest(w http.ResponseWriter, r *http.Request) (assetRequest, err
 	if perr != nil {
 		return assetRequest{}, perr
 	}
-	args, aerr := corpusEntryArgs(r)
+	args, aerr := uploadArgs(r, upload.Kind)
 	if aerr != nil {
 		return assetRequest{}, aerr
 	}
 	return assetRequest{Args: args, Upload: upload}, nil
+}
+
+// uploadArgs —— 这次上传的 op 入参：路径上的 genre + id，外加表单里选的类别。
+func uploadArgs(r *http.Request, kind string) (json.RawMessage, error) {
+	args, err := corpusEntryArgs(r)
+	if err != nil {
+		return nil, err
+	}
+	return argsWithKind(args, kind)
+}
+
+// argsWithKind —— 把表单里选的类别并进 op 的入参。
+//
+// 这一步以前不存在（F-L-48）：`kind` 从 multipart 里读进 `assetUpload.Kind`，然后**没有
+// 任何人读那个字段** —— `corpusEntryArgs` 只从路径拼 genre + id。于是面板上传的每一份文件
+// 到 op 那儿 kind 都是空的，媒体守卫按默认的 image 白名单查，PDF 一律被拒
+// （*"content-type application/pdf is not accepted for image"*）。屏幕上那个 attachment
+// 选项因此是个装饰：owner 在面板上永远挂不上一份 PDF，而 attachment 这个类别就是为它存在的。
+//
+// e2e 没抓到，是因为面板那几条用例**从没碰过那个下拉框**，一直用默认类别传图；MCP 那条路
+// 自己在 JSON 里带 kind，所以那一侧一直是对的（[[test-covers-capability-not-face]]）。
+func argsWithKind(args json.RawMessage, kind string) (json.RawMessage, error) {
+	if kind == "" {
+		return args, nil
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(args, &fields); err != nil {
+		return nil, dispatcher.BadInput("invalid request")
+	}
+	fields["kind"] = quoteJSON(kind)
+	return marshalArgs(fields)
 }
 
 func (h *Handlers) runAssetUpload(

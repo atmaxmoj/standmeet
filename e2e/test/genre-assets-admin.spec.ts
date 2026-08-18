@@ -30,6 +30,13 @@ const PNG_BYTES = Buffer.from(
   'base64',
 );
 
+// PDF_BYTES —— 一份最小的**真** PDF（`%PDF-` 签名 + trailer）。同 PNG_BYTES 的道理：
+// 后端按字节签名核对声明的类型，一个叫 .pdf 的空文件会被正确地拒掉。
+const PDF_BYTES = Buffer.from(
+  '%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n',
+  'latin1',
+);
+
 test.describe('owner 在面板上挂文件', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -75,6 +82,36 @@ test.describe('owner 在面板上挂文件', () => {
     await expect(page.getByTestId(`${prefix}-body`))
       .toHaveValue(new RegExp(`standmeet-asset:${assetID}`), { timeout: 15_000 });
     await expect(page.getByTestId(new RegExp(`^${prefix}-asset-row-`))).toHaveCount(1);
+  });
+
+  // 类别选择框必须**真的管用**（F-L-48）。
+  //
+  // 面板给了 image / attachment 两个类别，而 PDF 只有 attachment 收（媒体守卫按 kind 分白名单）。
+  // 在这条用例之前，这一段的每条用例都用默认类别传图 —— **从没有人碰过那个下拉框**，
+  // 于是「选了 attachment」这件事有没有效果，从来没被问过。真环境上一问就露：
+  // 下拉框显示 attachment，请求里 kind 是空的，后端回 *"content-type application/pdf is not
+  // accepted for image"*。owner 在面板上永远挂不上一份 PDF —— 而 attachment 这个类别
+  // 就是为它存在的（[[test-covers-capability-not-face]]：MCP 那条路传 kind 正常，所以全绿）。
+  test('选 attachment 类别 → PDF 挂得上（那个下拉框不是装饰）', async ({ adminPage: page }) => {
+    await gotoAdminSection(page, 'wiki');
+
+    const id = await createWikiEntry(page, 'Panel attach a PDF');
+    const prefix = `wiki-edit-form-${id}`;
+    await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId(`${prefix}-asset-kind`).selectOption('attachment');
+    await page.getByTestId(`${prefix}-asset-input`).setInputFiles({
+      name: 'panel-doc.pdf', mimeType: 'application/pdf', buffer: PDF_BYTES,
+    });
+
+    // 判据是**那一行出现了**，不是「没报错」：被拒的话行根本不会有。
+    const row = page.getByTestId(new RegExp(`^${prefix}-asset-row-`));
+    await expect(row, 'attachment 类别选了就得算数 —— 否则 PDF 会被当成图片拒掉')
+      .toHaveCount(1, { timeout: 15_000 });
+    await expect(row).toContainText('panel-doc.pdf');
+    await expect(row).toContainText(`${String(PDF_BYTES.length)} B`);
+    // 存的也得是 attachment：当成 image 存下来的话，阅读页会去渲染它而不是给一个下载入口。
+    await expect(row).toContainText('attachment');
   });
 
   test('撤下来:行没了,素材区回到"一个都没有"', async ({ adminPage: page }) => {
