@@ -1,0 +1,67 @@
+{
+  "_comment": "Sandboxed MCP plugins declared at DEPLOY time (origin=managed). This is the product's real path for a self-hoster: STANDMEET_PLUGINS points the backend at a manifest, and the plugin dirs are mounted read-only. It is the same kind of knob as INSTANCE_SECRET — deployment config, not an owner-facing install. (The marketplace installs skills, not sandbox_stdio plugins.) Used by the real-env audit to drive the sandbox item's checks 1 and 3 on the prod stack, where the isolation mechanism differs from dev's.",
+  "_why_three": "Three declarations of the SAME two real servers, differing only in the sandbox dimension under test — so a difference in outcome can only come from the dimension, not from the server. netfetch/cagedfetch: identical fetch server, opposite egress policy. wsfs: the filesystem server with a per-session workspace bound at /workspace.",
+  "plugins": [
+    {
+      "id": "netfetch",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "python",
+        "args": [
+          "-m",
+          "mcp_server_fetch",
+          "--ignore-robots-txt"
+        ],
+        "env": {
+          "PYTHONPATH": "/plugin/pkg"
+        },
+        "sandbox": {
+          "plugin_dir": "/srv/plugins/fetch",
+          "allow_net": true
+        }
+      }
+    },
+    {
+      "id": "cagedfetch",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "python",
+        "args": [
+          "-m",
+          "mcp_server_fetch",
+          "--ignore-robots-txt"
+        ],
+        "env": {
+          "PYTHONPATH": "/plugin/pkg"
+        },
+        "sandbox": {
+          "plugin_dir": "/srv/plugins/fetch",
+          "allow_net": false
+        }
+      }
+    },
+    {
+      "_comment": "wsfs —— server-filesystem rooted at /workspace with sandbox.workspace=true: exercises the per-session workspace lifecycle (#148). Reuses fsmcp's installed code; the host lazily binds a per-conversation /workspace dir, swept by the backend TTL cron.",
+      "id": "wsfs",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "node",
+        "args": [
+          "/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js",
+          "/workspace"
+        ],
+        "sandbox": {
+          "plugin_dir": "/srv/plugins/fsmcp",
+          "allow_net": false,
+          "workspace": true
+        }
+      }
+    }
+  ]
+}

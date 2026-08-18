@@ -62,6 +62,10 @@ services:
       # at-rest encryption key for connector secrets/tokens (≥32 chars; cryptobox
       # refuses to boot otherwise). Rotate per instance.
       - INSTANCE_SECRET=${INSTANCE_SECRET}
+      # STANDMEET_PLUGINS —— unset means no discovered plugins at all. Pointing it
+      # at the manifest above is what makes the sandbox dimensions (granted egress,
+      # per-session workspace) exist on this deployment.
+      - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
       # true behind https; set false only for a plain-http localhost bring-up.
       - SECURE_COOKIE=${SECURE_COOKIE:-true}
       # "对外是啥地址" 由 owner 在 claim 表单填，写进 owners.public_url；LLM
@@ -124,6 +128,14 @@ services:
     volumes:
       - custom_pages_data:/srv/custom-pages
       - /var/run/docker.sock:/var/run/docker.sock
+      # Sandboxed MCP plugins, declared at deploy time (origin=managed) — the
+      # product's real path for a self-hoster. Same class of knob as
+      # INSTANCE_SECRET: deployment config, not an owner-facing install. The
+      # marketplace installs skills; sandbox_stdio plugins come from here.
+      # Read-only: the sandbox binds the plugin dir into the guest, and nothing
+      # inside it should ever be writable from a visitor's session.
+      - ./infra/prod-plugins.json:/etc/standmeet/plugins.json:ro
+      - ./infra/plugins:/srv/plugins:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
       interval: 5s
