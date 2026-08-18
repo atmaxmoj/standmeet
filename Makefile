@@ -179,6 +179,19 @@ prod-start-svc:
 	@test -n "$(SVC)" || (echo "usage: make prod-start-svc SVC=<service>"; exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml start $(SVC)
 
+# prod-recreate-svc —— 重建一个服务的容器，**不重构建镜像**。
+#
+# 为什么 `prod-start-svc` 不够：`stop` + `start` 重启的是**同一个容器**，它的环境变量是创建时
+# 定死的 —— 改了 `.env` 再 start，进程读到的还是旧值。connector-security check 3
+# （轮换 INSTANCE_SECRET 之后连接器该说什么）要的正是「换个密钥重新起来」，
+# 而 `prod-up` 会把整栈连镜像一起重建。
+#
+#   make prod-recreate-svc SVC=backend
+prod-recreate-svc:
+	@test -n "$(SVC)" || (echo "usage: make prod-recreate-svc SVC=<service>"; exit 2)
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml \
+		up -d --no-deps --force-recreate --wait $(SVC)
+
 # verify-proxy-up —— 起故障注入代理，坐在**真** provider 前面（agent-loop-robustness 的 Real
 # dep 点名要的那件装置）。它在 prod 那张网里，但**不在 prod compose 里**：生产文件不该带一个能
 # 让调用失败的服务。
