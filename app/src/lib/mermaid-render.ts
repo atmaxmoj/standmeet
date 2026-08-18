@@ -43,6 +43,15 @@ export async function renderMermaidSVG(
 				theme: 'base',
 				themeVariables: MERMAID_THEME,
 				fontFamily: 'Newsreader, Georgia, serif',
+				// suppressErrorRendering —— 编译不过的时候**别自己往页面上画**（F-R-8）。
+				//
+				// mermaid 解析失败时会往 document.body 贴一张自己的错误图：`Syntax error in text` +
+				// `mermaid version 11.15.0`。我们这边的闸门（FailedDiagram：访客什么都不显示）挡的
+				// 只是**我们自己**那句话 —— 库那条路径从它旁边走过去，于是 owner 的公开页正文位置上
+				// 用 Newsreader 印着一个 JS 库的版本号（真环境抓到，`sdk-embed/shots/se3-12`）。
+				// 「不出现在访客面前」这条判据要同时管住两条画布，不然闸门只是看着在（
+				// [[gate-after-early-return-is-walkable]]）。
+				suppressErrorRendering: true,
 			});
 			initialized = true;
 		}

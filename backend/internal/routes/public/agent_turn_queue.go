@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
@@ -17,10 +18,14 @@ import (
 
 // dispatchTurn —— after a slot is acquired: resolve cred, preflight quota, assemble tools, run the
 // agent turn (streams SSE). Split out of runAgentTurn to keep both within the route-cyclo budget.
+//
+// slot 把「这一场是谁」和「什么时候把槽还回去」绑在一起 —— 它们是同一件事的两半：
+// 槽是按 session token 拿的,也按它还(参数闸门顺手逼出了这个更准确的形状)。
 func dispatchTurn(
 	h *Handlers, w http.ResponseWriter, r *http.Request,
-	auth authedVisitor, req *inference.AgentTurnRequest,
+	slot turnSlot, req *inference.AgentTurnRequest,
 ) {
+	auth := slot.auth
 	cred, cerr := resolveAgentTurnCred(r, h, auth)
 	if cerr != nil {
 		writeLLMPreStreamErr(h, w, cerr)
@@ -45,7 +50,15 @@ func dispatchTurn(
 		VisitorTimezone:  req.VisitorTimezone,
 		MarkWaypoints:    buildAgentTurnLedger(h, auth),
 		Epilogue:         buildGhostForTurn(h, auth, cred, req.ConversationID),
+		TurnEnded:        slot.release,
 	})
+}
+
+// turnSlot —— 这一轮占着的并发槽:凭谁拿的(auth),以及怎么还(release,幂等)。
+// release 走 `TurnEnded`(done 帧那一刻)而不是 handler 返回,见 AgentTurnInput.TurnEnded。
+type turnSlot struct {
+	release func()
+	auth    authedVisitor
 }
 
 // turnQueueTimeout —— max wait for a global concurrency slot before returning "server busy".
@@ -75,7 +88,11 @@ func acquireTurnSlot(
 	if err := q.Acquire(ctx, sessionID, turnQueueTimeout); err != nil {
 		return nil, err
 	}
-	return func() { q.Release(sessionID) }, nil
+	// 幂等:两处会调它 —— `done` 帧那一刻(正常路径,让 epilogue 不再占着这一场)和 handler
+	// 的 defer(兜底,给根本走不到 done 的路径)。Once 让「调两次」不再是调用方要记住的纪律
+	// ([[structure-means-no-responsibility-class]])。
+	var once sync.Once
+	return func() { once.Do(func() { q.Release(sessionID) }) }, nil
 }
 
 // writeTurnBusyErr —— map the queue's refusal to a user-friendly status (429 own-session busy, 503

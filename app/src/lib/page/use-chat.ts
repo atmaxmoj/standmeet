@@ -77,6 +77,10 @@ export function useChat(deps: Deps): ChatState {
   const sessionRef = useRef<PageSession | null>(null);
   const messageHistRef = useRef<Message[]>([]);
   const counter = useRef(0);
+  // streamOpenRef / queuedRef —— 见下面 ask 的说明（F-A-42）：一轮在飞时按下发送的那一问
+  // 排在这里，连同它已经进了逐字稿的那条 dialog id。
+  const streamOpenRef = useRef(false);
+  const queuedRef = useRef<{ q: string; id: string } | null>(null);
   // 多对话模型:浮窗(有 docContext)用自己那段对话,不蹭主对话。docConvRef 缓存
   // 解析出的 doc conversation_id(首次发问时 lazy POST /conversations);docCtxRef
   // 让 mount effect 不把它进依赖数组(浮窗那段不在 mount 恢复,首次发问才建,开局空)。
@@ -125,12 +129,40 @@ export function useChat(deps: Deps): ChatState {
     return `d${counter.current}`;
   }, []);
 
+  // ask —— 一轮在飞的时候**不再把第二问丢掉**（F-A-42）。
+  //
+  // 以前这里是 `if (q === '' || pending) return` —— 访客按了发送、输入框清空了，然后什么都
+  // 没发生。全局第 10 条说的就是这件事：**接受请求并排队，不要置灰**；「暂时做不了」不该
+  // 变成「你自己记着待会儿再打一遍」。
+  //
+  // 两个「忙」是两件事，所以用两个变量：
+  //   · `pending`（state，驱动界面）= **访客在等答案**，收到 `done` 回执就结束。
+  //   · `streamOpenRef`（ref，管串行）= **这一轮的流还开着**（epilogue 的 ghost 还在路上）。
+  // 前者早、后者晚；输入框看前者，发送时序看后者。混成一个，就是这条缺陷本身。
   const ask = useCallback(async (text: string): Promise<void> => {
     const q = text.trim();
-    if (q === '' || pending) return;
-    await runAsk(q, deps, { sessionRef, docConvRef, histRef: messageHistRef },
-      { setDialogs, setPending, setError, setConvID: setConversationID }, nextID);
-  }, [deps, pending, nextID]);
+    if (q === '') return;
+    if (streamOpenRef.current) {
+      // 排进队，并且**当场进逐字稿**：访客得看见自己那句话还在，而不是凭空消失。
+      const qid = nextID();
+      setDialogs((prev) => [...prev, newPendingDialog(qid, q)]);
+      queuedRef.current = { q, id: qid };
+      return;
+    }
+    let job: { q: string; id: string | null } | null = { q, id: null };
+    while (job !== null) {
+      streamOpenRef.current = true;
+      try {
+        await runAsk(job.q, deps, { sessionRef, docConvRef, histRef: messageHistRef },
+          { setDialogs, setPending, setError, setConvID: setConversationID }, nextID, job.id);
+      } finally {
+        streamOpenRef.current = false;
+      }
+      // 排队的那一问在**流真的关掉之后**才发：`histRef` 要等上一轮的 agent.send 返回才写得对，
+      // 提前发会让第二轮读到缺了上一轮的历史。开锁（凭 done 回执）和发送时序是两回事。
+      job = takeQueued(queuedRef);
+    }
+  }, [deps, nextID]);
 
   const reset = useCallback((): void => {
     setDialogs([]);
@@ -142,6 +174,16 @@ export function useChat(deps: Deps): ChatState {
   }, []);
 
   return { dialogs, pending, error, ask, reset, conversationID };
+}
+
+// takeQueued —— 取走排队的那一问(取完清空)。单独一个函数,而不是在循环里就地取 ——
+// 就地写的话 TS 会把 ref 收窄成 null 之后再也放不开(它看不见 await 之间的外部改写)。
+function takeQueued(
+  ref: React.MutableRefObject<{ q: string; id: string } | null>,
+): { q: string; id: string | null } | null {
+  const next = ref.current;
+  ref.current = null;
+  return next === null ? null : { q: next.q, id: next.id };
 }
 
 // AskRefs / AskSetters —— runAsk 的 ref / setter 打包,避开多参数(eslint
@@ -166,12 +208,17 @@ async function runAsk(
   refs: AskRefs,
   setters: AskSetters,
   nextID: () => string,
+  // queuedID —— 这一问在**排队时**就已经进了逐字稿（F-A-42），复用那条 dialog，
+  // 别再建第二条。null = 正常路径，这里现建。
+  queuedID: string | null,
 ): Promise<void> {
   const { setDialogs, setPending, setError, setConvID } = setters;
-  const id = nextID();
+  const id = queuedID ?? nextID();
   setError(null);
   setPending(true);
-  setDialogs((prev) => [...prev, newPendingDialog(id, q)]);
+  if (queuedID === null) {
+    setDialogs((prev) => [...prev, newPendingDialog(id, q)]);
+  }
   try {
     const sess = await ensureEffectiveSession(
       refs.sessionRef, refs.docConvRef, deps, deps.docContext);
@@ -179,7 +226,9 @@ async function runAsk(
     const byoai = await wrapBYOAIFor(deps, sess);
     const accum = makeAccumulator();
     await runAgentForDialog(sess, byoai, refs.histRef, q,
-      makeObserver(id, accum, setDialogs), deps.docContext);
+      // 收到 `done` 回执就开锁 —— 不等流关掉（F-A-42）。`done` 之后服务端还要跑 epilogue
+      // （ghost 是一次真的 LLM 调用，prod 上 10–26 秒），那段时间跟访客没关系。
+      makeObserver(id, accum, setDialogs, () => { setPending(false); }), deps.docContext);
     finalizeDialog(id, accum, setDialogs);
     // F-A-9: policy 沉默(这轮没出 ghost 帧)→ 清掉上一条 steering ghost,别让已访问 waypoint 的
     // 陈旧 ghost 挂在输入框上。出了新帧(ghostReceived)则 setPolicy 已替换,不清。非 code visitor
@@ -223,15 +272,20 @@ async function wrapBYOAIFor(
   };
 }
 
+// makeObserver —— onReceipt 在 `turn_finished`（`done` 帧）那一刻调一次：这一轮对访客
+// 已经结束。产品自己写着它是唯一可靠的凭据（agent-core `agent-turn.ts:125`），而在
+// F-A-42 之前**没人接**，界面拿流关闭当收场，于是输入框多锁 10–26 秒。
 function makeObserver(
   dialogID: string,
   accum: DialogAccumulator,
   setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>,
+  onReceipt: () => void,
 ): EventObserver {
   return {
     onEvent(ev): void {
       handleAgentEvent(ev, accum);
       setDialogs((prev) => updateDialog(prev, dialogID, accum, true));
+      if (ev.type === 'turn_finished') onReceipt();
     },
   };
 }

@@ -18,6 +18,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
+import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
 import { createCode } from '@/fixtures/codes';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 import { goto } from '@/fixtures/navigate';
@@ -34,6 +35,8 @@ const WRONG_TRIES = 12;
 
 test.describe('gate · a locked visitor is offered the way out the backend already accepts', () => {
   test.beforeAll(async ({ playwright }) => {
+    // 这台没开 captcha 就整组跳过（而不是留一条恒定的红）—— 见 fixtures/captcha.ts。
+    await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {

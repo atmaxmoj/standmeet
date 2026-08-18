@@ -209,7 +209,7 @@ function ChatPanelInput(props: ChatPanelInputProps) {
       <ChatPanelInputField
         props={props} ghost={ghost} placeholder={placeholder}
       />
-      <ChatPanelInputSubmit pending={props.pending} value={props.value} />
+      <ChatPanelInputSubmit value={props.value} />
     </form>
   );
 }
@@ -223,6 +223,9 @@ function ChatPanelInputField({ props, ghost, placeholder }: {
 }) {
   // member 级 turn 预算用尽 → 锁输入(跟主 composer 一致)。多对话下 used 是
   // member 级共享值,所以在浮窗这段烧到上限也会在这儿锁住。
+  //
+  // **只有它锁**：一轮在飞的时候不锁（F-A-42）。访客在等答案时想到下一句就会开始打，
+  // 置灰会把那些字直接吃掉；收下来由 useChat 排队才对（全局第 10 条）。主 composer 同。
   const exhausted = useIsQuotaExhausted();
   return (
     <input
@@ -232,7 +235,7 @@ function ChatPanelInputField({ props, ghost, placeholder }: {
       onChange={(e) => props.onChange(e.target.value)}
       onKeyDown={(e) => dispatchGhostKey(e, ghost, { onAccept: props.onAcceptGhost })}
       placeholder={lockedPlaceholder(exhausted, placeholder)}
-      disabled={props.pending || exhausted}
+      disabled={exhausted}
       data-testid="floating-chat-input"
       className="sm-floating-chat-input"
       autoComplete="off"
@@ -242,11 +245,12 @@ function ChatPanelInputField({ props, ghost, placeholder }: {
   );
 }
 
-function ChatPanelInputSubmit({ pending, value }: { pending: boolean; value: string }) {
+// 只在「没写字」时灰 —— 一轮在飞时按下去会排队，不是失败（F-A-42）。
+function ChatPanelInputSubmit({ value }: { value: string }) {
   return (
     <button
       type="submit"
-      disabled={pending || value.trim() === ''}
+      disabled={value.trim() === ''}
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) bg-transparent"
     >
       ↵
@@ -254,11 +258,14 @@ function ChatPanelInputSubmit({ pending, value }: { pending: boolean; value: str
   );
 }
 
+// pending **不再是投递条件**（F-A-42）：上一轮在飞时投出的那一问由 useChat 排队并当场
+// 进逐字稿。以前这里 `&& !props.pending` 把它静默丢掉 —— 访客按了发送、框清空了，然后
+// 什么都没发生。
 function onSubmit(
   e: React.FormEvent<HTMLFormElement>,
-  props: { value: string; onSubmit: (q: string) => void; pending: boolean },
+  props: { value: string; onSubmit: (q: string) => void },
 ): void {
   e.preventDefault();
   const q = props.value.trim();
-  q !== '' && !props.pending && props.onSubmit(q);
+  q !== '' && props.onSubmit(q);
 }

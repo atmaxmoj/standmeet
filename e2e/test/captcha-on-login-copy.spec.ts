@@ -15,6 +15,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
+import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -30,6 +31,8 @@ test.describe('login · a failed human check must not be reported as a wrong pas
   let request: APIRequestContext;
 
   test.beforeAll(async ({ playwright }) => {
+    // 这台没开 captcha 就整组跳过（而不是留一条恒定的红）—— 见 fixtures/captcha.ts。
+    await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {

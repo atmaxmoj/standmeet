@@ -78,15 +78,23 @@ test.describe('ChatComposer behavior', () => {
         .toBeVisible({ timeout: 15_000 });
     });
 
-  test('pending state → input disabled + submit gray',
+  // ⚠️ 这条以前叫 `pending state → input disabled + submit gray`，断言的是**缺陷本身**
+  // （F-A-42）：一轮在飞就把输入框置灰。真环境量下来，那个「一会儿」是 10–26 秒，而框
+  // 长得完全就绪 —— 访客打进去的字一个都不落地。
+  //
+  // 判据和守卫冲突时，判据赢、守卫跟着改：全局第 10 条写着**接受请求并排队，不要置灰**。
+  // 置灰只留给 `session full`（终局，且 placeholder 会说明），那一支由
+  // `visitor-multi-conversation.spec.ts` 守着。
+  test('一轮在飞的时候，输入框照旧收得下访客的字（不置灰）',
     async ({ page }) => {
       await enterCodeSession(page, CODE);
       const input = page.getByTestId('chat-input-field');
       await input.fill('test pending');
-      // Intercept the response to keep it pending longer
       await input.press('Enter');
-      // During pending, input should be disabled
-      await expect(input).toBeDisabled({ timeout: 3_000 });
+      await expect(input, '上一轮还在答 —— 框仍然可编辑').toBeEditable({ timeout: 3_000 });
+      await input.fill('and the next thing I thought of');
+      await expect(input, '打进去的字留在框里，不是被吃掉')
+        .toHaveValue('and the next thing I thought of');
     });
 });
 

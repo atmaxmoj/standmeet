@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ScriptedTool —— tool call the gateway should emit instead of its default
@@ -55,16 +56,22 @@ type ScriptedToolCall struct {
 // stream closes normally — which is exactly why the product could render half a clause
 // as a finished answer (F-A-34), and why a guard for it needs the mock to be able to
 // produce it.
+// DelayMS —— hold the request this long before answering. A real model takes seconds; the
+// mock answers instantly, so "a turn is in flight" is a window that does not exist in e2e
+// and any guard about it passes on broken code ([[stand-in-is-politer-than-reality]]).
+// F-A-42 needs that window: the composer must accept typing WHILE an answer is being written.
 type ScriptedReply struct {
-	Text string `json:"text"`
-	Key  string `json:"key"`
-	Stop string `json:"stop,omitempty"`
+	Text    string `json:"text"`
+	Key     string `json:"key"`
+	Stop    string `json:"stop,omitempty"`
+	DelayMS int    `json:"delay_ms"`
 }
 
-// scriptedReplyValue —— what the queue stores per key: the text plus how it ends.
+// scriptedReplyValue —— what the queue stores per key: the text, how it ends, how slow it is.
 type scriptedReplyValue struct {
-	text string
-	stop string
+	text    string
+	stop    string
+	delayMS int
 }
 
 // ScriptedGhost —— the GhostPolicy call's JSON body to return, consumed by a
@@ -74,6 +81,13 @@ type scriptedReplyValue struct {
 type ScriptedGhost struct {
 	Body json.RawMessage `json:"body"`
 	Key  string          `json:"key"`
+	// DelayMS —— 服务这次 ghost 调用之前先睡多久。
+	//
+	// 为什么替身需要会慢（F-A-42）：真环境里 epilogue 的 ghost 是一次真的 LLM 调用，实测
+	// 10–26 秒，而 `done` 帧在它**之前**就发了。那段「轮已收场、流还开着」的窗口正是缺陷所在，
+	// 而 mock 答得飞快 → 窗口塌成 0 → 守卫在坏代码上照样绿（[[stand-in-is-politer-than-reality]]）。
+	// 只影响 GhostPolicy 那一次非流式调用，不拖慢答案本身。
+	DelayMS int `json:"delay_ms"`
 }
 
 // ScriptedError —— fail every /v1/messages whose text contains Key with 500,
@@ -92,7 +106,7 @@ type scriptQueue struct {
 	mu      sync.Mutex
 	tools   []*ScriptedTool
 	replies map[string]scriptedReplyValue
-	ghosts  map[string]string
+	ghosts  map[string]scriptedGhostValue
 	fails   map[string]bool
 	// rateLimits —— keyword → `Retry-After` 秒数。注册之后,消息里含该 keyword 的调用回
 	// **429 + Retry-After**,而不是 500。
@@ -114,7 +128,7 @@ type scriptQueue struct {
 func newScriptQueue() *scriptQueue {
 	return &scriptQueue{
 		replies:    map[string]scriptedReplyValue{},
-		ghosts:     map[string]string{},
+		ghosts:     map[string]scriptedGhostValue{},
 		fails:      map[string]bool{},
 		rateLimits: map[string]int{},
 	}
@@ -203,47 +217,76 @@ func (q *scriptQueue) takeToolFor(text string) *ScriptedTool {
 	return nil
 }
 
-func (q *scriptQueue) setReply(key, text, stop string) {
+func (q *scriptQueue) setReply(key, text, stop string, delayMS int) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if stop == "" {
 		stop = stopEndTurn
 	}
-	q.replies[key] = scriptedReplyValue{text: text, stop: stop}
+	q.replies[key] = scriptedReplyValue{text: text, stop: stop, delayMS: delayMS}
 	delete(q.fails, key)
 }
 
-// takeReplyFor —— (text, stop reason, found).
+// takeReplyFor —— (text, stop reason, found)。注册带 delay 就先睡够再回(睡在锁外面)。
 func (q *scriptQueue) takeReplyFor(text string) (string, string, bool) {
+	r, ok := q.popReply(text)
+	if !ok {
+		return "", "", false
+	}
+	if r.delayMS > 0 {
+		time.Sleep(time.Duration(r.delayMS) * time.Millisecond)
+	}
+	return r.text, r.stop, true
+}
+
+func (q *scriptQueue) popReply(text string) (scriptedReplyValue, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for key, r := range q.replies {
 		if strings.Contains(text, key) {
 			delete(q.replies, key)
-			return r.text, r.stop, true
+			return r, true
 		}
 	}
-	return "", "", false
+	return scriptedReplyValue{}, false
 }
 
-func (q *scriptQueue) setGhost(key, body string) {
+// scriptedGhostValue —— 一次 ghost 注册:回什么 + 回之前先慢多久(见 ScriptedGhost.DelayMS)。
+type scriptedGhostValue struct {
+	body    string
+	delayMS int
+}
+
+func (q *scriptQueue) setGhost(key, body string, delayMS int) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.ghosts[key] = body
+	q.ghosts[key] = scriptedGhostValue{body: body, delayMS: delayMS}
 }
 
 // takeGhostFor —— GhostPolicy 调用取脚本化的 body。请求不含任何注册 ghost key →
 // "null"(silence 默认),让不测 steering 的 turn 的 policy 调用不会误发 ghost。
+// 注册带了 delay 就先睡够再回 —— 睡在锁外面,别让一次慢 ghost 卡住整个网关。
 func (q *scriptQueue) takeGhostFor(text string) string {
+	g, ok := q.popGhost(text)
+	if !ok {
+		return "null"
+	}
+	if g.delayMS > 0 {
+		time.Sleep(time.Duration(g.delayMS) * time.Millisecond)
+	}
+	return g.body
+}
+
+func (q *scriptQueue) popGhost(text string) (scriptedGhostValue, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for key, g := range q.ghosts {
 		if strings.Contains(text, key) {
 			delete(q.ghosts, key)
-			return g
+			return g, true
 		}
 	}
-	return "null"
+	return scriptedGhostValue{}, false
 }
 
 func (s *server) serveSetNextGhost(w http.ResponseWriter, r *http.Request) {
@@ -257,7 +300,7 @@ func (s *server) serveSetNextGhost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	s.queue.setGhost(p.Key, string(p.Body))
+	s.queue.setGhost(p.Key, string(p.Body), p.DelayMS)
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 
@@ -328,7 +371,7 @@ func (s *server) serveSetNextReply(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	s.queue.setReply(p.Key, p.Text, p.Stop)
+	s.queue.setReply(p.Key, p.Text, p.Stop, p.DelayMS)
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 

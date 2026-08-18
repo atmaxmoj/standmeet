@@ -173,6 +173,16 @@ async function brokenDiagramStaysHidden(
     answer,
     '也不该以任何形式漏出解析器的措辞',
   ).not.toContainText(/parse error|syntax error|expecting/i);
+
+  // **判据必须是整页，不是那一格**（F-R-8）。上面两条只看 `answer` 里面 —— 而 mermaid
+  // 解析失败时把自己的错误图贴在 `document.body` 上，正好在这个范围之外。真环境抓到的样子：
+  // owner 公开页底部用 Newsreader 印着 `Syntax error in text` + `mermaid version 11.15.0`
+  // （`sdk-embed/shots/se3-12`）。闸门查的范围比缺陷小，就只是看着在
+  // （[[verifier-can-lie-about-its-own-coverage]]）。
+  await expect(
+    page.locator('body'),
+    '库自己也不许往页面上画报错（mermaid 的 suppressErrorRendering）',
+  ).not.toContainText(/syntax error in text|mermaid version/i);
   await ctx.close();
 }
 

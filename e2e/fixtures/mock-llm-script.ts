@@ -91,9 +91,9 @@ export async function scriptMockParallelToolCalls(
  *  katex / mermaid render through ConversationDeck → AnswerParas → ChatMarkdown).
  *  Returns the `[[s:key]]` tag to embed in the turn message. */
 export async function scriptMockReplyText(
-  request: APIRequestContext, text: string,
+  request: APIRequestContext, text: string, opts?: { delayMs?: number },
 ): Promise<string> {
-  return postScript(request, 'next_reply', { text });
+  return postScript(request, 'next_reply', { text, delay_ms: opts?.delayMs ?? 0 });
 }
 
 /** Register a reply that ends because the model's OUTPUT BUDGET ran out — the other
@@ -113,8 +113,11 @@ export async function scriptMockReplyTruncated(
  *  the ghost. Unscripted policy calls default to null (no ghost). */
 export async function scriptMockGhost(
   request: APIRequestContext, ghost: Record<string, unknown> | null,
+  opts?: { delayMs?: number },
 ): Promise<string> {
-  return postScript(request, 'next_ghost', { body: ghost });
+  return postScript(request, 'next_ghost', {
+    body: ghost, delay_ms: opts?.delayMs ?? 0,
+  });
 }
 
 /** Make the mock fail every /v1/messages whose text carries the returned tag with

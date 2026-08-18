@@ -171,7 +171,16 @@ async function* streamMessage(
       history: [],
     }),
   });
-  if (!res.ok || !res.body) throw new Error(`send message: ${res.status}`);
+  // 状态码挂在 error 上，不只是拼进 message（F-O-5）。
+  //
+  // 调用方要**分类**才能说对话：429 是「这一场正忙着」——上一轮还在流，等它完再问；
+  // 其余是别的事。以前这里只 `new Error('send message: 429')`，于是 embed 那侧只有一个
+  // catch，把所有失败塌成一句「没发出去，再试一次」——**发出去了，而且立刻再试只会再被拒**
+  // （[[collapsed-error-class-kills-its-own-branch]]）。
+  // 同一个文件里的 `issueSession` 早就是这么做的；这条只是没跟上。
+  if (!res.ok || !res.body) {
+    throw Object.assign(new Error(`send message: ${res.status}`), { status: res.status });
+  }
   yield* translateAgentSSE(res.body);
 }
 
@@ -198,6 +207,13 @@ async function composeSystem(
 // translateAgentSSE —— agent turn 的 SSE → 这个 SDK 的事件。`text` / `done` / `error` 三种直接
 // 对上；agent 路还会发 `tool_started` / `tool_completed` / `ghost` / `retrying`，**这个最简消费者
 // 先忽略**（embed 只渲文字）。忽略不等于丢：要渲工具卡的宿主该用 agent-core 那条路。
+//
+// **`done` 一到就收工，并且把连接放掉**（F-A-42）。以前这里读到 EOF 才结束 —— 而后端在
+// `done` 之后还要跑 epilogue（ghost 是一次真的 LLM 调用，prod 上实测 10–26 秒），流当然
+// 还开着。于是调用方的 `for await` 一直不返回，widget 的输入框跟着多锁了那么久：
+// **拿流的寿命当轮的寿命**（[[nonunique-signal-not-a-receipt]]）。
+// 这个最简消费者本来就不渲 ghost，替一条它要丢掉的帧握着别人页面上的一条连接毫无道理。
+// 要 ghost / 工具卡的宿主走 agent-core 那条路，那边自己读到流末尾。
 async function* translateAgentSSE(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<SSEEvent, void, unknown> {
@@ -212,7 +228,12 @@ async function* translateAgentSSE(
     buf = parts.at(-1) ?? '';
     for (let i = 0; i < parts.length - 1; i++) {
       const ev = parseFrameToToken(parts[i] ?? '');
-      if (ev !== null) yield ev;
+      if (ev === null) continue;
+      yield ev;
+      if (ev.kind === 'done') {
+        await reader.cancel();
+        return;
+      }
     }
   }
 }

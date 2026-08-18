@@ -41,8 +41,10 @@ func runAgentTurn(
 	if !ok {
 		return
 	}
+	// defer 是**兜底**,不是正常路径:正常路径在 `done` 帧那一刻就放槽(TurnEnded),
+	// 让 epilogue 不再占着这一场。release 幂等,两条路都调是安全的(F-A-42)。
 	defer release()
-	dispatchTurn(h, w, r, auth, req)
+	dispatchTurn(h, w, r, turnSlot{auth: auth, release: release}, req)
 }
 
 // ghostWire —— the `ghost` epilogue payload (SSE data). Owned by the route (the kernel is

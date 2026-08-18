@@ -109,7 +109,17 @@ type AgentTurnInput struct {
 	// BuildGhost —— ghost-steering policy port。done 之后据本轮末条回复出至多一个 steering ghost
 	// (route 闭包:GhostPolicy LLM + 落 conversation_ghosts)。nil = 不出(非 code / 无 waypoints)。
 	Epilogue EpilogueFunc
-	Mode     string
+	// TurnEnded —— 「这一轮对访客已经结束」的回调,在 `done` 帧发出去的同一刻调用(落库之后)。
+	//
+	// route handler 拿它**放掉这一场的并发槽**。以前槽是 `defer release()`,要等 handler 返回 ——
+	// 而 handler 在 done 之后还要跑 epilogue(一次真的 ghost LLM 调用,prod 上实测 10-26 秒)。
+	// 于是访客收到「说完了」的回执之后,这一场在服务端仍然是 busy 的,下一问会被
+	// `query_queue.go` 的每会话单飞闸**立即拒掉**(不排队)——F-A-42 的服务端那一半。
+	//
+	// 语义边界:done = 已提交(落库在这之前),所以这一刻放槽不会让下一轮读到半截历史。
+	// nil = 不放(无队列的调用点)。调用必须幂等 —— route 那侧仍有 defer 兜底。
+	TurnEnded func()
+	Mode      string
 	// CrossConvContext —— 「互通」:该 member 其他对话的 digest。instructionWithCrossConv
 	// 把它拼进 instruction 让 AI 跨对话连贯;route handler 装(读 DB),inference 不碰
 	// DB。空 = 不注入(public / 无 member / 没别的对话)。
@@ -166,6 +176,11 @@ func RunAgentTurn(
 	acc.onDone = func() {
 		persistTurn(ctx, log, in, acc)
 		markWaypointsTurn(ctx, in, acc)
+		// 落库之后、`done` 帧写出去之前放槽：访客收到回执的那一刻，这一场在服务端就
+		// 不再 busy 了。之后的 epilogue 是后台账，不该让下一问撞墙（F-A-42）。
+		if in.TurnEnded != nil {
+			in.TurnEnded()
+		}
 	}
 	DriveAgentLoop(ctx, log, in, iter, acc)
 

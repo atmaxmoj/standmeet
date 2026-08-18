@@ -205,6 +205,8 @@ function ChatComposer({ showStarters, mode, ...rest }: ComposerProps & { showSta
 }
 
 function ComposerForm(p: ComposerProps) {
+  // blocked 只管 ghost：一轮在飞的时候不摆引导（那条引导是上一轮生成的，已经过时）。
+  // **它不再管输入框能不能打字** —— 见下面 disabled（F-A-42）。
   const blocked = p.pending || p.exhausted;
   const ghost = pickGhost({ value: p.input, blocked, ghost: p.ghost });
   // ghost **不进 placeholder**(F-A-25):placeholder 不换行,长一点的引导就在半句话处被裁掉,
@@ -225,7 +227,7 @@ function ComposerForm(p: ComposerProps) {
   // 走同一条;ready 守卫用 && 而非 if(presentation 禁 if)。
   const submit = (): void => {
     const msg = composeMessage(p.input, att.attachments);
-    isComposerReady(msg, p.pending, p.exhausted) && sendComposed(msg);
+    isComposerReady(msg, p.exhausted) && sendComposed(msg);
   };
   return (
     <form onSubmit={(e) => { e.preventDefault(); submit(); }} data-testid="chat-input">
@@ -237,7 +239,11 @@ function ComposerForm(p: ComposerProps) {
       <div className="flex items-start gap-4 py-3 border-t border-b border-(--color-ink) relative">
         <span className="text-(--color-accent) font-serif shrink-0 text-[26px] leading-none pt-1">›</span>
         {/* ghost 在场时由 GhostText 撑出这一格的高度(它会换行),textarea 浮在它上面;
-            访客一打字 pickGhost 就返回 null,textarea 回到常流,由 useAutoGrowTextarea 管高。 */}
+            访客一打字 pickGhost 就返回 null,textarea 回到常流,由 useAutoGrowTextarea 管高。
+            **disabled 只认 exhausted**：那是终局(placeholder 会说 session full)。「上一轮还在答」
+            不是终局 —— 访客在等答案时想到下一个问题是常态，产品必须收下(全局第 10 条：接受请求
+            并排队，不要置灰)。以前是 `disabled={blocked}`，于是一个长得完全就绪的框把打进去的字
+            全吃了，而且一吃就是 10–26 秒(F-A-42)。 */}
         <div className="relative flex-1 min-w-0">
           <textarea
             ref={taRef} rows={1} value={p.input}
@@ -247,7 +253,7 @@ function ComposerForm(p: ComposerProps) {
               ghost, onSubmit: submit, onAccept: p.onAcceptGhost,
             })}
             placeholder={placeholder}
-            disabled={blocked}
+            disabled={p.exhausted}
             className={ghostClass(ghost)}
             autoComplete="off" spellCheck={false} autoFocus
             data-testid="chat-input-field"
@@ -255,7 +261,7 @@ function ComposerForm(p: ComposerProps) {
           />
           <GhostText text={ghost} />
         </div>
-        <ComposerAction pending={p.pending} exhausted={p.exhausted} />
+        <ComposerAction exhausted={p.exhausted} />
       </div>
     </form>
   );
@@ -272,16 +278,20 @@ function ghostClass(ghost: string | null): string {
     : `absolute inset-0 w-full h-full ${composerTypography}`;
 }
 
-function isComposerReady(msg: string, pending: boolean, exhausted: boolean): boolean {
-  return msg.trim() !== '' && !pending && !exhausted;
+// isComposerReady —— 能不能投出去。**pending 不在判据里**（F-A-42）：上一轮在飞时投出的
+// 那一问由 `useChat` 排队并当场进逐字稿，不再被静默丢掉。`exhausted` 仍然挡，因为那是终局。
+function isComposerReady(msg: string, exhausted: boolean): boolean {
+  return msg.trim() !== '' && !exhausted;
 }
 
-function ComposerAction({ pending, exhausted }: { pending: boolean; exhausted: boolean }) {
+function ComposerAction({ exhausted }: { exhausted: boolean }) {
   const t = useTranslations('visitor.chatRoom');
   return exhausted ? (
     <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) shrink-0 self-end pb-1">{t('sessionFull')}</span>
   ) : (
-    <button type="submit" disabled={pending}
+    // 上一轮在飞时**不置灰**：按下去那一问会排队并当场进逐字稿，所以它照旧是「问」
+    // （F-A-42）。置灰只留给 session full 那一支，在上面那个分支里。
+    <button type="submit"
       className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 self-end pb-1">
       {t.rich('ask', { big: (c) => <span className="text-[14px]">{c}</span> })}
     </button>
