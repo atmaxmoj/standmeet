@@ -11,6 +11,11 @@ import { adminAPI } from '@/lib/api/admin';
 const StatusSchema = z.object({
   connected: z.boolean(),
   has_credentials: z.boolean().nullish(),
+  // unreadable / reason —— 这台实例解不开这一行的密文了（换过实例密钥 / 密文被动过）。F-C-41。
+  // 以前这种行让 status 和 list 整个 500，卡片于是渲成「你没连过」+ 一排空框 ——
+  // 一句关于世界的假话，而库里密文和 connected_at 都还在。
+  unreadable: z.boolean().nullish(),
+  reason: z.string().nullish(),
 });
 const FormSchema = z.object({
   auth_type: z.string(),
@@ -37,6 +42,8 @@ export interface ConnectorCardHook {
   connected: boolean;
   /** 后端说这个连接器已经存了凭据。值本身永远不回来 —— 卡片据此说「有」，而不是摆空框。 */
   hasCredentials: boolean;
+  /** 这台实例读不懂这份凭据了（F-C-41）。空串 = 正常。非空 = 要 owner 重新连一次的那句话。 */
+  unreadable: string;
   connecting: boolean;
   error: string;
   setField: (key: string, value: string) => void;
@@ -47,6 +54,36 @@ export interface ConnectorCardHook {
 
 const SESSION_KEY = 'sm_connecting';
 
+// useConnectorStatus —— 一张卡的「状态」那一组：连没连 / 存没存凭据 / 这台实例还读不读得懂。
+//
+// 三个都来自**同一个端点**（`/status`），所以它们一起搬出来 —— 主 hook 到了 70 行的上限，
+// 而闸门指的方向是对的：装配生命周期（填凭据 → connect → dance → disconnect）和
+// 「这张卡现在是什么状态」是两件事。
+function useConnectorStatus(id: string) {
+  const [connected, setConnected] = useState(false);
+  // hasCredentials —— 后端一直在回它（`connector-security` 验过：status 只回
+  // `has_credentials: true`，凭据本身永远不回来）。而这个 hook 以前**取到就扔了**，
+  // 于是卡片只能摆一排空框 —— owner 分不出「已存但隐藏」和「什么都没配」（UX-65）。
+  // 不回值是对的（比打码更强的保密），但那就必须由界面把「有」这件事说出来。
+  const [hasCredentials, setHasCredentials] = useState(false);
+  // unreadable —— 这台实例解不开这份密文了（换过实例密钥 / 密文被动过）。F-C-41。
+  const [unreadable, setUnreadable] = useState('');
+
+  const loadStatus = useCallback(() => {
+    void adminAPI.get(`/connectors/${id}/status`, StatusSchema)
+      .then((s) => {
+        setConnected(s.connected);
+        setHasCredentials(s.has_credentials === true);
+        setUnreadable(s.unreadable === true ? (s.reason ?? '') : '');
+        // 连上了 → 清掉「正在连」标记，免得下次别处的 connect_error 误落到本卡。
+        s.connected && clearConnecting(id);
+      })
+      .catch(() => undefined);
+  }, [id]);
+
+  return { connected, hasCredentials, unreadable, setConnected, loadStatus };
+}
+
 export function useConnectorCard(id: string): ConnectorCardHook {
   const [authType, setAuthType] = useState('');
   const [fields, setFields] = useState<string[]>([]);
@@ -54,29 +91,14 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   // granted —— 这条连接**已经授出去**的范围（勾选框的初值）。
   const [granted, setGranted] = useState<string[]>([]);
   const [schemes, setSchemes] = useState<string[]>([]);
-  const [connected, setConnected] = useState(false);
-  // hasCredentials —— 后端一直在回它（`connector-security` 验过：status 只回
-  // `has_credentials: true`，凭据本身永远不回来）。而这个 hook 以前**取到就扔了**，
-  // 于是卡片只能摆一排空框 —— owner 分不出「已存但隐藏」和「什么都没配」（UX-65）。
-  // 不回值是对的（比打码更强的保密），但那就必须由界面把「有」这件事说出来。
-  const [hasCredentials, setHasCredentials] = useState(false);
+  const status = useConnectorStatus(id);
+  const { connected, hasCredentials, unreadable, setConnected, loadStatus } = status;
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
   const values = useRef<Record<string, string>>({});
   const chosen = useRef<Set<string>>(new Set());
   // pendingSave —— 最近一笔存凭据。Connect 等它（见 saveCreds）；一次都没填过时是已完成的空 promise。
   const pendingSave = useRef<Promise<void>>(Promise.resolve());
-
-  const loadStatus = useCallback(() => {
-    void adminAPI.get(`/connectors/${id}/status`, StatusSchema)
-      .then((s) => {
-        setConnected(s.connected);
-        setHasCredentials(s.has_credentials === true);
-        // 连上了 → 清掉「正在连」标记，免得下次别处的 connect_error 误落到本卡。
-        s.connected && clearConnecting(id);
-      })
-      .catch(() => undefined);
-  }, [id]);
 
   const loadForm = useCallback(() => {
     void adminAPI.get(`/connectors/${id}/credential-form`, FormSchema)
@@ -129,17 +151,18 @@ export function useConnectorCard(id: string): ConnectorCardHook {
       ? () => startDance(id, { setConnecting, setError })
       : () => runNonDanceConnect(id, { setConnecting, setConnected, setError });
     void pendingSave.current.then(go);
-  }, [id, authType]);
+  }, [id, authType, setConnected]);
 
   const disconnect = useCallback(() => {
     void adminAPI.postVoid(`/connectors/${id}/disconnect`, {})
       .then(() => { setConnected(false); setError(''); })
       // 断开失败别静默：否则 owner 以为已断开，卡却还连着，状态与现实不符。
       .catch(() => setError('Couldn’t disconnect — check your connection and retry.'));
-  }, [id]);
+  }, [id, setConnected]);
 
   return {
-    authType, fields, scopes, granted, schemes, connected, hasCredentials, connecting, error,
+    authType, fields, scopes, granted, schemes, connected, hasCredentials, unreadable,
+    connecting, error,
     setField: (k, v) => { values.current[k] = v; saveCreds(); },
     setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); saveCreds(); },
     connect, disconnect,

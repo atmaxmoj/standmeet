@@ -21,6 +21,7 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
     >
       <span className="ch-tl" /><span className="ch-br" />
       <CardHead category={entry.category} connected={hook.connected} connecting={hook.connecting} />
+      <UnreadableNote reason={hook.unreadable} />
       <SchemeSelect schemes={hook.schemes} />
       <Fields hook={hook} />
       <RedirectUri id={entry.id} authType={hook.authType} />
@@ -47,6 +48,26 @@ function CardHead(
         {statusText(connected, connecting)}
       </span>
     </div>
+  );
+}
+
+// UnreadableNote —— 这台实例读不懂这份凭据了（F-C-41）。
+//
+// prod 上真轮换过一次 `INSTANCE_SECRET`：后端正常起来，而这一页把**每一张卡**都渲成
+// `not connected` + 一排空框，屏幕上一个字都没有 —— 一句关于世界的假话（库里密文和
+// `connected_at` 都还在），而且它指向一个动作（重填凭据），于是 owner 会在一份自己
+// 没读到的配置上面动手。
+//
+// 这句话就摆在卡名下面，因为出问题的是**这张卡**（跟 F-C-23 把拒绝贴在出错的框下面同一条规矩）。
+// 措辞不提密钥、不提密文：owner 要做的只是重新连一次。
+function UnreadableNote({ reason }: { reason: string }) {
+  return reason === '' ? null : (
+    <p
+      data-testid="connector-unreadable"
+      className="mb-3 mono text-[11px] text-(--color-accent) reading-tight"
+    >
+      {reason}
+    </p>
   );
 }
 

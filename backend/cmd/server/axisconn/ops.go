@@ -72,20 +72,36 @@ var connectorIDSchema = json.RawMessage(`{
 
 // connectorRowOut —— 一个连接:id / 品类 / kind + 凭据、连上、激活三个状态。
 type connectorRowOut struct {
-	ID             string `json:"id"`
-	Category       string `json:"category"`
-	Kind           string `json:"kind"`
+	ID       string `json:"id"`
+	Category string `json:"category"`
+	Kind     string `json:"kind"`
+	// Reason —— 给 owner 照做的那一句。**不谈密钥、不谈密文**:他要做的只是重新连一次。
+	Reason         string `json:"reason,omitempty"`
 	HasCredentials bool   `json:"has_credentials"`
 	Connected      bool   `json:"connected"`
 	Active         bool   `json:"active"`
+	// Unreadable —— 这台实例解不开这一行的密文了(换过 INSTANCE_SECRET / 密文被动过)。F-C-41。
+	// 以前这种行让整个 list 500,面把它当成「一条都没有」,于是每张卡都写着「你没连过」——
+	// 而库里密文和 connected_at 都还在。现在这一行照常回去,只是带着这句话。
+	Unreadable bool `json:"unreadable,omitempty"`
 }
 
+// unreadableReason —— 这句话同时覆盖两种世界(换了密钥 / 密文被动过),
+// 因为 AES-GCM 的认证失败在密码学上分不出它们。
+const unreadableReason = "This instance can no longer read this connector's " +
+	"saved credentials — reconnect it."
+
 func toConnectorRow(c *connector.Connection) connectorRowOut {
-	return connectorRowOut{
+	row := connectorRowOut{
 		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind,
 		HasCredentials: len(c.Credentials) > 0,
 		Connected:      c.Connected, Active: c.Active,
+		Unreadable: c.Unreadable,
 	}
+	if c.Unreadable {
+		row.Reason = unreadableReason
+	}
+	return row
 }
 
 func toConnectorRows(conns []connector.Connection) []connectorRowOut {

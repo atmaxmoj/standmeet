@@ -160,6 +160,16 @@ prod-app: app-build
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait app
 	@echo "[prod] app rebuilt (backend reused) — http://localhost:38227"
 
+# prod-backend —— 重建 backend 镜像并换上（app 不动）。`prod-app` 的对称物。
+#
+# 为什么单独一条：`prod-app` 只建 app 镜像，`prod-recreate-svc` 只换容器**不建镜像** ——
+# 改了 Go 代码之后用那两条里的任何一条，跑的都还是旧二进制。今天在 F-C-41 的 ⑤ 上
+# 就这么白验了一次：屏幕上一切照旧，我差点以为修的那一刀没生效。
+prod-backend:
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml build backend
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait backend
+	@echo "[prod] backend rebuilt (app reused) — http://localhost:38227"
+
 prod-down:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down
 

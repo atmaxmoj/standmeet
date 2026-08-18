@@ -90,6 +90,31 @@ standmeet/
 
 New work goes in new top-level dirs (names TBD — likely `backend/`, `app/`, `sdk/`, `infra/`).
 
+## Throughput: round trips are the bottleneck
+
+Measured 2026-08-18, from artifact timestamps. One module took 65 minutes and ~100 tool
+round trips. Each round trip costs 20-30 seconds. Build waste was under 5% of the day.
+The cost is the number of round trips. Nothing else.
+
+**Batch browser actions into one call.** Use `browser_run_code_unsafe` with Playwright API
+calls: `page.goto`, `getByTestId().click()`, `mouse.wheel`, `screenshot`. One call can
+navigate, scroll six screens, and save six images. This is not `page.evaluate` DOM digging.
+The actions stay human. The judgement still reads the screenshots.
+
+**Send independent calls together.** Put every call with no dependency on another in the
+same reply. Reading three images is one round trip, not three. The same holds for files,
+logs, and database reads.
+
+**Background every build, test, and lint.** Run it with `nohup ... &`, then keep driving the
+browser. The browser and the shell are two resources. Do not serialize them.
+
+**Collect reds; do not fix mid-drive.** Drive many modules, record every red, then fix the
+whole batch. One guard pass, one lint, one prod verification. Closing one finding takes
+1.5 hours; doing that mid-drive stops the browser for that whole time.
+
+**Self-check:** ten minutes with no screenshot on disk means the driving stopped.
+`find e2e/manual-runs -name '*.png' -newermt '-10 minutes'` answers it.
+
 ## Testing (still important!)
 
 Old wisdom that survives the redesign:

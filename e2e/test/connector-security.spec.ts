@@ -28,7 +28,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { resetInstance, findSetupToken, execSQL } from '@/fixtures/instance';
 import {
   INTERNAL_SERVER_URLS, specWithServerURL, specWithOAuthURLs,
   specConsumeRedirectsInternal, specOAuthDanceRedirectsInternal,
@@ -99,6 +99,13 @@ test.describe('connector · §8 area H security (SSRF / no credential leak / per
 
   test('SSRF · provider redirecting the callback/token exchange to an internal net mid-dance → rejected',
     ({ playwright }) => ssrfOAuthDanceRedirectRejected(playwright));
+
+  // ── 2b. 实例密钥换过之后（check 3 / F-C-41） ──
+  test('rotation · a credential this instance can no longer read asks for a reconnect',
+    ({ playwright }) => unreadableCredentialAsksReconnect(playwright));
+
+  test('rotation · one unreadable connector does not take the whole list down',
+    ({ playwright }) => unreadableCredentialDoesNotSinkTheList(playwright));
 
   // ── 3. per-owner 隔离（v1 单 owner → API 层 owner_id scoping） ──
   test('isolation · an unauthenticated request cannot read an owner-uploaded connector',
@@ -256,6 +263,85 @@ async function secretMaskedInAdminReads(playwright: Playwright): Promise<void> {
   });
   expect(list.status()).toBe(200);
   expect(await list.text(), 'secret not in connectors list').not.toContain(BENIGN_API_KEY_SECRET);
+  await request.dispose();
+}
+
+// ── check 3 / F-C-41 ──────────────────────────────────────────────────────
+//
+// **为什么改字节而不是真换 INSTANCE_SECRET**：AES-GCM 的认证失败，「密钥不对」和「密文被动过」
+// 在密码学上**就是同一件事** —— 产品拿到的是同一个 `cryptobox.ErrTampered`，分不出来，也不该
+// 假装分得出来。所以改一个字节走的正是轮换那条分支。item 自己的 Mock gap 也把这一步定成
+// 「在 harness 里复现：用一个 key 加密、另一个 key 启动」。
+//
+// prod 上真轮换过一次（换 `.env` 的 INSTANCE_SECRET + 重建 backend），看到的就是这一幕：
+// 后端正常起来，`/admin/connectors` 上那张卡写着 `not connected`、凭据框空着、**一句话都没有**，
+// 而库里密文和 `connected_at` 都还在。
+//
+// **判据断的是「owner 收到一句能照做的话」**，不是「没崩」。反方向那条（真的没连过的连接器
+// 仍然只说 not connected、不喊重连）在下面，缺了它，一个「所有连接器都喊重连」的实现也能转绿。
+const RECONNECT_RE = /reconnect|connect it again|no longer read/i;
+
+// corruptStoredCredential —— 把某个连接器存着的密文动一个字节。
+// `execSQL` 存在的理由就是这个：这种前置状态没有任何 API 造得出来，也不该有。
+function corruptStoredCredential(connectorID: string): void {
+  execSQL(
+    `UPDATE owner_connectors
+       SET credentials_enc = overlay(credentials_enc placing '\\x00'::bytea from 1 for 1)
+     WHERE connector_id = '${connectorID}'`,
+  );
+}
+
+async function unreadableCredentialAsksReconnect(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const { csrf } = await login(request, OWNER.email, OWNER.password);
+  const id = await uploadSpec(request, csrf, SPEC_BENIGN_APIKEY);
+  await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
+    headers: { 'X-Csrftoken': csrf }, data: { api_key: BENIGN_API_KEY_SECRET },
+  });
+  // 先证「连上了」—— 否则下面断言的红可能只是因为这个连接器压根没配过（假红）。
+  const before = await request.get(`${BACKEND}/api/admin/connectors/${id}/status`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  expect(before.status(), 'the connector must really be configured first').toBe(200);
+
+  corruptStoredCredential(id);
+
+  const after = await request.get(`${BACKEND}/api/admin/connectors/${id}/status`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  expect(
+    after.status(),
+    'an unreadable credential is a state to explain, not a server error',
+  ).toBe(200);
+  expect(
+    await after.text(),
+    'the owner must be told this instance can no longer read the credential',
+  ).toMatch(RECONNECT_RE);
+  await request.dispose();
+}
+
+// unreadableCredentialDoesNotSinkTheList —— prod 上最刺眼的那一半：**一个**读不懂的连接器
+// 让 `connectors.list` 整个 500，于是**每一张卡**都渲成「没连过」。
+async function unreadableCredentialDoesNotSinkTheList(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const { csrf } = await login(request, OWNER.email, OWNER.password);
+  const broken = await uploadSpec(request, csrf, SPEC_BENIGN_APIKEY);
+  await request.post(`${BACKEND}/api/admin/connectors/${broken}/credentials`, {
+    headers: { 'X-Csrftoken': csrf }, data: { api_key: BENIGN_API_KEY_SECRET },
+  });
+  corruptStoredCredential(broken);
+
+  const list = await request.get(`${BACKEND}/api/admin/connectors`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  expect(
+    list.status(),
+    'one unreadable row must not take the whole connectors surface down',
+  ).toBe(200);
+  expect(
+    await list.text(),
+    'the list must name the unreadable one rather than silently omit it',
+  ).toMatch(RECONNECT_RE);
   await request.dispose();
 }
 

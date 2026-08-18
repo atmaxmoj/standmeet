@@ -16,7 +16,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/db"
-	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -237,104 +236,4 @@ func (r *Repo) CategoryConnected(
 		}
 	}
 	return false, nil
-}
-
-// ─── 加解密 helpers ───
-
-// aad = owner_id: 密文绑到 owner，行被调包到别的 owner 时 decrypt tamper-fail(#AAD debt)。
-func encBytes(b, aad []byte) ([]byte, error) {
-	if len(b) == 0 {
-		return []byte{}, nil
-	}
-	out, err := cryptobox.Encrypt(b, aad)
-	if err != nil {
-		return nil, fmt.Errorf("encrypt: %w", err)
-	}
-	return out, nil
-}
-
-func decBytes(b, aad []byte) ([]byte, error) {
-	if len(b) == 0 {
-		return []byte{}, nil
-	}
-	out, err := cryptobox.Decrypt(b, aad)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt: %w", err)
-	}
-	return out, nil
-}
-
-func encryptToken(access, refresh string, aad []byte) ([]byte, error) {
-	raw, err := json.Marshal(tokenBlob{AccessToken: access, RefreshToken: refresh})
-	if err != nil {
-		return nil, fmt.Errorf("marshal token: %w", err)
-	}
-	return encBytes(raw, aad)
-}
-
-func decodeToken(enc, aad []byte) (tokenBlob, error) {
-	var tb tokenBlob
-	raw, err := decBytes(enc, aad)
-	if err != nil {
-		return tb, err
-	}
-	if len(raw) == 0 {
-		return tb, nil
-	}
-	if uerr := json.Unmarshal(raw, &tb); uerr != nil {
-		return tb, fmt.Errorf("decode token: %w", uerr)
-	}
-	return tb, nil
-}
-
-func decodeScopes(raw []byte) ([]string, error) {
-	if len(raw) == 0 {
-		return []string{}, nil
-	}
-	var scopes []string
-	if err := json.Unmarshal(raw, &scopes); err != nil {
-		return nil, fmt.Errorf("decode scopes: %w", err)
-	}
-	return scopes, nil
-}
-
-func decodeConnectorConn(row *db.OwnerConnector) (Connection, error) {
-	aad := []byte(pgstore.FormatUUID(row.OwnerID))
-	creds, err := decBytes(row.CredentialsEnc, aad)
-	if err != nil {
-		return Connection{}, err
-	}
-	tok, terr := decodeToken(row.TokenEnc, aad)
-	if terr != nil {
-		return Connection{}, terr
-	}
-	scopes, serr := decodeScopes(row.Scopes)
-	if serr != nil {
-		return Connection{}, serr
-	}
-	conn := Connection{
-		ConnectorID: row.ConnectorID, Category: row.Category, Kind: row.Kind,
-		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
-		Credentials: creds, Scopes: scopes,
-		Connected: row.ConnectedAt.Valid, Active: row.Active,
-	}
-	if row.TokenExpiresAt.Valid {
-		t := row.TokenExpiresAt.Time
-		conn.TokenExpiresAt = &t
-	}
-	return conn, nil
-}
-
-func decodeConnectorConns(
-	rows []db.OwnerConnector) ([]Connection, error,
-) {
-	out := make([]Connection, 0, len(rows))
-	for i := range rows {
-		conn, err := decodeConnectorConn(&rows[i])
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, conn)
-	}
-	return out, nil
 }
