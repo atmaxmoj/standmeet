@@ -27,7 +27,6 @@ import { useModelList, type ModelListHook } from '@/lib/inference/use-model-list
 import { postGateHref } from '@/lib/gate/code-panel-logic';
 import { keyStorageAvailable } from '@/lib/gate/key-storage';
 import type { GateHook } from '@/lib/gate/use-gate';
-import { useToast } from '@/lib/ui/toast';
 
 type Props = {
   hook: GateHook;
@@ -46,12 +45,19 @@ function initialForm(): ProviderFormState {
 
 export function BYOAIPanel({ hook }: Props) {
   const router = useRouter();
-  const toast = useToast();
   const [form, setForm] = useState<ProviderFormState>(initialForm);
   const [apiKey, setApiKey] = useState('');
   const [reveal, setReveal] = useState(false);
-  const onToastError = useCallback((m: string) => toast.error(m), [toast]);
-  const models = useModelList(onToastError);
+  // modelError —— `LOAD MODELS` 失败时说的那句话，**留在这一页里**（UX-82）。
+  //
+  // 以前它走 `toast.error`：按的是 BYOAI 面板里的按钮，而
+  // `✗ ERR provider does not expose a model list; type model id manually`
+  // 出现在**视口右下角** —— 视线在按钮上，那儿没人看。而这个产品别处都把拒绝**贴在出错的
+  // 控件下面**（`/gate` 的码错误、connectors 弹窗里那句 SSRF 拒绝就在 URL 框正下方，
+  // 同一文件里 F-G-6 那段注释讲的也是这件事）。这里换了一种规矩，还换成最容易被错过的那种。
+  const [modelError, setModelError] = useState<string | null>(null);
+  const onModelError = useCallback((m: string) => setModelError(m), []);
+  const models = useModelList(onModelError);
   // 挂载后再问浏览器「这里存得住 key 吗」（F-D-14）。SSR 那一帧按正常部署走，
   // 否则每个 https 访客都要先闪一下不该看见的警告。
   const [canStore, setCanStore] = useState(true);
@@ -60,6 +66,8 @@ export function BYOAIPanel({ hook }: Props) {
   const onProvider = useCallback((name: string) => {
     setForm((prev) => switchProvider(prev, name, defaultsFor(name)));
     models.reset();
+    // 换了 provider，上一家的那句拒绝就不再成立 —— 留着它会让人以为新选的这家也不行。
+    setModelError(null);
   }, [models]);
   const onEndpoint = useCallback((v: string) => setForm((p) => setEndpoint(p, v)), []);
   const onModel = useCallback((v: string) => setForm((p) => setModel(p, v)), []);
@@ -79,7 +87,7 @@ export function BYOAIPanel({ hook }: Props) {
           apiKey={apiKey} setApiKey={setApiKey}
           reveal={reveal} setReveal={setReveal}
           onSubmit={onSubmit} busy={hook.byoai.busy} error={hook.byoai.error}
-          models={models} canStore={canStore}
+          models={models} modelError={modelError} canStore={canStore}
         />
       </div>
     </section>
@@ -123,6 +131,8 @@ type FormProps = {
   busy: boolean;
   error: string | null;
   models: ModelListHook;
+  // modelError —— `LOAD MODELS` 的拒绝，贴在那个按钮下面而不是视口角落（UX-82）。
+  modelError: string | null;
   // canStore —— 这个浏览器存不存得住 key（F-D-14）。存不住时整条 BYOAI 路都走不通。
   canStore: boolean;
 };
@@ -143,6 +153,7 @@ function BYOAIForm(p: FormProps) {
         value={p.form.model} onChange={p.onModel}
         models={p.models}
         loadDisabled={p.apiKey.trim() === ''}
+        modelError={p.modelError}
         onLoad={() => void p.models.load({
           provider: p.form.provider, endpoint: p.form.endpoint, key: p.apiKey,
         })}
@@ -274,10 +285,11 @@ const MODEL_INPUT_CLASS =
   'placeholder:text-(--color-faint) text-[14.5px] tracking-[0.02em]';
 
 function ModelRow({
-  value, onChange, models, onLoad, loadDisabled,
+  value, onChange, models, onLoad, loadDisabled, modelError,
 }: {
   value: string; onChange: (v: string) => void;
   models: ModelListHook; onLoad: () => void; loadDisabled: boolean;
+  modelError: string | null;
 }) {
   const t = useTranslations('gate.byoai');
   return (
@@ -290,10 +302,24 @@ function ModelRow({
         models={models} onLoad={onLoad}
         testidPrefix="byoai"
         loadDisabled={loadDisabled}
-        className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1 mb-5"
+        className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1"
         inputClassName={MODEL_INPUT_CLASS}
       />
+      <ModelError message={modelError} />
     </>
+  );
+}
+
+// ModelError —— `LOAD MODELS` 的拒绝，**贴着那个按钮**（UX-82）。
+// 没有错误时这一格仍占住底部间距，免得出现错误时下面整段跳一下。
+function ModelError({ message }: { message: string | null }) {
+  return message === null ? <div className="mb-5" /> : (
+    <p
+      className="mono text-[10.5px] tracking-[0.06em] leading-[1.7] text-(--color-accent) mt-2 mb-5"
+      data-testid="byoai-model-error"
+    >
+      {message}
+    </p>
   );
 }
 
