@@ -77,6 +77,58 @@ test.describe('F-O-2 · a turn taken through the shipped SDK is the product', ()
         .toContain(PERSONA_MARK);
       await request.dispose();
     });
+
+  // F-O-7 —— 第二轮必须带着第一轮走。
+  //
+  // 真环境里怎么发现的：异源页面上连问两句，第二句里的「他」「它」被答成
+  // *"this is the first thing I've seen in our exchange"*。**读代码坐实**：`client.ts` 的请求体里
+  // `history: []` 是硬编码，而后端的模型消息就是拿 `req.History` 拼的，不按 conversation_id 回补。
+  //
+  // 判据不看答案 —— KV 替身的回复是脚本化的，答案里读不出「它记不记得」。改看**这个客户端真的
+  // 发出去了什么**：注一个自己的 fetch（`createClient` 本来就收 `fetchImpl`），把请求体留下来。
+  // 红态：第二次请求的 `history` 是空数组。
+  test('the second turn carries the first — the shipped client is not memoryless',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const first = await scriptMockReplyText(request, 'Lucerna, a reading app.');
+      const second = await scriptMockReplyText(request, 'Noted.');
+
+      const bodies: string[] = [];
+      const { createClient } = await import('@standmeet/sdk-core');
+      const client = createClient({
+        baseURL: appBaseURL(),
+        fetchImpl: async (input, init) => {
+          const url = typeof input === 'string' ? input : input instanceof URL
+            ? input.href : input.url;
+          if (url.includes('/agent/turn') && typeof init?.body === 'string') {
+            bodies.push(init.body);
+          }
+          return fetch(input, init);
+        },
+      });
+      const session = await client.issueSession({ mode: 'code', code: CODE });
+      const system = await client.composeSystem(session);
+      const ask = async (text: string): Promise<void> => {
+        for await (const _ of client.streamMessage(
+          session.conversation_id, session.session_token, text, system,
+        )) { /* drain */ }
+      };
+      await ask(`what did the owner ship${first}`);
+      await ask(`and what did he learn from it${second}`);
+
+      expect(bodies, 'both turns went out').toHaveLength(2);
+      const sent = JSON.parse(bodies[1] ?? '{}') as {
+        history?: { role: string; content: string }[];
+      };
+      const hist = sent.history ?? [];
+      expect(hist.length, '第二轮必须带着第一轮的问与答').toBeGreaterThanOrEqual(2);
+      expect(hist.map((m) => `${m.role}:${m.content}`).join(' | '),
+        '第一轮的问题在历史里')
+        .toContain('what did the owner ship');
+      expect(hist.map((m) => m.content).join(' | '), '第一轮的答案也在历史里')
+        .toContain('Lucerna');
+      await request.dispose();
+    });
 });
 
 // appBaseURL —— 走 127.0.0.1 而不是 localhost：Node 会先解析到 ::1，而端口只在 IPv4 上监听，

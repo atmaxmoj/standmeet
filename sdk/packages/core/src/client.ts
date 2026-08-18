@@ -80,18 +80,44 @@ export interface StandMeetClient {
   composeSystem(session: PublicSessionResponse): Promise<string>;
 }
 
+// TurnMsg —— 发给后端的一条历史消息（后端 `ChatRequestMsg` 的线上形状）。
+export interface TurnMsg { role: 'user' | 'assistant'; content: string }
+
+// maxHistoryMsgs —— 往回带多少条。够撑起指代（「他」「它」「那个」）和几轮追问，
+// 又不至于让请求随会话无限长。
+const maxHistoryMsgs = 24;
+
 export function createClient(opts: ClientOptions = {}): StandMeetClient {
   const baseURL = opts.baseURL ?? '';
   const f = opts.fetchImpl ?? fetch;
+  // histories —— 每个 conversation 一份逐字稿，**客户端自己记**（F-O-7）。
+  //
+  // 为什么不做成 `streamMessage` 的第 N 个参数：以前它连这个参数都没有，请求体里
+  // `history: []` 是硬编码，于是 SDK 的**三个面**（核心客户端、web component、React 绑定）
+  // 全都在发一场没有记忆的对话 —— 第二问里的「他」「它」指谁，模型说它不知道。
+  // 加个参数只是把「记得传」变成每个调用方的纪律，而这条纪律刚刚已经被三个调用方同时违反
+  // 过一次（[[structure-means-no-responsibility-class]]）。所以记忆归客户端，调用方想忘也忘不了。
+  const histories = new Map<string, TurnMsg[]>();
   return {
     fetchPage: () => fetchPage(f, baseURL),
     fetchWikiLanding: (slug, lang) => fetchWikiLanding(f, baseURL, slug, lang),
     fetchOutputLanding: (slug) => fetchOutputLanding(f, baseURL, slug),
     issueSession: (input) => issueSession(f, baseURL, input),
     streamMessage: (id, token, content, system, byoai) =>
-      streamMessage(f, baseURL, id, token, content, system, byoai),
+      streamMessage(f, baseURL, id, token, content, system, byoai, histories),
     composeSystem: (session) => composeSystem(f, baseURL, session),
   };
+}
+
+// rememberTurn —— 一轮说完之后把「问 + 答」接进这场的逐字稿，超长从头截。
+function rememberTurn(
+  histories: Map<string, TurnMsg[]>, id: string, question: string, answer: string,
+): void {
+  if (answer === '') return; // 没答成的一轮不进历史：下一轮不该背着半截空回合走
+  const next = [...(histories.get(id) ?? []),
+    { role: 'user' as const, content: question },
+    { role: 'assistant' as const, content: answer }];
+  histories.set(id, next.slice(-maxHistoryMsgs));
 }
 
 async function fetchPage(f: typeof fetch, baseURL: string): Promise<PublicPageView> {
@@ -159,7 +185,8 @@ async function issueSession(
 async function* streamMessage(
   f: typeof fetch, baseURL: string,
   conversationID: string, sessionToken: string, content: string,
-  system: string, byoai?: BYOAIHeaders,
+  system: string, byoai: BYOAIHeaders | undefined,
+  histories: Map<string, TurnMsg[]>,
 ): AsyncGenerator<SSEEvent, void, unknown> {
   const res = await f(`${baseURL}/api/v1/agent/turn`, {
     method: 'POST',
@@ -168,7 +195,9 @@ async function* streamMessage(
       system,
       user_message: content,
       conversation_id: conversationID,
-      history: [],
+      // 这一场之前说过的话（F-O-7）。后端拿 `req.History` 拼模型消息，**不会**按
+      // conversation_id 回补 —— 这里空着，模型就永远在回答一场刚开始的对话。
+      history: histories.get(conversationID) ?? [],
     }),
   });
   // 状态码挂在 error 上，不只是拼进 message（F-O-5）。
@@ -181,7 +210,13 @@ async function* streamMessage(
   if (!res.ok || !res.body) {
     throw Object.assign(new Error(`send message: ${res.status}`), { status: res.status });
   }
-  yield* translateAgentSSE(res.body);
+  // 边流边攒这一轮的答案，收场时接进逐字稿 —— 下一轮就带着它走。
+  let answer = '';
+  for await (const ev of translateAgentSSE(res.body)) {
+    if (ev.kind === 'token') answer += ev.text;
+    yield ev;
+  }
+  rememberTurn(histories, conversationID, content, answer);
 }
 
 // composeSystem —— 这一场的 system prompt：先按 `system_prompt_part_ids` 逐段取回固定
