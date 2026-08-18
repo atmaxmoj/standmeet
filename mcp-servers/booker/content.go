@@ -171,6 +171,13 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
  button.primary:hover:not(:disabled){background:#000}
  button.quiet{border:0;background:none;padding:5px 2px;color:#6b5d4f;text-decoration:underline}
  button.quiet:hover:not(:disabled){background:none;color:#1B1814}
+ /* 撤销这张卡的那个动作不该跟一次普通确认长得一样重(UX-69)。Cancel meeting 原先是描边按钮
+    —— 跟下面那个 Send 一模一样，而两者的后果差着一个数量级：一个发封信，一个把已经占住的
+    时间还回去。产品别处的破坏性/撤销动作都是这个样子(corpus 行的 DELETE、连接器卡的
+    DISCONNECT)：不抢重量，用朱红表明它是那一类。
+    注意这段注释在 Go 的反引号原始字符串里 —— 不能出现反引号，也别用 × 那类字符。 */
+ button.danger{border:0;background:none;padding:5px 2px;color:#B5391C;text-decoration:underline}
+ button.danger:hover:not(:disabled){background:none;color:#1B1814}
  .prompt{margin-top:10px;border-top:1px solid #d9d0c2;padding-top:8px}
  .label{font:12px ui-serif,Georgia,serif;margin-bottom:6px}
  input{padding:5px 7px;border:1px solid #1B1814;background:#fff;font:12px ui-monospace,monospace;flex:1;min-width:120px}
@@ -295,7 +302,7 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
                      : "no invite was emailed — this card is your only record");
    inv.setAttribute("data-testid","book-card-invite");
    root.appendChild(inv);
-   var cancel=el("button",null,"Cancel meeting");
+   var cancel=el("button","danger","Cancel meeting");
    cancel.setAttribute("data-testid","book-card-cancel");
    function toCancelled(){
      root.setAttribute("data-cancelled","true"); kick.textContent="cancelled";

@@ -11,6 +11,7 @@ import { SelectField } from '@/components/atoms/SelectField';
 import { useConnectorRedirectURI } from '@/lib/admin/redirect-uri';
 import { useConnectorCard, type ConnectorCardHook } from '@/lib/admin/use-connector-card';
 import type { CatalogEntry } from '@/lib/admin/use-connector-catalog';
+import { credFieldLabel } from '@/lib/admin/cred-field-label';
 
 export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
   const hook = useConnectorCard(entry.id);
@@ -121,7 +122,7 @@ function CredField({ name, onChange }: {
 }) {
   return (
     <label className="sm-field">
-      <span className="sm-field-label">{name}</span>
+      <span className="sm-field-label">{credFieldLabel(name)}</span>
       <input
         data-testid={`connector-field-${name}`}
         type={isSecret(name) ? 'password' : 'text'}

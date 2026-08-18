@@ -147,6 +147,7 @@ dev-rebuild-mocks:
 # The backend says so once in its log when it happens.
 prod-up:
 	@test -f .env || { echo "create .env first: cp .env.example .env && edit"; exit 2; }
+	@infra/plugins/provision.sh
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build --wait
 	@echo "[prod] app on http://localhost:38227 (front with your TLS proxy)"
 	@echo "[prod] that proxy must set X-Forwarded-For — without it no visitor IP is"
@@ -166,7 +167,13 @@ prod-app: app-build
 # 为什么单独一条：`prod-app` 只建 app 镜像，`prod-recreate-svc` 只换容器**不建镜像** ——
 # 改了 Go 代码之后用那两条里的任何一条，跑的都还是旧二进制。今天在 F-C-41 的 ⑤ 上
 # 就这么白验了一次：屏幕上一切照旧，我差点以为修的那一刀没生效。
+# ⚠️ provision.sh 必须在这里跑。prod 把 `./infra/plugins` 挂到 `/srv/plugins` 上（compose:138），
+# **盖住了镜像里刚编出来的那份**。所以改 `mcp-servers/*` 之后只 build 镜像，跑的仍是主机上那份
+# 旧二进制 —— 而这条命令照样印「backend rebuilt」。2026-08-18 在 booker 的取消按钮上撞到：
+# 镜像建了三次，屏幕上一点没变，binary 里 grep 不到新加的 class。
+# 同一族：`prod-app` 要先 `app-build`（镜像 COPY 的是主机产物）。**产物在哪，就先产在哪。**
 prod-backend:
+	@infra/plugins/provision.sh
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml build backend
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait backend
 	@echo "[prod] backend rebuilt (app reused) — http://localhost:38227"

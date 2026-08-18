@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 
 import { SelectField } from '@/components/atoms/SelectField';
 import type { AuthField, AuthForms, AuthScheme } from '@/lib/admin/use-connector-ingest';
+import { credFieldLabel } from '@/lib/admin/cred-field-label';
 
 // onScheme / values —— 装配那一步要的两样东西。scheme 是**建**连接器的参数（写进 manifest），
 // values 是**建完之后**存进那个连接器的凭据。没有它们时这张表单填了也没地方去
@@ -213,7 +214,7 @@ function PlainField({ field, values }: { field: AuthField; values?: Record<strin
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
-        {field.key}
+        {credFieldLabel(field.key)}
       </span>
       <input
         type={field.type === 'password' ? 'password' : 'text'}
