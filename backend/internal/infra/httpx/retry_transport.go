@@ -57,7 +57,9 @@ func (rt *retryTransport) stop(
 	if !waitFitsDeadline(ctx, wait) {
 		return true // 等不到那个时刻 —— 把这次的响应交回去,别把剩下的预算睡掉
 	}
-	rt.fireOnRetry(ctx, resp, err, attempt)
+	rt.fireOnRetry(ctx, resp, err, attempt, waitPlan{
+		d: wait, fromHint: retryAfterDelay(resp) >= wait,
+	})
 	return !sleepCtx(ctx, wait) // ctx 中途取消 → 停
 }
 
@@ -114,14 +116,25 @@ func waitFitsDeadline(ctx context.Context, wait time.Duration) bool {
 
 // fireOnRetry —— transient 失败:drain 旧响应(连接可复用)+ 调 OnRetry 钩子(attempt 从 1 数起)。
 // drain 失败折进观察到的 err 一并交给钩子。
+// waitPlan —— 这次重试要等多久、那个数字**从哪来**。两个字段是一件事的两半，
+// 所以一起传（拆成两个参数会让 fireOnRetry 越过参数数量闸门，而闸门是对的）。
+type waitPlan struct {
+	d        time.Duration
+	fromHint bool
+}
+
 func (rt *retryTransport) fireOnRetry(
-	ctx context.Context, resp *http.Response, err error, attempt int,
+	ctx context.Context, resp *http.Response, err error, attempt int, plan waitPlan,
 ) {
+	status := statusOf(resp)
 	if derr := drainResp(resp); derr != nil {
 		err = errors.Join(err, derr)
 	}
 	if rt.onRetry != nil {
-		rt.onRetry(ctx, RetryInfo{Attempt: attempt + 1, Status: statusOf(resp), Err: err})
+		rt.onRetry(ctx, RetryInfo{
+			Attempt: attempt + 1, Status: status, Err: err,
+			Wait: plan.d, WaitFromHint: plan.fromHint,
+		})
 	}
 }
 

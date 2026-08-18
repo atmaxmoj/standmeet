@@ -59,7 +59,25 @@ export type AgentTurnEvent =
 // TurnStopReason —— 一轮的收场。三种是模型给的（说完了 / 还要调工具 / 预算用完），
 // **claim_unbacked 是产品自己判的**：这一轮的答案说它做成了一件事，而本轮没有那件事的回执
 // （F-A-37）。它跟前三种走同一条通道，因为消费方本来就按停止原因决定这一轮怎么收场。
-export type TurnStopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'claim_unbacked';
+// TURN_STOP_REASONS —— **这是那份名单本身**，类型从它派生。
+//
+// 为什么是数组而不是手写联合（UX-84 / F-A-35 的续）：解析那侧有一个 `normStop`，
+// 未知值塌成 `end_turn`，它的注释写着「新增停止原因必须加进这一行」。
+// **我今天加 `no_answer` 时照样漏了它** —— 后端判得对、前端映射也写了，中间这一跳
+// 把它悄悄改写成「正常说完了」，于是提示整个不渲染，而任何一层都没报错。
+//
+// 注释挡不住这种漏（[[structure-means-no-responsibility-class]]）。改成一份名单之后，
+// `normStop` 用 `includes` 查这同一份名单：**加一个值只要改这里，解析那侧自动跟上**。
+export const TURN_STOP_REASONS = [
+  'end_turn',
+  'tool_use',
+  'max_tokens',
+  // 产品自己判的两种（不是模型给的）：
+  'claim_unbacked', // 说自己办成了一件事，却没有回执（F-A-37）
+  'no_answer', // 一个字都没答出来，也救不回来（F-A-35）
+] as const;
+
+export type TurnStopReason = (typeof TURN_STOP_REASONS)[number];
 
 // AgentEvent —— observer receives one per state transition. Names align
 // with eval harness scenarios. Ghost-steering P4：`ghost_received`（单数）——

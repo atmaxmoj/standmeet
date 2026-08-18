@@ -12,6 +12,7 @@ package httpx
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -26,6 +27,14 @@ type RetryInfo struct {
 	Err     error
 	Attempt int // 从 1 数起
 	Status  int // 响应状态码;transport 错时为 0
+	// Wait —— 这次重试**实际会等多久**。
+	Wait time.Duration
+	// WaitFromHint —— 那个等待**来自 provider 明说的 Retry-After**，还是我们自己的退避表。
+	//
+	// 为什么要分开记（F-A-41）：只记「等了 6 秒」证明得了「退避了」，证明不了「听了对方的」。
+	// 而 F-A-31 修的正是后者 —— 比对方要求的更早重打会加重封禁。少了这个字段，日志上
+	// 「等够了」和「碰巧等够了」长得一模一样（同 [[nonunique-signal-not-a-receipt]]）。
+	WaitFromHint bool
 }
 
 // Options —— NewClient 配置。零值可用(无超时、默认重试次数/退避、DefaultTransport)。
@@ -63,9 +72,36 @@ func newRetryTransport(o Options) *retryTransport {
 		}
 	}
 	return &retryTransport{
-		base: base, onRetry: o.OnRetry,
+		base: base, onRetry: resolveOnRetry(o.OnRetry),
 		max:       resolveMax(o),
 		baseDelay: resolveDelay(o.BaseDelay),
+	}
+}
+
+// resolveOnRetry —— 没人传钩子时**默认记一行日志**，而不是默默无声（F-A-41）。
+//
+// LLM 那条路自己挂了钩子（`inference.onLLMRetry`），这里守的是**其余所有 NewClient 调用点**：
+// 连接器出站、外部 MCP、job 源抓取……它们都会重试，而一次没被记下来的退避在事后
+// 只表现为「那次特别慢」。
+//
+// 为什么是默认而不是「让调用点记得传」：要求每个调用点记得传日志，就是又造一个需要人
+// 维护的职责类（[[structure-means-no-responsibility-class]]）—— 下一个写 NewClient 的人
+// 不会知道该传。所以反过来：**默认有声，要静音才显式传**。
+//
+// `wait_from` 是这条日志的关键字段：只记「等了多久」证明得了「退避了」，证明不了
+// 「听了对方的」，而 F-A-31 修的正是后者。
+func resolveOnRetry(hook func(context.Context, RetryInfo)) func(context.Context, RetryInfo) {
+	if hook != nil {
+		return hook
+	}
+	return func(ctx context.Context, in RetryInfo) {
+		from := "backoff"
+		if in.WaitFromHint {
+			from = "retry-after"
+		}
+		slog.Default().WarnContext(ctx, "http retry",
+			"attempt", in.Attempt, "status", in.Status,
+			"wait_ms", in.Wait.Milliseconds(), "wait_from", from, "err", in.Err)
 	}
 }
 

@@ -66,8 +66,22 @@ func retryHTTPClient(blockInternal bool) *http.Client {
 }
 
 // onLLMRetry —— httpx 每次退避前回调:打 warn(让抖动在日志可见)+ 通知前端在重试。
+//
+// `wait_ms` + `wait_from` 是后补的（F-A-41）。原来这行只有 attempt / status，于是它
+// 证得了「退避了」，证不了「**听了 provider 的**」—— 而 F-A-31 修的正是后者：
+// 比对方要求的更早重打会加重封禁。少了 `wait_from`，日志上「等够了」和「碰巧等够了」
+// 长得一模一样（[[nonunique-signal-not-a-receipt]]）。
+//
+// ⚠️ 我第一版把这条记成「重试整条路径零日志」—— 错的。日志一直在，只是我 grep 的是
+// `retry` / `429` / `backoff`，而这行写的是 `llm transient failure — retrying`。
+// 缺的从来不是日志，是**日志里的那两个字段**（[[read-the-failure-before-theorising]]）。
 func onLLMRetry(ctx context.Context, ri httpx.RetryInfo) {
+	from := "backoff"
+	if ri.WaitFromHint {
+		from = "retry-after"
+	}
 	llmLog(ctx).Warn("llm transient failure — retrying",
-		"attempt", ri.Attempt, "max", maxLLMRetries, "status", ri.Status, logErrKey, ri.Err)
+		"attempt", ri.Attempt, "max", maxLLMRetries, "status", ri.Status,
+		"wait_ms", ri.Wait.Milliseconds(), "wait_from", from, logErrKey, ri.Err)
 	notifyRetry(ctx, ri.Attempt)
 }

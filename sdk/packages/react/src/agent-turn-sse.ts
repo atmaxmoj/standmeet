@@ -10,7 +10,8 @@
 //   event: done           data: {"stop_reason":"end_turn|tool_use|max_tokens"}
 //   event: error          data: {"code","message"}
 
-import type { AgentTurnEvent } from '@standmeet/agent-core';
+import { TURN_STOP_REASONS } from '@standmeet/agent-core';
+import type { AgentTurnEvent, TurnStopReason } from '@standmeet/agent-core';
 
 export async function* parseAgentTurnSSE(
   body: ReadableStream<Uint8Array>,
@@ -124,13 +125,15 @@ function parseError(d: Record<string, unknown>): AgentTurnEvent {
   };
 }
 
-// normStop —— 未知值塌成 end_turn。**新增停止原因必须加进这一行**：这里漏一个，后端那个新
-// 判定就被静默改写成"正常说完了"，而调用方永远不知道自己少收到一种收场（F-A-37 的
-// claim_unbacked 差点就这样丢掉）。
-function normStop(s: string): 'end_turn' | 'tool_use' | 'max_tokens' | 'claim_unbacked' {
-  if (s === 'tool_use' || s === 'end_turn' || s === 'max_tokens') return s;
-  if (s === 'claim_unbacked') return s;
-  return 'end_turn';
+// normStop —— 未知值塌成 end_turn，认得的原样放行。
+//
+// **名单不在这儿**：查的是 agent-core 导出的 `TURN_STOP_REASONS`。
+// 这里以前手抄了一份，注释写着「新增停止原因必须加进这一行」—— 而那句提醒**没挡住**
+// 今天加 `no_answer` 时的遗漏：后端判得对、前端映射也写了，这一跳把它悄悄改写成
+// 「正常说完了」，提示整个不渲染，任何一层都没报错。
+// 现在加一个停止原因只需要改 agent-core 那份名单，这里自动跟上。
+function normStop(s: string): TurnStopReason {
+  return (TURN_STOP_REASONS as readonly string[]).includes(s) ? (s as TurnStopReason) : 'end_turn';
 }
 
 function stringOr(v: unknown, fallback: string): string {
