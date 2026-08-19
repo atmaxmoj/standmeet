@@ -9,7 +9,7 @@
 // 判据很简单:**纯函数不该住在客户端边界里面**。它们没有状态、没有 hook、没有 DOM,
 // 放进 'use client' 文件只是因为"用它的组件在那儿",而那不是一个理由。
 
-import { expandURIsToURLs } from '@/lib/writings/asset-transforms';
+import { expandURIsForReader } from '@/lib/writings/asset-transforms';
 
 /** CorpusAsset —— 一份挂在语料上的文件,访客看到的那几项。 */
 export interface CorpusAsset {
@@ -27,7 +27,9 @@ export interface CorpusAsset {
  * 非标准 scheme 直接剥掉 —— 图位是空的,而且不报错,所以漏了没人看得出来。
  */
 export function expandBody(body: string, assetURLs?: Readonly<Record<string, string>>): string {
-  return expandURIsToURLs(body, { ...(assetURLs ?? {}) });
+  // 走 reader 那份策略：解析不到的引用**整个图片节点删掉**，不把裂图和内部文件名端给访客
+  // （F-L-50）。编辑器那边仍用 expandURIsToURLs —— 它必须保住引用。
+  return expandURIsForReader(body, { ...(assetURLs ?? {}) });
 }
 
 /**

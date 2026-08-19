@@ -35,6 +35,9 @@ interface MCPSession { request: APIRequestContext; token: string; sid: string }
 let s: MCPSession;
 let csrf: string;
 let entryPath: string;
+// 一条正文里引着「已经不在了的素材」的笔记（F-L-50）。种在 beforeAll 里 ——
+// 用例体里再建会用到已经关掉的那个 request 上下文。
+let danglingPath: string;
 let assetID: string;
 let coverAssetID: string;
 let attachmentID: string;
@@ -153,6 +156,26 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
   });
 });
 
+// F-L-50 —— owner 撤下一份素材之后，正文里那条引用**原地不动**：访客页上留一个浏览器
+// 默认的裂图，alt 里还印着内部文件名（真实环境抓到的是 `harness-photo.jpg`）。
+//
+// 判据落在**屏幕上有没有那个东西**，不是「数据里干不干净」：这条缺陷的全部代价就在渲染层。
+// 两半都断：不许有裂图（src 被剥空的 img），也不许把文件名印出来 —— 只删地址会留下
+// `![原文件名]()`，把内部文件名端给访客，比裂图更糟。
+test.describe('正文引着一份已经不在的素材', () => {
+  test('什么都不渲:不给访客裂图，也不给内部文件名', async ({ page }) => {
+    await enterCodeSession(page, IN_CODE, 'Reader');
+    await goto(page, `/wiki/${danglingPath}`);
+    const body = page.getByTestId('wiki-body');
+    // 先断正文真的到了 —— 否则下面两条在页面还空着时也算通过
+    // （[[negated-assertion-passes-while-absent]]）。
+    await expect(body, '正文渲出来了').toContainText('text after', { timeout: 8_000 });
+    await expect(body.locator('img'), '解析不到的素材:一个 img 都不留').toHaveCount(0);
+    await expect(body, '内部文件名不许出现在访客眼前')
+      .not.toContainText('harness-photo.jpg');
+  });
+});
+
 // output 那条 reader 一度**一行素材都没接**:landing 只回 5 个字段,连 asset_urls 都没有。
 // 而 SDK 里那句注释写着"结构跟 WikiLandingView 一致" —— 描述的是意图,不是结果。
 // 于是访客读一条 output:正文里的图是空位、owner 设的封面到不了前端、附件没有下载区,
@@ -219,6 +242,19 @@ async function seedIllustratedNote(): Promise<void> {
     cover_headline: COVER_LINE,
   });
   entryPath = (await getEntry(s, 'wiki', id)).path ?? '';
+  await seedDanglingRef();
+}
+
+// seedDanglingRef —— 正文引一个**从来不存在**的素材 id。真实环境里这是「owner 撤下了
+// 那份素材，正文里的引用留在原地」之后的样子（F-L-50）。
+async function seedDanglingRef(): Promise<void> {
+  const gone = '00000000-0000-4000-8000-0000000dead0';
+  const id = await createEntry(s, 'wiki', 'Dangling ref note', 'text before');
+  await callTool(s.request, s.token, s.sid, 'corpus.update', {
+    genre: 'wiki', id, title: 'Dangling ref note',
+    body: `text before\n\n![harness-photo.jpg](standmeet-asset:${gone})\n\ntext after`,
+  });
+  danglingPath = (await getEntry(s, 'wiki', id)).path ?? '';
 }
 
 // seedIllustratedOutput —— 一条**已发布**的 output,同样挂三份素材。
