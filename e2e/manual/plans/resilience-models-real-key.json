@@ -1,0 +1,35 @@
+{
+  "_why": "resilience check 3, grid 1 —— 一把真 key 必须列出真模型。key 走 typeSecret：plan 里只写变量名，值由 make verify-shots 从 eval-harness/.env 带进来（EVAL_KEY）。out 相对 e2e/ 目录（recipe 在 e2e 里跑 node）。",
+  "login": false,
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "res-05-real-key-typed",
+      "url": "/gate",
+      "wait": 2500,
+      "steps": [
+        { "select": ["select", "deepseek"] },
+        { "wait": 800 },
+        { "typeSecret": ["input[placeholder='paste your key'], input[placeholder^='sk-']", "EVAL_KEY"] },
+        { "wait": 400 }
+      ]
+    },
+    {
+      "name": "res-06-models-listed",
+      "wait": 500,
+      "steps": [
+        { "click": "text=/load models/i" },
+        { "wait": 9000 }
+      ]
+    },
+    {
+      "name": "res-07-model-picked",
+      "wait": 300,
+      "steps": [
+        { "select": ["select >> nth=1", "deepseek-v4-pro"] },
+        { "wait": 1200 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "_why": "resilience check 3, grid 2 —— 一把**能聊但列不出模型**的 key。真实世界里那是 provider 只给了 chat scope；这里用 llm-fault 代理把 /models 这一条路钉成 403、聊天那条路原样转发（make verify-proxy-up UPSTREAM=https://api.deepseek.com + arm http_error path_prefix=/models）。判据是产品那句话：说清列不出来、给一条继续的路、不回显上游原文。",
+  "login": false,
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "res-08-proxy-endpoint-typed",
+      "url": "/gate",
+      "wait": 2500,
+      "steps": [
+        { "select": ["select", "custom"] },
+        { "wait": 800 },
+        { "type": ["input[placeholder='https://your-endpoint.example.com']", "http://llm-fault:9500"] },
+        { "typeSecret": ["input[placeholder='paste your key'], input[placeholder^='sk-']", "EVAL_KEY"] },
+        { "wait": 400 }
+      ]
+    },
+    {
+      "name": "res-09-cannot-list-says-so",
+      "wait": 500,
+      "steps": [
+        { "click": "text=/load models/i" },
+        { "wait": 9000 }
+      ]
+    }
+  ]
+}
