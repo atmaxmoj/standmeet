@@ -1,25 +1,24 @@
 {
-  "_why": "resilience check 3, grid 2 —— 一个**能聊但列不出模型**的 provider。真实世界里那是 key 只有 chat scope；这里用 llm-fault 把 /models 钉成 403、聊天那条路原样转发。走 owner 的 provider 面（自托管端点在那儿是产品明说支持的；访客 BYOAI 那条路会被 SSRF 判据挡住，理由见 trajectory）。**驱完必须把 endpoint 改回 https://api.deepseek.com**，否则代理一停这台实例就没有模型可用。",
+  "_why": "resilience check 3 grid 2 —— 一个**能聊但列不出模型**的 provider。llm-fault 把 /models 钉成 403、聊天原样转发。走 owner 的 provider 卡（`/admin/api-mcp` 的 OWNER'S AI —— account 页指的就是这里；访客 BYOAI 那条路会被 SSRF 判据挡住，理由见 trajectory）。**endpoint 必须先保存**，否则后端仍用旧地址、代理一条都收不到（上一趟就栽在这儿）。驱完用 resilience-owner-restore.json 改回去。",
   "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
   "viewport": [1280, 1400],
   "shots": [
     {
-      "name": "res-10-owner-provider-before",
+      "name": "res-13-endpoint-saved-to-proxy",
       "url": "/admin/api-mcp",
-      "wait": 4000
-    },
-    {
-      "name": "res-11-endpoint-to-proxy",
-      "wait": 500,
+      "wait": 4000,
       "steps": [
         { "type": ["[data-testid=ai-provider-endpoint]", "http://llm-fault:9500"] },
-        { "wait": 500 }
+        { "click": "[data-testid=ai-provider-save]" },
+        { "wait": 3000 }
       ]
     },
     {
-      "name": "res-12-cannot-list-says-so",
+      "name": "res-14-cannot-list-says-so",
       "wait": 300,
       "steps": [
+        { "typeSecret": ["[data-testid=ai-provider-key]", "EVAL_KEY"] },
+        { "wait": 600 },
         { "click": "[data-testid=ai-provider-load-models]" },
         { "wait": 9000 }
       ]

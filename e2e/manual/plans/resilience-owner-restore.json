@@ -1,0 +1,17 @@
+{
+  "_why": "把 owner provider 的 endpoint 改回真上游。**每次用 llm-fault 驱完都要跑这个**：代理一停，指着它的实例就答不了访客了。改回去之后当场截一张，眼睛看到 https://api.deepseek.com 才算复原。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    {
+      "name": "res-99-endpoint-restored",
+      "url": "/admin/api-mcp",
+      "wait": 4000,
+      "steps": [
+        { "type": ["[data-testid=ai-provider-endpoint]", "https://api.deepseek.com"] },
+        { "click": "[data-testid=ai-provider-save]" },
+        { "wait": 3000 }
+      ]
+    }
+  ]
+}
