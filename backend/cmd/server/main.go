@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 	_ "time/tzdata"
@@ -195,25 +196,53 @@ type setupTokenIssuerAdapter struct {
 	log    *slog.Logger
 	repo   *owner.InstanceRepo
 	holder *session.SetupTokenHolder
+	// issuing —— 发放要单飞。写 DB hash 和写内存 holder 是两步，两个请求交错一次
+	// 就会留下「holder=TA、DB=hash(TB)」这种谁都用不了的组合（F-L-56，真实环境里
+	// 咬到过：首页 SSR 每渲一次就问一次 /api/v1/instance，并发是常态不是意外）。
+	// 锁住「查一次 + 需要就发一次」这整段，交错就没有落脚的地方。
+	issuing sync.Mutex
 }
 
-func (a *setupTokenIssuerAdapter) HasLiveTokenHash(ctx context.Context) (bool, error) {
+// UsableToken —— 库里那个 hash 和内存这份明文**是不是一对**。是就返它，不是就返空串
+// （调用方去重发）。只问「都非空吗」是不够的：那正是坏状态的样子。
+func (a *setupTokenIssuerAdapter) UsableToken(ctx context.Context) (string, error) {
+	a.issuing.Lock()
+	defer a.issuing.Unlock()
+	return a.usableLocked(ctx)
+}
+
+// IssueAndStore —— 单飞。进来先再查一次：等锁的那几个请求里，第一个已经发过了，
+// 剩下的直接用它的结果，不要一人发一份（那既浪费，又让最后一个覆盖掉前面所有人）。
+func (a *setupTokenIssuerAdapter) IssueAndStore(ctx context.Context) (string, error) {
+	a.issuing.Lock()
+	defer a.issuing.Unlock()
+	if usable, err := a.usableLocked(ctx); err == nil && usable != "" {
+		return usable, nil
+	}
+	if err := session.IssueSetupToken(ctx, a.log, a.repo, a.holder); err != nil {
+		return "", fmt.Errorf("issue setup token: %w", err)
+	}
+	return a.holder.Plaintext(), nil
+}
+
+// usableLocked —— 上面两个方法共用的那一段：**库里那个 hash 和内存这份明文是不是一对**。
+// 调用方已经持锁。
+func (a *setupTokenIssuerAdapter) usableLocked(ctx context.Context) (string, error) {
 	inst, err := a.repo.Get(ctx)
 	if err != nil {
-		return false, fmt.Errorf("get instance settings: %w", err)
+		return "", fmt.Errorf("get instance settings: %w", err)
 	}
-	return inst.HasSetupTokenHash, nil
-}
-
-func (a *setupTokenIssuerAdapter) IssueAndStore(ctx context.Context) error {
-	if err := session.IssueSetupToken(ctx, a.log, a.repo, a.holder); err != nil {
-		return fmt.Errorf("issue setup token: %w", err)
+	plaintext := a.holder.Plaintext()
+	if inst.SetupTokenHash == "" || plaintext == "" {
+		return "", nil
 	}
-	return nil
-}
-
-func (a *setupTokenIssuerAdapter) HolderPlaintext() string {
-	return a.holder.Plaintext()
+	if session.HashSetupToken(plaintext) != inst.SetupTokenHash {
+		// 明说：这一行是「发出去的链接为什么突然换了一条」的唯一解释。
+		a.log.Warn("setup token halves diverged; re-issuing",
+			"reason", "in-memory plaintext does not hash to the stored hash")
+		return "", nil
+	}
+	return plaintext, nil
 }
 
 // ownerLookupAdapter —— 把 owner.Repo 包成 inference.OwnerLookup。

@@ -10,7 +10,13 @@ import (
 
 // InstanceSettings 是 singleton 行的快照。
 type InstanceSettings struct {
-	DeployedAt        time.Time
+	DeployedAt time.Time
+	// SetupTokenHash —— 库里存着的那个 hash 本身（没有就是空串）。
+	// **只有 bool 是不够的**：发链接的那一侧手里是明文，要判的是「我这份明文哈希之后
+	// 等不等于库里这个」。只问"有没有"，就分不出「好着呢」和「两半各存各的」——
+	// 而后者正是真实环境里让 owner 永远 claim 不了的那个状态（F-L-56）。
+	SetupTokenHash string
+	// 三个 bool 排在最后：fieldalignment 要求大的在前，别为了读起来顺手多占一个字。
 	IsClaimed         bool
 	MultiTenant       bool
 	HasSetupTokenHash bool // DB 里 setup_token_hash 是否非 NULL（claim 后清成 NULL）

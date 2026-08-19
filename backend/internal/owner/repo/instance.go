@@ -43,7 +43,16 @@ func (r *InstanceRepo) Get(ctx context.Context) (entity.InstanceSettings, error)
 		MultiTenant:       row.MultiTenant,
 		DeployedAt:        row.DeployedAt.Time,
 		HasSetupTokenHash: row.SetupTokenHash != nil && *row.SetupTokenHash != "",
+		SetupTokenHash:    derefOrEmpty(row.SetupTokenHash),
 	}, nil
+}
+
+// derefOrEmpty —— NULL 的 text 列读成空串。
+func derefOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 // IsDomainAllowed —— 给 /internal/tls-ask 用：domain 是否在 allowed_domains

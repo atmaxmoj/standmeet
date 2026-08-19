@@ -8,7 +8,8 @@
 
 import type { Page } from '@playwright/test';
 
-import { resetInstance } from '@/fixtures/instance';
+import { execSQL, resetInstance } from '@/fixtures/instance';
+import { goto } from '@/fixtures/navigate';
 import { test, expect } from '@/fixtures/test';
 
 const OWNER = {
@@ -35,7 +36,48 @@ test.describe('owner claims a fresh instance via /setup', () => {
       await fillVerifyStep(page);         // step 4 → submit
       await expectLandedOnAdmin(page);
     });
+
+  // F-L-56 —— **实例自己发出来的那条 setup 链接，必须真的能 claim。**
+  //
+  // 真实环境里撞到的（全套 #3 跑到一半，后面 ~130 条用例全部 0ms 死在
+  // `claim failed after 3 attempts: 401`）：那台实例发出去的 token 和它自己库里存的 hash
+  // **对不上**。当场量过：
+  //   hash(API 给的 token) = 21407ef2…   DB 里的 setup_token_hash = 1b8b3f91…
+  //
+  // 怎么变成这样的：`IssueSetupToken` **先写 DB hash、再设内存 holder**，中间没有锁。
+  // 两个并发请求（首页 SSR 每渲一次就问一次 `/api/v1/instance`）交错一次就够：
+  //   A 写 hash(TA) → B 写 hash(TB) → B 设 holder=TB → A 设 holder=TA
+  // 留下 holder=TA 而 DB=hash(TB)。**而自愈判的是「hash 在 && holder 非空」——
+  // 这个坏状态下两个条件都成立**，于是它永远不自愈：owner 那条 `/setup?t=…` 一直 401，
+  // 直到有人重启后端。自托管的第一分钟就死在这儿。
+  //
+  // 这条用例**不去复现那个竞态**（竞态复现是碰运气，[[assertion-that-cannot-fail]] 的反面
+  // 也一样糟）。它直接把那个**坏状态**造出来 —— 那才是要守的不变量：
+  // **无论内存和库怎么不一致，实例给出去的链接都得能用。**
+  test('a setup link the instance hands out always claims, even after the two halves diverge',
+    async ({ page }) => { await claimAfterDivergence(page); });
 });
+
+// claimAfterDivergence —— 先让它正常发一次（hash 与 holder 同步），再单方面把库里那半改掉：
+// 交错之后留下的就是这个形状 —— holder 有值、hash 有值、两者不是一对。
+// 然后走 owner 自己那条路，判**好结果**：他进得去后台。
+async function claimAfterDivergence(page: Page): Promise<void> {
+  resetInstance();
+  await goto(page, '/');
+  await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
+  execSQL(`UPDATE instance_settings SET setup_token_hash = `
+    + `'0000000000000000000000000000000000000000000000000000000000000000' WHERE id = 1`);
+
+  await goto(page, '/');
+  await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
+  await fillIdentityStep(page);
+  await fillCredentialsStep(page);
+  await fillProviderStepSkip(page);
+  await fillVerifyStep(page);
+  // 红的时候这里会停在 setup 页上 —— 而 owner 在真实世界里看到的就是那个：
+  // 填完一切，然后什么都没发生。
+  await expectLandedOnAdmin(page);
+}
 
 async function fillIdentityStep(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: /Claim this/ })).toBeVisible();

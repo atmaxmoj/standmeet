@@ -80,41 +80,40 @@ func LoadSoleOwner(ctx context.Context, deps PageDeps) (entity.Owner, error) {
 // session.IssueSetupToken + InstanceRepo）。让 usecase 层不直接 import
 // session 包 → routes 层。
 type SetupTokenIssuer interface {
-	// HasLiveTokenHash —— DB 里是否还有有效的 setup_token_hash。claim
-	// 成功后 TryClaimInstance 会把它清成 NULL；e2e flip is_claimed=false
-	// 时不动 hash，所以这个 check 区分"刚启动 / 还没人 claim 过"和"claim 过
-	// 但被回退"两种 unclaimed 状态。
-	HasLiveTokenHash(ctx context.Context) (bool, error)
-	// IssueAndStore —— 生成新 plaintext + 写 DB hash + 写 holder。
-	IssueAndStore(ctx context.Context) error
-	// HolderPlaintext —— 当前 holder 持有的 plaintext。
-	HolderPlaintext() string
+	// UsableToken —— 此刻**真的能 claim** 的那个 plaintext；没有就返空串。
+	//
+	// 不是「hash 在不在」加「holder 空不空」两个独立的问号（F-L-56）：那两个都为真的时候，
+	// 它们仍然可能不是一对 —— 内存里存着 TA、库里存着 hash(TB)。发出去的链接于是 401，
+	// 而两个问号都答「好着呢」，自愈永远不触发。
+	// 判据只有一条：**我手上这份明文，哈希之后等不等于库里那个**。
+	UsableToken(ctx context.Context) (string, error)
+	// IssueAndStore —— 生成新 plaintext + 写 DB hash + 写 holder，返回新明文。
+	// 返回值而不是让调用方再去问 holder：中间隔一次调用，就又给交错留了一道缝。
+	IssueAndStore(ctx context.Context) (string, error)
 }
 
 // EnsureUnclaimedSetupToken —— /api/v1/instance handler 在 unclaimed 期调它，
 // 拿回一个一定可用的 setup_token plaintext（让前端能 redirect 到 /setup?t=...）。
 //
-// 决策树：
-//   - DB 里 setup_token_hash 还在 + holder 有值 → 直接返 holder.Plaintext()
-//   - DB hash 为 NULL（claim 后清掉了 / e2e 回退 is_claimed=false）→ 重新
-//     IssueAndStore，holder + DB 同步更新成新 token，返新 plaintext
-//   - DB hash 在 + holder 为空（server restart 之类）→ 同上重新 issue
+// 决策树只剩两支：
+//   - 手上那份明文哈希后等于库里的 hash → 就用它
+//   - 其余一切（hash 为 NULL / holder 为空 / **两半对不上**）→ 重新 issue
 //
-// 这是 production-meaningful self-heal：任何让 unclaimed instance 失去 live
-// token 的情况都自愈，不靠 e2e-only 路径。
+// 第三种情况是真实环境里咬到的那一种，而且它**不会自己好**：owner 那条 `/setup?t=…`
+// 一直 401，直到有人重启后端。自托管的第一分钟就死在这儿。
 func EnsureUnclaimedSetupToken(ctx context.Context, issuer SetupTokenIssuer) (string, error) {
-	hasHash, err := issuer.HasLiveTokenHash(ctx)
+	usable, err := issuer.UsableToken(ctx)
 	if err != nil {
-		return "", fmt.Errorf("check setup token hash: %w", err)
+		return "", fmt.Errorf("check setup token: %w", err)
 	}
-	plaintext := issuer.HolderPlaintext()
-	if hasHash && plaintext != "" {
-		return plaintext, nil
+	if usable != "" {
+		return usable, nil
 	}
-	if ierr := issuer.IssueAndStore(ctx); ierr != nil {
+	fresh, ierr := issuer.IssueAndStore(ctx)
+	if ierr != nil {
 		return "", fmt.Errorf("issue setup token: %w", ierr)
 	}
-	return issuer.HolderPlaintext(), nil
+	return fresh, nil
 }
 
 // GetPublicPage —— sole owner → page_content(缺失填默认)→ pin join 成渲染视图。
