@@ -10,7 +10,8 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { fetchItemCount, fetchRecentConversations, type DashboardRecentRow } from '@/lib/admin/dashboard-fetch';
+import { fetchItemCount, type DashboardRecentRow } from '@/lib/admin/dashboard-fetch';
+import { useRecentConversations } from '@/lib/admin/use-recent-conversations';
 import { Sparkline } from '@/components/admin/atoms/Sparkline';
 import {
   jobHeadline,
@@ -24,11 +25,13 @@ import { useAdminListings } from '@/lib/admin/use-admin-listings';
 import { useAdminSources } from '@/lib/admin/use-admin-sources';
 import { ago, stampMinute } from '@/lib/ui/format-time';
 import {
-  allActionItems,
   useAdminDashboard,
   type ActionItem,
   type DashboardStats,
 } from '@/lib/admin/use-admin-dashboard';
+import {
+  kpiCards, needsItems, pulseView, type KpiCard, type PulseView,
+} from '@/lib/admin/dashboard-view';
 
 export function DashboardSection() {
   const { stats, loading, error } = useAdminDashboard();
@@ -39,7 +42,7 @@ export function DashboardSection() {
         slug="dashboard"
         count={loading ? 'loading…' : 'last refresh · now'}
       />
-      <KpiRow stats={stats} loading={loading} />
+      <KpiRow stats={stats} />
       <MiddleRow stats={stats} />
       <BottomRow stats={stats} />
       <ErrorBlock msg={error} />
@@ -47,27 +50,24 @@ export function DashboardSection() {
   );
 }
 
-function KpiRow({ stats, loading }: { stats: DashboardStats; loading: boolean }) {
+// KpiRow —— 值和它下面那行小字都由 `kpiCards` 一处算好（F-L-52）。
+// 这一层只渲：没有数的时候，那行小字**根本不存在**，不需要这里再判一次。
+function KpiRow({ stats }: { stats: DashboardStats | null }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-testid="dashboard-kpis">
-      <Kpi label="entries" value={stats.rawCount} trend={`↑ ${stats.rawCount} total`} sub="raw + wiki + output" loading={loading} />
-      <Kpi label="unprocessed" value={stats.rawUnprocessed} trend={stats.rawUnprocessed > 5 ? '↑ growing' : '↓ in flow'} sub="needs review" loading={loading} />
-      <Kpi label="codes live" value={stats.codesLive} trend={`${stats.codesLive} active`} loading={loading} />
-      <Kpi label="requests" value={stats.requestsNew} trend={stats.requestsNew > 0 ? `↑ ${stats.requestsNew} new` : 'at zero'} sub="from gate" loading={loading} />
+      {kpiCards(stats).map((c) => <Kpi key={c.key} card={c} />)}
     </div>
   );
 }
 
-function Kpi({ label, value, trend, sub, loading }: {
-  label: string; value: number; trend?: string; sub?: string; loading: boolean;
-}) {
+function Kpi({ card }: { card: KpiCard }) {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid={`kpi-${label}`}>
-      <div className="sm-smallcaps mb-1.5">{label}</div>
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid={`kpi-${card.label}`}>
+      <div className="sm-smallcaps mb-1.5">{card.label}</div>
       <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none tracking-[-0.02em]">
-        {loading ? '—' : value.toLocaleString()}
+        {card.value}
       </div>
-      <KpiTrend trend={trend} sub={sub} />
+      <KpiTrend trend={card.trend} sub={card.sub} />
     </div>
   );
 }
@@ -93,7 +93,7 @@ function KpiTrendSub({ sub }: { sub?: string }) {
   return sub ? <span className="text-(--color-faint)"> · {sub}</span> : null;
 }
 
-function MiddleRow({ stats }: { stats: DashboardStats }) {
+function MiddleRow({ stats }: { stats: DashboardStats | null }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6 mb-6">
       <CorpusPulse stats={stats} />
@@ -102,22 +102,26 @@ function MiddleRow({ stats }: { stats: DashboardStats }) {
   );
 }
 
-function CorpusPulse({ stats }: { stats: DashboardStats }) {
+function CorpusPulse({ stats }: { stats: DashboardStats | null }) {
   const t = useTranslations('adminShell.dashboard');
+  const v = pulseView(stats);
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <GroupHeader title="corpus pulse · 14d" action={<PulseVerdict pulse={stats.pulse} />} />
+    <div
+      className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50"
+      data-testid="dash-corpus-pulse"
+    >
+      <GroupHeader title="corpus pulse · 14d" action={<PulseVerdict verdict={v.verdict} />} />
       <div className="flex items-end gap-6 mt-2">
         <div>
           <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">
-            {stats.rawCount.toLocaleString()}
+            {v.total}
           </div>
           <div className="mono text-[10px] text-(--color-muted) tracking-[0.06em] mt-1">
             {t('entriesTotal')}
           </div>
         </div>
         <div className="flex-1">
-          <CorpusSparkline pulse={stats.pulse} days={stats.pulseDays} />
+          <CorpusSparkline pulse={v.series} days={v.days} />
           <div className="mono text-[9.5px] text-(--color-faint) tracking-[0.06em] mt-1 flex justify-between">
             <span>{t('daysAgo14')}</span><span>{t('today')}</span>
           </div>
@@ -132,10 +136,17 @@ function CorpusPulse({ stats }: { stats: DashboardStats }) {
 // 它以前是一个无条件的 `<span>{t('corpusActive')}</span>` —— 不管 14 天里进了多少条，
 // 永远朱红地写着 `↑ corpus active`，包括一条都没进的时候（UX-41：断言一件自己不追踪的事，
 // [[names-that-lie]]）。一个恒真的判断不是判断，是装饰；而它占的正是"图给我的结论"那个位置。
-function PulseVerdict({ pulse }: { pulse: readonly number[] }) {
+// verdict 为 undefined = 序列还没到。**这时候一句结论都不许下** —— `nothing new in 14d`
+// 是一句关于世界的陈述，而此刻它什么都不知道（F-L-52）。判空在 `pulseView` 里做完了。
+function PulseVerdict({ verdict }: { verdict: PulseView['verdict'] }) {
+  return verdict === undefined ? null : (
+    <VerdictText active={verdict.active} added={verdict.added} />
+  );
+}
+
+function VerdictText({ active, added }: { active: boolean; added: number }) {
   const t = useTranslations('adminShell.dashboard');
-  const added = pulse.reduce((n, v) => n + v, 0);
-  return added > 0 ? (
+  return active ? (
     <span className="mono text-[10px] text-(--color-accent)" data-testid="pulse-verdict">
       {t('corpusActive', { added })}
     </span>
@@ -255,7 +266,7 @@ function PoolHeadLines({ line }: { line: { head: string; hint: string } }) {
   );
 }
 
-function BottomRow({ stats }: { stats: DashboardStats }) {
+function BottomRow({ stats }: { stats: DashboardStats | null }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <RecentVisitors />
@@ -279,19 +290,13 @@ function RecentVisitors() {
   );
 }
 
-// useRecentConversations —— null = 没拉到（不是"还没有访客"）。空列表的那句话是**关于世界的陈述**，
-// 拉失败时它是假的（F-A-13 的同类）。
-function useRecentConversations(): { rows: DashboardRecentRow[] | null } {
-  const [rows, setRows] = useState<DashboardRecentRow[] | null>([]);
-  useEffect(() => {
-    void fetchRecentConversations('/api/admin/conversations/', 5)
-      .then(setRows)
-      .catch(() => setRows(null));
-  }, []);
-  return { rows };
+function RecentVisitorsList({ rows }: { rows: readonly DashboardRecentRow[] | null | undefined }) {
+  return rows === undefined
+    ? <div className="mono text-[11px] text-(--color-faint) tracking-[0.06em] mt-2">—</div>
+    : <RecentVisitorsLoaded rows={rows} />;
 }
 
-function RecentVisitorsList({ rows }: { rows: readonly DashboardRecentRow[] | null }) {
+function RecentVisitorsLoaded({ rows }: { rows: readonly DashboardRecentRow[] | null }) {
   const t = useTranslations('adminShell.dashboard');
   return rows === null ? (
     <div
@@ -336,21 +341,28 @@ function RecentVisitorFlags({ hits }: { hits: number }) {
     : null;
 }
 
-function NeedsYourHand({ stats }: { stats: DashboardStats }) {
-  const items = buildActionItems(stats);
+// NeedsYourHand —— 这一屏最会被当真的一句话住在这儿：说「没什么要你管」，owner 就真的不管了。
+// 所以 `stats` 还没到的时候**这句话不许出口**（F-L-52：它曾经在 loading 那一帧写着
+// 「Nothing pending — corpus is current.」，而那一刻它连语料有几条都不知道）。
+function NeedsYourHand({ stats }: { stats: DashboardStats | null }) {
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="needs-hand">
       <GroupHeader title="needs your hand" />
-      <NeedsList items={items} />
+      <NeedsList items={needsItems(stats)} />
     </div>
   );
 }
 
-function buildActionItems(stats: DashboardStats): ActionItem[] {
-  return allActionItems(stats).filter((i) => i.count > 0);
+// items 为 undefined = stats 还没到。**空数组和"还不知道"必须分开**：
+// 空数组说的是「都看过了，没事」，owner 据此收工；undefined 说的是「还不知道」，
+// 那一刻不许说任何一句（F-L-52）。用跟大数字同一个记号 `—`，一个横杠不断言任何事。
+function NeedsList({ items }: { items: ActionItem[] | undefined }) {
+  return items === undefined
+    ? <p className="mono text-[11px] text-(--color-faint) mt-2">—</p>
+    : <NeedsRows items={items} />;
 }
 
-function NeedsList({ items }: { items: ActionItem[] }) {
+function NeedsRows({ items }: { items: ActionItem[] }) {
   return items.length === 0 ? <EmptyAction /> : (
     <ul className="flex flex-col gap-3" data-testid="dashboard-needs">
       {items.map((i) => <NeedRow key={i.key} item={i} />)}

@@ -8,7 +8,9 @@ import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { ListPane } from '@/components/admin/ListPane';
 import { useSandbox, type SandboxWorkspace } from '@/lib/admin/use-sandbox';
+import type { ResourceStatus } from '@/lib/state/status';
 import { useAction } from '@/lib/ui/use-action';
 
 export function SandboxPanel() {
@@ -47,21 +49,39 @@ export function SandboxPanel() {
       >
         {t('title', { n: sandbox.workspaces.length })}
       </AdminSectionHead>
-      <WorkspaceBody rows={sandbox.workspaces} />
+      <WorkspaceBody rows={sandbox.workspaces} status={sandbox.status} />
     </div>
   );
 }
 
-// WorkspaceBody —— 有 workspace 时列表格；没有时走 `.sm-empty`（UX-75 收口的那一个），
-// 而且**说清什么时候会有** —— 一句「没有」自己回答不了「是没人用过，还是坏了」。
-function WorkspaceBody({ rows }: { rows: readonly SandboxWorkspace[] }) {
+// WorkspaceBody —— 三态走 ListPane（F-L-53）。
+//
+// 这里的空态是这一族里最露骨的一处：它那句 hint 写着
+// **「None here means none in use — not that something is broken.」**
+// GET 500 的时候，屏幕上写着的正好是「没坏」。所以它只配在**真的拉到了**的时候出现。
+function WorkspaceBody({ rows, status }: {
+  rows: readonly SandboxWorkspace[]; status: ResourceStatus;
+}) {
   const t = useTranslations('adminShell.sandbox');
-  return rows.length === 0 ? (
-    <div className="sm-empty" data-testid="sandbox-empty">
-      <div className="sm-empty-title">{t('empty')}</div>
-      <p className="sm-empty-hint">{t('emptyHint')}</p>
-    </div>
-  ) : (
+  return (
+    <ListPane
+      status={status}
+      count={rows.length}
+      empty={
+        <div className="sm-empty" data-testid="sandbox-empty">
+          <div className="sm-empty-title">{t('empty')}</div>
+          <p className="sm-empty-hint">{t('emptyHint')}</p>
+        </div>
+      }
+    >
+      <WorkspaceTable rows={rows} />
+    </ListPane>
+  );
+}
+
+function WorkspaceTable({ rows }: { rows: readonly SandboxWorkspace[] }) {
+  const t = useTranslations('adminShell.sandbox');
+  return (
     <table className="w-full mono text-[11px]" data-testid="sandbox-table">
       <thead className="text-(--color-faint)">
         <tr className="text-left">

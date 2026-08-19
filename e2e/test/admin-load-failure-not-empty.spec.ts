@@ -49,6 +49,12 @@ test.describe('admin · a failed load must not render as an authoritative empty'
   test('session: a 401 on /me still sends the owner to /login', meUnauthedStillRedirects);
   test('a failed load speaks English, not HTTP', failureSpeaksEnglish);
   test('the shell stops calling itself live while the instance is not answering', liveDotTracksReachability);
+  test('dashboard: a load still in flight does not become “nothing new in 14d”',
+    dashboardInFlightIsNotZero);
+  test('system: usage still in flight does not become “no owner-key LLM calls”',
+    usageInFlightIsNotZero);
+  test('system: a 500 on sandbox workspaces does not become “None here means none in use”',
+    sandboxLoadFailure);
   test('roles: a 500 does not become “no roles yet”', rolesLoadFailure);
   test('security: a 500 does not become “no IPs banned”', securityLoadFailure);
   test('a genuinely empty list still shows its empty state', emptyStateStillShows);
@@ -234,6 +240,134 @@ function fail(page: Page, glob: string | RegExp): { hits: () => number } {
     });
   });
   return { hits: () => hits };
+}
+
+// hold —— 把某个 GET **扣在半空**，直到测试自己放行（`fail` 的兄弟：那个钉成 500，这个钉在路上）。
+//
+// 不用「拖住 N 毫秒」是因为那就是 e2e 里的 sleep：窗口靠猜，机器一忙就翻车。扣住之后
+// 「加载中」这一帧要多久有多久，放行之后还能接着断言真数字出来 —— 于是这条用例同时守住
+// 两端：**没拉到的时候不许说零，拉到了要说真的**。
+// 一样返回命中计数：拦不到的话页面秒开、断言全过，而它什么都没验（[[assertion-that-cannot-fail]]）。
+function hold(page: Page, glob: string | RegExp): {
+  hits: () => number; release: () => void;
+} {
+  let release = (): void => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let hits = 0;
+  void page.route(glob, async (route) => {
+    hits += 1;
+    await gate;
+    await route.continue();
+  });
+  return { hits: () => hits, release: () => { release(); } };
+}
+
+// dashboardInFlightIsNotZero —— 这一族的孪生：**「还没拉到」跟「失败了」一样，不许被渲染成
+// 一句关于世界的陈述**。
+//
+// 真实环境里撞出来的（UX-41 的红，全套 #3）：仪表盘还在 loading 时，四个大数字诚实地印着 `—`，
+// 而**同一屏上**由这些数字长出来的句子却在断言零 —— `↑ 0 total`、`at zero`、
+// `0 entries · total`、`nothing new in 14d`。左边侧栏那条 rail 同时写着 `+2 in 7d`。
+// 同一刻、同一份数据，机器一边说"我还不知道"，一边说"什么都没有"。
+//
+// 归因：`DashboardSection` 把 `loading` 只传给了 `Kpi` 的**数值**那一格，
+// 而 trend / verdict / 总数都是调用方从 `EMPTY_STATS` 那份零直接算出来的
+// （[[lesson-not-swept-to-neighbours]]：道理只跟到了数字那一半）。
+async function dashboardInFlightIsNotZero({ adminPage }: { adminPage: Page }): Promise<void> {
+  const probe = hold(adminPage, /\/api\/admin\/stats\/growth/);
+  // reload 而不是 goto：壳可能已经停在这一页，那样不会再发这一发，
+  // 于是「加载中」这一帧根本不存在（[[assertion-that-cannot-fail]]）。
+  // 不 await：要看的正是加载中那一帧。
+  void reloadAdminSection(adminPage, 'dashboard');
+  await expectInjected(probe, 'growth');
+  // 先证「此刻确实还没拉到」，否则下面几条 `.not.` 会在数据已到的页面上轻松通过。
+  // 先等**新文档**里的仪表盘挂上：reload 是异步的，直接去读元素会读在正在被拆掉的旧
+  // 文档上，超时报「找不到」——那种红跟真缺陷长得一样，说的却是时序不对。
+  await expect(adminPage.getByTestId('dashboard')).toBeVisible({ timeout: 15_000 });
+  // `.first()`：加载中不止一处写着 loading…（标题一处、侧栏 rail 一处），
+  // 严格模式下 `getByText` 会因为「匹配到 2 个」直接失败（[[read-the-failure-before-theorising]]）。
+  await expect(
+    adminPage.getByText(/loading…/).first(),
+    'this case only means anything while the load is in flight',
+  ).toBeVisible({ timeout: 10_000 });
+
+  // 取文本再判 —— 元素还没出现时 `.not.toContainText` 直接算通过
+  // （[[negated-assertion-passes-while-absent]]）。
+  const kpis = (await adminPage.getByTestId('dashboard-kpis').innerText()).trim();
+  const pulse = (await adminPage.getByTestId('dash-corpus-pulse').innerText()).trim();
+  expect(
+    kpis, `KPI 行还在加载,却已经说出 "${kpis.replace(/\n/gu, ' / ')}"`,
+  ).not.toMatch(/↑ 0 total|at zero/u);
+  // 只断**结论**和**总数**，别拿 `^0` 去扫整张卡：火花线的 y 轴刻度本来就有一行 `0`，
+  // 那一版的红说的是我的正则吃到了坐标轴，不是产品又说了零（[[read-the-failure-before-theorising]]）。
+  expect(
+    pulse, `pulse 卡还在加载,却已经说出 "${pulse.replace(/\n/gu, ' / ')}"`,
+  ).not.toMatch(/nothing new in 14d/u);
+  expect(
+    pulse, `总数还没到就该是一个横杠，而这里是 "${pulse.replace(/\n/gu, ' / ')}"`,
+  ).toMatch(/—\s*\n?\s*entries · total/u);
+  await expect(
+    adminPage.getByTestId('pulse-verdict'), '还不知道就别下结论',
+  ).toHaveCount(0);
+  // 「needs your hand」是这一屏最会被当真的一句：它说「没什么要你管」的时候，
+  // owner 就真的不管了。加载中它什么都不知道，不许下这个结论。
+  const needs = (await adminPage.getByTestId('needs-hand').innerText()).trim();
+  expect(
+    needs, `还在加载就替 owner 判了「没事」："${needs.replace(/\n/gu, ' / ')}"`,
+  ).not.toMatch(/nothing pending/iu);
+
+  // 另一端：放行之后必须说出真数字。少了这一半，「全部渲成 —」也能骗过上面几条。
+  probe.release();
+  await expect(
+    adminPage.getByTestId('kpi-entries'), '数据到了就得报出来,不能一直挂着 —',
+  ).toContainText(/\d/u, { timeout: 15_000 });
+}
+
+// usageInFlightIsNotZero —— F-L-52 的邻居（同一次扫出来的）。
+// `InferenceUsagePanel` 一次都没看过 `usage.loading`：`use-inference-usage.ts:49` 的
+// `data?.total ?? EMPTY_TOTAL` 把「还没拉到」折成三个零，于是加载中的面板写着 `0 calls`，
+// 下面还跟着一句 **"no owner-key LLM calls in the last 7 days"** —— 一句关于世界的陈述，
+// 而这一刻它什么都还不知道。owner 据此以为这台实例没花过钱。
+async function usageInFlightIsNotZero({ adminPage }: { adminPage: Page }): Promise<void> {
+  const probe = hold(adminPage, /\/api\/admin\/inference-usage/);
+  void reloadAdminSection(adminPage, 'system'); // 理由同上：要它真的再发一次
+  await expectInjected(probe, 'inference-usage');
+  const panel = adminPage.getByTestId('inference-usage-panel');
+  await expect(panel).toBeVisible({ timeout: 10_000 });
+  const totals = (await adminPage.getByTestId('inference-usage-total').innerText()).trim();
+  expect(
+    totals, `用量还在路上,面板却已经报出 "${totals.replace(/\n/gu, ' / ')}"`,
+  ).not.toMatch(/(^|\s)0(\s|$)/u);
+  await expect(
+    adminPage.getByTestId('inference-usage-empty'),
+    '还没拉到就说「过去 7 天没有调用」—— 那是一句它此刻答不出的话',
+  ).toHaveCount(0);
+
+  // 另一端：放行之后这块必须给出数字（或者那句真的空态），不能一直挂着。
+  probe.release();
+  await expect(
+    adminPage.getByTestId('inference-usage-total'), '数据到了就得报出来',
+  ).toContainText(/\d/u, { timeout: 15_000 });
+}
+
+// sandboxLoadFailure —— 这一族里最露骨的一处:沙箱面板的空态**自己保证了那件不成立的事**
+// ——「None here means none in use — **not that something is broken**」。GET 500 的时候，
+// 屏幕上写着的正好是"没坏"。owner 据此以为沙箱闲着，而真相是他看不见任何一个在跑的工作区。
+async function sandboxLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
+  const probe = fail(adminPage, /\/api\/admin\/sandbox\/workspaces/);
+  await reloadAdminSection(adminPage, 'system');
+  await expectInjected(probe, 'sandbox workspaces');
+  await expect(
+    adminPage.getByTestId('sandbox-empty'),
+    '拉失败了还说「这里没有就是真没有、不是坏了」—— 这句话此刻正好是反的',
+  ).toHaveCount(0);
+  await expect(
+    // `couldn.t`：产品这句用的是**直**撇号（`Couldn't load this list …`），而我这条正则
+    // 原来写的是弯的 `’` —— 一个字符的差别，红出来的样子却是「产品没提示失败」。
+    // 撇号那一位不较真（[[right-bytes-wrong-glyphs]] 的同族）。
+    adminPage.getByText(/couldn.t load|could not load|couldn.t reach|could not reach/i).first(),
+    'owner 得知道这一块没拉到',
+  ).toBeVisible({ timeout: 10_000 });
 }
 
 // expectInjected —— 断言那一发真的被拦到了。

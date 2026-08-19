@@ -45,15 +45,21 @@ shape_hits() {
     /^[[:space:]]*(\/\/|\*|\/\*|\{\/\*|#)/ { next }
     /length === 0/ {
       line = $0
-      if (line ~ /length === 0[[:space:]]*\?[[:space:]]*</) {
-        if (line !~ /\?[[:space:]]*<>/) { print FILENAME ":" FNR ":" line }
+      if (line ~ /length === 0[[:space:]]*(\?|&&)[[:space:]]*</) {
+        if (line !~ /(\?|&&)[[:space:]]*<>/) { print FILENAME ":" FNR ":" line }
         next
       }
-      if (line ~ /length === 0$/) { pending = FILENAME ":" FNR ":" line; next }
+      # 换行的三种断法都要跟到下一行:`? (` / `&& (` / 行尾就断。
+      if (line ~ /length === 0[[:space:]]*(\?|&&)[[:space:]]*\($/ || line ~ /length === 0$/) {
+        pending = FILENAME ":" FNR ":" line; next
+      }
       next
     }
     pending != "" {
-      if ($0 ~ /^[[:space:]]*\?[[:space:]]*<[A-Z]/) { print pending }
+      # 下一行开头是 JSX 就算数 —— **小写标签也算**:空态常常是一段
+      # `<div className="sm-empty">` 而不是一个组件,而闸门第一版只认 `<[A-Z]`,
+      # 于是 SandboxPanel 那种写法整段走过去了([[gate-can-go-blind]])。
+      if ($0 ~ /^[[:space:]]*(\?[[:space:]]*)?<[A-Za-z]/) { print pending }
       pending = ""
     }
   ' "$@"
@@ -64,6 +70,14 @@ shape_hits() {
 has_status() {
   grep -qE 'ResourceStatus|\.status ===|hook\.status|status=\{' "$1"
 }
+
+# ⚠️ (b) 试过往上游看一层(顺着 `from '@/lib/admin/use-*'` 判那个 hook 有没有 status),
+# **不能这么做**:文件级的判断会把某一个 hook 的状态安到这个文件里**所有**列表头上,
+# 于是 `NeedsList`(从手里的 stats 推出来的)和 `MembersBlock`(自己的判别联合,error 早就
+# 单独处理了)双双误报 —— 正是这条闸门第一版踩过的那三处。
+# 「这一份列表自己有没有状态」是数据流的问题,grep 答不了。
+# 真正让 `InferenceUsagePanel` / `SandboxPanel` 落回闸门视野的办法是**把它们改成 ListPane**:
+# 改完文件里就有 `status=`,(b) 自然成立,以后再退化就挡得住。
 
 # scan_empties —— (a) 且 (b)。这才是这条规矩的边界:手里有加载状态,就没有理由自己决定空态。
 scan_empties() {
@@ -117,6 +131,20 @@ export function AlsoBad({ tags }) {
 export function Fine({ tags }) {
   return tags.length === 0 ? null : <TagList tags={tags} />;
 }
+// 下面两种是闸门第一版**看不见**的写法,各自在产品里都有真实现场:
+// `&&`(InferenceUsagePanel)、括号 + 小写标签(SandboxPanel / APIKeysPanel)。
+export function BadAnd({ rows }) {
+  return <div>{rows.length === 0 && (
+    <div className="sm-empty">nothing here</div>
+  )}</div>;
+}
+export function BadParen({ rows }) {
+  return rows.length === 0 ? (
+    <div className="sm-empty">nothing here</div>
+  ) : (
+    <RowList rows={rows} />
+  );
+}
 PLANTED
 # 没有加载状态的那种:同样的形状,但这个列表是从手里的数据推出来的(PinManager / NeedsList)。
 derived=$(mktemp -t emptycheck.XXXXXX)
@@ -128,8 +156,8 @@ PLANTED
 guilty_hits=$(scan_empties "$guilty" | grep -c . || true)
 derived_hits=$(scan_empties "$derived" | grep -c . || true)
 rm -f "$guilty" "$derived"
-if [ "$guilty_hits" -ne 2 ]; then
-  echo "check-one-empty-state: SELF-TEST FAILED — expected 2 planted offenders (the '? null' one let through), saw $guilty_hits"
+if [ "$guilty_hits" -ne 4 ]; then
+  echo "check-one-empty-state: SELF-TEST FAILED — expected 4 planted offenders (三元 / 换行三元 / && / 括号+小写标签;'? null' 那个放过), saw $guilty_hits"
   exit 2
 fi
 if [ "$derived_hits" -ne 0 ]; then

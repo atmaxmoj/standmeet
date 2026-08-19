@@ -73,6 +73,7 @@ export function ChatRoom({ owner, mode }: Props) {
               pending={ci.chat.pending} exhausted={ci.exhausted}
               showStarters={ci.chat.dialogs.length === 0} mode={derived.mode}
               ghost={ci.ghost} onAcceptGhost={ci.onAcceptGhost}
+              handle={owner.handle}
             />
             <ChatFootnote handle={owner.handle} mode={derived.mode} />
           </div>
@@ -183,6 +184,9 @@ type ComposerProps = {
   input: string; setInput: (v: string) => void; onSubmit: (q: string) => void;
   pending: boolean; exhausted: boolean;
   ghost: string | null; onAcceptGhost: (g: string) => void;
+  // handle —— 撞到上限那句话要指名道姓：额度是**这个人**发的，续也是找他。
+  // 「contact the owner」对访客来说是一个没有地址的建议。
+  handle: string;
 };
 
 // tryVisible —— 有 ghost 时不摆 TRY。两者都在说「你可以问什么」，但含义不同：TRY 是码带的
@@ -263,8 +267,26 @@ function ComposerForm(p: ComposerProps) {
         </div>
         <ComposerAction exhausted={p.exhausted} />
       </div>
+      <LimitLine exhausted={p.exhausted} handle={p.handle} />
     </form>
   );
+}
+
+// LimitLine —— 撞到上限时**说清楚是哪个上限、以及接下来找谁**。
+//
+// 输入框右边那个 `session full` 是个标签位（等宽小写、一行放得下才行），它说得出「停了」，
+// 说不出「为什么停」和「怎么办」。一个访客读完它只知道自己被挡住了 —— 而这条码是 owner
+// 主动发出去的，续一点额度只是一句话的事。所以句子放在框下面，标签留在框边上。
+function LimitLine({ exhausted, handle }: { exhausted: boolean; handle: string }) {
+  const t = useTranslations('visitor.chatRoom');
+  return exhausted ? (
+    <p
+      className="mono text-[10.5px] tracking-[0.06em] text-(--color-muted) mt-2"
+      data-testid="limit-reached"
+    >
+      {t('limitReached', { reason: 'turn', handle })}
+    </p>
+  ) : null;
 }
 
 // ghostClass —— ghost 在场时 textarea 绝对定位盖在 GhostText 上(高度由 ghost 决定),

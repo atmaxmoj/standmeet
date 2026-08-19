@@ -30,18 +30,21 @@ export interface DashboardStats {
   aiProviderUsable: boolean;
 }
 
+// State.stats —— **null = 还没拿到**，不是「拿到了，全是零」（F-L-52）。
+//
+// 以前这里坐着一份全零的 `EMPTY_STATS` 当初始值，于是同一屏上出现过这种东西：
+// 标题写着 `dashboard · loading…`、四个大数字诚实地印着 `—`，而由这些数字长出来的每一句话
+// 都在断言零 —— `↑ 0 total`、`at zero`、`0 entries · total`、`nothing new in 14d`、
+// 最狠的一句是「Nothing pending — corpus is current.」。左边侧栏那条 rail 同时写着 `+2 in 7d`。
+// 数字知道自己在加载，从数字长出来的句子不知道（[[lesson-not-swept-to-neighbours]]）。
+//
+// 修法不是给每一处再补一个 `loading &&` —— 那还是纪律。让它**算不出来**：没有数就没有
+// 这个对象，每个读者都得先面对 null。
 interface State {
-  stats: DashboardStats;
+  stats: DashboardStats | null;
   loading: boolean;
   error: string | null;
 }
-
-const EMPTY_STATS: DashboardStats = {
-  rawCount: 0, rawUnprocessed: 0, codesLive: 0,
-  requestsNew: 0, conversationsCount: 0, draftsReviewing: 0, pulse: [], pulseDays: [],
-  // 还没拉到的时候不许喊狼来了:先当它是好的,拉回来再说。
-  aiProviderUsable: true,
-};
 
 // Counts come from the real COUNT(*) growth endpoint, NOT a paginated list length (F-L-4):
 // /api/admin/corpus/raw caps at defaultCorpusLimit=50, so `raw.length` under-counts past one page.
@@ -63,7 +66,7 @@ const ProviderRowSchema = z.object({ id: z.string(), key_configured: z.boolean()
 
 export function useAdminDashboard(): State {
   const [state, setState] = useState<State>({
-    stats: EMPTY_STATS, loading: true, error: null,
+    stats: null, loading: true, error: null,
   });
   useEffect(() => { void load(setState); }, []);
   return state;
@@ -129,7 +132,9 @@ async function load(setState: (s: State) => void): Promise<void> {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'load dashboard failed';
-    setState({ stats: EMPTY_STATS, loading: false, error: msg });
+    // 失败也是 null：**「没拉到」跟「拿到了，是空的」不许长一个样**，这正是这个文件
+    // 隔壁 `admin-load-failure-not-empty` 那一族守的东西。错误另行显示。
+    setState({ stats: null, loading: false, error: msg });
   }
 }
 

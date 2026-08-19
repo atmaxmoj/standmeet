@@ -6,7 +6,10 @@
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
-import { useInferenceUsage, type UsageRow } from '@/lib/admin/use-inference-usage';
+import { ListPane } from '@/components/admin/ListPane';
+import {
+  totalCells, useInferenceUsage, type UsageRow, type UsageTotal,
+} from '@/lib/admin/use-inference-usage';
 
 export function InferenceUsagePanel() {
   const t = useTranslations('adminShell.inferenceUsage');
@@ -17,43 +20,52 @@ export function InferenceUsagePanel() {
       data-testid="inference-usage-panel"
     >
       <AdminSectionHead className="mb-3">{t('title')}</AdminSectionHead>
-      <UsageTotals
-        calls={usage.total.calls}
-        inTok={usage.total.input_tokens}
-        outTok={usage.total.output_tokens}
-      />
-      <table className="w-full mono text-[11px] mt-3" data-testid="inference-usage-table">
-        <thead className="text-(--color-faint)">
-          <tr className="text-left">
-            <th className="py-1 font-normal">{t('colDate')}</th>
-            <th className="py-1 font-normal">{t('colModel')}</th>
-            <th className="py-1 font-normal text-right">{t('colCalls')}</th>
-            <th className="py-1 font-normal text-right">{t('colIn')}</th>
-            <th className="py-1 font-normal text-right">{t('colOut')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {usage.rows.map((r) => (
-            <UsageRowLine key={`${r.date}-${r.model}`} row={r} />
-          ))}
-        </tbody>
-      </table>
-      {usage.rows.length === 0 && (
-        <p className="mono text-[11px] text-(--color-faint) mt-2" data-testid="inference-usage-empty">
-          {t('empty')}
-        </p>
-      )}
+      <UsageTotals total={usage.total} />
+      {/* 三态交给 ListPane（F-L-53）：还在拉 → 骨架；没拉到 → 说没拉到；
+          拉到了且是空的 → 才说「过去 7 天没有调用」。那句话是关于世界的陈述，
+          只有真的知道的时候才配说。 */}
+      <ListPane
+        status={usage.status}
+        count={usage.rows.length}
+        empty={
+          <p className="mono text-[11px] text-(--color-faint) mt-2" data-testid="inference-usage-empty">
+            {t('empty')}
+          </p>
+        }
+      >
+        <table className="w-full mono text-[11px] mt-3" data-testid="inference-usage-table">
+          <thead className="text-(--color-faint)">
+            <tr className="text-left">
+              <th className="py-1 font-normal">{t('colDate')}</th>
+              <th className="py-1 font-normal">{t('colModel')}</th>
+              <th className="py-1 font-normal text-right">{t('colCalls')}</th>
+              <th className="py-1 font-normal text-right">{t('colIn')}</th>
+              <th className="py-1 font-normal text-right">{t('colOut')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usage.rows.map((r) => (
+              <UsageRowLine key={`${r.date}-${r.model}`} row={r} />
+            ))}
+          </tbody>
+        </table>
+      </ListPane>
     </div>
   );
 }
 
-function UsageTotals({ calls, inTok, outTok }: { calls: number; inTok: number; outTok: number }) {
+// total 为 null = 还没拉到。三个数一起变成 `—`：**报一个零就是断言这台实例没花过钱**，
+// 而那一刻它还不知道（F-L-53）。跟仪表盘四个大数字用的是同一个记号。
+function UsageTotals({ total }: { total: UsageTotal | null }) {
   const t = useTranslations('adminShell.inferenceUsage');
+  const cells = totalCells(total, { calls: t('colCalls'), in: t('colIn'), out: t('colOut') });
   return (
     <div className="flex gap-6 mono text-[13px]" data-testid="inference-usage-total">
-      <span>{calls} <span className="text-(--color-faint) text-[10px]">{t('colCalls')}</span></span>
-      <span>{inTok.toLocaleString()} <span className="text-(--color-faint) text-[10px]">{t('colIn')}</span></span>
-      <span>{outTok.toLocaleString()} <span className="text-(--color-faint) text-[10px]">{t('colOut')}</span></span>
+      {cells.map((c) => (
+        <span key={c.label}>
+          {c.value} <span className="text-(--color-faint) text-[10px]">{c.label}</span>
+        </span>
+      ))}
     </div>
   );
 }

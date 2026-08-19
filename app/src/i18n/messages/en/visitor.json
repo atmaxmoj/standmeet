@@ -27,6 +27,7 @@
     "byoaiWelcome": "Hi. I'm an AI grounded in {handle}'s curated corpus. You're running on your own <accent>{provider}</accent> key — public slice only.",
     "byoaiScope": "Work, projects, public takes — fair game. Private topics return a “need a code” response.",
     "sessionFull": "session full",
+    "limitReached": "You've hit this session's {reason} limit — contact {handle} to be granted more.",
     "ask": "ask <big>↵</big>",
     "footnote": "<muted>how this works</muted> · answers come from {handle}'s curated corpus. private topics return a redaction rather than a guess.",
     "footnoteCoded": " {handle} reads the transcript afterward.",

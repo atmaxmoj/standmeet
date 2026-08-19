@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { ListPane } from '@/components/admin/ListPane';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useAPIKeys, type APIKeyItem } from '@/lib/admin/use-api-keys';
 import { useRoles } from '@/lib/admin/use-roles';
@@ -125,15 +126,22 @@ function MintRow({ hook, roleIDs, fallbackRole }: MintProps) {
 }
 
 
+// KeyList —— 三态走 ListPane（F-L-53：`check-one-empty-state` 加宽之后当场抓到这一处）。
+// 「no keys yet · generate one to wire up your first AI client」是一句会被 owner 当真的话：
+// 拉失败时它读作「这台实例还没有 key」，而真相可能是他已经发出去的那几把正在被用。
 function KeyList({ keys, hook }: { keys: readonly APIKeyItem[]; hook: ReturnType<typeof useAPIKeys> }) {
   const t = useTranslations('adminIntegrations.apiKeys');
-  return keys.length === 0
-    ? <div className="sm-empty mono text-[11px] text-(--color-faint)">{t('empty')}</div>
-    : (
+  return (
+    <ListPane
+      status={hook.status}
+      count={keys.length}
+      empty={<div className="sm-empty mono text-[11px] text-(--color-faint)">{t('empty')}</div>}
+    >
       <ul className="space-y-2">
         {keys.map((k) => <KeyRow key={k.id} row={k} hook={hook} />)}
       </ul>
-    );
+    </ListPane>
+  );
 }
 
 const ROW_BASE = 'flex items-baseline gap-3 border-b border-(--color-rule)/60 pb-2';
