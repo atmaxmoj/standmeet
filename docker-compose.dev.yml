@@ -73,6 +73,12 @@ services:
       # same reason as in prod: a knob nobody can set is not a feature (F-G-2).
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
+      # turn 的时间墙和它后面那次救场的预算。默认 300s / 60s，`make test-boundary` 调成
+      # 5s / 3s 去驱「撞墙之后产品说什么」那一格（F-A-44）。**必须在这儿声明**：shell 的
+      # 环境变量只到 docker compose 为止，compose 不转发的话容器里读到的还是默认值 ——
+      # 于是台子看着搭好了，turn 照常跑完，用例红在一个跟它无关的地方。
+      - AGENT_TURN_TIMEOUT=${AGENT_TURN_TIMEOUT:-}
+      - FORCE_FINAL_TIMEOUT=${FORCE_FINAL_TIMEOUT:-}
       # MinIO / S3 storage for owner-uploaded images + attachments.
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=standmeet

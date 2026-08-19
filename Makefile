@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -688,6 +688,22 @@ test-captcha:
 	 TURNSTILE_SECRET=1x0000000000000000000000000000000AA \
 	 $(MAKE) dev-up
 	@cd e2e && pnpm exec playwright test $(if $(SPEC),$(SPEC),captcha-on-); \
+		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
+
+# test-boundary —— 把 turn 的时间墙**和它后面那次救场**都调短，跑边界那一格的用例。
+#
+# 为什么要一个自己的台子：这两个预算是进程级的（300s / 60s）。默认套件里没法在一条用例上
+# 把它们改短，于是「撞墙之后产品说什么」这条路**从来没被驱过** —— prod 上真撞到时，
+# 访客读到的是一句「连接断了，再问一次」（F-A-44）。
+#
+# 两个都要短：只调短 turn，救场那 60 秒会把它救回来（那是好路径，另有用例）；要驱的是
+# **救场也没来得及**的那一格。BOUNDARY_TIGHT 同时传给测试进程，用例据它自跳，
+# 免得它跑进默认套件里变成一条恒定的红（captcha 那五条的教训）。
+#
+# 台子跑完是短预算的 —— `make dev-up` 放回去。
+test-boundary:
+	@AGENT_TURN_TIMEOUT=5 FORCE_FINAL_TIMEOUT=3 $(MAKE) dev-up
+	@cd e2e && BOUNDARY_TIGHT=1 pnpm exec playwright test $(if $(SPEC),$(SPEC),agent-turn-deadline); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
 # test-red —— run one spec against the images that are ALREADY RUNNING. No dev-up, no rebuild.

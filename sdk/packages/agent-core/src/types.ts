@@ -75,6 +75,7 @@ export const TURN_STOP_REASONS = [
   // 产品自己判的两种（不是模型给的）：
   'claim_unbacked', // 说自己办成了一件事，却没有回执（F-A-37）
   'no_answer', // 一个字都没答出来，也救不回来（F-A-35）
+  'deadline', // 时间用完了，连边界那次救场也没来得及（F-A-44）
 ] as const;
 
 export type TurnStopReason = (typeof TURN_STOP_REASONS)[number];

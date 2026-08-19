@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -145,6 +147,7 @@ func ensureProduct(ctx context.Context, em *loopEmit, state *turnState) {
 		"stop", state.stop, "evidence_items", len(state.evidence))
 	recovered := forceFinalAnswer(ctx, em, state)
 	if recovered == "" {
+		markRescueFailed(ctx, em, state, nil)
 		return
 	}
 	em.sink.Text(recovered)
@@ -153,41 +156,26 @@ func ensureProduct(ctx context.Context, em *loopEmit, state *turnState) {
 	state.recovered = true
 }
 
-// StopNoAnswer —— 停止原因：这一轮**一个字都没答出来**，而且救不回来（F-A-35）。
+// markRescueFailed —— **边界点着了、救场也没救回来**，那这一轮叫什么名字。
 //
-// 为什么它必须是独立的一种，而不是复用 max_tokens / tool_use：那两个说的是**怎么停的**，
-// 而访客要知道的是**结果是什么**。「说了一半」和「一个字没说」对他意味着不同的下一步 ——
-// 前者可以问「剩下的呢」，后者只能重问一个更小的问题。产品以前对这两种说同一句
-// 「ask for the rest」，于是在没有 rest 的时候许诺了一个 rest。
-const StopNoAnswer = "no_answer"
-
-// doneStop —— 交给访客那一侧的收场词。
+// 通向这里的有两扇门：`handleTerminalError`（循环以 error 收场）和 `ensureProduct`
+// （循环正常收场但没有产物）。prod 上抓到的是前者，而 e2e 里复现出来的是后者 ——
+// 我第一次只补了前者，用例照旧红，日志里那行 `forcing final answer` 根本不在
+// （[[lesson-not-swept-to-neighbours]]）。判决因此收在这一处，两扇门都走它。
 //
-// 三条分支，各自对应访客手里**不同的东西**：
-//   - 救回来了 → 有一个完整答案 → `end_turn`（不能再说 max_tokens：没有 rest 可问了）
-//   - 没救回来、正文是空的 → **手里什么都没有** → `no_answer`
-//   - 其余 → 原样透传（正文在，只是没说完）
-//
-// 判据落在 `product == ""` 而不是某个具体 stop reason：任何「正常收场却没有产物」的结局
-// 都是同一件事，不该等下一种 finish_reason 出现时再补一遍（[[lesson-not-swept-to-neighbours]]，
-// 跟 ensureProduct 里那个条件同源）。
-//
-// 日志那边照旧记真实的 stop + recovered，两个读者要的东西不一样。
-//
-// **claim gate 的判决压过全部**：那一轮说自己办成了一件事而拿不出回执（F-A-37），
-// 这件事跟答案空不空、是不是救回来的都无关，访客那一侧必须照旧收到 claim_unbacked。
-func doneStop(state *turnState) string {
-	if state.stop == StopClaimUnbacked {
-		return state.stop
+// 时间用完是**一种特定的收场**，不是一次故障：访客该问得更窄，而不是「再问一次」。
+// 其余情况保持原样（error 帧 / no_answer），这里不越权。
+func markRescueFailed(ctx context.Context, em *loopEmit, state *turnState, err error) {
+	if !deadlineWall(ctx, err) {
+		return
 	}
-	if state.recovered {
-		return "end_turn"
-	}
-	if state.product == "" {
-		return StopNoAnswer
-	}
-	return state.stop
+	em.log.Warn("agent turn: boundary synthesis also ran out of time",
+		"evidence_items", len(state.evidence))
+	state.stop = StopDeadline
 }
+
+// 停止原因（StopNoAnswer / StopDeadline）和 doneStop 住在 agent_stop.go —— 那边讲
+// 「这一轮叫什么名字」，这个文件讲「预算怎么用完的」，两个读者不一样。
 
 // recordTurnUsage —— #106: turn 收尾把累计 token 交给注入的 RecordUsage(有 cred/model + 有用量时)。
 // nil recorder(无状态 smoke) / BYOAI(route 传 no-op) / 零用量 → 不记。
@@ -237,8 +225,27 @@ func handleTerminalError(
 		em.log.Warn("agent turn max iterations; force-final produced nothing")
 		return false
 	}
+	// 救场也没救回来。**这仍然不是「连接断了」**（F-A-44）：prod 上量到过一次 —— 读了 64 条
+	// 笔记、边界点着、救场那 60 秒也用完，然后访客读到 *"The connection dropped before a reply
+	// came back. Please try asking again."* 连接好好的，撞的是时间墙；而「再问一次」是句没用的
+	// 建议：同一个问题会撞同一堵墙。
+	//
+	// 这一刻手里有什么、没有什么，要分清：**有** 这一轮的检索/阅读计数（屏幕上那行
+	// `SEARCHED 4 · READ 64` 已经在了）；**没有** 一段能给人看的散文 —— 证据是工具原始输出，
+	// 原样倒给访客正是 F-D-10 那条缺陷。所以不编答案，改走「每堵墙自己说明理由」那套
+	// （UX-84）：给这一轮一个自己的停止原因，前端渲对应的那句话。
+	if deadlineWall(ctx, err) {
+		markRescueFailed(ctx, em, state, err)
+		return false
+	}
 	em.sink.Error(err)
 	return false
+}
+
+// deadlineWall —— 这次收场是不是「时间用完了」。turn 的 ctx 已过期，或错误本身就是 deadline。
+func deadlineWall(ctx context.Context, err error) bool {
+	return errors.Is(ctx.Err(), context.DeadlineExceeded) ||
+		errors.Is(err, context.DeadlineExceeded)
 }
 
 // surfaceInsteadOfForce —— the two cases where the boundary must NOT attempt a synthesis:
@@ -257,7 +264,21 @@ func surfaceInsteadOfForce(ctx context.Context, state *turnState, err error) boo
 // forceFinalTimeout —— the boundary synthesis's own budget. It must survive the turn's
 // expired deadline (the time wall is exactly when it's needed), so it runs on a detached,
 // bounded context — never unbounded, never the dead parent.
-const forceFinalTimeout = 60 * time.Second
+//
+// 它自己也会用完（prod 上量到过：24 条证据、reasoning 模型，60 秒没够）。那条路上产品该说
+// 什么由 handleTerminalError 收口 —— 见 StopDeadline。
+const defaultForceFinalTimeout = 60 * time.Second
+
+// FORCE_FINAL_TIMEOUT(秒)可覆盖 —— 跟 AGENT_TURN_TIMEOUT 一样，是给 e2e 用来**把边界
+// 之后那条路也逼出来**的：两个预算都短，才走得到「救场也没救回来」那一格。
+func forceFinalTimeout() time.Duration {
+	if s := os.Getenv("FORCE_FINAL_TIMEOUT"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			return time.Duration(n) * time.Second
+		}
+	}
+	return defaultForceFinalTimeout
+}
 
 // forceFinalAnswer —— 无 tool 一次性收口:the turn's contract is ONE grounded answer, so when
 // the loop ends without one (budget exhausted / bad tool name / mid-stream blip) we make one
@@ -276,7 +297,7 @@ func forceFinalAnswer(ctx context.Context, em *loopEmit, state *turnState) strin
 	// last act and gets its own short budget. Without this, a turn-timeout kills the very
 	// call meant to rescue the gathered evidence (observed live: 26 retrievals → "That
 	// took too long", everything discarded).
-	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), forceFinalTimeout)
+	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), forceFinalTimeout())
 	defer cancel()
 	ctx = fctx
 	msgs := make([]ChatRequestMsg, 0, len(em.in.Req.History)+2)

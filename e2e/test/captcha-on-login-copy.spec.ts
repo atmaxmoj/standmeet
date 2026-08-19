@@ -40,7 +40,10 @@ test.describe('login · a failed human check must not be reported as a wrong pas
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
   });
-  test.afterAll(async () => { await request.dispose(); });
+  // `?.` 不是防御性写法，是**跳过这条路的实况**：整组被 skip 时 `beforeAll` 在赋值之前就
+  // 被中止了，`request` 从没存在过 —— 而 afterAll 照样跑。少了这个问号，「跳过」会以
+  // 一条 0ms 的红呈现，跟它要消灭的那种红长得一模一样。
+  test.afterAll(async () => { await request?.dispose(); });
 
   test('the RIGHT password with no captcha token is not called "invalid credentials"',
     async () => {

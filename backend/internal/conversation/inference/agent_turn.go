@@ -200,9 +200,15 @@ const writeDeadlineGrace = 15 * time.Second
 // 推到 agent turn timeout 之外,真正的上限交给上面的 ctx WithTimeout 兜。
 // httptest.Recorder 等不支持 deadline 的 writer 会返 ErrNotSupported —— 记一行
 // 即可,流仍由 ctx 控住。
+// 边界那次救场跑在**时间墙之后**（脱离的 ctx + 自己的预算），所以这条写超时必须把它也算进去。
+// 少算的代价在 prod 上量到过（F-A-44）：turn 撞墙 300s → 救场再花 60s → `done` 帧在 360s
+// 写出去，而写超时是 315s —— 连接早被服务端自己掐了，浏览器**从没收到那一帧**。
+// 于是后端判得对（`stop=deadline`），访客读到的还是 SDK 那句「没见到 done 帧」的兜底
+// 「连接断了，再问一次」。判得对而送不到，跟判错没有区别。
 func extendStreamWriteDeadline(log *slog.Logger, w http.ResponseWriter, timeout time.Duration) {
 	rc := http.NewResponseController(w)
-	if err := rc.SetWriteDeadline(time.Now().Add(timeout + writeDeadlineGrace)); err != nil {
+	budget := timeout + forceFinalTimeout() + writeDeadlineGrace
+	if err := rc.SetWriteDeadline(time.Now().Add(budget)); err != nil {
 		log.Warn("agent turn: extend write deadline unsupported (stream capped by ctx only)",
 			logErrKey, err)
 	}

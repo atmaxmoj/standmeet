@@ -285,6 +285,13 @@ const STOP_NOTICE: Readonly<Record<string, string>> = {
   // 「什么都没有」，唯一有用的下一步是把问题缩小。以前这一类跟它们共用一句
   // 「ask for the rest」—— 在没有 rest 的时候许诺了一个 rest。
   no_answer: 'no answer this turn · try a narrower question',
+  // **时间用完了**，而且边界那次救场也没来得及（F-A-44）。真实环境里的样子：读了 64 条笔记，
+  // 六分钟后访客读到 *"The connection dropped before a reply came back. Please try asking
+  // again."* —— 连接好好的，撞的是时间墙，而「再问一次」会撞同一堵墙。
+  //
+  // 措辞跟 `no_answer` 分开：那一条是「什么都没找到」，这一条是「找到了很多、没来得及拼起来」，
+  // 而屏幕上那行 `SEARCHED n · READ m` 还在，访客看得见它到底做了多少。
+  deadline: 'out of time · it read a lot and couldn’t finish · ask about one piece of it',
 };
 
 // UNBACKED_CLAIM_NOTICE —— 上面那段话说它替你办成了一件事，而这一轮**没有那件事的回执**

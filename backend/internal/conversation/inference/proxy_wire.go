@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/cloudwego/eino/schema"
 	"github.com/eino-contrib/jsonschema"
@@ -250,10 +251,17 @@ func mapFinishReason(r string) string {
 	return "end_turn"
 }
 
-// normalizedStop —— 发给客户端的收场值。产品自己判出来的那些**原样透传**;其余走上游归一化。
-// 加一种产品判定就要在这儿加一行,否则它会被 mapFinishReason 的 default 静默改写成"说完了"。
+// productStops —— **产品自己判出来的**收场原因。它们不来自上游 provider，所以不能走
+// `mapFinishReason` —— 那个函数的 default 会把认不得的值静默改写成「说完了」。
+//
+// 名单在这里只有一份：以前这是一串 `||`，旁边写着「加一种就要在这儿加一行」，而那句提醒
+// 没挡住 F-A-35 那次遗漏（后端判得对、前端也写了，这一跳把它改写成 end_turn，提示整个不渲染，
+// 任何一层都没报错）。加一种停止原因现在只需要往这个切片里加，两处都跟着走
+// （[[structure-means-no-responsibility-class]]）。
+var productStops = []string{StopClaimUnbacked, StopNoAnswer, StopDeadline}
+
 func normalizedStop(r string) string {
-	if r == StopClaimUnbacked || r == StopNoAnswer {
+	if slices.Contains(productStops, r) {
 		return r
 	}
 	return mapFinishReason(r)
