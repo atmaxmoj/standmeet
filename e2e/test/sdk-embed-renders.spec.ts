@@ -45,7 +45,7 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
   test('答案渲成排版，不是把 markdown 原样印给访客', async ({ page, playwright }) => {
     const req = await playwright.request.newContext();
     const tag = await scriptMockReplyText(
-      req, 'The owner is **Sijie Wang** and the file is `client.ts`.');
+      req, 'The owner is **Sijie Wang**, *really*, and the file is `client.ts`.');
     await req.dispose();
 
     await mountWidget(page);
@@ -53,13 +53,17 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
 
     const answer = page.locator('standmeet-chat [data-role="assistant"]').last();
     await expect(answer, '答案到了').toContainText('Sijie Wang', { timeout: 25_000 });
-    await expect(answer.locator('strong'), '粗体渲成 <strong>')
-      .toHaveText('Sijie Wang');
-    await expect(answer.locator('code'), '行内代码渲成 <code>')
-      .toHaveText('client.ts');
-    // 判负的那一半：星号和反引号**不许**出现在屏幕上（红态就是它们出现）。
-    await expect(answer, 'markdown 标记不落到访客眼前')
-      .not.toContainText('**');
+    // **断言收窄到我们这句话所在的那一段**：替身会把 system prompt 回显进答案，
+    // 里面本来就有粗体的能力名（`ask_visitor` 等）—— 拿整块去 `toHaveText` 会撞上它们，
+    // 那是替身的噪声，不是产品的行为。
+    const para = answer.locator('.para').filter({ hasText: 'Sijie Wang' });
+    await expect(para.locator('strong'), '粗体渲成 <strong>').toHaveText('Sijie Wang');
+    await expect(para.locator('em'), '斜体渲成 <em>').toHaveText('really');
+    await expect(para.locator('code'), '行内代码渲成 <code>').toHaveText('client.ts');
+    // 判负的那一半：星号和反引号**不许**留在屏幕上（红态就是它们出现）。
+    // 单星号也算 —— 粗体先匹配、斜体后匹配那个顺序要是写反了，`**` 会被拆成两半，
+    // 屏幕上就会留下星号（[[lookahead-rule-eats-the-neighbour]]）。
+    await expect(para, 'markdown 标记不落到访客眼前').not.toContainText('*');
   });
 
   test('上一轮还在答的时候，第二问收得下、排得上、答得出', async ({ page, playwright }) => {

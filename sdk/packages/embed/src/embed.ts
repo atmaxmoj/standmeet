@@ -17,8 +17,10 @@
 //   <script src="https://alice.dev/embed/embed.iife.js"></script>
 //   <standmeet-chat base-url="https://alice.dev"></standmeet-chat>
 
-import { createClient } from '@standmeet/sdk-core';
-import type { StandMeetClient, SessionMode, SSEEvent } from '@standmeet/sdk-core';
+import { createClient, parseAnswerText } from '@standmeet/sdk-core';
+import type {
+  StandMeetClient, SessionMode, SSEEvent, AnswerSpan,
+} from '@standmeet/sdk-core';
 
 const TAG = 'standmeet-chat';
 
@@ -64,6 +66,7 @@ const SHELL_CSS = `
   [data-role="assistant"] .para { margin: 0 0 0.85em; }
   [data-role="assistant"] .para:last-child { margin-bottom: 0; }
   [data-role="assistant"] strong { font-weight: 600; }
+  [data-role="assistant"] em { font-style: italic; }
   [data-role="assistant"] code {
     font-family: var(--sm-mono); font-size: 0.88em;
     background: color-mix(in oklab, var(--sm-ink) 7%, transparent);
@@ -240,40 +243,28 @@ function applyEventToBlock(block: HTMLDivElement, ev: SSEEvent): void {
 //
 // 三样是判断出来的，不是随手选的：这三种是模型答案里**真正高频**的标记，其余（表格、列表、
 // 链接）在一个嵌进别人页面的小窗里本来就该退化成纯文本。
+// renderInline —— 解析走 core 的 `parseAnswerText`（React 绑定用的是同一份，F-O-8），
+// 这里只把片段拼成 DOM。全程 `createElement` + `textContent`，不碰 innerHTML。
 function renderInline(block: HTMLDivElement, raw: string): void {
   block.textContent = '';
-  for (const para of raw.split(/\n{2,}/)) {
-    if (para.trim() === '') continue;
+  for (const spans of parseAnswerText(raw)) {
     const p = document.createElement('div');
     p.className = 'para';
-    for (const piece of splitMarks(para)) {
-      p.appendChild(markToNode(piece));
+    for (const piece of spans) {
+      p.appendChild(spanToNode(piece));
     }
     block.appendChild(p);
   }
 }
 
-interface Mark { kind: 'text' | 'bold' | 'code'; text: string }
+const SPAN_TAG: Readonly<Record<string, string>> = {
+  bold: 'strong', italic: 'em', code: 'code',
+};
 
-// splitMarks —— 把一段拆成 文本 / 粗体 / 行内代码。一遍正则，成对才算标记。
-function splitMarks(s: string): Mark[] {
-  const out: Mark[] = [];
-  const re = /\*\*([^*]+)\*\*|`([^`]+)`/g;
-  let last = 0;
-  for (let m = re.exec(s); m !== null; m = re.exec(s)) {
-    if (m.index > last) out.push({ kind: 'text', text: s.slice(last, m.index) });
-    out.push(m[1] !== undefined
-      ? { kind: 'bold', text: m[1] }
-      : { kind: 'code', text: m[2] ?? '' });
-    last = m.index + m[0].length;
-  }
-  if (last < s.length) out.push({ kind: 'text', text: s.slice(last) });
-  return out;
-}
-
-function markToNode(m: Mark): Node {
-  if (m.kind === 'text') return document.createTextNode(m.text);
-  const el = document.createElement(m.kind === 'bold' ? 'strong' : 'code');
+function spanToNode(m: AnswerSpan): Node {
+  const tag = SPAN_TAG[m.kind];
+  if (tag === undefined) return document.createTextNode(m.text);
+  const el = document.createElement(tag);
   el.textContent = m.text;
   return el;
 }

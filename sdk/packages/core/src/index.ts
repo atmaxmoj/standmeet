@@ -10,6 +10,9 @@ export type {
   StandMeetClient,
 } from './client.js';
 export { readSSE } from './sse.js';
+// parseAnswerText —— 两个渲染面共用的那一半（F-O-8）：解析在这里，渲染各自实现。
+export { parseAnswerText } from './answer-text.js';
+export type { AnswerSpan, AnswerParagraphs } from './answer-text.js';
 export type {
   PagePinCard,
   PageWhere,
