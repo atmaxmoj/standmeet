@@ -19,6 +19,12 @@ import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 const OWNER = syncOwner('leveragehtml');
 
 test.describe('leverage · pre-rendered static HTML (baked at export) renders, sanitized', () => {
+  // 这条用例一个人要走完 reset → claim → 上传 vault → 开 reader 页面，而 reader 那页要等
+  // `load`（字体 + 懒加载的 mermaid）。默认 30 秒在全套负载下不够，单跑 42 秒。
+  // **不把 `goto` 放宽成 domcontentloaded** —— 那样会把 F-A-43 那类「字体落地之后才发生」的
+  // 布局缺陷从整套里藏起来。给这条用例它自己需要的时间，边界留在它自己身上。
+  test.setTimeout(90_000);
+
   test.beforeEach(async ({ request }) => {
     resetInstance();
     await claimSyncOwner(request, OWNER);

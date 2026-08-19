@@ -20,6 +20,12 @@ const SESSION_OPEN_TIMEOUT_MS = 30_000;
 
 // goto —— 任意相对路径（含 query）。eslint 把 page.goto 限制在 helper/ 里。
 // caller 给"/setup?t=xxx"、"/login"、"/alice" 这种。
+//
+// **等到 `load` 为止 —— 别改成 `domcontentloaded`。** 我为了治一条超时改过一次，
+// 而那一改**会把真缺陷藏起来**：`role-waypoints-admin` 的输入框 0 宽（F-A-43）只在
+// 网页字体真正加载完之后才发生 —— 也就是**真人看到的那一刻**。改成 domcontentloaded
+// 之后量到的是回退字体下的布局，四条用例全绿，缺陷还在页面上。
+// 真人永远在 load 之后看页面；判据也就得站在那儿。
 export async function goto(page: Page, path: string): Promise<void> {
   const url = path.startsWith('/') ? `${APP_BASE}${path}` : `${APP_BASE}/${path}`;
   await page.goto(url);

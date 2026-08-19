@@ -66,7 +66,7 @@ function WaypointRow({
       <div className="flex gap-2 min-w-0">
         <input
           type="text"
-          className="sm-field-input sm-mono w-[38%] min-w-0"
+          className="sm-field-input sm-mono basis-[38%] shrink-0 min-w-0"
           value={wp.waypoint_id}
           onChange={(e) => onField(idx, { waypoint_id: e.target.value })}
           placeholder={t('roleWaypoints.idPlaceholder')}
@@ -74,7 +74,7 @@ function WaypointRow({
         />
         <input
           type="text"
-          className="sm-field-input flex-1 min-w-0"
+          className="sm-field-input grow basis-0 min-w-0"
           value={wp.description}
           onChange={(e) => onField(idx, { description: e.target.value })}
           placeholder={t('roleWaypoints.descPlaceholder')}

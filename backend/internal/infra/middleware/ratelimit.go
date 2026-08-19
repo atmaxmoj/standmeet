@@ -23,8 +23,10 @@ const (
 //
 // 这是一张刻意集中、可 grep 的公开滥用策略表；改公开路由路径时记得同步这里。
 var publicRatePolicy = map[string]int64{
-	"POST /api/v1/sessions":               120,
-	"POST /api/v1/codes/intro":            120,
+	"POST /api/v1/sessions":    120,
+	"POST /api/v1/codes/intro": 120,
+	// access-requests 前面还压着 `RequestGuard`（5 次 /15 分钟，见 request_guard.go）——
+	// **这里的 30 实际上走不到**，它只是「每分钟窗口」这一层的兜底，别把它读成这个口子的上限。
 	"POST /api/v1/access-requests":        30,
 	"POST /api/v1/agent/turn":             120,
 	"POST /api/v1/account/reset-password": 20,

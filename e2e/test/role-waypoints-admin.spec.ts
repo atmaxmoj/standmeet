@@ -38,6 +38,24 @@ test.describe('F-A-7 · owner authors ghost waypoints from /admin/roles', () => 
       await expect(row.getByTestId('role-wp-row-0')).toHaveCount(0);
     });
 
+  // 几何判据，不是文本判据（[[text-assertion-cannot-see-layout]]）。
+  //
+  // 这一行的两个输入框都带 `.sm-field-input`，而那个原子里写着 `width:100%` 且**没进
+  // Tailwind 的 layer** —— 它压过 `w-[38%]`。配上兄弟的 `flex-1`（= `flex-basis: 0`），
+  // 描述框的基准尺寸是 0，收缩按基准分摊，于是它**恒定 0 宽**：DOM 里在、屏幕上没有、
+  // owner 点不进去。`toBeVisible` 那一类断言看不见这件事，红出来只是 "element is not visible"。
+  test('两个输入框都真的占着地方（0 宽 = owner 打不进字）',
+    async ({ adminPage }) => {
+      await openRoles(adminPage);
+      const row = adminPage.getByTestId('role-row-steerer');
+      await row.getByTestId('role-wp-add').click();
+      const idBox = await row.getByTestId('role-wp-id-0').boundingBox();
+      const descBox = await row.getByTestId('role-wp-desc-0').boundingBox();
+      expect(idBox?.width ?? 0, 'id 框有宽度').toBeGreaterThan(80);
+      expect(descBox?.width ?? 0, '描述框有宽度（红：0 —— 被 flex 挤没了）')
+        .toBeGreaterThan(80);
+    });
+
   test('author a waypoint → save → reload → persists',
     async ({ adminPage }) => {
       await openRoles(adminPage);
