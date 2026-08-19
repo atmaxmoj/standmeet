@@ -31,7 +31,7 @@ func (a *corpusWriteArgs) heroPatch() usecase.HeroPatch {
 func (a *corpusWriteArgs) entryTouched() bool {
 	given := []bool{
 		a.Title != "", a.Body != "", a.ParentID != nil,
-		len(a.Tags) > 0, len(a.CSSClasses) > 0, a.ShowAsSource != nil, a.FlaggedPrivate,
+		len(a.Tags) > 0, len(a.CSSClasses) > 0, a.ShowAsSource != nil, a.FlaggedPrivate != nil,
 	}
 	for _, g := range given {
 		if g {

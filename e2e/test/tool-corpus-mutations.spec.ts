@@ -15,6 +15,7 @@ import { test, expect } from '@/fixtures/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { BACKEND } from '@/fixtures/vault-sync';
 
 const OWNER = {
   email: 'corpus-mut@example.com', password: 'correct-horse-battery-staple',
@@ -220,6 +221,53 @@ async function testUnknownGenre(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
+// adminRawRow —— 从 owner 面板那条路读回一条 raw。**不用 MCP 读**：`corpusItemOut` 上没有
+// `flagged_private`，用它取回来永远是 undefined —— 那样这条断言会因为「字段不存在」而恒绿，
+// 什么都证不到（[[assertion-that-cannot-fail]]）。
+async function adminRawRow(
+  request: APIRequestContext, id: string,
+): Promise<{ flagged_private?: boolean; tags?: string[] }> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const res = await request.get(`${BACKEND}/api/admin/corpus/raw`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  expect(res.ok(), 'precondition: the admin raw list answers').toBeTruthy();
+  const body = (await res.json()) as { items?: { id: string }[] } | { id: string }[];
+  const rows = (Array.isArray(body) ? body : body.items ?? []) as {
+    id: string; flagged_private?: boolean; tags?: string[];
+  }[];
+  const row = rows.find((r) => r.id === id);
+  expect(row, 'precondition: the entry is still in the raw list').toBeDefined();
+  return row ?? {};
+}
+
+async function testPartialUpdateKeepsFlags(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const entry = await createEntry(request, {
+    genre: 'raw', body: 'a private thought', tags: ['personal'], flagged_private: true,
+  });
+
+  // 前置条件：先确认这条真的被标成私密了，否则下面判的是空气。
+  const before = await adminRawRow(request, entry.id);
+  expect(before.flagged_private, 'precondition: the entry starts out private').toBe(true);
+  expect(before.tags, 'precondition: the entry starts out tagged').toContain('personal');
+
+  // owner 的 AI 做的那件最普通的事：只改正文。
+  await updateEntry(request, { genre: 'raw', id: entry.id, body: 'a private thought, reworded' });
+
+  const after = await adminRawRow(request, entry.id);
+  expect(
+    after.flagged_private,
+    '改正文没提到 flagged_private —— 它必须原样留着。清掉 owner 标的私密，'
+    + '而且回执报成功，是一次没有回执的降级',
+  ).toBe(true);
+  expect(
+    after.tags,
+    '同一个道理：没提到 tags 就不该把 tags 清空',
+  ).toContain('personal');
+  await request.dispose();
+}
+
 test.describe('corpus mutations via MCP · genre 矩阵', () => {
   test.beforeAll(async ({ playwright }) => {
     await seedCorpusMut(playwright);
@@ -251,4 +299,20 @@ test.describe('corpus mutations via MCP · genre 矩阵', () => {
 
   test('an unknown genre is refused, naming the three that exist',
     async ({ playwright }) => { await testUnknownGenre(playwright); });
+
+  // **改正文不许顺手清掉没提到的字段**（F-L-57）。
+  //
+  // `corpus.update` 的 schema 只要求 `genre` + `id`，描述也写着「in place」—— 于是 owner 的 AI
+  // 说「把这条 raw 的正文改一下」时，发的就是 `{genre,id,body}`。而 `corpusWriteArgs` 里
+  // `FlaggedPrivate` 是**裸 bool**：JSON 里没有这个字段 = false = **把 owner 标的私密取消掉**，
+  // tags 同理被清空，而回执报成功。
+  //
+  // 同一份 struct 上，`ParentID` / `ShowAsSource` / hero 三项都已经是指针，各自带着一段注释讲
+  // 「裸值表达不了『没给』」—— 三次写下同一个道理，三次只修了当时那一个字段
+  // （[[lesson-not-swept-to-neighbours]]）。
+  //
+  // 而且这个字段在 `corpusItemOut` 上**根本不回传**：AI 设得了、读不回，所以它连"读出来再原样发
+  // 回去"这条自救的路都没有。
+  test('editing only the body must not silently un-private a raw entry',
+    async ({ playwright }) => { await testPartialUpdateKeepsFlags(playwright); });
 });

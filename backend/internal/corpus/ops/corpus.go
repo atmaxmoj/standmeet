@@ -105,15 +105,24 @@ type corpusItemOut struct {
 	CoverHeadline     string            `json:"cover_headline,omitempty"`
 	CoverHue          string            `json:"cover_hue,omitempty"`
 	Tags              []string          `json:"tags"`
-	SourceRawIDs      []string          `json:"source_raw_ids"`
-	SourceWikiIDs     []string          `json:"source_wiki_ids"`
-	Outbound          []refOut          `json:"outbound,omitempty"`
-	Backlinks         []refOut          `json:"backlinks,omitempty"`
+	// CSSClasses —— wiki 的 per-note 呈现类。owner 面以前不回传它,而**访客那边在用**
+	// (`WikiReaderClient` 按它渲染)——于是"改一次正文顺手清掉它"的退化只出现在访客屏幕上,
+	// owner 这边什么都看不见(F-L-57 的第三格)。
+	CSSClasses    []string `json:"css_classes,omitempty"`
+	SourceRawIDs  []string `json:"source_raw_ids"`
+	SourceWikiIDs []string `json:"source_wiki_ids"`
+	Outbound      []refOut `json:"outbound,omitempty"`
+	Backlinks     []refOut `json:"backlinks,omitempty"`
 	// 素材 —— 挂在这条语料上的图 / 附件。依附文章,可见性继承文章。
 	Assets       []usecase.AssetView `json:"assets,omitempty"`
 	ShowAsSource bool                `json:"show_as_source"`
 	Published    bool                `json:"published"`
 	HasChildren  bool                `json:"has_children,omitempty"`
+	// FlaggedPrivate —— raw 的「这条别拿出去」。**以前一个读接口都不回传它**:面板拿不到
+	// (`RawAdminViewSchema` 于是 `.default(false)`,每条都显示成不私密),owner 的 AI 也拿不到 ——
+	// 所以连"读回来再原样发回去"这条自救的路都没有(F-L-57)。设得了、读不回的字段,
+	// 等于一个没有回执的开关。
+	FlaggedPrivate bool `json:"flagged_private"`
 }
 
 // refOut —— 一条 note 之间的边(读下一条 / 被谁引)。

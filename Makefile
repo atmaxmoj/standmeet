@@ -511,14 +511,23 @@ verify-shots:
 #
 #   make verify-mcp CREDS=e2e/manual-runs/<round>/downloads/credentials.json \
 #     CALLS='[{"name":"page.pin","args":{"section":"insights","entry_id":"…"}}]'
+#
+# CALLS_FILE= 是同一件事的另一条入口：载荷从文件读。**真语料的正文过不了命令行** ——
+# 它带换行、单引号、frontmatter 的 `---`，塞进 `'$(CALLS)'` 要么被 shell 截断要么把引号吃掉。
+# 需要把一条真笔记原样发回去（比如验「改正文会不会顺手清掉别的字段」）时走这条。
 verify-mcp:
-	@test -n "$(CREDS)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>'; exit 2)
+	@test -n "$(CREDS)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>|CALLS_FILE=<path>'; exit 2)
 	@# CALLS 用**单引号**包：它是一段 JSON，里面全是双引号，值里还会有空格。双引号那一版
 	@# 在参数带空格时 `test` 会收到一串词而不是一个参数，报「too many arguments」——
 	@# 看起来像用法写错了，其实是引号错了。
-	@test -n '$(CALLS)' || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>'; exit 2)
-	@node e2e/manual/mcp-drive.mjs sdk/packages/mcp-client/bin/standmeet-mcp \
-	  "$${STANDMEET_VERIFY_HOST:-http://localhost:38227}" "$(CREDS)" '$(CALLS)'
+	@test -n '$(CALLS)' -o -n "$(CALLS_FILE)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>|CALLS_FILE=<path>'; exit 2)
+	@if [ -n "$(CALLS_FILE)" ]; then \
+	  node e2e/manual/mcp-drive.mjs sdk/packages/mcp-client/bin/standmeet-mcp \
+	    "$${STANDMEET_VERIFY_HOST:-http://localhost:38227}" "$(CREDS)" "$$(cat $(CALLS_FILE))"; \
+	else \
+	  node e2e/manual/mcp-drive.mjs sdk/packages/mcp-client/bin/standmeet-mcp \
+	    "$${STANDMEET_VERIFY_HOST:-http://localhost:38227}" "$(CREDS)" '$(CALLS)'; \
+	fi
 
 # schema-drift —— 问运行中的库:schema.sql 里声明的表/列,你到底有没有。schema.sql 只在
 # **全新卷**上被 postgres 应用一次,所以长命实例停在它出生时的样子,后加的列只活在文件里 ——

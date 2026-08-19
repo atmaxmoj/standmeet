@@ -30,7 +30,7 @@ func rawItem(r *entity.Raw, path string) corpusItemOut {
 	item := corpusItemOut{
 		Genre: genreRaw, ID: r.ID(), Body: r.Body(),
 		Preview: usecase.LeadLine(r.Body(), previewMaxLen),
-		Source:  r.Source(), Status: rawStatus(r),
+		Source:  r.Source(), Status: rawStatus(r), FlaggedPrivate: r.FlaggedPrivate(),
 		Tags: nonNilStrings(r.Tags()), SourceRawIDs: []string{},
 		SourceWikiIDs: []string{},
 		CreatedAt:     rfc3339(r.CreatedAt()), UpdatedAt: rfc3339(r.UpdatedAt()),
@@ -47,6 +47,7 @@ func wikiItem(w *entity.Wiki, path string) corpusItemOut {
 		Genre: genreWiki, ID: w.ID(), Title: w.Title(),
 		Preview: usecase.LeadLine(w.Body(), previewMaxLen), Excerpt: w.Excerpt(),
 		Tags: nonNilStrings(w.Tags()), SourceRawIDs: nonNilStrings(w.SourceRawIDs()),
+		CSSClasses:    nonNilStrings(w.CSSClasses()),
 		SourceWikiIDs: []string{},
 		ShowAsSource:  w.ShowAsSource(), Published: w.Published(),
 		CreatedAt: rfc3339(w.CreatedAt()), UpdatedAt: rfc3339(w.UpdatedAt()),

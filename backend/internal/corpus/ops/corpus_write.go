@@ -121,77 +121,7 @@ var (
 	}`)
 )
 
-// corpusWriteArgs —— 建和改共用的入参。哪些字段对哪个 genre 有意义,由下面的分派决定。
-//
-// hero 三项是**指针**:没给 = 不动,不是"清空"。其余字段整份替换(见 corpus.update 的说明),
-// 但 hero 不能跟着那个规矩 —— 既有调用方一个 hero 字段都不带,那样每次改正文都会把 owner
-// 设好的 hero 抹掉。
-type corpusWriteArgs struct {
-	CoverImageAssetID *string `json:"cover_image_asset_id"`
-	CoverHeadline     *string `json:"cover_headline"`
-	CoverHue          *string `json:"cover_hue"`
-	Genre             string  `json:"genre"`
-	ID                string  `json:"id"`
-	Title             string  `json:"title"`
-	Body              string  `json:"body"`
-	// ParentID —— 指针,理由跟 ShowAsSource 一模一样(见下面那段):裸 string 表达不了「没给」。
-	// nil = 请求里没有这个字段 = **不动**;指向 "" = 明确挪到根;指向 id = 挪到那条下面。
-	//
-	// 它曾经是裸 string,于是「没提到父级」和「挪到根」是同一个值。面板的编辑表单既不显示
-	// 也不回传这一格(F-L-28),owner 改一次正文,笔记就被拍到根 —— 而**树是语料的地址**:
-	// `uriOf` = `genre://<path>`,role/code 的 ACL glob 就长在这个 path 上。一条笔记换了地址,
-	// owner 写的 `wiki://a/b/**` 从此拦不住它,屏幕上什么都不说。
-	ParentID       *string  `json:"parent_id"`
-	Source         string   `json:"source"`
-	ShowAsSource   *bool    `json:"show_as_source"`
-	Tags           []string `json:"tags"`
-	CSSClasses     []string `json:"css_classes"`
-	FlaggedPrivate bool     `json:"flagged_private"`
-}
-
-// showAsSource —— 没给就是 true。
-//
-// **这是个契约,不是默认值的选择**:一条语料建出来就是可引用的来源;藏起来(meta/persona 那类)
-// 是 owner 明确要求的例外。genre 参数化之前这里是 `args.ShowAsSource == nil || *args.ShowAsSource`,
-// 参数化时被写成了一个裸 bool —— 于是"没提到这个字段"从"保持可引用"变成了"藏起来",
-// 而且编译不报、改口的人也看不见。裸 bool 表达不了"没给",所以它不该是 bool。
-func (a *corpusWriteArgs) showAsSource() bool {
-	return a.ShowAsSource == nil || *a.ShowAsSource
-}
-
-func decodeCorpusWrite(raw json.RawMessage) (corpusWriteArgs, error) {
-	var in corpusWriteArgs
-	if err := json.Unmarshal(raw, &in); err != nil {
-		return in, fp.BadInput("invalid arguments: " + err.Error())
-	}
-	return in, requireGenre(in.Genre)
-}
-
-// parentOrNil —— **建**的时候:没给 / 给空串都是挂在根上,不是错。
-func parentOrNil(id *string) *string {
-	if id == nil || *id == "" {
-		return nil
-	}
-	return id
-}
-
-// keptParentID —— **改**的时候:请求里没给 parent_id 就沿用它现在的父级(不动),
-// 给了空串才是「挪到根」。
-//
-// 为什么要多读一次:下游 `UpdateWikiInput.ParentID` 的 nil 含义是「挪到根」,那是**建**那条路
-// 定下来的,改它会牵动每个调用点。所以「不动」在这一层解析掉 —— 读回当前值再原样传下去。
-func keptParentID(
-	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
-) (*string, error) {
-	if in.ParentID != nil {
-		return parentOrNil(in.ParentID), nil
-	}
-	cur, err := getByGenre(ctx, deps, ownerID, corpusGetArgs{Genre: in.Genre, ID: in.ID})
-	if err != nil {
-		return nil, err
-	}
-	return cur.ParentID, nil
-}
+// 入参的形状 + 每个字段「没给」是什么意思,都在 corpus_write_args.go。
 
 // defaultSource —— raw 没说来源就记 "mcp"(它绝大多数从 owner 的 AI 客户端来);
 // 面板那条会自己带 "admin"。
@@ -227,7 +157,7 @@ func createByGenre(
 	case genreRaw:
 		row, err := usecase.RawDump(ctx, deps, &usecase.RawDumpInput{
 			OwnerID: ownerID, Body: in.Body, Source: defaultSource(in.Source),
-			Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
+			Tags: in.Tags, FlaggedPrivate: in.flaggedPrivate(),
 		})
 		return rawItem(&row, ""), err
 	case genreSubjectivity:
@@ -300,9 +230,17 @@ func updateByGenre(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
 ) (corpusItemOut, error) {
 	if in.Genre == genreRaw {
+		flagged, ferr := keptFlaggedPrivate(ctx, deps, ownerID, in)
+		if ferr != nil {
+			return corpusItemOut{}, ferr
+		}
+		tags, terr := keptTags(ctx, deps, ownerID, in)
+		if terr != nil {
+			return corpusItemOut{}, terr
+		}
 		row, err := usecase.UpdateRaw(ctx, deps, &usecase.UpdateRawReq{
 			OwnerID: ownerID, ID: in.ID, Body: in.Body,
-			Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
+			Tags: tags, FlaggedPrivate: flagged,
 		})
 		return rawItem(&row, ""), err
 	}
@@ -317,24 +255,32 @@ func updateByGenre(
 func updateTreeGenre(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs, parent *string,
 ) (corpusItemOut, error) {
-	switch in.Genre {
-	case genreSubjectivity:
+	if in.Genre == genreSubjectivity {
 		return writeSubjectivityEntry(ctx, deps, ownerID, in, parent)
-	case genreWiki:
+	}
+	// tags / css_classes 也走「没给 = 不动」—— 三个 genre 一起,不再只修撞到的那一个。
+	tags, terr := keptTags(ctx, deps, ownerID, in)
+	if terr != nil {
+		return corpusItemOut{}, terr
+	}
+	if in.Genre == genreWiki {
+		classes, cerr := keptCSSClasses(ctx, deps, ownerID, in)
+		if cerr != nil {
+			return corpusItemOut{}, cerr
+		}
 		row, err := usecase.UpdateWiki(ctx, deps, &usecase.UpdateWikiReq{
 			OwnerID: ownerID, ID: in.ID, ParentID: parent,
-			Title: in.Title, Body: in.Body, Tags: in.Tags,
-			ShowAsSource: in.showAsSource(), CSSClasses: in.CSSClasses,
+			Title: in.Title, Body: in.Body, Tags: tags,
+			ShowAsSource: in.showAsSource(), CSSClasses: classes,
 		})
 		return wikiItem(&row, ""), err
-	default:
-		row, err := usecase.UpdateOutput(ctx, deps, &usecase.UpdateOutputReq{
-			OwnerID: ownerID, ID: in.ID, ParentID: parent,
-			Title: in.Title, Body: in.Body, Tags: in.Tags,
-			ShowAsSource: in.showAsSource(),
-		})
-		return outputItem(&row, ""), err
 	}
+	row, err := usecase.UpdateOutput(ctx, deps, &usecase.UpdateOutputReq{
+		OwnerID: ownerID, ID: in.ID, ParentID: parent,
+		Title: in.Title, Body: in.Body, Tags: tags,
+		ShowAsSource: in.showAsSource(),
+	})
+	return outputItem(&row, ""), err
 }
 
 // deletedOut —— 删的回执。
