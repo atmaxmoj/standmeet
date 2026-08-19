@@ -156,7 +156,14 @@ export function dropAssetRef(body: string, assetID: string): string {
   const re = new RegExp(
     '\\n*!\\[[^\\]]*\\]\\(\\s*standmeet-asset:' + assetID + '\\s*\\)\\n*', 'g',
   );
-  return body.replace(re, '\n\n').replace(/\n{3,}/gu, '\n\n').trim();
+  // 收尾跟 `appendBlock` 用**同一个约定**（正文末尾不留空白），这样反复「插入 → 撤下」
+  // 会收敛，而不是每来一次多一个换行。prod 上量过三轮：3240 → 3311 → 3241（`\n\n` 替换）
+  // 或 3239（整篇 trim）—— 两种都不等于原文。
+  //
+  // **逐字节还原做不到，而根因不在这儿**：`appendBlock` 插入时就已经把正文末尾的换行削掉了
+  // （它自己 `replace(/\s+$/,'')`）。那是「插入」那一半的既有行为，单独记一条（F-L-51），
+  // 不在这里假装修好。
+  return body.replace(re, '\n\n').replace(/\n{3,}/gu, '\n\n').replace(/\s+$/u, '');
 }
 
 function parseTags(raw: string): string[] {
