@@ -65,6 +65,12 @@ test.describe('quota warn at 80% + lockdown + unlimited', () => {
       const input = page.locator('[data-testid="chat-input-field"]');
       await expect(input).toBeDisabled();
       await expect(page.getByText('session full')).toBeVisible();
+      // 标签说「停了」，句子说**哪个上限、找谁续**。只有标签的时候，访客读完只知道自己
+      // 被挡住 —— 而这条码是 owner 主动发出去的，续一点额度只是一句话的事。
+      const line = page.getByTestId('limit-reached');
+      await expect(line).toBeVisible();
+      await expect(line, '要说清是哪一种上限').toContainText(/turn limit/i);
+      await expect(line, '要指名道姓，不能只说 “the owner”').toContainText(OWNER.handle);
     });
 
   test('max_turns = null (unlimited) → never locks',

@@ -67,18 +67,15 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
   test('marketplace: a versionless skill shows author, not a bare "· v"',
     async ({ adminPage }) => { await assertNoBareVersion(adminPage); });
 
-  // 'all' = 17 github + 3 skillsmp = 20(两边 name+author 不撞,跨源不会被去重掉)。
+  // 目录规模**不许写成字面量**。这条曾经写死 `20 = 17 github + 3 skillsmp`,而源不止两个:
+  // job-board mock 会往目录里追加 `tz-booking`(那条"要连接器"的技能,F-F-4)。加完之后全套里
+  // 这条永远红 `Expected 20 / Received 21` —— 而它红的样子跟"分页把一条弄丢了"一模一样。
+  // 数目这个事实的家在**那几个源**,抄一份到这里就是第二个家（[[names-that-lie]] 的同族）。
+  //
+  // 而且这条守的本来也不是"一共几条",是**分页不丢东西**:第一页不倒完、load more 一直到
+  // 按钮消失、最后屏上等于目录全量。
   test('marketplace paginates: first page caps the grid, load more appends',
-    async ({ adminPage }) => {
-      await openAgentSkills(adminPage);
-      await adminPage.getByTestId('skills-tab-marketplace').click();
-      await expect(adminPage.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
-      // PAGE_LIMIT = 12; 'all' returns 17 github + 3 skillsmp = 20 → page 1 is 12.
-      await expectFamilyCount(adminPage, 'market-skill-', 12);
-      await adminPage.getByTestId('marketplace-load-more').click();
-      await expectFamilyCount(adminPage, 'market-skill-', 20);
-      await expect(adminPage.getByTestId('marketplace-load-more')).toHaveCount(0);
-    });
+    async ({ adminPage }) => { await assertPaginationKeepsEveryone(adminPage); });
 
   test('install a marketplace skill → it lands in my skills',
     async ({ adminPage }) => {
@@ -119,6 +116,40 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
       await expect(adminPage.getByText('hand-pasted', { exact: false })).toBeVisible();
     });
 });
+
+// assertPaginationKeepsEveryone —— 第一页不倒完 · 点到按钮消失 · 屏上等于目录全量。
+async function assertPaginationKeepsEveryone(page: Page): Promise<void> {
+  await openAgentSkills(page);
+  await page.getByTestId('skills-tab-marketplace').click();
+  await expect(page.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
+  const total = await marketplaceSize(page);
+  // 目录一页装得下的话,这条用例演不出分页 —— 那是"判不了负",不是通过。
+  const loadMore = page.getByTestId('marketplace-load-more');
+  await expect(loadMore, `目录只有 ${total} 条,一页就装完了,分页无从演起`).toBeVisible();
+  const firstPage = await page.locator(MARKET).count();
+  expect(firstPage, '第一页把整份目录一次倒完就不叫分页').toBeLessThan(total);
+  // 点到按钮消失为止(目录长到几页都成立);上限只是防死循环。
+  for (let i = 0; i < 10 && await loadMore.count() > 0; i += 1) {
+    await loadMore.click();
+    await expect.poll(() => page.locator(MARKET).count()).toBeGreaterThan(firstPage);
+  }
+  await expectFamilyCount(page, 'market-skill-', total);
+  await expect(loadMore, '没有下一页了,按钮就该走').toHaveCount(0);
+}
+
+// marketplaceSize —— 目录一共几条,**问产品自己的检索端点**(一次要完,不分页)。
+//
+// 它在这里只当量尺:分得对不对由上面那条用例判(第一页不倒完 + 点到没有下一页 + 屏上等于全量)。
+// 拿它当量尺是因为"一共几条"的家在那几个源,而源随时会多一条 —— 抄成常数的那一刻就开始过期。
+async function marketplaceSize(page: Page): Promise<number> {
+  const res = await page.request.get(
+    '/api/admin/marketplace/search?limit=500&offset=0',
+  );
+  expect(res.ok(), `marketplace search 回了 ${res.status()}`).toBe(true);
+  const rows: unknown = await res.json();
+  expect(Array.isArray(rows), 'marketplace search 该回一个数组').toBe(true);
+  return (rows as unknown[]).length;
+}
 
 async function openAgentSkills(page: Page): Promise<void> {
   // skill registry 合并成一个 /admin/skills（rot-D1）；"my skills" tab 就是这份 registry 的列表。
