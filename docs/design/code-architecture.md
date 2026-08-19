@@ -1012,7 +1012,7 @@ Backend entrypoint 启动 HTTP server 之前先跑 `goose up`。破坏性 migrat
 
 **G.2** 零宕机升级。**推荐：** v1 不做；接受 `docker compose up` 时 5–10 秒宕机。
 
-**G.3** Migration 跑法。启动自动 `goose up` vs 显式 `make migrate`。**推荐：** 自动 + 一个 `MIGRATE_ON_START=false` 的逃生口。
+**G.3** Migration 跑法。启动自动 `goose up` vs 显式 `make migrate` (not built yet — 这是被否掉的那一半)。**推荐：** 自动 + 一个 `MIGRATE_ON_START=false` 的逃生口。
 
 **G.4** Builder 隔离强度。`docker run --rm` + `--network=none` + drop-capabilities + 只读 root + tmpfs `/tmp` + seccomp profile + 内存/CPU 限制 + 60s timeout。再硬就是 gVisor / Firecracker。**推荐：** v1 docker run + 上述硬化；文档里写好升级到 gVisor 的路径。
 

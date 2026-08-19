@@ -337,7 +337,7 @@ spec 喂错 config 断言 envelope code=`bad_request`、message 提示哪个字�
 工具脚本：
 - `e2e/fixtures/job-boards/capture.sh` —— 重抓 raw（curl 真 API + 礼貌 UA）
 - `e2e/fixtures/job-boards/trim.sh` —— 把 raw 截到 8 条进 git path
-- `Makefile`: `make capture-job-fixtures` / `make trim-job-fixtures` 包它们（待加）
+- `Makefile`: `make capture-job-fixtures` / `make trim-job-fixtures` 包它们
 - `e2e/fixtures/job-boards/README.md` —— inventory + day2 生成约定
 
 ### day2 fixtures（dedup test 用）
@@ -370,7 +370,11 @@ e2e/fixtures/application/
 
 ## Open questions（不阻塞）
 
-- **fixture 跟真 API 同步频率**：未来真 board 改了字段 fixture 没改 → fetcher 测过但实际跑挂。需要个 `make verify-fixtures` 跑真 API 比对最新结构（季度跑一次）。
+- **fixture 跟真 API 同步频率**：需要个 `make verify-fixtures` (not built yet) 跑真 API 比对最新结构（季度跑一次）。
+  **这条已经从"未来"变成"发生过"了**（2026-08-19 真环境审计）：RemoteOK 现在发的 `location` 带尾随逗号
+  （`"San Francisco, "`），而 2026-05-20 抓的 fixture 里 99 条一条都没有 —— 于是替身比真实世界客气，
+  UX-88 在 e2e 全绿的情况下活到了生产。另有 `jba` / `workday` / `bamboohr` 三个 kind **`.raw/` 是空的**：
+  它们的 fixture 是手写的，从来没跟真厂商核对过，只能永远同意适配器自己的想法。
 - **Captcha / rate limit 在 mock server**：暂不模拟。如果真出现 fetcher 处理 429 的需求再加。
 - **HN 月度切换**：HN whoishiring 每月 1 号换帖。fixture 永远是某一个具体月份的 snapshot。fetcher 用 `whoishiring.submitted[0]` 拿"最新"那条 —— mock fixture 也按这条 contract 排序就 OK。
 

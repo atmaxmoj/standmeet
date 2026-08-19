@@ -1,0 +1,9 @@
+{
+  "_why": "F-E-23 的另一半：`jobs.fetch_new` 的回执里有 `failed_sources`（WWR 那条 301），但 owner 真正会读的是 /admin/sources 和 /admin/listings。这一趟只看一件事——**那个抓失败的源，在他眼前有没有痕迹**（上次抓取时间、失败标记、或者一句话）。刚刚在 prod 上真发过一次 fetch_new，所以现在这台实例的状态就是「三个源成功、一个 301 失败」。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/job-fetch/shots",
+  "viewport": [1280, 1500],
+  "shots": [
+    { "name": "jf-01-sources-after-fetch", "url": "/admin/sources", "wait": 4000 },
+    { "name": "jf-02-listings-after-fetch", "url": "/admin/listings", "wait": 4000 }
+  ]
+}

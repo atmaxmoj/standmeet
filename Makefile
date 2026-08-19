@@ -25,6 +25,7 @@ env-lint:
 	@infra/scripts/check-knobs-reachable.sh
 	@infra/scripts/check-knobs-reachable-test.sh
 	@infra/scripts/check-redis-bounded.sh
+	@infra/scripts/check-doc-make-targets.sh
 
 backend-lint:
 	@$(MAKE) -C backend lint
@@ -797,6 +798,29 @@ capture-marketplace-fixtures:
 # fixture path (drops fields we don't read).
 trim-marketplace-fixtures:
 	@bash e2e/fixtures/marketplace/trim.sh
+
+# capture-job-fixtures / trim-job-fixtures —— the job-board equivalents of the two
+# above.  Both scripts have existed since the job loop landed and three docs told
+# readers to run them "via make", but the recipes were never added — so the only
+# way to refresh a fixture was to bypass the house rule and run the script bare.
+# capture hits the real boards (rate limits: quarterly, per docs/design/job-loop-tests.md T.9).
+capture-job-fixtures:
+	@bash e2e/fixtures/job-boards/capture.sh
+
+trim-job-fixtures:
+	@bash e2e/fixtures/job-boards/trim.sh
+
+# backup / restore —— disaster recovery for a self-hosted instance.
+#   make backup DEST=/var/backups/standmeet
+#   make restore TARBALL=/var/backups/standmeet/standmeet-20260819-101500.tar.gz
+# restore is destructive (docker compose down -v wipes the volumes first), so it
+# refuses to start without an explicit TARBALL rather than defaulting to anything.
+backup:
+	@bash infra/scripts/backup.sh "$(or $(DEST),./backups)"
+
+restore:
+	@test -n "$(TARBALL)" || { echo "usage: make restore TARBALL=/path/to/standmeet-*.tar.gz"; exit 2; }
+	@bash infra/scripts/restore.sh "$(TARBALL)"
 
 # prod-psql —— run SQL against the prod DB.  usage: make prod-psql SQL="select 1"
 #
