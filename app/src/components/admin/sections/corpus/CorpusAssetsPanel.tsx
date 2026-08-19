@@ -29,6 +29,10 @@ export interface CorpusAssetsPanelProps {
   // insertIntoBody —— 把 `standmeet-asset:<id>` 引用写进正文。正文的状态在表单那边,
   // 所以这里只发一个字符串出去,不自己碰 body。
   insertIntoBody: (markdown: string) => void;
+  // dropFromBody —— 撤掉素材时把正文里那条引用一并去掉（F-L-50）。**跟 insertIntoBody
+  // 成对**：能往正文里塞的东西，就得能从正文里收回，否则「删掉」只删了一半，而剩下的
+  // 那一半只有访客看得见。
+  dropFromBody: (assetID: string) => void;
   // 封面是**表单状态**,不是这里自己发的一个请求 —— 单独 PATCH 会把正文清空。
   onSetCover: (assetID: string) => void;
   coverAssetID: string;
@@ -130,7 +134,11 @@ function AssetRow(
         label={t('remove')}
         testid={`${props.testidPrefix}-asset-remove-${asset.asset_id}`}
         onClick={() => {
-          void media.remove(asset.asset_id).catch((e: unknown) => { report(e); });
+          void media.remove(asset.asset_id)
+            // 删成了才动正文：请求失败时正文不该被改（那会让 owner 保存一份跟服务端
+            // 不一致的稿子）。
+            .then(() => { props.dropFromBody(asset.asset_id); })
+            .catch((e: unknown) => { report(e); });
         }}
       />
     </li>

@@ -10,7 +10,9 @@ import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SelectField } from '@/components/atoms/SelectField';
-import { appendBlock, useCorpusForm, type CorpusFormHook } from '@/lib/admin/use-corpus-form';
+import {
+  appendBlock, dropAssetRef, useCorpusForm, type CorpusFormHook,
+} from '@/lib/admin/use-corpus-form';
 import type { CorpusEntryInput, PromoteInput } from '@/lib/admin/use-corpus-actions';
 
 // CorpusParentOption —— 「挂在哪个节点下」下拉的一项(某条已有 entry)。
@@ -53,6 +55,8 @@ export interface CorpusEntryFormProps {
 // owner 点 save 时跟正文一起提交。
 export interface CorpusFormAssetsAPI {
   insertIntoBody: (markdown: string) => void;
+  // dropFromBody —— 撤掉素材时把正文里引它的那张图一并去掉（F-L-50）。
+  dropFromBody: (assetID: string) => void;
   setCover: (assetID: string) => void;
   coverAssetID: string;
 }
@@ -100,6 +104,10 @@ function BodySlot(
 ) {
   const api: CorpusFormAssetsAPI = {
     insertIntoBody: (markdown) => { form.setBody(appendBlock(form.body, markdown)); },
+    // dropFromBody —— insertIntoBody 的另一半（F-L-50）。撤掉一份素材时，正文里那条引用
+    // 必须跟着走：不然它留在原地，访客页上是一个裂图 + 内部文件名，而 owner 在面板上
+    // 看不到任何异样。正文的状态住在这儿，所以清理也归这儿。
+    dropFromBody: (assetID) => { form.setBody(dropAssetRef(form.body, assetID)); },
     setCover: (assetID) => { form.setCoverAssetID(assetID); },
     coverAssetID: form.coverAssetID,
   };

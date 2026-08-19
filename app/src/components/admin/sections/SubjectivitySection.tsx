@@ -211,6 +211,7 @@ function EditForm(
                 entryID={row.id}
                 testidPrefix={prefix}
                 insertIntoBody={api.insertIntoBody}
+                dropFromBody={api.dropFromBody}
                 onSetCover={api.setCover}
                 coverAssetID={api.coverAssetID}
               />

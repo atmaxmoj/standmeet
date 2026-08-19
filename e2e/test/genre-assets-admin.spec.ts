@@ -114,7 +114,11 @@ test.describe('owner 在面板上挂文件', () => {
     await expect(row).toContainText('attachment');
   });
 
-  test('撤下来:行没了,素材区回到"一个都没有"', async ({ adminPage: page }) => {
+});
+
+// 撤素材：面板上那一行走了不算完 —— **正文里那条引用**才是访客看得见的那一半（F-L-50）。
+test.describe('撤素材连正文里的引用一起撤', () => {
+  test('撤下来:行没了,素材区回到"一个都没有",正文里那条引用也走了', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');
 
     const id = await createWikiEntry(page, 'Panel remove note');
@@ -127,10 +131,19 @@ test.describe('owner 在面板上挂文件', () => {
       .toHaveCount(1, { timeout: 15_000 });
 
     const assetID = await firstAssetID(page, prefix);
+    // **先把它插进正文**：撤素材这件事的代价不在面板上，在正文里那条留下来的引用
+    // （F-L-50：访客页上一个裂图 + 内部文件名，而 owner 看不见）。
+    await page.getByTestId(`${prefix}-asset-insert-${assetID}`).click();
+    await expect(page.getByTestId(`${prefix}-body`))
+      .toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
+
     await page.getByTestId(`${prefix}-asset-remove-${assetID}`).click();
     await expect(page.getByTestId(new RegExp(`^${prefix}-asset-row-`)))
       .toHaveCount(0, { timeout: 15_000 });
     await expect(page.getByTestId(`${prefix}-assets-empty`)).toBeVisible();
+    // 撤掉素材 = 连正文里那条引用一起撤。留着它就是「一次点击做了两件事，只做了一件」。
+    await expect(page.getByTestId(`${prefix}-body`), '正文里那条引用跟着走')
+      .not.toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
   });
 });
 

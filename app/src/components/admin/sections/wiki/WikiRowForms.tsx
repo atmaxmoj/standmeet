@@ -63,6 +63,7 @@ export function WikiEditForm({
                 entryID={entry.id}
                 testidPrefix={`wiki-edit-form-${entry.id}`}
                 insertIntoBody={api.insertIntoBody}
+                dropFromBody={api.dropFromBody}
                 onSetCover={api.setCover}
                 coverAssetID={api.coverAssetID}
               />

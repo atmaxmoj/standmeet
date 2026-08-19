@@ -93,6 +93,7 @@ function EditFormBody({
             entryID={entry.id}
             testidPrefix={`output-edit-form-${entry.id}`}
             insertIntoBody={api.insertIntoBody}
+            dropFromBody={api.dropFromBody}
             onSetCover={api.setCover}
             coverAssetID={api.coverAssetID}
           />

@@ -147,6 +147,18 @@ export function appendBlock(body: string, block: string): string {
   return `${body.replace(/\s+$/u, '')}\n\n${block}`;
 }
 
+// dropAssetRef —— 把正文里引用某份素材的**整张图**去掉，连同它前后多出来的空行。
+//
+// appendBlock 的另一半（F-L-50）：素材撤了而引用留在原地，访客页上就是一个裂图加一个
+// 内部文件名，而 owner 在面板上看不见。删整个图片节点而不是只删地址 —— 只删地址会留下
+// `![原文件名]()`，把文件名端给访客。
+export function dropAssetRef(body: string, assetID: string): string {
+  const re = new RegExp(
+    '\\n*!\\[[^\\]]*\\]\\(\\s*standmeet-asset:' + assetID + '\\s*\\)\\n*', 'g',
+  );
+  return body.replace(re, '\n\n').replace(/\n{3,}/gu, '\n\n').trim();
+}
+
 function parseTags(raw: string): string[] {
   return raw.split(',').map((t) => t.trim()).filter((t) => t !== '');
 }

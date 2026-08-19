@@ -20,7 +20,7 @@ import {
   type PromoteInput,
 } from '@/lib/admin/use-corpus-actions';
 import { heroInput, useRawHeroForm } from '@/lib/admin/use-corpus-detail';
-import { appendBlock, runWith } from '@/lib/admin/use-corpus-form';
+import { appendBlock, dropAssetRef, runWith } from '@/lib/admin/use-corpus-form';
 import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
 import { stampDay } from '@/lib/ui/format-time';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
@@ -270,6 +270,7 @@ function EditRow(props: EditRowProps) {
         entryID={props.row.id}
         testidPrefix={`raw-edit-form-${props.row.id}`}
         insertIntoBody={(md) => setBody(appendBlock(body, md))}
+        dropFromBody={(assetID) => setBody(dropAssetRef(body, assetID))}
         onSetCover={setCover}
         coverAssetID={cover}
       />
