@@ -36,7 +36,12 @@ else
   echo "❌ compaction 未触发 (没真 LLM? 上下文没超阈值?)"; fail=1
 fi
 # (b) 压缩后早期上下文召回
-check() { grep -qi "$1" <<<"$ANSWER" || { echo "❌ 召回缺: $2"; fail=1; }; }
+#
+# **先把换行压平再比**：答案是散文，模型在哪儿断行不由我们定。这条判据曾经因为
+# `Staff\nBackend Engineer` 正好在两个词之间换行而报「岗位没召回」—— 而那句话就在屏幕上。
+# 判的是「这个事实还在不在」，不是「它有没有被排在同一行」。
+FLAT="$(tr '\n' ' ' <<<"$ANSWER")"
+check() { grep -qi "$1" <<<"$FLAT" || { echo "❌ 召回缺: $2"; fail=1; }; }
 check "Priya"          "面试官名字 Priya"
 check "Nimbus"         "公司 Nimbus Data"
 check "Staff Backend"  "岗位 Staff Backend"

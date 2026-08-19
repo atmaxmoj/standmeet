@@ -85,17 +85,16 @@ func BuildAgentIterator(
 	if err != nil {
 		return nil, fmt.Errorf("eino: build chat model: %w", err)
 	}
-	mw, mwerr := summarization.New(ctx, &summarization.Config{
-		Model:   cm,
-		Trigger: &summarization.TriggerCondition{ContextTokens: contextTokenThreshold},
-		// Callback 只在压缩真触发时调（context 超阈值）；打一行 observability。
-		// 短对话不触发，prod 常规流量零噪音。
-		Callback: func(_ context.Context, before, after adk.ChatModelAgentState) error {
+	// 压缩的配置（**保住什么** + 留几条原话）在 agent_compaction.go —— 默认配置会把
+	// 276 条压成 2 条、开头那些事实一个不留（F-A-45）。
+	// Callback 只在压缩真触发时调（context 超阈值）；打一行 observability。
+	// 短对话不触发，prod 常规流量零噪音。
+	mw, mwerr := summarization.New(ctx, summarizationConfig(cm, contextTokenThreshold,
+		func(_ context.Context, before, after adk.ChatModelAgentState) error {
 			slog.Default().Info(CompactionLogMsg,
 				"before_msgs", len(before.Messages), "after_msgs", len(after.Messages))
 			return nil
-		},
-	})
+		}))
 	if mwerr != nil {
 		return nil, fmt.Errorf("eino: summarization middleware: %w", mwerr)
 	}
