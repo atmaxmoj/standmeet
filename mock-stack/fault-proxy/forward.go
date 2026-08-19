@@ -16,7 +16,12 @@ const (
 	modeRateLimit   = "ratelimit"
 	modeClampTokens = "clamp_tokens"
 	modeHTTPError   = "http_error"
+	modeSlow        = "slow"
 )
+
+// defaultSlowMS —— `slow` 不给 delay_ms 时的停留时长。够一个人截一张图,又不至于让
+// 驱动的人以为代理卡死了。
+const defaultSlowMS = 8000
 
 func (s *server) forward(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
@@ -36,7 +41,30 @@ func (s *server) forward(w http.ResponseWriter, r *http.Request) {
 	if got != nil && got.Mode == modeClampTokens {
 		body = clampMaxTokens(body, got.MaxTokens, s.logClamp)
 	}
+	s.holdIfSlow(r, got)
 	s.pipe(w, r, body)
+}
+
+// holdIfSlow —— 把这一条路径**扣在半路**再转发,其余照常。
+//
+// 为什么需要这个 mode:界面上有一整族缺陷只活在**加载中那一帧** —— 数字还没到,而由数字
+// 长出来的句子已经在断言「零」(F-L-52/53)。这一帧在本机上只有几十毫秒,人眼验不到,
+// 于是它一直没人管。把某一个 GET 拖住,那一帧就变成一个可以慢慢看、慢慢截图的状态。
+//
+// 扣的是**这一跳的转发**,不改请求、不改响应:被测的是调用方在"还没拿到"时说什么。
+func (s *server) holdIfSlow(r *http.Request, f *fault) {
+	if f == nil || f.Mode != modeSlow {
+		return
+	}
+	ms := f.DelayMS
+	if ms <= 0 {
+		ms = defaultSlowMS
+	}
+	s.log.Info("holding request", "path", r.URL.Path, "delay_ms", ms)
+	select {
+	case <-time.After(time.Duration(ms) * time.Millisecond):
+	case <-r.Context().Done(): // 调用方自己放弃了就别再占着
+	}
 }
 
 // writeHTTPError —— 让**这一条路径**回一个失败状态,其余照常转发。

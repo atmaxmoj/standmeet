@@ -92,6 +92,8 @@ type fault struct {
 	MaxTokens int `json:"max_tokens"`
 	// Status —— http_error 模式下回的状态码。0 = 500。
 	Status int `json:"status"`
+	// DelayMS —— slow 模式下把这条路径扣住多少毫秒再转发。0 = defaultSlowMS。
+	DelayMS int `json:"delay_ms"`
 }
 
 // take —— 取出**对这条路径**该生效的故障并扣一次。没装 / 路径不匹配 / 已用完返回 nil。

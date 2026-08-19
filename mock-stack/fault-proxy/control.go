@@ -20,10 +20,12 @@ type armBody struct {
 	RetryAfterSeconds int    `json:"retry_after_seconds"`
 	MaxTokens         int    `json:"max_tokens"`
 	Status            int    `json:"status"`
+	// DelayMS —— `slow` 扣住多久(毫秒)。省略走 defaultSlowMS。
+	DelayMS int `json:"delay_ms"`
 }
 
 // knownModes —— 认识的 mode。未知的直接拒,理由见 arm。
-var knownModes = []string{modeRateLimit, modeClampTokens, modeHTTPError}
+var knownModes = []string{modeRateLimit, modeClampTokens, modeHTTPError, modeSlow}
 
 func (s *server) arm(w http.ResponseWriter, r *http.Request) {
 	var in armBody
@@ -42,12 +44,12 @@ func (s *server) arm(w http.ResponseWriter, r *http.Request) {
 		Mode: in.Mode, PathPrefix: in.PathPrefix,
 		Times: in.Times, Sticky: in.Times <= 0,
 		RetryAfterSeconds: in.RetryAfterSeconds, MaxTokens: in.MaxTokens,
-		Status: in.Status,
+		Status: in.Status, DelayMS: in.DelayMS,
 	}
 	s.mu.Unlock()
 	s.log.Info("fault armed", "mode", in.Mode, "path_prefix", in.PathPrefix,
 		"times", in.Times, "retry_after", in.RetryAfterSeconds,
-		"max_tokens", in.MaxTokens, "status", in.Status)
+		"max_tokens", in.MaxTokens, "status", in.Status, "delay_ms", in.DelayMS)
 	writeJSON(w, map[string]string{"armed": in.Mode})
 }
 

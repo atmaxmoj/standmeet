@@ -632,7 +632,9 @@ sqlc-gen:
 # 于是全量的现场在你需要它的前一秒被自己抹掉，只能靠重抓，而重抓是 SOP 明令的下策。
 # 归档是自动的：靠"记得先备份"就等于没有。
 test: dev-up
-	@cd e2e && pnpm exec playwright test; st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
+	@infra/scripts/machine-witness.sh & w=$$!; \
+		cd e2e && pnpm exec playwright test; st=$$?; cd ..; \
+		kill $$w 2>/dev/null; $(MAKE) archive-failures; exit $$st
 
 # archive-failures —— 把这一轮的失败现场复制到 e2e/test-results-archive/<UTC 时间戳>/。
 # 没有失败就什么都不做。归档目录带时间戳，所以历次全量互不覆盖。

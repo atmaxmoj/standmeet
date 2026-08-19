@@ -22,7 +22,12 @@
 #   curl -XPOST localhost:39500/__mock/fault/arm -d '{"mode":"ratelimit","retry_after_seconds":5}'
 #   curl -XPOST localhost:39500/__mock/fault/arm -d '{"mode":"clamp_tokens","max_tokens":64}'
 #   curl -XPOST localhost:39600/__mock/fault/arm -d '{"mode":"http_error","path_prefix":"/api/admin/roles"}'
+#   curl -XPOST localhost:39600/__mock/fault/arm -d '{"mode":"slow","delay_ms":8000,"path_prefix":"/api/admin/stats/growth"}'
 #   curl -XPOST localhost:39600/__mock/fault/reset
+#
+# **slow** 是给「加载中那一帧」用的。界面上有一整族缺陷只活在这一帧里 —— 数字还没到,而由
+# 数字长出来的句子已经在断言零(F-L-52/53)。本机上这一帧几十毫秒,人眼验不到;把那一个 GET
+# 扣住几秒,它就变成一个能慢慢看、能截图的状态。
 #
 # path_prefix 就是「窄故障」和「整栈停机」的分界：不给 = 挡住一切（那验的是另一条路，
 # 见 F-N-2）；给了 = 只挡那一块，页面别的块照常加载。
