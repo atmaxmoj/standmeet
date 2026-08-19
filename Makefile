@@ -24,6 +24,7 @@ env-lint:
 	  infra/scripts/lint-env "$$(pwd)"
 	@infra/scripts/check-knobs-reachable.sh
 	@infra/scripts/check-knobs-reachable-test.sh
+	@infra/scripts/check-redis-bounded.sh
 
 backend-lint:
 	@$(MAKE) -C backend lint

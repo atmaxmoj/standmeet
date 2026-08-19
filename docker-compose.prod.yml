@@ -178,6 +178,23 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # 封顶 + 到顶了丢最旧的（F-R-10）。
+    #
+    # 这里装着**访客会话、限流桶、job 池（1 天 TTL）**。不封顶的话它一直涨，
+    # 涨到宿主受不了 —— 那时候不是「最旧的会话没了」，是**整个容器被 OOM 杀掉，
+    # 所有会话一起没**，而 owner 只会听说「访客打不开」。
+    #
+    # `allkeys-lru` 而不是 `noeviction`：到顶了要丢东西。`noeviction` 会让**写入失败**，
+    # 于是访客收到一个错，而 owner 那边什么都看不到。会话和限流桶都是可再生的
+    # （会话重开一次、限流桶重新计数），丢掉最旧的比拒绝新的好。
+    #
+    # 数值走环境变量：1 GB 的小机器和 64 GB 的机器不该改这份文件。
+    command:
+      - redis-server
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - allkeys-lru
     volumes:
       - redisdata:/data
     ports:
