@@ -151,19 +151,6 @@ dev-rebuild-mocks:
 # address ever reaches the backend: conversations record no source IP, IP bans
 # have nothing to target, and the per-IP code lockout becomes one shared bucket.
 # The backend says so once in its log when it happens.
-# prod-recreate-svc —— 按 compose 现在的样子重建 prod 的**一个**服务。
-#
-# 为什么要有它：改了某个服务的定义（例：给 redis 加 `--maxmemory`）之后，得让那台实例
-# 真的按新定义跑起来，才谈得上「回真实环境用眼睛验一遍」。整套 `prod-up` 会连 app/backend
-# 一起重建，几分钟起步，而且把不相干的东西也重启了。
-#
-# **它会重启那个服务** —— redis 这种带状态的，重启就意味着会话和限流桶从零开始。
-# 那正是 resilience check 1 后半段要验的事（重启之后恢复，而不是卡死），别当成副作用。
-# 用法：make prod-recreate-svc SVC=redis
-prod-recreate-svc:
-	@test -n "$(SVC)" || { echo "usage: make prod-recreate-svc SVC=<service>"; exit 2; }
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait --no-deps $(SVC)
-
 prod-up:
 	@test -f .env || { echo "create .env first: cp .env.example .env && edit"; exit 2; }
 	@infra/plugins/provision.sh
