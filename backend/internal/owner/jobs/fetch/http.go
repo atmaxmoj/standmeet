@@ -73,13 +73,38 @@ func sendGET(ctx context.Context, client *http.Client, url, bearer string) (*htt
 	return resp, nil
 }
 
+// upstreamStatusErr —— 把状态码折成 owner 的**下一步**，而不是折成一个笼统的"上游错误"。
+//
+// 分类的判据不是「HTTP 语义有几类」，是「owner 要做的事有几种」：
+// 找新地址 / 改拼错的 slug / 什么都不用做 / 无能为力等着。多分一类而下一步一样，
+// 就是给他多一句要读的话（F-E-28）。
+// 逐码的那几个写成表，只有「3xx 整段」留成范围判断 —— 全写成 switch 的话
+// cyclo 到 8（上限 5），而这几行本来就是一张查表。
+var upstreamStatusErrs = map[int]error{
+	http.StatusNotFound:           ErrUpstreamNoBoard,
+	http.StatusGone:               ErrUpstreamNoBoard,
+	http.StatusTooManyRequests:    ErrUpstreamBusy,
+	http.StatusServiceUnavailable: ErrUpstreamBusy,
+}
+
+func upstreamStatusErr(code int) error {
+	if e, ok := upstreamStatusErrs[code]; ok {
+		return e
+	}
+	if code >= http.StatusMultipleChoices && code < http.StatusBadRequest {
+		return ErrUpstreamMoved
+	}
+	return ErrUpstream
+}
+
 // maxFetchBodyBytes —— hard cap on a single upstream body (HTML/JSON page or a gzipped JBA chunk;
 // both are ≪ this). Bounds io.ReadAll so a hostile/broken source can't force unbounded memory.
 const maxFetchBodyBytes = 10 << 20 // 10 MiB
 
 func readOK(resp *http.Response, url string) ([]byte, error) {
 	if resp.StatusCode < httpOKBase || resp.StatusCode >= httpOKBase+100 {
-		return nil, fmt.Errorf("%s: %w: HTTP %d", url, ErrUpstream, resp.StatusCode)
+		return nil, fmt.Errorf("%s: %w: HTTP %d",
+			url, upstreamStatusErr(resp.StatusCode), resp.StatusCode)
 	}
 	// read one byte past the cap so an over-limit body is detected rather than silently truncated.
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFetchBodyBytes+1))

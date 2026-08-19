@@ -14,12 +14,19 @@
 // 所以这条 spec 断两个源，一个都不能少 —— 只断 HN 的话，一个"在 HN 适配器里补一刀"的修法
 // 也能过，而 greenhouse 的 body 照样是 `&lt;div&gt;` 汤。
 
+// **同一个函数的第二半（UX-88）**：`readableJobs` 头上写着「每个源交回来的字都要变成文字
+// 再进池子 —— 这是它们唯一的汇合点」，然后只扫了 title 和 body_text。location 没人管，
+// 于是 RemoteOK 发的 `"San Francisco, "`（城市 + 空地区，逗号裸露在末尾）原样印到
+// `/admin/listings` 上，读作 `remoteok · Karratha,`。
+// 这一条把那句话的其余部分补上：**外来数据在入口处规范化一次**（全局规矩第 4 条）。
+
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
+import { jobsFetchNew, jobsRegisterSource, MOCK_BASE } from '@/fixtures/jobs';
 
 const OWNER = {
   email: 'jobtext@example.com',
@@ -97,4 +104,64 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
       expectReadable(`greenhouse body (${j.cache_id})`, j.body_text ?? '');
     }
   });
+
+  test('a board that ships a dangling separator yields a clean location', async ({ request }) => {
+    // **前置条件先对着替身本人验**（[[assertion-that-cannot-fail]]）：如果哪天有人"顺手"
+    // 把 fixture 里的尾随逗号擦掉，下面那组断言会全绿 —— 绿得毫无信息。所以先去问替身
+    // 到底发了什么，发不出脏数据就直接判这条用例失败，而不是让它安静地通过。
+    await expectStandInStillShipsDanglingLocations(request);
+
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    const token = await createAPIToken(request, csrf, 'jobtext-spec-3');
+    const sid = await initMCP(request, token);
+
+    await jobsRegisterSource(request, token, sid, {
+      kind: 'remoteok', label: 'RemoteOK', config: {},
+    });
+    const fetched = await jobsFetchNew(request, token, sid);
+    const rok = fetched.jobs.filter((j) => j.source_kind === 'remoteok');
+    expect(rok.length, 'precondition: the remoteok fixture produced postings').toBeGreaterThan(0);
+
+    expectCleanLocations(rok);
+  });
 });
+
+// expectStandInStillShipsDanglingLocations —— **前置条件对着替身本人验**
+// （[[assertion-that-cannot-fail]]）：哪天有人"顺手"把 fixture 里的尾随逗号擦掉，
+// 下面那组断言会全绿 —— 绿得毫无信息。所以先去问替身到底发了什么，发不出脏数据就判失败。
+async function expectStandInStillShipsDanglingLocations(
+  request: APIRequestContext,
+): Promise<void> {
+  const upstream = await request.get(`${MOCK_BASE}/remoteok/api`);
+  expect(upstream.ok(), 'precondition: the job-board stand-in answers').toBeTruthy();
+  const raw = (await upstream.json()) as { id?: string; location?: string }[];
+  const dangling = raw.filter((e) => e.id && DANGLING.test(e.location ?? ''));
+  expect(
+    dangling.length,
+    'precondition: RemoteOK really does ship "City, " with an empty region — '
+    + 'if this is 0 the fixture was scrubbed and this whole test proves nothing',
+  ).toBeGreaterThan(0);
+}
+
+const DANGLING = /[,;\-–]\s*$/;
+
+function expectCleanLocations(jobs: { cache_id: string; location: string }[]): void {
+  for (const j of jobs) {
+    expect(
+      j.location,
+      `remoteok location (${j.cache_id}) must not end on a separator — `
+      + 'the listing reads "remoteok · Karratha," to the owner',
+    ).not.toMatch(DANGLING);
+    expect(
+      j.location,
+      `remoteok location (${j.cache_id}) must not carry edge whitespace`,
+    ).toBe(j.location.trim());
+  }
+  // 归一化不许把内容吃掉：「城市, 地区」两段都在的那种必须原样留着。
+  for (const j of jobs.filter((x) => x.location.includes(','))) {
+    expect(
+      j.location,
+      'a genuine "City, Region" must survive normalisation intact',
+    ).toMatch(/[^,\s],\s*\S/);
+  }
+}

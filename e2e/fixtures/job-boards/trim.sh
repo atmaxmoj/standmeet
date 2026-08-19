@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # trim.sh — 把 .raw/ 里的 raw 捕获截到 ≤ 8 条 jobs / items，写到 git path
-# 用法：bash e2e/fixtures/job-boards/trim.sh
-# 或经 Makefile: make trim-job-fixtures
+# 用法：make trim-job-fixtures                  全部截
+#       make trim-job-fixtures KIND=remoteok    只截一个源（跟 capture 同一个开关）
 
 set -u
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 RAW="$ROOT/.raw"
+KIND="${KIND:-}"
+
+# want —— 这一节要不要跑。KIND 空 = 全跑。跟 capture.sh 同一个词，别各叫各的。
+want() { [ -z "$KIND" ] || [ "$KIND" = "$1" ]; }
 
 if [ ! -d "$RAW" ]; then
   echo "no .raw/ found — run capture.sh first"
@@ -13,6 +17,7 @@ if [ ! -d "$RAW" ]; then
 fi
 
 # Greenhouse: .jobs[0:8]
+if want greenhouse; then
 echo "[GREENHOUSE]"
 mkdir -p "$ROOT/greenhouse"
 for f in "$RAW"/greenhouse/*.json; do
@@ -21,8 +26,10 @@ for f in "$RAW"/greenhouse/*.json; do
   jq '.jobs |= .[0:8]' "$f" > "$ROOT/greenhouse/$base"
   echo "  ✓ $base"
 done
+fi
 
 # Lever: array[0:8]
+if want lever; then
 echo "[LEVER]"
 mkdir -p "$ROOT/lever"
 for f in "$RAW"/lever/*.json; do
@@ -31,8 +38,10 @@ for f in "$RAW"/lever/*.json; do
   jq '.[0:8]' "$f" > "$ROOT/lever/$base"
   echo "  ✓ $base"
 done
+fi
 
 # Ashby: .jobs[0:8]
+if want ashby; then
 echo "[ASHBY]"
 mkdir -p "$ROOT/ashby"
 for f in "$RAW"/ashby/*.json; do
@@ -41,8 +50,14 @@ for f in "$RAW"/ashby/*.json; do
   jq '.jobs |= .[0:8]' "$f" > "$ROOT/ashby/$base"
   echo "  ✓ $base"
 done
+fi
 
 # RemoteOK: array[0] legal notice + [1:9]
+#
+# **不要在这里"顺手清洗"字段**。上游发 `"location": "San Francisco, "` 就照原样留着 ——
+# fixture 的职责是复现真实世界，替身一客气，产品那边缺了归一化也没人看得见（UX-88 就是
+# 这么活到生产的）。归一化属于 ingest 边界（backend fetch.readableJobs），不属于替身。
+if want remoteok; then
 echo "[REMOTEOK]"
 mkdir -p "$ROOT/remoteok"
 for f in "$RAW"/remoteok/*.json; do
@@ -51,8 +66,10 @@ for f in "$RAW"/remoteok/*.json; do
   jq '.[0:9]' "$f" > "$ROOT/remoteok/$base"
   echo "  ✓ $base"
 done
+fi
 
 # WWR: keep RSS preamble + first 8 <item>
+if want wwr; then
 echo "[WWR]"
 mkdir -p "$ROOT/wwr"
 for f in "$RAW"/wwr/*.rss; do
@@ -72,8 +89,10 @@ open(dst, 'w').write(header + kept + trailer)
 PY
   echo "  ✓ $base"
 done
+fi
 
 # HN: whoishiring trim to submitted[0:30]; thread trim kids[0:8]; comments copy
+if want hn; then
 echo "[HN]"
 mkdir -p "$ROOT/hn"
 if [ -f "$RAW/hn/whoishiring.day1.json" ]; then
@@ -92,8 +111,10 @@ for f in "$RAW"/hn/item-*.day1.json; do
   fi
   echo "  ✓ $base"
 done
+fi
 
 # SmartRecruiters: .content[0:8]
+if want smartrecruiters; then
 echo "[SMARTRECRUITERS]"
 mkdir -p "$ROOT/smartrecruiters"
 for f in "$RAW"/smartrecruiters/*.json; do
@@ -102,8 +123,10 @@ for f in "$RAW"/smartrecruiters/*.json; do
   jq '.content |= .[0:8] | .limit = 8 | .totalFound = (.content | length)' "$f" > "$ROOT/smartrecruiters/$base"
   echo "  ✓ $base"
 done
+fi
 
 # Workable: shape is {name, description}, no jobs — straight copy
+if want workable; then
 echo "[WORKABLE]"
 mkdir -p "$ROOT/workable"
 for f in "$RAW"/workable/*.json; do
@@ -112,6 +135,7 @@ for f in "$RAW"/workable/*.json; do
   cp "$f" "$ROOT/workable/$base"
   echo "  ✓ $base (account metadata, jobs endpoint TBD)"
 done
+fi
 
 echo ""
 echo "Trimmed. Sizes:"

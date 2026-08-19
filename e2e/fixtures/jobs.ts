@@ -7,7 +7,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { callTool } from '@/fixtures/mcp';
 
-const MOCK_BASE = process.env['JOB_BOARD_MOCK_URL'] ?? 'http://localhost:9000';
+// 导出：有的守卫要**先问替身自己发了什么**，再判产品有没有把它处理干净。
+// 那种前置条件不落在替身的真实载荷上的话，fixture 一被"清洗"守卫就静默失效。
+export const MOCK_BASE = process.env['JOB_BOARD_MOCK_URL'] ?? 'http://localhost:9000';
 
 export interface JobSourceView {
   id: string;

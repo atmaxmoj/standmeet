@@ -81,7 +81,53 @@ test.describe('admin sources list', () => {
       expect(text, '不该出现内部动词').not.toMatch(/fetch source|fetch workable/i);
       expect(text, '不该出现上游 URL').not.toMatch(/https?:\/\//);
     });
+
+  // **一句话覆盖了两种完全不同的处境**（F-E-28，prod 上撞到的）：`fetch/http.go` 把所有
+  // 非 2xx 归成同一个 `ErrUpstream`，于是 301（板子搬家了）和 404（根本没有这块板子）
+  // 在 `/admin/sources` 上说的是同一句 —— "the board turned the request away — it may have moved"。
+  //
+  // 对 404 来说那句话是**假的**，而且把 owner 指向了错误的下一步：他会去找新地址，
+  // 而实际要做的是改掉拼错的 company slug（或删掉这个源）。整张归类表的纪律写的是
+  // 「每一句都指出下一步」—— 这一句对这一类没做到（[[collapsed-error-class-kills-its-own-branch]]）。
+  test('a board that does not exist is not reported as one that moved',
+    async ({ request, adminPage }) => {
+      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+      const token = await createAPIToken(request, csrf, 'sources-404');
+      const sid = await initMCP(request, token);
+      // 替身跟真 Greenhouse 一样：没有这块板子就回 404（真板子当场验过）。
+      const src = await jobsRegisterSource(request, token, sid, {
+        kind: 'greenhouse', label: 'Ghost Board', config: { company: 'no-such-company-here' },
+      });
+      const out = await jobsFetchNew(request, token, sid, src.id);
+      expect(
+        (out.failed_sources ?? []).map((f) => f.source_id),
+        'precondition: 这个源必须真的取失败了，否则下面判的是空气',
+      ).toContain(src.id);
+
+      await gotoAdminSection(adminPage, 'sources');
+      await adminPage.waitForURL('**/admin/sources', { timeout: 5_000 });
+      const state = adminPage.getByTestId(`source-state-${src.id}`);
+      await expect(state).toBeVisible({ timeout: 5_000 });
+      expectMissingBoardSentence(await state.innerText(), src.id);
+    });
 });
+
+// expectMissingBoardSentence —— 「这个地址上没有板子」那一行该长什么样。
+function expectMissingBoardSentence(text: string, srcID: string): void {
+  expect(text, '要说出上次试过、失败了').toMatch(/failed/i);
+  expect(
+    text,
+    '404 不是"搬家了"：板子没搬，它压根不存在。这句话会把 owner 送去找新地址',
+  ).not.toMatch(/moved/i);
+  expect(
+    text,
+    '要指出真正的下一步：这个地址上没有板子，去改源的设置',
+  ).toMatch(/no such board|doesn't exist|does not exist|check the .*(address|settings|company)/i);
+  // 给人看的那一行的纪律照旧（UX-77）。
+  expect(text, '不该把源的 uuid 摆在屏幕上').not.toContain(srcID);
+  expect(text, '不该出现上游 URL').not.toMatch(/https?:\/\//);
+  expect(text, '不该出现状态码').not.toMatch(/\b404\b/);
+}
 
 async function seedSource(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);

@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
@@ -177,10 +178,35 @@ func (r *Registry) FetchAccounted(
 // **不解析结构**（Company | Title | … 那种切分照旧留给 Claude），这一步只解开传输层的编码。
 func readableJobs(jobs []jobsmodel.FetchedJob) []jobsmodel.FetchedJob {
 	for i := range jobs {
-		jobs[i].Title = plaintext.FromHTML(jobs[i].Title)
+		jobs[i].Title = strings.TrimSpace(plaintext.FromHTML(jobs[i].Title))
 		jobs[i].BodyText = plaintext.FromHTML(jobs[i].BodyText)
+		jobs[i].Company = strings.TrimSpace(jobs[i].Company)
+		jobs[i].Location = normalizeLocation(jobs[i].Location)
 	}
 	return jobs
+}
+
+// normalizeLocation —— 逗号分段的地点串，规范化一次（UX-88）。
+//
+// RemoteOK **自己**发的就是 `"San Francisco, "`：城市有、地区空，分隔符照留。忠实映射把它原样
+// 带进池子，于是 `/admin/listings` 上读作 `remoteok · Karratha,` —— owner 会以为后面还有字被截了。
+// 修在这里而不是在那一列的渲染处：location 有好几个消费者（列表、`jobs.show`、简历草稿里的
+// JD 摘要），在展示处补丁就是每处各修一遍，而且下一个消费者又会忘（全局规矩第 4 条：
+// **外来数据在入口处规范化一次，下游当字段总在**）。
+//
+// 规则是「按分隔符切开、丢掉空段、再接回去」，不是「把结尾的逗号砍掉」——
+// 后者管不了 `", Australia"` 和 `"Berlin, , DE"`，而它们是同一件事的另外两个面。
+// 真的两段（`"Sydney, Australia"`）原样穿过。
+func normalizeLocation(s string) string {
+	parts := strings.Split(s, ",")
+	kept := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			kept = append(kept, trimmed)
+		}
+	}
+	// 末尾还可能挂着别的裸分隔符（`"Remote -"`），那不是逗号切得开的。
+	return strings.TrimRight(strings.Join(kept, ", "), " -–—;/|")
 }
 
 // ValidateKindConfig —— 在 register_source 路径上校验 (kind, config) 形状：
@@ -215,9 +241,27 @@ var configValidators = map[string]func([]byte) error{
 // validateEmptyCfg —— remoteok / hn_hiring 不需要任何 config，传啥都接受。
 func validateEmptyCfg(_ []byte) error { return nil }
 
-// ErrUpstream —— adapter 收到非 2xx HTTP（含 404 / 5xx）。caller 可 errors.Is
+// ErrUpstream —— adapter 收到非 2xx HTTP（含 5xx）。caller 可 errors.Is
 // 区分"源死了"vs"配置错"。
 var ErrUpstream = errors.New("upstream job board error")
+
+// 下面三条**包着** ErrUpstream（`%w`），所以既有的 `errors.Is(err, ErrUpstream)` 照旧成立，
+// 而想分得更细的地方可以往下问一层。
+//
+// **为什么要分**：owner 那一行只写「下一步做什么」，而这三种处境的下一步互不相同 ——
+// 搬家了要去找新地址；没有这块板子要去改拼错的 slug；被限流则什么都不用做。
+// 以前它们挤在同一个类里，于是同一句 "it may have moved" 对 404 说了假话，
+// 把 owner 支去找一个不存在的新地址（F-E-28，prod 上真撞到过）。
+// 一个错误类塌掉，为它写的那句话就永远出不来（[[collapsed-error-class-kills-its-own-branch]]）。
+var (
+	// ErrUpstreamMoved —— 3xx。板子换地址了，而这个 client 故意不跟随重定向（SSRF 硬化）。
+	ErrUpstreamMoved = fmt.Errorf("%w: the board redirected us", ErrUpstream)
+	// ErrUpstreamNoBoard —— 404 / 410。这个地址上没有板子：多半是 company slug 拼错，
+	// 或这家公司不再用这个 ATS 了。
+	ErrUpstreamNoBoard = fmt.Errorf("%w: no board at that address", ErrUpstream)
+	// ErrUpstreamBusy —— 429 / 503。板子让我们慢一点。owner 无事可做，下一轮会再试。
+	ErrUpstreamBusy = fmt.Errorf("%w: the board asked us to slow down", ErrUpstream)
+)
 
 // ErrUpstreamSchema —— 源回了 2xx 但 payload shape 不符（字段缺、JSON 解不开）。
 // 通常是 fixture 漂移或源改 API 字段。

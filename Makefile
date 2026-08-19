@@ -803,12 +803,13 @@ trim-marketplace-fixtures:
 # above.  Both scripts have existed since the job loop landed and three docs told
 # readers to run them "via make", but the recipes were never added — so the only
 # way to refresh a fixture was to bypass the house rule and run the script bare.
-# capture hits the real boards (rate limits: quarterly, per docs/design/job-loop-tests.md T.9).
+# capture hits the real boards (rate limits: quarterly, per docs/design/job-loop-tests.md T.9),
+# so both take KIND= to refresh a single board:  make capture-job-fixtures KIND=remoteok
 capture-job-fixtures:
-	@bash e2e/fixtures/job-boards/capture.sh
+	@KIND="$(KIND)" bash e2e/fixtures/job-boards/capture.sh
 
 trim-job-fixtures:
-	@bash e2e/fixtures/job-boards/trim.sh
+	@KIND="$(KIND)" bash e2e/fixtures/job-boards/trim.sh
 
 # backup / restore —— disaster recovery for a self-hosted instance.
 #   make backup DEST=/var/backups/standmeet

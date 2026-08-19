@@ -97,7 +97,15 @@ var failureSentences = []struct {
 	{jobfetch.ErrUpstreamAuth, "this source's credential was rejected — replace the token"},
 	{jobfetch.ErrUpstreamSchema, "the board's answer wasn't the shape this source sends"},
 	{jobsmodel.ErrJobSourceConfigInvalid, "this source's settings are incomplete — re-register"},
-	{jobfetch.ErrUpstream, "the board turned the request away — it may have moved"},
+	// 这三条必须排在 ErrUpstream **前面**：它们都包着它，顺序即优先级，
+	// 排到后面就永远轮不到（[[red-that-cannot-go-green]] 的镜像：一句话永远出不来）。
+	{jobfetch.ErrUpstreamNoBoard, "no such board at that address — check this source's settings"},
+	{jobfetch.ErrUpstreamMoved, "the board has moved — re-register it with the new address"},
+	{jobfetch.ErrUpstreamBusy, "the board asked us to slow down — it'll be retried later"},
+	// 兜底那一句也要跟着改口：搬家这件事已经有自己的类了，剩下落到这里的是 5xx、
+	// 连不上、以及别的 4xx —— 对这些说"it may have moved"同样是假话。
+	// 这一类的共同点是**owner 什么都做不了**，所以那句话只说这个。
+	{jobfetch.ErrUpstream, "the board didn't answer — nothing to change here, it'll be retried"},
 }
 
 // failureOf —— 把一个源的失败写成 owner 能据以行动的一行。
