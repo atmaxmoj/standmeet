@@ -225,6 +225,15 @@ prod-recreate-svc:
 #
 # 起来之后在 admin 的 AI provider 表单把 endpoint 改成 http://llm-fault:9500 —— 走产品
 # 自己的界面接线，不改环境变量。**驱完记得改回去**，否则代理一停，这个实例就没有模型可用了。
+#
+# ⚠️ **还差一步，照上面做会失败**（2026-08-19 撞到）：SSRF 判据带白名单
+# （`httpx/ssrf.go` 的 `EGRESS_ALLOW_HOSTS`），而 **prod 那份是空的 —— 设计如此**
+# （"EMPTY in prod (block everything internal)"）。所以指过去之后收到的是
+# *"That endpoint resolves to an internal/private address and is not allowed."*，
+# 而它长得像产品拒绝了你、不像少配了一项。
+# 要用这条路，得让那台实例的 `EGRESS_ALLOW_HOSTS` 含 `llm-fault`（dev 那份已经含
+# `llm-gateway,external-mock`，所以 dev 上直接能用）。
+# **不要把它写死进 prod compose** —— prod 的默认就该是「什么内网都不许出」。
 verify-proxy-up:
 	@test -n "$(UPSTREAM)" || { echo "usage: make verify-proxy-up UPSTREAM=https://api.provider.com"; exit 2; }
 	@UPSTREAM_BASE_URL=$(UPSTREAM) docker compose -p standmeet-verify \

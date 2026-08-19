@@ -74,6 +74,10 @@ func newServer(log *slog.Logger) *server {
 func (s *server) run(port string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/messages", s.serveMessages)
+	// GET /v1/models —— 真 provider 都有这条（owner 点「LOAD MODELS」就是问它）。
+	// 替身缺了它，「owner 指着自己的自托管端点选模型」这条路在 e2e 里演不出来 ——
+	// 而那正是产品卡片上写着支持的用法（ollama / vllm / lm-studio，F-R-9）。
+	mux.HandleFunc("GET /v1/models", s.serveModels)
 	mux.HandleFunc("POST /__mock/inference/next_tool", s.serveSetNextTool)
 	mux.HandleFunc("POST /__mock/inference/next_reply", s.serveSetNextReply)
 	mux.HandleFunc("POST /__mock/inference/next_ghost", s.serveSetNextGhost)

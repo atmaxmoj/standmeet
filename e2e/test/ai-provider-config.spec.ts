@@ -53,5 +53,38 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
         .toBeVisible();
       await expect(page.getByTestId('ai-provider-clear')).toHaveCount(0);
     });
+
+  // F-R-9 —— **owner 指着自己的自托管端点，必须能选模型。**
+  //
+  // 这张卡自己写着支持什么：*"point at your own self-hosted OpenAI-compatible endpoint
+  // (ollama / vllm / lm-studio)"* —— 而这三样**都跑在私有地址上**（ollama 默认
+  // `localhost:11434`）。今天点 `LOAD MODELS` 收到的是
+  // *"That endpoint resolves to an internal/private address and is not allowed."*
+  //
+  // **判据不是错的，是装错了地方**：`/api/v1/inference/models` 是**公开路由**（访客 BYOAI
+  // 面板也在用），它禁私有地址完全正确；而 owner 的后台卡片跟访客共用了这条路由。
+  // 产品在**聊天**那一侧早就分对了信任层 —— `eino_model.go` 的 `validateUntrustedEndpoint`
+  // 只查 `Untrusted`(BYOAI) 的端点，注释原话「Owner creds (trusted self-host config) are not
+  // checked」。发现这一侧没跟上（[[lesson-not-swept-to-neighbours]]）。
+  //
+  // 替身这边先教会规矩：dev 的 llm-gateway 现在也应 `GET /v1/models`，报两个
+  // `mock-selfhost-*` —— 两个而不是一个，否则「列表回来了」和「产品自己塞了个默认」分不开。
+  test('owner points at a self-hosted endpoint → the model list comes back (F-R-9)',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'api-mcp');
+      await page.getByTestId('ai-provider-custom').click();
+      // dev 栈里的自托管替身。它是 docker 服务名 → 私有地址，跟 owner 家里的 ollama 同一类。
+      // 不写 `/v1`：后端自己接 `/v1/models`，写了就成 `/v1/v1/models` → 上游 404。
+      // 那种红看起来像「列不出来」，其实是我把地址写长了一截。
+      await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
+      await page.getByTestId('ai-provider-key').fill('sk-selfhost-does-not-check-keys');
+      await page.getByTestId('ai-provider-load-models').click();
+
+      // 判的是**好结果**：列表真的回来了，而且是这台端点报的那两个。
+      const picker = page.getByTestId('ai-provider-model-select');
+      await expect(picker, 'LOAD MODELS 之后该出现一个下拉').toBeVisible({ timeout: 15_000 });
+      await picker.selectOption('mock-selfhost-large');
+      await expect(picker).toHaveValue('mock-selfhost-large');
+    });
 });
 

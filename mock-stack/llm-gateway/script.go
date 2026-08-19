@@ -398,6 +398,25 @@ func (s *server) serveState(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(s.log, w, resp)
 }
 
+// serveModels —— OpenAI 形状的模型清单（`{"object":"list","data":[{"id":…}]}`）。
+//
+// 两个 id 而不是一个：**一个的时候「列表回来了」和「产品自己塞了个默认」分不开**。
+// 名字带 `mock-` 前缀，好让守卫断言的是「这台自托管端点报出来的东西」，
+// 而不是任何一家真 provider 的型号。
+func (s *server) serveModels(w http.ResponseWriter, _ *http.Request) {
+	type modelRow struct {
+		ID     string `json:"id"`
+		Object string `json:"object"`
+	}
+	writeJSON(s.log, w, map[string]any{
+		"object": "list",
+		"data": []modelRow{
+			{ID: "mock-selfhost-small", Object: "model"},
+			{ID: "mock-selfhost-large", Object: "model"},
+		},
+	})
+}
+
 func writeJSON(log interface{ Warn(string, ...any) }, w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
