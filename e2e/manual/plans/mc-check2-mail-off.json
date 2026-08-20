@@ -1,0 +1,31 @@
+{
+  "_why": "mail-connector check 2 ⭐：把邮件连接器断开，看**批准请求**那一面说的是哪句话、点的是哪个名词，再去 /admin/connectors 找那个名词找不找得到。\n\nitem 自己写着这条的 mock gap：「spec 断得了字符串，断不了那个名词**找得到**——那要开另一个页面对着看」。所以这一格只能真驱。\n\n跑完必须跑 mc-check2-mail-on.json 复原（那份还会再按一次 approve，验「闸抬起来了」）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1100],
+  "shots": [
+    {
+      "name": "mc6-02-mail-disconnected",
+      "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4500 },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-disconnect-button\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1200
+    },
+    {
+      "name": "mc6-03-requests-blocked",
+      "url": "/admin/requests",
+      "steps": [{ "wait": 5000 }],
+      "wait": 1500,
+      "fullPage": true
+    },
+    {
+      "name": "mc6-04-connectors-page-noun",
+      "url": "/admin/connectors",
+      "steps": [{ "wait": 4500 }],
+      "wait": 1200,
+      "fullPage": true
+    }
+  ]
+}
