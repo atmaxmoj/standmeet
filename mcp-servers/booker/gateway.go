@@ -9,12 +9,42 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
 type errEnvelope struct {
 	Error string `json:"error"`
+	// Code —— 失败的**类别**。没有它，这一侧只有一句话可看，于是「owner 没配过」和
+	// 「配了但这一刻拨不通」只能说成同一句 —— 而其中一句对访客是假的（F-C-42）。
+	// 词表在 host 的 internal/infra/hostop/fault.go；跨模块没法共享常量，
+	// 对齐由 e2e 守着（两种情形访客读到的话必须不同），不是靠人记得改两处。
+	Code string `json:"code"`
 }
+
+// hostFault —— 带类别的 host 错误。
+type hostFault struct {
+	Op   string
+	Msg  string
+	Code string
+}
+
+func (f *hostFault) Error() string { return "host " + f.Op + ": " + f.Msg }
+
+// faultCode —— 取出类别；不是 host 错误（或 host 没给类别）时返回空串。
+func faultCode(err error) string {
+	var f *hostFault
+	if errors.As(err, &f) {
+		return f.Code
+	}
+	return ""
+}
+
+// 跟 host 的 hostop.Fault* 一一对应。
+const (
+	faultNotConfigured = "not_configured"
+	faultUnavailable   = "unavailable"
+)
 
 // gwCall —— 发一个固定词表 op,回原始 JSON;host 错误信封 → error。
 func gwCall(op string, fields map[string]any) (json.RawMessage, error) {
@@ -25,7 +55,7 @@ func gwCall(op string, fields map[string]any) (json.RawMessage, error) {
 	}
 	var e errEnvelope
 	if json.Unmarshal(resp, &e) == nil && e.Error != "" {
-		return nil, fmt.Errorf("host %s: %s", op, e.Error)
+		return nil, &hostFault{Op: op, Msg: e.Error, Code: e.Code}
 	}
 	return json.RawMessage(resp), nil
 }

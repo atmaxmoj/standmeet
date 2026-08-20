@@ -62,6 +62,10 @@ func invokeHandler(inv Invoker) hostop.Invoke {
 			// Name the owner/category/verb: "not configured" is meaningless without knowing WHICH
 			// owner was asked about — a stale or wrong owner id looks identical to a missing
 			// connector from here.
+			// `%w` 包住的是**业务域已经分好类的**那个错误（`hostop.Fault`）——
+			// 类别因此穿得过这一层，一路到 socket 信封上的 `code`。
+			// 分类不在这里做：这个薄壳按设计不认识连接器域的任何哨兵
+			// （`connectorroutes: mayDependOn: [hostop]`），要在这儿判就得把域拖进来。
 			return nil, fmt.Errorf("connector.invoke %s/%s owner=%s: %w",
 				req.Category, req.Verb, req.OwnerID, err)
 		}

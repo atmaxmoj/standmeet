@@ -23,6 +23,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -157,13 +158,34 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 		// (best-effort paths do exactly that), so without this the host side of a failed
 		// reach-back leaves no trace at all — the failure looks like "the cap simply did nothing".
 		s.log.Error("capsocket: op failed", "op", env.Op, "err", err)
-		return errResp(err.Error())
+		return faultResp(err)
 	}
 	return out
 }
 
 func errResp(msg string) json.RawMessage {
-	b, err := json.Marshal(map[string]string{"error": msg})
+	return encodeErr(map[string]string{"error": msg})
+}
+
+// faultCoder —— 会自报类别的错误。**按方法认，不按类型认**：这一层是严格 leaf
+// （`capsocket: mayDependOn: []`），不许 import 定义那个类型的包。声明一个同形的
+// 本地接口，谁实现了就认谁 —— 传输层因此只知道「有的错误说得出自己是哪一类」，
+// 不知道有哪些类。
+type faultCoder interface{ FaultCode() string }
+
+// faultResp —— 那句话，**外加它的类别**（有的话）。类别是沙箱唯一能据以分岔的东西：
+// 只发句子的话，「没配过」和「这一刻拨不通」在沙箱眼里是同一个错误（F-C-42）。
+func faultResp(err error) json.RawMessage {
+	fields := map[string]string{"error": err.Error()}
+	var fc faultCoder
+	if errors.As(err, &fc) && fc.FaultCode() != "" {
+		fields["code"] = fc.FaultCode()
+	}
+	return encodeErr(fields)
+}
+
+func encodeErr(fields map[string]string) json.RawMessage {
+	b, err := json.Marshal(fields)
 	if err != nil {
 		return json.RawMessage(`{"error":"internal"}`)
 	}

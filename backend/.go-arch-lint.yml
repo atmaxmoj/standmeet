@@ -281,6 +281,11 @@ deps:
       - connectoropenapi
       - cryptobox
       - pgstore
+      # hostop —— 入站词汇的 leaf。这个域给沙箱的回执要**带上失败的类别**
+      # （`hostop.Faulted`），否则「没配过」和「这一刻拨不通」到访客那儿是同一句话
+      # （F-C-42）。分类只能在这儿做：哨兵是这个域的，而 connectorroutes 那层薄壳
+      # 按设计不认识它们。这正是 hostop 那条注释说的「域才能用它说话而不 import 路由」。
+      - hostop
     anyVendorDeps: true
 
   # connectorconsumer —— 连接器轴消费者契约 leaf(AgentToolConnector/AgentOp/ErrMailNotConfigured)。

@@ -47,7 +47,11 @@ test.describe('connector error stream · confirmation send fails but booking is 
       await armSMTPFault(seed.request, { mode: 'connection_refused', times: 1 });
       const frame = bookedFrame(page);
       const prompt = frame.getByTestId('booking-email-prompt');
-      await expect(prompt).toBeVisible({ timeout: 10_000 });
+      // 这一行同时是**前置条件**：整张确认卡只在 host 认为邮件送得出去时才渲染
+      // （`ownerCanDeliver`）。它可见 = **这个 owner 的邮件连接器是配好的**，
+      // 所以下面那两条断言量的确实是「配了但这一刻拨不通」，不是「没配过」。
+      await expect(prompt, 'precondition: mail IS configured (the card rendered)')
+        .toBeVisible({ timeout: 10_000 });
       await frame.getByTestId('booking-email-use-profile').click();
 
       // card shows a friendly send error and stays un-sent.
@@ -56,6 +60,14 @@ test.describe('connector error stream · confirmation send fails but booking is 
       const errText = (await err.textContent()) ?? '';
       expect(errText, 'no stack / raw smtp error')
         .not.toMatch(/panic|goroutine|stack|dial tcp|connection refused/i);
+
+      // ★ F-C-42：**不许把「拨不通」说成「没配过」**。这句话是说给访客听的，
+      // 它既是假的，又顺带把 owner 的配置状态说了出去。
+      expect(errText, 'configured but unreachable must not read as "owner never set up email"')
+        .not.toMatch(/set up email|configured email|not configured/i);
+      // 两个方向都断：只断「不含那句」的话，一句空话也能过（[[assertion-that-cannot-fail]]）。
+      expect(errText, 'it must say the send failed now, and that the booking is still held')
+        .toMatch(/couldn't send|try again/i);
       await expect(prompt).toHaveAttribute('data-sent', 'false');
 
       // load-bearing: the booking was NOT rolled back by the send failure.

@@ -11,9 +11,12 @@ package connector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
 // calVerb / mailVerb —— 单个 verb 的分派器（map 派发，避免大 switch 抬圈复杂度）。
@@ -48,6 +51,20 @@ var mailVerbs = map[string]mailVerb{
 func (s *Slots) Invoke(
 	ctx context.Context, ownerID, category, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
+	out, err := s.dispatchCategory(ctx, ownerID, category, verb, args)
+	if err != nil {
+		// 失败**带着类别**交出去。沙箱那一侧断了网，只能凭这个 code 分岔；没有它，
+		// 「owner 没配过」和「配了但这一刻拨不通」到了访客屏幕上是同一句话，
+		// 而其中一句是假的（F-C-42）。分类归这里：哨兵是这个域的，
+		// 路由那层薄壳按设计不认识它们。
+		return nil, &hostop.FaultError{Code: faultOf(err), Err: err}
+	}
+	return out, nil
+}
+
+func (s *Slots) dispatchCategory(
+	ctx context.Context, ownerID, category, verb string, args json.RawMessage,
+) (json.RawMessage, error) {
 	switch category {
 	case categoryCalendar:
 		return dispatchCalendar(ctx, s.Calendar(), ownerID, verb, args)
@@ -56,6 +73,16 @@ func (s *Slots) Invoke(
 	default:
 		return nil, fmt.Errorf("connector invoke: unknown category %q", category)
 	}
+}
+
+// faultOf —— 哪一类。**只分两类**：「这条路没搭起来」和「搭了但这一刻做不到」——
+// 因为下游据此说的那两句话就只有两种。想说得更细属于句子的事，不属于类别。
+func faultOf(err error) string {
+	if errors.Is(err, consumer.ErrMailNotConfigured) ||
+		errors.Is(err, contract.ErrCalendarNotConnected) {
+		return hostop.FaultNotConfigured
+	}
+	return hostop.FaultUnavailable
 }
 
 // InvokeByIDInput —— 按 id 直打一个连接器要的东西(打包:参数超过 argument-limit)。

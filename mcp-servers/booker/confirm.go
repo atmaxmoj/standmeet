@@ -111,9 +111,23 @@ func sendConfirmationMail(ownerID string, b *bookingDoc, to, tz string) string {
 	msg["to"] = to
 	payload, _ := json.Marshal(msg)
 	if _, err := gwConnectorInvoke(ownerID, "mail", "send", payload); err != nil {
-		return bookErr("mail_not_configured", "owner has not configured email yet")
+		return mailSendErr(err)
 	}
 	return ""
+}
+
+// mailSendErr —— **两种失败，两句话**（F-C-42）。
+//
+// 以前这里对任何错误都说「owner 还没配邮件」。owner 配了、只是这一刻拨不通的时候，
+// 那句话对访客是**假的**，而且它顺带把 owner 的配置状态说了出去。
+// 现在按 host 给的类别分岔：类别丢了（老 host / 没带 code）就走保守的那一支 ——
+// 说「现在发不出去」永远不会撒谎，说「没配过」会。
+func mailSendErr(err error) string {
+	if faultCode(err) == faultNotConfigured {
+		return bookErr("mail_not_configured", "the owner hasn't set up email yet")
+	}
+	return bookErr("mail_send_failed",
+		"couldn't send the confirmation right now — the booking is still yours; try again in a bit")
 }
 
 // ── 邮件模板(港自 booking_confirmation_email.go)──
