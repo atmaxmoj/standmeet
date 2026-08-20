@@ -15,6 +15,8 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 
+import type { Message } from '@standmeet/agent-core';
+
 import { fetchConversation, type VisitorView, type DialogCitation } from '@/lib/api/public';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { splitParas, type Citation, type Dialog } from '@/lib/page/dialog-stream';
@@ -45,6 +47,7 @@ export function seedEphemeralStores(): ReturnType<typeof loadStoredSession> {
 // 清身份回入口;抖动(error)→ 保持现状不崩。
 export async function restoreSession(
   conversationID: string, token: string, setDialogs: DialogSetter,
+  setHistory: HistorySetter = () => undefined,
 ): Promise<void> {
   const res = await fetchConversation(conversationID, token);
   if (res.status === 'invalid') {
@@ -53,6 +56,25 @@ export async function restoreSession(
   }
   if (res.status !== 'ok') return;
   applyView(res.view, setDialogs);
+  setHistory(historyFrom(res.view));
+}
+
+export type HistorySetter = (msgs: Message[]) => void;
+
+// historyFrom —— 把取回来的逐字稿折回**模型看的那串消息**（F-A-46）。
+//
+// 为什么必须有：这段对话是客户端驱动的，每一轮把手里那串消息当 History 发出去。刷新之后
+// 逐字稿是重建的（`applyView`），而那串消息**是空的** —— 于是屏幕上明明还写着刚才问过什么，
+// 模型却一个字都看不见，访客的下一句追问落在真空里。
+//
+// 只折 Q/A：引用、tool 卡这些是**呈现**，模型那一侧本来就靠工具结果自己拿。
+function historyFrom(v: VisitorView): Message[] {
+  const out: Message[] = [];
+  for (const d of v.dialogs) {
+    if (d.question !== '') out.push({ role: 'user', content: d.question });
+    if (d.answer !== '') out.push({ role: 'assistant', content: d.answer });
+  }
+  return out;
 }
 
 // revalidateSession —— 一轮 chat 出错后回头确认会话是否还活着(失效 → 收口),

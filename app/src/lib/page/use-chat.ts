@@ -112,7 +112,9 @@ export function useChat(deps: Deps): ChatState {
     const token = stored?.session_token ?? '';
     const conv = stored?.conversation_id ?? '';
     if (conv !== '') setConversationID(conv);
-    if (token !== '' && conv !== '') void restoreSession(conv, token, setDialogs);
+    // 刷新之后**两样都要补回来**：屏幕上的逐字稿，和模型看的那串消息（F-A-46）。
+    // 只补前者的话，访客看着自己刚问过的话，而模型那边是一片空白。
+    void restoreIfStored(conv, token, setDialogs, messageHistRef);
   }, []);
 
   // strip 的 used 是 **member 级**(后端跨该人全部对话合计),不再从本地 dialogs
@@ -193,6 +195,17 @@ export function useChat(deps: Deps): ChatState {
   }, []);
 
   return { dialogs, pending, error, ask, noteEvent, reset, conversationID };
+}
+
+// restoreIfStored —— 有 stored session 就把这段对话补回来：逐字稿 + **模型看的那串消息**。
+// 抽成函数是为了让 useChat 留在行数闸门以内；两件事一起做，是因为少做后者就是 F-A-46。
+async function restoreIfStored(
+  conv: string, token: string,
+  setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>,
+  histRef: React.MutableRefObject<Message[]>,
+): Promise<void> {
+  if (token === '' || conv === '') return;
+  await restoreSession(conv, token, setDialogs, (msgs) => { histRef.current = msgs; });
 }
 
 // takeQueued —— 取走排队的那一问(取完清空)。单独一个函数,而不是在循环里就地取 ——
