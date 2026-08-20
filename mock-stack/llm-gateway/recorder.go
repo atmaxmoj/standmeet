@@ -34,6 +34,13 @@ type RequestRecord struct {
 	AuthPrefix string `json:"auth_prefix"` // 凭据前 8 个字符
 	Stream     bool   `json:"stream"`
 	Found      bool   `json:"found"` // 查不到时为 false,让调用方分得清"没记到"和"记到了但字段是空"
+	// Contains —— `?contains=` 给了的话:那一趟请求的**全部消息文本**里有没有它。
+	//
+	// 为什么值得单开一格:有些判据问的是「这件事到底有没有进模型的上下文」——
+	// 比如访客在卡上取消了一场会,agent 下一轮该知道(F-B-9)。那件事在屏幕上看不见,
+	// 在库里也看不见,唯一的现场就是**发给模型的那一份消息**。而这个 recorder 早就把
+	// 全文留着了(markerText),只是没让人问。
+	Contains bool `json:"contains"`
 }
 
 // recorder —— 请求环。写多读少,一把锁足够。
@@ -64,7 +71,8 @@ func (rec *recorder) record(r RequestRecord, markerText string) {
 
 // findByTag —— 文本里含 tag 的**最近**一条。tag 为空 → 不匹配任何东西
 // (空串会 Contains 上一切,那正是"全局 last"的坑,这里明确堵掉)。
-func (rec *recorder) findByTag(tag string) RequestRecord {
+// needle 为空 → Contains 恒 false（空串会 Contains 上一切，跟 tag 那条同一个坑）。
+func (rec *recorder) findByTag(tag, needle string) RequestRecord {
 	if tag == "" {
 		return RequestRecord{}
 	}
@@ -74,6 +82,7 @@ func (rec *recorder) findByTag(tag string) RequestRecord {
 		if strings.Contains(rec.text[i], tag) {
 			hit := rec.ring[i]
 			hit.Found = true
+			hit.Contains = needle != "" && strings.Contains(rec.text[i], needle)
 			return hit
 		}
 	}
@@ -102,7 +111,26 @@ func authPrefix(r *http.Request) string {
 	return raw
 }
 
-// serveLastRequest —— GET /__mock/inference/last_request?tag=xxx
+// clear —— 倒掉记录环。
+//
+// 为什么必须有：脚本 tag 是 `<testId>-<n>`，**同一条 spec 每次跑都是同一个 tag** ——
+// 而这个环跨 run 活着。于是「上一次跑（代码是好的）留下的那条记录」会被这一次的查询
+// 命中，判据从此判不了负：我在这条缺陷上就撞见过一次「把修好的地方拆掉，用例照样绿」。
+func (rec *recorder) clear() {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	rec.ring = rec.ring[:0]
+	rec.text = rec.text[:0]
+}
+
+// serveResetRequests —— POST /__mock/inference/reset_requests
+func (s *server) serveResetRequests(w http.ResponseWriter, _ *http.Request) {
+	s.rec.clear()
+	writeJSON(s.log, w, map[string]bool{"ok": true})
+}
+
+// serveLastRequest —— GET /__mock/inference/last_request?tag=xxx[&contains=yyy]
 func (s *server) serveLastRequest(w http.ResponseWriter, r *http.Request) {
-	writeJSON(s.log, w, s.rec.findByTag(r.URL.Query().Get("tag")))
+	q := r.URL.Query()
+	writeJSON(s.log, w, s.rec.findByTag(q.Get("tag"), q.Get("contains")))
 }

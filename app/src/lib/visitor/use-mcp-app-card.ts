@@ -40,6 +40,8 @@ interface Ctx {
   tool: string;
   conversationID: string;
   onAsk: (q: string) => void;
+  // noteEvent —— 把卡上发生的事写进这段对话的历史（F-B-9）。见 runCardTool。
+  noteEvent: (text: string) => void;
   setHeight: (h: number) => void;
 }
 
@@ -71,14 +73,28 @@ function openLink(href: unknown): void {
   }
 }
 
-// runCardTool —— 派发卡发来的具名 tool，结果（含 requestId 回执）post 回卡。
+// runCardTool —— 派发卡发来的具名 tool，结果（含 requestId 回执）post 回卡，
+// **并把这件事记进这段对话的历史**（F-B-9）。
+//
+// 这条路不经过对话：`POST /sessions/{id}/tools/{name}` 执行完就返回。少了最后那一步的话，
+// 访客在卡上取消掉的那场会，对 agent 来说从没发生过 —— 它下一句照旧说「你那场还在」，
+// 就写在同屏那张 `CANCELLED` 的卡下面。
 async function runCardTool(c: Ctx): Promise<void> {
   const name = typeof c.data['name'] === 'string' ? c.data['name'] : '';
   const requestId = c.data['requestId'];
   const args = isRecord(c.data['args']) ? c.data['args'] : {};
   const token = loadStoredSession()?.session_token ?? '';
   const result = await callVisitorTool(c.conversationID, token, name, args);
+  c.noteEvent(cardEventText(name, result));
   c.win.postMessage({ type: 'mcp-ui:tool-result', requestId, result }, '*');
+}
+
+// cardEventText —— 给模型读的一句话。**带上工具名和原始结果**：措辞由模型自己组织，
+// 而它要判断的是「这件事到底成没成、动的是哪一条」，所以事实原样给，不在这里替它总结。
+function cardEventText(name: string, result: Record<string, unknown>): string {
+  if (name === '') return '';
+  return `[card action] The visitor used "${name}" on a card in this conversation. `
+    + `Result: ${JSON.stringify(result)}`;
 }
 
 // runCardReady —— 卡 ready 时拉本卡跨刷新状态，连同 tool result 一起注入 mcp-ui:data。
@@ -106,19 +122,35 @@ function dispatch(c: Ctx): void {
   HANDLERS[type]?.(c);
 }
 
-export function useMcpAppCard(
-  result: unknown, onAsk: (q: string) => void, tool: string, conversationID = '',
-) {
+const NOOP = (): void => undefined;
+
+/** CardWiring —— 一张卡要挂的四根线。**默认值住在这儿**：调用它的组件只负责转发，
+ *  每个可选 prop 在那边补一次 `??` 的话，圈复杂度闸门迟早（正当地）拦住那个组件。 */
+export interface CardWiring {
+  result: unknown;
+  tool: string;
+  onAsk?: (q: string) => void;
+  conversationID?: string;
+  noteEvent?: (text: string) => void;
+}
+
+export function useMcpAppCard(w: CardWiring) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
+  const { result, tool } = w;
+  const onAsk = w.onAsk ?? NOOP;
+  const conversationID = w.conversationID ?? '';
+  const noteEvent = w.noteEvent ?? NOOP;
   useEffect(() => {
     function onMsg(e: MessageEvent): void {
       const win = ref.current?.contentWindow ?? null;
       const ok = win !== null && e.source === win && isRecord(e.data);
-      ok && dispatch({ win, data: e.data, result, tool, conversationID, onAsk, setHeight });
+      ok && dispatch({
+        win, data: e.data, result, tool, conversationID, onAsk, noteEvent, setHeight,
+      });
     }
     window.addEventListener('message', onMsg);
     return () => { window.removeEventListener('message', onMsg); };
-  }, [result, onAsk, tool, conversationID]);
+  }, [result, onAsk, tool, conversationID, noteEvent]);
   return { ref, height };
 }

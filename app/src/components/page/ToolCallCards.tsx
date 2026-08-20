@@ -34,9 +34,13 @@ interface ToolCallCardsProps {
   // conversationID —— booked 沙盒卡的 mcp-ui:tool 派发(cancel / send_confirmation)
   // 凭它 + 访客 session 调 tool；传给 McpAppCard。
   conversationID?: string;
+  // noteEvent —— 见 CardCtx：卡上做的事要让下一轮的 agent 知道（F-B-9）。
+  noteEvent?: (text: string) => void;
 }
 
-export function ToolCallCards({ calls, onAsk, conversationID }: ToolCallCardsProps) {
+export function ToolCallCards({
+  calls, onAsk, conversationID, noteEvent,
+}: ToolCallCardsProps) {
   const byName = useToolSpecsStore((s) => s.byName);
   // Retrieval (corpus_*) collapses into ONE summary row instead of one iframe per call
   // (UX-10). Everything else — interactive ui:// cards (ask_visitor / booked), skill/ext
@@ -49,7 +53,7 @@ export function ToolCallCards({ calls, onAsk, conversationID }: ToolCallCardsPro
       {others.map((c, i) => (
         <ToolCallCard
           key={`${c.name}-${i}`} call={c}
-          onAsk={onAsk} conversationID={conversationID}
+          onAsk={onAsk} conversationID={conversationID} noteEvent={noteEvent}
         />
       ))}
     </div>
@@ -91,6 +95,8 @@ interface CardCtx {
   call: ToolCallView;
   onAsk?: (q: string) => void;
   conversationID?: string;
+  // noteEvent —— 卡上派出去的工具调用要进这段对话的历史（F-B-9）。
+  noteEvent?: (text: string) => void;
 }
 
 // NON_SANDBOX_CARDS —— 工具没自带 ui:// 卡时的兜底渲染（按 kind 查表，避开
@@ -109,7 +115,12 @@ function ToolCallCard(ctx: CardCtx) {
   const byName = useToolSpecsStore((s) => s.byName);
   const uiHtml = uiHtmlForTool(byName, ctx.call.name);
   return uiHtml !== ''
-    ? <McpAppCard call={ctx.call} html={uiHtml} onAsk={ctx.onAsk} conversationID={ctx.conversationID} />
+    ? (
+      <McpAppCard
+        call={ctx.call} html={uiHtml} onAsk={ctx.onAsk}
+        conversationID={ctx.conversationID} noteEvent={ctx.noteEvent}
+      />
+    )
     : nonSandboxCard(ctx);
 }
 

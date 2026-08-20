@@ -18,21 +18,27 @@ import { PartialNotice } from '@/components/visitor/PartialNotice';
 import { VisitorQuestion } from '@/components/visitor/ComposerAttachments';
 import type { Citation, Dialog, ToolThrobberView } from '@/lib/page/use-chat';
 
-export function ChatTranscript({ dialogs, onAsk, conversationID }: {
+export function ChatTranscript({ dialogs, onAsk, conversationID, noteEvent }: {
   dialogs: readonly Dialog[]; onAsk: (q: string) => void;
   conversationID?: string;
+  // noteEvent —— 卡上做的事要进这段对话的历史，否则 agent 下一轮不知道（F-B-9）。
+  noteEvent?: (text: string) => void;
 }) {
   return (
     <div className="flex-1">
       {dialogs.map((d, i) => (
-        <DialogCard key={d.id ?? i} dialog={d} onAsk={onAsk} conversationID={conversationID} />
+        <DialogCard
+          key={d.id ?? i} dialog={d} onAsk={onAsk}
+          conversationID={conversationID} noteEvent={noteEvent}
+        />
       ))}
     </div>
   );
 }
 
-function DialogCard({ dialog, onAsk, conversationID }: {
+function DialogCard({ dialog, onAsk, conversationID, noteEvent }: {
   dialog: Dialog; onAsk: (q: string) => void; conversationID?: string;
+  noteEvent?: (text: string) => void;
 }) {
   const t = useTranslations('visitor.chatTranscript');
   return (
@@ -48,7 +54,7 @@ function DialogCard({ dialog, onAsk, conversationID }: {
       <SpeakerLabel />
       <ToolCallCards
         calls={dialog.answer.toolCalls}
-        onAsk={onAsk} conversationID={conversationID}
+        onAsk={onAsk} conversationID={conversationID} noteEvent={noteEvent}
       />
       {dialog.pending ? null : <AnswerView answer={dialog.answer} />}
     </article>

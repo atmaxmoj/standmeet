@@ -19,12 +19,17 @@ interface Props {
   // conversationID —— booked 卡的 mcp-ui:tool 派发(cancel / send_confirmation)凭它 +
   // 访客 session 调 tool；不发 tool 的卡省略即可。
   conversationID?: string;
+  // noteEvent —— 卡上派出去的工具调用要进这段对话的历史，否则 agent 下一轮不知道
+  // 访客刚把那场会取消了（F-B-9）。
+  noteEvent?: (text: string) => void;
 }
 
-const NOOP = (): void => {};
-
-export function McpAppCard({ call, html, onAsk, conversationID }: Props) {
-  const { ref, height } = useMcpAppCard(call.result, onAsk ?? NOOP, call.name, conversationID ?? '');
+// 这个组件只把 props 转给 hook —— 缺省值住在 hook 那边（`CardWiring`）。
+// 在这儿补 `??` 的话，每加一个可选 prop 就多一处分支，闸门会（正当地）拦住它。
+export function McpAppCard({ call, html, onAsk, conversationID, noteEvent }: Props) {
+  const { ref, height } = useMcpAppCard({
+    result: call.result, tool: call.name, onAsk, conversationID, noteEvent,
+  });
   return (
     <iframe
       ref={ref}

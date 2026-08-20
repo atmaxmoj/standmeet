@@ -93,8 +93,14 @@ func (s SystemField) MarshalJSON() ([]byte, error) {
 // marker 在 visitor 问句里(早期一条 user text block);turn 内每次
 // /v1/messages 调用都带着完整消息历史,所以 search/read/final 任一调用扫全量
 // 都查得到(不像 questionText 只看窗口头,call-3 上窗口可能不落在问句)。
+// **system 也算数**：Anthropic 的 wire 把 system 提到 messages 外面一格，而
+// 「这句话有没有进模型的上下文」这个问题不分它落在哪一格。少了这一行的话，
+// recorder 的 `?contains=` 对任何走 system 的内容都答 false —— 一个看不见半张
+// 请求的记录器，会让「产品没做」和「记录器没看」长得一模一样（[[gate-can-go-blind]]）。
 func (r *MessagesReq) markerText() string {
 	var b strings.Builder
+	b.WriteString(r.System.Text)
+	b.WriteString(" ")
 	for i := range r.Messages {
 		b.WriteString(joinTextBlocks(r.Messages[i].Content))
 		b.WriteString(" ")

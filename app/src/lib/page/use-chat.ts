@@ -53,6 +53,18 @@ export type ChatState = {
   pending: boolean;
   error: string | null;
   ask: (q: string) => Promise<void>;
+  /**
+   * noteEvent —— 把「访客在卡上做了一件事」写进这一段对话的历史（F-B-9 ⭐⭐）。
+   *
+   * 卡片的工具调用走的是另一条路（`mcp-ui:tool` → `POST /sessions/{id}/tools/{name}`），
+   * 它执行、返回，**从不碰对话**。而这段对话是客户端驱动的：每一轮把这串消息当 History
+   * 发出去。所以卡上点掉的那次取消，对 agent 来说从没发生过 —— 下一句它照旧说
+   * 「你那场还在」，跟同屏的 `CANCELLED` 直接打架。
+   *
+   * 写成 `system` 而不是 `user`：那不是访客说的话，是这段对话里发生的一件事。
+   * 也因此它不占一轮（配额数的是 visitor 消息）。
+   */
+  noteEvent: (text: string) => void;
   reset: () => void;
   // conversationID —— 这段 chat 落地的 conversation id(主 chat = session 自带;
   // 浮窗 = lazy 解析的 doc 对话)。#122 约成卡发确认信要带它(后端按它定位最近一笔
@@ -164,6 +176,13 @@ export function useChat(deps: Deps): ChatState {
     }
   }, [deps, nextID]);
 
+  // noteEvent —— 见 ChatState 上的说明。直接写 ref：它不上屏（卡自己已经显示了结果），
+  // 要的是**下一轮发出去的 History 里有它**。
+  const noteEvent = useCallback((text: string): void => {
+    if (text === '') return;
+    messageHistRef.current = [...messageHistRef.current, { role: 'system', content: text }];
+  }, []);
+
   const reset = useCallback((): void => {
     setDialogs([]);
     setError(null);
@@ -173,7 +192,7 @@ export function useChat(deps: Deps): ChatState {
     useGhostsStore.getState().clear();
   }, []);
 
-  return { dialogs, pending, error, ask, reset, conversationID };
+  return { dialogs, pending, error, ask, noteEvent, reset, conversationID };
 }
 
 // takeQueued —— 取走排队的那一问(取完清空)。单独一个函数,而不是在循环里就地取 ——

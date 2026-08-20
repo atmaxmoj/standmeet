@@ -158,15 +158,32 @@ export interface GatewayRequest {
   auth_prefix: string;
   stream: boolean;
   found: boolean;
+  /** Did that request's messages carry the `contains` needle? False when no
+   *  needle was asked for. Use it to assert that something reached the model's
+   *  context — the one place a fact like "the visitor cancelled on the card"
+   *  is visible at all (F-B-9). */
+  contains: boolean;
+}
+
+/** Empty the gateway's request ring.
+ *
+ *  Needed because a script tag is `<testId>-<n>` — **stable across runs of the
+ *  same spec** — while the ring outlives the run. Without this, a query can hit
+ *  the record left by the previous run and the assertion stops being able to
+ *  fail: on F-B-9 I removed the fix and the spec still passed. */
+export async function resetGatewayRequests(request: APIRequestContext): Promise<void> {
+  const res = await request.post(`${GATEWAY}/__mock/inference/reset_requests`);
+  if (res.status() !== 200) throw new Error(`reset_requests: ${res.status()}`);
 }
 
 export async function lastGatewayRequest(
-  request: APIRequestContext, tag: string,
+  request: APIRequestContext, tag: string, contains = '',
 ): Promise<GatewayRequest> {
   // The caller holds `[[s:KEY]]`; the recorder matches on substring, so the raw
   // tag works as-is.
+  const needle = contains === '' ? '' : `&contains=${encodeURIComponent(contains)}`;
   const res = await request.get(
-    `${GATEWAY}/__mock/inference/last_request?tag=${encodeURIComponent(tag.trim())}`,
+    `${GATEWAY}/__mock/inference/last_request?tag=${encodeURIComponent(tag.trim())}${needle}`,
   );
   if (res.status() !== 200) throw new Error(`last_request: ${res.status()}`);
   return await res.json() as GatewayRequest;

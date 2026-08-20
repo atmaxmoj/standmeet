@@ -63,6 +63,7 @@ export function ChatRoom({ owner, mode }: Props) {
             <ChatTranscript
               dialogs={ci.chat.dialogs} onAsk={ci.onAsk}
               conversationID={ci.chat.conversationID}
+              noteEvent={ci.chat.noteEvent}
             />
           </div>
           {/* docked bottom: progress + composer + footnote stay pinned to the viewport */}
