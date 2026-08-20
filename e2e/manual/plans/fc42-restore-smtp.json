@@ -1,0 +1,43 @@
+{
+  "_why": "F-C-42 的 ⑤ 复原：把 SMTP 端口改回 587 并重新连接，然后**真发一封测试信** —— 产品屏幕上那句 Accepted 不算数，要去真收件箱确认信到了（[[receipt-check-belongs-next-to-the-action]]）。\n\n跟 fc42-break-smtp.json 是一对：break 那份跑完必须跑这份。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1000],
+  "shots": [
+    {
+      "name": "fc42-06-smtp-restored",
+      "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4500 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-host\"]", "smtp.gmail.com"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-port\"]", "587"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-username\"]", "sijie.wang.lark@gmail.com"] },
+        { "wait": 300 },
+        { "typeSecret": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-password\"]", "GMAIL_APP_PASSWORD"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-from_address\"]", "sijie.wang.lark@gmail.com"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-from_name\"]", "Sijie Wang"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-tls\"]", "starttls"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-connect-button\"]" },
+        { "wait": 12000 }
+      ],
+      "wait": 1500
+    },
+    {
+      "name": "fc42-07-test-send",
+      "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4500 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-op-field-to\"]", "sijie.wang.lark+fc42@gmail.com"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-op-run\"]" },
+        { "wait": 9000 }
+      ],
+      "wait": 1500
+    }
+  ]
+}

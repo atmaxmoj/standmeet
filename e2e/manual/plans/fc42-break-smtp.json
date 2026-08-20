@@ -1,0 +1,31 @@
+{
+  "_why": "F-C-42 的 ⑤：把 owner 真实的 SMTP 连接器指到一个**没人听的端口**（2525），造出「配好了、但这一刻拨不通」——而不是「没配过」。两者在修法之前对访客说同一句话，其中一句是假的。\n\n**时序是判据的一部分**：必须**先订完会**再打断邮件。反过来做的话确认卡整张不渲染（`ownerCanDeliver` 判为假就不提供这个动作，产品做得对），那条路上根本按不到 Send。\n\n密码不写进 plan：走 `typeSecret` 从 verify-creds.env 取 GMAIL_APP_PASSWORD。\n**跑完必须跑 fc42-restore-smtp.json 复原**（那份还会真发一封测试信确认收得到）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1000],
+  "shots": [
+    {
+      "name": "fc42-04-smtp-broken",
+      "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4500 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-host\"]", "smtp.gmail.com"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-port\"]", "2525"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-username\"]", "sijie.wang.lark@gmail.com"] },
+        { "wait": 300 },
+        { "typeSecret": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-password\"]", "GMAIL_APP_PASSWORD"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-from_address\"]", "sijie.wang.lark@gmail.com"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-from_name\"]", "Sijie Wang"] },
+        { "wait": 300 },
+        { "type": ["[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-field-tls\"]", "starttls"] },
+        { "wait": 400 },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-connect-button\"]" },
+        { "wait": 12000 }
+      ],
+      "wait": 1500
+    }
+  ]
+}
