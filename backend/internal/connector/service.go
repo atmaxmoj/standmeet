@@ -116,17 +116,17 @@ func (s *Service) Connect(ctx context.Context, ownerID, id string) (ConnectResul
 
 // Callback —— 校验 state → code 换 token → 存。返回该 owner（state 携带）。
 func (s *Service) Callback(ctx context.Context, id, code, state string) error {
-	ownerID, cerr := s.consumeState(ctx, state, id)
+	dance, cerr := s.consumeState(ctx, state, id)
 	if cerr != nil {
 		return fmt.Errorf("oauth callback: %w", cerr) // Redis 故障 → 上报，不掩盖成「坏 state」
 	}
-	if ownerID == "" {
+	if dance.OwnerID == "" {
 		return ErrInvalidOAuthState // state 空/过期/不匹配（预期态）
 	}
-	if err := s.exchangeAndStore(ctx, ownerID, id, code); err != nil {
+	if err := s.exchangeAndStore(ctx, &dance, code); err != nil {
 		return err
 	}
-	return s.ensureActive(ctx, ownerID, id)
+	return s.ensureActive(ctx, dance.OwnerID, id)
 }
 
 // Activate —— 占品类槽。Disconnect —— soft disconnect。Status / List —— 读。
@@ -306,24 +306,4 @@ func hasActive(conns []Connection) bool {
 	return false
 }
 
-func (s *Service) initDance(
-	ctx context.Context, ownerID, id string, ep OAuthEndpoints,
-) (ConnectResult, error) {
-	cred, err := s.loadOAuthCred(ctx, ownerID, id)
-	if err != nil {
-		return ConnectResult{}, err
-	}
-	redirect, rerr := s.redirectURI(ctx, ownerID, id)
-	if rerr != nil {
-		return ConnectResult{}, rerr
-	}
-	state, serr := randomState()
-	if serr != nil {
-		return ConnectResult{}, serr
-	}
-	if perr := s.persistState(ctx, state, ownerID, id); perr != nil {
-		return ConnectResult{}, perr
-	}
-	url := ep.BuildAuthorizeURL(cred.ClientID, redirect, state, cred.Scopes)
-	return ConnectResult{AuthURL: url, State: state}, nil
-}
+// initDance / openDance 在 svc_oauth.go —— dance 的内部件都在那一边。

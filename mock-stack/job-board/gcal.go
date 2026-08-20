@@ -7,6 +7,8 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -56,10 +58,14 @@ type gcalState struct {
 	events         []mockEvent
 	deletedEvents  []mockEvent
 	fails          map[string]*failInjection // op → injected failure (retry-matrix e2e)
-	freeBusyRaw    []byte                     // set_freebusy_raw: 下次 freeBusy 原样回这个（一次性）
-	eventShape     string                     // set_event_shape: "" | "object" | "array"（响应形状）
-	oauthOutcome   string                     // /__mock/oauth/program: ""|deny|token_invalid_client|state_mismatch|network_fail|refresh_omit_scope
-	lastAuthScopes map[string][]string        // client_id → 上次 authorize 收到的 scope 子集（按 client_id 隔离：并行 oauth 测试各读自己的 dance，不互相污染共享记录）
+	freeBusyRaw    []byte                    // set_freebusy_raw: 下次 freeBusy 原样回这个（一次性）
+	eventShape     string                    // set_event_shape: "" | "object" | "array"（响应形状）
+	oauthOutcome   string                    // /__mock/oauth/program: ""|deny|token_invalid_client|state_mismatch|network_fail|refresh_omit_scope
+	lastAuthScopes map[string][]string       // client_id → 上次 authorize 收到的 scope 子集（按 client_id 隔离：并行 oauth 测试各读自己的 dance，不互相污染共享记录）
+	// lastChallenge —— client_id → 上次 authorize 带来的 `code_challenge`（PKCE）。
+	// 记下来才能在换 token 那一步验：verifier 的 S256 摘要对不上就不给 token。
+	// 以前这个 mock 对 PKCE **一个字都不问**，于是产品发不发都一样绿（F-C-44）。
+	lastChallenge  map[string]string
 	tokenCallCount int
 	revoked        bool // owner revoked at Google → next refresh returns invalid_grant
 	mu             sync.Mutex
@@ -125,6 +131,10 @@ func (s *server) serveOAuthAuth(w http.ResponseWriter, r *http.Request) {
 			st.lastAuthScopes = map[string][]string{}
 		}
 		st.lastAuthScopes[clientID] = splitScopes(r.URL.Query().Get("scope"))
+		if st.lastChallenge == nil {
+			st.lastChallenge = map[string]string{}
+		}
+		st.lastChallenge[clientID] = r.URL.Query().Get("code_challenge")
 	})
 	u.RawQuery = authorizeCallbackQuery(outcome, state).Encode()
 	//nolint:gosec // G710 — mock server's whole purpose is echoing back the redirect_uri unmodified
@@ -147,6 +157,27 @@ func authorizeCallbackQuery(outcome, state string) url.Values {
 	}
 	q.Set("state", state)
 	return q
+}
+
+// pkceOK —— 这次换 token 的 PKCE 对不对。
+//
+// 没记到 challenge（这个 client 没走过 authorize，或它压根没发）→ 放行：那种情形归
+// 守卫去断「authorize URL 上有没有 challenge」，在这儿一律拒会把所有老用例一起判死，
+// 而闸门顶死无关的人就会被关掉（[[gate-scope-forces-architecture]]）。
+// 记到了就必须验：S256(verifier) 逐字等于 challenge。
+func (s *server) pkceOK(r *http.Request) bool {
+	clientID := r.PostForm.Get("client_id")
+	var challenge string
+	s.withState(func(st *gcalState) { challenge = st.lastChallenge[clientID] })
+	if challenge == "" {
+		return true
+	}
+	verifier := r.PostForm.Get("code_verifier")
+	if verifier == "" {
+		return false
+	}
+	sum := sha256.Sum256([]byte(verifier))
+	return base64.RawURLEncoding.EncodeToString(sum[:]) == challenge
 }
 
 // splitScopes —— OAuth scope param（空格分隔）→ 列表（空 → 空切片）。
@@ -230,6 +261,13 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Error(w, `{"error":"server_error"}`, fault.status)
+		return
+	}
+	// PKCE：authorize 那一步带了 challenge，换 token 就必须带对得上的 verifier。
+	// 真 provider（Google 对 installed app 一类）正是这么办的；这个 mock 以前不问，
+	// 于是「产品到底发没发 PKCE」在它身上永远看不出真假（F-C-44）。
+	if grant == "authorization_code" && !s.pkceOK(r) {
+		writeInvalidGrant(s.log, w)
 		return
 	}
 	resp := oauthTokenResponse{
@@ -336,9 +374,10 @@ func eventID(key string) string {
 }
 
 // insertDecision —— 锁内决定 insert 归宿并完成 state 写入。返回 (existing, fail)：
-//   existing != nil → 同 id 已存（幂等重放），不重复写；
-//   fail != nil     → 注入失败（connreset 模式已把事件写进 state，模拟「写后丢响应」）；
-//   都 nil          → 正常新建（已 append）。
+//
+//	existing != nil → 同 id 已存（幂等重放），不重复写；
+//	fail != nil     → 注入失败（connreset 模式已把事件写进 state，模拟「写后丢响应」）；
+//	都 nil          → 正常新建（已 append）。
 func (s *server) insertDecision(ev mockEvent) (*mockEvent, *failInjection) {
 	var existing, fail = (*mockEvent)(nil), (*failInjection)(nil)
 	s.withState(func(st *gcalState) {

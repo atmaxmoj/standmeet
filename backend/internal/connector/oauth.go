@@ -82,20 +82,36 @@ func scopeKeys(m map[string]string) []string {
 	return out
 }
 
+// AuthorizeInput —— 拼同意页 URL 要的东西。`Challenge` 是 PKCE 的 S256 摘要。
+type AuthorizeInput struct {
+	ClientID    string
+	RedirectURI string
+	State       string
+	Challenge   string
+	Scopes      []string
+}
+
 // BuildAuthorizeURL —— 拼同意页 URL。scopes 空 → 用 spec 声明的全部。
-func (e OAuthEndpoints) BuildAuthorizeURL(
-	clientID, redirectURI, state string, scopes []string,
-) string {
+//
+// PKCE（F-C-44）：`state` 挡的是 CSRF，`code_challenge` 挡的是**授权码被中途截走** ——
+// 截到码的人没有 verifier 就换不出 token。这个连接器的 redirect 落在明文 HTTP 的
+// loopback 上，而 Google 对 installed-app 一类客户端本来就要求它。
+func (e OAuthEndpoints) BuildAuthorizeURL(in *AuthorizeInput) string {
+	scopes := in.Scopes
 	if len(scopes) == 0 {
 		scopes = e.Scopes
 	}
 	q := url.Values{}
-	q.Set("client_id", clientID)
-	q.Set("redirect_uri", redirectURI)
+	q.Set("client_id", in.ClientID)
+	q.Set("redirect_uri", in.RedirectURI)
 	q.Set("response_type", "code")
-	q.Set("state", state)
+	q.Set("state", in.State)
 	q.Set("access_type", "offline") // 拿 refresh_token
 	q.Set("prompt", "consent")
+	if in.Challenge != "" {
+		q.Set("code_challenge", in.Challenge)
+		q.Set("code_challenge_method", "S256")
+	}
 	if len(scopes) > 0 {
 		q.Set("scope", strings.Join(scopes, " "))
 	}
@@ -132,15 +148,20 @@ func (e OAuthEndpoints) ExchangeCode(
 	form.Set("client_id", in.ClientID)
 	form.Set("client_secret", in.ClientSecret)
 	form.Set("redirect_uri", in.RedirectURI)
+	if in.CodeVerifier != "" {
+		form.Set("code_verifier", in.CodeVerifier)
+	}
 	return e.postToken(ctx, doer, form)
 }
 
-// ExchangeInput —— code 换 token 的入参。
+// ExchangeInput —— code 换 token 的入参。`CodeVerifier` 是 authorize 那一步
+// 发出去的 challenge 的原文（PKCE）。
 type ExchangeInput struct {
 	Code         string
 	ClientID     string
 	ClientSecret string
 	RedirectURI  string
+	CodeVerifier string
 }
 
 // postToken —— POST token 端点（form-urlencoded）+ 解析。
