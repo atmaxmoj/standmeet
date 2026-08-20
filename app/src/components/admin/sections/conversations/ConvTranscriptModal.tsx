@@ -90,12 +90,42 @@ function MessageItem({
   message: ConvTranscriptMessage;
   refs: Record<CitedGenre, Record<string, string>>;
 }) {
-  return (
+  return message.role === 'event' ? (
+    <li><EventLine body={message.body} at={message.created_at} /></li>
+  ) : (
     <li>
       <MessageLabel role={message.role} at={message.created_at} />
       <MessageBody role={message.role} body={message.body} />
       <CitedTail cited={message.cited} refs={refs} />
     </li>
+  );
+}
+
+// EVENT_PREFIX —— 事件正文自带的前缀（模型靠它认出这是一件发生过的事，不是谁说的话）。
+// owner 这一面已经有标签在说同一件事，正文里不必再印一遍。
+const EVENT_PREFIX = '[card action] ';
+
+// EVENT_LABEL —— 跟旁边的 `visitor` / `ai` 一样是**等宽小标签**，不是句子：这一族标签
+// 在设计语言里是终端式的元数据，三个一起看才读得出「谁/什么」，所以它们同属一类、
+// 同样不翻译。
+const EVENT_LABEL = 'card action';
+
+// EventLine —— 这段对话里**发生过的一件事**：访客在沙盒卡上点了取消 / 发了确认信（F-B-9）。
+// 它没有说话人，所以不摆成一轮问答 —— 一条竖线 + 等宽小字，跟旁边的 visitor / ai 明确不同。
+// 上一版把它当 assistant 渲染，于是逐字稿写着「AI」说了这句 —— 一句 AI 从没说过的话。
+function EventLine({ body, at }: { body: string; at: string }) {
+  return (
+    <div data-testid="conv-event-line" className="border-l-2 border-(--color-faint) pl-3 py-1">
+      <div className="mono text-[10px] tracking-[0.18em] uppercase flex items-baseline gap-3">
+        <span className="text-(--color-muted)">{EVENT_LABEL}</span>
+        <span className="text-(--color-faint) normal-case tracking-[0.06em]">
+          · {stampMinute(at)}
+        </span>
+      </div>
+      <p className="mono text-[11px] leading-[1.6] text-(--color-muted) mt-1 break-words">
+        {body.startsWith(EVENT_PREFIX) ? body.slice(EVENT_PREFIX.length) : body}
+      </p>
+    </div>
   );
 }
 

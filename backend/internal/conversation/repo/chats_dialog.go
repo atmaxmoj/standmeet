@@ -132,25 +132,44 @@ func (r *ChatRepo) AppendVisitorOnly(
 		return "", fmt.Errorf("parse chat id: %w", perr)
 	}
 	return r.runInTx(ctx, func(q *db.Queries) (string, error) {
-		return runAppendVisitorOnlyQueries(ctx, q, chatUUID, question)
+		return runAppendLoneMessage(ctx, q, chatUUID, "visitor", question)
 	})
 }
 
-func runAppendVisitorOnlyQueries(
-	ctx context.Context, q *db.Queries, chatUUID pgtype.UUID, question string,
+// AppendEvent —— 落一条**这段对话里发生的事**（不是谁说的话）：访客在卡上按了取消 / 发了
+// 确认信。role='event'，单独一个「单-message」dialog（`dialog_id` NOT NULL）。
+//
+// 为什么必须是第三种 role（F-B-9）：轮次和配额数的是 `role='visitor'`，事件写成 visitor
+// 就会悄悄吃掉访客一轮；写成 assistant 又会被 `pairDialogs` 当成某一问的答案配错对。
+// 第三个值让这两件事**结构上**不可能发生，而不是靠每个读者记得过滤。
+func (r *ChatRepo) AppendEvent(ctx context.Context, chatID, body string) (string, error) {
+	chatUUID, perr := pgstore.ParseUUID(chatID)
+	if perr != nil {
+		return "", fmt.Errorf("parse chat id: %w", perr)
+	}
+	return r.runInTx(ctx, func(q *db.Queries) (string, error) {
+		return runAppendLoneMessage(ctx, q, chatUUID, "event", body)
+	})
+}
+
+// runAppendLoneMessage —— 建一个只有**一条 message** 的 dialog（`dialog_id` NOT NULL，
+// 所以再孤单的一条也得有个 dialog）。两个调用方：失败轮只落访客那一问，卡上动作落一条
+// `event`。role 是唯一的差别，各写一份的话下一次改这段事务只会改到其中一处。
+func runAppendLoneMessage(
+	ctx context.Context, q *db.Queries, chatUUID pgtype.UUID, role, body string,
 ) (string, error) {
 	dialogID, derr := q.CreateDialog(ctx, chatUUID)
 	if derr != nil {
 		return "", fmt.Errorf("create dialog: %w", derr)
 	}
 	if _, err := q.AppendMessage(ctx, db.AppendMessageParams{
-		ConversationID: chatUUID, DialogID: dialogID, Role: "visitor", Body: question,
+		ConversationID: chatUUID, DialogID: dialogID, Role: role, Body: body,
 		CitedWikiIds: []pgtype.UUID{}, CitedWritingIds: []pgtype.UUID{},
 		CitedOutputIds: []pgtype.UUID{}, CitedSubjectivityIds: []pgtype.UUID{},
 		// 列是 NOT NULL:sqlc 总是显式发这一格,nil 会当 NULL 送过去,DEFAULT '{}' 不生效。
 		GroundedSubjectivityIds: []pgtype.UUID{},
 	}); err != nil {
-		return "", fmt.Errorf("append visitor message: %w", err)
+		return "", fmt.Errorf("append %s message: %w", role, err)
 	}
 	if berr := q.BumpConversation(ctx, chatUUID); berr != nil {
 		return "", fmt.Errorf("bump chat: %w", berr)

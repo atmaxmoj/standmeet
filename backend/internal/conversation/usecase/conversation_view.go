@@ -10,6 +10,19 @@ import "time"
 type Conversation struct {
 	StartedAt time.Time
 	Dialogs   []ConvDialog
+	// Events —— 这段对话里**发生过的事**（访客在卡上取消了一场会、发了确认信），
+	// 不是谁说的话（F-B-9）。跟 Dialogs 分开一格：dialog 是「一问一答」，事件没有
+	// 那个形状，硬塞进去会把 pairDialogs 的配对弄乱。
+	//
+	// 前端刷新之后要把它们折回**模型看的那串消息**里 —— 否则卡上取消掉的那场会，
+	// 重新打开页面之后 agent 又不知道了。
+	Events []ConvEvent
+}
+
+// ConvEvent —— 一条卡上动作的记录。文本就是当时写进去的那句（`[card action] …`）。
+type ConvEvent struct {
+	CreatedAt time.Time
+	Text      string
 }
 
 // ConvCode —— 这段会话所属 code 的配额视图(概念上属 code,不属 conversation)。

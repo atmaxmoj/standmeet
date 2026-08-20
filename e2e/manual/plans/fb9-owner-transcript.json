@@ -1,0 +1,13 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/booking-book/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    { "name": "fb9-05-owner-transcript", "url": "/admin/conversations",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "text=Persist Pat" },
+        { "wait": 3000 }
+      ],
+      "wait": 1500, "fullPage": true }
+  ]
+}

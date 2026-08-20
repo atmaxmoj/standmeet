@@ -40,6 +40,24 @@ type dialogResp struct {
 type conversationResp struct {
 	StartedAt string       `json:"started_at"`
 	Dialogs   []dialogResp `json:"dialogs"`
+	// Events —— 这段对话里发生过的事（卡上取消 / 发确认信）。前端刷新之后把它们折回
+	// 模型看的那串消息，否则重新打开页面 agent 就又不知道了（F-B-9）。
+	Events []eventResp `json:"events"`
+}
+
+type eventResp struct {
+	CreatedAt string `json:"created_at"`
+	Text      string `json:"text"`
+}
+
+func toEventResps(es []conversation.ConvEvent) []eventResp {
+	out := make([]eventResp, 0, len(es))
+	for i := range es {
+		out = append(out, eventResp{
+			CreatedAt: es[i].CreatedAt.Format(time.RFC3339), Text: es[i].Text,
+		})
+	}
+	return out
 }
 
 type codeResp struct {
@@ -104,6 +122,7 @@ func toConversationResp(c *conversation.Conversation) conversationResp {
 	return conversationResp{
 		StartedAt: c.StartedAt.Format(time.RFC3339),
 		Dialogs:   toDialogResps(c.Dialogs),
+		Events:    toEventResps(c.Events),
 	}
 }
 

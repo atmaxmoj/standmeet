@@ -20,6 +20,7 @@ package public
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
 // methodQuery —— HTTP QUERY (RFC 10008)：安全/幂等的带 body 查询。只读工具可经此调用。
@@ -126,6 +128,7 @@ func runToolDispatch(
 	}
 	executeAndRespond(ctx, h, w, executeArgs{
 		In: in, ToolName: args.ToolName, Body: args.Body, Tool: tool,
+		ConvID: args.ConvID,
 	})
 }
 
@@ -133,7 +136,10 @@ type executeArgs struct {
 	In       *capreg.AssembleInput
 	Tool     *capreg.BindingTool
 	ToolName string
-	Body     []byte
+	// ConvID —— 这次调用发生在哪一段对话里。要它是为了把「访客在卡上做了什么」
+	// 写回那段对话（F-B-9）—— 在此之前这条路对 conversation 一无所知。
+	ConvID string
+	Body   []byte
 }
 
 func executeAndRespond(
@@ -151,7 +157,34 @@ func executeAndRespond(
 		})
 		return
 	}
+	recordCardEvent(ctx, h, args, out)
 	writeToolOK(h.Log, w, out, capState)
+}
+
+// recordCardEvent —— 把这次**卡上派出去的调用**写进这段对话（F-B-9）。
+//
+// 为什么在这儿：这条路从头到尾没碰过 conversation —— 装配、执行、返回。于是访客在卡上
+// 取消掉的那场会，对 agent 来说从没发生过，而且刷新一次连客户端那份记录也没了，
+// owner 的逐字稿里更是从来看不见。
+//
+// 措辞跟客户端那一侧**逐字一致**（`[card action] …`）：同一件事在两处出现时长得不一样，
+// 读的人（和模型）会当成两件事。
+//
+// best-effort：这一笔失败不该把已经做完的工具调用变成一次失败的调用 —— 那才是对访客说谎。
+// 失败要吵，否则「卡上做了事而对话里没有」会成为一种无声的常态。
+func recordCardEvent(
+	ctx context.Context, h *Handlers, args executeArgs, out string,
+) {
+	text := fmt.Sprintf(
+		"[card action] The visitor used %q on a card in this conversation. Result: %s",
+		args.ToolName, out,
+	)
+	if err := conversation.RecordCardEvent(ctx, &conversation.DialogDeps{
+		Chats: h.Visitor.Chats, Corpus: h.Corpus,
+		Subjectivity: h.Subjectivity, Log: h.Log,
+	}, args.ConvID, text); err != nil {
+		h.Log.Warn("record card event", "tool", args.ToolName, "err", err)
+	}
 }
 
 // findBindingTool —— walk bindings 找 name 匹配的 tool。同名只取第一个

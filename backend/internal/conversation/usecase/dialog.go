@@ -81,6 +81,25 @@ func RecordDialog(
 	return nil
 }
 
+// RecordCardEvent —— 落一条「访客在卡上做了什么」（F-B-9）。
+//
+// 这条路不经过对话：卡片的工具调用打的是 `POST /sessions/{id}/tools/{name}`，执行完就返回。
+// 客户端那一侧已经把它补进本轮的历史（`noteEvent`），**但那只活在浏览器里** —— 刷新一次
+// 就没了，owner 的逐字稿里也从来看不见它。这一笔是给这两件事用的。
+//
+// 空文本不落：没有内容的「事件」在逐字稿上就是一行噪声。
+func RecordCardEvent(
+	ctx context.Context, deps *DialogDeps, conversationID, text string,
+) error {
+	if conversationID == "" || text == "" {
+		return nil
+	}
+	if _, err := deps.Chats.AppendEvent(ctx, conversationID, text); err != nil {
+		return fmt.Errorf("append card event: %w", err)
+	}
+	return nil
+}
+
 // appendVisitorOnly —— answer 空时只落 visitor 那行 (用于 error 路径)。失败轮也是一个
 // 「单-message」dialog（dialog_id NOT NULL），走 AppendVisitorOnly 单事务建 dialog + 1 message。
 func appendVisitorOnly(

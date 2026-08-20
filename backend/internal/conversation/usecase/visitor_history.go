@@ -158,7 +158,21 @@ func ForChat(
 	return Conversation{
 		StartedAt: bundle.Chat.StartedAt,
 		Dialogs:   pairDialogs(bundle.Messages, r),
+		Events:    cardEvents(bundle.Messages),
 	}, nil
+}
+
+// cardEvents —— 这段对话里 role='event' 的那些（F-B-9）。`pairDialogs` 按设计只收
+// visitor/assistant 成对的那些，所以事件要单独走一趟 —— 不这样的话它们会在恢复时消失，
+// 而「消失」正是这条缺陷本身。
+func cardEvents(msgs []entity.Message) []ConvEvent {
+	out := make([]ConvEvent, 0)
+	for i := range msgs {
+		if msgs[i].Role == "event" {
+			out = append(out, ConvEvent{CreatedAt: msgs[i].CreatedAt, Text: msgs[i].Body})
+		}
+	}
+	return out
 }
 
 // dialogAnswer —— visitor 问句后面那条 assistant 答的几件套(避开多 return）。

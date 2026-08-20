@@ -130,6 +130,9 @@ const AggDialogSchema = z.object({
   citations: z.array(DialogCitationSchema),
   tool_calls: z.array(ToolCallSchema),
 });
+// ConvEventSchema —— 一条卡上动作的记录。它不是谁说的话,所以不进 dialogs:
+// 那边是一问一答的形状,硬塞会把配对弄乱。
+const ConvEventSchema = z.object({ created_at: z.string(), text: z.string() });
 const ViewSchema = z.object({
   session: z.object({
     visitor_name: z.string(),
@@ -145,10 +148,15 @@ const ViewSchema = z.object({
   conversation: z.object({
     dialogs: z.array(AggDialogSchema),
     started_at: z.string(),
+    // events —— 这段对话里**发生过的事**(访客在卡上取消了会 / 发了确认信)。
+    // optional:老实例(还没发这一格)的响应不能因此整份 safeParse 失败,那会
+    // 让访客刷新后看见空白 transcript(同 ToolCallSchema.result 那一课)。
+    events: z.array(ConvEventSchema).optional().default([]),
   }),
 });
 export type DialogCitation = z.infer<typeof DialogCitationSchema>;
 export type AggDialog = z.infer<typeof AggDialogSchema>;
+export type ConvEvent = z.infer<typeof ConvEventSchema>;
 
 // VisitorView —— 端点解析后的 camelCase 形态。session(身份+code 配额)+
 // conversation(dialogs / ended / summary)。count 由 dialogs.length 派生,不带
@@ -160,6 +168,9 @@ export interface VisitorView {
   maxMembers: number;
   memberCount: number;
   dialogs: AggDialog[];
+  // events —— 刷新之后要折回**模型看的那串消息**,否则卡上取消掉的那场会,
+  // 重新打开页面 agent 就又不知道了(F-B-9)。
+  events: ConvEvent[];
 }
 
 // ConversationResult —— 三态:活着 / 失效(401/403,要重进)/ 抖动(保持现状)。
@@ -220,6 +231,7 @@ function toView(d: z.infer<typeof ViewSchema>): VisitorView {
     maxMembers: d.session.code.max_members,
     memberCount: d.session.code.member_count,
     dialogs: d.conversation.dialogs,
+    events: d.conversation.events,
   };
 }
 

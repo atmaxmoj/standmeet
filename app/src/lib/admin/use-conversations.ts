@@ -48,9 +48,15 @@ export interface TitledRef {
 export const CITED_GENRES = ['output', 'wiki', 'subjectivity', 'writing'] as const;
 export type CitedGenre = (typeof CITED_GENRES)[number];
 
+// CONV_ROLES —— 逐字稿里的三种行。`event` **不是谁说的话** —— 它是这段对话里发生过的
+// 一件事（访客在卡上取消了会）。以前这里只有两种，而映射是「不是 visitor 就当 assistant」，
+// 于是这样一行会被贴上 `AI` 的标签：owner 读到的是「AI 说它取消了」，而 AI 从没说过
+// （F-B-9 / [[collapsed-error-class-kills-its-own-branch]]）。
+export type ConvRole = 'visitor' | 'assistant' | 'event';
+
 export interface ConvTranscriptMessage {
   id: string;
-  role: 'visitor' | 'assistant';
+  role: ConvRole;
   body: string;
   created_at: string;
   // cited —— 每种体裁被引用的 id。空数组 = 这一轮没引这一类。
@@ -223,10 +229,16 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
   }
 }
 
+// convRole —— 后端的 role 是裸字符串（`messages.role` 无 CHECK）。三种认识的各归各位，
+// 其余一律当 assistant —— 兜底还在，但 `event` 不再被兜进去。
+function convRole(raw: string): ConvRole {
+  return raw === 'visitor' || raw === 'event' ? raw : 'assistant';
+}
+
 function toTranscriptMessage(m: z.infer<typeof ConvMessageSchema>): ConvTranscriptMessage {
   return {
     id: m.id,
-    role: m.role === 'visitor' ? 'visitor' : 'assistant',
+    role: convRole(m.role),
     body: m.body,
     created_at: m.created_at,
     cited: {

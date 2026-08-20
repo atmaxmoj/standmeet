@@ -17,7 +17,10 @@ import type { Dispatch, SetStateAction } from 'react';
 
 import type { Message } from '@standmeet/agent-core';
 
-import { fetchConversation, type VisitorView, type DialogCitation } from '@/lib/api/public';
+import {
+  fetchConversation,
+  type AggDialog, type ConvEvent, type DialogCitation, type VisitorView,
+} from '@/lib/api/public';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { splitParas, type Citation, type Dialog } from '@/lib/page/dialog-stream';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
@@ -67,14 +70,33 @@ export type HistorySetter = (msgs: Message[]) => void;
 // 逐字稿是重建的（`applyView`），而那串消息**是空的** —— 于是屏幕上明明还写着刚才问过什么，
 // 模型却一个字都看不见，访客的下一句追问落在真空里。
 //
-// 只折 Q/A：引用、tool 卡这些是**呈现**，模型那一侧本来就靠工具结果自己拿。
+// 只折 Q/A + 事件：引用、tool 卡这些是**呈现**，模型那一侧本来就靠工具结果自己拿；
+// 而访客在卡上做过的事（取消了那场会 / 发了确认信）没有别的地方能让模型知道 —— 不折回来，
+// 刷新之后 agent 又会当那场会还在（F-B-9）。
+//
+// 按时间归并，不是把事件甩到末尾：模型读到的顺序就是发生的顺序。
 function historyFrom(v: VisitorView): Message[] {
-  const out: Message[] = [];
-  for (const d of v.dialogs) {
-    if (d.question !== '') out.push({ role: 'user', content: d.question });
-    if (d.answer !== '') out.push({ role: 'assistant', content: d.answer });
+  const timed = [...dialogMsgs(v.dialogs), ...eventMsgs(v.events)];
+  timed.sort((a, b) => a.at - b.at);
+  return timed.map((t) => t.msg);
+}
+
+interface TimedMsg { at: number; msg: Message }
+
+function dialogMsgs(ds: readonly AggDialog[]): TimedMsg[] {
+  const out: TimedMsg[] = [];
+  for (const d of ds) {
+    const at = Date.parse(d.created_at);
+    if (d.question !== '') out.push({ at, msg: { role: 'user', content: d.question } });
+    if (d.answer !== '') out.push({ at, msg: { role: 'assistant', content: d.answer } });
   }
   return out;
+}
+
+function eventMsgs(es: readonly ConvEvent[]): TimedMsg[] {
+  return es.map((e): TimedMsg => ({
+    at: Date.parse(e.created_at), msg: { role: 'system', content: e.text },
+  }));
 }
 
 // revalidateSession —— 一轮 chat 出错后回头确认会话是否还活着(失效 → 收口),

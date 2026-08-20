@@ -4,9 +4,11 @@ import "github.com/atmaxmoj/standmeet/internal/conversation/usecase"
 
 // 类型（实现:usecase）.
 type (
-	APIKeyDenialReader      = usecase.APIKeyDenialReader
-	CodeIntroResult         = usecase.CodeIntroResult
-	ConvDialog              = usecase.ConvDialog
+	APIKeyDenialReader = usecase.APIKeyDenialReader
+	CodeIntroResult    = usecase.CodeIntroResult
+	ConvDialog         = usecase.ConvDialog
+	// ConvEvent —— 这段对话里发生过的事（卡上取消 / 发确认信），F-B-9。
+	ConvEvent               = usecase.ConvEvent
 	Conversation            = usecase.Conversation
 	ConversationsDeps       = usecase.ConversationsDeps
 	DialogCitation          = usecase.DialogCitation
@@ -64,12 +66,14 @@ var (
 	OpenConversationForDoc    = usecase.OpenConversationForDoc
 	ParseGhost                = usecase.ParseGhost
 	RecordDialog              = usecase.RecordDialog
-	RecordGhostShown          = usecase.RecordGhostShown
-	RecordPolicyGhost         = usecase.RecordPolicyGhost
-	ReportStyledDocument      = usecase.ReportStyledDocument
-	SanitizeReportHTML        = usecase.SanitizeReportHTML
-	SteeringCandidates        = usecase.SteeringCandidates
-	UnvisitedWaypoints        = usecase.UnvisitedWaypoints
+	// RecordCardEvent —— 访客在沙盒卡上做的事落进这段对话（F-B-9）。
+	RecordCardEvent      = usecase.RecordCardEvent
+	RecordGhostShown     = usecase.RecordGhostShown
+	RecordPolicyGhost    = usecase.RecordPolicyGhost
+	ReportStyledDocument = usecase.ReportStyledDocument
+	SanitizeReportHTML   = usecase.SanitizeReportHTML
+	SteeringCandidates   = usecase.SteeringCandidates
+	UnvisitedWaypoints   = usecase.UnvisitedWaypoints
 )
 
 // 常量（实现:usecase）.
