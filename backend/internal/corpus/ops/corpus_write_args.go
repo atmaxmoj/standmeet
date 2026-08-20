@@ -12,6 +12,13 @@
 // 这张表被踩出来过四次,每次都是同一个形状:**裸值表达不了「没给」**,于是"没提到"被当成
 // "设成零值",编译不报、回执报成功、屏幕上什么都不说。四次各修了当时那一个字段
 // ([[lesson-not-swept-to-neighbours]])——所以现在它们住在一起,下一个加字段的人先读这段。
+//
+// ⚠️ **这里的指针是手搓的,而房子里已经有现成的**:`fp.OptionalString` / `OptionalBool` /
+// `OptionalInt32`(`internal/infra/facadeparity/optional.go`)干的就是这件事 —— `Set` 记的正是
+// "调用方提没提过这个字段"。`seo.update_settings` 用的是它,而且它的 Description 直接写着
+// 「Omitted fields keep ...」。corpus 和 roles 这两处各自搓了一份等价物 ——
+// 能用但**词汇分叉了**([[vocabulary-must-not-diverge]])。收口到 fp.Optional* 是待办,
+// 不是这一刀的范围;先把这句话留在这儿,别再有第三份。
 
 package ops
 
