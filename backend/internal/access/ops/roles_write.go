@@ -17,11 +17,16 @@ import (
 )
 
 type roleWriteArgs struct {
-	PromptID    *string `json:"prompt_id"`
-	RoleID      string  `json:"role_id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Greeting    string  `json:"greeting"`
+	PromptID *string `json:"prompt_id"`
+	// 这两样是**指针**:裸 bool 分不出「没提到」和「明确关掉」,而这两格都是安全开关 ——
+	// 「答话前必须有引证」被一次改名顺手关掉过(F-Q-3)。nil = 不动。
+	RequireGhostEvidence *bool `json:"require_ghost_evidence"`
+	// GasMetered —— 这个 role 挂不挂油表(false = 一次 gas 查询都不发,跟今天同一条路)。
+	GasMetered  *bool  `json:"gas_metered"`
+	RoleID      string `json:"role_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Greeting    string `json:"greeting"`
 	// ProviderID —— 这个 role 用哪条 provider(空 = owner 默认);挂在码上的那条压过它。
 	ProviderID   string                    `json:"provider_id"`
 	CorpusURIs   []string                  `json:"corpus_uris"`
@@ -29,10 +34,6 @@ type roleWriteArgs struct {
 	MCPServerIDs []string                  `json:"mcp_server_ids"`
 	Waypoints    []entity.Waypoint         `json:"waypoints"`
 	DockButtons  []entity.DockButtonConfig `json:"dock_buttons"`
-
-	RequireGhostEvidence bool `json:"require_ghost_evidence"`
-	// GasMetered —— 这个 role 挂不挂油表(false = 一次 gas 查询都不发,跟今天同一条路)。
-	GasMetered bool `json:"gas_metered"`
 }
 
 func decodeRoleCreate(raw json.RawMessage) (roleWriteArgs, error) {
@@ -66,6 +67,9 @@ func writeRole(
 		if perr != nil {
 			return nil, perr
 		}
+		if kerr := keepUnmentioned(ctx, d, ownerID, &in); kerr != nil {
+			return nil, roleErr(kerr)
+		}
 		rl, err := apply(ctx, d.Roles, toRoleWriteInput(d, ownerID, &in))
 		if err != nil {
 			return nil, roleErr(err)
@@ -74,6 +78,80 @@ func writeRole(
 		// role 已经建好了,设置可以再改(失败在那一层留日志)。
 		extras.Write(ctx, rl.ID(), raw)
 		return marshalRole(ctx, d.Roles, extras, &rl)
+	}
+}
+
+// boolOr —— 建的那条路上没给就是这个默认值(改那条路已经在 keepUnmentioned 里填过了)。
+func boolOr(p *bool, def bool) bool {
+	if p == nil {
+		return def
+	}
+	return *p
+}
+
+// keepUnmentioned —— **改**一个 role 的时候,请求里没提到的授权字段沿用它现在的值。
+//
+// 为什么必须这样(F-Q-3):`role_update` 收的必填只有 `role_id` + `name`,所以 owner 的 AI
+// 说一句「把这个角色改个名」发的就是那两样。在这之前,缺席一律被当成"设成空" ——
+// 于是**改个名字就把这个 role 的语料 ACL 清空、技能摘掉、外部 MCP server 摘掉,
+// 并把「答话前必须有引证」这条安全开关关掉**,而回执报成功。
+//
+// **「沿用」是这里唯一不发明授权的选择**:它永远不会多给什么,只会保住 owner 已经给过的
+// (对照 [[invented-default-grants-privilege]] —— 会出事的是顺手发明的那个默认值,
+// 而"静默撤销"同样是一次没人要求的授权变更)。
+//
+// 建的那条路不走这里:新 role 没有"现在的值"可沿用,缺席就是空,那是对的。
+//
+// 清空仍然做得到,而且面板一直就是这么做的:**显式发 `[]`**。JSON 分得开"没这个字段"(nil)
+// 和"给了空数组"—— 需要的只是有人去读那个区别。
+func keepUnmentioned(
+	ctx context.Context, d RolesDeps, ownerID string, in *roleWriteArgs,
+) error {
+	if in.RoleID == "" {
+		return nil // create:没有前值可沿用
+	}
+	cur, err := usecase.GetRole(ctx, d.Roles, ownerID, in.RoleID)
+	if err != nil {
+		return err
+	}
+	keepGrants(&cur, in)
+	keepSwitches(&cur, in)
+	return nil
+}
+
+// keepIDs —— 「请求里没这个字段(nil)就沿用现在的;给了 `[]` 就是明确清空」。
+// 三组 id 列表共用它 —— 同一句话抄三遍的话,漏掉一个不会有人发现。
+// 泛型版本被 forbidigo 挡下:`any` 在业务代码里是禁词。
+func keepIDs(dst *[]string, cur []string) {
+	if *dst == nil {
+		*dst = cur
+	}
+}
+
+// keepGrants —— 这个 role 被授予了什么(语料 ACL / 技能 / 外部 server / 引导点 / dock 按钮)。
+func keepGrants(cur *entity.Role, in *roleWriteArgs) {
+	keepIDs(&in.CorpusURIs, cur.CorpusURIs())
+	keepIDs(&in.SkillIDs, cur.SkillIDs())
+	keepIDs(&in.MCPServerIDs, cur.MCPServerIDs())
+	if in.Waypoints == nil {
+		in.Waypoints = cur.Waypoints()
+	}
+	if in.DockButtons == nil {
+		in.DockButtons = cur.DockButtons()
+	}
+}
+
+// keepSwitches —— 这个 role 上的两个开关。分开写不只是为了绕过复杂度上限:
+// 它们跟上面那组的**失手代价不一样** —— 少一条 ACL 是少给,而 require_ghost_evidence
+// 被关掉是**多给**(AI 不再需要引证就能答)。
+func keepSwitches(cur *entity.Role, in *roleWriteArgs) {
+	if in.RequireGhostEvidence == nil {
+		v := cur.RequireGhostEvidence()
+		in.RequireGhostEvidence = &v
+	}
+	if in.GasMetered == nil {
+		v := cur.GasMetered()
+		in.GasMetered = &v
 	}
 }
 
@@ -89,9 +167,9 @@ func toRoleWriteInput(d RolesDeps, ownerID string, in *roleWriteArgs) *usecase.R
 		// dock 按钮上能挂哪些能力,由能力注册表回答 —— 每次写都现问一次,而且**按这个 role
 		// 的技能问**(`acl: role_granted` 的能力要技能授了才算)。
 		DockableCapabilityIDs: d.ValidCapabilityIDs,
-		RequireGhostEvidence:  in.RequireGhostEvidence,
+		RequireGhostEvidence:  boolOr(in.RequireGhostEvidence, false),
 		ProviderID:            in.ProviderID,
-		GasMetered:            in.GasMetered,
+		GasMetered:            boolOr(in.GasMetered, false),
 	}
 }
 

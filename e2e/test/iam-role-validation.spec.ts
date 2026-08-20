@@ -67,6 +67,50 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
       await request.dispose();
     });
 
+  // **一次不完整的写入不许悄悄清掉这个 role 的授权**（F-Q-3，跟 corpus 的 F-L-57 同一族）。
+  //
+  // `role_update` 的 MCP schema 只要求 `role_id`（外加 decode 里的 `name`）—— 所以 owner 的 AI
+  // 说一句「把这个角色改个名」发的就是 `{role_id, name}`。而 `toRoleWriteInput` 把
+  // `corpus_uris` / `skill_ids` / `mcp_server_ids` / waypoints / dock_buttons 一律
+  // `nonNilStrings(...)`（缺席 → nil → 空数组 → 整份替换），`require_ghost_evidence` /
+  // `gas_metered` 是裸 bool（缺席 → false）。于是**改个名字把这个角色的语料 ACL 清空、
+  // 技能摘掉、并把「答话前必须有引证」这条安全开关关掉**，回执报成功。
+  //
+  // HTTP 那一面是 `PUT`，整份替换在那儿说得通（面板永远发完整表单）。问题在于**同一个 op
+  // 在 MCP 那一面被描述成一次 partial-friendly 的 update**——[[test-covers-capability-not-face]]。
+  //
+  // 这条断言在两种修法下都成立：要么缺席 = 不动，要么 schema 把这几样列进 required（那样这次
+  // 调用会被拒）。**今天这样——静默清空并报成功——两种都不是。**
+  test('renaming a role must not silently strip its ACL and its safety switch',
+    async ({ playwright }) => {
+      const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+      const role = await createRole(request, csrf, {
+        name: 'acl-keeper',
+        corpus_uris: ['wiki://public/**'],
+      });
+      // 前置条件：先确认这个 role 真的带着授权，否则下面判的是空气。
+      expect(role.corpus_uris, 'precondition: the role starts out with a corpus grant')
+        .toContain('wiki://public/**');
+
+      // owner 的 AI 做的那件最普通的事：只改名字。
+      const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
+        headers: { 'X-Csrftoken': csrf },
+        data: { name: 'acl-keeper-renamed' },
+      });
+      expect([200, 400], 'either it keeps the grant, or it refuses — not a silent wipe')
+        .toContain(res.status());
+
+      if (res.status() === 200) {
+        const after = await getRoleByName(request, 'acl-keeper-renamed');
+        expect(
+          after.corpus_uris,
+          '改个名字没提到 corpus_uris —— 它必须原样留着。清空这个 role 的语料 ACL '
+          + '而且报成功，是一次没有回执的授权变更',
+        ).toContain('wiki://public/**');
+      }
+      await request.dispose();
+    });
+
   test('DELETE publicRow → 403 role_builtin_immutable', async ({ playwright }) => {
     const { request, csrf } = await authedRequest(() => playwright.request.newContext());
     const res = await request.delete(`${BACKEND}/api/admin/roles/${ctx.publicID}`, {
