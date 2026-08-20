@@ -30,6 +30,11 @@ type Props = {
   // H.13.d ghost text 三件套；不传 → 整套 ghost 关闭。
   ghost?: string | null;
   onAcceptGhost?: (ghost: string) => void;
+  // testid —— **这一个框叫什么**（F-Q-3）。同一个组件被两处用：首页那个（没有 session 时
+  // 回车= 交接去 /gate）和会话里那个（回车 = 发这一轮）。两种行为共用一个名字的时候，
+  // 任何按名字找控件的东西都分不出自己打的是哪一个，而打错的后果长得**完全像产品坏了**
+  // —— 它骗掉过两趟真环境驱动。会话那个不传，用默认。
+  testid: string;
 };
 
 export function AskInput(props: Props) {
@@ -71,7 +76,7 @@ function AskField({ props, locked }: { props: Props; locked: boolean }) {
       className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0 text-[clamp(20px,2.2vw,26px)] leading-[1.3] font-[380] disabled:opacity-60"
       autoComplete="off"
       spellCheck={false}
-      data-testid="chat-input-field"
+      data-testid={props.testid}
       data-ghost={ghost ?? ''}
     />
   );

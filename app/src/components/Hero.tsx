@@ -43,6 +43,10 @@ export function Hero(props: Props) {
           inputRef={props.inputRef}
           ghost={props.ghost}
           onAcceptGhost={props.onAcceptGhost}
+          // 首页这个框跟会话里那个**行为不同**（没有 session 时回车 = 交接去 /gate），
+          // 所以它得有自己的名字（F-Q-3）。共用一个名字的时候，按名字找控件的东西
+          // 分不出打的是哪一个，而打错的样子跟「产品坏了」一模一样。
+          testid="home-ask-field"
         />
         <Examples items={props.content.hero_examples} onPick={props.onAsk} />
       </div>

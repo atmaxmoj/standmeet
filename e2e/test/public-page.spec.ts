@@ -94,7 +94,10 @@ async function expectOwnerPageRendered(page: Page): Promise<void> {
 
 async function visitorAsksAQuestion(page: Page, question: string): Promise<void> {
   // 新 AskInput 是 input[type=text]，不是 textarea；form submit on Enter。
-  const input = page.locator('[data-testid="chat-input-field"]');
+  // **首页那个框有自己的名字**（F-Q-3）：它跟会话里那个行为不同（没 session 时回车 =
+  // 交接去 /gate），共用一个 testid 的时候，谁也分不出自己打的是哪一个 —— 那个混淆
+  // 骗掉过两趟真环境驱动。
+  const input = page.locator('[data-testid="home-ask-field"]');
   await input.fill(question);
   await input.press('Enter');
 }
