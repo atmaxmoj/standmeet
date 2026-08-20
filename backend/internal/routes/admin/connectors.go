@@ -186,6 +186,22 @@ type credFormResp struct {
 	// GrantedScopes —— 已授的那些（Scopes 是可选清单，这是实际授出去的）。面板据此把
 	// 勾选框勾上；少了它，一条连着的连接看起来像什么权限都没有（F-C-33）。
 	GrantedScopes []string `json:"granted_scopes"`
+	// Shortfall —— 这个授权做不了的那几个动作 + 各自还差哪个 scope（F-B-8）。卡上据此说出
+	// 「写着 connected，但这个授权做不了 X」；空 = 声明过的每一件事它都做得了。
+	Shortfall []shortfallView `json:"shortfall"`
+}
+
+type shortfallView struct {
+	Operation string   `json:"operation"`
+	Needs     []string `json:"needs"`
+}
+
+func toShortfallViews(in []connector.ScopeShortfall) []shortfallView {
+	out := make([]shortfallView, 0, len(in))
+	for i := range in {
+		out = append(out, shortfallView{Operation: in[i].Operation, Needs: orEmpty(in[i].Needs)})
+	}
+	return out
 }
 
 // connectorCredentialForm —— 派生的凭据表单（owner 该填哪些字段连这个连接器）。
@@ -212,6 +228,7 @@ func toCredFormResp(f *connector.CredentialForm) credFormResp {
 		AuthType: f.AuthType, Fields: fields,
 		Scopes: orEmpty(f.Scopes), Schemes: orEmpty(f.Schemes),
 		GrantedScopes: orEmpty(f.Granted),
+		Shortfall:     toShortfallViews(f.Shortfall),
 	}
 }
 

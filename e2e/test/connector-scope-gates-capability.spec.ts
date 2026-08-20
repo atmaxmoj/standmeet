@@ -48,14 +48,10 @@ const OAUTH2_CONNECTOR_ID = 'google-calendar';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-// ⚠️ 仍然 fixme，理由只剩一件、而且很具体：**卡上那一行还没建**。
-//
-// 底下的机制是通的（上面那一组每次都在跑），差的是 owner 这一侧的呈现 ——
-// `connected` 说的是「我们手里有一个 token」，owner 读它的时候以为说的是「这个连接能干
-// 它被要求干的事」（[[names-that-lie]]），而这两件事在只读授权下正好分叉。
-//
-// 解除条件：连接器卡渲出 `connector-scope-shortfall`，写明缺哪个 scope。
-test.describe.fixme('F-B-8 · a read-only grant must not put booking in front of a visitor', () => {
+// owner 这一侧：`connected` 说的是「我们手里有一个 token」，owner 读它的时候以为说的是
+// 「这个连接能干它被要求干的事」（[[names-that-lie]]）—— 只读授权下那两件事分叉，而卡上
+// 原本一个字都不提。现在那一行在了，所以这一组不再 fixme。
+test.describe('F-B-8 · a read-only grant must not put booking in front of a visitor', () => {
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
     test.setTimeout(180_000);
     resetInstance();

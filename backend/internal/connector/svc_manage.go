@@ -161,7 +161,22 @@ func (s *Service) CredentialForm(ctx context.Context, ownerID, id string) (Crede
 		return CredentialForm{}, fmt.Errorf(wrapSentinel, ErrInvalidManifest, derr)
 	}
 	form.Granted = s.grantedScopes(ctx, ownerID, id)
+	form.Shortfall = shortfallFor(m, form.Granted)
 	return form, nil
+}
+
+// shortfallFor —— 这个授权做不了哪几个动作（F-B-8）。**只在已经授过的时候问**：
+// 一条还没连的连接「什么都做不了」是废话，卡上该说的是「去连一下」，不是列一串缺的 scope。
+// spec 解不开（protocol 连接器没有 spec）→ 空：那一类没有 scope 这回事。
+func shortfallFor(m *Manifest, granted []string) []ScopeShortfall {
+	if len(granted) == 0 {
+		return []ScopeShortfall{}
+	}
+	spec, err := openapi.ParseSpec(m.Spec)
+	if err != nil {
+		return []ScopeShortfall{}
+	}
+	return scopeShortfall(spec, granted)
 }
 
 // grantedScopes —— 这条连接**当初授出去的**范围。跟 form.Scopes（spec 派生的**可选清单**）

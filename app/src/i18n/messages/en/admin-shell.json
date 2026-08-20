@@ -63,7 +63,8 @@
     "connect": "connect →"
   },
   "connectorCard": {
-    "credsStored": "Credentials are saved for this connector. They are never shown again — leave the fields blank to keep them, or type new ones to replace them."
+    "credsStored": "Credentials are saved for this connector. They are never shown again — leave the fields blank to keep them, or type new ones to replace them.",
+    "scopeShortfall": "Connected, but this grant can't do everything asked of it — actions needing {scopes} will not run. Tick it above and connect again."
   },
   "connectorCred": {
     "authentication": "authentication",

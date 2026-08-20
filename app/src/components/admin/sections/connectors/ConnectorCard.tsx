@@ -22,6 +22,7 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
     >
       <span className="ch-tl" /><span className="ch-br" />
       <CardHead category={entry.category} connected={hook.connected} connecting={hook.connecting} />
+      <ScopeShortfallNote missing={hook.missingScopes} />
       <UnreadableNote reason={hook.unreadable} />
       <SchemeSelect schemes={hook.schemes} />
       <Fields hook={hook} />
@@ -61,6 +62,27 @@ function CardHead(
 //
 // 这句话就摆在卡名下面，因为出问题的是**这张卡**（跟 F-C-23 把拒绝贴在出错的框下面同一条规矩）。
 // 措辞不提密钥、不提密文：owner 要做的只是重新连一次。
+// ScopeShortfallNote —— 紧贴在 `connected` 下面那一行：**这个授权做不了什么**（F-B-8）。
+//
+// 为什么排在这儿：`connected` 说的是「我们手里有一个 token」，而 owner 读它的时候以为
+// 说的是「这个连接能干它被要求干的事」。只授了 `calendar.readonly` 时那两件事分叉 ——
+// 读是通的、列时段是好的，只有写永远做不了，而访客那一侧因此少了订会（F-B-8 已按工具摘掉）。
+// owner 唯一能看见这件事的地方就是这张卡，所以这句话必须挨着那个词。
+//
+// 说**缺哪个 scope**，不说「有些动作不可用」：owner 的下一步是把它勾上再连一次，
+// 而没有名字的话他无从下手。
+function ScopeShortfallNote({ missing }: { missing: readonly string[] }) {
+  const t = useTranslations('adminShell.connectorCard');
+  return missing.length === 0 ? null : (
+    <p
+      data-testid="connector-scope-shortfall"
+      className="mb-3 mono text-[11px] text-(--color-accent) reading-tight"
+    >
+      {t('scopeShortfall', { scopes: missing.join(', ') })}
+    </p>
+  );
+}
+
 function UnreadableNote({ reason }: { reason: string }) {
   return reason === '' ? null : (
     <p

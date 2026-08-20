@@ -25,6 +25,13 @@ const FormSchema = z.object({
   // granted_scopes —— **已授**的那些（`scopes` 是这个连接器**支持**哪些）。两件事分开
   // 才谈得上把勾选框勾上；以前后端根本不报它，于是一条连着的连接看起来像什么权限都没有（F-C-33）。
   granted_scopes: z.array(z.string()).nullish(),
+  // shortfall —— 这个授权**做不了的动作** + 各自还差哪个 scope（F-B-8）。
+  // `connected` 说的是「手里有一个 token」，owner 读它时以为说的是「这个连接能干它
+  // 被要求干的事」—— 只授了只读时那两件事分叉，而卡上原本一个字都不提。
+  shortfall: z.array(z.object({
+    operation: z.string(),
+    needs: z.array(z.string()).nullish(),
+  })).nullish(),
 });
 const ConnectSchema = z.object({
   auth_url: z.string().nullish(),
@@ -38,6 +45,8 @@ export interface ConnectorCardHook {
   scopes: readonly string[];
   /** 已授出去的范围。`scopes` 是可选清单，这是实际授了哪些 —— 勾选框读它（F-C-33）。 */
   granted: readonly string[];
+  /** 这个授权做不了的那几个 scope（去重后的名字）。空 = 声明过的动作它都做得了。 */
+  missingScopes: readonly string[];
   schemes: readonly string[];
   connected: boolean;
   /** 后端说这个连接器已经存了凭据。值本身永远不回来 —— 卡片据此说「有」，而不是摆空框。 */
@@ -101,6 +110,8 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   const [scopes, setScopes] = useState<string[]>([]);
   // granted —— 这条连接**已经授出去**的范围（勾选框的初值）。
   const [granted, setGranted] = useState<string[]>([]);
+  // missingScopes —— 卡上那句「这个授权做不了什么」要的名字（F-B-8）。
+  const [missingScopes, setMissingScopes] = useState<string[]>([]);
   const [schemes, setSchemes] = useState<string[]>([]);
   const status = useConnectorStatus(id);
   const { connected, hasCredentials, unreadable, setConnected, loadStatus } = status;
@@ -123,6 +134,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
         const granted = f.granted_scopes ?? [];
         chosen.current = new Set(granted);
         setGranted(granted);
+        setMissingScopes(distinctNeeds(f.shortfall ?? []));
       })
       // 表单没拉到别静默：否则卡片一片空白、owner 无从填凭据也不知为何。
       .catch(() => setError('Couldn’t load this connector’s setup form. Reload and retry.'));
@@ -172,12 +184,24 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   }, [id, setConnected]);
 
   return {
-    authType, fields, scopes, granted, schemes, connected, hasCredentials, unreadable,
-    connecting, error, reloadStatus: loadStatus,
+    authType, fields, scopes, granted, missingScopes, schemes, connected, hasCredentials,
+    unreadable, connecting, error, reloadStatus: loadStatus,
     setField: (k, v) => { values.current[k] = v; saveCreds(); },
     setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); saveCreds(); },
     connect, disconnect,
   };
+}
+
+// distinctNeeds —— 把每个做不了的动作缺的 scope 并成一份名单（去重）。
+// owner 要做的是「补上这几个再连一次」，不是逐个动作读一遍。
+function distinctNeeds(
+  rows: readonly { needs?: readonly string[] | null }[],
+): string[] {
+  const seen = new Set<string>();
+  for (const r of rows) {
+    for (const s of r.needs ?? []) seen.add(s);
+  }
+  return [...seen];
 }
 
 // clearConnecting —— 清掉本卡的「正在连」标记（仅当记的就是本 id）。

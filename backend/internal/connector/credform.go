@@ -29,6 +29,51 @@ type CredentialForm struct {
 	// **支持哪些**（spec 派生），Granted 是 owner **授了哪些**（存储里那一行）。面板要
 	// 把已授的勾上，而在此之前**没有任何一处报过它** —— 于是那排勾选框永远是空的（F-C-33）。
 	Granted []string
+	// Shortfall —— 这个授权**做不了的那几个动作**，以及各自差哪个 scope（F-B-8）。
+	//
+	// 为什么卡上必须有这一行：`connected` 说的是「我们手里有一个 token」，owner 读它的
+	// 时候以为说的是「这个连接能干它被要求干的事」。只授了 `calendar.readonly` 时那两件
+	// 事分叉 —— 读是通的、列时段是好的，只有写永远做不了，而卡上一个字都不提。
+	//
+	// 两边都是数据，谁也没被抄进来：需要什么在 spec 的 per-op `security:` 里，
+	// 授到了什么在连接行上。
+	Shortfall []ScopeShortfall
+}
+
+// ScopeShortfall —— 一个做不了的动作。`Needs` 只列**还差的**那几个，因为 owner 要做的
+// 就是把它们勾上再连一次；把全部要求都列出来等于让他自己做减法。
+type ScopeShortfall struct {
+	Operation string
+	Needs     []string
+}
+
+// scopeShortfall —— 逐个 operation 比对「这一步要什么 ⊇ 授到了什么」。
+//
+// 没声明 scope 的 operation 不参与（那是「这一步不要求额外权限」）；覆盖得了的也不参与。
+// 结果为空 = 这个授权做得了它声明过的每一件事。
+func scopeShortfall(spec *openapi.Spec, granted []string) []ScopeShortfall {
+	have := make(map[string]bool, len(granted))
+	for _, g := range granted {
+		have[g] = true
+	}
+	out := make([]ScopeShortfall, 0)
+	for _, op := range spec.Operations() {
+		missing := missingScopes(spec.ScopesFor(op.ID), have)
+		if len(missing) > 0 {
+			out = append(out, ScopeShortfall{Operation: op.ID, Needs: missing})
+		}
+	}
+	return out
+}
+
+func missingScopes(need []string, have map[string]bool) []string {
+	out := make([]string, 0, len(need))
+	for _, n := range need {
+		if !have[n] {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // DeriveCredentialForm —— 派生 owner 要填的凭据表单。openapi 连接器从 spec 的
