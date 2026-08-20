@@ -60,10 +60,13 @@ test.describe('jobs.fetch_new · smartrecruiters', () => {
     });
     const fetched = await jobsFetchNew(request, token, sid, src.id);
     expect(fetched.failed_sources ?? []).toHaveLength(0);
-    expect(fetched.jobs, `全集 ${PAGED_TOTAL} 条，翻页要翻到底`).toHaveLength(PAGED_TOTAL);
-    const ids = new Set(fetched.jobs.map((j) => j.external_id));
+    // 数**这一趟这个源新捞的**：回执现在交的是整个池子窗口（F-E-29），
+    // 而同文件前一条用例已经往池子里放过别家的岗位。
+    const paged = fetched.jobs.filter((j) => j.new && j.source_id === src.id);
+    expect(paged, `全集 ${PAGED_TOTAL} 条，翻页要翻到底`).toHaveLength(PAGED_TOTAL);
+    const ids = new Set(paged.map((j) => j.external_id));
     expect(ids.size, '每条只出现一次（翻页不许重复取同一页）').toBe(PAGED_TOTAL);
-    const titles = fetched.jobs.map((j) => j.title);
+    const titles = paged.map((j) => j.title);
     expect(titles, '第二页的条目也要在（停在第一页会缺它）').toContain('Engineer 0136');
     // 账也要对得上：seen == 全集，说明 adapter 交回来的就是全部，不是「屏幕上凑够了」。
     const tally = (fetched.sources ?? []).find((t) => t.source_id === src.id);

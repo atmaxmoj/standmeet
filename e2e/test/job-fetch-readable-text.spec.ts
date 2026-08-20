@@ -26,7 +26,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { jobsFetchNew, jobsRegisterSource, MOCK_BASE } from '@/fixtures/jobs';
+import { jobsFetchNew, jobsRegisterSource, jobsShow, MOCK_BASE } from '@/fixtures/jobs';
 
 const OWNER = {
   email: 'jobtext@example.com',
@@ -98,10 +98,19 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
     const gh = fetched.jobs.filter((j) => j.source_kind === 'greenhouse');
     expect(gh.length, 'precondition: the greenhouse fixture produced postings').toBeGreaterThan(0);
 
-    const withBody = gh.filter((j) => (j.body_text ?? '').length > 0);
-    expect(withBody.length, 'precondition: at least one posting carries a body').toBeGreaterThan(0);
-    for (const j of withBody) {
-      expectReadable(`greenhouse body (${j.cache_id})`, j.body_text ?? '');
+    // 正文走 `jobs.show`：列表那一面**不发正文**（F-E-29 —— 一次取数今天回两三百条，
+    // 每条正文一两千字，全塞进回执就把 owner 那侧的上下文烧光了）。清洗发生在进池子
+    // 那一步，所以两条路读到的是同一份字节，而"正文可读"这条判据归声明发正文的那个工具。
+    const bodies: { cacheID: string; body: string }[] = [];
+    for (const j of gh) {
+      const full = await jobsShow(request, token, sid, j.cache_id);
+      if ((full.body_text ?? '').length > 0) {
+        bodies.push({ cacheID: j.cache_id, body: full.body_text ?? '' });
+      }
+    }
+    expect(bodies.length, 'precondition: at least one posting carries a body').toBeGreaterThan(0);
+    for (const b of bodies) {
+      expectReadable(`greenhouse body (${b.cacheID})`, b.body);
     }
   });
 

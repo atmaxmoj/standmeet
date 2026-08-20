@@ -72,10 +72,13 @@ test.describe('jobs.fetch_new (workday + bamboohr) direct ATS adapters', () => {
       const fetched = await jobsFetchNew(request, token, sid, src.id);
       expect(fetched.failed_sources ?? [], '取数不该失败：limit 必须落在 vendor 的合法范围内')
         .toHaveLength(0);
-      expect(fetched.jobs, '全集 45 条，翻页要翻到底').toHaveLength(45);
-      const ids = new Set(fetched.jobs.map((j) => j.external_id));
+      // 数**这一趟这个源新捞的**：回执交的是整个池子窗口（F-E-29），
+      // 而同文件前一条用例已经往池子里放过别的岗位。
+      const paged = fetched.jobs.filter((j) => j.new && j.source_id === src.id);
+      expect(paged, '全集 45 条，翻页要翻到底').toHaveLength(45);
+      const ids = new Set(paged.map((j) => j.external_id));
       expect(ids.size, '每条只出现一次（翻页不许重复取同一页）').toBe(45);
-      const titles = fetched.jobs.map((j) => j.title);
+      const titles = paged.map((j) => j.title);
       expect(titles, '第二页的条目要在（错的停止条件会停在这之前）')
         .toContain('Staff Engineer, Identity');
       expect(titles, '第三页的条目也要在').toContain('Staff Engineer, Observability');
@@ -95,14 +98,17 @@ test.describe('jobs.fetch_new (workday + bamboohr) direct ATS adapters', () => {
       expect(src.kind).toBe('bamboohr');
 
       const fetched = await jobsFetchNew(request, token, sid, src.id);
-      expect(fetched.jobs).toHaveLength(3);
-      const titles = fetched.jobs.map((j) => j.title);
+      // 这一趟这个源新捞的那 3 条（回执交的是整个池子窗口，F-E-29 —— 上一条
+      // 用例的 45 条 workday 还在里面）。
+      const mine = fetched.jobs.filter((j) => j.new && j.source_id === src.id);
+      expect(mine).toHaveLength(3);
+      const titles = mine.map((j) => j.title);
       expect(titles).toContain('Senior Backend Engineer');
       expect(titles).toContain('Product Designer');
       // null location → empty string，不应 crash 或丢条
       expect(titles).toContain('Customer Success Manager');
       // tag 含 department + employmentStatus
-      const backend = fetched.jobs.find((j) => j.title === 'Senior Backend Engineer');
+      const backend = mine.find((j) => j.title === 'Senior Backend Engineer');
       expect(backend?.tags).toContain('Engineering');
       expect(backend?.tags).toContain('Full-Time');
     });

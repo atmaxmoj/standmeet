@@ -683,6 +683,24 @@ test-only: dev-up
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
+# test-asis —— run a spec against **whatever is already running**, no rebuild, no `up`.
+#
+# This is the ③🧪 recipe from the audit SOP: a new guard must go RED on the UNFIXED code
+# before the fix lands. `test-only` depends on `dev-up`, which rebuilds the backend — so it
+# builds the fix you just wrote and the guard is green the first time you ever run it. A
+# guard whose red was never observed proves nothing ([[assertion-that-cannot-fail]]).
+#
+# Write the guard, run it here (the containers still hold the old binary) → see the red,
+# then `make test-only SPEC=<same>` to rebuild with the fix and see it go green.
+#
+#   make test-asis SPEC=job-pool-stays-visible
+test-asis:
+	@test -n "$(SPEC)" || (echo "usage: make test-asis SPEC=<spec-name> [GREP=<title pattern>]"; exit 2)
+	@docker compose -f docker-compose.dev.yml ps --status running --quiet backend | grep -q . \
+		|| (echo "[test-asis] dev backend is not running — run 'make dev-up' first"; exit 2)
+	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)"); \
+		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
+
 # test-captcha —— bring the dev stack up WITH captcha on, using Cloudflare's published test keys,
 # and run the captcha specs against it.
 #

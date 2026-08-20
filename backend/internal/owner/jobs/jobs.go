@@ -100,7 +100,7 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 func (p *Plugin) MountAdminRoutes(r chi.Router) {
 	jobsadmin.Mount(r, jobsadmin.Deps{
 		Apps: p.deps.AppsRepo, Drafts: p.deps.DraftsRepo,
-		Sources: p.deps.SourcesRepo, Pool: p.deps.Jobs.Cache, Log: p.deps.Log,
+		Sources: p.deps.SourcesRepo, Jobs: p.deps.Jobs, Log: p.deps.Log,
 		// Commit —— 面板的 SEND 打的是**同一个** usecase，跟 applications.commit 那条路
 		// 共用这份 deps（F-E-9）。给 admin 单独攒一份就是第二份真相。
 		Commit: p.deps.Applications,

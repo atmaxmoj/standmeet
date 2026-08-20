@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
@@ -96,7 +97,7 @@ func UnregisterJobSource(
 // 注释比代码更容易被信：读代码的人看到那句话就不会再往下追（[[names-that-lie]]）。
 // 现在这个不变量由代码本身成立 —— 每个源自己成败，失败的记进 failures 一起返回。
 func FetchNewJobs(
-	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string,
+	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string, since time.Duration,
 ) (FetchResult, error) {
 	if ownerID == "" {
 		return FetchResult{}, apierr.ErrEmptyField
@@ -105,32 +106,57 @@ func FetchNewJobs(
 	if err != nil {
 		return FetchResult{}, err
 	}
-	var allNew []jobsmodel.FetchedJob
-	var failures []SourceFailure
-	var tallies []SourceTally
+	all := fetchEverySource(ctx, deps, sources)
+	// J.6c: 跨源去重 (canonical URL + composite key)。在 fetchOneSourceAndDedup
+	// 的 per-source seen-by-external-id 之上再加一层 — 那层只防同一 source
+	// 内的重复 post，cross-source 用 ATS namespace 不同的 external_id 就漏。
+	// 此处不动 per-source seen 记录 (那条仍按 fetcher 返的 ID 标 seen)，
+	// 只对 visible-to-Claude 的 surface 做去重。
+	visible := dedup.Apply(all.jobs)
+	failures, tallies := all.failures, all.tallies
+	// 交出去的是**池子这个窗口**，不是这一趟新捞的那几条 —— 后者只是前者里带 New 的子集。
+	// 取窗口失败不能把已经抓到的东西一起扔掉：至少把这一趟的新条目交出去。
+	rows, perr := poolWindow(ctx, deps, ownerID, since, visible)
+	if perr != nil {
+		slog.WarnContext(ctx, "job pool window not read", "err", perr)
+		rows = newRowsOnly(visible)
+	}
+	return FetchResult{
+		Jobs: rows, Failures: failures, Tallies: tallies,
+		CrossSourceDropped: len(all.jobs) - len(visible),
+	}, nil
+}
+
+// everySourceRun —— 一轮里所有源合起来的产出。三样收成一个结构而不是三个返回值：
+// 它们本来就是同一次遍历的三个面，拆开就有人只接住其中一面。
+type everySourceRun struct {
+	jobs     []jobsmodel.FetchedJob
+	failures []SourceFailure
+	tallies  []SourceTally
+}
+
+// fetchEverySource —— 逐个源抓，**一个源的失败不影响其余的**。
+func fetchEverySource(
+	ctx context.Context, deps JobsDeps, sources []jobsmodel.JobSource,
+) everySourceRun {
+	var out everySourceRun
 	for i := range sources {
 		run, ferr := fetchOneSourceAndDedup(ctx, deps, &sources[i])
 		// 试过就记一笔，**成败都记**。失败的详情以前只活在这次调用的回执里，
 		// 关掉窗口就没了，而 /admin/sources 只会说 `never fetched`（F-E-18）。
 		markAttempt(ctx, deps, sources[i].ID, ferr)
 		if ferr != nil {
-			failures = append(failures, failureOf(&sources[i], ferr))
+			out.failures = append(out.failures, failureOf(&sources[i], ferr))
 			continue
 		}
-		allNew = append(allNew, run.jobs...)
-		tallies = append(tallies, run.tally)
+		out.jobs = append(out.jobs, run.jobs...)
+		out.tallies = append(out.tallies, run.tally)
 	}
-	// J.6c: 跨源去重 (canonical URL + composite key)。在 fetchOneSourceAndDedup
-	// 的 per-source seen-by-external-id 之上再加一层 — 那层只防同一 source
-	// 内的重复 post，cross-source 用 ATS namespace 不同的 external_id 就漏。
-	// 此处不动 per-source seen 记录 (那条仍按 fetcher 返的 ID 标 seen)，
-	// 只对 visible-to-Claude 的 surface 做去重。
-	visible := dedup.Apply(allNew)
-	return FetchResult{
-		Jobs: visible, Failures: failures, Tallies: tallies,
-		CrossSourceDropped: len(allNew) - len(visible),
-	}, nil
+	return out
 }
+
+// poolWindow / newRowsOnly 在 pool_window.go —— 「交给 owner 那一侧看什么」跟
+// 「怎么抓」是两件事，而前者是这一轮才补上的（F-E-29）。
 
 // markAttempt —— 把这一次的成败写回源那一行。**写失败本身不算这次取数的失败**：
 // owner 已经拿到了岗位（或拿到了失败原因），因为记不下这笔账而把整次调用变成错误，

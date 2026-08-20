@@ -186,55 +186,8 @@ func (c *jobsCapability) handleUnregisterSource(
 	return mcputil.MarshalResult(c.log, "jobs.unregister_source", map[string]bool{"ok": true})
 }
 
-// ───── jobs.fetch_new ──────────────────────────────────────────
-
-func (c *jobsCapability) fetchNewBinding() *capreg.MCPBinding {
-	return &capreg.MCPBinding{
-		Name: "jobs.fetch_new",
-		Description: "Fetch new (since-last-seen) jobs from one or all registered sources. " +
-			"Returns FetchedJob array with cache_id refs; cached for 24h.",
-		InputSchema: json.RawMessage(`{
-			"type":"object",
-			"properties":{
-				"source_id":{"type":"string",
-					"description":"Optional specific source id (omit = all sources)."}
-			}
-		}`),
-		Handler: c.handleFetchNew,
-	}
-}
-
-func (c *jobsCapability) handleFetchNew(
-	ctx context.Context, ownerID string, raw json.RawMessage,
-) capreg.MCPResult {
-	var args sourceIDArgsWire
-	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &args); err != nil {
-			return capreg.MCPError("invalid arguments: " + err.Error())
-		}
-	}
-	var sidPtr *string
-	if args.SourceID != "" {
-		s := args.SourceID
-		sidPtr = &s
-	}
-	res, err := jobsuc.FetchNewJobs(ctx, *c.jobs, ownerID, sidPtr)
-	if err != nil {
-		return jobsCapErrToResult(c.log, err, "fetch_new")
-	}
-	// failures 跟 jobs 一起返回,**不是**换成一个 error:一个源的错 token 不该把另外六个源
-	// 抓到的东西扔掉。owner 需要同时知道「拿到了什么」和「哪个源没成、为什么」。
-	//
-	// `sources` 那份账是第三件必需品：光看 jobs 的条数，**读不出**「HN 回了 1 条」是
-	// 今天真没人招、还是取数一路失败被静默跳过（F-E-19）。每个源报 seen/pooled/duplicate，
-	// 再加一个跨源去重挡掉了几条 —— 判据 check 2 问的正是最后那个数。
-	return mcputil.MarshalResult(c.log, "jobs.fetch_new", map[string]any{
-		"jobs":                 fetchedJobViews(res.Jobs),
-		"failed_sources":       res.Failures,
-		"sources":              res.Tallies,
-		"cross_source_dropped": res.CrossSourceDropped,
-	})
-}
+// jobs.fetch_new 在 cap_jobs_fetch.go —— 它是这六个里唯一要同时回答
+// 「今天的板子长什么样」和「这一趟取数发生了什么」的，入参和回执都比其余五个厚。
 
 // ───── jobs.show ────────────────────────────────────────────────
 

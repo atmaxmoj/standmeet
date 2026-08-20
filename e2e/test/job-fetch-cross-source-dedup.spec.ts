@@ -55,6 +55,33 @@ test.describe('jobs.fetch_new cross-source dedup', () => {
       // surface = 6。
       expect(fetched.jobs).toHaveLength(6);
 
+      // **再问一次也还是 6**。池子是按源写进去的 —— 重复那条在池子里躺着两份，
+      // 以前只是回执看不见它。F-E-29 把回执改成从池子长出来，如果跨源去重没有
+      // 一起作用在池子这一面，第二次问就会冒出 7 条：修一个缺陷不能把另一个
+      // 已经守住的不变量放掉。
+      const again = await jobsFetchNew(request, token, sid);
+      expect(again.jobs, '第二次问，跨源去重照旧成立').toHaveLength(6);
+      expect(
+        again.jobs.filter((j) => j.url === OVERLAP_URL),
+        '重复那条仍然只有一行',
+      ).toHaveLength(1);
+      expect(
+        again.jobs.find((j) => j.url === OVERLAP_URL)?.company,
+        '留下的仍然是先入池的那一条（Greenhouse），不是后来的那条',
+      ).toBe('beta-labs');
+
+      // **两个面必须是同一块板子**。owner 在 Claude 里问到的，和他打开
+      // /admin/listings 看到的，条数对不上时没有一处说得清是谁错了。
+      const listings = await request.get('/api/admin/listings/', {
+        headers: { 'X-Csrftoken': csrf },
+      });
+      expect(listings.status(), 'listings 取得到').toBe(200);
+      const rows = await listings.json() as { cache_id: string }[];
+      expect(
+        rows.map((x) => x.cache_id).sort(),
+        '面板那一面跟 MCP 那一面是同一块板子',
+      ).toEqual(again.jobs.map((j) => j.cache_id).sort());
+
       // OVERLAP_URL 那条留的是 Greenhouse 版本 (先注册先赢)。
       const overlap = fetched.jobs.filter((j) => j.url === OVERLAP_URL);
       expect(overlap).toHaveLength(1);

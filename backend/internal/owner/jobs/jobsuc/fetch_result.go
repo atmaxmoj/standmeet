@@ -9,6 +9,7 @@ package jobsuc
 
 import (
 	"errors"
+	"time"
 
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
@@ -20,7 +21,15 @@ import (
 // 调用方就无法只接住其中一半。（三返回值也被 revive 的 function-result-limit 挡了 ——
 // 那条闸门这次把代码推去了更好的形状,不是更差的。）
 type FetchResult struct {
-	Jobs     []jobsmodel.FetchedJob
+	// Jobs —— **池子里这个窗口内的全部 job**，不只是这一趟新捞上来的那几条。
+	//
+	// 以前这里只放"这次新进池子的"，于是 owner 一天里问第二次「今天有什么新工作」，
+	// 拿回的是一个空数组 —— 而池子里正躺着两百多条活的、GUI 的 /admin/listings
+	// 看得见（`Pool.ListByOwner`）、owner 那一侧的 AI 一条也够不着（F-E-29）。
+	// 排序这件事按设计归 Claude，而它排的东西必须先看得见。
+	//
+	// 每一行自己带 `New`，所以"今天有什么"和"哪些是刚出现的"是同一个列表回答的两个问题。
+	Jobs     []PoolRow
 	Failures []SourceFailure
 	// Tallies —— 每个源这一次的账。**没有它，一次取数的结果就无法被判读**：
 	// 「HN 回了 1 条」可能是今天真没人招、可能是被限流、可能是判定条件写错，三者
@@ -31,6 +40,16 @@ type FetchResult struct {
 	// （同一条 posting 从两个源来只留一行），而它以前只能靠「池子总数比两源之和小」
 	// 这种算术去推 —— 推出来的结论不算驱过。
 	CrossSourceDropped int
+}
+
+// PoolRow —— 交给 owner 那一侧 AI 的一行：池子里的一条 job、它还能活多久、
+// 以及这一趟它是不是**刚出现的**。
+//
+// `New` 不由"剩余 TTL 接近 24h"去推 —— 那是推理，不是数据（[[no-diagnosis-by-experiment]]）。
+type PoolRow struct {
+	Job          jobsmodel.FetchedJob
+	TTLRemaining time.Duration
+	New          bool
 }
 
 // SourceTally —— 一个源这一次取数的账：上游给了几条、真进池子几条、被按源去重挡掉几条。

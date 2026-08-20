@@ -298,7 +298,7 @@ useEffect(() => {
 # 阶段 1
 jobs.register_source(kind, config, label) → source_id
 jobs.list_sources()                        → [{id, kind, label, config, last_fetched_at}]
-jobs.fetch_new(source_id?, since_hours?=24) → [FetchedJob with cache_id, ttl_remaining]
+jobs.fetch_new(source_id?, since_hours?=24) → [headline row: cache_id, ttl_remaining_seconds, new]
 jobs.show(job_cache_id)                    → FetchedJob (full JD)
 jobs.discard(job_cache_id)                 → ok
 jobs.unregister_source(source_id)          → ok
@@ -322,6 +322,19 @@ applications.update_status(id, status, next_event_at?, notes?)
 ```
 
 **决策点 L.11：Playwright 衔接靠 `next_action_hint` 字段嵌进 commit 响应，不做单独 tool。**
+
+**决策点 L.14（2026-08-20，F-E-29 驱出来的）：`jobs.fetch_new` 交的是「池子这个窗口的整块板子」，
+不是「这一趟新捞的那几条」。** 两件事跟着定死：
+
+- **列表只发标题级字段**（cache_id / title / company / location / url / tags / published_at /
+  ttl_remaining_seconds / new），**不发 body_text**。一天两三百条真岗位、每条正文一两千字，
+  全塞进回执就把 owner 那一侧的上下文烧光；挑中的那几条再 `jobs.show` 读全文。
+  这也是这张表里 `fetch_new` 和 `show` 一直分开列的原因。
+- **`new=true` 表示这一趟才进池子的**。于是「今天的板子长什么样」和「跟上次比多了什么」
+  由同一个列表回答，owner 一天里问第二次不会拿到空数组。
+- **跨源去重同时作用在池子这一面**（池子按源写，重复的那条物理上有两份），
+  判谁先赢按**入池先后**。`/admin/listings` 跟这条路读同一个 `jobsuc.ListPoolBoard`，
+  两个面不可能给出不同的板子。
 
 ---
 

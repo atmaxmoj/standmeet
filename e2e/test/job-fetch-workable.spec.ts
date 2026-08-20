@@ -90,8 +90,16 @@ test.describe('jobs.fetch_new (workable) authed SPI', () => {
       // 判据是**「不许静默变成空」**，不是「必须抛」。工具后来改成逐源报告失败
       // （一个源坏了不该把整次抓取一起拖垮），那是更好的形状 —— 于是要断的是：
       // 这一次没有任何岗位，而且那个源被**点名**说清了原因。
+      //
+      // 数**这一趟新进池子的**，不是数回执里有多少行：回执现在交的是整个池子窗口
+      // （F-E-29），而同文件前一条用例已经用**好** token 抓过 2 条进去。
+      // 写成 `out.jobs.length === 0` 的话，这条断言在坏 token 真的放行时也会红、
+      // 在它被正确拒绝时也会红 —— 它量的根本不是这一次（[[assertion-that-cannot-fail]] 的反面）。
       const out = await jobsFetchNew(request, token, sid, src.id);
-      expect(out.jobs, 'a rejected token must not yield jobs').toHaveLength(0);
+      expect(
+        out.jobs.filter((j) => j.new),
+        'a rejected token must not yield jobs',
+      ).toHaveLength(0);
       const failed = (out.failed_sources ?? []).find((f) => f.source_id === src.id);
       expect(failed, 'the bad source must be named, not silently dropped').toBeTruthy();
       expect(

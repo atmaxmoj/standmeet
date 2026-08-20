@@ -76,8 +76,11 @@ test.describe('jobs.fetch_new across multiple registered sources', () => {
 
       const fetched = await jobsFetchNew(request, token, sid);
 
+      // 数**这一趟新进池子的**，不是数池子里有多少：回执现在交的是整个窗口
+      // （F-E-29），而这个文件里前一条用例已经往同一个池子里放过岗位 ——
+      // 用 `jobs.length` 的话，好源一条都没抓到这条用例也会绿（[[assertion-that-cannot-fail]]）。
       expect(
-        fetched.jobs.length,
+        fetched.jobs.filter((j) => j.new).length,
         `the good source (${good.label}) returned nothing because ${bad.label} failed`,
       ).toBeGreaterThan(0);
 

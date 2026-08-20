@@ -17,7 +17,6 @@
 package jobsadmin
 
 import (
-	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -37,18 +36,15 @@ const (
 	ctJSON    = "application/json"
 )
 
-// PoolLister —— jobsadmin 对 job 池子的只读视图（#50 listings）。用接口而非
-// 直接依赖 plugins/jobs/cache，避免 arch-lint 组件越界依赖；cache.Pool 满足它。
-type PoolLister interface {
-	ListByOwner(ctx context.Context, ownerID string) ([]jobsmodel.FetchedJob, error)
-}
-
 // Deps —— jobs admin 路由依赖。Log 必填 (encode 失败要 log)。
 type Deps struct {
 	Apps    *jobsuc.ApplicationRepo
 	Drafts  *jobsuc.ResumeDraftRepo
 	Sources *jobsuc.JobSourceRepo
-	Pool    PoolLister
+	// Jobs —— 池子那条 usecase。listings 这一面**不自己读 Redis**：它跟
+	// `jobs.fetch_new` 走同一个 `jobsuc.ListPoolBoard`，所以两个面不可能
+	// 对同一个池子给出不同的板子。
+	Jobs *jobsuc.JobsDeps
 	// Commit —— commit 一份草稿要的那组依赖（渲染器 / owner / role）。跟
 	// applications.commit 那条路**共用同一份**，两个面因此不可能对同一次 commit
 	// 做不同的事。
@@ -91,37 +87,43 @@ type listingView struct {
 	Tags        []string  `json:"tags"`
 }
 
+// listListings —— 这一面读的是**跟 owner 在 Claude 里问到的同一块板子**
+// （`jobsuc.ListPoolBoard`），不是它自己再 SCAN 一遍 Redis。
+// 两个面各拼各的话，跨源重复的那条会在这边多出来、在那边不出现，而条数对不上的
+// 时候没有一处说得清是谁错了（F-E-29 的兄弟面）。
 func listListings(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if deps.Pool == nil {
+		if deps.Jobs == nil {
 			writeListingsList(deps.Log, w, nil)
 			return
 		}
 		ownerID := authmw.OwnerIDFrom(r.Context())
-		jobs, err := deps.Pool.ListByOwner(r.Context(), ownerID)
+		// since<=0 = 整个活池子：面板不分窗口，池子自己 24h 到期。
+		rows, err := jobsuc.ListPoolBoard(r.Context(), *deps.Jobs, ownerID, 0)
 		if err != nil {
 			deps.Log.Error("list job pool", logErrKey, err)
 			writeServerErr(deps.Log, w)
 			return
 		}
-		writeListingsList(deps.Log, w, jobs)
+		writeListingsList(deps.Log, w, rows)
 	}
 }
 
 func writeListingsList(
-	log *slog.Logger, w http.ResponseWriter, jobs []jobsmodel.FetchedJob,
+	log *slog.Logger, w http.ResponseWriter, rows []jobsuc.PoolRow,
 ) {
-	items := make([]listingView, 0, len(jobs))
-	for i := range jobs {
+	items := make([]listingView, 0, len(rows))
+	for i := range rows {
+		j := &rows[i].Job
 		items = append(items, listingView{
-			CacheID:     jobs[i].CacheID,
-			Title:       jobs[i].Title,
-			Company:     jobs[i].Company,
-			Location:    jobs[i].Location,
-			URL:         jobs[i].URL,
-			SourceKind:  jobs[i].SourceKind,
-			PublishedAt: jobs[i].PublishedAt,
-			Tags:        tagsOrEmpty(jobs[i].Tags),
+			CacheID:     j.CacheID,
+			Title:       j.Title,
+			Company:     j.Company,
+			Location:    j.Location,
+			URL:         j.URL,
+			SourceKind:  j.SourceKind,
+			PublishedAt: j.PublishedAt,
+			Tags:        tagsOrEmpty(j.Tags),
 		})
 	}
 	w.Header().Set(ctHeader, ctJSON)

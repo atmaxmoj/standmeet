@@ -12,12 +12,14 @@
 package cache
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
@@ -104,6 +106,41 @@ func (p *Pool) ListByOwner(ctx context.Context, ownerID string) ([]jobsmodel.Fet
 	return p.mgetJobs(ctx, keys)
 }
 
+// PooledJob —— 池子里的一条，附上它**还能活多久**。
+// 设计里 `jobs.fetch_new` 的回执本来就写着 `ttl_remaining`
+// （docs/design/job-loop.md 的 MCP tool surface），实现漏掉了。
+type PooledJob struct {
+	Job          jobsmodel.FetchedJob
+	TTLRemaining time.Duration
+}
+
+// ListWindow —— 池子里**入池时间落在 since 之内**的全部 job，新的排在前面。
+// since<=0 → 整个活池子。
+//
+// 入池时间不另存一份：key 的剩余 TTL 就是它（TTL 固定不 slide），
+// age = p.ttl - remaining。多存一个字段就会有两个来源，而它们迟早不一致。
+func (p *Pool) ListWindow(
+	ctx context.Context, ownerID string, since time.Duration,
+) ([]PooledJob, error) {
+	keys, err := p.scanKeys(ctx, keyPrefix+ownerID+":*")
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return []PooledJob{}, nil
+	}
+	rows, err := p.getWithTTL(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+	out := p.withinWindow(rows, since)
+	// 剩余 TTL 越大 = 入池越晚。SCAN 的顺序没有意义，而"最新的排前面"有。
+	slices.SortStableFunc(out, func(a, b PooledJob) int {
+		return cmp.Compare(b.TTLRemaining, a.TTLRemaining)
+	})
+	return out, nil
+}
+
 // Discard —— 主动从池子里删（owner 决定不看了）。已不存在视同成功。
 func (p *Pool) Discard(ctx context.Context, ownerID, cacheID string) error {
 	if derr := p.rdb.Del(ctx, key(ownerID, cacheID)).Err(); derr != nil {
@@ -123,6 +160,84 @@ func (p *Pool) TTL(ctx context.Context, ownerID, cacheID string) (time.Duration,
 		return 0, nil
 	}
 	return t, nil
+}
+
+// withinWindow —— 只留下入池时间在 since 之内的。since<=0 → 全留。
+func (p *Pool) withinWindow(rows []PooledJob, since time.Duration) []PooledJob {
+	if since <= 0 {
+		return rows
+	}
+	out := make([]PooledJob, 0, len(rows))
+	for i := range rows {
+		if p.ttl-rows[i].TTLRemaining <= since {
+			out = append(out, rows[i])
+		}
+	}
+	return out
+}
+
+// getWithTTL —— 每个 key 的正文和剩余 TTL。取不到（scan 与 exec 之间过期了）的
+// 那条**跳过**，不是报错：池子本来就在过期。
+func (p *Pool) getWithTTL(ctx context.Context, keys []string) ([]PooledJob, error) {
+	cmds, err := p.pipeGetTTL(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PooledJob, 0, len(keys))
+	for i := range keys {
+		row, rerr := pooledFrom(cmds.gets[i], cmds.ttls[i])
+		if rerr != nil {
+			return nil, rerr
+		}
+		if row.TTLRemaining > 0 {
+			out = append(out, row)
+		}
+	}
+	return out, nil
+}
+
+// pipeGetTTL —— 一次 pipeline 发完所有 GET + TTL。
+func (p *Pool) pipeGetTTL(ctx context.Context, keys []string) (pooledCmds, error) {
+	pipe := p.rdb.Pipeline()
+	c := pooledCmds{
+		gets: make([]*redis.StringCmd, len(keys)),
+		ttls: make([]*redis.DurationCmd, len(keys)),
+	}
+	for i, k := range keys {
+		c.gets[i] = pipe.Get(ctx, k)
+		c.ttls[i] = pipe.TTL(ctx, k)
+	}
+	// redis.Nil 是"某个 key 没了"，不是这一发失败 —— 逐条在 pooledFrom 里处理。
+	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
+		return pooledCmds{}, fmt.Errorf("redis pipeline: %w", err)
+	}
+	return c, nil
+}
+
+// pooledCmds —— 一次 pipeline 里成对的 GET / TTL 结果，下标跟 keys 对齐。
+type pooledCmds struct {
+	gets []*redis.StringCmd
+	ttls []*redis.DurationCmd
+}
+
+// pooledFrom —— 一对 (GET, TTL) 结果变成一行。**取不到就返回零值**（TTLRemaining==0），
+// 调用方据此跳过：key 在 scan 与 exec 之间过期是常态，不是错误。
+// 只有正文解不开才是真错 —— 那说明池子里躺着坏字节。
+func pooledFrom(get *redis.StringCmd, ttl *redis.DurationCmd) (PooledJob, error) {
+	if !stillPooled(get, ttl) {
+		return PooledJob{}, nil
+	}
+	var job jobsmodel.FetchedJob
+	if uerr := json.Unmarshal([]byte(get.Val()), &job); uerr != nil {
+		return PooledJob{}, fmt.Errorf("decode job: %w", uerr)
+	}
+	return PooledJob{Job: job, TTLRemaining: ttl.Val()}, nil
+}
+
+// stillPooled —— 这个 key 在 exec 的时候还活着吗。写成正向判定而不是
+// 三个 `err != nil` 的早退：这里的"没取到"是**过期**，不是错误链上的失败。
+func stillPooled(get *redis.StringCmd, ttl *redis.DurationCmd) bool {
+	return get.Err() == nil && ttl.Err() == nil && ttl.Val() > 0
 }
 
 func (p *Pool) scanKeys(ctx context.Context, pattern string) ([]string, error) {

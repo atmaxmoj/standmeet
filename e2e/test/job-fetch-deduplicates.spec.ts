@@ -28,7 +28,11 @@ test.describe('jobs.fetch_new dedups against fingerprints', () => {
     await request.dispose();
   });
 
-  test('fetch twice → second is empty; mock day=2 → only 2 synthetic ids returned',
+  // 判据问的是**去重**：同一条 posting 不会第二次进池子。
+  // 以前它写成「第二次取数回空数组」—— 那句话同时也是 F-E-29 那条缺陷本身
+  // （池子对 owner 那一侧不可见）。现在同一件事由 `new` 和这一趟的账来说：
+  // 板子照旧整块回来，但**没有一条是新进池子的**。
+  test('fetch twice → nothing new pooled; mock day=2 → only 2 synthetic ids are new',
     async ({ request }) => {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const token = await createAPIToken(request, csrf, 'dedup-spec');
@@ -43,17 +47,21 @@ test.describe('jobs.fetch_new dedups against fingerprints', () => {
       expect(first.jobs.length).toBeGreaterThan(0);
       const day1IDs = first.jobs.map((j) => j.external_id);
 
-      // Second fetch (same day): all already fingerprinted → 0
+      // Second fetch (same day): all already fingerprinted → nothing NEW pooled,
+      // while the board itself stays visible.
       const second = await jobsFetchNew(request, token, sid, source.id);
-      expect(second.jobs).toHaveLength(0);
+      expect(second.jobs.filter((j) => j.new)).toHaveLength(0);
+      expect(second.jobs.length, '板子照旧整块在（F-E-29）').toBe(first.jobs.length);
+      const tally = (second.sources ?? []).find((t) => t.source_id === source.id);
+      expect(tally?.pooled, '这一趟一条都没新进池子').toBe(0);
 
       // Switch mock to day 2 (drops first 2 ids + appends 2 synthetic)
       await mockSetDay(request, 'greenhouse', 2);
 
-      // Third fetch: only the 2 synthetic ids (everything else either gone
+      // Third fetch: only the 2 synthetic ids are new (everything else either gone
       // from upstream or already fingerprinted)
       const third = await jobsFetchNew(request, token, sid, source.id);
-      const newIDs = third.jobs.map((j) => j.external_id).sort();
+      const newIDs = third.jobs.filter((j) => j.new).map((j) => j.external_id).sort();
       const expected = [...MOCK_SYNTHETIC_DAY2.greenhouse].sort();
       expect(newIDs).toEqual(expected);
 

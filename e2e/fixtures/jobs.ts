@@ -58,8 +58,14 @@ interface SourceTallyView {
   skipped?: Record<string, number>;
   truncated?: boolean;
 }
+// PoolRowView —— fetch_new 回执里的一行。**没有 body_text**（那是 jobs.show 的活），
+// 多两样：这条还能活多久、以及它是不是这一趟才进池子的。
+interface PoolRowView extends Omit<FetchedJobView, 'body_text'> {
+  ttl_remaining_seconds: number;
+  new: boolean;
+}
 export interface JobsFetchResp {
-  jobs: FetchedJobView[];
+  jobs: PoolRowView[];
   failed_sources?: SourceFailureView[];
   sources?: SourceTallyView[];
   cross_source_dropped?: number;
@@ -83,10 +89,11 @@ export async function jobsListSources(
 
 export async function jobsFetchNew(
   request: APIRequestContext, bearer: string, sid: string,
-  sourceID?: string,
+  sourceID?: string, sinceHours?: number,
 ): Promise<JobsFetchResp> {
   const args: Record<string, unknown> = {};
   if (sourceID) args['source_id'] = sourceID;
+  if (sinceHours !== undefined) args['since_hours'] = sinceHours;
   return callTool<JobsFetchResp>(request, bearer, sid, 'jobs.fetch_new', args);
 }
 
