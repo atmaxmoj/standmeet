@@ -17,12 +17,25 @@ requires:
 #
 # 谁在拨号之前问：一个 skill 写 `allowed-tools: [calendar_book]`，产品要能答出「那需要
 # calendar 连接器」——不然市场卡上那句 “needs Calendar” 永远说不出口（F-F-4）。
+#
+# 带 `requires` 的那几条：**这一个动作**还额外要什么（F-B-8）。上面的 `requires: [calendar]`
+# 只答「连没连」；owner 只授了 `calendar.readonly` 时连接是好的、列时段也是好的，
+# **只有写会永远 403** —— 而产品照旧把「订会」摆在访客面前，还告诉他「过一会儿再问」。
+#
+# 注意粒度：**不能**把 `calendar:events.insert` 提到能力级，那会连「看看你哪天有空」
+# 一起藏掉，而那件事在只读授权下本来是好的 —— 为了修「提供了做不到的动作」而拿掉一个
+# 「做得到的动作」。产品在邮件那边的做法正是按动作：确认邮件那一块不渲染，预约本身照旧在。
 visitor_tools:
-  - calendar_book
+  - name: calendar_book
+    requires: [calendar:events.insert]
   - calendar_list_slots
-  - calendar_cancel
-  - calendar_reschedule
-  - calendar_cancel_booking
+  - name: calendar_cancel
+    requires: [calendar:events.delete]
+  - name: calendar_reschedule
+    # 改期 = 先删旧的再插新的，两个都要。
+    requires: [calendar:events.insert, calendar:events.delete]
+  - name: calendar_cancel_booking
+    requires: [calendar:events.delete]
   - bookings_list
   - send_confirmation
 

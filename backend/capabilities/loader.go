@@ -61,9 +61,10 @@ func loadOne(dir string) (mcpplugin.Manifest, error) {
 		ID: d.ID, Title: d.Title, Version: d.Version,
 		Shape: mcpplugin.Shape(d.Shape), ACL: acl(d.ACL),
 		RawToolNames: d.RawToolNames, Requires: d.Requires,
-		VisitorTools: d.VisitorTools,
-		OwnerTools:   tools,
-		Config:       fields(d.Config), CodeConfig: fields(d.CodeConfig),
+		VisitorTools:        visitorToolNames(d.VisitorTools),
+		VisitorToolRequires: visitorToolRequires(d.VisitorTools),
+		OwnerTools:          tools,
+		Config:              fields(d.Config), CodeConfig: fields(d.CodeConfig),
 		RoleConfig: fields(d.RoleConfig),
 		Quota:      d.Quota.manifest(),
 		ClaimGate:  d.ClaimGate.manifest(),
@@ -98,6 +99,28 @@ func acl(v string) string {
 		return mcpplugin.ACLAlways
 	}
 	return mcpplugin.ACLRoleGranted
+}
+
+// visitorToolNames —— 只要名字那一份。装配之前回答「哪个工具是哪个能力的」、
+// 跟沙箱真答的那份对账（drift 检查）用的都是它，形状没变。
+func visitorToolNames(decls []visitorToolDesc) []string {
+	out := make([]string, 0, len(decls))
+	for i := range decls {
+		out = append(out, decls[i].Name)
+	}
+	return out
+}
+
+// visitorToolRequires —— 只收**写了 requires 的那几条**。没写的不进表：
+// 「表里没有」跟「表里是空数组」在这里必须是同一个意思，多一种写法就多一处要判的地方。
+func visitorToolRequires(decls []visitorToolDesc) map[string][]string {
+	out := map[string][]string{}
+	for i := range decls {
+		if len(decls[i].Requires) > 0 {
+			out[decls[i].Name] = decls[i].Requires
+		}
+	}
+	return out
 }
 
 // ownerTools —— owner 面的声明 → manifest。

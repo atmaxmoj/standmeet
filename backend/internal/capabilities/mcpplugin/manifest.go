@@ -120,6 +120,16 @@ type Manifest struct {
 	// 因为它是**声明**而真相在别处,所以每次真拨到号,`Verify` 都拿真答案对一遍:不一致就
 	// 记一条 error,而绑定用真的那份。声明可以过期,但不许悄悄过期。
 	VisitorTools []string
+	// VisitorToolRequires —— 工具名 → **这一个工具**额外要求的依赖（`calendar:events.insert`
+	// 这种带动作的名字）。能力级的 Requires 答「连没连」，这一层答「这个连接做不做得了
+	// 这一个动作」。
+	//
+	// 没有这一层的话，只授了只读的日历会让「订会」照旧摆在访客面前（每次 403，而访客被告知
+	// 「过一会儿再问」）；而把整条 Requires 提到写权限上，又会连「列时段」一起藏掉 ——
+	// 那是为了修「提供了做不到的动作」而拿掉一个「做得到的动作」（F-B-8）。
+	//
+	// 不在表里的工具 = 没有额外要求，只受能力级 Requires 管。
+	VisitorToolRequires map[string][]string
 	// OwnerTools —— 本插件在 owner 侧暴露的工具声明(Shape 含 owner 时才有意义)。
 	OwnerTools []OwnerTool
 	// Config —— 本插件的可配置项声明。owner 面板按它渲染,值存进本插件自己的隔离存储。
