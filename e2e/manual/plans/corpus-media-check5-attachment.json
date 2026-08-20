@@ -1,0 +1,29 @@
+{
+  "_why": "corpus-media check 5：非 writing 条目上挂一份**真 PDF**，看 owner 侧的行是不是带着真文件名和真大小，以及编辑器会不会用一个「只收图片」的守卫把它挡回去。\n\n**边界先写清楚**：手上这份真 PDF 是 28686 字节，读作 28.7 KB —— 它**跑不到 MB 那个格式化分支**（item 的 mock gap 点名要 4MB 级的文件才验得到 `4.1 MB` vs `NaN MB` / `4194304 B`）。这一趟只验「真 PDF 传得上、行上读得对、不被 image-only 守卫拦」。\n\n用真 vault 的 `cognitive-science`，走完复原。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-media/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "cm5-05-pdf-attached",
+      "url": "/admin/wiki",
+      "settle": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]",
+      "wait": 1500,
+      "steps": [
+        { "click": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]" },
+        {
+          "select": [
+            "[data-testid=\"wiki-edit-form-304359e6-813b-46da-a0a5-87529a466359-asset-kind\"]",
+            "attachment"
+          ]
+        },
+        {
+          "pickDir": [
+            "[data-testid=\"wiki-edit-form-304359e6-813b-46da-a0a5-87529a466359-asset-input\"]",
+            "../.playwright-mcp/report-52e6199e-d988-4ba2-a470-1a9f3f09f3e3.pdf"
+          ]
+        }
+      ],
+      "wait": 4000
+    }
+  ]
+}

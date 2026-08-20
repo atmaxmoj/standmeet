@@ -1,0 +1,18 @@
+{
+  "_why": "素材行给**每一份**素材都渲了 `use as cover`，不看 kind（`CorpusAssetsPanel.tsx` 的 `BodyBoundBtns`）。同一个文件里的 `assetMarkdown` 却是按 kind 分支的 —— 图插成 `![]()`、附件插成 `[]()`。所以「插入正文」认类型，「设为封面」不认。\n\n把一份 **PDF 设成封面**，看产品怎么办：是拦下来、还是收下一个渲不出来的封面。这是 item 的 LOOK 段点名的「死控件」尺子（F-N-1 / F-L-1 一族）。\n\n真 vault 的 `cognitive-science`，走完复原。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-media/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "cm5-06-pdf-set-as-cover",
+      "url": "/admin/wiki",
+      "settle": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]",
+      "wait": 1500,
+      "steps": [
+        { "click": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]" },
+        { "click": "[data-testid^=\"wiki-edit-form-304359e6-813b-46da-a0a5-87529a466359-asset-cover-\"]" }
+      ],
+      "wait": 2000
+    }
+  ]
+}

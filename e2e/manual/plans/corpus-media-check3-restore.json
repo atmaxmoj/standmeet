@@ -1,0 +1,17 @@
+{
+  "_why": "corpus-media check 3 的复原：把刚才传上去的那张真图从 `cognitive-science` 上撤掉，笔记回到干净状态。跟 F-L-50 的 ⑤ 同一条纪律 —— 在真 vault 的笔记上走产品自己的流程，走完复原。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-media/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "cm5-04-removed",
+      "url": "/admin/wiki",
+      "settle": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]",
+      "wait": 1500,
+      "steps": [
+        { "click": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]" },
+        { "click": "[data-testid=\"wiki-edit-form-304359e6-813b-46da-a0a5-87529a466359-asset-remove-be5a37e8-4dea-4385-b0ca-857556b45606\"]" }
+      ]
+    }
+  ]
+}

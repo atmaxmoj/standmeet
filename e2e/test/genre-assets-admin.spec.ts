@@ -112,6 +112,31 @@ test.describe('owner 在面板上挂文件', () => {
     await expect(row).toContainText(`${String(PDF_BYTES.length)} B`);
     // 存的也得是 attachment：当成 image 存下来的话，阅读页会去渲染它而不是给一个下载入口。
     await expect(row).toContainText('attachment');
+
+    // **而这一行不该给它「设为封面」**（F-L-58）。封面是 hero **图**，一份 PDF 当不了。
+    // 在真实例上点下去，产品照收：行上出现朱红 `cover` 徽标、按钮翻成 `stop using as cover`，
+    // 下面紧跟着 COVER LINE（往一份 PDF 上压标题句）—— 一句拦阻都没有。
+    //
+    // 归因就在同一个文件里：`assetMarkdown` **按 kind 分支**（图 → `![]()`、附件 → `[]()`），
+    // 而 `BodyBoundBtns` 把封面开关**无条件**渲染。同一屏上一个按钮认类型、另一个不认。
+    const assetID = (await row.getAttribute('data-testid'))?.replace(`${prefix}-asset-row-`, '');
+    await expect(
+      page.getByTestId(`${prefix}-asset-cover-${assetID}`),
+      '一份 PDF 当不了 hero 图 —— 这颗按钮不该出现在附件行上',
+    ).toHaveCount(0);
+    // 反向自证：**图片行上它必须还在**。否则「按 kind 收起来」会退化成「谁都没有」，
+    // 而这条断言照样绿（[[assertion-that-cannot-fail]]）。
+    await page.getByTestId(`${prefix}-asset-kind`).selectOption('image');
+    await page.getByTestId(`${prefix}-asset-input`).setInputFiles({
+      name: 'panel-pic.png', mimeType: 'image/png', buffer: PNG_BYTES,
+    });
+    await expect(page.getByTestId(new RegExp(`^${prefix}-asset-row-`))).toHaveCount(2, {
+      timeout: 15_000,
+    });
+    await expect(
+      page.getByTestId(new RegExp(`^${prefix}-asset-cover-`)),
+      '图片行上「设为封面」必须还在',
+    ).toHaveCount(1);
   });
 
 });

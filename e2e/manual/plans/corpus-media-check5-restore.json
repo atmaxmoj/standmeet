@@ -1,0 +1,18 @@
+{
+  "_why": "check 5 / PDF-as-cover 那一趟的复原：把那份真 PDF 从 `cognitive-science` 上撤掉。封面从没保存过（库里 `cover_image_asset_id` 一直是 NULL），所以只需要撤素材。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-media/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "cm5-07-pdf-removed",
+      "url": "/admin/wiki",
+      "settle": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]",
+      "wait": 1500,
+      "steps": [
+        { "click": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]" },
+        { "click": "[data-testid=\"wiki-edit-form-304359e6-813b-46da-a0a5-87529a466359-asset-remove-16825ae6-c611-46a5-88d8-247b35566447\"]" }
+      ],
+      "wait": 2500
+    }
+  ]
+}

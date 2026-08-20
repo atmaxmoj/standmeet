@@ -1,0 +1,33 @@
+{
+  "_why": "corpus-media check 3：预签名地址必须建在 owner 的**公网** storage origin 上（prod 是 http://localhost:9210），不能是容器内的 minio:9000 —— 浏览器解析不了后者。这一格从没驱过，因为它需要真实例上存在一个素材，而 prod 的 assets 表一直是 0 行。\n\n走面板那条路（浏览器把本机文件交上去，不需要图床）。用的是真 vault 的 `cognitive-science`（F-L-50 的 ⑤ 也是在它上面走的，有现成的复原流程），传一张**本机真文件**。\n\n**走完复原**：撤掉素材、保存，笔记回到干净状态。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-media/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "cm5-01-wiki-list",
+      "url": "/admin/wiki",
+      "settle": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]",
+      "wait": 1500
+    },
+    {
+      "name": "cm5-02-edit-open",
+      "steps": [
+        { "click": "[data-testid=\"wiki-edit-304359e6-813b-46da-a0a5-87529a466359\"]" }
+      ],
+      "settle": "[data-testid=\"wiki-edit-form-304359e6-813b-46da-a0a5-87529a466359-assets\"]",
+      "wait": 1500
+    },
+    {
+      "name": "cm5-03-asset-uploaded",
+      "steps": [
+        {
+          "pickDir": [
+            "[data-testid=\"wiki-edit-form-304359e6-813b-46da-a0a5-87529a466359-asset-input\"]",
+            "../sm-sources.png"
+          ]
+        }
+      ],
+      "wait": 4000
+    }
+  ]
+}

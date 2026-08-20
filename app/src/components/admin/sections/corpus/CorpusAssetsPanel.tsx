@@ -162,11 +162,19 @@ function BodyBoundBtns(
         testid={`${props.testidPrefix}-asset-insert-${asset.asset_id}`}
         onClick={() => { props.insertIntoBody(assetMarkdown(asset)); }}
       />
-      <RowBtn
-        label={isCover ? t('unsetCover') : t('setCover')}
-        testid={`${props.testidPrefix}-asset-cover-${asset.asset_id}`}
-        onClick={() => { props.onSetCover(isCover ? '' : asset.asset_id); }}
-      />
+      {/* 封面开关**只给图片**（F-L-58）。hero 是一张图,一份 PDF 当不了 ——
+          而在真实例上点下去,产品照收:行上出现朱红 `cover` 徽标、按钮翻成
+          `stop using as cover`,下面紧跟着 COVER LINE(往一份 PDF 上压标题句),
+          一句拦阻都没有。
+          判据跟下面 `assetMarkdown` 用的是**同一个**(`kind === 'image'`)—— 一屏之内
+          两颗按钮各判各的,正是它当初漏掉的原因。 */}
+      {asset.kind === 'image' ? (
+        <RowBtn
+          label={isCover ? t('unsetCover') : t('setCover')}
+          testid={`${props.testidPrefix}-asset-cover-${asset.asset_id}`}
+          onClick={() => { props.onSetCover(isCover ? '' : asset.asset_id); }}
+        />
+      ) : null}
     </>
   );
 }
