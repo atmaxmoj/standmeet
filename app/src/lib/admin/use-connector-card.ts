@@ -46,6 +46,17 @@ export interface ConnectorCardHook {
   unreadable: string;
   connecting: boolean;
   error: string;
+  /**
+   * 重新去后端问一次这张卡的状态（F-C-45）。
+   *
+   * 谁要它：卡上那些 owner 操作（探针、试发信）**会改变连接状态** —— 撤权之后跑一次探针，
+   * 后端当场把这一行标成断开。而卡上的 `connected` 是进页面时取的那一份，于是同一屏上
+   * 一句说「connected」、一句说「授权已被撤销」，其中一句是假的。
+   *
+   * 为什么不按错误类别分叉：状态的家在后端，卡只是**动作之后去问一次**。让每个操作各自
+   * 记得「我这类失败要通知卡片」，下一个操作就会忘。
+   */
+  reloadStatus: () => void;
   setField: (key: string, value: string) => void;
   setScope: (scope: string, checked: boolean) => void;
   connect: () => void;
@@ -162,7 +173,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
 
   return {
     authType, fields, scopes, granted, schemes, connected, hasCredentials, unreadable,
-    connecting, error,
+    connecting, error, reloadStatus: loadStatus,
     setField: (k, v) => { values.current[k] = v; saveCreds(); },
     setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); saveCreds(); },
     connect, disconnect,

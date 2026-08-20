@@ -16,16 +16,20 @@ import { useTranslations } from 'next-intl';
 import type { OwnerOp, OwnerOpField } from '@/lib/admin/use-connector-catalog';
 import { useConnectorOp, type ConnectorOpHook } from '@/lib/admin/use-connector-op';
 
-export function ConnectorOps({ ops }: { ops: readonly OwnerOp[] }) {
+// onRan —— 跑完一个操作之后，卡片得重新去问一次自己的状态（F-C-45）。
+// 这些操作**会改变连接状态**：撤权之后跑一次探针，后端当场把这一行标成断开，
+// 而卡上那个 `connected` 还是进页面时取的。不通知的话，同一屏上两句话互相矛盾。
+// 跑完就问，不看是成是败 —— 判「这类失败才要问」得让每个操作各记一遍，下一个就会忘。
+export function ConnectorOps({ ops, onRan }: { ops: readonly OwnerOp[]; onRan: () => void }) {
   return ops.length === 0 ? null : (
     <div className="mt-3 border-t border-(--color-rule)/60 pt-3 space-y-3">
-      {ops.map((op) => <ConnectorOpBlock key={op.name} op={op} />)}
+      {ops.map((op) => <ConnectorOpBlock key={op.name} op={op} onRan={onRan} />)}
     </div>
   );
 }
 
-function ConnectorOpBlock({ op }: { op: OwnerOp }) {
-  const hook = useConnectorOp(op);
+function ConnectorOpBlock({ op, onRan }: { op: OwnerOp; onRan: () => void }) {
+  const hook = useConnectorOp(op, onRan);
   return (
     <div data-testid={`connector-op-${hook.segment}`} className="space-y-2">
       <p className="reading-tight text-[12px] text-(--color-muted)">{op.description}</p>

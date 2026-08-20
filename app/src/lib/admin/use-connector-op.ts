@@ -78,7 +78,10 @@ function failedOutcome(e: unknown): OpOutcome {
   };
 }
 
-export function useConnectorOp(op: OwnerOp): ConnectorOpHook {
+// onRan —— 跑完之后通知卡片去重取一次状态（F-C-45）。这些操作会改变连接状态：撤权之后
+// 跑一次探针，后端当场把那一行标成断开，而卡上的 `connected` 还是进页面时取的那一份。
+// **不分成败都通知** —— 「哪类失败才要通知」得让每个操作各记一遍，下一个就会忘。
+export function useConnectorOp(op: OwnerOp, onRan: () => void): ConnectorOpHook {
   const [running, setRunning] = useState(false);
   const [outcome, setOutcome] = useState<OpOutcome | null>(null);
   const values = useRef<Record<string, string | number>>({});
@@ -93,8 +96,8 @@ export function useConnectorOp(op: OwnerOp): ConnectorOpHook {
         viaKind: r.via_kind ?? '', summary: r.summary ?? '',
       }))
       .catch((e: unknown) => setOutcome(failedOutcome(e)))
-      .finally(() => setRunning(false));
-  }, [segment]);
+      .finally(() => { setRunning(false); onRan(); });
+  }, [segment, onRan]);
 
   return {
     segment, running, outcome,

@@ -29,7 +29,7 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
       <Scopes hook={hook} />
       <Actions hook={hook} />
       <ErrorLine error={hook.error} />
-      <ConnectorOps ops={entry.owner_ops ?? []} />
+      <ConnectorOps ops={entry.owner_ops ?? []} onRan={hook.reloadStatus} />
     </li>
   );
 }
