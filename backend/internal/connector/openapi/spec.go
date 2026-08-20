@@ -37,6 +37,13 @@ type operation struct {
 	OperationID string      `yaml:"operationId"`
 	Summary     string      `yaml:"summary"`
 	Description string      `yaml:"description"`
+	// Security —— **这一个动作**需要哪些 scope。OpenAPI 的标准位置。
+	//
+	// 跟 components.securitySchemes 下那份 scope 表不是一回事：那份说的是「这个连接器
+	// 可能会要哪些」，这一份说的是「这一步要哪一个」。少了这一份，宿主手里只有
+	// 「owner 授到了什么」而没有可对照的另一半，于是只授了只读的连接照旧把写操作
+	// 摆给访客，每一次都 403（F-B-8）。
+	Security []map[string][]string `yaml:"security"`
 }
 
 // requestBody/mediaType/bodySchema —— 仅取 application/json 的 schema.required（运行时 pre-flight
@@ -111,6 +118,25 @@ func (s *Spec) SecuritySchemes() map[string]SecurityScheme {
 	return s.Components.SecuritySchemes
 }
 
+// ScopesFor —— **这个 operation 需要哪些 scope**（spec 自己声明的那一份）。
+// 没声明 → 空切片，调用方据此当「这一步不要求额外权限」。
+//
+// 这是「授到的 ⊇ 需要的」那句判断的右半边。左半边（授到了什么）在连接行上。
+// 两边都必须是**数据**：把 scope 名抄进 Go 就会有第二份真相，而它迟早跟 spec 分叉
+// （F-B-8 / [[vocabulary-must-not-diverge]]）。
+func (s *Spec) ScopesFor(operationID string) []string {
+	for _, methods := range s.Paths {
+		for _, op := range methods {
+			if op.OperationID == operationID {
+				return flattenSecurity(op.Security)
+			}
+		}
+	}
+	// 空切片，不是 nil —— 我上面那句注释写的就是「空切片」，代码却 return nil，
+	// 而闸门当场把这处不一致挡了下来（collections always return empty）。
+	return []string{}
+}
+
 // ServerURLs —— 所有 server 的 base URL（出站 SSRF 守卫装配期校验用）。
 func (s *Spec) ServerURLs() []string {
 	out := make([]string, 0, len(s.Servers))
@@ -164,6 +190,31 @@ func (s *Spec) lookup(operationID string) (resolvedOp, bool) {
 		}
 	}
 	return resolvedOp{}, false
+}
+
+// flattenSecurity —— OpenAPI 的 security 是「一组备选方案，每个方案是 scheme→scopes」。
+// 我们只用一种认证方式，所以摊平去重就够；哪天真有两种备选，这里必须改成
+// 「任一方案满足即可」，而不是现在这样合并（写在这儿，免得那天读错）。
+func flattenSecurity(security []map[string][]string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, alt := range security {
+		out = appendUnseen(out, seen, alt)
+	}
+	return out
+}
+
+func appendUnseen(out []string, seen map[string]bool, alt map[string][]string) []string {
+	for _, scopes := range alt {
+		for _, sc := range scopes {
+			if seen[sc] {
+				continue
+			}
+			seen[sc] = true
+			out = append(out, sc)
+		}
+	}
+	return out
 }
 
 // operationIDs —— spec 里所有 operationId（去重）。绑定校验「引用了不存在的 op」用。

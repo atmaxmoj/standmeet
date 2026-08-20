@@ -4,19 +4,38 @@ info:
   version: v3
 servers:
   - url: "${GOOGLE_CALENDAR_BASE:-https://www.googleapis.com/calendar/v3}"
+# 每个 operation 自己声明**它需要哪个 scope**（`security`）。
+#
+# 为什么这几行是必需的（F-B-8 ⭐⭐）：下面 `securitySchemes` 里那两个 scope 说的是
+# 「这个连接器**可能会**要哪些」，**不是「这个动作需要哪一个」**。少了这一层，宿主手里
+# 只有「owner 授到了什么」（连接行上的 scopes），却没有「这一步要什么」——
+# **对照的另一半在数据里不存在**，于是只授了 readonly 的实例照旧把「订会」摆给访客，
+# 每一次 insert 都 403，而访客被告知「过一会儿再问」（那是永远不会成真的一句话）。
+#
+# 声明写在这里而不是写进 Go：哪个动作要哪个 scope 是 Google 定的事实，跟着 spec 走；
+# 抄进代码就会有第二份真相，而它迟早跟 spec 分叉（[[vocabulary-must-not-diverge]]）。
 paths:
   /freeBusy:
     post:
       operationId: freebusy.query
       summary: Query free/busy windows for the owner's primary calendar
+      security:
+        - oauth2:
+            - https://www.googleapis.com/auth/calendar.readonly
   /calendars/primary/events:
     post:
       operationId: events.insert
       summary: Create an event on the owner's primary calendar
+      security:
+        - oauth2:
+            - https://www.googleapis.com/auth/calendar.events
   /calendars/primary/events/{eventId}:
     delete:
       operationId: events.delete
       summary: Cancel an event on the owner's primary calendar
+      security:
+        - oauth2:
+            - https://www.googleapis.com/auth/calendar.events
 components:
   securitySchemes:
     oauth2:
