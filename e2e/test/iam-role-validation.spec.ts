@@ -50,6 +50,55 @@ async function authedRequest(
   return { request, csrf };
 }
 
+// expectRenameKeepsGrant —— 只改名字，这个 role 的语料 ACL 必须原样留着。
+async function expectRenameKeepsGrant(
+  request: APIRequestContext, csrf: string,
+): Promise<void> {
+  const role = await createRole(request, csrf, {
+    name: 'acl-keeper', corpus_uris: ['wiki://public/**'],
+  });
+  // 前置条件：先确认这个 role 真的带着授权，否则下面判的是空气。
+  expect(role.corpus_uris, 'precondition: the role starts out with a corpus grant')
+    .toContain('wiki://public/**');
+
+  // owner 的 AI 做的那件最普通的事：只改名字。
+  const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: { name: 'acl-keeper-renamed' },
+  });
+  expect([200, 400], 'either it keeps the grant, or it refuses — not a silent wipe')
+    .toContain(res.status());
+  if (res.status() !== 200) return;
+
+  const after = await getRoleByName(request, 'acl-keeper-renamed');
+  expect(
+    after.corpus_uris,
+    '改个名字没提到 corpus_uris —— 它必须原样留着。清空这个 role 的语料 ACL '
+    + '而且报成功，是一次没有回执的授权变更',
+  ).toContain('wiki://public/**');
+}
+
+// expectEvidenceSwitchSticks —— 建的时候要求了这个开关，建出来就得是开的。
+async function expectEvidenceSwitchSticks(
+  request: APIRequestContext, csrf: string,
+): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/roles/`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: {
+      name: 'evidence-on-at-birth', description: '', greeting: '',
+      prompt_id: null, corpus_uris: [], skill_ids: [], mcp_server_ids: [],
+      require_ghost_evidence: true,
+    },
+  });
+  expect(res.status()).toBe(201);
+  const created = await res.json() as { require_ghost_evidence: boolean };
+  expect(
+    created.require_ghost_evidence,
+    '建的时候要求了「答话前必须有引证」，建出来就必须是开的 —— '
+    + '收下一个安全开关然后不接线，比不收它更糟',
+  ).toBe(true);
+}
+
 test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
   test('PUT publicRow with a different name → 403 role_builtin_immutable',
     async ({ playwright }) => {
@@ -84,30 +133,23 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
   test('renaming a role must not silently strip its ACL and its safety switch',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
-      const role = await createRole(request, csrf, {
-        name: 'acl-keeper',
-        corpus_uris: ['wiki://public/**'],
-      });
-      // 前置条件：先确认这个 role 真的带着授权，否则下面判的是空气。
-      expect(role.corpus_uris, 'precondition: the role starts out with a corpus grant')
-        .toContain('wiki://public/**');
+      await expectRenameKeepsGrant(request, csrf);
+      await request.dispose();
+    });
 
-      // owner 的 AI 做的那件最普通的事：只改名字。
-      const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
-        headers: { 'X-Csrftoken': csrf },
-        data: { name: 'acl-keeper-renamed' },
-      });
-      expect([200, 400], 'either it keeps the grant, or it refuses — not a silent wipe')
-        .toContain(res.status());
-
-      if (res.status() === 200) {
-        const after = await getRoleByName(request, 'acl-keeper-renamed');
-        expect(
-          after.corpus_uris,
-          '改个名字没提到 corpus_uris —— 它必须原样留着。清空这个 role 的语料 ACL '
-          + '而且报成功，是一次没有回执的授权变更',
-        ).toContain('wiki://public/**');
-      }
+  // **建 role 时收下了这个安全开关，然后扔掉**（F-Q-4）。`createRoleRow` 往
+  // `repo.CreateRoleInput` 里塞了 GasMetered、ProviderID、DockButtons…… 唯独漏了
+  // `RequireGhostEvidence`（`usecase/roles.go:98` vs 改那条路的 `:189`）。于是
+  // `role_create {require_ghost_evidence:true}` 建出来的 role，这个开关是关的 ——
+  // 而它管的是「AI 答话前必须先有引证」。
+  //
+  // 这条是在 prod 上做 F-Q-3 的 ⑤ 时顺手撞见的：库里读回来是 `f`。
+  // 回执本身是**诚实**的（它重读了库，回的就是 false），所以这不是"回执撒谎"，
+  // 是**没有任何东西把「你要的」和「你得到的」放在一起给人看**。
+  test('creating a role with the evidence switch on actually turns it on',
+    async ({ playwright }) => {
+      const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+      await expectEvidenceSwitchSticks(request, csrf);
       await request.dispose();
     });
 

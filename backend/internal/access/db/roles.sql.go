@@ -140,27 +140,31 @@ func (q *Queries) CountActiveCodesForRole(ctx context.Context, assumedRoleID pgt
 const createRole = `-- name: CreateRole :one
 
 INSERT INTO roles (
-    owner_id, name, description, greeting, prompt_id, dock_buttons, provider_id, gas_metered
+    owner_id, name, description, greeting, prompt_id, dock_buttons, provider_id, gas_metered,
+    require_ghost_evidence
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at
 `
 
 type CreateRoleParams struct {
-	OwnerID     pgtype.UUID
-	Name        string
-	Description string
-	Greeting    string
-	PromptID    pgtype.UUID
-	DockButtons []byte
-	ProviderID  pgtype.UUID
-	GasMetered  bool
+	OwnerID              pgtype.UUID
+	Name                 string
+	Description          string
+	Greeting             string
+	PromptID             pgtype.UUID
+	DockButtons          []byte
+	ProviderID           pgtype.UUID
+	GasMetered           bool
+	RequireGhostEvidence bool
 }
 
 // roles —— owner-scoped visitor 身份原型。语义见 schema.sql + [[iam-role-pivot-plan]]。
 //
 // Role 持的 corpus URI / skills / mcp servers 走对应 join 表（role_corpus_uris /
 // role_skills / role_mcp_servers）。这里只 CRUD 主表行 + join 表的 attach/clear。
+// require_ghost_evidence 也要在这儿收（F-Q-4）。它以前只出现在 UpdateRole 里 ——
+// 于是 role_create 收下这个安全开关、返回 false、库里也是 false，三处一致地不生效。
 func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error) {
 	row := q.db.QueryRow(ctx, createRole,
 		arg.OwnerID,
@@ -171,6 +175,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		arg.DockButtons,
 		arg.ProviderID,
 		arg.GasMetered,
+		arg.RequireGhostEvidence,
 	)
 	var i Role
 	err := row.Scan(

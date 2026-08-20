@@ -4,10 +4,13 @@
 -- role_skills / role_mcp_servers）。这里只 CRUD 主表行 + join 表的 attach/clear。
 
 -- name: CreateRole :one
+-- require_ghost_evidence 也要在这儿收（F-Q-4）。它以前只出现在 UpdateRole 里 ——
+-- 于是 role_create 收下这个安全开关、返回 false、库里也是 false，三处一致地不生效。
 INSERT INTO roles (
-    owner_id, name, description, greeting, prompt_id, dock_buttons, provider_id, gas_metered
+    owner_id, name, description, greeting, prompt_id, dock_buttons, provider_id, gas_metered,
+    require_ghost_evidence
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: UpsertBuiltinRole :one

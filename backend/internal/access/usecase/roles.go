@@ -100,6 +100,11 @@ func createRoleRow(
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		DockButtons: in.DockButtons, ProviderID: in.ProviderID,
 		GasMetered: in.GasMetered,
+		// RequireGhostEvidence —— 建的时候也要传（F-Q-4）。这一格以前只在**改**那条路上
+		// 传（`updateRoleRow`），建那条路把它漏了：`role_create {require_ghost_evidence:true}`
+		// 建出来的 role，这个开关是关的 —— 而它管的是「AI 答话前必须先有引证」。
+		// 旁边的 GasMetered / ProviderID 都传了，只有它没有，编译当然不报。
+		RequireGhostEvidence: in.RequireGhostEvidence,
 	})
 	if err != nil {
 		if errors.Is(err, entity.ErrRoleNameTaken) {

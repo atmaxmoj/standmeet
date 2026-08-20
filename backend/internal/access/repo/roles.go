@@ -41,6 +41,11 @@ type CreateRoleInput struct {
 	// GasMetered —— 挂不挂油表。**建的时候就收**:这个字段在 role.create 的入参表里写着,
 	// 收下却不落,就是一次"存好了"的空话 —— owner 建完看不出它没生效。
 	GasMetered bool
+	// RequireGhostEvidence —— 跟上面那条**一模一样的道理,而当初只修了上面那一条**(F-Q-4)。
+	// 它管的是「AI 答话前必须先有引证」,建的时候收下却不落,建出来的 role 这个开关是关的。
+	// 同一段注释写在紧挨着的一行,下一个字段还是漏了 —— 所以这两格现在挨在一起,
+	// 加第三个开关的人先读这两句。
+	RequireGhostEvidence bool
 }
 
 // Create 新建 role 主表行（不挂任何 join 项；attach 在 caller usecase 内单独调）。
@@ -78,6 +83,7 @@ func buildCreateRoleParams(in *CreateRoleInput) (db.CreateRoleParams, error) {
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description,
 		Greeting: in.Greeting, PromptID: promptUUID,
 		DockButtons: dock, ProviderID: providerUUID, GasMetered: in.GasMetered,
+		RequireGhostEvidence: in.RequireGhostEvidence,
 	}, nil
 }
 
