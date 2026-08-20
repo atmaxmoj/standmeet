@@ -66,13 +66,26 @@ func progressLabel(t mcpgo.Tool, label string) mcpgo.Tool {
 	return t
 }
 
+// bookTool —— 这把工具的说明书**整个写在它自己身上**，不放进 `instructions`（F-B-10）。
+// 订会要写权限；owner 只授了只读时，装配期会把这把工具摘掉，说明书跟着一起走。
+// 同一段话若寄放在能力级的 `instructions` 里就会留下来，继续告诉模型「你能订会」——
+// 那正是产品在只读授权下答应「给我个主题我马上给你订」的来路：手上没有工具，嘴上照旧承诺。
 func bookTool() mcpgo.Tool {
 	return withCard(mcpgo.NewToolWithRawSchema("calendar_book",
-		"Book a meeting on the owner's Google Calendar. Only call after you have "+
+		"Create the meeting on the owner's Google Calendar. Only call after you have "+
 			"gathered topic, duration (15-180 minutes), and one or more "+
 			"visitor-confirmed preferred start times in RFC3339 format. The invite "+
 			"goes to the email the visitor gave when they entered (if any) — you do "+
-			"not supply a recipient.",
+			"not supply a recipient; the result tells you what happened. Read "+
+			"`invited_email` on the result and say exactly that: if it holds an address, "+
+			"the invite went there; if it is empty, nobody was invited — say so plainly "+
+			"(\"no invite could be emailed, so keep a note of the time yourself\") and "+
+			"offer the confirmation-email widget on the card. Never name an address the "+
+			"result did not give you, even one the visitor typed earlier in the "+
+			"conversation — an address in the transcript is not a recipient the booking "+
+			"used. Usual flow: gather topic, duration and roughly when they want to meet, "+
+			"list the free slots, let the visitor pick one, then call this with that single "+
+			"confirmed time.",
 		json.RawMessage(`{
 			"type":"object",
 			"properties":{
