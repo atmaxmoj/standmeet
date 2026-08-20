@@ -151,6 +151,12 @@ async function runSteps(steps) {
       const [sel, n] = Array.isArray(step.click) ? step.click : [step.click, 0];
       await page.locator(sel).nth(n).click();
     })();
+    // clickFrame —— 点**沙盒卡里面**的东西：`{"clickFrame": ["iframe 选择器", "卡内选择器"]}`。
+    // 能力自带的 ui:// 卡（订会回执、时段选择器）都渲在 sandbox iframe 里，主文档的选择器
+    // 够不着；而访客真正会点的按钮（Cancel meeting、时段 chip）全在那里面。少了这一步，
+    // 所有跟卡片交互的判据都只能「看得见、点不着」。
+    step.clickFrame && await page.frameLocator(step.clickFrame[0])
+      .locator(step.clickFrame[1]).first().click();
     step.type && await page.locator(step.type[0]).first().fill(step.type[1]);
     // typeFile —— 从文件粘贴。长正文（一篇笔记）手抄进 plan 的 JSON 里要转义换行、引号、
     // 方括号，抄错一个字符会长得像产品把内容弄坏了，而不是像我的手误（跟 downloadDir 同一条理由）。

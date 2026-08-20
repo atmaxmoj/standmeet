@@ -1,0 +1,31 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/booking-book/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "fb9-01-booked", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Card Cancel Check"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Please book me 30 minutes next Monday at 10:00 AM Eastern. Topic: card cancel check."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 60000 }
+      ],
+      "wait": 2000, "fullPage": true },
+    { "name": "fb9-02-cancelled-on-card",
+      "steps": [
+        { "clickFrame": ["[data-testid=\"mcp-app-card-calendar_book\"]", "[data-testid=\"book-card-cancel\"]"] },
+        { "wait": 15000 }
+      ],
+      "wait": 2000, "fullPage": true },
+    { "name": "fb9-03-does-the-agent-know",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "Is anything still on the books for me?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 60000 }
+      ],
+      "wait": 2000, "fullPage": true }
+  ]
+}
