@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 // RequiresDeps —— 可选接口：一个 capability 声明它依赖哪些命名 in-app 依赖
@@ -130,6 +131,29 @@ type DepProvider interface {
 	Connected(ctx context.Context, ownerID string) (bool, error)
 }
 
+// OpProvider —— 除了「连没连」，还答得出**「这个 owner 做不做得了这一个动作」**。
+//
+// 为什么需要第二个问题（F-B-8 ⭐⭐）：`Connected` 说的是「我们手里有一个可用连接」，
+// 那**不等于**「这个连接做得了你要它做的事」。owner 只授了 `calendar.readonly` 时，
+// 连接是好的、读也是通的，而写永远 403 —— 产品却照旧把「订会」摆在访客面前，
+// 还告诉他「过一会儿再问」（那句话永远不会成真）。
+//
+// 能力用 `Requires: ["calendar:events.insert"]` 点名它要**哪一个动作**；不带冒号的
+// 名字行为跟从前完全一样。内核在这里不认识任何具体品类或 scope —— 它只知道
+// 「有的依赖答得出动作级的问题」，答案怎么算是连接器轴那边的事。
+type OpProvider interface {
+	DepProvider
+	// CanPerform —— 这个 owner 现在的授权做不做得了 op（形如 spec 的 operationId）。
+	CanPerform(ctx context.Context, ownerID, op string) (bool, error)
+}
+
+// splitDep —— `"calendar:events.insert"` → ("calendar", "events.insert")；
+// 不带冒号 → (name, "")。
+func splitDep(name string) (string, string) { //nolint:revive // dep + op, 顺序在文档注释里
+	dep, op, _ := strings.Cut(name, ":")
+	return dep, op
+}
+
 // NamedProvider —— 把一个 (name, Connected 闭包) 包成 DepProvider。composition root
 // 用它把 connector proxy 的 Connected 方法（calendar / smtp）注册成命名依赖，无需让
 // connector 包反向 import capreg。凭据从不经此 —— 闭包只回「连没连」。
@@ -147,6 +171,36 @@ type funcProvider struct {
 func (p funcProvider) Name() string { return p.name }
 func (p funcProvider) Connected(ctx context.Context, ownerID string) (bool, error) {
 	return p.connected(ctx, ownerID)
+}
+
+// NamedOpProvider —— 同 NamedProvider，外加一个「做不做得了这个动作」的闭包。
+// 组装根用它把连接器轴那边算好的答案接进来；内核照旧不认识品类和 scope。
+func NamedOpProvider(
+	name string,
+	connected func(ctx context.Context, ownerID string) (bool, error),
+	canPerform func(ctx context.Context, ownerID, op string) (bool, error),
+) DepProvider {
+	return funcOpProvider{
+		inner:      funcProvider{name: name, connected: connected},
+		canPerform: canPerform,
+	}
+}
+
+// 组合而不是内嵌：内嵌要排在普通字段之前，而那样排 fieldalignment 又不答应 ——
+// 两条闸门在这个结构上互相顶。显式转发一行，比为了迁就排布再加一层豁免干净。
+type funcOpProvider struct {
+	canPerform func(context.Context, string, string) (bool, error)
+	inner      funcProvider
+}
+
+func (p funcOpProvider) Name() string { return p.inner.Name() }
+
+func (p funcOpProvider) Connected(ctx context.Context, ownerID string) (bool, error) {
+	return p.inner.Connected(ctx, ownerID)
+}
+
+func (p funcOpProvider) CanPerform(ctx context.Context, ownerID, op string) (bool, error) {
+	return p.canPerform(ctx, ownerID, op)
 }
 
 // DepRegistry —— host 持有的命名依赖 provider 注册表。enabledCaps 查它做 gate；
@@ -179,7 +233,16 @@ func (r *DepRegistry) Lookup(name string) (DepProvider, bool) {
 func (r *DepRegistry) Unknown(names []string) []string {
 	var out []string
 	for _, n := range names {
-		if _, ok := r.providers[n]; !ok {
+		dep, op := splitDep(n)
+		p, ok := r.providers[dep]
+		if !ok {
+			out = append(out, n)
+			continue
+		}
+		// 点名了动作，而这个 provider 答不出动作级的问题 —— 那也是「不认识」。
+		// **在 boot 期拦下**：这种搭配在运行时的表现是「能力静默消失」，
+		// 而那跟「owner 没连」长得一模一样，排查时分不出来。
+		if _, isOp := p.(OpProvider); op != "" && !isOp {
 			out = append(out, n)
 		}
 	}
@@ -193,15 +256,13 @@ func (r *DepRegistry) AllConnected(
 	ctx context.Context, ownerID string, names []string,
 ) (bool, error) {
 	for _, n := range names {
-		p, ok := r.providers[n]
-		if !ok {
-			return false, nil
-		}
-		connected, err := p.Connected(ctx, ownerID)
+		// 跟 lacks 走同一条判断 —— 两处各写一遍的话，「带动作的依赖」迟早只在
+		// 其中一处生效，而两处都是 gate（一处答是非、一处答名字）。
+		missing, err := r.lacks(ctx, ownerID, n)
 		if err != nil {
-			return false, fmt.Errorf("dep %q connected check: %w", n, err)
+			return false, err
 		}
-		if !connected {
+		if missing {
 			return false, nil
 		}
 	}
@@ -231,14 +292,39 @@ func (r *DepRegistry) Unconnected(
 }
 
 // lacks —— 这个 owner 缺不缺这一个依赖。
+//
+// 名字带动作（`calendar:events.insert`）时问的是**做不做得了那个动作**，而不是
+// 「连没连」—— 后者对一个只授了只读的连接会说「连着呢」，然后每一次写都 403（F-B-8）。
 func (r *DepRegistry) lacks(ctx context.Context, ownerID, name string) (bool, error) {
-	p, ok := r.providers[name]
+	dep, op := splitDep(name)
+	p, ok := r.providers[dep]
 	if !ok {
 		return true, nil
 	}
+	if op != "" {
+		return lacksOp(ctx, ownerID, p, dep, op)
+	}
 	connected, err := p.Connected(ctx, ownerID)
 	if err != nil {
-		return false, fmt.Errorf("dep %q connected check: %w", name, err)
+		return false, fmt.Errorf("dep %q connected check: %w", dep, err)
 	}
 	return !connected, nil
+}
+
+// lacksOp —— 动作级的那一问。provider 答不出（没实现 OpProvider）时**当缺**：
+// manifest 点名了一个动作，而这台实例的那个依赖回答不了「做不做得了」——
+// 那就不该把这个能力放出去。Unknown() 在 boot 期就会把这种搭配拦下来，
+// 所以运行时走到这里只会是装配根漏接了闭包。
+func lacksOp(
+	ctx context.Context, ownerID string, p DepProvider, dep, op string,
+) (bool, error) {
+	opp, ok := p.(OpProvider)
+	if !ok {
+		return true, nil
+	}
+	can, err := opp.CanPerform(ctx, ownerID, op)
+	if err != nil {
+		return false, fmt.Errorf("dep %q can-perform %q: %w", dep, op, err)
+	}
+	return !can, nil
 }
