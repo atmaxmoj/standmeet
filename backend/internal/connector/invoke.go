@@ -62,9 +62,18 @@ func (s *Slots) Invoke(
 	return out, nil
 }
 
+// verbCanPerform —— **跨品类**的那一问：「这个 owner 的授权，做不做得了这一个 operation」。
+//
+// 为什么不放进 calendarVerbs / mailVerbs：这句话跟品类无关，答它的也不是品类契约而是连接行上
+// 的授权（`Slots.CanPerform`）。抄进每个品类一份，第二个品类迟早忘了抄（F-B-10）。
+const verbCanPerform = "can_perform"
+
 func (s *Slots) dispatchCategory(
 	ctx context.Context, ownerID, category, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
+	if verb == verbCanPerform {
+		return s.canPerformVerb(ctx, ownerID, category, args)
+	}
 	switch category {
 	case categoryCalendar:
 		return dispatchCalendar(ctx, s.Calendar(), ownerID, verb, args)
@@ -151,6 +160,31 @@ func dispatchMail(
 		return nil, fmt.Errorf("connector invoke: unknown mail verb %q", verb)
 	}
 	return fn(ctx, m, ownerID, args)
+}
+
+// canPerformVerb —— `{"operation":"events.insert"}` → `{"can":true|false}`。
+//
+// 沙箱侧要它做什么：一个能力可能提供**读**和**写**两种动作，而 owner 的授权可能只覆盖读。
+// 那时写的那把工具已经不在工具表里（F-B-8），但**卡片**还在（卡挂在读工具上），上面每颗
+// chip 仍然写着「点一下就订」—— 一个做不到的动作的入口。有了这一问，卡自己就能收起那个
+// 入口，跟已约卡按 `can_email` 决定要不要渲确认信 widget 是同一个做法。
+func (s *Slots) canPerformVerb(
+	ctx context.Context, ownerID, category string, args json.RawMessage,
+) (json.RawMessage, error) {
+	var req struct {
+		Operation string `json:"operation"`
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return nil, fmt.Errorf("connector invoke: decode can_perform args: %w", err)
+	}
+	if req.Operation == "" {
+		return nil, errors.New("connector invoke: can_perform needs an operation")
+	}
+	ok, err := s.CanPerform(ctx, ownerID, category, req.Operation)
+	if err != nil {
+		return nil, fmt.Errorf("connector can_perform: %w", err)
+	}
+	return marshalBool("can", ok)
 }
 
 // ─── calendar verbs ───

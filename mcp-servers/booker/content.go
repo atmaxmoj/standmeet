@@ -59,11 +59,14 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
  .chip{padding:6px 10px;border:1px solid #1B1814;background:#F3EFE6;cursor:pointer;
    font:13px ui-serif,Georgia,serif}
  .chip:hover{background:#1B1814;color:#F3EFE6}
+ /* 只读那一格:不是禁用的按钮,是一格时间。置灰的按钮说的是「等一等」,而这里等不来。 */
+ .chip.readonly{border-color:#d9d0c2;color:#6b5d4f;cursor:default}
+ .chip.readonly:hover{background:#F3EFE6;color:#6b5d4f}
  .empty{margin-top:8px;color:#6b5d4f;font-size:12px}
 </style></head><body>
 <script>
 (function(){
- var byDay={}, order=[], sel="";
+ var byDay={}, order=[], sel="", canBook=true;
  function h(){parent.postMessage({type:"mcp-ui:height",
    height:document.documentElement.scrollHeight+8},"*");}
  function fmtDay(d){return d.toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"});}
@@ -88,11 +91,22 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
      byDay[k].items.push({start:st,end:new Date(s.end)});
    });
  }
+ // renderTimes —— canBook=false 时 chip 不是按钮,是一格只读的时间(F-B-10)。
+ // 只授了 calendar.readonly 的实例,读得到空闲、写不进事件:那时每颗可点的 chip 都是
+ // 一个做不到的动作的入口,而访客点下去只会得到一句「马上给你订」然后什么也没发生。
+ // 做不到就不给入口 —— 跟已约卡按 can_email 决定要不要渲确认信 widget 是同一条规矩。
  function renderTimes(host){
    host.innerHTML="";
    var day=byDay[sel]; if(!day)return;
    day.items.forEach(function(it){
-     var b=el("button","chip",fmtTime(it.start)+" – "+fmtTime(it.end));
+     var label=fmtTime(it.start)+" – "+fmtTime(it.end);
+     if(!canBook){
+       var s=el("span","chip readonly",label);
+       s.setAttribute("data-testid","tool-card-slot-readonly");
+       host.appendChild(s);
+       return;
+     }
+     var b=el("button","chip",label);
      b.setAttribute("data-testid","tool-card-slot");
      b.onclick=function(){
        parent.postMessage({type:"mcp-ui:submit",
@@ -108,12 +122,19 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    var sum=el("summary");
    // 时区**在抬头上说一次**(UX-69 的邻居):这一格里每颗 chip 都是同一个区,
    // 逐颗印会把这排数字变成噪声 —— 而选时段这件事眼睛要比对数字。
-   var kick=el("span","kicker","available · "+slots.length+" slots · times in "+slotZone());
+   var kick=el("span","kicker",(canBook?"available · ":"owner's free time · ")
+     +slots.length+" slots · times in "+slotZone());
    kick.setAttribute("data-testid","bookings-kicker");
    sum.appendChild(kick); det.appendChild(sum);
    if(slots.length===0){
      det.appendChild(el("div","empty","no free slots in that window — try a different range."));
    } else {
+     // 说清楚这一格现在是什么。少掉一个可点的入口而不解释,看起来像坏了。
+     if(!canBook){
+       var note=el("div","empty","this is when the owner is free — booking isn't switched on here.");
+       note.setAttribute("data-testid","slots-readonly-note");
+       det.appendChild(note);
+     }
      sel=order[0];
      var cal=el("div","cal"); cal.setAttribute("data-testid","slot-calendar");
      var days=el("div","days");
@@ -137,7 +158,10 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
  }
  window.addEventListener("message",function(e){
    if(e.data&&e.data.type==="mcp-ui:data"){
-     var d=e.data.data||{}; render(Array.isArray(d.slots)?d.slots:[]); h();
+     var d=e.data.data||{};
+     // 缺字段时按**不能订**走。给一个点了没结果的入口,比少给一个更糟。
+     canBook = d.can_book === true;
+     render(Array.isArray(d.slots)?d.slots:[]); h();
    }
  });
  parent.postMessage({type:"mcp-ui:ready"},"*");

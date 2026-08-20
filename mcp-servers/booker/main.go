@@ -238,10 +238,18 @@ func listSlotsTool() mcpgo.Tool {
 			// chip，点一下就下单)。所以答案里不要把时段再列一遍 —— 卡是全的、答案里那份
 			// 往往只列前几个，两份表示两种截断，读的人得自己判断哪份是真的。
 			// 提一个具体时间是可以的(「你要的 3:00 那格不空」是在回答问题)，成串复述不行。
-			"The result renders for the visitor as a clickable slot picker, so do NOT "+
+			"The result renders for the visitor as a slot picker, so do NOT "+
 			"re-list the times in your reply — the card already shows them, and a second "+
 			"partial list contradicts it. Say what the picker is and let them pick; "+
-			"naming one specific time is fine when answering about that time.",
+			"naming one specific time is fine when answering about that time. "+
+			// F-B-10：只授只读的实例读得到空闲、写不进事件。那时卡上的 chip 不可点，
+			// 而模型如果照旧说「点一下就订好了」，访客点了什么也不会发生。
+			// 事实在结果里，读法写在这儿 —— 让它自己去读，别让它猜。
+			"Read `can_book` on the result: it says whether a time picked here can actually "+
+			"be booked. When it is false the picker is read-only — it shows when the owner "+
+			"is free and nothing more. Then do not offer to book, do not tell the visitor to "+
+			"tap a slot, and do not say it will be confirmed; say plainly that booking is not "+
+			"available here and give them the times.",
 		json.RawMessage(`{
 			"type":"object",
 			"properties":{

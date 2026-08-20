@@ -153,9 +153,14 @@ type slotWire struct {
 	End   string `json:"end"`
 }
 
+// listSlotsResultWire —— `can_book` 说的是「这个 owner 的日历授权**写得进去**吗」，不是
+// 「有没有空时段」（F-B-10）。只授了 `calendar.readonly` 时，读是通的、时段列得出来，写永远
+// 不成；那时这张卡上的每颗 chip 都是一个做不到的动作的入口。已约卡早就按 `can_email` 决定
+// 要不要渲确认信 widget —— 发不了信就不给入口。这里是同一句话，换成订会。
 type listSlotsResultWire struct {
-	Slots []slotWire `json:"slots"`
-	OK    bool       `json:"ok"`
+	Slots   []slotWire `json:"slots"`
+	OK      bool       `json:"ok"`
+	CanBook bool       `json:"can_book"`
 }
 
 func doListSlots(s session, rawArgs json.RawMessage) string {
@@ -171,7 +176,10 @@ func doListSlots(s session, rawArgs json.RawMessage) string {
 	if lerr != nil {
 		return friendlyCalErr(lerr)
 	}
-	out := listSlotsResultWire{OK: true, Slots: make([]slotWire, 0, len(slots))}
+	out := listSlotsResultWire{
+		OK: true, Slots: make([]slotWire, 0, len(slots)),
+		CanBook: ownerCanBook(s.OwnerID),
+	}
 	for i := range slots {
 		out.Slots = append(out.Slots, slotWire{
 			Start: slots[i].Start.UTC().Format(time.RFC3339),

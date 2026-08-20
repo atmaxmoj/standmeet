@@ -264,6 +264,21 @@ func ownerCanEmail(ownerID string) bool {
 	return json.Unmarshal(resp, &r) == nil && r.Connected
 }
 
+// ownerCanBook —— owner 的日历授权写不写得进去(决定时段卡的 chip 能不能点)。
+// 跟 ownerCanEmail 同一个形状:**做不到的动作不给入口**。
+// 答不上来时按不能办:这一格宁可少给一个入口,也不要给一个按下去没结果的。
+func ownerCanBook(ownerID string) bool {
+	args, _ := json.Marshal(map[string]string{"operation": "events.insert"})
+	resp, err := gwConnectorInvoke(ownerID, "calendar", "can_perform", args)
+	if err != nil {
+		return false
+	}
+	var r struct {
+		Can bool `json:"can"`
+	}
+	return json.Unmarshal(resp, &r) == nil && r.Can
+}
+
 func buildSummary(visitorName, topic string) string {
 	parts := make([]string, 0, 2)
 	if visitorName != "" {
