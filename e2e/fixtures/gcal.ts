@@ -60,6 +60,20 @@ export async function getGCalStatus(request: APIRequestContext): Promise<GCalSta
   return await res.json() as GCalStatus;
 }
 
+// grantedScopes —— 这条连接**实际授出去**的范围，从卡片读的那同一处
+// （`granted_scopes`，F-C-33 建的）。跟 `GCalStatus.scopes` 不是一回事：那是这个
+// 连接器**支持**哪些，这里是这一次**拿到**了哪些。
+export async function grantedScopes(
+  request: APIRequestContext, connectorID = 'google-calendar',
+): Promise<string[]> {
+  const res = await request.get(
+    `${BACKEND}/api/admin/connectors/${connectorID}/credential-form`,
+  );
+  if (res.status() !== 200) throw new Error(`credential-form: ${res.status()}`);
+  const body = await res.json() as { granted_scopes?: string[] };
+  return body.granted_scopes ?? [];
+}
+
 export interface OAuthInitResult {
   auth_url: string;
   state: string;

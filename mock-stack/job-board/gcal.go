@@ -58,7 +58,7 @@ type gcalState struct {
 	fails          map[string]*failInjection // op → injected failure (retry-matrix e2e)
 	freeBusyRaw    []byte                     // set_freebusy_raw: 下次 freeBusy 原样回这个（一次性）
 	eventShape     string                     // set_event_shape: "" | "object" | "array"（响应形状）
-	oauthOutcome   string                     // /__mock/oauth/program: ""|deny|token_invalid_client|state_mismatch|network_fail
+	oauthOutcome   string                     // /__mock/oauth/program: ""|deny|token_invalid_client|state_mismatch|network_fail|refresh_omit_scope
 	lastAuthScopes map[string][]string        // client_id → 上次 authorize 收到的 scope 子集（按 client_id 隔离：并行 oauth 测试各读自己的 dance，不互相污染共享记录）
 	tokenCallCount int
 	revoked        bool // owner revoked at Google → next refresh returns invalid_grant
@@ -237,6 +237,13 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 		Scope:       s.grantedScopeFor(r.PostForm.Get("client_id")),
 		TokenType:   scopeOAuthTokenType,
 		ExpiresIn:   defaultExpiresIn,
+	}
+	// refresh_omit_scope —— **刷新响应里不带 `scope`**，那是 RFC 6749 §5.1 明文允许的
+	// （范围跟原来一样时可以省略），也是不少 provider 的实际做法。Google 会回显，所以
+	// 这条路在真环境上永远走不到 —— 而替身一直比规范客气，产品因此从没被问过
+	// 「省略时你把已授范围当成什么」（[[stand-in-is-politer-than-reality]]）。
+	if grant == "refresh_token" && outcome == "refresh_omit_scope" {
+		resp.Scope = ""
 	}
 	if grant == "authorization_code" {
 		resp.RefreshToken = "mock-refresh-" + randomHex(mockAccessTokenLen)

@@ -47,7 +47,7 @@ func (r *oauthRefresher) doRefresh(
 	refresh := pickRefreshToken(conn.RefreshToken, tok.RefreshToken)
 	if serr := r.store.SaveTokens(ctx, connectorID, ownerID, &TokenRefresh{
 		AccessToken: tok.AccessToken, RefreshToken: refresh,
-		ExpiresAt: tok.ExpiresAt, Scopes: tok.Scopes,
+		ExpiresAt: tok.ExpiresAt, Scopes: pickScopes(conn.Scopes, tok.Scopes),
 	}); serr != nil {
 		return fmt.Errorf("persist refreshed token: %w", serr)
 	}
@@ -73,6 +73,20 @@ func (r *oauthRefresher) handleRefreshErr(
 // pickRefreshToken —— provider 可能不回新 refresh_token → 留旧的。
 func pickRefreshToken(old, fresh string) string {
 	if fresh != "" {
+		return fresh
+	}
+	return old
+}
+
+// pickScopes —— 同一条道理，隔壁那个字段（F-C-43）。RFC 6749 §5.1：范围没变时
+// token 响应**可以不带 `scope`**。不带 ≠ 一个都没授 —— 而这一格原样落库的话，
+// 一次静默刷新就把已授范围抹成空。
+//
+// 它现在是载荷不是记录：F-B-8 之后装配期拿它跟每个动作要求的 scope 对照。抹空的后果
+// 是 owner 连上一小时后，访客那边订会**静默消失**，而卡上仍写着 connected。
+// provider 明说了才更新，没说就留着。
+func pickScopes(old, fresh []string) []string {
+	if len(fresh) > 0 {
 		return fresh
 	}
 	return old

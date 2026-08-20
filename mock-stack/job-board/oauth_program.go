@@ -2,6 +2,7 @@
 // 不发 POST），编程下一次 dance 的结局 + 读回记录：
 //
 //	GET /__mock/oauth/program?outcome=deny|token_invalid_client|state_mismatch|network_fail|authorize
+//	                                 |refresh_omit_scope  —— 刷新响应不带 `scope`（RFC 允许）
 //	GET /__mock/oauth/reset            —— 清 outcome + 记录 + token 计数
 //	GET /__mock/oauth/last_authorize   —— {scopes:[...]} 上次 authorize 收到的 scope 子集
 //	GET /__mock/oauth/token_call_count —— {count} token 端点命中次数（静默刷新断言）
