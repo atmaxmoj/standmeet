@@ -46,19 +46,24 @@ export async function seedOwnerLoggedIn(playwright: Playwright): Promise<BaseSee
   return { request, csrf };
 }
 
-/** Claim + login + paste credentials (NOT authorized). */
-export async function seedOwnerCredentialed(playwright: Playwright): Promise<BaseSeed> {
+/** Claim + login + paste credentials (NOT authorized).
+ *
+ *  `scopes` is what the owner ticked on the card. Omitted = everything the
+ *  connector offers, which is what every spec but the read-only one wants. */
+export async function seedOwnerCredentialed(
+  playwright: Playwright, scopes?: readonly string[],
+): Promise<BaseSeed> {
   const seed = await seedOwnerLoggedIn(playwright);
-  await saveGCalCredentials(seed.request, seed.csrf, MOCK_GCAL_CREDS);
+  await saveGCalCredentials(seed.request, seed.csrf, { ...MOCK_GCAL_CREDS, scopes });
   return seed;
 }
 
 /** Fully connected: credentials + OAuth complete. Backend defaults
  *  (24h lead, Mon-Fri, 09-18) apply unless caller passes overrides. */
 export async function seedOwnerGCalConnected(
-  playwright: Playwright, policy?: Partial<BookingPolicy>,
+  playwright: Playwright, policy?: Partial<BookingPolicy>, scopes?: readonly string[],
 ): Promise<BaseSeed> {
-  const seed = await seedOwnerCredentialed(playwright);
+  const seed = await seedOwnerCredentialed(playwright, scopes);
   await runMockOAuthFlow(seed);
   if (policy) await setBookingPolicy(seed.request, seed.csrf, policy);
   const status = await getGCalStatus(seed.request);
@@ -76,6 +81,9 @@ export interface CodedSeedInput {
   granted_skills?: readonly string[];
   max_bookings?: number;
   policy?: Partial<BookingPolicy>;
+  // scopes —— owner 授出去的范围。省略 = 全授，绝大多数 spec 要的就是这个。
+  // 传 `[GCAL_SCOPE_READ]` 得到一个**连着但写不了**的实例（F-B-8）。
+  scopes?: readonly string[];
 }
 
 export async function seedCodeVisitorOnConnectedOwner(
@@ -92,7 +100,7 @@ export async function seedCodeVisitorOnConnectedOwner(
   };
   const seed = await seedOwnerGCalConnected(playwright, {
     ...permissive, ...input.policy,
-  });
+  }, input.scopes);
   const code = await issueCodeWithSkills(seed.request, seed.csrf, {
     granted_skills: input.granted_skills ?? ['calendar.book'],
     max_bookings: input.max_bookings,

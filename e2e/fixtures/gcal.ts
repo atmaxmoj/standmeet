@@ -16,7 +16,15 @@ const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 export interface GCalCredentials {
   client_id: string;
   client_secret: string;
+  // scopes —— owner 在卡上勾了哪几个（省略 = 卡的默认，全勾）。带进 dance，
+  // provider 照本次授出的范围回显，最后落在连接行上。只读授权的种子要它。
+  scopes?: readonly string[];
 }
+
+/** The two scopes the calendar connector can ask for. A grant that carries only
+ *  READ can list slots and can never write an event — the split F-B-8 is about. */
+export const GCAL_SCOPE_READ = 'https://www.googleapis.com/auth/calendar.readonly';
+export const GCAL_SCOPE_WRITE = 'https://www.googleapis.com/auth/calendar.events';
 
 export const MOCK_GCAL_CREDS: GCalCredentials = {
   client_id: 'mock-gcal-client-id',
