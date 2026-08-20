@@ -131,6 +131,8 @@ type DepProvider interface {
 	Connected(ctx context.Context, ownerID string) (bool, error)
 }
 
+// RequiresPerTool 在 pertool.go —— 动作级那一层的声明和筛选放一处。
+
 // OpProvider —— 除了「连没连」，还答得出**「这个 owner 做不做得了这一个动作」**。
 //
 // 为什么需要第二个问题（F-B-8 ⭐⭐）：`Connected` 说的是「我们手里有一个可用连接」，

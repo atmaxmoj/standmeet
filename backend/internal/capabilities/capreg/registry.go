@@ -142,6 +142,7 @@ func (r *Registry) AssembleVisitor(
 		if err != nil || b == nil {
 			continue
 		}
+		r.dropUnperformableTools(ctx, c, in, b)
 		out = append(out, b)
 	}
 	return out

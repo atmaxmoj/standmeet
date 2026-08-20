@@ -39,6 +39,39 @@ func NewSlots(hub *Hub, store SlotStore) *Slots { return &Slots{hub: hub, store:
 // Register —— 把一个（运行时装配好的上传）连接器注册进 Hub（幂等）。POST /connectors 用。
 func (s *Slots) Register(c Connector) { s.hub.Upsert(c) }
 
+// CanPerformer —— 答得出「这个 owner 的授权做不做得了这一个 operation」的连接器。
+// openapi 那一类实现它（比对 spec 的 per-op scope 和连接行上已授的 scope）；
+// protocol 那一类没有 scope 这个概念，不实现。
+type CanPerformer interface {
+	CanPerform(ctx context.Context, ownerID, operationID string) (bool, error)
+}
+
+// CanPerform —— 某品类的 active 连接器做不做得了这一个 operation（F-B-8）。
+//
+// **答不出就放行**（不像"没连"那样挡住）：protocol 连接器根本没有 scope 这回事，
+// 拿"答不出"当"做不了"会把一整类连接器的动作全藏掉 —— 那正是这条修法要避免的
+// 「为了修『提供了做不到的动作』而拿掉做得到的动作」。真正做不了的那一类会明确回 false。
+func (s *Slots) CanPerform(
+	ctx context.Context, ownerID, category, operationID string,
+) (bool, error) {
+	c, err := s.active(ctx, ownerID, category)
+	if err != nil {
+		if errors.Is(err, errNoActiveConnector) {
+			return false, nil // 连都没连，自然做不了；能力级那一层也会挡。
+		}
+		return false, err
+	}
+	cp, ok := c.(CanPerformer)
+	if !ok {
+		return true, nil
+	}
+	can, cerr := cp.CanPerform(ctx, ownerID, operationID)
+	if cerr != nil {
+		return false, fmt.Errorf("connector %q can-perform %q: %w", category, operationID, cerr)
+	}
+	return can, nil
+}
+
 // ConnectorCalendar —— 按 id 取一个连接器的 CalendarProxy（diag：直接打某个连接器，不经 active 槽）。
 // （Resolve+断言这条模式本想用泛型 resolveAs[T] 收口，但 Go 无泛型方法、方法接口又不能 union 进
 // 约束，唯一可行的 [T any] 被业务层 forbidigo 禁；几行内联断言比 ban 掉的构造更直白，留着。）

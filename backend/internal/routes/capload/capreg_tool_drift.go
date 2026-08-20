@@ -22,6 +22,10 @@ import (
 // 空 = 这个能力没声明，于是「这个工具是谁的」在拨号之前查不到它 —— 那是未知，不是没有。
 func (c *mcpAppCapability) VisitorToolNames() []string { return c.m.VisitorTools }
 
+// ToolRequires —— manifest 里**某几个工具各自**额外点名的依赖（capreg.RequiresPerTool）。
+// 装配时按它把做不了的那几个动作摘掉，而同一个能力里做得了的照旧在（F-B-8）。
+func (c *mcpAppCapability) ToolRequires() map[string][]string { return c.m.VisitorToolRequires }
+
 // reportToolDrift —— 首拨是**真答案第一次到手**的那一刻，拿它对一遍声明。
 func reportToolDrift(m *mcpplugin.Manifest, dialed []mcpclient.Tool) {
 	drift := mcpplugin.VisitorToolDrift(m, toolNames(dialed))

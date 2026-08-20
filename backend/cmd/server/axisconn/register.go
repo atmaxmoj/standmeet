@@ -205,7 +205,16 @@ func RegisterDiscoveredConnectors(
 		}
 		hub.Register(c)
 	}
-	depReg.Register(capreg.NamedProvider("calendar", d.ConnectorSlots.Calendar().Connected))
+	// calendar 用 NamedOpProvider：除了「连没连」，它还答得出**「这个 owner 的授权
+	// 做不做得了这一个动作」**。能力的 manifest 用 `calendar:events.insert` 点名动作，
+	// 只授了只读的实例因此不会再把「订会」摆给访客（而「列时段」照旧在）—— F-B-8。
+	depReg.Register(capreg.NamedOpProvider(
+		"calendar",
+		d.ConnectorSlots.Calendar().Connected,
+		func(ctx context.Context, ownerID, op string) (bool, error) {
+			return d.ConnectorSlots.CanPerform(ctx, ownerID, "calendar", op)
+		},
+	))
 	depReg.Register(capreg.NamedProvider("smtp", d.ConnectorSlots.Mail().Connected))
 	registerUploadedConnectors(ctx, hub, d.ConnectorRepo, adeps, d.Log)
 	return nil

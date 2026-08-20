@@ -52,6 +52,22 @@ const SCOPE_WRITE = 'https://www.googleapis.com/auth/calendar.events';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
+// ⚠️ 仍然 fixme，但**理由换了，而且换成了更小的一件事**。
+//
+// 机制链已经通了，并且有 Go 测试守着（`capabilities/pertool_requires_test.go`）：
+//   spec 的 per-op `security` → `Spec.ScopesFor` → `openapiCore.CanPerform`（授到的 ⊇ 需要的）
+//   → `Slots.CanPerform` → `capreg.NamedOpProvider` → `dropUnperformableTools` 装配时摘工具
+//   → manifest 里 `calendar_book` 点名 `calendar:events.insert`，而 `calendar_list_slots` 不点名。
+//
+// 这个文件断的是**owner 那一面**（写着 connected 的卡要说出「这个授权做不了什么」），
+// 那一面还没建。而访客那一面（工具根本不出现）要一个**只授只读的种子**——
+// 现有的 `seedCodeVisitorOnConnectedOwner` 走 API 连接、拿的是全量 scope，
+// e2e/fixtures 里没有"只授只读"这条路（UI 那条 `selectScope` 有，但它不发码、不起会话）。
+//
+// 解除条件（两件，各自独立）：
+//   1. 连接器卡上出一行 `connector-scope-shortfall`（这个文件现在断的就是它）；
+//   2. 给 gcal-setup 加一个只授只读的种子，然后另写一条断「访客拿不到 calendar_book、
+//      但仍拿得到 calendar_list_slots」——**后半句是重点**，别只断前半句。
 test.describe.fixme('F-B-8 · a read-only grant must not put booking in front of a visitor', () => {
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
     test.setTimeout(180_000);

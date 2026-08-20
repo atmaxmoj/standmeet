@@ -65,6 +65,8 @@ type boundOp struct {
 	resolved resolvedOp
 }
 
+// ScopesFor 在 scopes.go —— 「这一步要什么权限」跟「怎么发这个请求」是两件事。
+
 // Call —— 执行一个契约方法。op = 契约方法名（list_busy/create_event/send…）；input 是带类型
 // 入参（marshal 成 JSON 喂 request JSONata）；dst 非 nil 时把契约出参解进它。
 func (r *Runtime) Call(ctx context.Context, op string, input, dst any, auth AuthInjector) error {

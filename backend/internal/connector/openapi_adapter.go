@@ -52,6 +52,8 @@ func (c *openapiCore) Connected(ctx context.Context, ownerID string) (bool, erro
 	return conn.Connected, nil
 }
 
+// CanPerform 在 openapi_can_perform.go —— 「这个授权做不做得了这一步」是独立的一问。
+
 // ExposesAgentTools —— 这个连接器是否把 raw operations 暴露成 agent 工具（§3）。
 func (c *openapiCore) ExposesAgentTools() bool { return c.expose }
 
