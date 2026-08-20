@@ -1,0 +1,28 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/chat-voice-persistence/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "fa46-01-first-turn", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Reload Memory Check"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Remember this phrase for later, exactly: pineapple-lighthouse-42. Just confirm you have it."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 50000 }
+      ],
+      "wait": 2000, "fullPage": true },
+    { "name": "fa46-02-after-reload", "url": "/",
+      "steps": [{ "wait": 9000 }],
+      "wait": 2000, "fullPage": true },
+    { "name": "fa46-03-does-it-remember",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "What was the phrase I asked you to remember?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 50000 }
+      ],
+      "wait": 2000, "fullPage": true }
+  ]
+}
