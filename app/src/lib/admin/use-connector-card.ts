@@ -117,10 +117,10 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   const { connected, hasCredentials, unreadable, setConnected, loadStatus } = status;
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
+  // values / chosen —— owner 正在**编辑**的东西，只活在这一屏上。它们不是服务端状态：
+  // 敲进去的字要到按下 Connect 那一刻才发出去（F-C-46）。
   const values = useRef<Record<string, string>>({});
   const chosen = useRef<Set<string>>(new Set());
-  // pendingSave —— 最近一笔存凭据。Connect 等它（见 saveCreds）；一次都没填过时是已完成的空 promise。
-  const pendingSave = useRef<Promise<void>>(Promise.resolve());
 
   const loadForm = useCallback(() => {
     void adminAPI.get(`/connectors/${id}/credential-form`, FormSchema)
@@ -152,15 +152,28 @@ export function useConnectorCard(id: string): ConnectorCardHook {
     }
   }, [id]);
 
-  // saveCreds —— 字段改动即存（带勾选 scope）。**留住这个 promise**：连接器在库里的那一行就是
-  // 这一笔建的，Connect 必须等它落地。以前这里是 fire-and-forget，owner 填完立刻点的话
-  // connect 跑在它前面 —— 后端对着一张还不存在的行标 connected，卡片翻绿而库里什么都没有。
+  // saveCreds —— 把这一屏编辑的东西存下去。**它是提交点，而按键不是**（F-C-46）。
+  //
+  // 以前每敲一个字符就存一遍。两条各自正确的规矩因此撞在一起：服务端「凭据真变了就清掉
+  // connected」（D-5 / F-C-30），于是 owner **刚开始**改密码，那条还在用的连接就已经被标成
+  // 没连了 —— 发码的信、预约确认信当场停摆，而卡上还写着 connected。改到一半走开、或者改完
+  // 又放弃的人，留下的是一条不能用的连接。
+  //
+  // 现在只有 Connect 会调它：存完紧接着就验证，「变了要重验」那条规矩因此仍然成立，
+  // 只是重验落在 owner 明确提交的那一刻。返回 promise —— Connect 必须等它落地：
+  // 连接器在库里的那一行就是这一笔建的（后端对着不存在的行标 connected 会翻绿而库里空）。
   const saveCreds = useCallback(() => {
-    pendingSave.current = adminAPI.postVoid(`/connectors/${id}/credentials`, {
-      ...values.current, scopes: [...chosen.current],
-    }).catch(() => setError('Couldn’t save credentials — check your connection and retry.'));
+    // **一个字都没填就别存**：空的一笔照样会把连接器那一行建出来，而 connect 的那条
+    // UPDATE 只要命中行就报「连上了」—— 于是「什么都没填也说连上了」（connector-connect-receipt
+    // 钉的正是这件事）。以前存绑在按键上，空存不可能发生；提交点搬到 Connect 之后就可能了。
+    if (Object.keys(values.current).length === 0 && chosen.current.size === 0) {
+      return Promise.resolve();
+    }
     // 存失败必须吵闹：否则 owner 以为凭据存好了，点 Connect 却用着未保存的凭据连接失败，一头雾水。
     // connect() 起头会 setError('')，故这条 save 错在下次点 Connect 时自然清掉。
+    return adminAPI.postVoid(`/connectors/${id}/credentials`, {
+      ...values.current, scopes: [...chosen.current],
+    }).catch(() => setError('Couldn’t save credentials — check your connection and retry.'));
   }, [id]);
 
   const connect = useCallback(() => {
@@ -173,8 +186,8 @@ export function useConnectorCard(id: string): ConnectorCardHook {
     const go = authType === 'oauth2'
       ? () => startDance(id, { setConnecting, setError })
       : () => runNonDanceConnect(id, { setConnecting, setConnected, setError });
-    void pendingSave.current.then(go);
-  }, [id, authType, setConnected]);
+    void saveCreds().then(go);
+  }, [id, authType, setConnected, saveCreds]);
 
   const disconnect = useCallback(() => {
     void adminAPI.postVoid(`/connectors/${id}/disconnect`, {})
@@ -186,8 +199,9 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   return {
     authType, fields, scopes, granted, missingScopes, schemes, connected, hasCredentials,
     unreadable, connecting, error, reloadStatus: loadStatus,
-    setField: (k, v) => { values.current[k] = v; saveCreds(); },
-    setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); saveCreds(); },
+    // 只记在这一屏上，不发出去 —— 提交点是 Connect（F-C-46）。
+    setField: (k, v) => { values.current[k] = v; },
+    setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); },
     connect, disconnect,
   };
 }

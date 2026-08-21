@@ -1,0 +1,29 @@
+{
+  "_why": "F-C-46 的 ⑤ —— 在真 prod 上重演当初的动作：往 mail 卡的凭据框里打字，**不点 CONNECT**，然后离开这一屏再回来。\n\n红态是这一趟自己造出来的：库里 `connected_at` 变成 NULL，发信当场停摆，而卡上还写着 connected。绿态是打完字回来卡还是 `connected`，库里那一行没动 —— 判据在截图上（卡片状态）和库里（`connected_at` 不变）各看一次。\n\n打进去的是一个明显作废的值，所以要是它被存下去了，紧接着的测试发信必然失败 —— 这一趟同时也是「凭据没被偷偷改掉」的检查。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "shots": [
+    { "name": "mc6-07-typed-not-committed", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"connector-field-from_address\"]", "half-typed@nowhere.invalid"] },
+        { "wait": 1000 },
+        { "click": "[data-testid=\"admin-nav-obsidian\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"admin-nav-connectors\"]" },
+        { "wait": 3500 },
+        { "scroll": ["[data-testid=\"connector-row-smtp\"]", 200] }
+      ], "wait": 1500 },
+    { "name": "mc6-08-still-sends", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"connector-row-smtp\"]", 400] },
+        { "typeSecret": ["[data-testid=\"connector-op-field-to\"]", "GMAIL_SMTP_USER"] },
+        { "type": ["[data-testid=\"connector-op-field-subject\"]", "standmeet verify · typing did not disconnect"] },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-op-run\"]" },
+        { "wait": 25000 },
+        { "scroll": ["[data-testid=\"connector-row-smtp\"]", 400] }
+      ], "wait": 1500 }
+  ]
+}
