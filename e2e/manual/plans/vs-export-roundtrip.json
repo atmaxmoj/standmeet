@@ -1,0 +1,15 @@
+{
+  "_why": "vault-sync check 8 的前半：把语料导出成一份 vault 归档，跟原始 vault 逐样对。\n\n判据（item 的 Expected）：导出的结构镜像 vault —— genre 是文件夹、树是嵌套、folder-note 生成、链接还原、frontmatter 重建。\n\n下载走 `downloadDir`：人点「下载」拿到的就是文件本身，不是去截图上认。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "downloadDir": "/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/vs-export",
+  "viewport": [1280, 900],
+  "login": true,
+  "shots": [
+    { "name": "vs-32-export-clicked", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "text=EXPORT TO OBSIDIAN" },
+        { "wait": 45000 }
+      ], "wait": 2000 }
+  ]
+}
