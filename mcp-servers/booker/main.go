@@ -200,17 +200,29 @@ func withCard(t mcpgo.Tool, label, cardURI string) mcpgo.Tool {
 	return t
 }
 
+// readOnly —— 声明这把工具是**安全且幂等的读**(MCP `annotations.readOnlyHint`)。
+//
+// 宿主拿它决定这把工具能不能走 HTTP `QUERY`(带 body 的读)。不声明 = 默认「会改东西」,
+// 于是列时段这种纯读只能用 POST —— 「这次调用会不会改变什么」这个问题产品自己答错了
+// (F-B-13)。四个 `corpus_*` 一直答得对,booker 的读从没答过。
+func readOnly(t mcpgo.Tool) mcpgo.Tool {
+	yes := true
+	t.Annotations.ReadOnlyHint = &yes
+	return t
+}
+
 // listBookingsTool —— owner 面:列已约的会。host 侧曾经有一条 admin REST 路由直接查
 // booker 的存储(它认识了 booker 的数据形状),因为沙箱当时拿不到自己记录的 id。
 func listBookingsTool() mcpgo.Tool {
-	return mcpgo.NewToolWithRawSchema("bookings_list",
+	// 也是读 —— 邻居一起扫,别只修被看见的那一个([[lesson-not-swept-to-neighbours]])。
+	return readOnly(mcpgo.NewToolWithRawSchema("bookings_list",
 		"List the owner's confirmed bookings, newest first, each with its booking id.",
 		json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"limit":{"type":"integer","description":"Max rows (default 50, max 200)."}
 			}
-		}`))
+		}`)))
 }
 
 // cancelByIDTool —— owner 面:按预约 id 取消。host 侧曾经把这套逻辑又写了一遍
@@ -229,7 +241,7 @@ func cancelByIDTool() mcpgo.Tool {
 }
 
 func listSlotsTool() mcpgo.Tool {
-	return withCard(mcpgo.NewToolWithRawSchema("calendar_list_slots",
+	return readOnly(withCard(mcpgo.NewToolWithRawSchema("calendar_list_slots",
 		"List available [start, end] slots on the owner's calendar between "+
 			"from_rfc3339 and until_rfc3339 that pass booking policy and don't "+
 			"overlap any busy window. Returns up to 50 slots. Use this before "+
@@ -261,7 +273,7 @@ func listSlotsTool() mcpgo.Tool {
 					"description":"Enumeration step in minutes (default 30)."}
 			},
 			"required":["from_rfc3339","until_rfc3339","duration_min"]
-		}`)), "listing slots", slotsCardURI)
+		}`)), "listing slots", slotsCardURI))
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`. 只带通用身份

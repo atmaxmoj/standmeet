@@ -98,7 +98,7 @@ func toBookingRow(id string, d *bookingDoc) bookingRow {
 		ID: id, Summary: d.Summary, VisitorEmail: d.VisitorEmail,
 		SubjectID: d.SubjectID, SubjectKind: d.SubjectKind,
 		ConversationID: d.ConversationID,
-		GoogleEventID: d.GoogleEventID, GoogleHTMLLink: d.GoogleHTMLLink,
+		GoogleEventID:  d.GoogleEventID, GoogleHTMLLink: d.GoogleHTMLLink,
 		StartAt: d.StartAt.UTC().Format(time.RFC3339),
 		EndAt:   d.EndAt.UTC().Format(time.RFC3339),
 	}

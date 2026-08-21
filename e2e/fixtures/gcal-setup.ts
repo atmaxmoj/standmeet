@@ -4,6 +4,8 @@
 
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
+import { test } from '@/fixtures/test';
+
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
@@ -33,6 +35,12 @@ export interface BaseSeed {
 
 /** Just claim + login. Cleans GCal mock state too. */
 export async function seedOwnerLoggedIn(playwright: Playwright): Promise<BaseSeed> {
+  // 这段前置要 reset 实例 + claim + 登录 + 存凭据 + 走一遍 mock OAuth + 建 skill/role/code。
+  // 栈刚重建过(镜像层冷、沙箱第一次起)时它超过默认的 30s，而那时报出来的是
+  // **"beforeAll hook timeout"** —— 一句跟产品无关的话，长得却像这条用例挂了。
+  // 预算给在**种子这一层**而不是每条 spec 各写一遍：下一条用它的 spec 不必再撞一次
+  // （[[lesson-not-swept-to-neighbours]]）。
+  test.setTimeout(150_000);
   resetInstance();
   // beforeAll setup POSTs 在满载串行跑时偶发 >10s(config actionTimeout=10_000),
   // 给 seed 的 request context 一个宽的显式超时,别让前置条件 flake 掉整个 describe。
