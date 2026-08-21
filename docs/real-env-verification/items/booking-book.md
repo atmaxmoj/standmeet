@@ -32,11 +32,11 @@
 - **Expected:** The over-limit attempt is refused in readable words, and no extra event lands.
 - **Backing test:** `chat-book-quota-exhausted.spec.ts`
 
-### 5 — A duplicate insert is handled, not assumed away ⭐
-- **Steps:** Provoke the same event being inserted twice, for instance through a reconnect and retry. Read what the provider returned and what the backend did with it.
-- **Expected:** The provider's conflict response is handled and the visitor is not double-booked.
-- **Mock gap:** The mock answers a duplicate insert with an idempotent success. So the "no double booking after a reconnect" that CI proves rests on a behaviour a real provider does not have, and the real conflict path has never run.
-- **Backing test:** `connector-retry-*.spec.ts` · the real conflict → `gap`
+### 5 — Two callers cannot take the same slot ⭐
+- **Steps:** Send two bookings for the identical slot at the same moment. Then open the calendar.
+- **Expected:** One of them books; the other is told the time just went, in words it can act on. The calendar holds one event, not two. Concurrent bookings for *different* slots must both still succeed — a product that serialises the whole calendar has traded one defect for another.
+- **Mock gap:** a real calendar has no "duplicate insert" error to lean on — Google's `events.insert` twice is simply two events. The protection has to come from this side, so the check is a race, not a provider response, and it is judged on the calendar rather than on the receipt.
+- **Backing test:** `booking-slot-race.spec.ts` (asserts on the provider, not on the receipt) · `connector-retry-*.spec.ts`
 
 ### 6 — The model reasons its way to a booking
 - **Steps:** Ask to book in plain language, with no scripted tool queue. Watch the model list slots and then book.
