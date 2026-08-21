@@ -270,6 +270,9 @@ type visitorToolset struct {
 	Tools          []tool.BaseTool
 	// ClaimGates —— 本场装配到的「说了就得做」条件,原样交给这一轮(F-A-37)。
 	ClaimGates []inference.ClaimGate
+	// SessionNotes —— 会话开始之后才成立的事实(额度用完了)。访客那份 system prompt 在发会话
+	// 时就冻住了,这是它们唯一进得去的通路(F-B-14)。
+	SessionNotes []string
 }
 
 func resolveAgentTurnCred(
@@ -311,7 +314,8 @@ func collectVisitorTools(
 	return &visitorToolset{
 		Bindings: bindings, Tools: fr.Tools,
 		Labels: fr.Labels, ReturnDirectly: fr.ReturnDirectly,
-		ClaimGates: turnClaimGates(fr.ClaimGates),
+		ClaimGates:   turnClaimGates(fr.ClaimGates),
+		SessionNotes: h.Visitor.AgentSkills.SessionNotes(ctx, in),
 	}
 }
 

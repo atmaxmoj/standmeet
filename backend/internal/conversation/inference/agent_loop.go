@@ -101,11 +101,14 @@ func BuildAgentIterator(
 	agent, aerr := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:        "visitor",
 		Description: "standmeet visitor chat agent",
-		Instruction: instructionWithDateTime(
-			instructionWithCrossConv(
-				instructionWithDoc(in.Req.System, in.Req.DocContext), in.CrossConvContext,
+		Instruction: instructionWithSessionNotes(
+			instructionWithDateTime(
+				instructionWithCrossConv(
+					instructionWithDoc(in.Req.System, in.Req.DocContext), in.CrossConvContext,
+				),
+				time.Now(), in.OwnerTimezone, in.VisitorTimezone,
 			),
-			time.Now(), in.OwnerTimezone, in.VisitorTimezone,
+			in.SessionNotes,
 		),
 		Model: cm,
 		ToolsConfig: adk.ToolsConfig{

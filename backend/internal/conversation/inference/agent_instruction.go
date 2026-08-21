@@ -6,7 +6,10 @@
 
 package inference
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // instructionWithDoc —— persona instruction 末尾拼一段「访客正看着 X」的位置上下文,
 // 让代词指代("this page"/"这篇"/"这个项目")解析到那篇 doc。doc 为 nil / 空 → 原样返。
@@ -61,6 +64,21 @@ func visitorTZClause(visitorTZ, ownerLabel string) string {
 		return " The visitor is in the same timezone (" + visitorTZ + ")."
 	}
 	return " The visitor's timezone is " + visitorTZ + "."
+}
+
+// instructionWithSessionNotes —— 把**这一场此刻**才成立的事实拼进 instruction。
+//
+// 为什么不能只写在 system prompt 里:访客那份 prompt 在**发会话时**就定下了(客户端按 part id
+// 拼好再发回来)。会话中途才变真的事 —— 额度用完了、连接器掉线了 —— 从那条路进不来。于是
+// 一个额度用尽的会话里,模型看见的说明书还写着「你会订会」,手上却没有那把工具,而它对这份
+// 证据最自然的修复是怀疑自己刚才的输出:F-B-14 里它把两场**真的**会说成没订成。
+//
+// 空 → 原样返回:没有新事实时不动那份 instruction(prompt hash 的确定性也靠这一点)。
+func instructionWithSessionNotes(system string, notes []string) string {
+	if len(notes) == 0 {
+		return system
+	}
+	return system + "\n\nTrue right now in this session:\n" + strings.Join(notes, "\n")
 }
 
 // instructionWithCrossConv —— 「互通」:把该 member 其他对话的 digest 拼进 instruction,

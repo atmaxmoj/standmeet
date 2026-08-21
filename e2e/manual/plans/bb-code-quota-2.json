@@ -1,0 +1,35 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/booking-book/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "bb7-01-only-booking", "url": "/?code=QUOTAAUDIT2-2A12",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Limit Lee"] },
+        { "type": ["[data-testid=\"visitor-email-input\"]", "limit.lee@example.com"] },
+        { "click": "[data-testid=\"visitor-name-submit\"]" },
+        { "wait": 5000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Please book me a 30-minute call on Tuesday, September 8 at 10:00 am Eastern. Call it \"the only one\"."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 70000 }
+      ],
+      "wait": 2000, "fullPage": true },
+
+    { "name": "bb7-02-second-attempt",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "Thanks. Could you also book a second 30-minute call on Tuesday, September 8 at 2:00 pm Eastern?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 70000 }
+      ],
+      "wait": 2000, "fullPage": true },
+
+    { "name": "bb7-03-does-the-first-still-stand",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "So is my 10:00 am call on September 8 actually booked, or not?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 70000 }
+      ],
+      "wait": 2000, "fullPage": true }
+  ]
+}

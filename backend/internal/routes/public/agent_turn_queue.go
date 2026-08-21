@@ -48,6 +48,7 @@ func dispatchTurn(
 		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
 		VisitorTimezone:  req.VisitorTimezone,
+		SessionNotes:     ts.SessionNotes,
 		MarkWaypoints:    buildAgentTurnLedger(h, auth),
 		Epilogue:         buildGhostForTurn(h, auth, cred, req.ConversationID),
 		TurnEnded:        slot.release,

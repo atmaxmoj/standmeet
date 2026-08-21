@@ -90,10 +90,12 @@ func (c *mcpAppCapability) Requires() []string { return c.m.Requires }
 func (c *mcpAppCapability) SystemPromptFragment(
 	ctx context.Context, in *capreg.AssembleInput,
 ) string {
-	if !mcpAppGranted(&c.m, in.RoleSnapshot) || !c.fragmentActive(in) {
+	if !c.fragmentVisible(in) {
 		return ""
 	}
-	return c.cachedInstructions(ctx)
+	// 额度用尽时**换成**那一句实话,而不是照发一份「你会做这件事」的说明书 —— 说明书还在、
+	// 工具没了,正是 F-B-14 里 agent 反过来否认自己战果的那份证据。
+	return firstNonEmpty(c.spentAllowanceNote(ctx, in), c.cachedInstructions(ctx))
 }
 
 // SystemPromptFragmentID —— fragment 活跃时返 "capabilities/<id>"（跟 in-process 时代
@@ -279,6 +281,19 @@ func (c *mcpAppCapability) exposable(
 // 控 prompt fragment 贡献 + CapabilityState.Enabled。
 func (c *mcpAppCapability) fragmentActive(in *capreg.AssembleInput) bool {
 	return c.fragmentGate == nil || c.fragmentGate(in)
+}
+
+// fragmentVisible —— 这一场里这个能力有没有资格说话(role 授权 + fragment 活跃)。
+func (c *mcpAppCapability) fragmentVisible(in *capreg.AssembleInput) bool {
+	return mcpAppGranted(&c.m, in.RoleSnapshot) && c.fragmentActive(in)
+}
+
+// firstNonEmpty —— 有实话就说实话,否则发说明书。
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }
 
 // cachedInstructions —— server 的 initialize instructions = 本能力的 system-prompt

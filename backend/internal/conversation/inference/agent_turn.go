@@ -45,35 +45,8 @@ func agentTurnTimeout() time.Duration {
 	return defaultAgentTurnTimeout
 }
 
-// AgentTurnRequest —— 浏览器 POST body。
-//
-// system + user_message 拼好直接当 ChatModelAgent 的 instruction +
-// user input；history 是上一 turn 之前的对话记录（可能含 assistant
-// tool_calls / tool 结果，用 pi unified shape），传给 ADK 当上下文。
-//
-// ConversationID —— 持久化的 chat ID (issueSession 时返回的)；backend
-// 内部 tool (calendar_book / dialog persist) 用来把当 turn 的产物关
-// 联到正确的 conversation 行。老 /sessions/{convID}/tools/{name} wire
-// 走 URL path；新 /agent/turn 由 body 透。
-type AgentTurnRequest struct {
-	DocContext      *AgentDocContext `json:"doc_context,omitempty"`
-	System          string           `json:"system"`
-	UserMessage     string           `json:"user_message"`
-	ConversationID  string           `json:"conversation_id"`
-	Model           string           `json:"model,omitempty"`
-	VisitorTimezone string           `json:"visitor_timezone,omitempty"`
-	History         []ChatRequestMsg `json:"history,omitempty"`
-}
-
-// AgentDocContext —— 访客当前所在 document 的最小标识(给指代解析用)。
-type AgentDocContext struct {
-	Title string `json:"title"`
-	Path  string `json:"path"`
-	Genre string `json:"genre"` // wiki | output | writing
-}
-
-// 通用 instruction 的组合器(doc / date+tz / cross-conv)拆到 agent_instruction.go
-// 守 350-line cap。
+// 线上形状(AgentTurnRequest / AgentDocContext)拆到 agent_turn_wire.go;通用 instruction 的
+// 组合器(doc / date+tz / cross-conv / session notes)拆到 agent_instruction.go。都守 350-line cap。
 
 // AgentTurnInput —— RunAgentTurn / BuildAgentIterator 的入参打包，避开
 // revive 5-arg 上限。字段顺序按 govet fieldalignment 排：3 个 pointer 在
@@ -135,6 +108,12 @@ type AgentTurnInput struct {
 	// ClaimGates —— 本场授了的能力声明的「说了就得做」条件(装配期从 manifest 带进来)。
 	// 空 = 这一轮没有需要回执支撑的主张。见 agent_claim_gate.go。
 	ClaimGates []ClaimGate
+	// SessionNotes —— 会话**开始之后**才成立的事实(额度用完了、连接器掉线了)。
+	//
+	// 访客那份 system prompt 是发会话时定下、由客户端拼好发回来的,中途变真的事进不去;
+	// 这里是它们唯一的通路。route handler 装(问注册表),inference 只负责拼进 instruction。
+	// 空 = 这一轮没有新事实。见 F-B-14。
+	SessionNotes []string
 }
 
 // RunAgentTurn —— 跑一整轮 agent loop，向 w 写 pi-style SSE。caller (route
