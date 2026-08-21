@@ -1,0 +1,19 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/agent-turn-boundary/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "fa34-01-huge-ask", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Long Lena"] },
+        { "type": ["[data-testid=\"visitor-email-input\"]", "long.lena@example.com"] },
+        { "click": "[data-testid=\"visitor-name-submit\"]" },
+        { "wait": 5000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Walk me through your whole cybernetics thread in depth — every note in it, one detailed paragraph each, in the order you'd read them, with what each one adds and where it disagrees with the previous one. Don't summarise; I want the long version."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 180000 }
+      ],
+      "wait": 3000, "fullPage": true }
+  ]
+}
