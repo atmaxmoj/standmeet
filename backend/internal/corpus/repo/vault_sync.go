@@ -26,15 +26,22 @@ func NewVaultSyncRepo(pool *pgstore.Pool) *VaultSyncRepo { return &VaultSyncRepo
 
 // SyncNote —— reconcile 视图：认领(title) + 变更比对 + 定位(genre/parent)。
 type SyncNote struct {
-	ImportedAt  time.Time
-	UpdatedAt   time.Time
-	ID          string
-	Genre       string
-	ParentID    string
-	Title       string
-	Body        string
-	Excerpt     string
+	ImportedAt time.Time
+	UpdatedAt  time.Time
+	ID         string
+	Genre      string
+	ParentID   string
+	Title      string
+	Body       string
+	Excerpt    string
+	// Lang / Aliases —— 导出要写回 frontmatter 的两样（F-L-59）。
+	//
+	// 它们**不是装饰**：aliases 是链接解析的输入（`[[别名]]` 靠它解开），lang 是多语言
+	// 渲染契约的一半。以前这个视图没有它们，于是导出连读都没读 —— 而 owner 用「导出」
+	// 再导回来，就会把真语料上的这两样抹平。
+	Lang        string
 	Tags        []string
+	Aliases     []string
 	HasImported bool
 	Published   bool
 }
@@ -294,6 +301,7 @@ func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([
 		sn := SyncNote{
 			ID: pgstore.FormatUUID(rows[i].ID), Genre: rows[i].Genre, Title: rows[i].Title,
 			Body: rows[i].Body, Published: rows[i].Published, Tags: rows[i].Tags,
+			Lang: rows[i].Lang, Aliases: rows[i].Aliases,
 		}
 		if rows[i].ParentID.Valid {
 			sn.ParentID = pgstore.FormatUUID(rows[i].ParentID)

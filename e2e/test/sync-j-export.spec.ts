@@ -28,6 +28,7 @@ test.describe('sync J · export / bidirectional', () => {
   test('happy: export puts a wiki note at wiki/<title>.md', exportGenreFolder);
   test('happy: export nests the tree as folders + folder-notes', exportTree);
   test('happy: exported note reconstructs frontmatter (publish/tags)', exportFrontmatter);
+  test('happy: exported note keeps lang + aliases (F-L-59)', exportKeepsLangAndAliases);
   test('happy: subjectivity note exports under subjectivity/', exportSubjectivity);
   // ── corner ──
   test('corner: a [[link]] survives the round to the exported body', exportLinksPreserved);
@@ -145,6 +146,30 @@ async function exportFrontmatter({ playwright }: Ctx): Promise<void> {
   const zip = await exportEntries(request);
   const entry = Object.entries(zip).find(([k]) => k.endsWith('wiki/fm.md'))?.[1] ?? '';
   expect(entry, 'frontmatter reconstructed').toMatch(/^---[\s\S]*publish:\s*true[\s\S]*---/m);
+  await request.dispose();
+}
+
+// F-L-59：**导出把语言契约和 aliases 丢了**，而 `exportFrontmatter` 那条看不见 ——
+// 它只断 `publish`，也就是导出**恰好会写**的那两样之一。判据跟着实现走，就永远发现不了实现少了什么。
+//
+// prod 上量的：真 vault 的 575 条 wiki **每一条**都带 `lang` / `langs` / `aliases`，
+// 导出的 575 条**一条都没有**；而库里 `has_lang = 575`、`has_aliases = 575` —— 事实就在
+// 导出要读的那一行上。往返的下一步是「把导出再导回来」，那一步会把这两样在真语料上抹平：
+// aliases 是接进链接解析的（`[[别名]]` 从此解不开），lang/langs 是多语言渲染契约。
+async function exportKeepsLangAndAliases({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  await uploadVault(request, OWNER, [{
+    rel: 'wiki/bilingual.md',
+    body: makeVaultMD(
+      { publish: true, lang: 'en', langs: ['en', 'zh'], aliases: ['另一个名字'] },
+      'body',
+    ),
+  }]);
+  const zip = await exportEntries(request);
+  const entry = Object.entries(zip).find(([k]) => k.endsWith('wiki/bilingual.md'))?.[1] ?? '';
+  expect(entry, '导出的确实是这条笔记').toContain('body');
+  expect(entry, 'aliases 必须回到导出的 frontmatter —— 它是链接解析的输入').toContain('另一个名字');
+  expect(entry, '语言标记必须回到导出的 frontmatter').toMatch(/^lang:\s*en/m);
   await request.dispose();
 }
 

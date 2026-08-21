@@ -86,19 +86,35 @@ func notePath(n *corpus.SyncNote, byID map[string]*corpus.SyncNote) []string {
 	return out
 }
 
-// renderNoteMD —— frontmatter(publish + tags)+ body,格式跟 import 侧对称。
+// renderNoteMD —— frontmatter + body,格式跟 import 侧对称。
+//
+// 「对称」这句话以前是假的（F-L-59）：导入解析并存下了 `lang` 和 `aliases`，导出只写
+// publish + tags，于是真 vault 的 575 条 wiki 每条都带的三个键，在导出的 575 条里一个都
+// 没有。而 item 的往返判据下一步就是「把导出再导回来」—— 那一步会把双语配对和
+// `[[别名]]` 的解析输入在真语料上抹平。所以对称必须**逐个字段**成立，不是一句注释。
 func renderNoteMD(n *corpus.SyncNote) string {
 	lines := []string{"---", fmt.Sprintf("publish: %t", n.Published)}
-	if len(n.Tags) > 0 {
-		lines = append(lines, "tags:")
-		for _, t := range n.Tags {
-			lines = append(lines, "  - "+t)
-		}
+	if n.Lang != "" {
+		lines = append(lines, "lang: "+n.Lang)
 	}
+	lines = appendListField(lines, "aliases", n.Aliases)
+	lines = appendListField(lines, "tags", n.Tags)
 	lines = append(lines, "---", "")
 	body := n.Body
 	if !strings.HasSuffix(body, newline) {
 		body += newline
 	}
 	return strings.Join(lines, newline) + newline + body
+}
+
+// appendListField —— 一个 YAML 列表字段（空就整个不写，跟 import 侧「没有这个键」等价）。
+func appendListField(lines []string, key string, vals []string) []string {
+	if len(vals) == 0 {
+		return lines
+	}
+	lines = append(lines, key+":")
+	for _, v := range vals {
+		lines = append(lines, "  - "+v)
+	}
+	return lines
 }

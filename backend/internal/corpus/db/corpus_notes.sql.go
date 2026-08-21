@@ -659,7 +659,7 @@ func (q *Queries) ListAllNoteMeta(ctx context.Context, arg ListAllNoteMetaParams
 }
 
 const listAllNotesForExport = `-- name: ListAllNotesForExport :many
-SELECT id, genre, parent_id, title, body, tags, published
+SELECT id, genre, parent_id, title, body, tags, published, lang, aliases
 FROM corpus_notes WHERE owner_id = $1
 ORDER BY created_at
 `
@@ -672,9 +672,13 @@ type ListAllNotesForExportRow struct {
 	Body      string
 	Tags      []string
 	Published bool
+	Lang      string
+	Aliases   []string
 }
 
 // Vault export: all corp notes(any genre) with body/tree/publish — 反向 render 成 vault .md。
+// lang / aliases 一起取（F-L-59）：导出少了它们，owner 导出再导回来就会把双语配对和
+// `[[别名]]` 的解析输入在**真语料上**抹平。丢失从这条 SELECT 开始，不是从渲染开始。
 func (q *Queries) ListAllNotesForExport(ctx context.Context, ownerID pgtype.UUID) ([]ListAllNotesForExportRow, error) {
 	rows, err := q.db.Query(ctx, listAllNotesForExport, ownerID)
 	if err != nil {
@@ -692,6 +696,8 @@ func (q *Queries) ListAllNotesForExport(ctx context.Context, ownerID pgtype.UUID
 			&i.Body,
 			&i.Tags,
 			&i.Published,
+			&i.Lang,
+			&i.Aliases,
 		); err != nil {
 			return nil, err
 		}
