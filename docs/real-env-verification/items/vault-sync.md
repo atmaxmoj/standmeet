@@ -31,7 +31,7 @@
 
 ### 5 — Moves and renames reconcile
 - **Steps:** Move a note to a new path. Rename one. Move one across genres. Re-import after each. Then upload a subset of the vault.
-- **Expected:** A move updates in place rather than duplicating. A cross-genre move edits in place. A partial upload only upserts and never deletes what it did not include.
+- **Expected:** A move updates in place rather than duplicating. A cross-genre move edits in place. A partial upload only upserts what it did include: it never deletes the rest, and never edits or relocates the rest either. Count the notes per genre before and after — a partial upload that reports `deleted 0` can still have moved a note out of `raw` by claiming it under a shared title.
 - **Backing test:** `corpus-sync-rename.spec.ts` · `sync-h-reconcile.spec.ts` · `sync-i-raw.spec.ts`
 
 ### 6 — An authoritative sync prunes what the vault no longer has ⭐

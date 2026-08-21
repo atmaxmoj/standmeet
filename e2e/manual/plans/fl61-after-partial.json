@@ -1,0 +1,9 @@
+{
+  "_why": "F-L-61 ⑤ 的第二张：重放那次子集上传之后，再看一眼这一屏。要看到的是侧栏的语料计数回到 482 raw · 575 wiki（跟 DB 一致），也就是「这次部分喂入什么都没搬走」。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "viewport": [1280, 900],
+  "login": true,
+  "shots": [
+    { "name": "vs-37-fl61-after-partial", "url": "/admin/obsidian", "wait": 6000 }
+  ]
+}

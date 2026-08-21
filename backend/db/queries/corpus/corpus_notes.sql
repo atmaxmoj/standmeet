@@ -232,6 +232,28 @@ WHERE owner_id = $1 AND obsidian_source_path = $2
 ORDER BY created_at ASC
 LIMIT 1;
 
+-- name: GetNoteByTitleInGenre :one
+-- Vault-sync reconcile identity for a STRUCTURAL node (a folder placeholder: it has no file, so
+-- obsidian_source_path is empty and GetNoteBySourcePath cannot tell one folder from another). Its
+-- identity is (genre, title) — it IS a folder on its own tree. Needed when the title is ambiguous:
+-- `raw/math/` and `wiki/math/` both exist in a real vault, and claiming across genres by title
+-- drags one tree's folder into the other genre (F-L-61).
+SELECT * FROM corpus_notes
+WHERE owner_id = $1 AND genre = $2 AND title = $3
+ORDER BY created_at ASC
+LIMIT 1;
+
+-- name: ListDuplicateNoteTitles :many
+-- Titles this owner's corpus holds MORE THAN ONCE (across genres). GetNoteByTitleAnyGenre claims
+-- the OLDEST row with a title, so when a title is not unique, claiming by title is a coin toss —
+-- and the losing side is a note in another genre that the upload never mentioned (F-L-61). The
+-- ambiguity is a property of the CORPUS, not of one upload: a two-file subset upload contains each
+-- title once, so counting collisions inside the upload cannot see it.
+SELECT lower(title)::text AS title FROM corpus_notes
+WHERE owner_id = $1
+GROUP BY lower(title)
+HAVING count(*) > 1;
+
 -- name: CreateNoteSync :one
 -- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
 -- inbox_source is the vault-source tag for genre='raw' ("obsidian:<path>"); empty for other genres.

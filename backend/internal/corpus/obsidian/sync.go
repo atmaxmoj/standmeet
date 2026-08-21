@@ -1,7 +1,8 @@
 // sync.go —— sync face 入口。vault 文件批 → corpus_notes 多-genre 节点树(raw 折进 genre='raw')。
 // 路由:顶层 folder → genre(wiki/subjectivity/raw;output 无 folder = promote-derived;未知/根裸
 // 文件跳过)。跳 hidden(dotdir/_templates)。reconcile:按 title 认领(跨 genre,支持 move);basename
-// 在本 vault 不唯一时改按 source_path 认(同名文件各占各行,F-L-2)→ upsert;未变则 skip。链接整批解析。
+// 不唯一时改按 source_path 认(同名文件各占各行,F-L-2)→ upsert;未变则 skip。链接整批解析。
+// 「唯一不唯一」问的是**语料**,不是这一批上传(F-L-61,见 sync_ambiguity.go)。
 //
 // **vault 是 single live source**(见 vault-ingestion 决策):sync 就是让 destination 等于 source,
 // 没有"谁 wins" —— web 上改过的不会把自己钉住对抗 vault,要留就先 export 回 vault 再同步(F-L-6)。
@@ -47,6 +48,10 @@ func IsVaultTopFolder(seg string) bool {
 type SyncNotesPort interface {
 	GetByTitle(ctx context.Context, ownerID, title string) (corpus.SyncNote, error)
 	GetBySourcePath(ctx context.Context, ownerID, sourcePath string) (corpus.SyncNote, error)
+	// DuplicateTitles —— 语料里已经重名的标题(跨 genre,小写)。按 title 认领之前先问它。
+	DuplicateTitles(ctx context.Context, ownerID string) ([]string, error)
+	// GetByTitleInGenre —— 只在一个 genre 里按 title 认。结构节点(无 source_path)的身份。
+	GetByTitleInGenre(ctx context.Context, ownerID, genre, title string) (corpus.SyncNote, error)
 	Create(ctx context.Context, in *corpus.CreateSyncNoteInput) (string, error)
 	Update(ctx context.Context, in *corpus.UpdateSyncNoteInput) error
 	// PruneAbsentVaultNotes —— drop vault-imported notes not in keepIDs (F-L-6, authoritative).
@@ -81,10 +86,14 @@ func SyncVault(
 	syncWritings(ctx, deps, ownerID, b.writing, &result)
 	syncCSS(ctx, deps, ownerID, b.css)
 	tree := buildDesiredTree(b.corp)
-	st := &syncState{
-		ownerID: ownerID, idOf: map[string]string{},
-		dupTitles: collidingTitles(tree),
+	// 先问语料哪些标题有歧义,再动手。问不出来就整批不做:不知道歧义在哪还按 title 认领,
+	// 等于拿别的 genre 里的笔记当赌注(见 sync_ambiguity.go)。
+	dup, derr := ambiguousTitles(ctx, deps, ownerID, tree)
+	if derr != nil {
+		result.Errors = append(result.Errors, derr.Error())
+		return result
 	}
+	st := &syncState{ownerID: ownerID, idOf: map[string]string{}, dupTitles: dup}
 	for _, node := range tree {
 		reconcileNode(ctx, deps, node, st, &result)
 	}
@@ -114,25 +123,8 @@ func syncWritings(
 // 有人去读第二次（F-L-60）。
 type syncState struct {
 	idOf      map[string]string
-	dupTitles map[string]bool // lowercased titles shared by >1 node → ambiguous, rejected
+	dupTitles map[string]bool // lowercased titles that are ambiguous → claim by source_path
 	ownerID   string
-}
-
-// collidingTitles —— titles shared by more than one node in this vault. Reconcile claims BY TITLE
-// (assuming basenames are unique); a shared title is ambiguous (can't tell a genre-move from two
-// distinct notes) so those claim by source_path instead (see claimExisting).
-func collidingTitles(tree []*desiredNode) map[string]bool {
-	seen := map[string]int{}
-	for _, n := range tree {
-		seen[strings.ToLower(n.title)]++
-	}
-	dup := map[string]bool{}
-	for title, count := range seen {
-		if count > 1 {
-			dup[title] = true
-		}
-	}
-	return dup
 }
 
 // nodeOp —— reconcile 一个节点的参数包(避开 argument-limit)。
@@ -146,18 +138,27 @@ type nodeOp struct {
 }
 
 // claimExisting —— reconcile 认领同一条 note 的入口。默认按 title 认(跨 genre,支持 move)。
-// 但 title 在本 vault 不唯一时(不同文件夹同名文件),title 认领会把它们塌成一条 —— 改按
-// source_path 认(文件路径唯一),让同名文件各占各行(schema 本来就是这么设计的:见
-// obsidian_source_path 注释 + corpus_notes_source_path_idx)。结构节点(无 file → source_path 空)
-// 永远按 title 认(空路径会互撞)。
+// 但 title 有歧义时(不同文件夹的同名文件 —— 语料里已经这样,或这批上传里就这样),按 title 认
+// 就是抓阄,输的那条可能住在别的 genre。歧义集合怎么算见 sync_ambiguity.go;有歧义时改用
+// 两把更细的尺子,按节点有没有文件分:
+//
+//   - 有文件 → 按 source_path 认(文件路径唯一),同名文件各占各行(schema 本来就是这么设计的:
+//     见 obsidian_source_path 注释 + corpus_notes_source_path_idx)。
+//   - 结构节点(文件夹占位,source_path 是空的,空路径会互撞)→ 在**自己这个 genre 里**按 title
+//     认:它的身份就是「自己那棵树上的那个文件夹」。真 vault 里 raw/math/ 和 wiki/math/ 并存
+//     是常态,跨 genre 认会把一棵树的文件夹拖进另一个 genre(F-L-61)。
 func claimExisting(
 	ctx context.Context, deps *SyncDeps, node *desiredNode, st *syncState,
 ) (corpus.SyncNote, error) {
-	if st.dupTitles[strings.ToLower(node.title)] && node.file != nil && node.file.sourcePath != "" {
+	if !st.dupTitles[strings.ToLower(node.title)] {
+		note, err := deps.Notes.GetByTitle(ctx, st.ownerID, node.title)
+		return note, wrapClaim(err)
+	}
+	if node.file != nil && node.file.sourcePath != "" {
 		note, err := deps.Notes.GetBySourcePath(ctx, st.ownerID, node.file.sourcePath)
 		return note, wrapClaim(err)
 	}
-	note, err := deps.Notes.GetByTitle(ctx, st.ownerID, node.title)
+	note, err := deps.Notes.GetByTitleInGenre(ctx, st.ownerID, node.genre, node.title)
 	return note, wrapClaim(err)
 }
 

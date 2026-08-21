@@ -1,0 +1,14 @@
+{
+  "_why": "F-L-61 的 ⑤ —— 两步。\n\n第一步在界面上把真 vault 整份导回来，让语料回到 482 / 19 / 575（这一步顺带就是 check 1 的界面腿，走 owner 平时点的那条路：选目录 = 真导入）。\n\n第二步不在这个 plan 里：导完之后重放当初造成损伤的那次子集上传（两个 wiki 文件、不带 authoritative），再数一次三个 genre 的条数。红态是 `raw 482→479 · wiki 575→578`（第一版修完仍有 `raw 481 · wiki 576`，被搬走的是结构节点 `math`）。绿态是三个数一个不动，而那两条目标笔记就地更新。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "shots": [
+    { "name": "vs-36-fl61-reimport", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 4000 },
+        { "pickDir": ["[data-testid=\"obsidian-vault-input\"]", "/Users/wangsijie/Develop/writing/notes"] },
+        { "wait": 90000 }
+      ], "wait": 3000 }
+  ]
+}

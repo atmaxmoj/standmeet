@@ -450,6 +450,65 @@ func (q *Queries) GetNoteByTitleAnyGenre(ctx context.Context, arg GetNoteByTitle
 	return i, err
 }
 
+const getNoteByTitleInGenre = `-- name: GetNoteByTitleInGenre :one
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND genre = $2 AND title = $3
+ORDER BY created_at ASC
+LIMIT 1
+`
+
+type GetNoteByTitleInGenreParams struct {
+	OwnerID pgtype.UUID
+	Genre   string
+	Title   string
+}
+
+// Vault-sync reconcile identity for a STRUCTURAL node (a folder placeholder: it has no file, so
+// obsidian_source_path is empty and GetNoteBySourcePath cannot tell one folder from another). Its
+// identity is (genre, title) — it IS a folder on its own tree. Needed when the title is ambiguous:
+// `raw/math/` and `wiki/math/` both exist in a real vault, and claiming across genres by title
+// drags one tree's folder into the other genre (F-L-61).
+func (q *Queries) GetNoteByTitleInGenre(ctx context.Context, arg GetNoteByTitleInGenreParams) (CorpusNote, error) {
+	row := q.db.QueryRow(ctx, getNoteByTitleInGenre, arg.OwnerID, arg.Genre, arg.Title)
+	var i CorpusNote
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Genre,
+		&i.ParentID,
+		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.Aliases,
+		&i.SourceIds,
+		&i.ShowAsSource,
+		&i.Excerpt,
+		&i.Published,
+		&i.CssClasses,
+		&i.Lang,
+		&i.LangLabels,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
+		&i.CoverHeadline,
+		&i.CoverHue,
+		&i.CoverImageAssetID,
+		&i.ReadMinutes,
+		&i.CrossRefs,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getNoteCssClasses = `-- name: GetNoteCssClasses :one
 SELECT css_classes FROM corpus_notes WHERE id = $1 AND owner_id = $2
 `
@@ -776,6 +835,38 @@ func (q *Queries) ListDistinctTagsByGenre(ctx context.Context, arg ListDistinctT
 			return nil, err
 		}
 		items = append(items, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDuplicateNoteTitles = `-- name: ListDuplicateNoteTitles :many
+SELECT lower(title)::text AS title FROM corpus_notes
+WHERE owner_id = $1
+GROUP BY lower(title)
+HAVING count(*) > 1
+`
+
+// Titles this owner's corpus holds MORE THAN ONCE (across genres). GetNoteByTitleAnyGenre claims
+// the OLDEST row with a title, so when a title is not unique, claiming by title is a coin toss —
+// and the losing side is a note in another genre that the upload never mentioned (F-L-61). The
+// ambiguity is a property of the CORPUS, not of one upload: a two-file subset upload contains each
+// title once, so counting collisions inside the upload cannot see it.
+func (q *Queries) ListDuplicateNoteTitles(ctx context.Context, ownerID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listDuplicateNoteTitles, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var title string
+		if err := rows.Scan(&title); err != nil {
+			return nil, err
+		}
+		items = append(items, title)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
