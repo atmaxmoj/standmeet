@@ -33,7 +33,8 @@ type bookingRow struct {
 	EndAt          string `json:"end_at"`
 	Summary        string `json:"summary"`
 	VisitorEmail   string `json:"visitor_email"`
-	CodeID         string `json:"code_id"`
+	SubjectID      string `json:"subject_id"`
+	SubjectKind    string `json:"subject_kind"`
 	ConversationID string `json:"conversation_id"`
 	GoogleEventID  string `json:"google_event_id,omitempty"`
 	GoogleHTMLLink string `json:"google_html_link,omitempty"`
@@ -95,7 +96,8 @@ func loadBookings(ownerID string, limit int) ([]bookingRow, error) {
 func toBookingRow(id string, d *bookingDoc) bookingRow {
 	return bookingRow{
 		ID: id, Summary: d.Summary, VisitorEmail: d.VisitorEmail,
-		CodeID: d.CodeID, ConversationID: d.ConversationID,
+		SubjectID: d.SubjectID, SubjectKind: d.SubjectKind,
+		ConversationID: d.ConversationID,
 		GoogleEventID: d.GoogleEventID, GoogleHTMLLink: d.GoogleHTMLLink,
 		StartAt: d.StartAt.UTC().Format(time.RFC3339),
 		EndAt:   d.EndAt.UTC().Format(time.RFC3339),

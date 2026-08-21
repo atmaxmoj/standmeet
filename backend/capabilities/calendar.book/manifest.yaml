@@ -172,12 +172,15 @@ role_config:
       Send the owner a notification email when a visitor of this role books a
       meeting. Frozen with the rest of the role config when a session starts.
 
-# quota —— per-code 用量上限：上限取码上的 max_bookings，用量数自己存储里 bookings 表的
-# code_id。宿主照这三句话通用地闸 + 报余量；它仍然不认识 "booking"。
+# quota —— per-**主体**用量上限：上限取那个主体上的 max_bookings，用量数自己存储里 bookings
+# 表的 subject_id。宿主照这三句话通用地闸 + 报余量；它仍然不认识 "booking"。
+#
+# 主体既可能是一张邀请码，也可能是一把对外 API key —— 这一行以前写死 `code_id`，于是 key 那
+# 条路订的会没有主体可数，配额一次都不闸（F-B-11）。
 quota:
   config_key: max_bookings
   collection: bookings
-  code_field: code_id
+  subject_field: subject_id
 
 # claim_gate —— F-A-37。这个能力做的事**要么发生了要么没发生**，而模型可以把它说出来而不做。
 # 真实环境里就是这样：连约四场之后，第五次的回答是 "Booked. ✅ Monday, August 31 · 13:00–13:30

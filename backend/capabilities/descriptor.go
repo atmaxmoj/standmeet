@@ -111,18 +111,18 @@ type fieldDesc struct {
 	Default     string `yaml:"default"`
 }
 
-// quotaDesc —— per-code 用量上限的三句话。三句不齐 → 不闸(宿主数不出用量时,"不闸"比
-// "瞎闸"对)。
+// quotaDesc —— per-**主体**用量上限的三句话。三句不齐 → 不闸(宿主数不出用量时,"不闸"比
+// "瞎闸"对)。主体可以是一张码,也可以是一把对外 API key(F-B-11)。
 type quotaDesc struct {
-	ConfigKey  string `yaml:"config_key"`
-	Collection string `yaml:"collection"`
-	CodeField  string `yaml:"code_field"`
+	ConfigKey    string `yaml:"config_key"`
+	Collection   string `yaml:"collection"`
+	SubjectField string `yaml:"subject_field"`
 }
 
 // manifest —— 三句话齐了才给出一份声明;没声明 quota 的能力得到 nil。
 func (q quotaDesc) manifest() *mcpplugin.QuotaDecl {
 	decl := &mcpplugin.QuotaDecl{
-		ConfigKey: q.ConfigKey, Collection: q.Collection, CodeField: q.CodeField,
+		ConfigKey: q.ConfigKey, Collection: q.Collection, SubjectField: q.SubjectField,
 	}
 	if !decl.Usable() {
 		return nil

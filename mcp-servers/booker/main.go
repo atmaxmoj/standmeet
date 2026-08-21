@@ -268,8 +268,11 @@ func listSlotsTool() mcpgo.Tool {
 // (owner/code/conversation/role/visitor);booking 专属配置(quota / policy / notify)都在
 // booker 自己的 capstore,按这些 id 读 —— 核心 session 一个 booking 字段都不带。
 type session struct {
-	OwnerID        string
-	CodeID         string
+	OwnerID string
+	// SubjectID / SubjectKind —— 这一场以谁的身份在跑:一张邀请码,或一把对外 API key。
+	// 我们把它记进每一笔预约,宿主照着数配额(manifest 的 QuotaDecl.SubjectField)。
+	SubjectID      string
+	SubjectKind    string
 	ConversationID string
 	VisitorName    string
 	VisitorEmail   string
@@ -311,7 +314,8 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 	}
 	return session{
 		OwnerID:        str(raw, "owner_id"),
-		CodeID:         str(raw, "code_id"),
+		SubjectID:      str(raw, "subject_id"),
+		SubjectKind:    str(raw, "subject_kind"),
 		ConversationID: str(raw, "conversation_id"),
 		VisitorName:    str(raw, "visitor_name"),
 		VisitorEmail:   str(raw, "visitor_email"),

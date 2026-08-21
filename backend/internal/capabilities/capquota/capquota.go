@@ -23,23 +23,26 @@ import (
 
 // Counter —— 数这个能力自己存储里的用量(构造期绑死到它的命名空间)。
 type Counter struct {
-	store      *capstore.Store
-	cfg        *capconfig.Store
-	decl       *mcpplugin.QuotaDecl
-	capID      string
-	kind       capstore.Kind
-	codeFields []mcpplugin.ConfigField
+	store *capstore.Store
+	cfg   *capconfig.Store
+	decl  *mcpplugin.QuotaDecl
+	capID string
+	kind  capstore.Kind
+	// subjectFields —— 这个能力在一个主体上占的那几个字段的声明(上限就是其中一个)。
+	// 码和 key 用同一份声明:同一个字段挂在不同主体上,不是两套字段。
+	subjectFields []mcpplugin.ConfigField
 }
 
 // Bind —— 一次绑定要的全部东西。打包成 struct 而不是六个位置参数:调用点数逗号数不清
 // 哪个是 kind 哪个是 capID,而这两个正是"填不了别人的表"所依赖的那两个。
 type Bind struct {
-	Store      *capstore.Store
-	Config     *capconfig.Store
-	Decl       *mcpplugin.QuotaDecl
-	CapID      string
-	Kind       capstore.Kind
-	CodeFields []mcpplugin.ConfigField
+	Store  *capstore.Store
+	Config *capconfig.Store
+	Decl   *mcpplugin.QuotaDecl
+	CapID  string
+	Kind   capstore.Kind
+	// SubjectFields —— 见 Counter.subjectFields。
+	SubjectFields []mcpplugin.ConfigField
 }
 
 // New —— 把一份声明绑到某个能力的存储上。声明不完整 / 无声明 → nil(这个能力不闸用量)。
@@ -48,14 +51,17 @@ func New(b *Bind) *Counter {
 		return nil
 	}
 	return &Counter{
-		store: b.Store, cfg: b.Config, decl: b.Decl, codeFields: b.CodeFields,
+		store: b.Store, cfg: b.Config, decl: b.Decl, subjectFields: b.SubjectFields,
 		kind: b.Kind, capID: b.CapID,
 	}
 }
 
-// Allow —— 这张码还能不能再用一次。无 code / 无上限 → 放行。读失败 → 报错(调用方决定)。
-func (c *Counter) Allow(ctx context.Context, codeID string) (bool, error) {
-	left, err := c.Remaining(ctx, codeID)
+// Allow —— 这个主体还能不能再用一次。无主体 / 无上限 → 放行。读失败 → 报错(调用方决定)。
+//
+// 主体以**挂载点**的形式传进来(`capconfig.CodeScope(id)` / `KeyScope(id)`):这个包不认识
+// 有几种主体,也不该认识 —— 是谁、挂在哪,由看得见两边的组装根说。
+func (c *Counter) Allow(ctx context.Context, subject capconfig.Scope) (bool, error) {
+	left, err := c.Remaining(ctx, subject)
 	if err != nil {
 		return false, err
 	}
@@ -65,13 +71,13 @@ func (c *Counter) Allow(ctx context.Context, codeID string) (bool, error) {
 	return *left > 0, nil
 }
 
-// Remaining —— 还剩几次。nil = 不限(或无 code)—— **不是 0**:0 会被读成"已用尽"。
-func (c *Counter) Remaining(ctx context.Context, codeID string) (*int32, error) {
-	limit, err := c.limitOf(ctx, codeID)
+// Remaining —— 还剩几次。nil = 不限(或无主体)—— **不是 0**:0 会被读成"已用尽"。
+func (c *Counter) Remaining(ctx context.Context, subject capconfig.Scope) (*int32, error) {
+	limit, err := c.limitOf(ctx, subject)
 	if err != nil || limit == nil {
 		return nil, err
 	}
-	used, cerr := c.used(ctx, codeID)
+	used, cerr := c.used(ctx, subject.ID())
 	if cerr != nil {
 		return nil, cerr
 	}
@@ -80,12 +86,12 @@ func (c *Counter) Remaining(ctx context.Context, codeID string) (*int32, error) 
 	return &left, nil
 }
 
-// limitOf —— 这张码上的上限。没设 / null / ≤ 0 → nil(不限)。
-func (c *Counter) limitOf(ctx context.Context, codeID string) (*int32, error) {
-	if codeID == "" {
-		return nil, nil //nolint:nilnil // 无 code = 不限,不是错误
+// limitOf —— 这个主体上的上限。没设 / null / ≤ 0 → nil(不限)。
+func (c *Counter) limitOf(ctx context.Context, subject capconfig.Scope) (*int32, error) {
+	if subject.ID() == "" {
+		return nil, nil //nolint:nilnil // 无主体 = 不限,不是错误
 	}
-	values, err := c.cfg.ValuesScoped(ctx, capconfig.CodeScope(codeID), c.codeFields)
+	values, err := c.cfg.ValuesScoped(ctx, subject, c.subjectFields)
 	if err != nil {
 		return nil, fmt.Errorf("capquota limit: %w", err)
 	}
@@ -107,9 +113,9 @@ func decodeLimit(raw json.RawMessage) (*int32, error) {
 	return limit, nil
 }
 
-// used —— 这张码已经用掉多少(数能力自己存储里的行)。
-func (c *Counter) used(ctx context.Context, codeID string) (int64, error) {
-	filter, merr := json.Marshal(map[string]string{c.decl.CodeField: codeID})
+// used —— 这个主体已经用掉多少(数能力自己存储里的行)。
+func (c *Counter) used(ctx context.Context, subjectID string) (int64, error) {
+	filter, merr := json.Marshal(map[string]string{c.decl.SubjectField: subjectID})
 	if merr != nil {
 		return 0, fmt.Errorf("capquota filter: %w", merr)
 	}

@@ -23,6 +23,7 @@ const (
 	ownerCollection = "capconfig"
 	codeCollection  = "capconfig_code"
 	roleCollection  = "capconfig_role"
+	keyCollection   = "capconfig_key"
 )
 
 // OwnerScope —— 某个 owner 对这个能力的配置(面板上填的那些)。
@@ -47,5 +48,19 @@ func RoleScope(roleID string) Scope {
 	return Scope{key: "role_id", collection: roleCollection, id: roleID}
 }
 
-// ok —— 有主体才谈得上配置。空 id(无 code 的会话)→ 读到空,不是错。
+// KeyScope —— 某一把**对外 API key** 上这个能力占的那几个字段(铸 key 时一起填)。
+//
+// 第四个挂载点。加它的理由不是对称,是 F-B-11:配额本来只认「码」,而 key 那条路上没有码 ——
+// 于是一把对外 key 订会**一次都不数**,真日历上想塞多少塞多少。这个面上真正存在的主体是
+// key,所以上限就挂在 key 上。
+func KeyScope(keyID string) Scope {
+	return Scope{key: "api_key_id", collection: keyCollection, id: keyID}
+}
+
+// ID —— 这个挂载点上的主体 id。配额那一侧要用它去数用量(能力自己存储里记着同一个 id),
+// 于是"上限挂在谁身上"和"用量按谁数"用的是**同一个值** —— 分成两个参数传的话,总有一天
+// 一处传的是码、另一处传的是别的。
+func (s Scope) ID() string { return s.id }
+
+// ok —— 有主体才谈得上配置。空 id(无主体的会话)→ 读到空,不是错。
 func (s Scope) ok() bool { return s.id != "" }

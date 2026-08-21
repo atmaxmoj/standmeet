@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
@@ -26,6 +27,14 @@ import (
 // session (干净路径，跟"真错"区分)。registry silently skip；VisitorStates
 // 也跳过不进 capability map。
 var ErrHidden = errors.New("capreg: capability hidden from session")
+
+// ErrQuotaExhausted —— 隐藏的**一个具体理由**:这个主体的用量到顶了。
+//
+// 它**包着** ErrHidden,所以每一处 `errors.Is(err, ErrHidden)` 的行为一个字都不变(聊天面上
+// 藏起来仍然是对的:别让模型看见一把用不了的工具)。多出来的只是「问得出为什么」——
+// 而这正是 HTTP 那一面欠调用方的:「你这把 key 从来没这个能力」和「你的额度用完了」
+// 该做的事完全不同,不能是同一句话(F-B-11)。
+var ErrQuotaExhausted = fmt.Errorf("%w: usage quota exhausted", ErrHidden)
 
 // AssembleInput —— 装配一次 visitor session 时的上下文。Capability 自身
 // 持有 deps (闭包)，只接收 per-session 字段。
@@ -38,10 +47,13 @@ var ErrHidden = errors.New("capreg: capability hidden from session")
 // ConversationID 在 dev endpoint introspection 时为空（无对话上下文）；
 // real SendMessage 时为当前消息所在 conv。
 type AssembleInput struct {
-	RoleSnapshot   *access.RoleSnapshot
-	OwnerID        string
-	Mode           string
-	CodeID         string
+	RoleSnapshot *access.RoleSnapshot
+	OwnerID      string
+	Mode         string
+	// Subject —— 这一场会话**以谁的身份**在跑。凡是「每个主体多少次」的规则(能力配额)都挂在
+	// 它上面。以前这里只有 `CodeID`,于是对外 API key 那条路上没有主体可数 —— 一把 key 订会
+	// 一次都不闸(F-B-11)。**主体是参数,不是两套代码**(同 capconfig/scope.go 那句话)。
+	Subject        Subject
 	Visitor        access.VisitorProfile
 	ConversationID string
 }

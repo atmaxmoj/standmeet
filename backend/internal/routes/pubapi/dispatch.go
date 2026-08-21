@@ -7,6 +7,7 @@ package pubapi
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 
@@ -44,8 +45,7 @@ func (h *Handlers) dispatch(w http.ResponseWriter, r *http.Request) {
 	ts := toolsetFromCtx(r.Context())
 	tool := findTool(ts.Tools, chi.URLParam(r, "name"))
 	if tool == nil {
-		h.writeErr(w, http.StatusNotFound, "capability_not_enabled",
-			"tool not available to this key")
+		h.writeMissingTool(w, r, chi.URLParam(r, "name"))
 		return
 	}
 	if queryOnMutating(r.Method, tool) {
@@ -54,6 +54,37 @@ func (h *Handlers) dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.runTool(w, r, keyFromCtx(r.Context()), tool)
+}
+
+// writeMissingTool —— the tool is not in this key's set. Which gate dropped it stays hidden — with
+// **one** exception: a spent usage quota is answered as itself.
+//
+// Why that one is different in kind. Every other gate (not granted, not opened, not whitelisted)
+// answers a question the caller has no business asking, and telling them would map out the owner's
+// configuration. A quota is the caller's own consumption: they already know how many calls they
+// made, so naming it leaks nothing — while withholding it leaves a well-behaved client retrying a
+// call that cannot succeed until the owner acts. 429 (with the same shape as the rate limiter) says
+// "later, maybe"; 404 said "never", and that was false (F-B-11).
+func (h *Handlers) writeMissingTool(w http.ResponseWriter, r *http.Request, name string) {
+	if h.quotaSpent(r, name) {
+		h.writeErr(w, http.StatusTooManyRequests, "quota_exhausted",
+			"this key has used its allowance for that capability — "+
+				"the owner sets it on the key")
+		return
+	}
+	h.writeErr(w, http.StatusNotFound, "capability_not_enabled",
+		"tool not available to this key")
+}
+
+// quotaSpent —— was this tool dropped because the key's allowance is gone? Asked only on a request
+// that has already failed, so the extra lookup never touches the hot path.
+func (h *Handlers) quotaSpent(r *http.Request, name string) bool {
+	ts := toolsetFromCtx(r.Context())
+	if ts == nil || ts.Input == nil {
+		return false
+	}
+	return errors.Is(h.d.AgentSkills.HiddenReasonForTool(r.Context(), ts.Input, name),
+		capreg.ErrQuotaExhausted)
 }
 
 // queryOnMutating —— a QUERY request against a state-changing tool (QUERY is read-only only).

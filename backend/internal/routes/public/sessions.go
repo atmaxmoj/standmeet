@@ -277,10 +277,11 @@ func assembleInputFromSession(
 	data *access.VisitorSessionData, conversationID string,
 ) *capreg.AssembleInput {
 	return &capreg.AssembleInput{
-		RoleSnapshot:   data.RoleSnapshot,
-		OwnerID:        data.OwnerID,
-		Mode:           data.Mode,
-		CodeID:         data.CodeID,
+		RoleSnapshot: data.RoleSnapshot,
+		OwnerID:      data.OwnerID,
+		Mode:         data.Mode,
+		// 访客这条路的主体是他手里那张码(public / byoai 没有码 → 空主体,不闸)。
+		Subject:        capreg.Subject{Kind: capreg.SubjectCode, ID: data.CodeID},
 		Visitor:        data.Visitor,
 		ConversationID: conversationID,
 	}

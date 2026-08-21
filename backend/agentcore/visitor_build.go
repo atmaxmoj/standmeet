@@ -74,7 +74,7 @@ func BuildVisitorAgent(ctx context.Context, d Driver, in *LaunchInput) (*Visitor
 		OwnerID:        in.OwnerID,
 		Mode:           in.Mode,
 		ConversationID: in.ConversationID,
-		CodeID:         in.CodeID,
+		Subject:        capreg.Subject{Kind: capreg.SubjectCode, ID: in.CodeID},
 	}
 	fr := capreg.FlattenBindings(reg.AssembleVisitor(ctx, assemble))
 	return &VisitorAgent{

@@ -52,7 +52,8 @@ func resolveConfirmBooking(s session) (bookingDoc, string) {
 		return bookingDoc{}, bookErr("booking_not_found", "no booking found for this conversation")
 	}
 	b := latestBooking(recs)
-	if b.OwnerID != s.OwnerID || b.CodeID != s.CodeID {
+	// 同一个 owner **且**同一个主体才认:换一张码 / 换一把 key 进来的人不该给别人的预约发信。
+	if b.OwnerID != s.OwnerID || b.SubjectID != s.SubjectID {
 		return bookingDoc{}, bookErr("booking_not_found", "no booking found for this conversation")
 	}
 	return b, ""

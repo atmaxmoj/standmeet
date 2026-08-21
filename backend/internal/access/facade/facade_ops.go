@@ -10,6 +10,8 @@ import "github.com/atmaxmoj/standmeet/internal/access/ops"
 type (
 	CodeExtras = ops.CodeExtras
 	RoleExtras = ops.RoleExtras
+	// KeyExtras —— 能力在一把对外 API key 上占的字段（F-B-11）。
+	KeyExtras  = ops.KeyExtras
 	OpsAPIKeys = ops.APIKeysDeps
 	OpsCodes   = ops.CodesDeps
 	OpsRoles   = ops.RolesDeps

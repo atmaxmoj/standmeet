@@ -39,6 +39,12 @@ type CodeExtras = SubjectExtras
 // RoleExtras —— 能力在一个 role 上占的字段(同上,只换挂载点)。
 type RoleExtras = SubjectExtras
 
+// KeyExtras —— 能力在一把对外 API key 上占的字段(同上,第三个挂载点)。
+//
+// 它存在的理由是 F-B-11:「这个主体最多能约几次」以前只挂得上码,于是对外 key 那条路上
+// 一次都不闸。上限要挂得上,也要设得了。
+type KeyExtras = SubjectExtras
+
 // noExtras —— 没有任何能力在这类主体上声明配置时的那个"没有"。
 type noExtras struct{}
 

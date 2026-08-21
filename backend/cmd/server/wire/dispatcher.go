@@ -151,6 +151,9 @@ func accessRequestDepsOf(d *deps.Runtime) owner.OpsAccessRequests {
 func apiKeyDepsOf(d *deps.Runtime) access.OpsAPIKeys {
 	return access.OpsAPIKeys{
 		Keys: d.APIKeyRepo, Roles: d.RoleRepo,
+		// 各能力在这把 key 上占的字段(max_bookings…)。跟码那一侧同一份声明、同一个口子,
+		// 只换挂载点 —— 没有它,配额挂在 key 上就无处可设(F-B-11)。
+		Extras:        axiscap.KeyFieldSurface(d),
 		APICandidates: paritymanifest.APICandidateCapabilities,
 	}
 }

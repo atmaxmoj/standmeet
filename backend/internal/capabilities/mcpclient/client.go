@@ -143,12 +143,22 @@ func extractResourceText(res *mcpgo.ReadResourceResult) string {
 	return b.String()
 }
 
+// Subject —— 会话主体(种类 + id)。种类是字符串而不是枚举:这一层是传输边界,它只负责把
+// 上面那层的值原样送过去,不认识有几种。
+type Subject struct {
+	Kind string
+	ID   string
+}
+
 // SessionContext —— host 递给内建沙箱 server 的可信 session 身份，走 tool-call 的
 // `_meta` 旁路（不是 LLM 控制的 arguments）。类型化（business code 禁裸 `any`）；到
 // map 的转换收在本 transport 边界层。第三方插件传 nil → 不带 session 上下文。
 type SessionContext struct {
-	OwnerID        string
-	CodeID         string
+	OwnerID string
+	// Subject —— 这一场会话以谁的身份跑(一张码 / 一把对外 key)。插件把它记进自己写下的行,
+	// 宿主照着数用量。以前这里叫 CodeID,于是 key 那条路写下的行没有主体,配额也就无从数起
+	// (F-B-11)。
+	Subject        Subject
 	ConversationID string
 	Mode           string
 	VisitorName    string
@@ -179,8 +189,11 @@ func (s *SessionContext) meta() map[string]any {
 		return map[string]any{}
 	}
 	return map[string]any{"standmeet/session": map[string]any{
-		"owner_id":        s.OwnerID,
-		"code_id":         s.CodeID,
+		"owner_id": s.OwnerID,
+		// subject_kind / subject_id —— 主体整对过线。**不再发 `code_id`**:留着它就是同一个
+		// 事实的第二份,而第二份迟早跟第一份说不一样的话(全局 CLAUDE.md 第 2 条)。
+		"subject_kind":    s.Subject.Kind,
+		"subject_id":      s.Subject.ID,
 		"conversation_id": s.ConversationID,
 		"mode":            s.Mode,
 		"visitor_name":    s.VisitorName,

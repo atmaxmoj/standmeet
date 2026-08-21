@@ -53,6 +53,20 @@ func RoleFieldSurface(d *deps.Runtime) access.RoleExtras {
 	return fields
 }
 
+// KeyFieldSurface —— 所有能力在一把**对外 API key** 上占的字段,合成 access 收的那一个口子。
+//
+// 用的是**跟码同一份声明**(`CodeConfig`):`max_bookings` 是「这个主体最多能约几次」,它跟主体
+// 是码还是 key 无关。没有这一面的话,配额挂在 key 上就无处可设(F-B-11)。
+//
+//nolint:ireturn // access 那边收的就是这个接口
+func KeyFieldSurface(d *deps.Runtime) access.KeyExtras {
+	fields, err := capconfig.NewKeyFields(d.Log, subjectCaps(d, "api_key", codeDecl))
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
 // RoleCapConfig —— 冻结 role snapshot 时按能力读配置的那个读口(conversation 侧的窄端口)。
 // 跟 RoleFieldSurface 同一份声明、同一个存储:两个形状,一份事实。
 func RoleCapConfig(d *deps.Runtime) *capconfig.SubjectFields {
@@ -120,8 +134,26 @@ func quotaCounterFor(d *deps.Runtime, m *mcpplugin.Manifest) *capquota.Counter {
 	}
 	return capquota.New(&capquota.Bind{
 		Store: store, Config: CapConfigFor(store, m.ID), Decl: m.Quota,
-		CodeFields: m.CodeConfig, CapID: m.ID, Kind: capstore.KindMCP,
+		// 同一份字段声明既用在码上也用在 key 上 —— 上限那个字段本身跟挂在谁身上无关。
+		SubjectFields: m.CodeConfig, CapID: m.ID, Kind: capstore.KindMCP,
 	})
+}
+
+// quotaScope —— 会话主体 → 它的配置挂载点。**这句翻译只能住在组装根**:capreg 认识「一场
+// 会话以谁的身份跑」,capconfig 认识「配置挂在谁身上」,两个包互不认识(架构闸拦着),而这里
+// 两边都看得见。
+//
+// 不给兜底:种类不认得就当没有主体(不闸)。兜一个默认 scope 的话,一个拼错的种类会静默地去读
+// 别人的上限 —— 配额是最不该"猜一个"的地方。
+func quotaScope(s capreg.Subject) capconfig.Scope {
+	switch s.Kind {
+	case capreg.SubjectCode:
+		return capconfig.CodeScope(s.ID)
+	case capreg.SubjectAPIKey:
+		return capconfig.KeyScope(s.ID)
+	default:
+		return capconfig.Scope{}
+	}
 }
 
 // quotaGate —— 达上限 → 这次会话不暴露这个工具(隐藏,而不是让访客点了再报错)。
@@ -130,15 +162,19 @@ func quotaCounterFor(d *deps.Runtime, m *mcpplugin.Manifest) *capquota.Counter {
 // 不留一行日志,查的人只能一个一个闸去试。
 func quotaGate(counter *capquota.Counter, log *slog.Logger, capID string) capreg.SessionGate {
 	return func(ctx context.Context, in *capreg.AssembleInput) (bool, error) {
-		allow, err := counter.Allow(ctx, in.CodeID)
+		allow, err := counter.Allow(ctx, quotaScope(in.Subject))
 		if err != nil {
 			log.Warn("capability quota check failed — hiding the tool",
-				"cap", capID, "code", in.CodeID, "err", err)
+				"cap", capID, "subject_kind", in.Subject.Kind,
+				"subject", in.Subject.ID, "err", err)
 			return false, fmt.Errorf("capability %q quota: %w", capID, err)
 		}
 		if !allow {
 			log.Info("capability quota exhausted — tool hidden for this session",
-				"cap", capID, "code", in.CodeID)
+				"cap", capID, "subject_kind", in.Subject.Kind, "subject", in.Subject.ID)
+			// 带上**理由**再往上走。它包着 ErrHidden,所以聊天面照旧藏;而 HTTP 那一面
+			// 问得出「为什么没有」,不必把额度用完说成从来没授权(F-B-11)。
+			return false, capreg.ErrQuotaExhausted
 		}
 		return allow, nil
 	}
@@ -149,7 +185,7 @@ func quotaGate(counter *capquota.Counter, log *slog.Logger, capID string) capreg
 func quotaState(counter *capquota.Counter, capID string) capload.StateHook {
 	return func(ctx context.Context, in *capreg.AssembleInput) capreg.CapabilityState {
 		st := capreg.CapabilityState{ID: capID, Enabled: true}
-		left, err := counter.Remaining(ctx, in.CodeID)
+		left, err := counter.Remaining(ctx, quotaScope(in.Subject))
 		if err != nil {
 			return st
 		}

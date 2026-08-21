@@ -33,6 +33,10 @@ type APIToolsetDeps struct {
 
 // APIToolset —— the live bindings (caller MUST Close) + the tools the key may call.
 type APIToolset struct {
+	// Input —— the assembly context this toolset was frozen from. Kept so a handler can ask the
+	// registry a follow-up question about the SAME session — "why is that tool not here?" — without
+	// rebuilding the snapshot and getting a subtly different answer (F-B-11).
+	Input    *capreg.AssembleInput
 	Bindings []*capreg.Binding
 	Tools    []*capreg.BindingTool
 }
@@ -64,10 +68,13 @@ func AssembleAPIKeyToolset(
 	in := &capreg.AssembleInput{
 		RoleSnapshot: &snap, OwnerID: key.OwnerID,
 		Mode: apiFacadeMode,
+		// 这条路的主体是这把 key 本身。没有它,能力配额在这个面上没有可数的东西 ——
+		// 一把 key 订会一次都不闸(F-B-11)。
+		Subject: capreg.Subject{Kind: capreg.SubjectAPIKey, ID: key.ID},
 	}
 	bindings := deps.Skills.AssembleVisitor(ctx, in)
 	tools := filterAPITools(bindings, apiStringSet(opened), apiStringSet(whitelist))
-	return APIToolset{Bindings: bindings, Tools: tools}, nil
+	return APIToolset{Input: in, Bindings: bindings, Tools: tools}, nil
 }
 
 // filterAPITools —— tools from opened capabilities whose name is api-renderable.

@@ -19,8 +19,10 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		return nil
 	}
 	return &mcpclient.SessionContext{
-		OwnerID:        in.OwnerID,
-		CodeID:         in.CodeID,
+		OwnerID: in.OwnerID,
+		// 主体整对过线（种类 + id）。插件把它记进自己写下的行里，宿主照着数用量 ——
+		// 只递 id 的话，两条路的主体在同一个字段里长得一样，而它们不该混着数（F-B-11）。
+		Subject:        mcpclient.Subject{Kind: string(in.Subject.Kind), ID: in.Subject.ID},
 		ConversationID: in.ConversationID,
 		Mode:           in.Mode,
 		VisitorName:    in.Visitor.Name,

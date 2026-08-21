@@ -100,10 +100,14 @@ type insertedEvent struct {
 	HTMLLink string `json:"html_link"`
 }
 
-// bookingDoc —— 存进 booker capstore 的一笔预约(cancel 按 conversation 查、配额按 code 数)。
+// bookingDoc —— 存进 booker capstore 的一笔预约(cancel 按 conversation 查、配额按主体数)。
 type bookingDoc struct {
-	OwnerID        string    `json:"owner_id"`
-	CodeID         string    `json:"code_id"`
+	OwnerID string `json:"owner_id"`
+	// SubjectID / SubjectKind —— 这一笔是**谁**订的:一张邀请码,或一把对外 API key。
+	// 宿主按 SubjectID 数用量(manifest 的 QuotaDecl.SubjectField)。以前这里只有 `code_id`,
+	// 于是 key 那条路订的会没有主体可数,一次都不闸(F-B-11)。
+	SubjectID      string    `json:"subject_id"`
+	SubjectKind    string    `json:"subject_kind"`
 	ConversationID string    `json:"conversation_id"`
 	GoogleEventID  string    `json:"google_event_id"`
 	GoogleHTMLLink string    `json:"google_html_link"`
@@ -207,8 +211,9 @@ func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string 
 	}
 	// #130 owner-notify:booking 已成立,通知是 best-effort 的尾巴 —— 失败只是没信。
 	notifyOwnerOfBooking(s, &bookingDoc{
-		OwnerID: s.OwnerID, CodeID: s.CodeID, GoogleEventID: inserted.EventID,
-		Summary: summary, VisitorEmail: s.VisitorEmail, StartAt: slot, EndAt: end,
+		OwnerID: s.OwnerID, SubjectID: s.SubjectID, SubjectKind: s.SubjectKind,
+		GoogleEventID: inserted.EventID,
+		Summary:       summary, VisitorEmail: s.VisitorEmail, StartAt: slot, EndAt: end,
 	})
 	return mustJSON(bookOKWire{
 		OK: true, EventID: inserted.EventID, HTMLLink: inserted.HTMLLink,
@@ -237,8 +242,9 @@ func insertEvent(
 
 func persistBooking(s session, ev *insertedEvent, summary string, start, end time.Time) error {
 	doc, _ := json.Marshal(bookingDoc{
-		OwnerID: s.OwnerID, CodeID: s.CodeID, ConversationID: s.ConversationID,
-		GoogleEventID: ev.EventID, GoogleHTMLLink: ev.HTMLLink, Summary: summary,
+		OwnerID: s.OwnerID, SubjectID: s.SubjectID, SubjectKind: s.SubjectKind,
+		ConversationID: s.ConversationID,
+		GoogleEventID:  ev.EventID, GoogleHTMLLink: ev.HTMLLink, Summary: summary,
 		VisitorEmail: s.VisitorEmail, StartAt: start, EndAt: end,
 	})
 	if _, err := gwCapstoreInsert(bookingsColl, doc); err != nil {

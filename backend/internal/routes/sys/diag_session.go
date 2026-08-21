@@ -107,7 +107,7 @@ func buildDiagSessionResp(
 		RoleSnapshot: data.RoleSnapshot,
 		OwnerID:      data.OwnerID,
 		Mode:         data.Mode,
-		CodeID:       data.CodeID,
+		Subject:      capreg.Subject{Kind: capreg.SubjectCode, ID: data.CodeID},
 		Visitor:      data.Visitor,
 		// ConversationID 留空：diag endpoint 不绑定具体 conversation；
 		// capability 实现按需 fallback (booker 没 conv ID 就跳 DB lookup)。

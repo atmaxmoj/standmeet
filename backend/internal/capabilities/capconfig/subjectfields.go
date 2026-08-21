@@ -54,6 +54,14 @@ func NewRoleFields(log *slog.Logger, caps []SubjectCap) (*SubjectFields, error) 
 	return newSubjectFields(log, "role", RoleScope, caps)
 }
 
+// NewKeyFields —— 各能力在**一把对外 API key**上占的字段。
+//
+// 第三个主体。它跟前两个的区别仍然只有挂载点 —— 而它非存在不可的理由是 F-B-11:配额只认码时,
+// 一把 key 订会一次都不数。**上限要能设**,否则「配额绑在 key 上」只是嘴上说说。
+func NewKeyFields(log *slog.Logger, caps []SubjectCap) (*SubjectFields, error) {
+	return newSubjectFields(log, "api_key", KeyScope, caps)
+}
+
 // newSubjectFields —— 把各能力的声明合起来。
 //
 // 两个能力占同一个字段名 → error(组装根据此在启动时炸)。两份声明抢一个键,写下去的值归谁、

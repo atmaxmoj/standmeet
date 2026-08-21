@@ -26,8 +26,12 @@ import (
 //
 // APICandidates 是注入的:能开给 API 的是**哪些能力**,那是能力轴的知识,不是 access 的。
 type APIKeysDeps struct {
-	Keys          *repo.APIKeyRepo
-	Roles         usecase.APIKeyRoleGetter
+	Keys  *repo.APIKeyRepo
+	Roles usecase.APIKeyRoleGetter
+	// Extras —— 各能力在**这把 key**上占的字段(calendar.book 的 max_bookings 是第一个)。
+	// 跟码上那一套是同一个口子、同一份声明,只换挂载点。没有它,「这把 key 最多能约几次」
+	// 无处可设,而配额也就无从谈起(F-B-11)。
+	Extras        KeyExtras
 	APICandidates func() []string
 }
 
@@ -49,7 +53,8 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 			ID: "api_keys.create",
 			Description: "Mint an API key assuming a role. Returns the raw secret ONCE " +
 				"(smk_…) plus its id and prefix; the secret is never retrievable again.",
-			InputSchema: apiKeyCreateSchema,
+			// 各能力在 key 上占的字段跟着长出来(max_bookings…),跟发码那一侧同一套机制。
+			InputSchema: withExtraFields(apiKeyCreateSchema, extrasOr(d.Extras).Fields()),
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
 			Invoke:      createAPIKey(d),
@@ -171,6 +176,9 @@ func createAPIKey(d APIKeysDeps) fp.Invoke {
 		if err != nil {
 			return nil, apiKeyErr(err)
 		}
+		// 各能力从原始入参里挑自己的字段(max_bookings…)存到这把 key 上。best-effort:
+		// key 已经铸出来了,一个能力的存储挂了不该让它变成一次失败的铸造。
+		extrasOr(d.Extras).Write(ctx, issued.Key.ID, raw)
 		return json.Marshal(apiKeyCreatedOut{
 			ID: issued.Key.ID, Prefix: issued.Key.Prefix, Secret: issued.Secret,
 		})
@@ -210,12 +218,31 @@ func listAPIKeys(d APIKeysDeps) fp.Invoke {
 		if err != nil {
 			return nil, apiKeyErr(err)
 		}
-		out := make([]apiKeyOut, 0, len(rows))
+		extras := extrasOr(d.Extras)
+		out := make([]json.RawMessage, 0, len(rows))
 		for i := range rows {
-			out = append(out, toAPIKeyOut(&rows[i]))
+			one, merr := marshalAPIKey(ctx, extras, &rows[i])
+			if merr != nil {
+				return nil, merr
+			}
+			out = append(out, one)
 		}
 		return json.Marshal(out)
 	}
+}
+
+// marshalAPIKey —— 一把 key + 别的能力在它上面那几个字段(max_bookings…)。
+//
+// 读回来跟写下去走同一个口子:只写不读的话,owner 设过的上限在列表里看不见,而「看不见的设置」
+// 跟「没设过」在屏幕上长得一模一样。
+func marshalAPIKey(
+	ctx context.Context, extras KeyExtras, k *entity.APIKey,
+) (json.RawMessage, error) {
+	row, err := json.Marshal(toAPIKeyOut(k))
+	if err != nil {
+		return nil, fp.OpErr("encode api key", err)
+	}
+	return withExtraValues(row, extras.Read(ctx, k.ID)), nil
 }
 
 type apiKeyIDArgs struct {
