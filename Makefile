@@ -874,6 +874,15 @@ prod-psql:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c "$(SQL)"
 
+# prod-redis —— run a redis command against the prod redis.  usage: make prod-redis CMD="info memory"
+#
+# 跟 prod-psql 同性质的验证栈逃生口。resilience 的 check 1 要的是「有上限、到顶、开始淘汰」这个
+# **真状态**，而它只能在活的 redis 上造出来：调低 maxmemory → 灌 → 读 evicted_keys → 调回去。
+# 不是 owner 功能。
+prod-redis:
+	@test -n "$(CMD)" || (echo 'usage: make prod-redis CMD="info memory"'; exit 2)
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis redis-cli $(CMD)
+
 # prod-gate-unlock —— clear the gate's per-IP lockouts on prod.
 #
 # Driving a lockout by hand (F-G-3's ⑤, F-G-4's ⑤) really locks the gate for fifteen minutes, and
