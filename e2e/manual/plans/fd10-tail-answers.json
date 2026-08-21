@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/deploy-forks/shots",
+  "viewport": [1280, 2600],
+  "login": false,
+  "shots": [
+    { "name": "fd10-01-big-tool-result-answers", "url": "/?code=app-wtsup5", "wait": 3000,
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["input[placeholder=\"your name\"]", "Render Audit"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 5000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Use your DeepWiki tool to read the full wiki contents for the repository modelcontextprotocol/servers, then answer from it: which reference server implementations does it list, and what does it say about how to run one of them?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 300000 }
+      ],
+      "wait": 4000, "fullPage": true }
+  ]
+}
