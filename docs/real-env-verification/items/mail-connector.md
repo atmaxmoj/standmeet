@@ -24,9 +24,10 @@
 - **Backing test:** `recovery-phrase.spec.ts` · `password-reset.spec.ts`
 
 ### 4 — The real handshake completes and reply codes are classified ⭐
-- **Steps:** Connect the protocol connector against a real relay that demands STARTTLS and AUTH. Send. Then provoke real reply codes: a bad recipient, an oversized message, and a throttled send. Read the outcome for each.
-- **Expected:** The upgrade and authentication succeed. Each reply code maps to its own outcome, rather than every result collapsing into success.
+- **Steps:** Connect the protocol connector against a real relay that demands STARTTLS and AUTH. Send. Then provoke the failures a real relay will produce on demand: a rejected authentication, a port with nothing listening, and a sender address the account is not allowed to use. Read the outcome for each.
+- **Expected:** The upgrade and authentication succeed. Each class the relay does return maps to its own outcome, rather than every result collapsing into one. Where the relay accepts and fails later instead of refusing — a bad recipient it bounces asynchronously, a foreign sender it silently rewrites — the send says it was accepted and does not claim delivery.
 - **Mock gap:** The mock relay advertises no STARTTLS and no AUTH and answers every command with success. It cannot produce any failure, so "each class lands in its own bucket" is not even expressible in CI. The classification's only real input is a real provider's reply.
+- **Note:** An oversized message and a throttled send were named here first, and neither can be reached from this product against a real provider — the test-send composes a small message with no attachment, and a daily rate limit does not arrive on request. A relay stood up to return those codes is a rig, which is what the mock gap above already says is worthless here.
 - **Backing test:** `connector-protocol-smtp.spec.ts` · `connector-err-smtp-fail.spec.ts` · classification itself → `gap`
 
 ### 5 — The SaaS path delivers and reports its id from the right place
