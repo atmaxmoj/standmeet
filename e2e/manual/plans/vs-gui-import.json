@@ -1,0 +1,14 @@
+{
+  "_why": "vault-sync check 1 ⭐ 的**界面那条腿** —— 从没驱过。红里写着「Playwright 不能往 webkitdirectory 塞文件」，可 shoot.mjs 后来长出了 `pickDir`，注释直说它就是给这个控件用的。那句阻塞多半写在能力建起来之前，先把它证伪或证实。\n\n`obsidian-vault-input` 的 `onChange` 直接发起导入，所以**选中目录 = 真的导入**。选的是真 vault（`~/Develop/writing/notes`，1080 个 .md），走的是 owner 平时点的那条路；语料本来就是它的镜像，按 vault path upsert。\n\n判据：导入回执那一格出现，并且库里的条数跟文件系统对得上。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "shots": [
+    { "name": "vs-31-gui-import-result", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 4000 },
+        { "pickDir": ["[data-testid=\"obsidian-vault-input\"]", "/Users/wangsijie/Develop/writing/notes"] },
+        { "wait": 90000 }
+      ], "wait": 3000 }
+  ]
+}
