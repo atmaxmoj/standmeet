@@ -1,0 +1,35 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/booking-book/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    { "name": "bb4-01-booked-11am", "url": "/?code=VOICE-01",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Reschedule Rita"] },
+        { "type": ["[data-testid=\"visitor-email-input\"]", "rita.reschedule@example.com"] },
+        { "click": "[data-testid=\"visitor-name-submit\"]" },
+        { "wait": 5000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Please book a 30-minute call on Thursday, August 27 at 11:00 am Eastern. Title it \"reschedule audit\"."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 70000 }
+      ],
+      "wait": 2000, "fullPage": true },
+
+    { "name": "bb4-02-rescheduled-2pm",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "Actually, please move that same meeting to 2:00 pm Eastern on the same day. Don't create a second one."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 70000 }
+      ],
+      "wait": 2000, "fullPage": true },
+
+    { "name": "bb4-03-duplicate-attempt",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "Now book me a second 30-minute call at exactly 2:00 pm Eastern on August 27 as well."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 70000 }
+      ],
+      "wait": 2000, "fullPage": true }
+  ]
+}

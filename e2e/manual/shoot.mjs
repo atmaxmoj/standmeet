@@ -114,7 +114,12 @@ if (plan.login !== false) {
 for (const shot of plan.shots) {
   // url 省略 = **留在当前这一页**。有些判据说的正是「不换页会怎样」（同一场对话里连着说两轮、
   // 一个弹窗答过之后还回不回来），而每张图都先 goto 一次的话，那件事根本发生不了。
-  shot.url && await page.goto(`${BASE}${shot.url}`);
+  // 绝对地址原样走。好几条 check 的 Expected 就写在**第三方自己的界面**上（「打开这个账号的
+  // 日历网页版，看那个事件在不在」）—— 产品说订上了只是主张，日历才是事实。拼在 BASE 后面
+  // 会得到一个 404，而那种失败长得像「事件不存在」。
+  shot.url && await page.goto(
+    shot.url.startsWith('http') ? shot.url : `${BASE}${shot.url}`,
+  );
   // settle —— 等某个选择器出现，并**报出从 goto 到它出现花了多久**。
   // 有几条判据问的是「重的真笔记渲得快不快」，而「看起来还行」不是一个测量：
   // 判断得有数字，数字得说清是从哪一刻量到哪一刻。`{"settle": ["sel", 20000]}`。

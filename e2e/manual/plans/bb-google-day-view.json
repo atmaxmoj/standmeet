@@ -1,0 +1,11 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/booking-book/shots",
+  "viewport": [1400, 1000],
+  "profile": "~/.playwright-mcp-profile",
+  "login": false,
+  "shots": [
+    { "name": "bb4-04-google-aug27",
+      "url": "https://calendar.google.com/calendar/u/0/r/day/2026/8/27",
+      "wait": 9000 }
+  ]
+}
