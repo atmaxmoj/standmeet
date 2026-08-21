@@ -1,0 +1,18 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/admin-roles/shots",
+  "viewport": [1440, 1000],
+  "shots": [
+    { "name": "fa43-01-roles-page", "url": "/admin/roles",
+      "steps": [{ "wait": 3500 }],
+      "wait": 1500, "fullPage": true },
+
+    { "name": "fa43-02-waypoint-row-typed",
+      "steps": [
+        { "scroll": ["main", 900] },
+        { "wait": 800 },
+        { "type": ["[data-testid=\"role-wp-desc-0\"]", "read the cybernetics note before answering"] },
+        { "wait": 800 }
+      ],
+      "wait": 1200, "fullPage": false }
+  ]
+}
