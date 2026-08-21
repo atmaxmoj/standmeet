@@ -53,10 +53,26 @@ func (t *APIToolset) Close() {
 	}
 }
 
+// APIToolsetInput —— one call's assembly context: the key, what may render, and who the caller is
+// acting for.
+//
+// `OnBehalfOf` is the API plane's answer to a question the visitor plane answers with the identity
+// picker: an action with a guest (a booking) needs to know whose guest. It is deliberately NOT a
+// tool argument — F-B-6 settled that once, when letting the model choose the recipient produced an
+// address it had invented from the conversation. Here the caller is a program, and it says who it
+// represents in the request itself; the plugin keeps taking the invitee from the session and never
+// from its arguments.
+type APIToolsetInput struct {
+	Key        *access.APIKey
+	OnBehalfOf access.VisitorProfile
+	Whitelist  []string
+}
+
 // AssembleAPIKeyToolset —— freeze snapshot, assemble grant, keep (opened ∩ whitelist) tools.
 func AssembleAPIKeyToolset(
-	ctx context.Context, deps APIToolsetDeps, key *access.APIKey, whitelist []string,
+	ctx context.Context, deps APIToolsetDeps, in *APIToolsetInput,
 ) (APIToolset, error) {
+	key, whitelist := in.Key, in.Whitelist
 	snap, err := conversation.BuildAPIKeyRoleSnapshot(ctx, deps.Visitor, deps.Store, key)
 	if err != nil {
 		return APIToolset{}, fmt.Errorf("build api-key role snapshot: %w", err)
@@ -65,16 +81,18 @@ func AssembleAPIKeyToolset(
 	if oerr != nil {
 		return APIToolset{}, fmt.Errorf("list open capabilities: %w", oerr)
 	}
-	in := &capreg.AssembleInput{
+	assembleIn := &capreg.AssembleInput{
 		RoleSnapshot: &snap, OwnerID: key.OwnerID,
 		Mode: apiFacadeMode,
 		// 这条路的主体是这把 key 本身。没有它,能力配额在这个面上没有可数的东西 ——
 		// 一把 key 订会一次都不闸(F-B-11)。
 		Subject: capreg.Subject{Kind: capreg.SubjectAPIKey, ID: key.ID},
+		// 代谁而约。空 = 这一趟没说,能力据此产一场没有客人的 hold(并在回执里说清)。
+		Visitor: in.OnBehalfOf,
 	}
-	bindings := deps.Skills.AssembleVisitor(ctx, in)
+	bindings := deps.Skills.AssembleVisitor(ctx, assembleIn)
 	tools := filterAPITools(bindings, apiStringSet(opened), apiStringSet(whitelist))
-	return APIToolset{Input: in, Bindings: bindings, Tools: tools}, nil
+	return APIToolset{Input: assembleIn, Bindings: bindings, Tools: tools}, nil
 }
 
 // filterAPITools —— tools from opened capabilities whose name is api-renderable.

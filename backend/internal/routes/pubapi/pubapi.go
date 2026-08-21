@@ -110,9 +110,16 @@ func (h *Handlers) authRate(next http.Handler) http.Handler {
 func (h *Handlers) assemble(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := keyFromCtx(r.Context())
-		ts, err := capload.AssembleAPIKeyToolset(
-			r.Context(), h.toolsetDeps(), key, paritymanifest.APIRenderableTools(),
-		)
+		on, perr := onBehalfOf(r)
+		if perr != nil {
+			h.writeErr(w, http.StatusBadRequest, "invalid_visitor", perr.Error())
+			return
+		}
+		in := &capload.APIToolsetInput{
+			Key: key, Whitelist: paritymanifest.APIRenderableTools(),
+			OnBehalfOf: access.VisitorProfile{Name: on.Name, Email: on.Email},
+		}
+		ts, err := capload.AssembleAPIKeyToolset(r.Context(), h.toolsetDeps(), in)
 		if err != nil {
 			h.d.Log.Error("api assemble toolset", "err", err)
 			h.writeErr(w, http.StatusInternalServerError, "internal", "could not prepare tools")
