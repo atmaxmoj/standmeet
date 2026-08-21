@@ -64,6 +64,25 @@ type bookOKWire struct {
 	CanEmail     bool   `json:"can_email"`
 }
 
+// bookConflictWire —— 这一格刚被别人拿走。**不是错误**:调用方(和模型)要的是「换一个时间」,
+// 不是「出了故障」。形状跟别的冲突回执一致(`ok:false` + `conflict`),卡片和模型都已经会读。
+type bookConflictWire struct {
+	Conflict string `json:"conflict"`
+	Detail   string `json:"detail"`
+	OK       bool   `json:"ok"`
+}
+
+// slotHoldSeconds —— 占位活多久。够盖住「插入事件 + 落库」那一段(实测秒级,冷启慢时到十几秒),
+// 又短到一次崩溃不会把这一格锁很久。
+const slotHoldSeconds = 60
+
+// slotHoldKey —— 哪一格。owner + 起止时间:同一个 owner 的同一段时间只能有一个人在订,
+// 而不同 owner 之间互不影响。
+func slotHoldKey(ownerID string, start, end time.Time) string {
+	return "slot:" + ownerID + ":" + start.UTC().Format(time.RFC3339) +
+		"-" + end.UTC().Format(time.RFC3339)
+}
+
 type busyWindow struct {
 	Start string `json:"start"`
 	End   string `json:"end"`
@@ -197,16 +216,30 @@ func pickFreeSlot(slots []time.Time, durationMin int, busy []busyInterval) (time
 	return time.Time{}, false
 }
 
-// commitBooking —— insert event → persist;persist 失败则补偿删事件(不留无预约的孤儿事件)。
+// commitBooking —— 占住这一格 → insert event → persist;persist 失败则补偿删事件
+// (不留无预约的孤儿事件)。
+//
+// **先占位再插入**:忙时检查和插入之间有一个窗口,两个同时进来的请求会看见同一个「空着」,
+// 于是各订各的 —— prod 上真出过,真日历上并排两场(F-B-15)。占位由宿主用主键冲突保证,
+// 不靠这里的先后顺序。
 func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string {
 	end := slot.Add(time.Duration(args.DurationMin) * time.Minute)
 	summary := buildSummary(s.VisitorName, args.Topic)
+	holdKey := slotHoldKey(s.OwnerID, slot, end)
+	if !gwCapstoreClaim(bookingsColl, holdKey, slotHoldSeconds) {
+		return mustJSON(bookConflictWire{
+			OK: false, Conflict: "just_taken",
+			Detail: "that time was taken a moment ago — pick another slot",
+		})
+	}
 	inserted, ierr := insertEvent(s, args, tz, slot, end, summary)
 	if ierr != nil {
+		gwCapstoreRelease(bookingsColl, holdKey) // 没订成,别把这一格锁到 TTL 到期
 		return friendlyCalErr(ierr)
 	}
 	if perr := persistBooking(s, &inserted, summary, slot, end); perr != nil {
 		compensateDelete(s, inserted.EventID)
+		gwCapstoreRelease(bookingsColl, holdKey)
 		return friendlyCalErr(perr)
 	}
 	// #130 owner-notify:booking 已成立,通知是 best-effort 的尾巴 —— 失败只是没信。

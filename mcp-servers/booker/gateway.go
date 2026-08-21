@@ -99,6 +99,34 @@ func gwCapstoreInsert(collection string, doc json.RawMessage) (string, error) {
 	return r.ID, nil
 }
 
+// gwCapstoreClaim —— 占住一个 key,只有一个调用方拿得到(宿主用主键冲突保证)。
+//
+// 订会是「先问忙时 → 再插入」,中间那个窗口里挤进来第二个请求时,两边都会看见同一个「空着」——
+// prod 上真出过:两条同时进来的请求,真日历上并排两场会(F-B-15)。占位盖住的就是那个窗口。
+// 拿不到不是错误:被别人抢先是正常结局,调用方据此换一句话回答。
+func gwCapstoreClaim(collection, key string, ttlSeconds int) bool {
+	resp, err := gwCall("capstore.claim", map[string]any{
+		"collection": collection, "key": key, "ttl_seconds": ttlSeconds,
+	})
+	if err != nil {
+		// 宿主答不上来时**放行**:一个占位机制不该让订会整个不能用。多订一场的风险
+		// 换的是「宿主抖一下就谁都订不了」——后者更糟,而且看不出原因。
+		return true
+	}
+	var r struct {
+		Claimed bool `json:"claimed"`
+	}
+	if uerr := json.Unmarshal(resp, &r); uerr != nil {
+		return true
+	}
+	return r.Claimed
+}
+
+// gwCapstoreRelease —— 放掉自己占的那一格(做完了 / 失败了)。不放也行,TTL 会到期。
+func gwCapstoreRelease(collection, key string) {
+	_, _ = gwCall("capstore.release", map[string]any{"collection": collection, "key": key})
+}
+
 // gwCapstoreQuery —— 取本 cap collection 里 doc 满足 filter 的文档。
 func gwCapstoreQuery(collection string, filter json.RawMessage) ([]json.RawMessage, error) {
 	resp, err := gwCall("capstore.query", map[string]any{

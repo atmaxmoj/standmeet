@@ -24,7 +24,12 @@ type Store struct {
 // New —— composition root 注入共享连接池。
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
-// Provision —— 装 connector/mcp 时建它的隔离 schema + records 表(幂等)。名字非法 → 错,不建。
+// Provision —— 装 connector/mcp 时建它的隔离 schema + records/claims 两张表(幂等)。名字非法 → 错,不建。
+//
+// claims 是**单赢占位**:同一个 key 同一时刻只有一个调用方拿得到。它跟 records 分开一张表,
+// 因为它要的是主键冲突这条硬保证 —— 而 records 存的是不透明文档,没有、也不该有唯一约束。
+// 谁需要它:任何「先看一眼再动手」的动作 —— 中间那个窗口里挤进来第二个人,两次都会看见空的
+// (F-B-15:两条同时进来的订会请求,忙时检查各自都说空着,真日历上并排长出两场)。
 func (s *Store) Provision(ctx context.Context, kind Kind, id string) error {
 	schema, err := schemaName(kind, id)
 	if err != nil {
@@ -40,7 +45,13 @@ func (s *Store) Provision(ctx context.Context, kind Kind, id string) error {
 		   created_at timestamptz NOT NULL DEFAULT now()
 		 );
 		 CREATE INDEX IF NOT EXISTS records_collection_idx ON %[1]s.records (collection);
-		 CREATE INDEX IF NOT EXISTS records_doc_gin_idx ON %[1]s.records USING gin (doc);`,
+		 CREATE INDEX IF NOT EXISTS records_doc_gin_idx ON %[1]s.records USING gin (doc);
+		 CREATE TABLE IF NOT EXISTS %[1]s.claims (
+		   collection text NOT NULL,
+		   key text NOT NULL,
+		   expires_at timestamptz NOT NULL,
+		   PRIMARY KEY (collection, key)
+		 );`,
 		q,
 	)
 	if _, eerr := s.pool.Exec(ctx, ddl); eerr != nil {

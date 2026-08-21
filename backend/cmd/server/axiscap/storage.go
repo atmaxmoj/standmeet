@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
@@ -145,6 +146,28 @@ func (b boundCapStore) DeleteByID(
 		return 0, fmt.Errorf("capstore delete by id: %w", err)
 	}
 	return n, nil
+}
+
+// Claim / Release —— 单赢占位。盖住「先看一眼再动手」中间那个窗口(F-B-15)。
+func (b boundCapStore) Claim(
+	ctx context.Context, collection, key string, ttlSeconds int,
+) (bool, error) {
+	got, err := b.store.Claim(ctx, capstore.ClaimKey{
+		Kind: b.kind, ID: b.id, Collection: collection, Key: key,
+	}, time.Duration(ttlSeconds)*time.Second)
+	if err != nil {
+		return false, fmt.Errorf("capstore claim: %w", err)
+	}
+	return got, nil
+}
+
+func (b boundCapStore) Release(ctx context.Context, collection, key string) error {
+	if err := b.store.Release(ctx, capstore.ClaimKey{
+		Kind: b.kind, ID: b.id, Collection: collection, Key: key,
+	}); err != nil {
+		return fmt.Errorf("capstore release: %w", err)
+	}
+	return nil
 }
 
 // boundCapConfig —— 绑死 (kind, id, 声明) 的配置读口:沙箱只能问"我的配置"。

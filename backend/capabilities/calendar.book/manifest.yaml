@@ -53,6 +53,10 @@ transport:
       - capstore.delete
       - capstore.query_records
       - capstore.delete_by_id
+      # claim / release —— 订会是「先问忙时 → 再插入」，中间那个窗口里挤进来第二个请求时
+      # 两边都会看见同一个「空着」（F-B-15：真日历上并排两场）。占位盖住那个窗口。
+      - capstore.claim
+      - capstore.release
       - capconfig.get
       - owner.meta
 

@@ -27,6 +27,11 @@ type BoundStore interface {
 		ctx context.Context, collection string, filter json.RawMessage,
 	) ([]BoundRecord, error)
 	DeleteByID(ctx context.Context, collection, recordID string) (int64, error)
+	// Claim / Release —— 单赢占位:同一个 key 同一时刻只有一个调用方拿得到(主键冲突保证,
+	// 不是先后顺序保证)。任何「先看一眼再动手」的动作都要它盖住中间那个窗口 —— 没有它,
+	// 两个同时进来的调用方会看见同一个「空着」(F-B-15:同一格被订两次)。
+	Claim(ctx context.Context, collection, key string, ttlSeconds int) (bool, error)
+	Release(ctx context.Context, collection, key string) error
 }
 
 // BoundRecord —— 一条记录:它的 id + 文档。
@@ -68,6 +73,18 @@ func Ops(store BoundStore) []hostop.Op {
 		{
 			Name: "capstore.delete_by_id", Description: "Delete one record by its id.",
 			Invoke: deleteByIDHandler(store),
+		},
+		{
+			Name: "capstore.claim",
+			Description: "Claim a key for a short while — exactly one caller wins. " +
+				"Use it around a look-then-act step so two callers cannot both act on " +
+				"what they each saw as free. Returns {claimed:true|false}.",
+			Invoke: claimHandler(store),
+		},
+		{
+			Name:        "capstore.release",
+			Description: "Release a claim you hold (it also expires on its own).",
+			Invoke:      releaseHandler(store),
 		},
 	}
 }
