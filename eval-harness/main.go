@@ -29,6 +29,15 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
+// evalLogLevel —— 循环日志的级别。默认 warn（transcript 那条路不要噪音）；
+// EVAL_LOG_LEVEL=info 时放开 Info，工具那两行才落得进 stderr。
+func evalLogLevel() slog.Level {
+	if os.Getenv("EVAL_LOG_LEVEL") == "info" {
+		return slog.LevelInfo
+	}
+	return slog.LevelWarn
+}
+
 // printMarker —— 把内核那句日志原样打出来给 shell 断言用。名字不认识 → 报错退出,
 // 而不是打个空串让 grep 匹配一切。
 func printMarker(name string) int {
@@ -69,7 +78,12 @@ func main() {
 
 	// Loop diagnostics go to stderr (warn+); the transcript owns stdout so it
 	// stays clean for assertion.
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	//
+	// EVAL_LOG_LEVEL=info 放开循环里那些 Info 行（`agent tool start` / `agent tool done`）。
+	// 为什么需要它：压缩那行走 slog.Default()，工具那两行走这个 logger —— warn 级下只有前者
+	// 落进 stderr，于是「工具跑没跑、跟压缩谁先谁后」在日志里根本看不出来。compaction 用例的
+	// 工具腿判的正是这个顺序（[[no-diagnosis-by-experiment]]：要么看日志，要么别推理）。
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: evalLogLevel()}))
 	cred := agentcore.Cred{Provider: *provider, Key: *key, Endpoint: *endpoint, Model: *model}
 	// Transparency: show which LLM this run hits (never the key) so real-vs-mock
 	// is obvious. localhost:9300 = deterministic mock gateway.

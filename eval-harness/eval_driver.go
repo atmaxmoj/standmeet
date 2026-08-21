@@ -32,6 +32,15 @@ type EvalDriver struct {
 	mcpURL   string
 	plugins  []agentcore.PluginSpec
 	cred     agentcore.Cred
+	// onceSkill —— 这个技能**只给一次**：第二次调用回一句「已经取过了」。
+	//
+	// 给 compaction 的工具腿用（bulkskill.go）。为什么必须这样：报告随手就能重读的话，
+	// 摘要把实质丢了模型也能重跑一遍工具补回来 —— 于是「摘要带走了实质」和「压缩把它
+	// 吃了」在答案上一模一样，判据不可能变红（真跑过：把任务书第 6 条整条删掉，那条腿
+	// 照样绿）。一次性的外部报告（签名链接、过期报表）是真实存在的形状，而它正好让
+	// 任务书自己那句话成立：**这份摘要是那份证据唯一能待的地方**。
+	onceSkill  bool
+	skillCalls int
 }
 
 // Persona —— owner 的名字跟语料**分开**给（UX-66）：prod 从 owner 那一行取，eval 从这里，
@@ -51,6 +60,10 @@ func (d *EvalDriver) Skill(_ context.Context) (*agentcore.VisitorSkillSpec, erro
 func (d *EvalDriver) RunSkill(_ context.Context, _ agentcore.SkillRun) (agentcore.SkillResult, error) {
 	if d.skill == nil {
 		return agentcore.SkillResult{}, nil
+	}
+	d.skillCalls++
+	if d.onceSkill && d.skillCalls > 1 {
+		return agentcore.SkillResult{Stdout: onceSpentStdout}, nil
 	}
 	return agentcore.SkillResult{Stdout: d.skill.Stdout}, nil
 }

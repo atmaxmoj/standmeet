@@ -391,9 +391,12 @@ eval-ask:
 eval-ghost: gateway-up
 	@eval-harness/ghost-test.sh
 
-# eval-compaction —— 多轮 context 臃肿用例:构造 >32K token 长对话,断言 agent
-# loop 的 summarization compaction 真触发 + 压缩后早期上下文召回完整。**需真
-# LLM** (harness 自读 eval-harness/.env 的 DeepSeek key;没真 key 不会触发压缩)。
+# eval-compaction —— 多轮 context 臃肿用例,**两条腿**:
+#   conv  —— >32K token 长对话,断言压缩真触发 + 压缩后早期**对话事实**召回完整
+#   tools —— 历史留在阈值以下,让工具先跑,再由一份大报告把上下文顶过线;断言压缩排在
+#            工具之后、那一轮仍答得出只有工具返回过的数字,而且**压缩后零工具调用**
+#            (F-D-10:重读一遍也能答对,所以只判答案分不出摘要有没有带走实质)
+# **需真 LLM** (harness 自读 eval-harness/.env 的 DeepSeek key;没真 key 不会触发压缩)。
 eval-compaction:
 	@eval-harness/compaction-test.sh
 

@@ -99,6 +99,10 @@ type askRequest struct {
 	// the owner could provide (roll_dice). Tests whether the agent discovers +
 	// invokes an owner-curated skill. The canned sandbox returns a fixed roll.
 	Skill bool `json:"skill"`
+	// BulkSkill —— 换成那个**结果大到能顶过 32K 阈值**的技能（bulkskill.go）。
+	// 给 compaction 用例的工具腿用：工具先跑，压缩才在工具结果已经进窗口之后触发。
+	// 跟 Skill 互斥（一场只挂一个技能），它优先。
+	BulkSkill bool `json:"bulk_skill"`
 	// MCP —— register an owner external MCP server (ext-mcp dials EVAL_MCP_URL for
 	// real). Tests whether the agent invokes an owner-registered MCP tool. Needs a
 	// running MCP server (the repo's mcp-server-mock: EVAL_MCP_URL=http://localhost:9100/mcp).
@@ -221,6 +225,9 @@ func askCandidate(
 		skill:    skillSpecFor(req),
 		mcpURL:   mcpURLFor(req),
 		cred:     cred,
+		// 那份大报告是**一次性**的：重读一遍就等于绕过了「摘要是证据唯一的家」这件事，
+		// 而判据也就跟着不可能变红了（eval_driver.go 那段账）。
+		onceSkill: req.BulkSkill,
 	}
 	failVerb, failMsg := bookingFailVerb()
 	agent, cleanup, berr := launchCandidateWith(ctx, driver, &agentcore.LaunchInput{
@@ -344,6 +351,9 @@ func bookingFailVerb() (string, string) {
 
 // skillSpecFor returns the demo owner skill when the request asked for it.
 func skillSpecFor(req askRequest) *agentcore.VisitorSkillSpec {
+	if req.BulkSkill {
+		return dossierSkill()
+	}
 	if !req.Skill {
 		return nil
 	}
