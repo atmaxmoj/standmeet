@@ -1,0 +1,14 @@
+{
+  "_why": "F-O-3 的第三次观察，**这一次要判得了负**。\n\n前两次都是「顺手成功」：异源页第一轮答得好好的。可那不是证据 —— 偶发缺陷的每一次成功都长这样（[[two-samples-of-a-flake-look-like-a-rule]]）。这条 plan 把我认定的变量固定住：**全新浏览器进程 + 全新加载的异源页 + 第一轮就发问**，然后跑 N 遍记命中率。跑一次不算数，`make verify-shots` 每调一次是一个全新浏览器 —— 所以外面用循环调 N 次，而不是在 plan 里 repeat（那是同一个 context，不是冷开）。\n\n仪器已经在（2026-08-18 补的 `hop=app→backend` 那一行）：真犯了的话，app 容器日志里会有 `proxy turn failed`。",
+  "out": "/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/fo3",
+  "viewport": [900, 900],
+  "shots": [
+    { "name": "fo3-cold", "url": "http://localhost:41999/foreign-page.html",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["textarea", "What are you working on?"] },
+        { "press": ["textarea", "Enter"] },
+        { "wait": 25000 }
+      ], "wait": 1500 }
+  ]
+}
