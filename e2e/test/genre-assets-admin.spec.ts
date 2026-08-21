@@ -170,6 +170,46 @@ test.describe('撤素材连正文里的引用一起撤', () => {
     await expect(page.getByTestId(`${prefix}-body`), '正文里那条引用跟着走')
       .not.toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
   });
+
+  // F-L-51：**插进去再撤下来，正文必须逐字回到原样**。
+  //
+  // prod 上量的（真 vault 的 cognitive-science）：3240 → 插入 3311 → 撤下 3239/3241，
+  // 三轮没有一次回到原文。根因在**插入**那一半：`appendBlock` 动手之前先 `replace(/\s+$/,'')`
+  // 把正文末尾削掉了，于是那个换行再也长不回来 —— 撤下那一半怎么收尾都还原不了。
+  //
+  // 这条守卫此前不存在，而它**只有逐字节比对才问得出来**：既有那条只断「引用不在了」，
+  // 正文末尾少一个字节它照样绿。owner 眼里这是「我撤销了自己的操作，笔记却被改过了」——
+  // 而这些笔记是他 vault 的镜像。
+  test('插进正文再撤下来:正文逐字回到原样(连末尾那个换行)', async ({ adminPage: page }) => {
+    await gotoAdminSection(page, 'wiki');
+    const id = await createWikiEntry(page, 'Round trip note');
+    const prefix = `wiki-edit-form-${id}`;
+    await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
+
+    // **末尾留一个换行**：真笔记就是这样的（编辑器存盘都会留），而这正是被削掉的那个字节。
+    const body = page.getByTestId(`${prefix}-body`);
+    const original = 'A paragraph that ends the note.\n';
+    await body.fill(original);
+
+    await page.getByTestId(`${prefix}-asset-input`).setInputFiles({
+      name: 'roundtrip.png', mimeType: 'image/png', buffer: PNG_BYTES,
+    });
+    await expect(page.getByTestId(new RegExp(`^${prefix}-asset-row-`)))
+      .toHaveCount(1, { timeout: 15_000 });
+    const assetID = await firstAssetID(page, prefix);
+
+    await page.getByTestId(`${prefix}-asset-insert-${assetID}`).click();
+    await expect(body).toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
+
+    await page.getByTestId(`${prefix}-asset-remove-${assetID}`).click();
+    await expect(page.getByTestId(`${prefix}-assets-empty`)).toBeVisible({ timeout: 15_000 });
+
+    // 逐字节比，不用正则：差的就是一个字节，而正则匹配看不出这种差别。
+    expect(
+      await body.inputValue(),
+      '插入再撤下之后正文必须跟原来一模一样 —— owner 撤销了自己的操作，笔记不该被改过',
+    ).toBe(original);
+  });
 });
 
 // hero 是**三样**:图 + 压在图上那句话 + 色调。面板上只做图那一样的话,owner 设完封面

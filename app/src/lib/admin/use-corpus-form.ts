@@ -140,11 +140,25 @@ function submitDisabled(
   return busy || titleBlank || bodyBlank;
 }
 
+// splitTail —— 把正文拆成「正文」和「末尾那串空白」。
+//
+// 这两个函数都要用它，原因是同一个（F-L-51）：**末尾那个换行是 owner 的字节，不是我们的**。
+// 谁都不许顺手削掉它 —— 削了就再也长不回来，于是「插入 → 撤下」永远回不到原文。
+function splitTail(body: string): { head: string; tail: string } {
+  const tail = /\s*$/u.exec(body)?.[0] ?? '';
+  return { head: body.slice(0, body.length - tail.length), tail };
+}
+
 // appendBlock —— 往正文末尾接一段,中间留一个空行。**接在后面,不覆盖** ——
 // owner 点"插入"是想加一张图,不是想让已经写好的正文消失。
+//
+// 末尾那串空白**原样留在最后**：插入是加一张图，不是顺手给笔记做一次格式化。
+// prod 上量过代价：3240 字节的真笔记插一次变 3311，撤下来 3239 —— 那少掉的一个字节
+// 就是这里削的（F-L-51）。
 export function appendBlock(body: string, block: string): string {
   if (body.trim() === '') return block;
-  return `${body.replace(/\s+$/u, '')}\n\n${block}`;
+  const { head, tail } = splitTail(body);
+  return `${head}\n\n${block}${tail}`;
 }
 
 // dropAssetRef —— 把正文里引用某份素材的**整张图**去掉，连同它前后多出来的空行。
@@ -152,18 +166,19 @@ export function appendBlock(body: string, block: string): string {
 // appendBlock 的另一半（F-L-50）：素材撤了而引用留在原地，访客页上就是一个裂图加一个
 // 内部文件名，而 owner 在面板上看不见。删整个图片节点而不是只删地址 —— 只删地址会留下
 // `![原文件名]()`，把文件名端给访客。
+//
+// **跟 appendBlock 严格互逆**（F-L-51）：它插的是 `\n\n` + 图，这里就先按那个形状撤；
+// 撤不掉再退而求其次（图后面跟空行、或者光秃秃一张图 —— 那是 owner 自己手写的位置）。
+// 末尾空白同样原样保留。于是「插入 → 撤下」逐字节回到原文，而不是每来一次少一个字节。
 export function dropAssetRef(body: string, assetID: string): string {
-  const re = new RegExp(
-    '\\n*!\\[[^\\]]*\\]\\(\\s*standmeet-asset:' + assetID + '\\s*\\)\\n*', 'g',
-  );
-  // 收尾跟 `appendBlock` 用**同一个约定**（正文末尾不留空白），这样反复「插入 → 撤下」
-  // 会收敛，而不是每来一次多一个换行。prod 上量过三轮：3240 → 3311 → 3241（`\n\n` 替换）
-  // 或 3239（整篇 trim）—— 两种都不等于原文。
-  //
-  // **逐字节还原做不到，而根因不在这儿**：`appendBlock` 插入时就已经把正文末尾的换行削掉了
-  // （它自己 `replace(/\s+$/,'')`）。那是「插入」那一半的既有行为，单独记一条（F-L-51），
-  // 不在这里假装修好。
-  return body.replace(re, '\n\n').replace(/\n{3,}/gu, '\n\n').replace(/\s+$/u, '');
+  const ref = `!\\[[^\\]]*\\]\\(\\s*standmeet-asset:${assetID}\\s*\\)`;
+  const { head, tail } = splitTail(body);
+  const stripped = head
+    .replace(new RegExp(`\\n\\n${ref}`, 'gu'), '')
+    .replace(new RegExp(`${ref}\\n\\n`, 'gu'), '')
+    .replace(new RegExp(ref, 'gu'), '')
+    .replace(/\n{3,}/gu, '\n\n');
+  return `${stripped}${tail}`;
 }
 
 function parseTags(raw: string): string[] {

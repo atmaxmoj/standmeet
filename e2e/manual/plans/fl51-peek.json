@@ -1,0 +1,13 @@
+{
+  "out": "/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad",
+  "viewport": [1280, 1800],
+  "login": true,
+  "shots": [
+    { "name": "fl51-peek-search", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"corpus-search-input\"]", "cognitive-science"] },
+        { "wait": 4000 }
+      ], "wait": 1500 }
+  ]
+}

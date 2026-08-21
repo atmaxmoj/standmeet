@@ -1,0 +1,37 @@
+{
+  "_why": "F-L-51 的 ⑤：插进正文再撤下来，正文必须**逐字节**回到原样。prod 上量过 3240 → 插入 3311 → 撤下 3239/3241，三轮没一次回到原文；根因是 `appendBlock` 动手前先削掉正文末尾的空白，那个字节再也长不回来。\n\n用的是真 vault 的 `reddit`（id 666efc0e…，241 字节，**末尾带空白** —— 正是被削掉的那些字节）。\n\n**为什么不是 `cognitive-science`**：F-L-50 那几趟用的那条（304359e6…）末尾**没有**空白，于是没修的代码在它身上也一样绿 —— 判据在那条笔记上不可能变红（[[assertion-that-cannot-fail]]）。选笔记这件事本身就是判据的一部分：从库里挑一条 `body ~ '\\s$'` 的。\n\n走完即复原：撤素材 + 保存，笔记回到 1608 字节。判据在库里读，不在屏幕上猜。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/corpus-media/shots",
+  "viewport": [1280, 1600],
+  "login": true,
+  "shots": [
+    { "name": "fl51-01-edit-open", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"corpus-search-input\"]", "reddit"] },
+        { "wait": 3500 },
+        { "click": "[data-testid=\"wiki-edit-666efc0e-f27a-4e08-bcec-5fd23cb4faaf\"]" },
+        { "wait": 2500 }
+      ], "wait": 1500 },
+    { "name": "fl51-02-inserted", "url": "",
+      "steps": [
+        { "pickDir": ["[data-testid=\"wiki-edit-form-666efc0e-f27a-4e08-bcec-5fd23cb4faaf-asset-input\"]", "../sm-sources.png"] },
+        { "wait": 6000 },
+        { "click": "[data-testid^=\"wiki-edit-form-666efc0e-f27a-4e08-bcec-5fd23cb4faaf-asset-insert-\"]" },
+        { "wait": 1500 },
+        { "click": "[data-testid=\"wiki-edit-form-666efc0e-f27a-4e08-bcec-5fd23cb4faaf-submit\"]" },
+        { "wait": 5000 }
+      ], "wait": 1500 },
+    { "name": "fl51-03-removed-and-saved", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"corpus-search-input\"]", "reddit"] },
+        { "wait": 3500 },
+        { "click": "[data-testid=\"wiki-edit-666efc0e-f27a-4e08-bcec-5fd23cb4faaf\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid^=\"wiki-edit-form-666efc0e-f27a-4e08-bcec-5fd23cb4faaf-asset-remove-\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid=\"wiki-edit-form-666efc0e-f27a-4e08-bcec-5fd23cb4faaf-submit\"]" },
+        { "wait": 5000 }
+      ], "wait": 2000 }
+  ]
+}
