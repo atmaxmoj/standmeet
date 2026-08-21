@@ -112,7 +112,8 @@ func BuildAgentIterator(
 		),
 		Model: cm,
 		ToolsConfig: adk.ToolsConfig{
-			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: in.Tools},
+			// guardRepeats —— 同一次大结果调用在这一轮里只真的打一次（F-D-14）。
+			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: guardRepeats(ctx, in.Tools)},
 			ReturnDirectly:  in.ReturnDirectly,
 		},
 		MaxIterations: maxAgentIterations,

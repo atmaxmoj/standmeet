@@ -58,11 +58,16 @@ func main() {
 		server.WithInstructions(mockInstructions))
 	// MOCK_MCP_NO_TOOLS —— 不注册任何 tool（测 "list 空 → capability 隐藏"）。
 	if os.Getenv("MOCK_MCP_NO_TOOLS") == "" {
-		srv.AddTool(pingTool(), pingHandler)
-		srv.AddTool(echoTool(), echoHandler)
-		srv.AddTool(boomTool(), boomHandler)
-		srv.AddTool(returnDirectlyTool(), echoHandler)
-		srv.AddTool(needsCalendarTool(), echoHandler) // _meta.requires:[calendar]（dep-grant 测试）
+		// counted(...) —— 每个 tool 的派发都记一笔（`GET /__mock/calls`）。包在注册这一步，
+		// 「新 tool 忘了数」就不可能发生（F-D-14 的正对照正是被这件事骗红过一次）。
+		srv.AddTool(pingTool(), counted("ping_external", pingHandler))
+		srv.AddTool(echoTool(), counted("echo", echoHandler))
+		srv.AddTool(boomTool(), counted("boom", boomHandler))
+		srv.AddTool(returnDirectlyTool(), counted("clarify", echoHandler))
+		srv.AddTool(needsCalendarTool(), // _meta.requires:[calendar]（dep-grant 测试）
+			counted("needs_calendar", echoHandler))
+		// big_page —— 结果大到活不过上下文窗口（F-D-14）。
+		srv.AddTool(bigPageTool(), counted("big_page", bigPageHandler))
 	}
 	// 一个普通资源 —— 仅证明 resources/read 传输通（mcpclient.ReadResource 的
 	// transport-boundary fixture，跟 echo/ping/boom 同级）。真正的 ui:// 卡片资源
@@ -105,6 +110,9 @@ func serveHTTP(srv *server.MCPServer) {
 		server.WithSSEEndpoint("/sse"), server.WithMessageEndpoint("/message"))
 	mux.Handle("/sse", sseSrv)
 	mux.Handle("/message", sseSrv)
+	// 派发计数：守卫问「同一次调用有没有真的又打到对面」，只有被调的这一侧答得了（F-D-14）。
+	mux.HandleFunc("GET /__mock/calls", serveCalls)
+	mux.HandleFunc("POST /__mock/calls/reset", serveResetCalls)
 	mux.HandleFunc("/healthz", healthz)
 	fmt.Fprintln(os.Stderr, "mcp-server-mock listening on :"+port+"/mcp")
 	httpServer := &http.Server{
