@@ -230,8 +230,26 @@ function applyEventToBlock(block: HTMLDivElement, ev: SSEEvent): void {
     block.dataset['raw'] = (block.dataset['raw'] ?? '') + ev.text;
     renderInline(block, block.dataset['raw']);
   } else if (ev.kind === 'error') {
-    block.textContent = `error: ${ev.message}`;
+    block.textContent = streamFailureText(ev);
+    console.error('[standmeet-chat] stream error', ev.code, ev.message);
   }
+}
+
+// streamFailureText —— 流里来的错误，访客那一格该写什么（F-O-9）。
+//
+// 账：这一行原来是 `error: ${ev.message}`。而后端发下来的 message **本来就是一句人话**
+// （「Something went wrong on my end — please try again.」），所以屏幕上出现的是
+// *"error: Something went wrong on my end…"* —— 一句好好的话被我们自己粘上了一个技术前缀，
+// 而这块 widget 装在**别人的网站**上。隔十二行的 `catch` 那条路早就改好了（`turnFailureText`，
+// F-O-5 那一刀），流事件这条路没跟上：一个能力两个面，只修了一个面。
+//
+// 所以：**后端写给人看的那句话，原样用**；它没给（`client.ts` 兜底成 `'error'`）才由我们兜。
+// 技术细节走 console，跟 catch 那条路同一个规矩。
+function streamFailureText(ev: { readonly message: string }): string {
+  const msg = ev.message.trim();
+  return msg === '' || msg === 'error'
+    ? 'That did not go through. Please try again.'
+    : msg;
 }
 
 // renderInline —— 只认三样：`**粗**`、`` `代码` ``、空行分段。

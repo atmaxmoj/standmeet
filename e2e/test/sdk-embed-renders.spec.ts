@@ -23,7 +23,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
+import { scriptMockError, scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -85,6 +85,32 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
       .toHaveCount(2, { timeout: 5_000 });
     await expect(page.locator('standmeet-chat [data-role="assistant"]').last())
       .toContainText('Second answer here', { timeout: 40_000 });
+  });
+
+  // F-O-9：**流里来的错误也得说人话。**
+  //
+  // `catch` 那条路早就改好了（`turnFailureText`，F-O-5 那一刀），可 `applyEventToBlock` 里
+  // 处理 `kind === 'error'` 的那一行还在 `error: ${ev.message}` —— 同一个文件隔十二行，
+  // 一个能力两个面只修了一个面。而这条路不是死代码：provider 挂了 / 超配额 / 推理失败，
+  // 后端就发 `event: error`，客户端解成 `{kind, code, message}`（`core/src/client.ts:294`）。
+  // 那一刻，**别人网站上**会出现 `error: upstream provider returned 503` 这种串。
+  //
+  // 替身回 500 → 后端把它折成一个 error 事件下发，走的正是这条路。
+  test('provider 出错时，访客读到的是人话，不是流里那串技术文本', async ({ page, playwright }) => {
+    const req = await playwright.request.newContext();
+    const tag = await scriptMockError(req);
+    await req.dispose();
+
+    await mountWidget(page);
+    await ask(page, `this turn will fail${tag}`);
+
+    const answer = page.locator('standmeet-chat [data-role="assistant"]').last();
+    // 先等这一格真的落了字 —— 否则「不含 error:」在它还空着的时候就成立了
+    // （[[negated-assertion-passes-while-absent]]）。
+    await expect(answer, '失败也得给访客一句话').not.toBeEmpty({ timeout: 40_000 });
+    const shown = (await answer.textContent() ?? '').trim();
+    expect(shown, `屏幕上不许出现原始错误串，实际是「${shown}」`).not.toMatch(/^error:/i);
+    expect(shown.length, '而且要是一句给人读的话，不是空壳').toBeGreaterThan(10);
   });
 });
 

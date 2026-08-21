@@ -1,0 +1,14 @@
+{
+  "_why": "F-O-9 的 ⑤：这一跳失败时，**别人网站上的访客**读到的是哪一句话。红态是 `error: Something went wrong on my end — please try again.` —— 后端那句话本来就是人话，是 widget 自己粘了个 `error: ` 前缀上去（`embed.ts:233`）。\n\n**为什么驱在 dev 上而不是 prod**：访客碰得到的一切都是真的 —— 构建产物、第二个 origin、真浏览器、真流式客户端。唯一被安排的是**失败的原因**：prod 上没有办法在不弄坏真实例的前提下把 provider 弄坏（真访客还在用），所以那一下由替身网关触发。\n\n先 `POST /__mock/inference/next_error {key:\"fo9manual\"}` 注册，再把 `[[s:fo9manual]]` 打进 widget 的输入框 —— 只有带这个关键词的那一轮会失败。\n\n**注意 prod 上还试过一条路，没走通，如实记在 trajectory 里**：拿 `mode=\"byoai\"` 且不带任何凭据去问，本以为会失败；实例把它当成 **public** 场次好好答完了（库里那一行就是 `public`）—— 那是对的行为，不是缺陷。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/sdk-embed/shots",
+  "viewport": [900, 700],
+  "shots": [
+    { "name": "fo9-01-stream-error-wording", "url": "http://localhost:41999/foreign-page-dev-failure.html",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["textarea", "what are you working on? [[s:fo9manual]]"] },
+        { "press": ["textarea", "Enter"] },
+        { "wait": 30000 }
+      ], "wait": 1500 }
+  ]
+}
