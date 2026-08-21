@@ -495,6 +495,15 @@ verify-round:
 # （见 shoot.mjs 的 `typeSecret`）。eval-harness/.env 不存在时不报错：绝大多数 plan 不需要它。
 #
 #   make verify-shots PLAN=e2e/manual/plans/seo.json
+# turn-hop-probe —— 逼出 /api/v1/agent/turn 那一跳的失败路径（F-O-3）：停 backend → 跨源打一发
+# → 断言 502 + 人话 + **带 CORS 头** → 把 backend 拉回来。一条 spec 做不到这件事：它要的前置是
+# 「app 活着、backend 够不到」，而整套跑到中途停共享 backend 会把别的 spec 一起带走。
+#
+#   make turn-hop-probe              # dev
+#   make turn-hop-probe STACK=prod   # prod
+turn-hop-probe:
+	@STACK=$(STACK) e2e/manual/turn-hop-failure-probe.sh
+
 verify-shots:
 	@test -n "$(PLAN)" || (echo 'usage: make verify-shots PLAN=e2e/manual/plans/<name>.json'; exit 2)
 	@set -a; . $$HOME/.config/standmeet/verify-creds.env; \

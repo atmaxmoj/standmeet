@@ -1,0 +1,14 @@
+{
+  "_why": "F-O-3 ④ 的 ⑤：**在浏览器里**看那个 502 到底读不读得到。\n\n探针页做的就是 embed 做的那一次跨源 POST，然后把结果印在页面上：读得到就印 status + body，读不到就印那句「浏览器把回应挡了」——后者正是缺少 CORS 头时从访客那一侧看到的样子（也就是 F-O-3 当初把人指错方向的那句话）。\n\n跑之前先 `make prod-stop-svc SVC=backend`，跑完 `make prod-start-svc SVC=backend`。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/sdk-embed/shots",
+  "viewport": [1000, 700],
+  "login": false,
+  "shots": [
+    { "name": "se6-03-browser-reads-the-502", "url": "http://localhost:41999/foreign-page-hop-probe.html",
+      "steps": [
+        { "wait": 2500 },
+        { "click": "#go" },
+        { "wait": 8000 }
+      ], "wait": 1000 }
+  ]
+}

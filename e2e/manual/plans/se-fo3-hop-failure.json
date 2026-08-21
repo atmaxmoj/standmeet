@@ -1,0 +1,16 @@
+{
+  "_why": "F-O-3 剩下的那一半：**那条日志和那句人话，从来没有真的跑过。**\n\n当初的现场是「跨源第一轮偶发失败、两侧日志皆空、浏览器只给一句会误导人的 CORS 报错」。修的时候在 app 那一跳补了 `proxy turn failed`（带 origin/status/dur_ms）+ 失败也带 CORS 头 + 一句人话。但**失败路径至今没被触发过** —— 一个从没执行过的诊断装置，跟没有装置的区别只在纸面上（[[red-that-cannot-go-green]]）。\n\n所以这一趟不等它再犯，直接把它逼出来：页面先在后端**活着**的时候开好（会话发出去了），然后从另一个终端 `make prod-stop-svc SVC=backend`，再发一问 —— 这一问必然死在 app→backend 那一跳上。\n\n判据两条：① 访客在异源页面上读到的是**人话**，不是技术串、也不是 CORS 报错；② app 日志里落下 `proxy turn failed`，带 origin 和 dur_ms。\n\n⚠️ 驱完必须 `make prod-start-svc SVC=backend`。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/sdk-embed/shots",
+  "viewport": [1100, 900],
+  "login": false,
+  "shots": [
+    { "name": "se6-01-hop-failure", "url": "http://localhost:41999/foreign-page.html",
+      "steps": [
+        { "wait": 8000 },
+        { "wait": 22000 },
+        { "type": ["standmeet-chat textarea", "what is the corpus for?"] },
+        { "press": ["standmeet-chat textarea", "Enter"] },
+        { "wait": 15000 }
+      ], "wait": 1500 }
+  ]
+}

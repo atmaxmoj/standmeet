@@ -1,0 +1,15 @@
+{
+  "_why": "正对照：**同一张异源页面、后端活着**，走一整轮。\n\n为什么必须先做这个：上一趟把后端停掉之后，app 日志里 `proxy turn failed` **一条都没有** —— 而我不能据此说「装置坏了」，因为我从没见过它成功那一半（`proxy turn`）打印出来。先证明这条日志在正常路径上真的会出现，再回头判失败路径的沉默是缺陷还是我的驱动没走到那一跳（[[verifier-can-lie-about-its-own-coverage]]）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/sdk-embed/shots",
+  "viewport": [1100, 900],
+  "login": false,
+  "shots": [
+    { "name": "se6-02-positive-control", "url": "http://localhost:41999/foreign-page.html",
+      "steps": [
+        { "wait": 8000 },
+        { "type": ["standmeet-chat textarea", "what is the corpus for?"] },
+        { "press": ["standmeet-chat textarea", "Enter"] },
+        { "wait": 45000 }
+      ], "wait": 2000 }
+  ]
+}

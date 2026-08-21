@@ -59,9 +59,43 @@ async function corsHeadersFromBackend(req: Request): Promise<Headers> {
       k.toLowerCase().startsWith('access-control-') && h.set(k, v);
     });
   } catch {
-    // 后端连 preflight 都答不了 —— 头就没有了，下面那个 502 至少是个诚实的状态码。
+    // 后端连 preflight 都答不了 —— 而**这一跳失败最常见的原因就是后端够不到**，
+    // 也就是说去问它要头，正好在最需要头的那一次要不到（2026-08-21 量到：curl 打回来的
+    // 502 一个 access-control-* 都没有，浏览器于是把整条回应吞掉，控制台只剩
+    // "No 'Access-Control-Allow-Origin'" —— **F-O-3 当初指错方向的那句话原样回来了**）。
   }
+  return withOriginFallback(h, req);
+}
+
+// withOriginFallback —— 问不到策略时，至少让浏览器**看得见这个错误**。
+//
+// 回的是请求自己的 Origin，只加在**失败回应**上：正文只有一句 "the instance did not answer"，
+// 没有数据；而不加的代价是访客侧的每一次上游故障都伪装成「这站 CORS 没配好」。
+// 后端活着的时候仍然照抄它的答复 —— 策略只有一处，这里搬的是答案不是规则。
+function withOriginFallback(h: Headers, req: Request): Headers {
+  const origin = fallbackOrigin(h, req);
+  origin !== '' && h.set('access-control-allow-origin', origin);
+  origin !== '' && h.set('vary', 'Origin');
   return h;
+}
+
+// fallbackOrigin —— 该回给谁。后端已经给了策略就照抄它的（空串 = 不动）。
+function fallbackOrigin(h: Headers, req: Request): string {
+  return h.has('access-control-allow-origin') ? '' : req.headers.get('origin') ?? '';
+}
+
+// preflightFallback —— 后端答不了 preflight 时，这一跳自己放行。
+// 把浏览器问的那两样原样答回去（方法 / 头），它才肯把真正那个请求发出来 —— 而那个请求
+// 会拿到带头的 502 + 一句人话。跟 withOriginFallback 是同一条道理的两半：
+// **上游死掉的那一刻，正是最不能让错误伪装成 CORS 配置问题的时刻。**
+function preflightFallback(req: Request): Headers {
+  const h = new Headers({
+    'access-control-allow-methods': req.headers.get('access-control-request-method') ?? 'POST',
+    'access-control-allow-headers':
+      req.headers.get('access-control-request-headers') ?? 'authorization,content-type',
+    'access-control-max-age': '60',
+  });
+  return withOriginFallback(h, req);
 }
 
 // OPTIONS —— 跨源的 embed 先发 preflight。**这一跳必须自己答**：接管了这个端点，就连它的
@@ -82,7 +116,11 @@ export async function OPTIONS(req: Request): Promise<Response> {
   } catch (e) {
     // preflight 在这一跳挂掉 = 浏览器连 POST 都不会发。以前这里静默 500，两侧日志皆空。
     hopFailed('OPTIONS', req, startedAt, e);
-    return new Response(null, { status: 502 });
+    // **放 preflight 过去**（后端够不到时才走到这儿）：不放的话浏览器只会说
+    // "No 'Access-Control-Allow-Origin'"，把人指向一个根本没坏的地方 —— 而放过去之后，
+    // 紧接着那个 POST 回的是带头的 502 + 一句人话，访客读到的是**真正发生的事**。
+    // 这一步下游能拿到的只有那个错误信封（后端不在，别的什么都做不了）。
+    return new Response(null, { status: 204, headers: preflightFallback(req) });
   }
 }
 
