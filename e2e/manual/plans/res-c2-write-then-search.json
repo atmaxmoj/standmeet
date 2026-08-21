@@ -1,0 +1,24 @@
+{
+  "_why": "resilience check 2 的「写完即搜」那一半。\n\n⚠️ 语料必须逐字等于真 vault，所以**一个字都不改**：打开 `trusted-identity-via-meta`（id `fc4ccec1…`）→ 直接按保存 → 立刻回去搜同一个短语。写路径跑了、索引重建了，而内容没动。\n\n判据：保存之后**立刻**搜 `prompt-injection-proof` 仍然搜得到这条（写完即搜一致），延迟仍在可用范围（后端 `dur_ms` 读）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1100],
+  "login": true,
+  "shots": [
+    { "name": "res-41-saved-unchanged", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"corpus-search-input\"]", "prompt-injection-proof"] },
+        { "wait": 5000 },
+        { "click": "[data-testid=\"wiki-edit-fc4ccec1-605b-4be7-b2c6-5ef41660a21e\"]" },
+        { "wait": 5000 },
+        { "click": "[data-testid=\"wiki-edit-form-fc4ccec1-605b-4be7-b2c6-5ef41660a21e-submit\"]" },
+        { "wait": 5000 }
+      ], "wait": 1000 },
+    { "name": "res-42-search-right-after-write", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"corpus-search-input\"]", "prompt-injection-proof"] },
+        { "wait": 5000 }
+      ], "wait": 1000 }
+  ]
+}

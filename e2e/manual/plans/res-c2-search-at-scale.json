@@ -1,0 +1,14 @@
+{
+  "_why": "resilience check 2 —— **在真语料上量搜索**：1077 条笔记、prod 走的是 Postgres 全文那条路（item 自己的 Note：prod 不带搜索引擎，回退路就是常态路，不是应急路）。\n\n两步：先搜一个真存在的短语（`prompt-injection-proof`，来自 `trusted-identity-via-meta` 那条真笔记），看结果和延迟；再打开那条笔记**原样保存一次**（不改一个字 —— 语料要跟 vault 逐字对齐），紧接着再搜同一个短语，判「写完即搜」立刻一致。\n\n延迟从后端日志的 `dur_ms` 读，不看屏幕上的感觉。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1100],
+  "login": true,
+  "shots": [
+    { "name": "res-40-search-real-corpus", "url": "/admin/wiki",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"corpus-search-input\"]", "prompt-injection-proof"] },
+        { "wait": 6000 }
+      ], "wait": 1000 }
+  ]
+}
