@@ -1,0 +1,18 @@
+{
+  "_why": "ext-mcp check 5：**深 schema 往返**。以真访客身份用 `EXTMCP-01`（挂着 ext-mcp-probe role，刚把 huggingface 那台真 server 挂上去）进聊天，问一个只能靠 `hub_repo_search` 回答的问题 —— 那个工具的输入 schema 带**枚举**（`repo_type` / `sort`）、**数字**（`limit`）和数组，是 DeepWiki 那三个平字符串工具验不了的部分。\n\n判据两边看：屏幕上答案里的仓库名/下载量必须是**真的**（说明服务器收到的参数是对的），后端日志里那次工具调用的参数必须**原样、类型正确**（枚举不是被塞成字符串垃圾、limit 是数字）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 1200],
+  "login": false,
+  "shots": [
+    { "name": "em-43-visitor-tool-call", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "EXTMCP-01"] },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 9000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Use the huggingface tools: search the Hub for the top 2 trending datasets matching squad. Tell me their names and downloads."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 60000 }
+      ], "wait": 2000 }
+  ]
+}

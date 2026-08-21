@@ -1,0 +1,16 @@
+{
+  "_why": "ext-mcp：对刚注册的 Hugging Face 官方 MCP 按 CHECK —— 后端真去拨号、真枚举它自己公布的工具。这既是 check 1 的形状在**第二台真 server** 上再走一遍，也是 check 5 的前置：要先看见它公布的是哪些工具，才能挑那个带枚举/数组/嵌套对象的去调。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 1000],
+  "login": true,
+  "shots": [
+    { "name": "em-41-hf-tools", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "scroll": ["[data-testid=\"mcp-server-0786fd33-0b89-4537-8bbc-213cd9b51bed\"]", 300] },
+        { "click": "[data-testid=\"mcp-server-0786fd33-0b89-4537-8bbc-213cd9b51bed\"] [data-testid=\"mcp-server-check\"]" },
+        { "wait": 15000 },
+        { "scroll": ["[data-testid=\"mcp-server-0786fd33-0b89-4537-8bbc-213cd9b51bed\"]", 200] }
+      ], "wait": 1500 }
+  ]
+}

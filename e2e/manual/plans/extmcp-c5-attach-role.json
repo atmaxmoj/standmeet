@@ -1,0 +1,19 @@
+{
+  "_why": "ext-mcp check 5 的第二步：把 huggingface 那台 server 挂到 `ext-mcp-probe` 这个 role 上（这个 role 是上一轮驱 check 2 时建的，本来就是干这个用的），保存。\n\n挂上之后访客才拿得到它的工具 —— 下一 plan 用这个 role 的码进访客聊天，让模型真调一次 `hub_repo_search`（带枚举 `repo_type`/`sort` + 数字 `limit`），看参数原样不原样。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "shots": [
+    { "name": "em-42-role-attached", "url": "/admin/roles",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"role-row-ext-mcp-probe\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"role-tools-mcp-ext-mcp-probe\"] [data-testid=\"role-multi-huggingface\"]" },
+        { "wait": 800 },
+        { "click": "[data-testid=\"role-row-ext-mcp-probe\"] [data-testid=\"role-tools-save\"]" },
+        { "wait": 4000 },
+        { "scroll": ["[data-testid=\"role-row-ext-mcp-probe\"]", 250] }
+      ], "wait": 1500 }
+  ]
+}
