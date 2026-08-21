@@ -1,0 +1,16 @@
+{
+  "_why": "marketplace-needs-connector：确认 check 1 的阻塞是不是仍然成立（真市场上有没有一张卡声明连接器依赖），顺便看 SKILLSMP 这条源里有什么。\n\n⚠️ 上一版我用 `text=SKILLSMP` 点，命中的是导语里那句「and **SkillsMP** (commercial channel)」的链接，不是筛选 chip —— 屏幕上 ALL 仍然高亮着，看起来像「筛选器没反应」。选择器换成 chip 自己的 testid（[[harness-confusion-looks-like-a-defect]]）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/marketplace-needs-connector/shots",
+  "viewport": [1280, 2000],
+  "login": true,
+  "shots": [
+    { "name": "mnc-02-skillsmp", "url": "/admin/skills",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "text=MARKETPLACE" },
+        { "wait": 5000 },
+        { "click": "[data-testid=\"marketplace-source-skillsmp\"]" },
+        { "wait": 7000 }
+      ], "wait": 2000 }
+  ]
+}
