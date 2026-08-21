@@ -15,7 +15,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { login as loginAPI } from '@/fixtures/admin';
-import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
+import { listAdminWritings, makeVaultMD, uploadVault } from '@/fixtures/obsidian';
 import { BACKEND, claimSyncOwner, syncOwner, adminGenreList, type SyncOwner } from '@/fixtures/vault-sync';
 
 type Ctx = { playwright: Playwright };
@@ -48,7 +48,44 @@ test.describe('sync · authoritative prune (F-L-6: sync means sync)', () => {
   test('an unchanged authoritative re-sync deletes NOTHING', idempotentSyncDeletesNothing);
   test('a web-edited note deleted from the vault is STILL pruned (no web-wins)', webEditIsNotAPin);
   test('a PARTIAL upload still never deletes (the mirror guard)', partialStillNeverDeletes);
+  test('an authoritative sync keeps the writings it just imported (F-L-63)', writingsSurviveTheirOwnImport);
 });
+
+// F-L-63 —— **一次整份导入把它自己刚建好的 writing 删掉了。**
+//
+// prod 上量到的：真 vault 里有 `writings/the-business-model-wedge.md`，而库里 `genre='writing'`
+// 的行数是 **0**；同一份 vault 连导两次，第二次的回执是 `1 new · 0 updated · 1 deleted ·
+// 1076 unchanged` —— 每导一次建一条、又删一条，永远在原地打转。
+//
+// 机制读出来的（不靠试）：`pruneAbsent` 的 keep 集合来自 `st.idOf`，而 `st.idOf` 只装
+// **corp 树**的节点（wiki/subjectivity/raw）。writings 走的是另一条路（`syncWritings` →
+// `ImportWritings`），它对上了号却**不往 keep 里报**，于是 `PruneAbsentVaultNotes` 看见一条
+// 「vault 导入过、又不在 keep 里」的行，照定义删掉。
+//
+// 判据要能判负：第一次导入之后 writing 必须还在，而且**同一份 vault 再导一次是空操作** ——
+// 后面这一句正是 check 4（「第二次导入什么都不改」）在真语料上说不通的地方。
+async function writingsSurviveTheirOwnImport({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  const vault = [
+    ...FULL_VAULT,
+    {
+      rel: 'writings/a-piece.md',
+      body: makeVaultMD({ title: 'A Piece', slug: 'a-piece', publish: true }, 'the writing body'),
+    },
+  ];
+  const first = await uploadVault(request, OWNER, vault, { authoritative: true });
+  expect(first.deleted, '第一次导入不许删掉它自己刚建的东西').toBe(0);
+  const after = await listAdminWritings(request, OWNER);
+  expect(after.some((w) => w.slug === 'a-piece'), 'writing 落地了').toBe(true);
+
+  const second = await uploadVault(request, OWNER, vault, { authoritative: true });
+  expect(second.created, '同一份 vault 再导一次不新建').toBe(0);
+  expect(second.deleted, '也不删 —— 第二次导入是空操作（check 4）').toBe(0);
+  // F-L-64 —— **也不重写**。writings 这条路以前没有「有没有变」的比较，找到既有行就无条件
+  // 保存，于是每导一次全部 writing 的 `updated_at` 就往前跳一次，「最近改过什么」从此说不准。
+  expect(second.updated, '内容一字未变就不该被重写（F-L-64）').toBe(0);
+  await request.dispose();
+}
 
 // deletedNoteIsPruned —— the core F-L-6 red: sync the vault, delete a note from the vault, re-sync
 // authoritatively → the corpus must converge on the vault. RED pre-fix: 'gone' survives forever.

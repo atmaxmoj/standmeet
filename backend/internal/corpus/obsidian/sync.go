@@ -113,6 +113,9 @@ func syncWritings(
 	result.Created += wr.Created
 	result.Updated += wr.Updated
 	result.Skipped += wr.Skipped
+	// Kept 也要并过来 —— 那是剪枝放过谁的依据（F-L-63）。丢掉这一句,这一批 writing
+	// 就会被同一次请求里的剪枝当成「vault 里已经没有的东西」删掉。
+	result.Kept = append(result.Kept, wr.Kept...)
 	result.Errors = append(result.Errors, wr.Errors...)
 }
 

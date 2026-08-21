@@ -138,12 +138,17 @@ test.describe('obsidian: re-import idempotency', () => {
       expect(first.created).toBe(1);
       expect(first.skipped).toBe(0);
 
-      // 第二次 import：source_path 撞，updated_at == imported_at（刚刚 set），
-      // 不算 web edited → 走 SaveWriting 覆盖 → outcomeUpdated。
+      // 第二次 import：source_path 撞上同一行，而**内容一字未变 → 不重写**（F-L-64）。
+      //
+      // 这三句以前断的是 `updated: 1`（"走 SaveWriting 覆盖"），跟这条用例自己的名字
+      // 「全部 skipped」正好相反 —— 它钉住的是一个缺陷：writings 这条路没有「有没有变」
+      // 的比较，于是每导一次全部 writing 的 `updated_at` 就往前跳一次。vault-sync 的
+      // check 4 说的是「第二次导入是空操作，内容被保留而不是被重写」。现在名字、判据、
+      // 产品三者对上了。
       const second = await uploadVault(request, OWNER, files);
       expect(second.created).toBe(0);
-      expect(second.updated).toBe(1);
-      expect(second.skipped).toBe(0);
+      expect(second.updated, '一字未变就不重写').toBe(0);
+      expect(second.skipped, '认到了同一行、什么都没改 → unchanged').toBe(1);
     });
 });
 

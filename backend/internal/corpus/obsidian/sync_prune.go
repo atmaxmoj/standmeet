@@ -23,9 +23,15 @@ import "context"
 //     data by omission.
 type SyncMode struct{ Authoritative bool }
 
-// pruneAbsent —— everything reconciled this run is recorded in st.idOf; a vault-imported note NOT
-// in that set vanished from the vault, so it goes. Refs and children cascade (FK), so a deleted
-// folder takes its subtree with it.
+// pruneAbsent —— everything reconciled this run is recorded in st.idOf (corp tree) or reported in
+// result.Kept (the writings importer, which claims its own rows down a separate path); a
+// vault-imported note in NEITHER vanished from the vault, so it goes. Refs and children cascade
+// (FK), so a deleted folder takes its subtree with it.
+//
+// **Every path that claims a row has to report it.** The writings importer did not, and the prune
+// in the same request deleted the writing that same import had just created — on the real vault,
+// `genre='writing'` sat at zero rows forever while every import printed `1 new · 1 deleted`
+// (F-L-63).
 //
 // Three guards, each blocking a distinct way this could destroy real work:
 //   - partial upload → never prune. Absence means nothing in a subset feed.
@@ -44,10 +50,11 @@ func pruneAbsent(
 	if !shouldPrune(mode, st, result) {
 		return
 	}
-	keep := make([]string, 0, len(st.idOf))
+	keep := make([]string, 0, len(st.idOf)+len(result.Kept))
 	for _, id := range st.idOf {
 		keep = append(keep, id)
 	}
+	keep = append(keep, result.Kept...)
 	n, err := deps.Notes.PruneAbsentVaultNotes(ctx, st.ownerID, keep)
 	if err != nil {
 		result.Errors = append(result.Errors, "prune absent notes: "+err.Error())
