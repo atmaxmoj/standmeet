@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { Page, Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -117,7 +117,56 @@ test.describe('admin obsidian section', () => {
       expect(parsed.created + parsed.updated, 'the vault content is ingested').toBeGreaterThan(0);
     });
 
+  // F-L-62 —— **回执不说那次导入删了什么。**
+  //
+  // prod 上真发生的：一次整份导入（= authoritative）剪掉了 10 条笔记（一整棵 `wiki/math/orbit/`
+  // 加一条 `type-theory`），屏幕上从头到尾只有 `4 new · 9 updated · 1055 unchanged`。
+  // 三个数说的全是可逆的那一半；**唯一不可逆的那一半没有数字**。后端一直在算它
+  // （`ImportResult.Deleted`，API 也发了），前端把它解析进 schema 之后就扔了。
+  //
+  // 判据要能判负：先导两条，再导一条 —— 第二次必定剪掉一条，那一行必须说得出来，
+  // 而且刷新之后存下来的那一行也要说得出来（回执是事实，不是那一次点击的余温）。
+  test('the receipt says what the import DELETED, not only what it added (F-L-62)',
+    ({ adminPage }) => receiptReportsDeletions(adminPage));
 });
+
+async function receiptReportsDeletions(page: Page): Promise<void> {
+  await gotoAdminSection(page, 'obsidian');
+  await importVault(page, makeVaultOf('prune-keep', 'prune-drop'));
+  // 第二次少了一条 —— 整份上传就是 authoritative，缺席即删除。
+  await importVault(page, makeVaultOf('prune-keep'));
+
+  await expect(
+    page.getByTestId('obsidian-import-result'),
+    '剪掉了笔记，那一行就必须有个删除的数',
+  ).toContainText(/[1-9]\d* deleted/);
+
+  await gotoAdminSection(page, 'obsidian');
+  await expect(
+    page.getByTestId('obsidian-last-import'),
+    '刷新之后存下来的那一行也要说得出删了几条',
+  ).toContainText(/[1-9]\d* deleted/);
+}
+
+// importVault —— 走 owner 真点的那条路（文件夹选择器），等这一次导入的响应回来。
+async function importVault(page: Page, dir: string): Promise<void> {
+  const done = page.waitForResponse(
+    (r) => r.url().includes('/obsidian/import') && r.request().method() === 'POST',
+    { timeout: 60_000 },
+  );
+  await page.getByTestId('obsidian-vault-input').setInputFiles(dir);
+  await done;
+}
+
+// makeVaultOf —— 一个只有 wiki 笔记的小 vault：第二次少给一条，就是「owner 在 vault 里删了它」。
+function makeVaultOf(...notes: string[]): string {
+  const root = mkdtempSync(join(tmpdir(), 'standmeet-prune-'));
+  mkdirSync(join(root, 'wiki'), { recursive: true });
+  for (const n of notes) {
+    writeFileSync(join(root, 'wiki', `${n}.md`), `---\npublish: true\n---\n\n${n} body.\n`);
+  }
+  return root;
+}
 
 const ImportOutcomeSchema = z.object({
   created: z.number(), updated: z.number(), skipped: z.number(), errors: z.array(z.string()),

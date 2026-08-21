@@ -1,0 +1,15 @@
+{
+  "_why": "F-L-62 的 ⑤ —— 一次会剪枝的导入，屏幕上必须说得出剪了几条。\n\n导的还是那份 scratchpad 里的 vault 拷贝（少了 `wiki/math/orbit/` 一整棵 + `type-theory`），跟撞出这条缺陷的那一趟是同一个动作。红态是 `4 new · 9 updated · 1055 unchanged` —— 剪掉 10 条，屏幕上一个字没有。\n\n两张图：第一张是那一次点击的活回执，第二张是**刷新之后**存下来的那一行 —— 不可逆的那个数必须两处都在。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "viewport": [1280, 900],
+  "login": true,
+  "shots": [
+    { "name": "vs-39-fl62-deleted-live", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 3000 },
+        { "pickDir": ["[data-testid=\"obsidian-vault-input\"]", "/private/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/vault-copy"] },
+        { "wait": 90000 }
+      ], "wait": 3000 },
+    { "name": "vs-40-fl62-deleted-after-reload", "url": "/admin/obsidian", "wait": 6000 }
+  ]
+}

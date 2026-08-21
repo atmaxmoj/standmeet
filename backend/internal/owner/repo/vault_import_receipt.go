@@ -35,6 +35,7 @@ func (r *Repo) RecordVaultImport(
 		LastVaultImportNew:     int32(rec.New),
 		LastVaultImportUpdated: int32(rec.Updated),
 		LastVaultImportSkipped: int32(rec.Skipped),
+		LastVaultImportDeleted: int32(rec.Deleted),
 	})
 	if err != nil {
 		return fmt.Errorf("record vault import: %w", err)
@@ -64,6 +65,7 @@ func (r *Repo) GetVaultImportReceipt(
 		New:     int(row.LastVaultImportNew),
 		Updated: int(row.LastVaultImportUpdated),
 		Skipped: int(row.LastVaultImportSkipped),
+		Deleted: int(row.LastVaultImportDeleted),
 	}
 	if row.LastVaultImportAt.Valid {
 		out.At = row.LastVaultImportAt.Time

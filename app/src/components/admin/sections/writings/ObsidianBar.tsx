@@ -102,8 +102,10 @@ function StatusDone({ result }: { result: ImportResult }) {
       className="mono text-[10px] text-(--color-muted)"
       data-testid="obsidian-import-result"
     >
+      {/* deleted 也报，哪怕是 0：四个数里只有它不可逆（F-L-62）。 */}
       {t('result', {
-        created: result.created, updated: result.updated, skipped: result.skipped,
+        created: result.created, updated: result.updated,
+        deleted: result.deleted, skipped: result.skipped,
       })}
       {result.errors.length > 0 && (
         <span className="text-(--color-accent) ml-2">

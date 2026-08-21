@@ -10,3 +10,6 @@ ALTER TABLE owners ADD COLUMN IF NOT EXISTS last_vault_import_at      timestampt
 ALTER TABLE owners ADD COLUMN IF NOT EXISTS last_vault_import_new     integer NOT NULL DEFAULT 0;
 ALTER TABLE owners ADD COLUMN IF NOT EXISTS last_vault_import_updated integer NOT NULL DEFAULT 0;
 ALTER TABLE owners ADD COLUMN IF NOT EXISTS last_vault_import_skipped integer NOT NULL DEFAULT 0;
+-- F-L-62：剪枝那一半也要有数。一次整份导入在 prod 上剪掉了一整棵子树 10 条笔记，
+-- 而回执只报了新建/更新/未变 —— 三个可逆的数，唯一不可逆的那个没有。
+ALTER TABLE owners ADD COLUMN IF NOT EXISTS last_vault_import_deleted integer NOT NULL DEFAULT 0;

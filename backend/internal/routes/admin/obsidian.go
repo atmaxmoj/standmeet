@@ -133,7 +133,7 @@ func (d *ObsidianDeps) recordImportReceipt(
 		return
 	}
 	d.logReceiptErr(d.ImportReceipt.RecordVaultImport(ctx, ownerID, owner.VaultImportReceipt{
-		New: res.Created, Updated: res.Updated, Skipped: res.Skipped,
+		New: res.Created, Updated: res.Updated, Skipped: res.Skipped, Deleted: res.Deleted,
 	}))
 }
 

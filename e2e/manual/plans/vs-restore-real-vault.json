@@ -1,0 +1,14 @@
+{
+  "_why": "复原：驱完一趟破坏性的检查之后，把语料重新对齐真 vault（`~/Develop/writing/notes`）。语料必须是真 vault 的镜像 —— 每一趟驱完都要回到 482 / 19 / 575。\n\n名字单独一个、只做这一件事：复原跟取证共用一个 plan 名，第二趟会盖掉第一趟的图（已经吃过一次）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "viewport": [1280, 900],
+  "login": true,
+  "shots": [
+    { "name": "vs-restore-latest", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 3000 },
+        { "pickDir": ["[data-testid=\"obsidian-vault-input\"]", "/Users/wangsijie/Develop/writing/notes"] },
+        { "wait": 90000 }
+      ], "wait": 3000 }
+  ]
+}

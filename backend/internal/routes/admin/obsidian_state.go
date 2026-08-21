@@ -21,7 +21,9 @@ type vaultStateView struct {
 	New          int    `json:"new"`
 	Updated      int    `json:"updated"`
 	Skipped      int    `json:"skipped"`
-	Never        bool   `json:"never"`
+	// Deleted —— 那一次剪掉了几条（F-L-62）。它跟另外三个数不是一类：那三个可逆，这个不可逆。
+	Deleted int  `json:"deleted"`
+	Never   bool `json:"never"`
 }
 
 func (h *Handlers) obsidianState() http.HandlerFunc {
@@ -38,7 +40,8 @@ func (h *Handlers) obsidianState() http.HandlerFunc {
 		// 直接 import 域的 facade，而出站收口那道闸对新文件是零容忍的（老文件在基线里）。
 		// 这里用 `:=` 收下回执，类型靠推导，不需要那个 import。
 		view := vaultStateView{
-			New: rec.New, Updated: rec.Updated, Skipped: rec.Skipped, Never: rec.Never(),
+			New: rec.New, Updated: rec.Updated, Skipped: rec.Skipped,
+			Deleted: rec.Deleted, Never: rec.Never(),
 		}
 		if !rec.Never() {
 			view.LastImportAt = rec.At.UTC().Format(time.RFC3339)

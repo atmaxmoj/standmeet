@@ -103,5 +103,6 @@ UPDATE owners
 SET last_vault_import_at = now(),
     last_vault_import_new = $2,
     last_vault_import_updated = $3,
-    last_vault_import_skipped = $4
+    last_vault_import_skipped = $4,
+    last_vault_import_deleted = $5
 WHERE id = $1;

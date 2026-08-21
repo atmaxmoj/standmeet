@@ -1,0 +1,14 @@
+{
+  "_why": "vault-sync check 5 剩下的两条腿 + check 6 ⭐，一趟驱完。\n\n⚠️ 真 vault 一个文件不动：整份拷到 scratchpad，在**拷贝**里做四件事 —— ① 跨 genre 移动 `wiki/philosophy/lacan.md` → `subjectivity/philosophy/lacan.md`；② 改名 `wiki/math/logic/sat.md` → `sat-solving.md`；③ 删一条笔记 `wiki/math/logic/type-theory.md`；④ 删一整个文件夹 `wiki/math/orbit/`（folder-note + 8 条子笔记）。然后从界面导入那份拷贝 —— 整份 vault，所以是 authoritative。\n\n判据在库里读：跨 genre 移动**同一个 id** 改 genre；改名不留孤儿也不重复；被删的 10 条整棵消失，**碰它们的 61 条边一条不剩**。\n\n复原：再从界面导一次真 vault。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "viewport": [1280, 900],
+  "login": true,
+  "shots": [
+    { "name": "vs-38-authoritative-prune", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 3000 },
+        { "pickDir": ["[data-testid=\"obsidian-vault-input\"]", "/private/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/vault-copy"] },
+        { "wait": 90000 }
+      ], "wait": 3000 }
+  ]
+}

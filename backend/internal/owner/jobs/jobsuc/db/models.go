@@ -347,6 +347,7 @@ type Owner struct {
 	LastVaultImportNew     int32
 	LastVaultImportUpdated int32
 	LastVaultImportSkipped int32
+	LastVaultImportDeleted int32
 	CreatedAt              pgtype.Timestamptz
 }
 

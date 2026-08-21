@@ -17,6 +17,9 @@ export const VaultImportStateSchema = z.object({
   new: z.number().default(0),
   updated: z.number().default(0),
   skipped: z.number().default(0),
+  // deleted —— 那一次剪掉了几条（F-L-62）。它跟另外三个数不是一类：新建/更新/未变都可逆，
+  // 剪枝不可逆 —— 而这一行以前只报可逆的那三个。
+  deleted: z.number().default(0),
   never: z.boolean(),
 });
 
@@ -31,6 +34,9 @@ export function vaultImportLine(s: VaultImportState | null): string {
 
 // changeSummary —— 那一次到底动了什么。**skipped 也说**：一次「什么都没变」的导入
 // 跟一次没发生过的导入，owner 要分得出来。
+//
+// **deleted 永远说，哪怕是 0**（F-L-62）：剪枝是这四个数里唯一不可逆的一个。零也是话
+// ——「这次没剪」跟「这版根本不报剪枝」，owner 得分得出来，而后者正是这条缺陷的样子。
 function changeSummary(s: VaultImportState): string {
-  return `${s.new} new · ${s.updated} updated · ${s.skipped} unchanged`;
+  return `${s.new} new · ${s.updated} updated · ${s.deleted} deleted · ${s.skipped} unchanged`;
 }

@@ -36,9 +36,9 @@
 
 ### 6 — An authoritative sync prunes what the vault no longer has ⭐
 - **Steps:** Sync the vault. Delete one note and one whole folder from the vault. Sync again as authoritative. Read the corpus tree and the link graph.
-- **Expected:** The deleted note and folder are gone from the corpus, and no edge to them survives. After an authoritative sync the corpus equals the vault.
+- **Expected:** The deleted note and folder are gone from the corpus, and no edge to them survives. After an authoritative sync the corpus equals the vault. The receipt on screen says how many notes were pruned — pruning is the one action on this surface that cannot be undone, so a receipt reporting only what was added and updated hides the half that needs review.
 - **Note:** This is deliberately different from a partial upload, which must never delete. Only a sync that declares itself authoritative may prune, so the two modes must stay distinguishable.
-- **Backing test:** `sync-h-reconcile.spec.ts` covers upsert only · pruning → `gap`
+- **Backing test:** `sync-authoritative-prune.spec.ts` · `admin-obsidian.spec.ts` (the receipt)
 
 ### 7 — Hidden files are bucketed, not blanket-skipped
 - **Steps:** Import with the real hidden directories present. Check that version-control, OS and script directories contribute no notes. Then check that the editor config directory's stylesheet and its enabled-list were harvested.

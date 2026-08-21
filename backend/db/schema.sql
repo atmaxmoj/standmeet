@@ -86,6 +86,8 @@ CREATE TABLE owners (
     last_vault_import_new     integer       NOT NULL DEFAULT 0,
     last_vault_import_updated integer       NOT NULL DEFAULT 0,
     last_vault_import_skipped integer       NOT NULL DEFAULT 0,
+    -- deleted —— 剪掉了几条（F-L-62）。跟另外三个不是一类：那三个可逆，这个不可逆。
+    last_vault_import_deleted integer       NOT NULL DEFAULT 0,
     created_at           timestamptz   NOT NULL DEFAULT now()
 );
 
