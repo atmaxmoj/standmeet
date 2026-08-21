@@ -89,6 +89,26 @@ func (rec *recorder) findByTag(tag, needle string) RequestRecord {
 	return RequestRecord{}
 }
 
+// findByText —— **不按 tag,只按内容**找最近一条请求。
+//
+// 为什么要它:有些请求根本不是「某一轮的那次调用」——**压缩**就是一次自己的模型调用,它带的是
+// 被压掉的那些消息 + 摘要任务书。按 tag 找会返回那一轮**自己**的调用(它在时间上更靠后),
+// 于是 `contains=` 判的是拿错了的那条请求 —— 我在 F-D-10 上正是这么红了一次,而红的是查询
+// 不是产品。判据要问「这一轮里**有没有**一次请求带着这句话」时,就用这一个。
+func (rec *recorder) findByText(needle string) RequestRecord {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	for i := len(rec.ring) - 1; i >= 0; i-- {
+		if needle != "" && strings.Contains(rec.text[i], needle) {
+			hit := rec.ring[i]
+			hit.Found = true
+			hit.Contains = true
+			return hit
+		}
+	}
+	return RequestRecord{}
+}
+
 // recordFrom —— 从 HTTP 请求 + 解出来的 body 折一条记录。
 // 凭据两种头都看:Anthropic 用 x-api-key,OpenAI-compat 用 Authorization: Bearer。
 func recordFrom(r *http.Request, req *MessagesReq) RequestRecord {
@@ -133,4 +153,10 @@ func (s *server) serveResetRequests(w http.ResponseWriter, _ *http.Request) {
 func (s *server) serveLastRequest(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	writeJSON(s.log, w, s.rec.findByTag(q.Get("tag"), q.Get("contains")))
+}
+
+// serveAnyRequest —— GET /__mock/inference/any_request?contains=yyy
+// 「这一轮里有没有**任何**一次请求带着这句话」。压缩那次调用不属于任何 tag,只能这么问。
+func (s *server) serveAnyRequest(w http.ResponseWriter, r *http.Request) {
+	writeJSON(s.log, w, s.rec.findByText(r.URL.Query().Get("contains")))
 }

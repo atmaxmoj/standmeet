@@ -49,6 +49,12 @@ Carry these forward verbatim, as concrete facts, not as themes:
    preferences, contact details) — these exist nowhere else once this summary
    replaces the transcript.
 5. Anything the visitor corrected or objected to, so it is not repeated back at them.
+6. What any tools returned — the passage that was read, the slots that came back, the
+   page that was fetched — in enough substance to answer the question still in flight.
+   The tool trace itself CANNOT survive this compaction (a tool result whose call has
+   been compacted away makes the provider reject the whole request), so this summary is
+   the only place that evidence can live. A turn that loses it ends with "what would you
+   like to dig into next?" instead of the answer the visitor asked for.
 
 Write it as plain prose. Do not call any tools.`
 

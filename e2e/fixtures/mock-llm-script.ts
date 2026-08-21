@@ -176,6 +176,23 @@ export async function resetGatewayRequests(request: APIRequestContext): Promise<
   if (res.status() !== 200) throw new Error(`reset_requests: ${res.status()}`);
 }
 
+/** Did ANY request in this run carry this text? Tag-free on purpose.
+ *
+ *  Some model calls belong to no turn: **compaction** is its own call, carrying the
+ *  messages being compacted plus the summariser's instruction. Asking by tag returns
+ *  the turn's own call (later in the ring), so `contains` ends up judging the wrong
+ *  request — that is how F-D-10's guard went red on my query rather than on the
+ *  product. Use this when the question is "did this sentence go to the model at all". */
+export async function gatewayRequestExists(
+  request: APIRequestContext, contains: string,
+): Promise<boolean> {
+  const res = await request.get(
+    `${GATEWAY}/__mock/inference/any_request?contains=${encodeURIComponent(contains)}`,
+  );
+  if (res.status() !== 200) throw new Error(`any_request: ${res.status()}`);
+  return ((await res.json()) as GatewayRequest).found;
+}
+
 export async function lastGatewayRequest(
   request: APIRequestContext, tag: string, contains = '',
 ): Promise<GatewayRequest> {
