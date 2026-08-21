@@ -82,7 +82,7 @@ func SyncVault(
 	syncCSS(ctx, deps, ownerID, b.css)
 	tree := buildDesiredTree(b.corp)
 	st := &syncState{
-		ownerID: ownerID, idOf: map[string]string{}, titleToID: map[string]string{},
+		ownerID: ownerID, idOf: map[string]string{},
 		dupTitles: collidingTitles(tree),
 	}
 	for _, node := range tree {
@@ -107,10 +107,13 @@ func syncWritings(
 	result.Errors = append(result.Errors, wr.Errors...)
 }
 
-// syncState —— 一次 sync 的可变状态:节点 path→id(算 parent)+ title→id(链接解析)。
+// syncState —— 一次 sync 的可变状态：节点 (genre,path)→id。算父链和挂链接**共用同一份身份**。
+//
+// 这里以前还有一张 `titleToID`（只有链接解析读它）。它被删掉而不是留着：vault 的 basename
+// 不唯一，按 title 找笔记必然张冠李戴，而一份「按不唯一的键索引」的表放在那里，早晚还会
+// 有人去读第二次（F-L-60）。
 type syncState struct {
 	idOf      map[string]string
-	titleToID map[string]string
 	dupTitles map[string]bool // lowercased titles shared by >1 node → ambiguous, rejected
 	ownerID   string
 }
@@ -236,7 +239,6 @@ func parentIDOf(st *syncState, n *desiredNode) *string {
 
 func record(st *syncState, node *desiredNode, id string) {
 	st.idOf[nodeKey(node.genre, node.path)] = id
-	st.titleToID[node.title] = id
 }
 
 func unchangedNode(sn *corpus.SyncNote, n *desiredNode, parent *string, c *nodeContent) bool {
@@ -281,7 +283,19 @@ func resolveNoteLinks(ctx context.Context, deps *SyncDeps, st *syncState, node *
 	if node.file == nil {
 		return
 	}
-	id, ok := st.titleToID[node.title]
+	// **按路径找这条笔记，不按标题**（F-L-60）。
+	//
+	// 账：这里原来是 `st.titleToID[node.title]` —— 而 vault 里 basename 根本不唯一
+	// （`theory/theory.md` 在三个文件夹里各有一份）。同名的几篇共用一个桶，而
+	// `RebuildForNote(id, body)` 是**重建**：后处理的那篇把前一篇刚建好的边整个盖掉，
+	// 轮到最后那篇恰好没链接，桶就空了。prod 上量到的代价：同名笔记 97 条，只有 22 条
+	// 有出边，**41 条正文里有 `[[` 却一条边都没有** —— 而 vault 自己的 check-links.sh
+	// 说这些链接全是好的，损失只发生在我们这一侧、且不报错。
+	//
+	// reconcile 那一半早就改成按 `source_path` 认领了（F-L-2），链接这一半没跟上：
+	// 一个能力两个面，只修了一个面。`st.idOf` 就是那份按 (genre, path) 索引的表，
+	// 算父链一直用的是它。
+	id, ok := st.idOf[nodeKey(node.genre, node.path)]
 	if !ok {
 		return
 	}

@@ -14,7 +14,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
+import { adminNoteRefs, claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 
 const OWNER = syncOwner('duptitle');
 
@@ -42,5 +42,36 @@ test.describe('sync · same-basename files in different folders both import (F-L
     ]);
     expect(again.errors, 're-sync clean').toEqual([]);
     expect(again.created, 're-sync creates nothing new (source_path claim is idempotent)').toBe(0);
+  });
+
+  // F-L-60 —— **同名的两篇各自的链接**。
+  //
+  // 上面那条修的是 reconcile：basename 不唯一时改按 `source_path` 认领，两份文件各落各的行。
+  // 但**链接那一半没跟上**：`obsidian/sync.go:284` 决定「这些链接挂到哪条笔记」时用的还是
+  // `st.titleToID[node.title]` —— 一张按 title 索引的表，而 title 恰恰不唯一。同名的几篇
+  // 共用一个桶，`RebuildForNote(id, body)` 又是**重建**，后处理的那篇把前一篇的边整个盖掉。
+  // 又一次「一个能力两个面，只修了一个面」。
+  //
+  // prod 上量到的代价：同名笔记 97 条，只有 22 条有出边，**41 条正文里有 `[[` 却一条边都没有**
+  // —— 而 vault 自己的 check-links.sh 说这些链接全是好的。损失只发生在我们这一侧，不报错。
+  test('two same-basename notes keep their OWN outbound links (F-L-60)', async ({ request }) => {
+    await uploadVault(request, OWNER, [
+      { rel: 'wiki/wiki-target.md', body: makeVaultMD({ publish: true }, 'the wiki target.') },
+      { rel: 'subjectivity/subj-target.md', body: makeVaultMD({ publish: true }, 'the subj target.') },
+      { rel: 'wiki/Foo.md', body: makeVaultMD({ publish: true }, 'points at [[wiki-target]].') },
+      {
+        rel: 'subjectivity/Foo.md',
+        body: makeVaultMD({ publish: true }, 'points at [[subj-target]].'),
+      },
+    ]);
+
+    const wiki = await adminNoteRefs(request, OWNER, 'wiki', 'Foo');
+    const subj = await adminNoteRefs(request, OWNER, 'subjectivity', 'Foo');
+    // 两条都要有**自己的**那条边。红态：其中一条是空的 —— 它的链接被同名兄弟的重建盖掉了。
+    expect(wiki.outbound, 'wiki/Foo 保住自己的出边').toContain('wiki-target');
+    expect(subj.outbound, 'subjectivity/Foo 保住自己的出边').toContain('subj-target');
+    // 而且不许串门：桶如果是共用的，会看到对方的目标。
+    expect(wiki.outbound, 'wiki/Foo 不该拿到兄弟的目标').not.toContain('subj-target');
+    expect(subj.outbound, 'subjectivity/Foo 不该拿到兄弟的目标').not.toContain('wiki-target');
   });
 });
