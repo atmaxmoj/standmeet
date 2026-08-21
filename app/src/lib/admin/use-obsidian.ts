@@ -6,7 +6,9 @@
 //   format 是 'file:<index>'，FileHeader.filename = webkitRelativePath
 //   (path 从 vault root 算)。response = { created, updated, skipped, errors }。
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+import { VaultImportStateSchema, type VaultImportState } from '@/lib/admin/vault-import-state';
 
 const CSRF_COOKIE = 'csrftoken';
 
@@ -140,6 +142,23 @@ export function syncableVaultFiles(files: FileList): File[] {
 }
 
 // useObsidianImport —— UI 用：picker 触发的 batch 上传，loading + 结果显示。
+// useVaultImportState —— 「上次导入是什么时候」（UX-62）。**每次进这一页都重新拉**：
+// 判据是「刷新之后它还说得出来」，所以它必须来自服务端的事实，不是上一次点击的余温。
+export function useVaultImportState(reloadKey: number): VaultImportState | null {
+  const [state, setState] = useState<VaultImportState | null>(null);
+  useEffect(() => {
+    let live = true;
+    // 走 schema 解析而不是断言：服务端哪天收窄了形状，这里要**红**，不是静默变成
+    // 一个字段都读不出来的对象（[[zod-unknown-is-not-optional]]）。
+    void fetch('/api/admin/obsidian/state', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((v: unknown) => { if (live) setState(VaultImportStateSchema.nullable().parse(v)); })
+      .catch(() => { if (live) setState(null); });
+    return () => { live = false; };
+  }, [reloadKey]);
+  return state;
+}
+
 export function useObsidianImport(onDone: () => void): {
   busy: boolean;
   result: ImportResult | null;

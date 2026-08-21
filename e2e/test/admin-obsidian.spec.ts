@@ -31,6 +31,44 @@ test.describe('admin obsidian section', () => {
     await initOwner(playwright);
   });
 
+  // UX-62 —— **定义这个产品 ground truth 的那个操作，页面上没有任何证据表明它发生过。**
+  //
+  // prod 上亲眼看的：语料里 1028 条笔记，而 /admin/obsidian 那一屏跟一个空实例长得一模一样
+  // ——两颗按钮加一段说明。点一次导入之后确实会冒出 `31 new · 20 updated · 1026 skipped`，
+  // 但那行只活到下一次刷新：**「上次导入是什么时候」这个事实在库里根本不存在**。
+  // 对照隔壁 /admin/sources，每一行至少说得出 `never fetched`。
+  //
+  // 判据要能判负：先在**没导过**的实例上断它说「从没导过」（而不是空白），再导一次、
+  // 重新加载，断它说得出这次的日期。空白既不是「从没导过」也不是「导过」—— 那正是这条
+  // 缺陷的样子。
+  //
+  // ⚠️ **必须排在导入那条之前**：前半句判的是「一个从没导过的实例说什么」，而同文件的
+  // F-L-7 会真的导一次。排在它后面的话「never imported」当然不成立，而那红的是我的用例、
+  // 不是产品。**判据依赖的状态也是判据的一部分**（今天在 F-L-59 的选笔记上刚吃过一次）。
+  test('the surface says whether an import ever happened (UX-62)',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'obsidian');
+      const receipt = adminPage.getByTestId('obsidian-last-import');
+      await expect(receipt, '没导过也要说话，不是留白').toBeVisible({ timeout: 15_000 });
+      await expect(receipt, '没导过时说得明明白白').toContainText(/never imported/i);
+
+      const done = adminPage.waitForResponse(
+        (r) => r.url().includes('/obsidian/import') && r.request().method() === 'POST',
+        { timeout: 60_000 },
+      );
+      await adminPage.getByTestId('obsidian-vault-input')
+        .setInputFiles(makeGitBackedVault('receipt-note'));
+      await done;
+
+      // 重新加载 —— 回执必须是**存下来的事实**，不是那一次点击的余温。
+      await gotoAdminSection(adminPage, 'obsidian');
+      const after = adminPage.getByTestId('obsidian-last-import');
+      await expect(after, '导过之后，刷新了也说得出来').toBeVisible({ timeout: 15_000 });
+      await expect(after, '刷新之后不许退回「从没导过」')
+        .not.toContainText(/never imported/i);
+      await expect(after, '说得出是哪一天').toContainText(new Date().toISOString().slice(0, 10));
+    });
+
   test('renders the real ObsidianBar (folder picker), not the dead mockup (F-L-1)',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'obsidian');
@@ -78,6 +116,7 @@ test.describe('admin obsidian section', () => {
       // The real note landed; the ~1200 .git objects never left the browser.
       expect(parsed.created + parsed.updated, 'the vault content is ingested').toBeGreaterThan(0);
     });
+
 });
 
 const ImportOutcomeSchema = z.object({
@@ -87,10 +126,14 @@ const ImportOutcomeSchema = z.object({
 // makeGitBackedVault —— a vault shaped like a real one: real notes PLUS a .git directory big enough
 // to blow the multipart part limit if it were uploaded (a real vault's .git holds thousands of
 // objects). Also carries the .obsidian CSS config, which IS harvested and must still be sent.
-function makeGitBackedVault(): string {
+//
+// `note` 让每条用例带**自己的**那条笔记：两条用例先后导入同一个 vault 的话，第二次
+// 全是 unchanged —— 于是 F-L-7 的「内容进库了」断言会红在**上一条用例已经导过**这件事上，
+// 而不是产品身上（我把 UX-62 排到它前面时当场撞了一次）。
+function makeGitBackedVault(note = 'a-real-note'): string {
   const root = mkdtempSync(join(tmpdir(), 'standmeet-vault-'));
   mkdirSync(join(root, 'raw'), { recursive: true });
-  writeFileSync(join(root, 'raw', 'a-real-note.md'), '---\ntags: [x]\n---\n\nreal vault content.\n');
+  writeFileSync(join(root, 'raw', `${note}.md`), `---\ntags: [x]\n---\n\n${note} content.\n`);
   mkdirSync(join(root, '.obsidian', 'snippets'), { recursive: true });
   writeFileSync(join(root, '.obsidian', 'snippets', 'custom.css'), '.x{color:red}');
   // the part-count bomb: what a version-controlled vault actually carries.

@@ -11,6 +11,7 @@ type (
 	ApproveRequestDeps         = usecase.ApproveRequestDeps
 	BYOAIDeps                  = usecase.BYOAIDeps
 	CSSStore                   = usecase.CSSStore
+	VaultImportStore           = usecase.VaultImportStore
 	ClaimDeps                  = usecase.ClaimDeps
 	ClaimInput                 = usecase.ClaimInput
 	CreateKeypairInputReq      = usecase.CreateKeypairInputReq

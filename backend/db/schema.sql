@@ -75,6 +75,17 @@ CREATE TABLE owners (
     -- custom_css —— owner 自定义 CSS(Obsidian snippets sync / admin / MCP 任一面写)。存的是
     -- **sanitize + scope(.corpus-content)后**的安全版本;公开 reader 注入。user-provided → 攻击面。
     custom_css           text          NOT NULL DEFAULT '',
+    -- last_vault_import_* —— 上一次 vault 导入的回执（UX-62）。
+    --
+    -- 为什么这几列必须存在：vault 导入是**定义这个产品 ground truth 的那个操作**，而在此之前
+    -- 「它有没有发生过」这个事实在库里根本没有落点 —— 导入完屏幕上冒一行计数，刷新就没了，
+    -- 于是装着 1028 条笔记的实例和一个空实例，在 /admin/obsidian 上长得一模一样。
+    -- 隔壁 /admin/sources 每一行至少说得出 `never fetched`。
+    -- NULL = 从没导过（跟「导过但零变更」是两回事，所以不拿 0 当哨兵）。
+    last_vault_import_at      timestamptz,
+    last_vault_import_new     integer       NOT NULL DEFAULT 0,
+    last_vault_import_updated integer       NOT NULL DEFAULT 0,
+    last_vault_import_skipped integer       NOT NULL DEFAULT 0,
     created_at           timestamptz   NOT NULL DEFAULT now()
 );
 

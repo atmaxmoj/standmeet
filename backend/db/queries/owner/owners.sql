@@ -94,3 +94,14 @@ SELECT custom_css FROM owners WHERE id = $1;
 -- name: SetOwnerCSS :exec
 -- 存 owner CSS(caller 传入的应已是 sanitize+scope 后的安全版本)。
 UPDATE owners SET custom_css = $2 WHERE id = $1;
+
+-- name: RecordVaultImport :execrows
+-- UX-62：把「上一次 vault 导入」记下来 —— 导入是定义这个产品 ground truth 的操作，
+-- 而在此之前「它发生过没有」在库里没有落点，屏幕上那行计数刷新就没了。
+-- :execrows 而不是 :exec —— 命中 0 行必须说得出来（[[write-with-no-receipt]]）。
+UPDATE owners
+SET last_vault_import_at = now(),
+    last_vault_import_new = $2,
+    last_vault_import_updated = $3,
+    last_vault_import_skipped = $4
+WHERE id = $1;

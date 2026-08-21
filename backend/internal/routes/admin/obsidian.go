@@ -45,7 +45,10 @@ type ObsidianDeps struct {
 	// PagePins —— sync 是 published 的第三条写路径(frontmatter 可翻 publish);
 	// 批量 reconcile 后清扫失效 pin,保住 pinned ⊆ published(渲染过滤只是兜底)。
 	PagePins owner.PagePinDeps
-	Log      *slog.Logger
+	// ImportReceipt —— 「上一次导入」这个事实的落点（UX-62）。没有它，装着 1028 条
+	// 笔记的实例和一个空实例在这一屏上长得一模一样。
+	ImportReceipt owner.VaultImportStore
+	Log           *slog.Logger
 }
 
 // cssSyncAdapter —— SyncCSSPort:harvest 的 CSS 经 SetOwnerCSS(sanitize+scope)。
@@ -112,10 +115,34 @@ func (d *ObsidianDeps) Ingest(
 	// 批量 sync 后整批重建 Meili index(反映新增/改/删,漂移不留)。best-effort。
 	corpus.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
 	d.sweepPinsAfterSync(ctx, ownerID)
+	d.recordImportReceipt(ctx, ownerID, &res)
 	return connector.SyncResult{
 		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,
 		Deleted: res.Deleted, Errors: res.Errors,
 	}, nil
+}
+
+// recordImportReceipt —— 把这一次导入记下来（UX-62）。
+//
+// best-effort，跟 reindex / sweepPins 一样：**记账失败不该让一次成功的导入变成失败** ——
+// 笔记已经进库了，回执没写上是可观测性的损失，不是数据的损失。但它必须**出声**。
+func (d *ObsidianDeps) recordImportReceipt(
+	ctx context.Context, ownerID string, res *obsidian.ImportResult,
+) {
+	if d.ImportReceipt == nil {
+		return
+	}
+	d.logReceiptErr(d.ImportReceipt.RecordVaultImport(ctx, ownerID, owner.VaultImportReceipt{
+		New: res.Created, Updated: res.Updated, Skipped: res.Skipped,
+	}))
+}
+
+// logReceiptErr —— 记账失败只出声，不改变这一次导入的结局。
+func (d *ObsidianDeps) logReceiptErr(err error) {
+	if err == nil || d.Log == nil {
+		return
+	}
+	d.Log.Error("record vault import receipt", "err", err)
 }
 
 // sweepPinsAfterSync —— sync 可能 unpublish/删除已 pin 条目 → 清扫主页 pin
@@ -133,8 +160,14 @@ func (h *Handlers) MountObsidian(r chi.Router) {
 	r.Route("/obsidian", func(r chi.Router) {
 		r.Get("/export", h.exportObsidian())
 		r.Post("/import", h.importObsidian())
+		// state —— 「上一次导入是什么时候」（UX-62）。这一屏此前**没有任何**过去时态：
+		// 导入完屏幕上那行计数刷新就没，于是 1028 条笔记的实例跟空实例长得一样。
+		r.Get("/state", h.obsidianState())
 	})
 }
+
+// 那一问的读面（`GET /obsidian/state`）住在 obsidian_state.go：这里是动作，那里是
+// 关于动作的事实。
 
 func (h *Handlers) exportObsidian() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

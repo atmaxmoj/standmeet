@@ -328,22 +328,26 @@ type NoteRef struct {
 }
 
 type Owner struct {
-	ID                pgtype.UUID
-	Email             string
-	PasswordHash      string
-	RecoveryHash      string
-	Handle            string
-	FullName          string
-	Location          string
-	PublicUrl         string
-	ByoaiEnabled      bool
-	ByoaiProviders    []byte
-	ByoaiPublicBlurb  string
-	PasswordResetHash []byte
-	PasswordResetAt   pgtype.Timestamptz
-	ProfileTimezone   string
-	CustomCss         string
-	CreatedAt         pgtype.Timestamptz
+	ID                     pgtype.UUID
+	Email                  string
+	PasswordHash           string
+	RecoveryHash           string
+	Handle                 string
+	FullName               string
+	Location               string
+	PublicUrl              string
+	ByoaiEnabled           bool
+	ByoaiProviders         []byte
+	ByoaiPublicBlurb       string
+	PasswordResetHash      []byte
+	PasswordResetAt        pgtype.Timestamptz
+	ProfileTimezone        string
+	CustomCss              string
+	LastVaultImportAt      pgtype.Timestamptz
+	LastVaultImportNew     int32
+	LastVaultImportUpdated int32
+	LastVaultImportSkipped int32
+	CreatedAt              pgtype.Timestamptz
 }
 
 type OwnerConnector struct {

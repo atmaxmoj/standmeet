@@ -1,0 +1,16 @@
+{
+  "_why": "UX-62 的 ⑤：导入之后**刷新了还说得出来**。\n\n红态是这一屏没有任何过去时态 —— 语料里 1028 条笔记，页面跟空实例一样；那次点击冒出来的 `31 new · 20 updated` 刷新就没。\n\n这一趟：先看一眼当前状态（prod 上次导入发生在这几列存在之前，所以合理地会说 never imported —— 那正是「事实不存在」的忠实表达），再走一次真导入，然后**重新加载页面**再看。判据是刷新之后那一行还在，并且说得出日期。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "viewport": [1280, 900],
+  "login": true,
+  "shots": [
+    { "name": "vs-33-receipt-before", "url": "/admin/obsidian", "wait": 5000 },
+    { "name": "vs-34-receipt-after-reload", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 3000 },
+        { "pickDir": ["[data-testid=\"obsidian-vault-input\"]", "/Users/wangsijie/Develop/writing/notes"] },
+        { "wait": 90000 }
+      ], "wait": 2000 },
+    { "name": "vs-35-receipt-survives-reload", "url": "/admin/obsidian", "wait": 6000 }
+  ]
+}

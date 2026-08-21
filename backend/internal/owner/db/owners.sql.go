@@ -45,7 +45,7 @@ func (q *Queries) CountOwners(ctx context.Context) (int64, error) {
 const createOwner = `-- name: CreateOwner :one
 INSERT INTO owners (email, password_hash, handle, full_name, public_url)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at
 `
 
 type CreateOwnerParams struct {
@@ -81,6 +81,10 @@ func (q *Queries) CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -119,7 +123,7 @@ func (q *Queries) GetFirstOwnerResetToken(ctx context.Context) (GetFirstOwnerRes
 }
 
 const getOwnerByEmail = `-- name: GetOwnerByEmail :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE email = $1
+SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at FROM owners WHERE email = $1
 `
 
 func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, error) {
@@ -141,13 +145,17 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getOwnerByHandle = `-- name: GetOwnerByHandle :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE handle = $1
+SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at FROM owners WHERE handle = $1
 `
 
 func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, error) {
@@ -169,13 +177,17 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getOwnerByID = `-- name: GetOwnerByID :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at FROM owners WHERE id = $1
+SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at FROM owners WHERE id = $1
 `
 
 func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, error) {
@@ -197,6 +209,10 @@ func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, erro
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -223,6 +239,38 @@ func (q *Queries) GetOwnerPasswordHash(ctx context.Context, id pgtype.UUID) (str
 	var password_hash string
 	err := row.Scan(&password_hash)
 	return password_hash, err
+}
+
+const recordVaultImport = `-- name: RecordVaultImport :execrows
+UPDATE owners
+SET last_vault_import_at = now(),
+    last_vault_import_new = $2,
+    last_vault_import_updated = $3,
+    last_vault_import_skipped = $4
+WHERE id = $1
+`
+
+type RecordVaultImportParams struct {
+	ID                     pgtype.UUID
+	LastVaultImportNew     int32
+	LastVaultImportUpdated int32
+	LastVaultImportSkipped int32
+}
+
+// UX-62：把「上一次 vault 导入」记下来 —— 导入是定义这个产品 ground truth 的操作，
+// 而在此之前「它发生过没有」在库里没有落点，屏幕上那行计数刷新就没了。
+// :execrows 而不是 :exec —— 命中 0 行必须说得出来（[[write-with-no-receipt]]）。
+func (q *Queries) RecordVaultImport(ctx context.Context, arg RecordVaultImportParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordVaultImport,
+		arg.ID,
+		arg.LastVaultImportNew,
+		arg.LastVaultImportUpdated,
+		arg.LastVaultImportSkipped,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setOwnerCSS = `-- name: SetOwnerCSS :exec
@@ -277,7 +325,7 @@ SET byoai_enabled = $2,
     byoai_providers = $3,
     byoai_public_blurb = $4
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at
 `
 
 type UpdateOwnerBYOAIParams struct {
@@ -311,6 +359,10 @@ func (q *Queries) UpdateOwnerBYOAI(ctx context.Context, arg UpdateOwnerBYOAIPara
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -320,7 +372,7 @@ const updateOwnerEmail = `-- name: UpdateOwnerEmail :one
 UPDATE owners
 SET email = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at
 `
 
 type UpdateOwnerEmailParams struct {
@@ -347,6 +399,10 @@ func (q *Queries) UpdateOwnerEmail(ctx context.Context, arg UpdateOwnerEmailPara
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -356,7 +412,7 @@ const updateOwnerFullName = `-- name: UpdateOwnerFullName :one
 UPDATE owners
 SET full_name = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at
 `
 
 type UpdateOwnerFullNameParams struct {
@@ -383,6 +439,10 @@ func (q *Queries) UpdateOwnerFullName(ctx context.Context, arg UpdateOwnerFullNa
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -392,7 +452,7 @@ const updateOwnerPasswordHash = `-- name: UpdateOwnerPasswordHash :one
 UPDATE owners
 SET password_hash = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at
 `
 
 type UpdateOwnerPasswordHashParams struct {
@@ -419,6 +479,10 @@ func (q *Queries) UpdateOwnerPasswordHash(ctx context.Context, arg UpdateOwnerPa
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -428,7 +492,7 @@ const updateOwnerProfileTimezone = `-- name: UpdateOwnerProfileTimezone :one
 UPDATE owners
 SET profile_timezone = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at
 `
 
 type UpdateOwnerProfileTimezoneParams struct {
@@ -455,6 +519,10 @@ func (q *Queries) UpdateOwnerProfileTimezone(ctx context.Context, arg UpdateOwne
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -465,7 +533,7 @@ const updateOwnerPublicURL = `-- name: UpdateOwnerPublicURL :one
 UPDATE owners
 SET public_url = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, created_at
+RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, created_at
 `
 
 type UpdateOwnerPublicURLParams struct {
@@ -495,6 +563,10 @@ func (q *Queries) UpdateOwnerPublicURL(ctx context.Context, arg UpdateOwnerPubli
 		&i.PasswordResetAt,
 		&i.ProfileTimezone,
 		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
 		&i.CreatedAt,
 	)
 	return i, err

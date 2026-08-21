@@ -7,12 +7,18 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ObsidianBar } from '@/components/admin/sections/writings/ObsidianBar';
+import { useVaultImportState } from '@/lib/admin/use-obsidian';
+import { vaultImportLine } from '@/lib/admin/vault-import-state';
 
 export function ObsidianSection() {
   const t = useTranslations('adminCorpus.obsidian');
+  // reloadKey —— 导入完把回执重新拉一遍：屏幕上那句话必须来自**存下来的事实**。
+  const [reloadKey, setReloadKey] = useState(0);
+  const importState = useVaultImportState(reloadKey);
   return (
     <>
       <SectionHeader
@@ -41,7 +47,14 @@ export function ObsidianSection() {
       </p>
       <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 max-w-[640px]">
         <div className="sm-smallcaps mb-3">{t('importExport')}</div>
-        <ObsidianBar onImported={() => { /* no corpus list to refresh on this page */ }} />
+        <ObsidianBar onImported={() => setReloadKey((k) => k + 1)} />
+        {/* UX-62：**这件事发生过没有**。以前这一屏没有任何过去时态 —— 装着 1028 条笔记的
+            实例跟一个空实例长得一模一样，而导入完那行计数刷新就没了。措辞照 /admin/sources
+            那一族（`never fetched` / `last · <日期>`），不新发明一种。 */}
+        <p className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted) mt-3"
+          data-testid="obsidian-last-import">
+          {vaultImportLine(importState)}
+        </p>
       </div>
     </>
   );

@@ -13,6 +13,8 @@ type (
 	PageWhere       = entity.PageWhere
 	Prompt          = entity.Prompt
 	Settings        = entity.Settings
+	// VaultImportReceipt —— 上一次 vault 导入（UX-62）。At 零值 = 从没导过。
+	VaultImportReceipt = entity.VaultImportReceipt
 )
 
 // 构造/函数（实现:entity）.

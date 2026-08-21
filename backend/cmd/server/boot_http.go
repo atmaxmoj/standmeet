@@ -238,7 +238,10 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 				Assets: deps.Admin.Assets,
 			},
 			PagePins: pins,
-			Log:      deps.Log,
+			// 同一个 owners 仓储：它已经是 CSS 的落点，导入回执（UX-62）也挂在 owner 上 ——
+			// 一个实例只有一份 vault。
+			ImportReceipt: deps.Admin.Owners,
+			Log:           deps.Log,
 		},
 		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ConnectorsAdmin:   deps.Admin.Connectors,
