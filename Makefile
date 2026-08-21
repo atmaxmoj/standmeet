@@ -883,6 +883,16 @@ prod-redis:
 	@test -n "$(CMD)" || (echo 'usage: make prod-redis CMD="info memory"'; exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis redis-cli $(CMD)
 
+# prod-redis-fill —— 往 prod redis 灌 KEYS 个 300 字节的键，**每个都带 600 秒 TTL**（收工不用打扫，
+# 它们自己会走）。给 resilience check 1 造「到顶 + 正在淘汰」那个真状态用；配合 .env 的
+# REDIS_MAXMEMORY 临时压低上限。Lua 写在这里而不是从 CMD 传：嵌套引号在 shell 里过不去。
+#
+#   make prod-redis-fill KEYS=8000
+prod-redis-fill:
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis redis-cli eval \
+	 "for i=1,tonumber(ARGV[1]) do redis.call('SETEX','verifyfill:'..i,600,string.rep('x',300)) end return redis.call('dbsize')" \
+	 0 $(or $(KEYS),8000)
+
 # prod-gate-unlock —— clear the gate's per-IP lockouts on prod.
 #
 # Driving a lockout by hand (F-G-3's ⑤, F-G-4's ⑤) really locks the gate for fifteen minutes, and

@@ -1,0 +1,17 @@
+{
+  "_why": "ext-mcp check 5（深 schema 往返）—— 这一格一直空着，理由记的是「拿不到带鉴权的第三方 server」。**但 check 5 不要鉴权，它要的是「嵌套对象 / 数组 / 枚举」的 schema**，跟认证是两件事，被我一起挂在同一条阻塞下面了。\n\n找了一台真的：**Hugging Face 官方 MCP**（`https://huggingface.co/mcp`，streamable HTTP，匿名可读）。它的 `hub_repo_search` 带 `repo_type` / `sort` 两个**枚举**、`limit` 数字、数组字段；`hf_fs` 里还有嵌套对象。DeepWiki（这一格早先用的那台）三个工具全是平的字符串，所以它验不了这条。\n\n这一趟：注册 → CHECK 读它自己公布的工具 →（下一 plan）挂到 role、发码、访客真调一次，看参数有没有原样、类型对不对。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 1600],
+  "login": true,
+  "shots": [
+    { "name": "em-40-registered", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"mcp-server-name\"]", "huggingface"] },
+        { "type": ["[data-testid=\"mcp-server-url\"]", "https://huggingface.co/mcp"] },
+        { "click": "[data-testid=\"mcp-server-add\"]" },
+        { "wait": 4000 },
+        { "scroll": ["[data-testid=\"mcp-servers-panel\"]", 200] }
+      ], "wait": 1500 }
+  ]
+}

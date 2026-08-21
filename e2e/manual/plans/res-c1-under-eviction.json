@@ -1,0 +1,16 @@
+{
+  "_why": "resilience check 1 的 prod 那半：**redis 正顶着上限、正在淘汰**（`.env` 的 REDIS_MAXMEMORY 临时压到 3mb → recreate → `make prod-redis-fill` 灌到 `evicted_keys 3742`）。\n\n判据不是「redis 还活着」，是**产品在这个状态下还答不答得出话**：owner 后台照常渲染（无 500、无卡死），访客在 gate 输真码照常开会话（会话和限流桶都住在这台 redis 上，而 `allkeys-lru` 连真键一起淘汰）。\n\n驱完把 `.env` 改回空白 + recreate，灌进去的键带 600 秒 TTL，自己会走。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1100],
+  "login": true,
+  "shots": [
+    { "name": "res-50-admin-under-eviction", "url": "/admin/dashboard", "wait": 6000 },
+    { "name": "res-51-visitor-code-under-eviction", "url": "/gate", "login": false,
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "SBOX-01"] },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 9000 }
+      ], "wait": 1500 }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "_why": "resilience check 1 的收尾那半：上限调回 256mb、redis 容器重建之后，**会话和限流桶恢不恢复**。\n\n判据是「重新开一次」真的开得出来：访客在 gate 输真码 → 会话开出来。刚才那次会话是在淘汰状态下发的，容器重建后它多半已经不在了 —— 那正是 item 说的「可再生」：不是它必须活下来，是**再来一次要开得出来**。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1000],
+  "login": false,
+  "shots": [
+    { "name": "res-52-visitor-after-restore", "url": "/gate",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"gate-code\"]", "SBOX-01"] },
+        { "click": "[data-testid=\"gate-code-submit\"]" },
+        { "wait": 9000 }
+      ], "wait": 1500 }
+  ]
+}
