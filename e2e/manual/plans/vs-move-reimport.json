@@ -1,0 +1,14 @@
+{
+  "_why": "vault-sync check 5：移动一条笔记之后重导 —— **就地更新，不许变成两条**。\n\n⚠️ 真 vault 的文件一个都不动：整份拷到临时目录，在**拷贝**里把 `wiki/marketing/awareness/reddit/reddit-sop.md` 上移一层到 `wiki/marketing/reddit-sop.md`，然后导入那份拷贝。判据在库里读：**同一个 id**、新的 source_path、parent 跟着变；条数不变。\n\n复原：再导一次真 vault（authoritative 会把结构收回去）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/vault-sync/shots",
+  "viewport": [1280, 900],
+  "login": true,
+  "shots": [
+    { "name": "vs-36-after-move-reimport", "url": "/admin/obsidian",
+      "steps": [
+        { "wait": 3000 },
+        { "pickDir": ["[data-testid=\"obsidian-vault-input\"]", "/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/vault-copy"] },
+        { "wait": 90000 }
+      ], "wait": 2000 }
+  ]
+}
