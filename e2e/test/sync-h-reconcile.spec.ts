@@ -37,6 +37,12 @@ test.describe('sync H · idempotency + reconcile', () => {
   test('conflict: the vault is the source — a re-sync replaces a web edit', vaultIsTheSource);
   // ── H5 deletion / partial (CRITICAL) ──
   test('partial: a partial upload NEVER deletes notes it did not include', partialNeverDeletes);
+  // F-L-61 —— 守卫写了、红也证了（`raw 那条没被上传包含，就不许被搬走` → Received false），
+  // 但**先不挂进套件**：第一版修法（部分上传一律按 source_path 认领）当场打红了同文件里
+  // `moveDeeperReparent` 和 `crossGenreMove` —— 那两条编码的是「部分上传里的移动要就地改」，
+  // 是**在用的行为**，不是漏网。见 findings 里 F-L-61 的 ④ 那一段。
+  // 挂一条红进 CI 只会让下一个人学会忽略红色，所以留在这儿等真正的修法（按**语料**判重名）。
+  test.fixme('partial: nor MOVES them to another genre (F-L-61)', partialDoesNotRelocateOthers);
   test('partial: re-uploading a subset leaves the rest intact', subsetKeepsRest);
   // ── H6 idempotency ──
   test('idempotent: importing the same vault twice → identical state, no dup notes', importTwiceSameState);
@@ -156,6 +162,39 @@ async function partialNeverDeletes({ playwright }: Ctx): Promise<void> {
   await uploadVault(request, OWNER, [{ rel: 'wiki/keep-a.md', body: md('a2') }]);
   const s = await sess(request);
   expect((await syncRead(request, s, 'keep-b')).genre, 'partial upload never deletes keep-b').toBe('wiki');
+  await request.dispose();
+}
+
+// F-L-61 —— **部分上传不许动它没包含的那些笔记。**
+//
+// prod 上真发生的：发一次两文件的子集上传（不带 authoritative），`deleted: 0` —— 「不许删」
+// 那一半成立 —— 而 `raw 482→479 · wiki 575→578`，**三条根本不在上传里的 raw 笔记被搬进了 wiki**。
+//
+// 机制：`dupTitles` 是从**这次上传**算出来的（`sync.go:86`），而 `claimExisting` 只对
+// dupTitles 里的标题按 source_path 认领，其余一律 `GetByTitle` —— **跨 genre**。真语料里
+// 跨 genre 重名的标题，在一个两文件的上传里各只出现一次，于是被按 title 认到了别的 genre
+// 那一行，就地改成了这次上传的 genre。
+//
+// 为什么比「删了」更该管：genre 就是访客 ACL 授权的边界，raw 是私料。**一次 API 端的部分
+// 喂入可以把私料搬到已发布那一侧。**
+async function partialDoesNotRelocateOthers({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  // 整份先进去：同一个标题在两个 genre 各有一条（真 vault 到处都是这种）。
+  await uploadVault(request, OWNER, [
+    { rel: 'wiki/shared-name.md', body: md('the wiki one') },
+    { rel: 'raw/shared-name.md', body: md('the raw one') },
+  ]);
+  const rawBefore = await adminGenreList(request, OWNER, 'raw');
+  expect(rawBefore.some((n) => n.title === 'shared-name'), 'raw 那条先在').toBe(true);
+
+  // 只喂 wiki 那一条 —— raw 那条**不在这次上传里**，一个字都不该动。
+  await uploadVault(request, OWNER, [{ rel: 'wiki/shared-name.md', body: md('edited wiki one') }]);
+
+  const rawAfter = await adminGenreList(request, OWNER, 'raw');
+  expect(
+    rawAfter.some((n) => n.title === 'shared-name'),
+    'raw 那条没被这次上传包含，就不许被搬走 —— genre 是访客 ACL 的边界',
+  ).toBe(true);
   await request.dispose();
 }
 
