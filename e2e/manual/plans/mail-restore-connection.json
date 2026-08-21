@@ -1,0 +1,31 @@
+{
+  "_why": "复原 prod 的 mail 连接器 —— 而这一趟本身就是 ① 的现场。\n\n驱 check 4 时我只往 `from_address` 里**打了字**（连 CONNECT 都没点，脚本在下一步就断了），回头看日志：两次 `POST /connectors/smtp/credentials`，库里 `connected_at` 变成 NULL。**live 的发信连接器被一次击键放倒了**，屏幕上那张卡还写着 connected。\n\n这一趟把真凭据重新填回去（用户名 / 发件人 / app password 都从 verify-creds 注入，不经我的眼睛）→ CONNECT → 再用产品自己的测试发信发一封，收尾去真收件箱确认。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "shots": [
+    { "name": "mc6-05-restore-connect", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3000 },
+        { "typeSecret": ["[data-testid=\"connector-field-username\"]", "GMAIL_SMTP_USER"] },
+        { "typeSecret": ["[data-testid=\"connector-field-from_address\"]", "GMAIL_SMTP_USER"] },
+        { "typeSecret": ["[data-testid=\"connector-field-password\"]", "GMAIL_APP_PASSWORD"] },
+        { "typeSecret": ["[data-testid=\"connector-field-host\"]", "GMAIL_SMTP_HOST"] },
+        { "typeSecret": ["[data-testid=\"connector-field-port\"]", "GMAIL_SMTP_PORT"] },
+        { "type": ["[data-testid=\"connector-field-tls\"]", "starttls"] },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-connect-button\"]" },
+        { "wait": 12000 },
+        { "scroll": ["[data-testid=\"connector-row-smtp\"]", 200] }
+      ], "wait": 1500 },
+    { "name": "mc6-06-test-send", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"connector-row-smtp\"]", 400] },
+        { "typeSecret": ["[data-testid=\"connector-op-field-to\"]", "GMAIL_SMTP_USER"] },
+        { "type": ["[data-testid=\"connector-op-field-subject\"]", "standmeet verify · mail restored"] },
+        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-op-run\"]" },
+        { "wait": 25000 },
+        { "scroll": ["[data-testid=\"connector-row-smtp\"]", 400] }
+      ], "wait": 1500 }
+  ]
+}

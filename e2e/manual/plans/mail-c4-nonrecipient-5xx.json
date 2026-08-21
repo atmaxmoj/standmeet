@@ -1,0 +1,33 @@
+{
+  "_why": "mail-connector check 4 ⭐ / 6 ⭐ 的最后一格：**一个 5xx，但跟收件人无关。**\n\n读代码读出来的形状（`protocol_smtp.go:134` + `axisconn/impls.go:118`）：分类只有两桶 —— 5xx → `ErrMailRejected` → 面上说 *\"the mail provider rejected this message — check the recipient address\"*；其余 → *\"try again later\"*。而 5xx 里装着好几种成因：坏收件人、超大信、内容被拒、**发件人不被允许**。后三种里，收件人一个字都没错。\n\n真 Gmail 上点得出来的正是最后一种：把 mail 卡的 `from` 改成这个账号无权代发的地址，SMTP 在 `MAIL FROM` 阶段就回 5xx。判据是屏幕上那句话 —— 它会不会让 owner 去改一个根本没坏的东西。\n\n⚠️ 这一趟改了 prod 的连接器配置，收尾必须改回真发件人 + 重连 + 真收件箱验一次。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "shots": [
+    { "name": "mc6-02-from-changed", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"connector-field-from_address\"]", "not-my-alias@standmeet-verify.example.com"] },
+        { "scroll": ["[data-testid=\"connector-row-mail\"]", 300] },
+        { "wait": 500 }
+      ], "wait": 1000 },
+    { "name": "mc6-03-reconnected", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"connector-field-from_address\"]", "not-my-alias@standmeet-verify.example.com"] },
+        { "typeSecret": ["[data-testid=\"connector-field-password\"]", "GMAIL_APP_PASSWORD"] },
+        { "click": ["[data-testid=\"connector-row-mail\"] [data-testid=\"connector-connect-button\"]"] },
+        { "wait": 8000 },
+        { "scroll": ["[data-testid=\"connector-row-mail\"]", 300] }
+      ], "wait": 1000 },
+    { "name": "mc6-04-test-send-result", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3000 },
+        { "scroll": ["[data-testid=\"connector-row-mail\"]", 400] },
+        { "type": ["[data-testid=\"connector-op-field-to\"]", "mojatmax@gmail.com"] },
+        { "click": ["[data-testid=\"connector-row-mail\"] [data-testid=\"connector-op-run\"]"] },
+        { "wait": 20000 },
+        { "scroll": ["[data-testid=\"connector-row-mail\"]", 400] }
+      ], "wait": 1000 }
+  ]
+}
