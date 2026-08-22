@@ -133,7 +133,54 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
 
     expectCleanLocations(rok);
   });
+
+  // 同一个函数的**第三半**（F-E-30）。`readableJobs` 那句「每个源交回来的字都要变成文字
+  // 再进池子」写在头上，而它扫了 title、body_text，后来补了 location —— **company 只
+  // TrimSpace**。代价是在最要命的地方现形：一份 commit 出去的简历 PDF，页眉上印着
+  // `STORE MANAGER · FOR JACK &AMP; JONES`，寄给招聘方（prod 上真渲出来的，`ac-52`）。
+  //
+  // 真 RemoteOK 今天就发这个：`"company":"JACK &amp; JONES"`。替身照着改了一条。
+  test('a company name with an entity reads as text, not markup',
+    ({ request }) => companyReadsAsText(request));
 });
+
+async function companyReadsAsText(request: APIRequestContext): Promise<void> {
+  await expectStandInStillShipsEntityCompany(request);
+
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'jobtext-spec-4');
+  const sid = await initMCP(request, token);
+
+  await jobsRegisterSource(request, token, sid, {
+    kind: 'remoteok', label: 'RemoteOK', config: {},
+  });
+  const fetched = await jobsFetchNew(request, token, sid);
+  const rok = fetched.jobs.filter((j) => j.source_kind === 'remoteok');
+  expect(rok.length, 'precondition: the remoteok fixture produced postings').toBeGreaterThan(0);
+
+  for (const j of rok) {
+    expectReadable(`remoteok company (${j.cache_id})`, j.company);
+  }
+  expect(
+    rok.some((j) => j.company.includes('JACK & JONES')),
+    'the entity must have become an ampersand, not vanished',
+  ).toBe(true);
+}
+
+// expectStandInStillShipsEntityCompany —— 前置条件对着替身本人验（[[assertion-that-cannot-fail]]）：
+// fixture 里那个 `&amp;` 被谁"顺手"擦掉的话，上面整条用例会绿得毫无信息。
+async function expectStandInStillShipsEntityCompany(
+  request: APIRequestContext,
+): Promise<void> {
+  const upstream = await request.get(`${MOCK_BASE}/remoteok/api`);
+  expect(upstream.ok(), 'precondition: the job-board stand-in answers').toBeTruthy();
+  const raw = (await upstream.json()) as { company?: string }[];
+  expect(
+    raw.filter((e) => (e.company ?? '').includes('&amp;')).length,
+    'precondition: the stand-in must still ship an HTML entity in a company name — '
+    + 'real RemoteOK does (JACK &amp; JONES); if this is 0 the fixture was scrubbed',
+  ).toBeGreaterThan(0);
+}
 
 // expectStandInStillShipsDanglingLocations —— **前置条件对着替身本人验**
 // （[[assertion-that-cannot-fail]]）：哪天有人"顺手"把 fixture 里的尾随逗号擦掉，

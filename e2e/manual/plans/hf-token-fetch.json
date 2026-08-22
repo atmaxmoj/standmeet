@@ -1,0 +1,26 @@
+{
+  "_why": "取器材：Hugging Face 的 access token（ext-mcp check 4 要一台 **header 鉴权**的真第三方 MCP server，HF 那台就是）。\n\n**有头跑**（`profile` 分支本来就 `headless:false`），因为中间有一步只有 owner 能做：在登录框里挑哪个账号 / 敲那一下密码。我在这儿等 120 秒，你登进去；剩下的（新建 token、选 Read-Only、复制）我接着点。\n\n⚠️ token 的值不会进对话记录也不会进这个 plan：页面上点 HF 自己的复制按钮 → 从剪贴板直接追加进 `~/.config/standmeet/verify-creds.env`。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 900],
+  "login": false,
+  "profile": "~/.playwright-mcp-profile",
+  "shots": [
+    { "name": "em-50-hf-login-waiting", "url": "https://huggingface.co/login",
+      "steps": [{ "wait": 3000 }], "wait": 1000 },
+    { "name": "em-51-hf-after-login", "url": "https://huggingface.co/settings/tokens",
+      "steps": [
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 },
+        { "wait": 10000 }
+      ], "wait": 2000 }
+  ]
+}

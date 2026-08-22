@@ -48,7 +48,11 @@ await mkdir(plan.out, { recursive: true });
 const profileDir = typeof plan.profile === 'string'
   ? plan.profile.replace(/^~/, process.env.HOME ?? '~') : '';
 const persistent = profileDir !== '';
-const browser = persistent ? null : await chromium.launch();
+// HEADED=1 —— 把窗口开出来。**给「需要人插一手」的那种 plan 用**：第三方登录框里的那一下
+// 密码、账号选择器里挑哪个账号 —— 无头模式下 owner 根本看不见也点不到，只能干等超时。
+const browser = persistent
+  ? null
+  : await chromium.launch({ headless: process.env.HEADED !== '1' });
 const ctx = persistent
   ? await chromium.launchPersistentContext(profileDir, {
     channel: 'chrome', headless: false, viewport: { width: vw, height: vh },

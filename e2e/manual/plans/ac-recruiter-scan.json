@@ -1,0 +1,19 @@
+{
+  "_why": "application-commit check 2 的后半 + check 5：**招聘方扫完 QR 之后落到哪里**。\n\n地址不是我编的，是从刚渲出来的那份 PDF 上用 `zbarimg` 解出来的（`http://localhost:38227/?code=app-jgj6ii`，跟 commit 回执里的 `qr_url` 逐字相同）。判据：不经过 /gate、直接开会话，而且会话认得自己来自哪一份 application —— 问它「你申请的是哪个岗位」，答案要点到那个真岗位。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "viewport": [1280, 1000],
+  "login": false,
+  "shots": [
+    { "name": "ac-50-recruiter-landing", "url": "http://localhost:38227/?code=app-jgj6ii", "wait": 9000 },
+    { "name": "ac-51-which-role", "url": "http://localhost:38227/?code=app-jgj6ii",
+      "steps": [
+        { "wait": 8000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Dana Okafor (recruiter)"] },
+        { "click": "[data-testid=\"visitor-name-submit\"]" },
+        { "wait": 6000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Which role did you apply for, and what did you actually build?"] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 55000 }
+      ], "wait": 2000 }
+  ]
+}

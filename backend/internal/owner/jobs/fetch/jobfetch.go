@@ -180,7 +180,11 @@ func readableJobs(jobs []jobsmodel.FetchedJob) []jobsmodel.FetchedJob {
 	for i := range jobs {
 		jobs[i].Title = strings.TrimSpace(plaintext.FromHTML(jobs[i].Title))
 		jobs[i].BodyText = plaintext.FromHTML(jobs[i].BodyText)
-		jobs[i].Company = strings.TrimSpace(jobs[i].Company)
+		// company 也走同一刀（F-E-30）。这一行以前只 TrimSpace —— 而 title 和 body_text
+		// 就在它上下两行解着 HTML。代价现形在最要命的地方：一份寄给招聘方的简历 PDF，
+		// 页眉上印着 `STORE MANAGER · FOR JACK &AMP; JONES`（prod 上真渲出来的）。
+		// 真 RemoteOK 发的就是 `"company":"JACK &amp; JONES"`。
+		jobs[i].Company = strings.TrimSpace(plaintext.FromHTML(jobs[i].Company))
 		jobs[i].Location = normalizeLocation(jobs[i].Location)
 	}
 	return jobs

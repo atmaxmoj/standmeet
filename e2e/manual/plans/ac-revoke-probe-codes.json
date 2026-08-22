@@ -1,0 +1,19 @@
+{
+  "_why": "善后：今晚驱 application-commit 一共 commit 了三次，每次都**真发了一张 180 天的访问码**（`app-jgj6ii` / `app-nu2nst` / `app-wmt4yj`）。规矩是 prod 上铸出来的凭据用完即撤，而且要走**产品自己的 REVOKE** —— 直接 SQL 改状态会留下没清的 visitor session（以前踩过）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "viewport": [1280, 1400],
+  "login": true,
+  "acceptDialogs": true,
+  "shots": [
+    { "name": "ac-53-codes-revoked", "url": "/admin/codes",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"code-revoke-app-jgj6ii\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"code-revoke-app-nu2nst\"]" },
+        { "wait": 2500 },
+        { "click": "[data-testid=\"code-revoke-app-wmt4yj\"]" },
+        { "wait": 3000 }
+      ], "wait": 1500 }
+  ]
+}
