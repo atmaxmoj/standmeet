@@ -224,8 +224,13 @@ services:
       - "7070"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if 'REAL-LOCAL-DOWNLOAD' in urllib.request.urlopen('http://127.0.0.1:7070/payload.txt').read().decode() else 1)"]
-      interval: 3s
-      timeout: 3s
+      # 10s 而不是 3s：这一格每跑一次就**起一个 python 解释器**去拉一个静态文件。全量跑起来
+      # 机器一忙它就抖成 unhealthy，而 `ensureStackUp` 会把「有服务不健康」读成「栈倒了」
+      # （2026-08-22 因此在跑着的测试底下重建了后端，连着 8 个 visitor 用例全红）。
+      # 那一侧已经改成不可破坏的形式；这里从源头把抖动概率降下来 —— 一个静态文件服务器
+      # 不需要每 3 秒自证一次。
+      interval: 10s
+      timeout: 5s
       retries: 10
 
   # external-mock —— test-only HTTP server serving captured fixtures from

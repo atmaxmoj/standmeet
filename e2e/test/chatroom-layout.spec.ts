@@ -66,7 +66,10 @@ test.describe('ChatRoom layout switching', () => {
     async ({ page }) => {
       // 无码访客在 long-scroll 提问不行内答(485bf66):一律跳 /gate,问题用
       // ?q= 带过去,过闸后才在 ChatRoom 接着答(全链路见 coded-ask-continues)。
-      const input = page.locator('[data-testid="chat-input-field"]');
+      // 首页那个问答框叫 `home-ask-field`，不是 ChatRoom 里的 `chat-input-field`：
+      // 5e439b51 有意把两者分名（一个名字两种行为，Enter 在这里是交接、在那里是发言）。
+      // 那次改名只跟到了产品代码，这几条用例留在了旧名字上，红了两天没人看见 —— 期间没跑过全量。
+      const input = page.locator('[data-testid="home-ask-field"]');
       await input.fill('tell me about yourself');
       await input.press('Enter');
       await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });

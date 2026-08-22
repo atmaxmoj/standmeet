@@ -30,7 +30,8 @@ test.describe('no-code/no-BYOAI visitor cannot chat ungated', () => {
   test('asking on the public index routes to /gate, no chat happens',
     async ({ page }) => {
       await goto(page, '/');
-      const input = page.locator('[data-testid="chat-input-field"]');
+      // 首页的问答框是 `home-ask-field`（5e439b51 把它跟 ChatRoom 的输入框分了名）。
+      const input = page.locator('[data-testid="home-ask-field"]');
       await expect(input).toBeVisible({ timeout: 5_000 });
       await input.fill('What are you working on?');
       await input.press('Enter');

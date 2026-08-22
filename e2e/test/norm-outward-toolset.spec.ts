@@ -72,7 +72,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // providers —— owner 的 provider 本子。**没有 providers.create**:建一条要带原始 API key,
   // 而 MCP 是纯 JSON 工具面,不承载密钥(跟 ai_provider.set 同一个理由,见 owner/ops)。
   // 列 / 改 / 标默认 / 删都不碰密钥,所以两个面都给。
+  // providers.list_models —— 拿这条 provider 已存的 key 去问它「你有哪些模型」（F-R-11）。
+  // 只读、不碰密钥：key 在库里是密文，开封只在组装根发生，这个面只收到模型名。
   'providers.list', 'providers.update', 'providers.set_default', 'providers.delete',
+  'providers.list_models',
   'role_create', 'role_list', 'role_delete', 'role_update', 'roles.get',
   'roles.set_dock_buttons',
   // mcp servers / skills / capabilities

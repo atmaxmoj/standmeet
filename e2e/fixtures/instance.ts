@@ -77,9 +77,22 @@ function resetJobBoardMock(): void {
 //
 // 所以先问再动:一趟 `ps`(约 0.6 秒)看每个 service 在不在、健不健康,整齐就直接走。有任何一个
 // 不对 → 照旧 `up -d --wait` 拉起来 —— 安全性质一点没变,只是不再为"本来就好着"付钱。
+// **两条都是为了同一件事：跑着的测试底下，绝不许有容器被换掉。**
+//
+// 全量跑到一半时真发生过（2026-08-22）：机器一忙，`payload-origin` 那个 3 秒一次、每次起一个
+// python 解释器的健康检查抖成 unhealthy → 这里判「栈不齐」→ `up -d --wait` **把后端重建了**
+// → 正在跑的用例当场死一片，之后连着 8 个 `visitor-*` 全红（单独跑全绿）。
+// 也就是说：为省时间加的快路径，**恰恰在机器最忙的时候被整个 compose 里最脆的那个检查关掉**，
+// 而代价不是「慢一点」，是栈在测试脚下被换掉。
+//
+//   1. 抖一下不算倒 —— 隔一拍再看一眼，两次都不齐才当真。
+//   2. `--no-recreate` —— 缺的补上，**在跑的一律不动**。夹具是安全网，不是部署工具；
+//      要换镜像那是 `make dev-up` 的事。
 function ensureStackUp(): void {
   if (stackAlreadyUp()) return;
-  execSync(`docker compose ${COMPOSE} up -d --wait`, { stdio: 'inherit' });
+  execSync('sleep 2');
+  if (stackAlreadyUp()) return;
+  execSync(`docker compose ${COMPOSE} up -d --wait --no-recreate`, { stdio: 'inherit' });
 }
 
 // stackAlreadyUp —— compose 定义的每个 service 都有一个 running 的容器,且带健康检查的都 healthy。
