@@ -1,0 +1,8 @@
+{
+  "_why": "connector-assembly check 5：把刚建的 protocol(caldav) 连接器指向真 Radicale（`make verify-caldav-up` 起的那台，enforce 鉴权、认 REPORT filter、展开 RRULE + VTIMEZONE —— 替身四样全无）。先看卡片长什么样，再填 url/user/pass 连上。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 3400],
+  "shots": [
+    { "name": "ca-61-caldav-card", "url": "/admin/connectors", "wait": 3500, "fullPage": true }
+  ]
+}

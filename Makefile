@@ -248,6 +248,27 @@ verify-proxy-down:
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml down
 
+# verify-caldav-up —— 起一台**真的** CalDAV server（Radicale）给 connector-assembly check 5。
+#
+# 为什么不用我们的替身：那条 check 的 Mock gap 把缺的四样点了名 —— 替身没有鉴权、不认
+# REPORT filter、不展开重复规则、每个 property 请求都答一样。**这条 check 要验的每一样它都没有。**
+# item 的 Real dep 写的就是「a self-run CalDAV server with auth」，所以这不是绕过真实性，
+# 这就是它要的器材。
+#
+#   make verify-caldav-up     # 宿主 http://localhost:35232 · backend 用 http://radicale:5232
+#   make verify-caldav-down   # 驱完收摊
+#
+# 账号：verify / verify-caldav-pw（一台一次性的测试台 server，密码写在 compose 注释里）。
+verify-caldav-up:
+	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
+		-f docker-compose.verify.yml up -d --wait radicale
+	@echo "[verify] radicale on http://localhost:35232 (backend: http://radicale:5232)"
+	@echo "[verify] user verify / verify-caldav-pw"
+
+verify-caldav-down:
+	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
+		-f docker-compose.verify.yml rm -sf radicale
+
 # verify-api-fault-up —— 同一个代理，上游换成本实例的 backend，然后把 prod app 的 BACKEND_URL
 # 指过来。给的是**窄故障**：让某一个 admin 接口自己失败，看那一块说什么
 # （corpus-acl-editing check 6 —— 加载失败不许穿空状态的衣服）。

@@ -1,0 +1,18 @@
+{
+  "_why": "重新签一把 owner MCP 的 Sigv1 密钥：手上那份 credentials.json 是旧 prod 状态留下的，backend 现在回 401（日志里看到的，不是猜的）。connector-assembly check 5 要建一个 protocol(caldav) 连接器，而 GUI 只建得了 openapi —— protocol 那条走 owner MCP。私钥只在生成那一刻出现一次，所以这一趟必须把 .pem 下下来。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "downloadDir": "/private/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/mcpkey",
+  "viewport": [1280, 1500],
+  "shots": [
+    { "name": "ca-60-key-minted", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"token-name\"]", "caldav-drive"] },
+        { "click": "[data-testid=\"token-create\"]" },
+        { "wait": 3000 },
+        { "click": "[data-testid=\"key-pem-download\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1200 }
+  ]
+}

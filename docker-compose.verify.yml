@@ -61,6 +61,35 @@ services:
       - default
     restart: "no"
 
+  # radicale —— **一台真的 CalDAV server**（connector-assembly check 5）。
+  #
+  # 为什么不是 mock：那条 check 的 Mock gap 把缺的四样点了名 —— 我们的替身没有鉴权、
+  # 不认 REPORT filter、不展开重复规则、每个 property 请求都答一样。Radicale 是别人写的、
+  # 真正实现 RFC 4791 的 server，这四样它都做。item 的 Real dep 也正是这么写的：
+  # 「For the CalDAV leg, **a self-run CalDAV server with auth**」。
+  #
+  #   make verify-caldav-up      # 起；账号密码见下
+  #   make verify-caldav-down
+  #
+  # 鉴权走 htpasswd(plain)：这是**测试台**上的一台一次性 server，密码就写在这里，
+  # 好让下一轮驱的人不用去别处找。它不映射到宿主以外的任何地方。
+  radicale:
+    image: tomsquest/docker-radicale:3.5.7.0
+    environment:
+      # 一个用户：verify / verify-caldav-pw。plain 存储足够，这台不进生产。
+      RADICALE_CONFIG: /config/config
+    volumes:
+      - ./infra/verify/radicale:/config:ro
+      - radicale-data:/data
+    ports:
+      - "35232:5232"
+    networks:
+      - default
+    restart: "no"
+
+volumes:
+  radicale-data:
+
 networks:
   default:
     name: standmeet-prod_default

@@ -1,0 +1,17 @@
+# Radicale config for the real-env audit's CalDAV leg (connector-assembly check 5).
+# This server exists only on the audit rig. It never ships with the product.
+
+[server]
+hosts = 0.0.0.0:5232
+
+[auth]
+type = htpasswd
+htpasswd_filename = /config/users
+# plain —— one throwaway user on a rig; nothing here guards anything real.
+htpasswd_encryption = plain
+
+[storage]
+filesystem_folder = /data/collections
+
+[logging]
+level = info
