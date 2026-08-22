@@ -134,7 +134,44 @@ test.describe('connector · area G upload / manage', () => {
   // 派生出来的那个字段 —— 它只可能来自后端按这个连接器算出来的凭据表单。
   test('an uploaded connector can be given credentials, not just listed (F-C-47)',
     ({ adminPage: page }) => uploadedRowTakesCredentials(page));
+
+  // F-C-56：**没绑品类契约的连接器在列表里没有名字。**
+  //
+  // 卡名一直渲的是 `category`，而 GitHub 那种落不到 calendar/mail 上的厂商只有「暴露成
+  // agent 工具」这一条路 —— 那条路不产生 category，于是它在
+  // `CONNECTORS YOU UPLOADED` 里是一行只有 `uploaded` `openapi` 两个徽章的空框。
+  // 传第二个的那一刻列表就不再可读：要给哪一条填凭据、删哪一条，屏幕上答不出来。
+  //
+  // 判据要能判负：不断「有字」（`uploaded` 那个徽章也是字），断**这份 spec 自己的
+  // `info.title`** —— 那个串只可能来自这份文档。
+  test('an uploaded connector with no category still says which vendor it is (F-C-56)',
+    ({ adminPage: page }) => uncategorisedRowNamesTheVendor(page));
 });
+
+// uncategorisedRowNamesTheVendor —— 传一份**不带 binding**、勾了 expose 的 spec（GitHub 那类
+// 厂商唯一走得通的路），然后看它在列表里叫什么。
+async function uncategorisedRowNamesTheVendor(page: Page): Promise<void> {
+  await openConnectorAdd(page);
+  await expect(page.getByTestId('connector-spec-input')).toBeVisible();
+  await page.getByTestId('connector-spec-input').fill(validCalendarSpec());
+  // binding 留空 + 勾「开给访客的 AI」—— 无 binding 且没勾会被产品拒（needsBindingOrExpose）。
+  await page.getByTestId('connector-spec-submit').click();
+  await expect(page.getByTestId('connector-candidate')).toBeVisible();
+  await page.getByTestId('connector-expose-agent-tools').check();
+  await page.getByTestId('connector-assemble-button').click();
+  // 装配要是被拒了，下面那句「行不在」会红得跟缺陷一模一样 —— 先把拒绝的原话读出来。
+  await expect(page.getByTestId('connector-assemble-error')).toHaveCount(0);
+  await expect(page.getByTestId('connector-assemble-useless')).toHaveCount(0);
+  await page.getByTestId('connector-modal-close').click();
+
+  // 没有品类 → 行的 testid 后面是空的。这本身也是同一个根（两条无品类的连接器会撞 testid）。
+  const row = page.getByTestId('connector-row-');
+  await expect(row).toBeVisible();
+  await expect(
+    row.getByTestId('connector-card-name'),
+    'an uploaded connector with no category must still name its vendor',
+  ).toHaveText('Acme Calendar');
+}
 
 // uploadedRowTakesCredentials —— 传一个连接器，然后在同一页上找给它填凭据的地方。
 async function uploadedRowTakesCredentials(page: Page): Promise<void> {

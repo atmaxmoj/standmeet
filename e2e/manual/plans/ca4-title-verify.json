@@ -1,0 +1,18 @@
+{
+  "_why": "F-C-56 ⑤🙌 —— 上一趟已经把 GitHub 那份真 spec 装成了一个**无品类**连接器（不填 token、不连接，prod 上不留凭据；库里 title = 'GitHub v3 REST API'）。这一趟只看它在 CONNECTORS YOU UPLOADED 里叫什么。admin 的滚动在内层容器里，所以要真滚一下。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1000],
+  "shots": [
+    {
+      "name": "ca-91-title-in-list",
+      "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4000 },
+        { "scroll": ["main", 1620] },
+        { "wait": 1200 }
+      ],
+      "wait": 800,
+      "fullPage": false
+    }
+  ]
+}
