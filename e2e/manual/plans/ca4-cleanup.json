@@ -1,0 +1,20 @@
+{
+  "_why": "收摊：审计造出来的 GitHub 连接器里存着 owner 的真 PAT，用产品自己的删除路径（✕ → 确认）把它删掉。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1000],
+  "shots": [
+    {
+      "name": "ca-89-cleanup-deleted",
+      "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"connector-row-\"] >> text=✕" },
+        { "wait": 600 },
+        { "click": "[data-testid=\"connector-row-\"] >> role=button[name=/delete/i]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1000,
+      "fullPage": false
+    }
+  ]
+}

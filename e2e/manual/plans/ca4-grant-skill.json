@@ -1,0 +1,20 @@
+{
+  "_why": "connector-assembly check 4 —— 把刚建的 github-gists 技能挂到 invited 角色上（后端就是从角色的技能里取 allowed_tools 的），这样带 invited 码的访客 session 才拿得到 GitHub 那两个 operation。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    {
+      "name": "ca-80-grant-gists-skill",
+      "url": "/admin/roles",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"role-tools-skills-invited\"] [data-testid=\"role-multi-github-gists\"]" },
+        { "wait": 500 },
+        { "click": "[data-testid=\"role-tools-save\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1000,
+      "fullPage": false
+    }
+  ]
+}

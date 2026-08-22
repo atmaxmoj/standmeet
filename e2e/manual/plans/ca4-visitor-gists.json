@@ -1,0 +1,33 @@
+{
+  "_why": "connector-assembly check 4 ⑤🙌 —— 同一个访客、同一张码、同一个问题，修完 F-C-58 之后再问一遍。名字沿用 gist-check-3（换名字会占掉这张码的一个 member 名额）。先 list，再 create，建出来的那个待会儿去 gist.github.com 上看 —— 产品自己说成功不算证据。",
+  "login": false,
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    {
+      "name": "ca-86-gists-listed-fixed",
+      "url": "/?code=app-74dg3x",
+      "steps": [
+        { "wait": 6000 },
+        { "type": ["[placeholder=\"your name\"]", "gist-check-3"] },
+        { "press": ["[placeholder=\"your name\"]", "Enter"] },
+        { "wait": 20000 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "What gists do you have on GitHub? List them."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 90000 }
+      ],
+      "wait": 2000,
+      "fullPage": true
+    },
+    {
+      "name": "ca-87-gist-created-fixed",
+      "steps": [
+        { "type": ["[data-testid=\"chat-input-field\"]", "Please create a private gist named standmeet-check.md whose content is the single line: connector-assembly check 4."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 90000 }
+      ],
+      "wait": 2000,
+      "fullPage": true
+    }
+  ]
+}

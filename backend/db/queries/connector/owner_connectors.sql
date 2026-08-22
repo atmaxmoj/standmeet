@@ -87,12 +87,13 @@ WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 -- （spec/binding/auth_scheme），首次未连。category/kind 由 binding 定。
 INSERT INTO owner_connectors (
     owner_id, connector_id, category, kind, spec, binding, auth_scheme, protocol,
-    expose_as_agent_tools
+    expose_as_agent_tools, title
 )
 VALUES (
     sqlc.arg(owner_id), sqlc.arg(connector_id), sqlc.arg(category),
     sqlc.arg(kind), sqlc.arg(spec)::bytea, sqlc.arg(binding)::bytea,
-    sqlc.arg(auth_scheme), sqlc.arg(protocol), sqlc.arg(expose_as_agent_tools)
+    sqlc.arg(auth_scheme), sqlc.arg(protocol), sqlc.arg(expose_as_agent_tools),
+    sqlc.arg(title)
 )
 RETURNING *;
 
@@ -103,6 +104,7 @@ UPDATE owner_connectors
 SET spec = sqlc.arg(spec)::bytea, binding = sqlc.arg(binding)::bytea,
     category = sqlc.arg(category), auth_scheme = sqlc.arg(auth_scheme),
     expose_as_agent_tools = sqlc.arg(expose_as_agent_tools),
+    title = sqlc.arg(title),
     connected_at = NULL, updated_at = now()
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 

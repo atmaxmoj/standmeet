@@ -13,6 +13,9 @@ const ConnectorRowSchema = z.object({
   id: z.string(),
   category: z.string(),
   kind: z.string(),
+  // title —— 厂商自己给这份 API 起的名字。绑了品类契约的连接器不需要它（名字就是品类），
+  // 没绑的 category 是空串 —— 这是它唯一的名字（F-C-56）。
+  title: z.string().nullish(),
   connected: z.boolean(),
   has_credentials: z.boolean().nullish(),
   active: z.boolean().nullish(),

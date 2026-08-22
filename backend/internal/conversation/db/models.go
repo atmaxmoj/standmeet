@@ -368,6 +368,7 @@ type OwnerConnector struct {
 	AuthScheme         string
 	Protocol           string
 	ExposeAsAgentTools bool
+	Title              string
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 }

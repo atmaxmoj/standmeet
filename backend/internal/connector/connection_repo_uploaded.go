@@ -23,6 +23,7 @@ type SaveUploadedInput struct {
 	Kind               string
 	AuthScheme         string
 	Protocol           string
+	Title              string
 	Spec               []byte
 	Binding            []byte
 	ExposeAsAgentTools bool
@@ -37,7 +38,7 @@ func (r *Repo) SaveUploaded(ctx context.Context, in *SaveUploadedInput) error {
 	if _, qerr := db.New(r.pool).InsertUploadedConnector(ctx, db.InsertUploadedConnectorParams{
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID, Category: in.Category,
 		Kind: in.Kind, Spec: in.Spec, Binding: in.Binding,
-		AuthScheme: in.AuthScheme, Protocol: in.Protocol,
+		AuthScheme: in.AuthScheme, Protocol: in.Protocol, Title: in.Title,
 		ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}); qerr != nil {
 		return fmt.Errorf("insert uploaded connector: %w", qerr)
@@ -54,7 +55,7 @@ func (r *Repo) UpdateUploaded(ctx context.Context, in *SaveUploadedInput) error 
 	if qerr := db.New(r.pool).UpdateUploadedConnector(ctx, db.UpdateUploadedConnectorParams{
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID, Category: in.Category,
 		Spec: in.Spec, Binding: in.Binding, AuthScheme: in.AuthScheme,
-		ExposeAsAgentTools: in.ExposeAsAgentTools,
+		Title: in.Title, ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}); qerr != nil {
 		return fmt.Errorf("update uploaded connector: %w", qerr)
 	}

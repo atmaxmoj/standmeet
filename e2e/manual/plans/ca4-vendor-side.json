@@ -1,0 +1,15 @@
+{
+  "_why": "connector-assembly check 4 的判据原话：*The list holds real data and the created object exists on the vendor's side. The connector's own success reply is not the evidence.* 所以去 GitHub 自己那一侧看那个 gist 在不在。",
+  "login": false,
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1100],
+  "shots": [
+    {
+      "name": "ca-88-gist-on-github",
+      "url": "https://gist.github.com/atmaxmoj/f283652fc07bc7896d0a459b1d3cc865",
+      "steps": [{ "wait": 6000 }],
+      "wait": 1500,
+      "fullPage": false
+    }
+  ]
+}

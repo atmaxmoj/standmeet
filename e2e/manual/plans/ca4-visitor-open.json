@@ -1,0 +1,20 @@
+{
+  "_why": "connector-assembly check 4 —— 上一趟：POST /api/v1/sessions 回了 200、库里也真有了一条 conversation（visitor_name=gist-check），可界面停在 STARTING CHAT··· 然后落到 /gate。这一趟只做「报名 → 开聊」这一步，把浏览器控制台原样留下来看。",
+  "login": false,
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    {
+      "name": "ca-83-session-open-console",
+      "url": "/?code=app-74dg3x",
+      "steps": [
+        { "wait": 6000 },
+        { "type": ["[placeholder=\"your name\"]", "gist-check-2"] },
+        { "press": ["[placeholder=\"your name\"]", "Enter"] },
+        { "wait": 20000 }
+      ],
+      "wait": 1000,
+      "fullPage": false
+    }
+  ]
+}

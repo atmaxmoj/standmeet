@@ -37,7 +37,7 @@ export function ConnectorCardBody({ entry }: { entry: CatalogEntry }) {
   const hook = useConnectorCard(entry.id);
   return (
     <>
-      <CardHead category={entry.category} connected={hook.connected} connecting={hook.connecting} />
+      <CardHead name={cardName(entry)} connected={hook.connected} connecting={hook.connecting} />
       <ScopeShortfallNote missing={hook.missingScopes} />
       <UnreadableNote reason={hook.unreadable} />
       <SchemeSelect schemes={hook.schemes} />
@@ -51,16 +51,33 @@ export function ConnectorCardBody({ entry }: { entry: CatalogEntry }) {
   );
 }
 
+// cardName —— 这张卡叫什么。
+//
+// 一直渲的是 `category`，而**没绑品类契约的上传连接器 category 是空串** —— GitHub 那种落不到
+// calendar/mail 上的厂商只有「暴露成 agent 工具」这一条路，于是它在列表里是一行没有名字的框；
+// 两条并排时 owner 分不出哪条是哪个厂商，也就不知道该给哪一条填凭据（F-C-56）。
+//
+// 有品类的仍然按品类叫（`calendar` / `mail` 是 owner 的用语，比厂商名更贴近他要做的事）；
+// 只有在没品类时才退到厂商名。两样都没有 → 退到 id，**不留空**：一个没有名字的可操作对象，
+// 在屏幕上跟「加载失败」长得一样。
+function cardName(entry: CatalogEntry): string {
+  const named = [entry.category, entry.title ?? '', entry.id].filter((s) => s !== '');
+  return named[0] ?? '';
+}
+
 function CardHead(
-  { category, connected, connecting }: { category: string; connected: boolean; connecting: boolean },
+  { name, connected, connecting }: { name: string; connected: boolean; connecting: boolean },
 ) {
   return (
     <div className="flex items-center justify-between mb-3">
       {/* 卡名要比卡里的字段重。以前是 `text-sm`，跟右边的 `not connected`、下面的
           `bearer` / `TOKEN` 几乎平起平坐 —— 而这张卡是一个**可操作的对象**，字段是它的
           内容。同一段里 GOOGLE CALENDAR 那张已经是这个层级，三张品类卡当时没跟上。 */}
-      <span className="font-serif text-[17px] tracking-[-0.01em] text-(--color-ink)">
-        {category}
+      <span
+        data-testid="connector-card-name"
+        className="font-serif text-[17px] tracking-[-0.01em] text-(--color-ink)"
+      >
+        {name}
       </span>
       <span data-testid="connector-status" className="mono text-[11px] text-(--color-muted)">
         {statusText(connected, connecting)}

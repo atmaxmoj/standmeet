@@ -75,6 +75,9 @@ type connectorRowOut struct {
 	ID       string `json:"id"`
 	Category string `json:"category"`
 	Kind     string `json:"kind"`
+	// Title —— 厂商自己给这份 API 起的名字。**没绑品类契约的上传连接器 Category 是空串**，
+	// 而卡名渲的就是 Category —— 于是它在列表里没有名字，两条并排时分不出谁是谁（F-C-56）。
+	Title string `json:"title,omitempty"`
 	// Reason —— 给 owner 照做的那一句。**不谈密钥、不谈密文**:他要做的只是重新连一次。
 	Reason         string `json:"reason,omitempty"`
 	HasCredentials bool   `json:"has_credentials"`
@@ -93,7 +96,7 @@ const unreadableReason = "This instance can no longer read this connector's " +
 
 func toConnectorRow(c *connector.Connection) connectorRowOut {
 	row := connectorRowOut{
-		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind,
+		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind, Title: c.Title,
 		HasCredentials: len(c.Credentials) > 0,
 		Connected:      c.Connected, Active: c.Active,
 		Unreadable: c.Unreadable,

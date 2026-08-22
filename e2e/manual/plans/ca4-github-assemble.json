@@ -1,0 +1,38 @@
+{
+  "_why": "connector-assembly check 4 —— 上限调到 32 MiB 之后，GitHub 自己发布的 12.9 MB spec 已经摄得进来（ca-72）。这一趟把它装配成一个真连接器：填真 token、勾「开给访客的 AI」（GitHub 的接口落不到 calendar/mail 任何一个品类契约上，所以 binding 这条路对它不存在，expose 是唯一的路），然后看装出来的东西在列表里长什么样。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1700],
+  "shots": [
+    {
+      "name": "ca-73-github-ready-to-assemble",
+      "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "[data-testid=\"connector-add-open\"]" },
+        { "wait": 1500 },
+        {
+          "type": [
+            "[data-testid=\"connector-spec-url-input\"]",
+            "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
+          ]
+        },
+        { "click": "[data-testid=\"connector-spec-fetch-button\"]" },
+        { "wait": 45000 },
+        { "typeSecret": ["[data-testid=\"connector-field-token\"]", "GITHUB_TOKEN"] },
+        { "click": "[data-testid=\"connector-expose-agent-tools\"]" },
+        { "wait": 800 }
+      ],
+      "wait": 1000,
+      "fullPage": true
+    },
+    {
+      "name": "ca-74-github-assembled",
+      "steps": [
+        { "click": "[data-testid=\"connector-assemble-button\"]" },
+        { "wait": 20000 }
+      ],
+      "wait": 2000,
+      "fullPage": true
+    }
+  ]
+}

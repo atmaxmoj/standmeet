@@ -80,6 +80,7 @@ func decodeScopes(raw []byte) ([]string, error) {
 func unreadableConn(row *db.OwnerConnector) Connection {
 	return Connection{
 		ConnectorID: row.ConnectorID, Category: row.Category, Kind: row.Kind,
+		Title:      row.Title,
 		Scopes:     []string{},
 		Connected:  row.ConnectedAt.Valid,
 		Active:     row.Active,
@@ -132,6 +133,7 @@ func decodeConnectorConn(row *db.OwnerConnector) (Connection, error) {
 	}
 	conn := Connection{
 		ConnectorID: row.ConnectorID, Category: row.Category, Kind: row.Kind,
+		Title:       row.Title,
 		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
 		Credentials: creds, Scopes: scopes,
 		Connected: row.ConnectedAt.Valid, Active: row.Active,

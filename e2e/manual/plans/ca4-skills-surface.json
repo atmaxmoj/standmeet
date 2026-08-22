@@ -1,0 +1,14 @@
+{
+  "_why": "connector-assembly check 4 —— 后端把连接器 op 的授权挂在**角色的技能**上（`roleAllowedTools` 取的是 skill 的 allowed_tools），所以要调到 GitHub 的 operation，得先有一个声明了 `op_gists/list` / `op_gists/create` 的技能。这一趟看技能面允许 owner 声明什么，以及产品有没有告诉过 owner 这些 op 叫什么名字。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1800],
+  "shots": [
+    {
+      "name": "ca-78-skills-surface",
+      "url": "/admin/agent-skills",
+      "steps": [{ "wait": 4000 }],
+      "wait": 1000,
+      "fullPage": true
+    }
+  ]
+}

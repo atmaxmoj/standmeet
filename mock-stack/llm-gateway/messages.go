@@ -41,6 +41,11 @@ func (s *server) serveMessages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
+	// 工具名不合法 → 整个数组一起拒,跟真 provider 一样。放在记账之前:真 provider
+	// 在这一步就把请求打回去了,它不会留下"这一轮跑过"的痕迹。
+	if rejectBadToolName(w, &req) {
+		return
+	}
 	// 先记账再分派 —— 注入的失败也要记:"这一轮打到了哪个 provider" 跟这一轮成没成功
 	// 是两件事(测 provider 挂了怎么退默认时,要断言的正是那趟失败请求的去向)。
 	s.rec.record(recordFrom(r, &req), req.markerText())

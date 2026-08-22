@@ -179,6 +179,11 @@ async function assertNoBareVersion(page: Page): Promise<void> {
   await page.getByTestId('skills-tab-marketplace').click();
   await page.getByTestId('marketplace-source-skillsmp').click();
   await expect(page.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
+  // 换源之后必须等**这一源的**卡真的画出来再读。上面那句等的是「网格里有卡」,而换源的
+  // 瞬间屏上还留着上一源的卡 —— 它当场就满足了。而 allInnerTexts() 是一次性读、不重试:
+  // 满负载下它读到空数组,红成 `Expected > 0 / Received 0`,看起来像「这一源一条都没有」。
+  // 全套里红过一次(1.8 秒就放弃),单跑 8/8 绿 —— 间歇的来源就是这一格。
+  await expect(page.getByTestId('market-author').first()).toBeVisible({ timeout: 10_000 });
   const authors = await page.getByTestId('market-author').allInnerTexts();
   expect(authors.length).toBeGreaterThan(0);
   for (const a of authors) {

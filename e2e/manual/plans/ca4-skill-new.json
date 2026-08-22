@@ -1,0 +1,18 @@
+{
+  "_why": "connector-assembly check 4 —— 打开「+ NEW SKILL」，看 owner 能不能在这里声明一个连接器 operation（`op_gists/list` / `op_gists/create`）。这是后端唯一往 allowed_tools 里放东西的路。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    {
+      "name": "ca-79-new-skill-form",
+      "url": "/admin/agent-skills",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "text=+ NEW SKILL" },
+        { "wait": 1500 }
+      ],
+      "wait": 800,
+      "fullPage": true
+    }
+  ]
+}

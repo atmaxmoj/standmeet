@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
@@ -57,9 +56,11 @@ func (c *openapiCore) Connected(ctx context.Context, ownerID string) (bool, erro
 // ExposesAgentTools —— 这个连接器是否把 raw operations 暴露成 agent 工具（§3）。
 func (c *openapiCore) ExposesAgentTools() bool { return c.expose }
 
-// AgentOps —— spec 的每个 operation → 一个 agent tool 元数据（op_<id> + summary）。
+// AgentOps —— spec 的每个 operation → 一个 agent tool 元数据（工具名 + summary）。
+// 名字按 provider 的字符集规范化，见 agent_tool_name.go（派发仍按 OpID，改名不影响）。
 func (c *openapiCore) AgentOps() []consumer.AgentOp {
 	ops := c.runtime.Operations()
+	names := agentToolNames(ops)
 	out := make([]consumer.AgentOp, 0, len(ops))
 	for i := range ops {
 		desc := ops[i].Summary
@@ -67,7 +68,7 @@ func (c *openapiCore) AgentOps() []consumer.AgentOp {
 			desc = ops[i].Description
 		}
 		out = append(out, consumer.AgentOp{
-			Name:        "op_" + strings.ReplaceAll(ops[i].ID, ".", "_"),
+			Name:        names[i],
 			OpID:        ops[i].ID,
 			Description: desc,
 		})

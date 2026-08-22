@@ -10,12 +10,16 @@ type Connection struct {
 	ConnectorID    string
 	Category       string
 	Kind           string
-	AccessToken    string
-	RefreshToken   string
-	Credentials    []byte
-	Scopes         []string
-	Connected      bool
-	Active         bool
+	// Title —— 厂商自己给这份 API 起的名字（openapi 连接器摄入时取的 info.title）。
+	// 内置的留空 —— 它们的名字就是品类。**没绑品类契约的上传连接器 Category 是空串**，
+	// 所以这是它在界面上唯一的名字（F-C-56）。
+	Title        string
+	AccessToken  string
+	RefreshToken string
+	Credentials  []byte
+	Scopes       []string
+	Connected    bool
+	Active       bool
 	// Unreadable —— 这一行的密文这台实例解不开了（换过 INSTANCE_SECRET，或者密文被动过）。
 	//
 	// **为什么是一个状态位而不是一个错误**（F-C-41）：轮换密钥之后 `connectors.list` 整个 500，

@@ -61,7 +61,7 @@ func (q *Queries) DeleteUploadedConnector(ctx context.Context, arg DeleteUploade
 }
 
 const getConnector = `-- name: GetConnector :one
-SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, created_at, updated_at FROM owner_connectors
+SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, title, created_at, updated_at FROM owner_connectors
 WHERE owner_id = $1 AND connector_id = $2
 `
 
@@ -90,6 +90,7 @@ func (q *Queries) GetConnector(ctx context.Context, arg GetConnectorParams) (Own
 		&i.AuthScheme,
 		&i.Protocol,
 		&i.ExposeAsAgentTools,
+		&i.Title,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -136,14 +137,15 @@ func (q *Queries) GetConnectorManifest(ctx context.Context, arg GetConnectorMani
 const insertUploadedConnector = `-- name: InsertUploadedConnector :one
 INSERT INTO owner_connectors (
     owner_id, connector_id, category, kind, spec, binding, auth_scheme, protocol,
-    expose_as_agent_tools
+    expose_as_agent_tools, title
 )
 VALUES (
     $1, $2, $3,
     $4, $5::bytea, $6::bytea,
-    $7, $8, $9
+    $7, $8, $9,
+    $10
 )
-RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, created_at, updated_at
+RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, title, created_at, updated_at
 `
 
 type InsertUploadedConnectorParams struct {
@@ -156,6 +158,7 @@ type InsertUploadedConnectorParams struct {
 	AuthScheme         string
 	Protocol           string
 	ExposeAsAgentTools bool
+	Title              string
 }
 
 // 上传一个 openapi 连接器（owner 在 UI 贴 spec + JSONata binding）：建行并存下 manifest
@@ -171,6 +174,7 @@ func (q *Queries) InsertUploadedConnector(ctx context.Context, arg InsertUploade
 		arg.AuthScheme,
 		arg.Protocol,
 		arg.ExposeAsAgentTools,
+		arg.Title,
 	)
 	var i OwnerConnector
 	err := row.Scan(
@@ -190,6 +194,7 @@ func (q *Queries) InsertUploadedConnector(ctx context.Context, arg InsertUploade
 		&i.AuthScheme,
 		&i.Protocol,
 		&i.ExposeAsAgentTools,
+		&i.Title,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -197,7 +202,7 @@ func (q *Queries) InsertUploadedConnector(ctx context.Context, arg InsertUploade
 }
 
 const listConnectorsByCategory = `-- name: ListConnectorsByCategory :many
-SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, created_at, updated_at FROM owner_connectors
+SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, title, created_at, updated_at FROM owner_connectors
 WHERE owner_id = $1 AND category = $2
 ORDER BY connector_id
 `
@@ -233,6 +238,7 @@ func (q *Queries) ListConnectorsByCategory(ctx context.Context, arg ListConnecto
 			&i.AuthScheme,
 			&i.Protocol,
 			&i.ExposeAsAgentTools,
+			&i.Title,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -247,7 +253,7 @@ func (q *Queries) ListConnectorsByCategory(ctx context.Context, arg ListConnecto
 }
 
 const listConnectorsByOwner = `-- name: ListConnectorsByOwner :many
-SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, created_at, updated_at FROM owner_connectors
+SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, title, created_at, updated_at FROM owner_connectors
 WHERE owner_id = $1
 ORDER BY category, connector_id
 `
@@ -278,6 +284,7 @@ func (q *Queries) ListConnectorsByOwner(ctx context.Context, ownerID pgtype.UUID
 			&i.AuthScheme,
 			&i.Protocol,
 			&i.ExposeAsAgentTools,
+			&i.Title,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -409,7 +416,7 @@ SET token_enc = $1::bytea,
     connected_at = COALESCE(connected_at, now()),
     updated_at = now()
 WHERE owner_id = $4 AND connector_id = $5
-RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, created_at, updated_at
+RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, title, created_at, updated_at
 `
 
 type UpdateConnectorTokensParams struct {
@@ -447,6 +454,7 @@ func (q *Queries) UpdateConnectorTokens(ctx context.Context, arg UpdateConnector
 		&i.AuthScheme,
 		&i.Protocol,
 		&i.ExposeAsAgentTools,
+		&i.Title,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -458,8 +466,9 @@ UPDATE owner_connectors
 SET spec = $1::bytea, binding = $2::bytea,
     category = $3, auth_scheme = $4,
     expose_as_agent_tools = $5,
+    title = $6,
     connected_at = NULL, updated_at = now()
-WHERE owner_id = $6 AND connector_id = $7
+WHERE owner_id = $7 AND connector_id = $8
 `
 
 type UpdateUploadedConnectorParams struct {
@@ -468,6 +477,7 @@ type UpdateUploadedConnectorParams struct {
 	Category           string
 	AuthScheme         string
 	ExposeAsAgentTools bool
+	Title              string
 	OwnerID            pgtype.UUID
 	ConnectorID        string
 }
@@ -481,6 +491,7 @@ func (q *Queries) UpdateUploadedConnector(ctx context.Context, arg UpdateUploade
 		arg.Category,
 		arg.AuthScheme,
 		arg.ExposeAsAgentTools,
+		arg.Title,
 		arg.OwnerID,
 		arg.ConnectorID,
 	)
@@ -505,7 +516,7 @@ SET credentials_enc = EXCLUDED.credentials_enc,
         ELSE owner_connectors.connected_at
     END,
     updated_at = now()
-RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, created_at, updated_at
+RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, title, created_at, updated_at
 `
 
 type UpsertConnectorCredentialsParams struct {
@@ -553,6 +564,7 @@ func (q *Queries) UpsertConnectorCredentials(ctx context.Context, arg UpsertConn
 		&i.AuthScheme,
 		&i.Protocol,
 		&i.ExposeAsAgentTools,
+		&i.Title,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

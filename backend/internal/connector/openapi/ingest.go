@@ -63,6 +63,18 @@ func ValidateIngest(raw []byte) (string, error) {
 	return spec.Title(), nil
 }
 
+// SpecTitle —— 厂商自己给这份 API 起的名字（info.title）。读不出来 → 空串。
+//
+// 这正是摄入那一刻显示在 `CONNECTOR CANDIDATE` 上的那个串。装配时再取一次存下来，
+// 列表就不必为了一个名字去重解析一份 12.9 MB 的文档（F-C-56）。
+func SpecTitle(raw []byte) string {
+	spec, err := ParseSpec(raw)
+	if err != nil {
+		return ""
+	}
+	return spec.Title()
+}
+
 // checkIngestSemantics —— parse 后的摄入语义闸：servers 必填、operationId 齐且唯一、$ref 不外部。
 func checkIngestSemantics(spec *Spec, raw []byte) error {
 	if len(spec.ServerURLs()) == 0 {

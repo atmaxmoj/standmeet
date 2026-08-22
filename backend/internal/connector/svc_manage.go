@@ -97,6 +97,9 @@ func uploadedSaveInput(ownerID, id, cat string, in *UploadedSpec) *SaveUploadedI
 		OwnerID: ownerID, ConnectorID: id, Category: cat, Kind: "openapi",
 		Spec: bytesOrEmpty(in.Spec), Binding: bytesOrEmpty(in.Binding),
 		AuthScheme: in.AuthScheme, ExposeAsAgentTools: in.ExposeAsAgentTools,
+		// 厂商自己的名字，取一次存下来。没绑品类契约的连接器 category 是空串，
+		// 而卡名渲的就是 category —— 于是它在列表里没有名字（F-C-56）。
+		Title: openapi.SpecTitle(in.Spec),
 	}
 }
 

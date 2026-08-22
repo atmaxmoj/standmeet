@@ -853,6 +853,12 @@ CREATE TABLE owner_connectors (
     protocol         text          NOT NULL DEFAULT '',
     -- expose this openapi connector's raw operations as per-session agent tools (§3 agent 路).
     expose_as_agent_tools boolean   NOT NULL DEFAULT false,
+    -- title —— the vendor's own name for this API (info.title), taken once at assemble time.
+    -- Uploaded connectors that bind no category contract have an empty `category`, so the list
+    -- had nothing to render and two of them read identically (F-C-56). Derived, not owner-typed:
+    -- the product already parsed and displayed this string during ingest. Built-ins leave it empty
+    -- (their name is the category).
+    title            text          NOT NULL DEFAULT '',
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );

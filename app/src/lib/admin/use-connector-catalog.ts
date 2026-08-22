@@ -27,6 +27,8 @@ const CatalogEntrySchema = z.object({
   id: z.string(),
   category: z.string(),
   kind: z.string(),
+  // title —— 上传连接器带的厂商名（F-C-56）。catalog 里的内置项没有它：它们的名字就是品类。
+  title: z.string().nullish(),
   auth_scheme: z.string().nullish(),
   owner_ops: z.array(OwnerOpSchema).nullish(),
 });

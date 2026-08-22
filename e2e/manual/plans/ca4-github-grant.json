@@ -1,0 +1,14 @@
+{
+  "_why": "connector-assembly check 4 —— GitHub 连接器已连上，但暴露出来的每个 operation 还要在角色上逐个授权（`op_<id>` 进 allowed_tools）才会变成访客 AI 的工具。这一趟看 /admin/roles 怎么呈现一个有上千个 operation 的连接器 —— 那本身就是这条 item 该照见的东西。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1800],
+  "shots": [
+    {
+      "name": "ca-77-roles-tool-grants",
+      "url": "/admin/roles",
+      "steps": [{ "wait": 4000 }],
+      "wait": 1000,
+      "fullPage": true
+    }
+  ]
+}
