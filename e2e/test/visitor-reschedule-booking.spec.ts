@@ -119,13 +119,21 @@ async function dispatch(
   return body.result ?? {};
 }
 
-// futureWeekday —— 从今天 + minDays 起,顺延到工作日(Mon–Fri),定在 hour:00 UTC。避开
-// 周末的 booking policy(weekday-only #125),让 slot 稳定可约。
-function futureWeekday(minDays: number, hour: number): string {
+// futureWeekday —— **往后数第 n 个工作日**（Mon–Fri），定在 hour:00 UTC。避开周末的
+// booking policy（weekday-only #125），让 slot 稳定可约。
+//
+// **数工作日，不是「加 n 天再顺延」**：原来那种写法会把不同的 n 折到同一天上 ——
+// 今天是周六时，`+7` 落在周六、`+8` 落在周日，两个都顺延到**同一个周一**。
+// 于是两条用例订的是同一格，而 `resetMockGCal` 只清替身，清不掉产品自己的预约和占位，
+// 第二条就被「这一格已经有人了」挡下 —— 红在「bob 订一个空闲格」上，看起来像产品坏了。
+// 而它**只在某些日期发生**，所以平时看着像闪断（2026-08-22 周六撞上）。
+// 数工作日之后，不同的 n 永远是不同的天。
+function futureWeekday(nth: number, hour: number): string {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() + minDays);
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+  let counted = 0;
+  while (counted < nth) {
     d.setUTCDate(d.getUTCDate() + 1);
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) counted++;
   }
   d.setUTCHours(hour, 0, 0, 0);
   return d.toISOString();
