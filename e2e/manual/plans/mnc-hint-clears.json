@@ -1,0 +1,18 @@
+{
+  "_why": "marketplace-needs-connector check 1 ⭐ 状态③ —— 日历真连回来了（真 OAuth、真 token），再回市场看那张卡：needs 提示必须消失。这是判据里最要紧的一半：不消失就说明那句话是写死的，不是按真状态算的。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/marketplace-needs-connector/shots",
+  "viewport": [1280, 700],
+  "shots": [
+    {
+      "name": "mnc-15-hint-cleared",
+      "url": "/admin/skills",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"skills-tab-marketplace\"]" },
+        { "wait": 7000 }
+      ],
+      "wait": 1500,
+      "fullPage": false
+    }
+  ]
+}

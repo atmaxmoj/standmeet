@@ -58,7 +58,8 @@ const ctx = persistent
     channel: 'chrome', headless: false, viewport: { width: vw, height: vh },
   })
   : await browser.newContext({ viewport: { width: vw, height: vh } });
-const page = persistent ? (ctx.pages()[0] ?? await ctx.newPage()) : await ctx.newPage();
+// **let,不是 const** —— `popup` 那一步要把驱动的目标换成新开的那一页（见 runSteps）。
+let page = persistent ? (ctx.pages()[0] ?? await ctx.newPage()) : await ctx.newPage();
 
 // acceptDialogs —— 原生 confirm()/alert() 一律点「确定」。**必须逐个 plan 显式打开**：
 // 人点 OK 是真实动作，但默认接受会让别的 plan 里的破坏性确认被静默点掉，而那种事发生时
@@ -152,6 +153,18 @@ async function runSteps(steps) {
       for (let i = 0; i < step.repeat[0]; i++) {
         await runSteps(step.repeat[1]);
       }
+    })();
+    // popup —— 把驱动的目标换成**最后打开的那一页**。
+    //
+    // 有些动作是 `window.open(..., '_blank')`：日历那个 AUTHORIZE 就是，同意页在新标签里。
+    // 驱动只盯着原来那一页的话，点完看起来「什么都没发生」——而人是跟着新开的那一页走的。
+    // 用法：`{"popup": true}`（点完之后紧跟一步），可选 `{"popup": 3000}` 先等它开出来。
+    step.popup && await (async () => {
+      const waitMs = typeof step.popup === 'number' ? step.popup : 1500;
+      await page.waitForTimeout(waitMs);
+      const pages = ctx.pages();
+      page = pages[pages.length - 1] ?? page;
+      await page.bringToFront();
     })();
     // click —— 选择器，或 `["选择器", n]` 点第 n 个（0 起）。
     // 列表页上同一个动作按钮每行都有一个（575 条语料的 `edit`），而人是**看着位置**点的：

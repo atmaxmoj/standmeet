@@ -1,0 +1,18 @@
+{
+  "_why": "marketplace-needs-connector check 1 ⭐ —— 实例的市场源现在指着 owner 自己发布的公开目录（atmaxmoj/standmeet-skills），里面那条 timezone-aware-booking 的 frontmatter 真声明了 `calendar_list_slots` / `calendar_book`。这一趟拍**日历还连着**时那张卡的样子：判据是它**不**说 needs。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/marketplace-needs-connector/shots",
+  "viewport": [1280, 1100],
+  "shots": [
+    {
+      "name": "mnc-10-connected-no-hint",
+      "url": "/admin/skills",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"skills-tab-marketplace\"]" },
+        { "wait": 6000 }
+      ],
+      "wait": 1500,
+      "fullPage": false
+    }
+  ]
+}

@@ -118,9 +118,19 @@ services:
       # a runaway document must not take the instance down — but how high it sits is a
       # deployment decision, not a compile-time one.
       - CONNECTOR_SPEC_MAX_BYTES=${CONNECTOR_SPEC_MAX_BYTES:-}
-      # NOTE: no *_BASE_URL / GOOGLE_* overrides here — prod talks to the real
-      # Greenhouse / Lever / Ashby / marketplace / Google endpoints (backend
-      # defaults). dev adds the mock overrides; that's the only env difference.
+      # MARKETPLACE_GITHUB_BASE_URL —— which skill catalogue this instance reads.
+      # Empty = the public anthropics/skills repo (the backend default).
+      #
+      # It is here because an owner can legitimately run their own catalogue — their team's
+      # skills, or a fork with the ones they actually use — and the backend has always read
+      # this variable; only prod had no way to set it. Same shape as CONNECTOR_EGRESS_ALLOW
+      # above (F-C-49): a knob that exists in code and is unreachable from a deployment is
+      # not a knob. `check-knobs-reachable` cannot see this one — its `*_BASE_URL` exemption
+      # was written for dev-only mock pointers and swallows this too.
+      - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
+      # NOTE: no other *_BASE_URL / GOOGLE_* overrides here — prod talks to the real
+      # Greenhouse / Lever / Ashby / Google endpoints (backend defaults). dev adds the
+      # mock overrides; that's the only env difference.
     depends_on:
       db:
         condition: service_healthy

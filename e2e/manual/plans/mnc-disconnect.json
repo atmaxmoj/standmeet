@@ -1,0 +1,29 @@
+{
+  "_why": "marketplace-needs-connector check 1 ⭐ 状态② —— 把日历真断开（DISCONNECT 保留凭据），再回市场看那张卡。判据：现在必须说 needs calendar。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/marketplace-needs-connector/shots",
+  "viewport": [1280, 1100],
+  "shots": [
+    {
+      "name": "mnc-11-calendar-disconnected",
+      "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"gcal-disconnect\"]" },
+        { "wait": 5000 }
+      ],
+      "wait": 1000,
+      "fullPage": false
+    },
+    {
+      "name": "mnc-12-hint-appears",
+      "url": "/admin/skills",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"skills-tab-marketplace\"]" },
+        { "wait": 7000 }
+      ],
+      "wait": 1500,
+      "fullPage": false
+    }
+  ]
+}

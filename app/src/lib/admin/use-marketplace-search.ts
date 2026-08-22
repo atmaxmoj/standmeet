@@ -5,7 +5,7 @@
 // Backend returns []domain.MarketSkill — we adapt to the frontend
 // MarketSkillView shape (camelCase fields, design-aligned).
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 
 import { z } from 'zod';
 
@@ -56,12 +56,16 @@ const INIT_STATE: State = { results: [], loading: true, error: null, hasMore: fa
 
 export function useMarketplaceSearch(query: string, source: SourceParam): MarketplaceSearch {
   const [state, setState] = useState<State>(INIT_STATE);
+  // seq —— 最后发出去的那一发说了算。没有它的时候，**先发的回得晚就会赢**：
+  // 空查询的整份目录压在刚搜出来的结果上面，而搜索框里还写着 owner 打的那个词，
+  // 没有任何一处报错（F-F-6）。连接器列表那边一直有这件事（useLatestList），这里漏了。
+  const seq = useRef(0);
   useEffect(() => {
-    void loadPage(query, source, 0, [], setState);
+    void loadPage(query, source, 0, [], setState, seq);
   }, [query, source]);
   const loadMore = useCallback(() => {
     if (state.loading || !state.hasMore) return;
-    void loadPage(query, source, state.results.length, state.results, setState);
+    void loadPage(query, source, state.results.length, state.results, setState, seq);
   }, [query, source, state.loading, state.hasMore, state.results]);
   return { ...state, loadMore };
 }
@@ -69,19 +73,36 @@ export function useMarketplaceSearch(query: string, source: SourceParam): Market
 async function loadPage(
   query: string, source: SourceParam, offset: number,
   prev: readonly MarketSkillView[], setState: (s: State) => void,
+  seq: MutableRefObject<number>,
 ): Promise<void> {
+  const ticket = ++seq.current;
   setState({ results: prev, loading: true, error: null, hasMore: false });
+  const next = await fetchState(query, source, offset, prev);
+  // 回来的时候已经有更新的一发了 → 这一份是旧闻，扔掉。**失败也一样扔**：
+  // 一发被取代的请求报的错，说的不是屏幕上现在这个查询的事。
+  if (ticket !== seq.current) return;
+  setState(next);
+}
+
+// fetchState —— 一发请求的结果（成功或失败）折成一个 State。跟「要不要采用它」分开，
+// 是为了让上面那句「最后一发说了算」只有一个判断点。
+async function fetchState(
+  query: string, source: SourceParam, offset: number, prev: readonly MarketSkillView[],
+): Promise<State> {
   try {
     const wire = await fetchMarket(query, source, offset);
     const page = wire.map(adapt);
-    setState({
+    return {
       results: offset === 0 ? page : [...prev, ...page],
       loading: false, error: null, hasMore: wire.length >= PAGE_LIMIT,
-    });
+    };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'marketplace search failed';
-    setState({ results: prev, loading: false, error: msg, hasMore: false });
+    return { results: prev, loading: false, error: searchErrMsg(e), hasMore: false };
   }
+}
+
+function searchErrMsg(e: unknown): string {
+  return e instanceof Error ? e.message : 'marketplace search failed';
 }
 
 async function fetchMarket(
