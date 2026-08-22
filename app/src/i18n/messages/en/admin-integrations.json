@@ -40,6 +40,8 @@
     "checking": "asking…",
     "checkTools": "{count, plural, =0 {answers, but offers no tools} one {# tool} other {# tools}}",
     "checkFailed": "no answer — {reason}",
+    "checkRefused": "it answered, but rejected the auth header — check the header name and value",
+    "checkNoAnswer": "no answer — nothing responded at that URL",
     "authBadge": "auth: {name}",
     "add": "Add MCP server"
   },

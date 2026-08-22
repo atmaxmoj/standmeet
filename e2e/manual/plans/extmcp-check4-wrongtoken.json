@@ -1,0 +1,42 @@
+{
+  "_why": "ext-mcp check 4 的后半：**同一台 server、同一个问题，只把 token 换成错的**。Expected 是「工具就是不出现，访客收到一句普通的拒绝 —— 不许露上游状态码、不许堆栈、不许卡住」。删了重加是因为注册表单没有编辑；新行是新 id，所以 role 要重挂一次。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 1500],
+  "shots": [
+    { "name": "em-67-github-wrong-token", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "li:has-text(\"github\") [data-testid^=\"mcp-server-delete-\"]" },
+        { "wait": 2500 },
+        { "type": ["[data-testid=\"mcp-server-name\"]", "github"] },
+        { "type": ["[data-testid=\"mcp-server-url\"]", "https://api.githubcopilot.com/mcp/x/repos/readonly"] },
+        { "type": ["[data-testid=\"mcp-server-auth-name\"]", "Authorization"] },
+        { "typeSecret": ["[data-testid=\"mcp-server-auth-value\"]", "GITHUB_MCP_AUTH_WRONG"] },
+        { "click": "[data-testid=\"mcp-server-add\"]" },
+        { "wait": 3000 },
+        { "click": "li:has-text(\"github\") [data-testid=\"mcp-server-check\"]" },
+        { "wait": 20000 }
+      ],
+      "wait": 1500 },
+    { "name": "em-68-role-reattached", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "[data-testid=\"role-tools-mcp-ext-mcp-probe\"] [data-testid=\"role-multi-github\"]" },
+        { "wait": 800 },
+        { "click": "button:has-text(\"save tools · ext-mcp-probe\")" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "em-69-visitor-with-dead-token", "url": "/?code=EXTMCP-01", "login": false,
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "MCP Prober Two"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Use the github tools: list the branches of the repository anthropics/skills and name three of them."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 75000 }
+      ],
+      "wait": 3000, "fullPage": true }
+  ]
+}

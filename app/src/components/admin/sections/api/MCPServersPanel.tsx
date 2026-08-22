@@ -13,6 +13,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { APIError } from '@/lib/api/api-error';
 import { ListPane } from '@/components/admin/ListPane';
 import { useMCPServers, type CreateMCPServerInput, type MCPProbe, type MCPServersHook, type MCPServerView } from '@/lib/admin/use-mcp-servers';
 import { useAction } from '@/lib/ui/use-action';
@@ -89,7 +90,7 @@ type Probe =
   | { state: 'idle' }
   | { state: 'asking' }
   | { state: 'answered'; tools: readonly string[] }
-  | { state: 'failed'; reason: string };
+  | { state: 'failed'; reason: string; code: string };
 
 function ServerRow({
   server, onRemove, onCheck,
@@ -142,8 +143,18 @@ async function runProbe(
     const res = await onCheck(id);
     set({ state: 'answered', tools: res.tools });
   } catch (e) {
-    set({ state: 'failed', reason: e instanceof Error ? e.message : 'could not reach it' });
+    set(probeFailure(e));
   }
+}
+
+// probeFailure —— 一个抛出来的东西读成「失败了，因为什么、属于哪一类」。
+// code 空串 = 不是 API 答的（网络断了之类），那时只有 reason 可说。
+function probeFailure(e: unknown): Probe {
+  return {
+    state: 'failed',
+    reason: e instanceof Error ? e.message : 'could not reach it',
+    code: e instanceof APIError ? e.code : '',
+  };
 }
 
 // ProbeLine —— 探针的回执。**说出真结果**:答上了报工具名(owner 要认的是「这是不是我
@@ -161,7 +172,7 @@ function ProbeSaid({ probe }: { probe: SaidProbe }) {
 
 function ProbeDone({ probe }: { probe: DoneProbe }) {
   return probe.state === 'failed'
-    ? <ProbeFailed reason={probe.reason} />
+    ? <ProbeFailed reason={probe.reason} code={probe.code} />
     : <ProbeAnswered tools={probe.tools} />;
 }
 
@@ -179,9 +190,22 @@ function ProbeAsking() {
   );
 }
 
-function ProbeFailed({ reason }: { reason: string }) {
+// ProbeFailed —— 失败也分种类，而 owner 要做的事不同（F-D-15）:凭据被拒 → 去改 token；
+// 没人应答 → 去改 URL。**按 code 分，不按文案分** —— 匹配句子的话，服务端换个措辞就悄悄
+// 掉回默认那句。默认那句留着:遇到没见过的 code 时，说出真原因仍然比说「出错了」强。
+const PROBE_SAID: Record<string, string> = {
+  mcp_server_refused_auth: 'checkRefused',
+  mcp_server_no_answer: 'checkNoAnswer',
+};
+
+function ProbeFailed({ reason, code }: { reason: string; code: string }) {
   const t = useTranslations('adminIntegrations.mcpServers');
-  return <ProbeText tone="accent">{t('checkFailed', { reason })}</ProbeText>;
+  const key = PROBE_SAID[code];
+  return (
+    <ProbeText tone="accent">
+      {key === undefined ? t('checkFailed', { reason }) : t(key)}
+    </ProbeText>
+  );
 }
 
 function ProbeAnswered({ tools }: { tools: readonly string[] }) {

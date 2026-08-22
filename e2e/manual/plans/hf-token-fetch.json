@@ -5,9 +5,9 @@
   "login": false,
   "profile": "~/.playwright-mcp-profile",
   "shots": [
-    { "name": "em-50-hf-login-waiting", "url": "https://huggingface.co/login",
+    { "name": "em-60-hf-login-waiting", "url": "https://huggingface.co/login",
       "steps": [{ "wait": 3000 }], "wait": 1000 },
-    { "name": "em-51-hf-after-login", "url": "https://huggingface.co/settings/tokens",
+    { "name": "em-61-hf-after-login", "url": "https://huggingface.co/settings/tokens",
       "steps": [
         { "wait": 10000 },
         { "wait": 10000 },

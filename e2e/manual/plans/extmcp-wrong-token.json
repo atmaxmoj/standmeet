@@ -1,0 +1,32 @@
+{
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    { "name": "em-50-servers-before", "url": "/admin/api-mcp", "wait": 3000 },
+    { "name": "em-51-hf-removed", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "li:has-text(\"huggingface\") [data-testid^=\"mcp-server-delete-\"]" },
+        { "wait": 2500 }
+      ],
+      "wait": 1200 },
+    { "name": "em-52-readded-with-wrong-token", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"mcp-server-name\"]", "huggingface"] },
+        { "type": ["[data-testid=\"mcp-server-url\"]", "https://huggingface.co/mcp"] },
+        { "type": ["[data-testid=\"mcp-server-auth-name\"]", "Authorization"] },
+        { "type": ["[data-testid=\"mcp-server-auth-value\"]", "Bearer hf_thisisnotarealtokenatall000000000000"] },
+        { "click": "[data-testid=\"mcp-server-add\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "em-53-check-says-what", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "li:has-text(\"huggingface\") [data-testid=\"mcp-server-check\"]" },
+        { "wait": 20000 }
+      ],
+      "wait": 1500 }
+  ]
+}

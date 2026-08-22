@@ -280,4 +280,16 @@ var mcpServerErrClasses = []struct {
 	{entity.ErrMCPServerNameTaken, func() error {
 		return fp.Coded(fp.Conflict("mcp server name already taken"), "mcp_server_name_taken")
 	}},
+	// 探针的两种失败（F-D-15）。**都是 BadInput 不是内部错**:owner 粘错一个 token 或一个
+	// URL 是常态,而这两句以前一起落到 `fp.OpErr` → 500 → 屏幕上「no answer — internal error」。
+	// code 分开发,因为 owner 要做的事不同:一个去改 token,一个去改 URL。
+	{usecase.ErrMCPServerRefusedAuth, func() error {
+		return fp.Coded(
+			fp.BadInput("that server answered, but it rejected the auth header"),
+			"mcp_server_refused_auth")
+	}},
+	{usecase.ErrMCPServerNoAnswer, func() error {
+		return fp.Coded(
+			fp.BadInput("nothing answered at that URL"), "mcp_server_no_answer")
+	}},
 }

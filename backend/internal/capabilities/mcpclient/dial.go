@@ -23,6 +23,16 @@ import (
 // 单条失败会先降级再说。调用方据此把这台 server 静默隐藏(不阻塞 chat),所以真因要包在里面。
 var ErrUnreachable = errors.New("mcp server unreachable")
 
+// ErrAuthRejected —— **对面答了话，只是不收这份凭据**（F-D-15）。
+//
+// 这跟拨不通是两件事，而它们曾经共用 `ErrUnreachable`：owner 粘错一个 token，屏幕上是
+// 「no answer — internal error」—— 有回答，也不是我们内部的错，五个字里两句假话。
+// 真因一直在链子里（mcp-go 的 `ErrAuthorizationRequired` 是类型化哨兵），只是被盖住了。
+//
+// 访客那条路两者仍然同样处理（那台 server 的工具静默不出现，不阻塞 chat）——
+// 分开是为了**owner 那一面能说出该改什么**。
+var ErrAuthRejected = errors.New("mcp server rejected the auth header")
+
 // Dial 建立连接 + Initialize。headers 里可放 Authorization 等 owner 配的
 // 鉴权头；nil = 无 auth。
 //
@@ -50,7 +60,23 @@ func Dial(ctx context.Context, url string, headers map[string]string) (*Session,
 	}
 	// 两条都失败:报**两条**原因。只报一条的话,排查的人看到 SSE 的错会以为我们只会 SSE,
 	// 看到 streamable 的错又不知道降级试过没有。
-	return nil, fmt.Errorf("%w: streamable: %w; sse: %w", ErrUnreachable, err, sseErr)
+	return nil, fmt.Errorf("%w: streamable: %w; sse: %w", dialClass(err, sseErr), err, sseErr)
+}
+
+// dialClass —— 这两次失败合起来是哪一类。**任一条说「要鉴权」就是被拒**:那说明对面在那儿、
+// 听懂了、只是不收这份凭据;另一条报 405 之类只是它不说那种协议。
+func dialClass(streamErr, sseErr error) error {
+	if authRejected(streamErr) || authRejected(sseErr) {
+		return ErrAuthRejected
+	}
+	return ErrUnreachable
+}
+
+// authRejected —— 认 mcp-go 的类型化哨兵,不匹配字符串:401 在那边是
+// `*AuthorizationRequiredError`(带 Unwrap),OAuth 那支是另一个,两个都要认。
+func authRejected(err error) bool {
+	return errors.Is(err, mcpgotransport.ErrAuthorizationRequired) ||
+		errors.Is(err, mcpgotransport.ErrOAuthAuthorizationRequired)
 }
 
 func dialStreamableHTTP(

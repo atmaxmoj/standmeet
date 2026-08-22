@@ -1,0 +1,32 @@
+{
+  "_why": "两件事一趟做完：(1) F-D-9 的 ⑤ —— 那台配着坏 token 的 huggingface 行，CHECK 现在该说「它答了话，只是不收这份凭据」，而不是 `no answer — internal error`；(2) ext-mcp check 4 的前半 —— 注册 GitHub 官方 MCP（只读子集 URL，Authorization 静态头），CHECK 该报出它真广播的工具名。token 走 typeSecret，从 verify-creds.env 取，不进 plan 也不进对话。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 1500],
+  "shots": [
+    { "name": "em-62-hf-wrong-token-now-says", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "li:has-text(\"huggingface\") [data-testid=\"mcp-server-check\"]" },
+        { "wait": 20000 }
+      ],
+      "wait": 1500 },
+    { "name": "em-63-github-registered", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"mcp-server-name\"]", "github"] },
+        { "type": ["[data-testid=\"mcp-server-url\"]", "https://api.githubcopilot.com/mcp/x/repos/readonly"] },
+        { "type": ["[data-testid=\"mcp-server-auth-name\"]", "Authorization"] },
+        { "typeSecret": ["[data-testid=\"mcp-server-auth-value\"]", "GITHUB_MCP_AUTH"] },
+        { "click": "[data-testid=\"mcp-server-add\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "em-64-github-real-tools", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 3000 },
+        { "click": "li:has-text(\"github\") [data-testid=\"mcp-server-check\"]" },
+        { "wait": 25000 }
+      ],
+      "wait": 1500 }
+  ]
+}

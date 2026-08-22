@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -46,7 +47,7 @@ func (p *mcpServerProbe) Probe(
 	defer cancel()
 	sess, derr := mcpclient.Dial(dialCtx, cfg.URL, cfg.AuthHeader.Headers())
 	if derr != nil {
-		return marketplace.MCPProbeResult{}, fmt.Errorf("dial mcp server: %w", derr)
+		return marketplace.MCPProbeResult{}, dialFailure(derr)
 	}
 	defer sess.Close()
 	tools, terr := sess.ListTools(dialCtx)
@@ -58,4 +59,15 @@ func (p *mcpServerProbe) Probe(
 		names = append(names, tools[i].Name)
 	}
 	return marketplace.MCPProbeResult{Tools: names}, nil
+}
+
+// dialFailure —— 把传输层的真相翻成域认得的两个词（F-D-15）。
+//
+// **翻译在这里，因为拨号也在这里**：域声明端口时说的是「问一句」，它不该认识
+// `mcpclient`，更不该认识 mcp-go 的哨兵。真因照旧包在里面进日志。
+func dialFailure(err error) error {
+	if errors.Is(err, mcpclient.ErrAuthRejected) {
+		return fmt.Errorf("%w: %w", marketplace.ErrMCPServerRefusedAuth, err)
+	}
+	return fmt.Errorf("%w: %w", marketplace.ErrMCPServerNoAnswer, err)
 }

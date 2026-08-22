@@ -20,6 +20,10 @@ type (
 
 // 构造/函数（实现:usecase）.
 var (
+	// 探针失败的两类 —— 组装根拨完号，用它们说清是哪一种（F-D-15）。
+	ErrMCPServerRefusedAuth = usecase.ErrMCPServerRefusedAuth
+	ErrMCPServerNoAnswer    = usecase.ErrMCPServerNoAnswer
+
 	CreateMCPServer    = usecase.CreateMCPServer
 	CreateSkill        = usecase.CreateSkill
 	DeleteMCPServer    = usecase.DeleteMCPServer

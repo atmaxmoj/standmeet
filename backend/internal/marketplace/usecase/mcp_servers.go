@@ -156,6 +156,18 @@ func checkProbePrereqs(
 // 那两件事对 owner 的意思完全相反（同 F-C-23 分开的那两句话）。
 var ErrMCPProbeUnavailable = errors.New("this instance cannot probe MCP servers")
 
+// 探针失败的两类，**owner 要做的事完全不同**（F-D-15）：一个去改 token，一个去改 URL。
+// 它们曾经是同一句「no answer — internal error」——「答了话但拒绝」被说成了「拨不通」。
+//
+// 为什么哨兵在域里而不是直接认传输层的错：`mcpclient` 是出站实现，本域只声明端口
+// （`MCPServerProber`）；组装根拨完号，把传输层的真相翻成这两个词交回来。
+var (
+	// ErrMCPServerRefusedAuth —— 对面答了话，只是不收这份凭据。
+	ErrMCPServerRefusedAuth = errors.New("mcp server refused the auth header")
+	// ErrMCPServerNoAnswer —— 真的够不着（网络 / URL / 协议）。
+	ErrMCPServerNoAnswer = errors.New("mcp server did not answer")
+)
+
 // DeleteMCPServer —— 删除单条；属于 owner 校验经 repo。
 func DeleteMCPServer(
 	ctx context.Context, deps MCPServersDeps, ownerID, serverID string,

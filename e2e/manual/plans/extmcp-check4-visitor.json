@@ -1,0 +1,27 @@
+{
+  "_why": "ext-mcp check 4 的正向那半：把刚注册的真 GitHub MCP 挂到 ext-mcp-probe 这个 role 上，再拿 EXTMCP-01 从访客那一侧真调一次它的工具，看回来的是不是 GitHub 上的真数据。save 按钮按**文案**定位（`save tools · <role>`）——它的 testid 不分 role，上一轮 `.first()` 点到了别的 role。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/ext-mcp/shots",
+  "viewport": [1280, 1500],
+  "shots": [
+    { "name": "em-65-role-attached", "url": "/admin/roles",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "[data-testid=\"role-tools-mcp-ext-mcp-probe\"] [data-testid=\"role-multi-github\"]" },
+        { "wait": 800 },
+        { "click": "button:has-text(\"save tools · ext-mcp-probe\")" },
+        { "wait": 3000 }
+      ],
+      "wait": 1200 },
+    { "name": "em-66-visitor-github-tool", "url": "/?code=EXTMCP-01", "login": false,
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "MCP Prober"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Use the github tools: list the branches of the repository anthropics/skills and name three of them."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 75000 }
+      ],
+      "wait": 3000, "fullPage": true }
+  ]
+}

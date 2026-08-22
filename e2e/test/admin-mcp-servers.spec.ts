@@ -4,6 +4,7 @@
 // 真后端 /mcp-servers(POST/GET/DELETE),UI 驱动。
 
 import { test, expect } from '@/fixtures/test';
+import type { Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -87,5 +88,68 @@ test.describe('admin external MCP servers CRUD', () => {
         row.getByTestId('mcp-server-check-result'), '探针要报出真结果',
       ).toHaveText(/[1-9]\d*\s+tools?/i, { timeout: 20_000 });
     });
+
+  // F-D-15 —— **「够不着」和「够到了、它不收这份凭据」被说成同一句话，而且是句假话。**
+  //
+  // 真环境撞到的（驱 ext-mcp check 4 时）：把真 Hugging Face MCP 那台重新注册、故意配一个
+  // 坏 token，点 CHECK → 屏幕上是 **`no answer — internal error`**，HTTP 500。
+  // 五个字里两句假话：对面**答了话**（HF 回的是 401 Unauthorized），而且那**不是**我们内部的错。
+  //
+  // ②🎯 后端日志把真相说全了，然后把它扔了：
+  //   `dial mcp server: mcp server unreachable: streamable: initialize: transport error:
+  //    authorization required; sse: … 405`
+  // `mcpclient.Dial` 对**一切**失败都盖 `ErrUnreachable`（dial.go:53），而 `authorization
+  // required` 是 mcp-go 的类型化哨兵、就在链子里；`mcpServerErr` 的分类表里没有它这一类，
+  // 于是落到 `fp.OpErr` → 500 → 前端 `checkFailed` 把它渲成 `no answer — internal error`。
+  // 跟 F-R-12 / F-C-42 同族：把「拒绝」说成「拨不通」（[[collapsed-error-class-kills-its-own-branch]]）。
+  //
+  // 判据要能判负，所以两条一起断：**坏凭据那条必须说「它拒绝了」**，
+  // **而真够不着那条必须还说「没答话」** —— 只断前者的话，把所有失败都改叫「被拒绝」也能过
+  // （[[red-in-the-wrong-place]]）。两条都不许出现 `internal error`：owner 粘错东西是常态，
+  // 不是这台实例坏了。
+  test('a server that answers but refuses the credential says so, not "internal error" (F-D-15)',
+    ({ adminPage }) => expectProbeSays(adminPage, {
+      name: 'refuses-me',
+      url: 'http://mcp-server-mock:9100/mcp-auth',
+      auth: ['X-Mock-Auth', 'not-the-right-token'],
+      says: /rejected|refused/i,
+    }));
+
+  test('a server that truly cannot be reached still reads as no answer (F-D-15)',
+    ({ adminPage }) => expectProbeSays(adminPage, {
+      name: 'nobody-home',
+      // 没有任何东西监听这个端口 —— 连接直接被拒，跟「答了话但拒绝」是两回事。
+      url: 'http://mcp-server-mock:9199/mcp',
+      says: /no answer/i,
+    }));
 });
+
+// expectProbeSays —— 注册一台 server、点 CHECK、读那一行说了什么。
+async function expectProbeSays(
+  page: Page,
+  want: { name: string; url: string; auth?: [string, string]; says: RegExp },
+): Promise<void> {
+  await gotoAdminSection(page, 'api-mcp');
+  const panel = page.getByTestId('mcp-servers-panel');
+  await expect(panel).toBeVisible({ timeout: 5_000 });
+
+  await panel.getByTestId('mcp-server-name').fill(want.name);
+  await panel.getByTestId('mcp-server-url').fill(want.url);
+  if (want.auth !== undefined) {
+    await panel.getByTestId('mcp-server-auth-name').fill(want.auth[0]);
+    await panel.getByTestId('mcp-server-auth-value').fill(want.auth[1]);
+  }
+  await panel.getByTestId('mcp-server-add').click();
+
+  const row = page.getByTestId('mcp-servers-list')
+    .locator('li').filter({ hasText: want.name });
+  await expect(row).toBeVisible({ timeout: 5_000 });
+  await row.getByTestId('mcp-server-check').click();
+
+  const said = row.getByTestId('mcp-server-check-result');
+  await expect(said, '探针要说出到底发生了什么').toContainText(want.says, { timeout: 25_000 });
+  // 先等到上面那句成立，元素必定在了，这条否定断言才判得了负
+  // （[[negated-assertion-passes-while-absent]]）。
+  await expect(said, 'owner 粘错东西不是这台实例坏了').not.toContainText(/internal error/i);
+}
 
