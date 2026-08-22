@@ -306,16 +306,28 @@ type sendInput struct {
 //     宁可失败也不重发。要重试的场景（owner 通知）在 usecase 层用 notifyPolicy 包，由调用方决定。
 //   - 不映射成 domain 错：mail 消费者（booking_confirmation / owner_notify / otp…）只看「发没发出」，
 //     不像 booker 要按 revoked/unavailable gate，故无需 calendar 那套错误词汇（ISP：不造没人用的接口）。
-func (a mailAdapter) Send(ctx context.Context, ownerID string, msg contract.MailMessage) error {
+//
+// **出参不再是 nil**（F-C-55）：binding 的 `send.response` 一直在把 provider 的 id 映出来，
+// 而这里传 nil，等于求完就扔。id 是事后唯一的把手（去 provider 日志里找这封、对退信、
+// 告诉 owner 发的是哪一封）。读不出来就是空 —— 空是「这家没给」，不是失败。
+func (a mailAdapter) Send(
+	ctx context.Context, ownerID string, msg contract.MailMessage,
+) (contract.MailReceipt, error) {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {
-		return err
+		return contract.MailReceipt{}, err
 	}
 	in := sendInput{To: msg.To, Subject: msg.Subject, Body: msg.Body, HTML: msg.HTML}
-	if cerr := a.runtime.Call(ctx, "send", in, nil, inj); cerr != nil {
-		return classifyMailSendErr(cerr)
+	var out sendOutput
+	if cerr := a.runtime.Call(ctx, "send", in, &out, inj); cerr != nil {
+		return contract.MailReceipt{}, classifyMailSendErr(cerr)
 	}
-	return nil
+	return contract.MailReceipt{ProviderID: out.ID}, nil
+}
+
+// sendOutput —— binding 的 `send.response` 求出来的形状。字段名跟既有绑定一致（`{ "id": … }`）。
+type sendOutput struct {
+	ID string `json:"id"`
 }
 
 // classifyMailSendErr —— 把运行时的错误归到两个 mail 哨兵之一(暂时不可用 / 这封被拒)。

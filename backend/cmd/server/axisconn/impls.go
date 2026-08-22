@@ -146,7 +146,10 @@ type mailTestSendArgs struct {
 type mailTestSentOut struct {
 	ViaKind string `json:"via_kind,omitempty"`
 	Reason  string `json:"reason,omitempty"`
-	OK      bool   `json:"ok"`
+	// MessageID —— provider 为这封信发的 id（F-C-55）。**空是一个答案**：SMTP 那条路给不出。
+	// 有它 owner 才能拿着去 provider 的日志里对上这一封，而不是只知道"没报错"。
+	MessageID string `json:"message_id,omitempty"`
+	OK        bool   `json:"ok"`
 }
 
 // mailTestSend —— 经当前激活的邮件连接器发一封测试信。
@@ -162,7 +165,7 @@ func mailTestSend(d *deps.Runtime) fp.Invoke {
 		if err := fp.RequireArgs([2]string{"to", in.To}); err != nil {
 			return nil, err
 		}
-		serr := d.ConnectorSlots.Mail().Send(ctx, ownerID,
+		rcpt, serr := d.ConnectorSlots.Mail().Send(ctx, ownerID,
 			contract.MailMessage{To: in.To, Subject: in.Subject, Body: in.Text})
 		if serr != nil {
 			// 原始错误进日志(owner 要的不是它,排查的人要);面上给归类后的一句话。
@@ -171,6 +174,7 @@ func mailTestSend(d *deps.Runtime) fp.Invoke {
 		}
 		return json.Marshal(mailTestSentOut{
 			OK: true, ViaKind: d.ConnectorSlots.MailKind(ctx, ownerID),
+			MessageID: rcpt.ProviderID,
 		})
 	}
 }

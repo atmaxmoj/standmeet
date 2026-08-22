@@ -104,13 +104,17 @@ func (c *smtpConnector) Connected(ctx context.Context, ownerID string) (bool, er
 
 // Send —— 用 owner SMTP 连接器发信；未配 → ErrMailNotConfigured。Send 的下限是「有凭据能
 // 物理发出」(Configured)，不是「已验证」(Connected)——验证信本身就在 Connected 之前发。
-func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg contract.MailMessage) error {
+// **回执里的 id 是空的**（F-C-55）：SMTP 这条路没有契约能承诺的 message id —— 250 那行
+// 有时带队列号，但那是各家服务器的方言。空 = 这条路给不出，不是发失败了。
+func (c *smtpConnector) Send(
+	ctx context.Context, ownerID string, msg contract.MailMessage,
+) (contract.MailReceipt, error) {
 	cfg, err := c.vault.SMTPConfig(ctx, c.id, ownerID)
 	if err != nil {
-		return fmt.Errorf("connector %q smtp config: %w", c.id, err)
+		return contract.MailReceipt{}, fmt.Errorf("connector %q smtp config: %w", c.id, err)
 	}
 	if !cfg.Configured() {
-		return consumer.ErrMailNotConfigured
+		return contract.MailReceipt{}, consumer.ErrMailNotConfigured
 	}
 	b := Compose(cfg.toMailerConfig()).To(msg.To).Subject(msg.Subject).Body(msg.Body)
 	if msg.HTML != "" {
@@ -118,9 +122,9 @@ func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg contract.M
 	}
 	if serr := b.Send(ctx); serr != nil {
 		// 原始错误留在 %w 链里给日志 —— 面那一侧只读哨兵。
-		return fmt.Errorf("%w: %w", smtpFailureClass(serr), serr)
+		return contract.MailReceipt{}, fmt.Errorf("%w: %w", smtpFailureClass(serr), serr)
 	}
-	return nil
+	return contract.MailReceipt{}, nil
 }
 
 // smtpFailureClass —— 按 SMTP 回码把失败分成「永久」和「暂时」。

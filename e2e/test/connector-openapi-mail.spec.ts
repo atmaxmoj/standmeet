@@ -35,6 +35,7 @@ import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { findCapability } from '@/fixtures/capabilities';
 import { clearMailpit, countMailpitMessages } from '@/fixtures/mail';
+import { FORM_MAIL_SPEC, FORM_MAIL_BINDING } from '@/fixtures/openapi-mail-specs';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // external-mock 的 SendGrid-style 发信 mock 控制面（**假设新端**，跟 /__mock/gcal/*
@@ -138,6 +139,8 @@ interface CreateResult { status: number; id?: string; error?: string }
 interface ConnStatus { id: string; category: string; kind: string; has_credentials: boolean; connected: boolean }
 // mock 录到的一封 SaaS send（断 request JSONata 构造出的 body 形状）。
 interface SentMail {
+  // id —— 这个假 vendor 为这封信发的 message id（回执里那个跟它是同一个）。
+  id: string;
   to: string[];
   subject: string;
   text: string;
@@ -150,7 +153,11 @@ interface SendGridBody {
   content?: { type?: string; value?: string }[];
 }
 // diag 直验 mailer 经 MailContract.Send 的结果（避开访客会话，干净断形状）。
-interface MailSendDiag { status: number; ok: boolean; via_kind?: string; reason?: string }
+interface MailSendDiag {
+  status: number; ok: boolean; via_kind?: string; reason?: string;
+  // message_id —— provider 交回来的那个 id。**产品以前一个字都不读**（F-C-55）。
+  message_id?: string;
+}
 
 // POST /api/admin/connectors —— 从 spec+binding 建 openapi 连接器。201 → {id}；4xx → {error}。
 async function createConnector(
@@ -211,10 +218,10 @@ async function diagSend(
     data: { to: mail.to, subject: mail.subject, text: mail.text },
   });
   const json = await res.json().catch(() => ({})) as
-    { ok?: boolean; via_kind?: string; reason?: string };
+    { ok?: boolean; via_kind?: string; reason?: string; message_id?: string };
   return {
     status: res.status(), ok: json.ok ?? false,
-    via_kind: json.via_kind, reason: json.reason,
+    via_kind: json.via_kind, reason: json.reason, message_id: json.message_id,
   };
 }
 
@@ -293,54 +300,21 @@ async function runHappyMainline(request: APIRequestContext, csrf: string): Promi
   expect(inbox[0]!.subject).toBe('OpenAPI mail');
 }
 
-// FORM_MAIL_SPEC —— 一个**声明表单编码**的假 vendor（Mailgun 那一族）。除了 requestBody 的
-// 媒体类型和端点，其余跟上面那份 SendGrid 式的 spec 是同构的。
-const FORM_MAIL_SPEC = {
-  openapi: '3.0.3',
-  info: { title: 'Sample Mailgun-style Mail', version: '1.0.0' },
-  servers: [{ url: 'http://external-mock:9000/__mock/mailapi' }],
-  paths: {
-    '/send-form': {
-      post: {
-        operationId: 'mail.send',
-        security: [{ bearer: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/x-www-form-urlencoded': {
-              schema: {
-                type: 'object',
-                properties: {
-                  from: { type: 'string' }, to: { type: 'string' },
-                  subject: { type: 'string' }, text: { type: 'string' },
-                },
-                required: ['from', 'to'],
-              },
-            },
-          },
-        },
-        responses: { '200': { description: 'queued' }, '400': { description: 'missing field' } },
-      },
-    },
-  },
-  components: { securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } } },
-} as const;
+// runReceiptCarriesID —— 发一封，断回执上那个 id 正是这个假 vendor 为它发的那个。
+async function runReceiptCarriesID(request: APIRequestContext, csrf: string): Promise<void> {
+  const st = await assembleAndConnectMail(request, csrf);
+  const sent = await diagSend(request, csrf, st.id, {
+    to: 'recruiter@corp.test', subject: 'receipt carries id', text: 'who sent what',
+  });
+  expect(sent.ok, 'precondition: the send itself goes through').toBe(true);
 
-// FORM_MAIL_BINDING —— 同一个契约 op，只是构造的是**平字段**（表单没有嵌套）。
-// id 从 body 里取 —— 真 Mailgun 就是这么回的（不在头里）。
-const FORM_MAIL_BINDING = {
-  category: 'mail',
-  kind: 'openapi',
-  operations: {
-    send: {
-      op: 'mail.send',
-      request:
-        '{ "from": "StandMeet Verify <verify@mock.test>", "to": to, ' +
-        '"subject": subject, "text": body }',
-      response: '{ "id": id }',
-    },
-  },
-} as const;
+  const inbox = await getSentMail(request);
+  expect(inbox, 'precondition: the vendor recorded exactly this one send').toHaveLength(1);
+  expect(
+    sent.message_id,
+    'the receipt must carry the id the provider issued, not nothing and not something invented',
+  ).toBe(inbox[0]!.id);
+}
 
 // runFormEncodedSend —— 装一个声明表单编码的连接器，发一封，断它**真的送出去了**。
 // 收据不看产品自己说什么：去 Mailpit 数一遍（那个假 vendor 收下之后经 SMTP 转投过去）。
@@ -500,6 +474,22 @@ test.describe('connector · openapi mail (SendGrid-style, kind=openapi fills the
   // 红只可能意味着一件事：声明的媒体类型没被照做。
   test('a spec that declares a form-encoded body is actually sent as a form (F-C-54)',
     async () => { await runFormEncodedSend(request, csrf); });
+
+  // F-C-55 —— **provider 交回来的 message id，产品一个字都不读。**
+  //
+  // ①🔴 驱 mail-connector check 5 时看见的：那一格要「message id 从 provider 真正用的那个
+  // 位置读」。而 `contract.MailProxy.Send` 的签名是 `... error` —— **没有装 id 的地方**；
+  // `mailAdapter.Send` 调 `runtime.Call(ctx, "send", in, nil, inj)`，出参就是 `nil`。
+  // 于是每一份 mail binding 里那句 `response: '{ "id": … }'` 求完就扔。
+  //
+  // 后果不是「读错位置」，是**发信的回执只有「没报错」**：provider 给的那个 id 是事后
+  // 唯一的把手（去它日志里找这封、对上一次退信、告诉 owner 到底发的是哪一封），而它被丢了。
+  // 同 [[write-with-no-receipt]] / [[nonunique-signal-not-a-receipt]]。
+  //
+  // 判据能判负：不断「非空」（一个写死的字符串也能过），断**它等于这个假 vendor 为这一封
+  // 发的那个 id** —— 那个值只可能来自响应。
+  test('the provider message id comes back on the receipt (F-C-55)',
+    async () => { await runReceiptCarriesID(request, csrf); });
 
   // dep-gating: 断开 openapi mail 连接器 → mail.send re-gate。经「mail 作为访客 capability」，已实现。
   test('disconnect the openapi mail connector → mail.send re-gates',

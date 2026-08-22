@@ -39,13 +39,19 @@ func (p *RetryingMailProxy) Connected(ctx context.Context, ownerID string) (bool
 // Send —— 按预算重试瞬时传输错；未达对端的连接错重发安全（owner-notify 非幂等敏感）。
 func (p *RetryingMailProxy) Send(
 	ctx context.Context, ownerID string, msg contract.MailMessage,
-) error {
+) (contract.MailReceipt, error) {
+	var rcpt contract.MailReceipt
 	if err := retry.Do(ctx, notifyPolicy(), func() error {
-		return p.inner.Send(ctx, ownerID, msg)
+		var serr error
+		rcpt, serr = p.inner.Send(ctx, ownerID, msg)
+		if serr != nil {
+			return fmt.Errorf("mail proxy send: %w", serr)
+		}
+		return nil
 	}); err != nil {
-		return fmt.Errorf("owner notify send: %w", err)
+		return contract.MailReceipt{}, fmt.Errorf("owner notify send: %w", err)
 	}
-	return nil
+	return rcpt, nil
 }
 
 // mailTransient —— 只重瞬时传输错（连接断/拒/超时/EOF）；ErrMailNotConfigured 等永久错不重。

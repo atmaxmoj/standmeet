@@ -33,7 +33,7 @@ func TestSMTPConnector_NotConfigured_Friendly(t *testing.T) {
 	if !ok {
 		t.Fatalf("smtp connector is not a MailProxy: %T", c)
 	}
-	err := mp.Send(context.Background(), "owner-1", contract.MailMessage{
+	_, err := mp.Send(context.Background(), "owner-1", contract.MailMessage{
 		To: "v@example.com", Subject: "hi", Body: "hello",
 	})
 	if !errors.Is(err, consumer.ErrMailNotConfigured) {

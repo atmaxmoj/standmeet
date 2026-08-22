@@ -278,15 +278,18 @@ func (ms mailSlot) Connected(ctx context.Context, ownerID string) (bool, error) 
 	return ok, nil
 }
 
-func (ms mailSlot) Send(ctx context.Context, ownerID string, msg contract.MailMessage) error {
+func (ms mailSlot) Send(
+	ctx context.Context, ownerID string, msg contract.MailMessage,
+) (contract.MailReceipt, error) {
 	mp, err := ms.resolve(ctx, ownerID)
 	if err != nil {
-		return err
+		return contract.MailReceipt{}, err
 	}
-	if serr := mp.Send(ctx, ownerID, msg); serr != nil {
-		return fmt.Errorf("mail slot send: %w", serr)
+	rcpt, serr := mp.Send(ctx, ownerID, msg)
+	if serr != nil {
+		return contract.MailReceipt{}, fmt.Errorf("mail slot send: %w", serr)
 	}
-	return nil
+	return rcpt, nil
 }
 
 // resolve —— active mail 连接器断言成 MailProxy。无 active → ErrMailNotConfigured。

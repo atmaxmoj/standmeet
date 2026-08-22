@@ -27,9 +27,12 @@ type sendgridState struct {
 // sentMail —— 一封录到的 send：归一字段（to/subject/text）+ 原样 SaaS body（断嵌套构造）。
 type sentMail struct {
 	Raw     sendGridBody `json:"raw"`
-	Subject string       `json:"subject"`
-	Text    string       `json:"text"`
-	To      []string     `json:"to"`
+	// ID —— 这个假 vendor 为这封信发的 message id，**跟回执里那个是同一个**。录下来，守卫才能断
+	// 「产品报的 id 正是 provider 给的那个」，而不只是「非空」（F-C-55）。
+	ID      string   `json:"id"`
+	Subject string   `json:"subject"`
+	Text    string   `json:"text"`
+	To      []string `json:"to"`
 }
 
 // sendGridBody —— SendGrid /mail/send 的请求体（request JSONata 构造出的嵌套形状）。
@@ -78,7 +81,8 @@ func (s *server) serveSendGridSend(w http.ResponseWriter, r *http.Request) {
 	s.withSendGrid(func(st *sendgridState) {
 		id = fmt.Sprintf("sg-%d", len(st.sent)+1)
 		st.sent = append(st.sent, sentMail{
-			Raw: b, Subject: b.Subject, Text: firstContentValue(b), To: recipientEmails(b),
+			Raw: b, ID: id, Subject: b.Subject,
+			Text: firstContentValue(b), To: recipientEmails(b),
 		})
 	})
 	writeSendGridAccepted(s.log, w, id)

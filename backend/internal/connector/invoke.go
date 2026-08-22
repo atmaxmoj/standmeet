@@ -273,10 +273,25 @@ func mailSend(
 	if err := json.Unmarshal(args, &msg); err != nil {
 		return nil, fmt.Errorf("connector invoke: decode send args: %w", err)
 	}
-	if err := m.Send(ctx, ownerID, msg); err != nil {
+	rcpt, err := m.Send(ctx, ownerID, msg)
+	if err != nil {
 		return nil, fmt.Errorf("mail send: %w", err)
 	}
-	return marshalBool("ok", true)
+	// 回执带上 provider 给的 id（F-C-55）。空 = 这条路（SMTP）给不出，不是失败。
+	return marshalSendReceipt(rcpt.ProviderID)
+}
+
+// marshalSendReceipt —— `{"ok":true,"provider_id":"…"}`。跟隔壁那几个 marshal helper 一样
+// 收具体类型、就地包错（wrapcheck 要外部包的错在本包被包一次）。
+func marshalSendReceipt(providerID string) (json.RawMessage, error) {
+	b, err := json.Marshal(struct {
+		ProviderID string `json:"provider_id,omitempty"`
+		OK         bool   `json:"ok"`
+	}{ProviderID: providerID, OK: true})
+	if err != nil {
+		return nil, fmt.Errorf("connector invoke: marshal send receipt: %w", err)
+	}
+	return b, nil
 }
 
 // ─── marshal helpers（都收具体类型，不碰 forbidigo 禁的 any）───
