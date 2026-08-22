@@ -13,6 +13,7 @@
 
 import { z } from 'zod';
 
+import { adminAPI } from '@/lib/api/admin';
 import { safeJson } from '@/lib/api/typed-json';
 
 const ENDPOINT = '/api/v1/inference/models';
@@ -25,6 +26,16 @@ export interface ListModelsInput {
 
 const ListModelsResponseSchema = z.object({ models: z.array(z.string()) });
 const ErrorEnvelopeSchema = z.object({ error: z.object({ message: z.string().optional() }).optional() });
+
+// listOwnerModels —— owner 那一面：**不发 key**。
+//
+// 他的 key 存在服务端、页面永远读不回来，所以以前这颗按钮发出去的是一个空 key，后端
+// `key required` 400，屏幕上什么都没有 —— 保存过一次之后就再也点不动了（F-R-11）。
+// 这条走 owner 自己那条带 auth 的路，服务端拿库里存的那把去问上游。
+export async function listOwnerModels(): Promise<string[]> {
+  const body = await adminAPI.post('/providers/models', {}, ListModelsResponseSchema);
+  return body.models;
+}
 
 export async function listModels(input: ListModelsInput): Promise<string[]> {
   const res = await fetch(ENDPOINT, {

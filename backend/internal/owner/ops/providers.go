@@ -22,6 +22,9 @@ import (
 // ProvidersDeps —— 这一组要的依赖。
 type ProvidersDeps struct {
 	Providers usecase.ProvidersDeps
+	// ModelLister —— 去问某条 provider 有哪些模型（F-R-11）。端口，不是仓储：key 在库里
+	// 是密文而这一侧从不解封，实现落在组装根。nil = 这台实例没有这个能力，说出来而不是假装问过。
+	ModelLister usecase.ProviderModelLister
 }
 
 // Providers —— providers.list / create / update / set_default / delete。
@@ -44,6 +47,16 @@ func Providers(d ProvidersDeps) []fp.Op {
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
 			Invoke:      setDefaultProvider(d),
+		},
+		{
+			ID: "providers.list_models",
+			Description: "Ask a configured provider which models it offers, using the key " +
+				"already stored for it. Omit id for the default provider. Returns model " +
+				"names only — never the key.",
+			InputSchema: providerModelsSchema,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      listProviderModels(d.ModelLister),
 		},
 		{
 			ID: "providers.delete",

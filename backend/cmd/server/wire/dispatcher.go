@@ -62,6 +62,9 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 				Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
 				Spend: d.InferenceUsageRepo,
 			},
+			// ModelLister —— 「这条 provider 有哪些模型」那颗探针。开封在根这一侧
+			// （跟 MCP 探针同一条规矩），所以它从 deps 里进来，域只见到端口（F-R-11）。
+			ModelLister: d.ProviderModels,
 		},
 		Account: owner.OpsAccountDeps{
 			Account:  owner.AccountDeps{Owners: d.OwnerRepo},

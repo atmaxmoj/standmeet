@@ -295,6 +295,13 @@ linters:
       # package, same reason.
       - path: cmd/server/axis(cap|conn)/
         linters: [wrapcheck]
+      # providermodels classifies a provider failure into the display vocabulary
+      # (apierr.Display / DisplayWrap) for whoever asks — same job as an ops package,
+      # same reason: those constructors MAKE the error, and wrapping one would hide the
+      # DisplayError from apierr.Classify at the face. It used to live in routes/public,
+      # which is exempt above; the move (F-R-11) did not change what it does.
+      - path: internal/infra/providermodels/
+        linters: [wrapcheck]
       # Same echo-handler reasoning for middleware as for routes:
       # `func(c echo.Context) error` requires `return c.JSON(...)`.
       - path: internal/infra/middleware/

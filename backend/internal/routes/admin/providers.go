@@ -33,5 +33,11 @@ func (h *Handlers) MountProviders(r chi.Router) {
 			h.dispatchOp(face, "providers.delete", urlParamArgs("id"), noContent))
 		r.Post("/{id}/default",
 			h.dispatchOp(face, "providers.set_default", urlParamArgs("id"), jsonOK))
+		// models —— 「这条 provider 有哪些模型」。**owner 这一面不带 key**：服务端拿库里
+		// 存的那把去问（F-R-11）。访客那条（`/api/v1/inference/models`）反过来，key 跟着
+		// 请求进来 —— 那边没有 auth，调用方就是钥匙的持有人。
+		r.Post("/{id}/models",
+			h.dispatchOp(face, "providers.list_models", urlParamArgs("id"), jsonOK))
+		r.Post("/models", h.dispatchOp(face, "providers.list_models", emptyArgs, jsonOK))
 	})
 }

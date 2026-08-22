@@ -14,7 +14,9 @@
 
 import { useCallback, useState } from 'react';
 
-import { listModels, type ListModelsInput } from '@/lib/inference/list-models';
+import {
+  listModels, listOwnerModels, type ListModelsInput,
+} from '@/lib/inference/list-models';
 
 export interface ModelListState {
   readonly options: readonly string[] | null;
@@ -24,6 +26,9 @@ export interface ModelListState {
 export interface ModelListHook {
   state: ModelListState;
   load: (input: ListModelsInput) => Promise<void>;
+  // loadOwn —— owner 那一面：**不发 key**，服务端拿它自己存的那把去问（F-R-11）。
+  // 访客那面反过来（key 跟着请求走），所以两条路各有一个入口而不是一个带标志位的。
+  loadOwn: () => Promise<void>;
   reset: () => void;
 }
 
@@ -43,7 +48,18 @@ export function useModelList(onError: (msg: string) => void): ModelListHook {
     }
   }, [onError]);
 
+  const loadOwn = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    try {
+      setOptions(await listOwnerModels());
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'list models failed');
+    } finally {
+      setLoading(false);
+    }
+  }, [onError]);
+
   const reset = useCallback(() => setOptions(null), []);
 
-  return { state: { options, loading }, load, reset };
+  return { state: { options, loading }, load, loadOwn, reset };
 }

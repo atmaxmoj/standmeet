@@ -1,0 +1,22 @@
+{
+  "_why": "resilience check 3 ⭐ 的第三格：**一把能聊、但列不出模型的 key**。\n\n装置：`make verify-proxy-up UPSTREAM=https://api.deepseek.com` 起一个故障代理坐在真 provider 前面，`/models` 上装一发 403（**只挡这一条路径**，聊天照常转发到真上游）。然后在 owner 的 provider 表单里把 endpoint 指到 `http://llm-fault:9500` —— 走产品自己的界面接线，不改环境变量。\n\n（prod 的出站白名单默认是空的，这是对的姿态；`.env` 里临时放行 `llm-fault` 一项，驱完改回空白 + recreate。）\n\n判据：屏幕上给一句**说得出「列不出来」**的话，**不许把上游的原始响应体倒出来**（状态码、JSON、栈都不行）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1200],
+  "login": true,
+  "shots": [
+    { "name": "res-60-provider-pointed-at-proxy", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"ai-provider-endpoint\"]", "http://llm-fault:9500"] },
+        { "typeSecret": ["[data-testid=\"ai-provider-key\"]", "EVAL_KEY"] },
+        { "click": "[data-testid=\"ai-provider-save\"]" },
+        { "wait": 5000 }
+      ], "wait": 1500 },
+    { "name": "res-61-cannot-list-models", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"ai-provider-load-models\"]" },
+        { "wait": 12000 }
+      ], "wait": 1500 }
+  ]
+}

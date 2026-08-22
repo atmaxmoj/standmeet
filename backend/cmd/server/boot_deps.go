@@ -136,8 +136,7 @@ func assembleRuntimeDeps(
 	log *slog.Logger, cfg *config.Config, c *conns, repos *repoSet, dw *deferredWiring,
 ) deps.Runtime {
 	captchaVerifier := security.NewFromConfig(
-		security.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
-	)
+		security.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil)
 	printStore := printsess.New(c.rdb, 0)
 	// 词法检索(Meili)。MEILI_URL 空 → searchClient/indexer 为 nil,检索退 Postgres 全文、写不索引。
 	searchClient := search.New(cfg.MeiliURL, cfg.MeiliKey)
@@ -199,8 +198,9 @@ func assembleRuntimeDeps(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
 		AgentSkills: capreg.NewRegistry(),
-		// 探针在这里造一次:开封器(dialableMCPServers)只在组装根拿得到。
-		MCPProber: &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
+		// 两颗探针造在这里:开封器只在组装根拿得到(见 deps.go 上那两个字段)。
+		MCPProber:      &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
+		ProviderModels: &providerModelLister{owners: repos.owner},
 		// capStores —— wireCapabilityStorage 按各能力的声明填(provision 一次)。
 		CapStores:     map[string]*capstore.Store{},
 		SearchClient:  searchClient,

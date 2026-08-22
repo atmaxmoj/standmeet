@@ -1,0 +1,15 @@
+{
+  "_why": "复原：把 owner 的 provider endpoint 从故障代理指回真 provider（`https://api.deepseek.com`）。key 那格留空 = 保留已存的那把（卡上自己写着 leave blank to keep）。\n\n驱完这一步还要：`.env` 的 EGRESS_ALLOW_HOSTS 改回空白 → recreate backend → `make verify-proxy-down`。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1000],
+  "login": true,
+  "shots": [
+    { "name": "res-62-provider-restored", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"ai-provider-endpoint\"]", "https://api.deepseek.com"] },
+        { "click": "[data-testid=\"ai-provider-save\"]" },
+        { "wait": 5000 }
+      ], "wait": 1500 }
+  ]
+}

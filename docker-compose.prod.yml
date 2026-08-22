@@ -94,6 +94,13 @@ services:
       - GOTENBERG_URL=http://gotenberg:3000
       # Dotted alias avoids Chromium's single-word-host HTTPS-upgrade heuristic.
       - PRINT_BASE_URL=http://app.standmeet.local:3000
+      # EGRESS_ALLOW_HOSTS —— internal hosts the SSRF guard may dial (httpx/ssrf.go).
+      # **Empty is the prod posture and stays the default**: block everything internal.
+      # It is passed through so a verification run can name one host for the length of a
+      # drive (the fault proxy in docker-compose.verify.yml) without editing this file —
+      # resilience check 3 needs a provider endpoint that fails on demand, and the product's
+      # own provider form is the only legal way to point at one.
+      - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
       # NOTE: no *_BASE_URL / GOOGLE_* overrides here — prod talks to the real
       # Greenhouse / Lever / Ashby / marketplace / Google endpoints (backend
       # defaults). dev adds the mock overrides; that's the only env difference.

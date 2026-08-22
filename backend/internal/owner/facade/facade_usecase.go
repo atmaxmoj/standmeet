@@ -6,6 +6,7 @@ import "github.com/atmaxmoj/standmeet/internal/owner/usecase"
 type (
 	AIProviderDeps             = usecase.AIProviderDeps
 	ProvidersUseDeps           = usecase.ProvidersDeps
+	ProviderModelLister        = usecase.ProviderModelLister
 	AccountDeps                = usecase.AccountDeps
 	AllowedDomainsDeps         = usecase.AllowedDomainsDeps
 	ApproveRequestDeps         = usecase.ApproveRequestDeps

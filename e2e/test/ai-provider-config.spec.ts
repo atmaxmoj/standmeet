@@ -86,5 +86,44 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
       await picker.selectOption('mock-selfhost-large');
       await expect(picker).toHaveValue('mock-selfhost-large');
     });
+
+  // F-R-11 —— **key 已经存好之后，LOAD MODELS 就再也点不动了。**
+  //
+  // 上面那条在**同一次会话里手输了 key**，所以它从没碰到真实的常态：owner 昨天配好，
+  // 今天打开这一屏，key 那格写着 `already set · type to replace`（值永不回读，那是对的），
+  // 于是 `onLoad` 发出去的 `key: keyText` 是**空串** → 后端 `missingListModelsField` 当场
+  // 400 `key required`。owner 面对的是「点了没反应」，而那把 key 明明存着、每一轮访客对话
+  // 都在用它。
+  //
+  // prod 上撞到的（驱 resilience check 3 时）：`POST /api/v1/inference/models → 400`，4ms，
+  // 上游一个字节都没收到。
+  //
+  // 判据要能判负：**先存后重载**，再点。这条用例跟上面那条的差别只有「重载」两个字。
+  test('a stored key still lists models — the owner should not have to retype it (F-R-11)',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'api-mcp');
+      await page.getByTestId('ai-provider-custom').click();
+      await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
+      // model 是保存的必填项（SAVE 在它空着时是灰的）—— 先手输一个，这一条要验的是
+      // **保存之后**那次 LOAD MODELS，不是保存本身。
+      await page.getByTestId('ai-provider-model').fill('mock-selfhost-large');
+      await page.getByTestId('ai-provider-key').fill('sk-selfhost-does-not-check-keys');
+      await page.getByTestId('ai-provider-save').click();
+
+      // 重新打开这一屏 —— 现在 key 框是空的，而库里那把还在。这就是 owner 的日常。
+      await gotoAdminSection(page, 'dashboard');
+      await gotoAdminSection(page, 'api-mcp');
+      await expect(
+        page.getByText('key set · leave blank to keep'),
+        'precondition: the key really is stored and the field really is empty',
+      ).toBeVisible({ timeout: 10_000 });
+      await page.getByTestId('ai-provider-load-models').click();
+
+      const picker = page.getByTestId('ai-provider-model-select');
+      await expect(
+        picker,
+        'a configured provider must list its models without the owner retyping the key',
+      ).toBeVisible({ timeout: 15_000 });
+    });
 });
 

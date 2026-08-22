@@ -107,6 +107,9 @@ type Runtime struct {
 	// 只有根这一侧开得了。两个装配点(收口和插件注册表)必须拿**同一个**实现,
 	// 所以它挂在 Runtime 上,而不是各自 new 一个。
 	MCPProber marketplace.MCPServerProber
+	// ProviderModels —— 去问 owner 已配好的那条 provider:有哪些模型(F-R-11)。
+	// 同一条规矩:那把 key 在库里是密文,只有根这一侧开得了,所以域只声明端口。
+	ProviderModels owner.ProviderModelLister
 	// Dispatch —— 出站收口。assembleRuntime 之后由 main 回填(跟 PluginRegistry 同理);
 	// 全进程唯一一个,各个面都从它投影。
 	Dispatch *dispatcher.Dispatcher

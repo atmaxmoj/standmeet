@@ -1,0 +1,14 @@
+{
+  "_why": "F-R-11 的 ⑤：owner 打开自己**早就配好**的那条 provider，**一个字都不输**，直接点 LOAD MODELS。\n\n红态是 prod 上量到的：`POST /api/v1/inference/models → 400`（4ms，上游一个字节都没收到），屏幕上什么都没有 —— 客户端发的是它读不回来的那把 key，也就是空串。\n\n绿态：真 DeepSeek 的模型列表回来，MODEL 那格从文本框变成下拉。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1100],
+  "login": true,
+  "shots": [
+    { "name": "res-63-stored-key-lists-models", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"ai-provider-load-models\"]" },
+        { "wait": 14000 }
+      ], "wait": 1500 }
+  ]
+}

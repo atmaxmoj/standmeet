@@ -29,6 +29,8 @@ components:
     in: internal/infra/textcut                   # 按字符/字节安全截断文本（唯一实现）；domain-less leaf
   plaintext:
     in: internal/infra/plaintext                 # 外来 HTML → 可读文本（唯一实现）；domain-less leaf
+  providermodels:
+    in: internal/infra/providermodels            # 问一个推理端点有哪些模型（唯一实现）；两个面共用，domain-less leaf
   session:
     in: internal/infra/session
   config:
@@ -397,6 +399,15 @@ deps:
   # check-no-raw-http lint 保证所有出站 http.Client 只在这里构造；各出站子系统依赖它。
   httpx:
     mayDependOn: []
+    anyVendorDeps: true
+
+  # providermodels —— 「这个推理端点有哪些模型」。**两个面共用一份**（F-R-11）：访客的
+  # BYOAI 面板带着自己的 key 问（routes/public），owner 那面不带 key、由组装根开封库里
+  # 那把再问（cmd）。它自己无状态、不认识任何域。
+  providermodels:
+    mayDependOn:
+      - apierr
+      - httpx
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
@@ -1060,6 +1071,7 @@ deps:
       - capreg # D-2: /api/v1/sessions 返 capability_state + part_ids，读 Registry
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
       - httpx   # #132 /api/v1 inference-models 列表探测走统一 client
+      - providermodels   # 「这个端点有哪些模型」——访客带着自己的 key 问（F-R-11）
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
       - stats   # #106/#7 记一次用量:UsageRow(哪箱油、算不算油钱)是 stats 的词汇
       - clientaddr   # conversations.client_ip 只收访客自己的地址，收不到就留空
@@ -1080,6 +1092,9 @@ deps:
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
+      # providermodels —— owner 那颗 "load models"：根这一侧开封库里那把 key 再去问端点。
+      # 访客那面用同一份（key 跟着请求走），所以它住在 infra 而不是任何一个域里（F-R-11）。
+      - providermodels
       - cmddeps
       - cmdport
       - cmdaxisconn

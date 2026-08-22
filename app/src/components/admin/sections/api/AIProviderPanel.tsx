@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
@@ -87,21 +87,22 @@ function PanelForm({
     ),
   );
   const [keyText, setKeyText] = useState('');
-  const toast = useToast();
-  const onToastError = useCallback((m: string) => toast.error(m), [toast]);
-  const models = useModelList(onToastError);
+  // 失败留在**按钮底下**，不进角落的 toast：手在这颗按钮上，眼睛也在这颗按钮上
+  // （UX-82 在 gate 那面收过同一条，admin 这面当时没跟上 —— F-R-11 的第二半）。
+  const [modelsError, setModelsError] = useState('');
+  const models = useModelList(setModelsError);
   return (
     <PanelFormBody
       hook={hook} presets={presets}
       form={form} setForm={setForm}
       keyText={keyText} setKeyText={setKeyText}
-      models={models}
+      models={models} modelsError={modelsError}
     />
   );
 }
 
 function PanelFormBody({
-  hook, presets, form, setForm, keyText, setKeyText, models,
+  hook, presets, form, setForm, keyText, setKeyText, models, modelsError,
 }: {
   hook: AIProviderHook;
   presets: readonly AIProviderPresetView[];
@@ -110,6 +111,7 @@ function PanelFormBody({
   keyText: string;
   setKeyText: (v: string) => void;
   models: ModelListHook;
+  modelsError: string;
 }) {
   return (
     <div className="space-y-4">
@@ -128,10 +130,15 @@ function PanelFormBody({
         value={form.model}
         onChange={(v) => setForm((p) => setModel(p, v))}
         models={models}
-        onLoad={() => void models.load({
-          provider: form.provider, endpoint: form.endpoint, key: keyText,
-        })}
+        // 已经存过 key 就走 owner 那条路（服务端拿库里那把去问）；还没存过就把刚敲的
+        // 那串发上去 —— 第一次配置的时候，服务端确实还没有它（F-R-11）。
+        onLoad={() => void (keyText === '' && hook.state.keyConfigured
+          ? models.loadOwn()
+          : models.load({
+            provider: form.provider, endpoint: form.endpoint, key: keyText,
+          }))}
       />
+      <ModelsError message={modelsError} />
       <KeyRow keyText={keyText} setKey={setKeyText} configured={hook.state.keyConfigured} />
       <ButtonsRow
         hook={hook} form={form} keyText={keyText} resetKey={() => setKeyText('')}
@@ -251,6 +258,18 @@ function KeyRow({
       />
       <KeyHint configured={configured} typing={keyText !== ''} />
     </div>
+  );
+}
+
+// ModelsError —— 列不出来时那句话，就在按钮底下（UX-82 在 gate 那面定的规矩）。
+function ModelsError({ message }: { message: string }) {
+  return message === '' ? null : (
+    <p
+      className="mono text-[11px] text-(--color-accent) -mt-2"
+      data-testid="ai-provider-models-error"
+    >
+      {message}
+    </p>
   );
 }
 
