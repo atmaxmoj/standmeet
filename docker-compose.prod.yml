@@ -111,6 +111,13 @@ services:
       # on their own LAN is exactly what the protocol connectors are for (F-C-49). The connect just
       # failed, and the card blamed their credentials.
       - CONNECTOR_EGRESS_ALLOW=${CONNECTOR_EGRESS_ALLOW:-}
+      # CONNECTOR_SPEC_MAX_BYTES —— how large an OpenAPI spec this instance accepts
+      # (default 2 MiB). It is a knob because real vendor documents outgrow any number we
+      # would pick: GitHub publishes its REST description as one 12 MB file, so an owner
+      # who wants that connector has nothing to turn (F-C-53). The ceiling still exists —
+      # a runaway document must not take the instance down — but how high it sits is a
+      # deployment decision, not a compile-time one.
+      - CONNECTOR_SPEC_MAX_BYTES=${CONNECTOR_SPEC_MAX_BYTES:-}
       # NOTE: no *_BASE_URL / GOOGLE_* overrides here — prod talks to the real
       # Greenhouse / Lever / Ashby / marketplace / Google endpoints (backend
       # defaults). dev adds the mock overrides; that's the only env difference.

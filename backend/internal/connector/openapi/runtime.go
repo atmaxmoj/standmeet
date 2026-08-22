@@ -14,6 +14,7 @@ package openapi
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -151,7 +152,8 @@ func (r *Runtime) resolve(op string) (boundOp, error) {
 func (r *Runtime) buildRequest(
 	ctx context.Context, bo *boundOp, input any, auth AuthInjector,
 ) (*http.Request, error) {
-	rdr, err := renderBody(&bo.binding, input, bo.resolved.Required)
+	media := bo.resolved.BodyMedia
+	rdr, err := renderBody(&bo.binding, input, bo.resolved.Required, media)
 	if err != nil {
 		return nil, err
 	}
@@ -159,64 +161,39 @@ func (r *Runtime) buildRequest(
 	if uerr != nil {
 		return nil, uerr
 	}
-	return newHTTPRequest(ctx, bo.resolved.Method, reqURL, rdr, auth)
+	return newHTTPRequest(ctx, &outbound{
+		method: bo.resolved.Method, url: reqURL, body: rdr, media: media, auth: auth,
+	})
 }
 
-// newHTTPRequest —— 组装 *http.Request：有体则声明 JSON content-type，最后注入认证。
-func newHTTPRequest(
-	ctx context.Context, method, reqURL string, rdr io.Reader, auth AuthInjector,
-) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, method, reqURL, rdr)
+// outbound —— 一次出站请求的全部材料。凑成一个结构而不是六个参数：媒体类型是后加的
+// （F-C-54），加完就顶到了参数个数的闸 —— 而这几样本来就描述同一件事。
+type outbound struct {
+	auth   AuthInjector
+	body   io.Reader
+	method string
+	url    string
+	media  string
+}
+
+// newHTTPRequest —— 组装 *http.Request：有体则声明**spec 说的那个** content-type，最后注入认证。
+// 没声明的按 JSON（既有连接器行为一字不变）。
+func newHTTPRequest(ctx context.Context, o *outbound) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, o.method, o.url, o.body)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
-	if rdr != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if o.body != nil {
+		req.Header.Set("Content-Type", cmp.Or(o.media, "application/json"))
 	}
-	if aerr := injectAuth(req, auth); aerr != nil {
+	if aerr := injectAuth(req, o.auth); aerr != nil {
 		return nil, aerr
 	}
 	return req, nil
 }
 
-// requestURL / renderQuery 在 runtime_query.go（守 max-lines 350）。
-
-// renderBody —— request JSONata → 请求体 reader。pre-flight 校验必填字段（缺 → 拒，不发畸形
-// 请求）。无体 → nil reader（合法空）。
-func renderBody(ob *opBinding, input any, required []string) (io.Reader, error) {
-	body, err := ob.evalRequest(input)
-	if err != nil {
-		return nil, err
-	}
-	if verr := checkRequired(body, required); verr != nil {
-		return nil, verr
-	}
-	if body == nil {
-		return nil, nil
-	}
-	raw, merr := json.Marshal(body)
-	if merr != nil {
-		return nil, fmt.Errorf("marshal request body: %w", merr)
-	}
-	return bytes.NewReader(raw), nil
-}
-
-// checkRequired —— body 缺任一必填字段（缺键或值 null）→ ErrMissingRequired（pre-flight 拒）。
-func checkRequired(body any, required []string) error {
-	if len(required) == 0 {
-		return nil
-	}
-	m, ok := body.(map[string]any)
-	if !ok {
-		m = nil // 非对象 body → 视作所有必填都缺
-	}
-	for _, f := range required {
-		if fieldMissing(m, f) {
-			return fmt.Errorf("%w: %q", ErrMissingRequired, f)
-		}
-	}
-	return nil
-}
+// requestURL / renderQuery 在 runtime_query.go；请求体那一族（renderBody / 按 spec 声明的
+// 媒体类型编码 / 必填 pre-flight）在 runtime_body.go —— 都是守 max-lines 350 拆出去的。
 
 func fieldMissing(m map[string]any, field string) bool {
 	v, present := m[field]

@@ -1,0 +1,17 @@
+{
+  "_why": "mail-connector check 5 的 ⑤：把真 Mailgun 装成 SaaS 邮件连接器，在**产品自己的界面**上填凭据并连上。这一屏本身也是 F-C-47 修法的现场 —— 上传来的连接器以前没有凭据表单，今早才接上。Mailgun 用 HTTP Basic：用户名固定 `api`，密码是 sending key（走 typeSecret，不进 plan 也不进对话）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "viewport": [1280, 3400],
+  "shots": [
+    { "name": "mc-70-mailgun-card", "url": "/admin/connectors", "wait": 4000, "fullPage": true },
+    { "name": "mc-71-mailgun-connected", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["li:has-text(\"uploaded\") [data-testid=\"connector-field-username\"]", "api"] },
+        { "typeSecret": ["li:has-text(\"uploaded\") [data-testid=\"connector-field-password\"]", "MAILGUN_API_KEY"] },
+        { "click": "li:has-text(\"uploaded\") [data-testid=\"connector-connect-button\"]" },
+        { "wait": 12000 }
+      ],
+      "wait": 1500, "fullPage": true }
+  ]
+}

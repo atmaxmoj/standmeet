@@ -5,8 +5,10 @@ package connector
 
 import "github.com/atmaxmoj/standmeet/internal/connector/openapi"
 
-// MaxSpecBytes —— 摄入 spec 的尺寸上限（前后端共用一个数）。
-const MaxSpecBytes = openapi.MaxSpecBytes
+// MaxSpecBytes —— 这台实例收多大的 spec。**不再是编译期常量**：owner 用
+// `CONNECTOR_SPEC_MAX_BYTES` 配得动（默认 2 MiB，见 openapi/ingest.go）。
+// 这里仍然是薄转发 —— 值只有一处产生。
+var MaxSpecBytes = openapi.MaxSpecBytes
 
 // AuthForms / AuthSchemeForm / AuthFieldForm —— 派生的凭据表单描述（别名透传 openapi 类型，让
 // connectorsvc/adminroutes 经 connector 用，不直接 import openapi 子包）。

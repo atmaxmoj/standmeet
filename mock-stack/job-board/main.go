@@ -246,6 +246,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /__mock/gcal/token", s.serveOAuthToken)
 	// 上传 spec 的 openapi mail（combo 4）：POST /send，mock 经 SMTP 转投 Mailpit，让消费侧能查到。
 	mux.HandleFunc("POST /__mock/mailapi/send", s.serveMailAPISend)
+	mux.HandleFunc("POST /__mock/mailapi/send-form", s.serveMailAPISendForm)
 	// programmable OAuth control plane (connect-flow §8 区 D): 编程 dance 结局 + 读记录（GET 触发）。
 	mux.HandleFunc("GET /__mock/oauth/program", s.serveOAuthProgram)
 	mux.HandleFunc("GET /__mock/oauth/reset", s.serveOAuthRecordReset)

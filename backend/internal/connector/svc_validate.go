@@ -94,7 +94,7 @@ func (s *Service) fetchSpec(ctx context.Context, url string) ([]byte, error) {
 // 真世界里这不是边角：GitHub 自己发布的 `api.github.com.json` 是 12 MB。
 // 粘贴那条路一直说得对（`ValidateIngest` 先量长度），是这条抓取的路够不着同一句话。
 func readSpecResponse(resp *http.Response) ([]byte, error) {
-	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, MaxSpecBytes+1))
+	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, int64(MaxSpecBytes)+1))
 	if cerr := resp.Body.Close(); cerr != nil && rerr == nil {
 		rerr = cerr
 	}

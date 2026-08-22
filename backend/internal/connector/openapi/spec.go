@@ -6,6 +6,7 @@ package openapi
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	yaml "go.yaml.in/yaml/v3"
@@ -89,9 +90,14 @@ type OAuthFlow struct {
 
 // resolvedOp —— 一个 operationId 解析成的具体 HTTP 操作。
 type resolvedOp struct {
-	Method   string
-	Path     string
-	Required []string // requestBody application/json schema.required（pre-flight 校验）
+	Method string
+	Path   string
+	// BodyMedia —— requestBody 声明的媒体类型。**从 spec 读，不假设**（F-C-54）：以前这里
+	// 只看 `application/json`，运行时也写死发 JSON，于是任何表单编码的 vendor 都发不出去 ——
+	// 真 Mailgun 对一份 JSON body 的回答是 `400 from parameter is missing`，它只是没看见那些字段。
+	// Mailgun / Twilio / Stripe 都是这一类。空 = 没声明请求体。
+	BodyMedia string
+	Required  []string // 选中那份媒体类型的 schema.required（pre-flight 校验）
 }
 
 // ParseSpec —— 解析 spec 原文（JSON 或 YAML）。非 3.0.x / 3.1.x → 错（版本闸在此）。runtime 只读
@@ -182,14 +188,33 @@ func (s *Spec) lookup(operationID string) (resolvedOp, bool) {
 	for path, methods := range s.Paths {
 		for method, op := range methods {
 			if op.OperationID == operationID {
+				media, schema := pickBodyMedia(op.RequestBody.Content)
 				return resolvedOp{
 					Method: strings.ToUpper(method), Path: path,
-					Required: op.RequestBody.Content["application/json"].Schema.Required,
+					BodyMedia: media, Required: schema.Required,
 				}, true
 			}
 		}
 	}
 	return resolvedOp{}, false
+}
+
+// pickBodyMedia —— requestBody 声明了哪种媒体类型。**JSON 优先**（既有连接器一个字都不变），
+// 没有 JSON 就取声明里字典序最小的那一个 —— 要的是**确定**，map 的遍历顺序不是。
+// 一个都没有 = 这个操作没有请求体。
+func pickBodyMedia(content map[string]mediaType) (string, bodySchema) {
+	if m, ok := content["application/json"]; ok {
+		return "application/json", m.Schema
+	}
+	names := make([]string, 0, len(content))
+	for name := range content {
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return "", bodySchema{}
+	}
+	slices.Sort(names)
+	return names[0], content[names[0]].Schema
 }
 
 // flattenSecurity —— OpenAPI 的 security 是「一组备选方案，每个方案是 scheme→scopes」。

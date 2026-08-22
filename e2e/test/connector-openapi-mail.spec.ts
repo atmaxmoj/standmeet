@@ -34,6 +34,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { findCapability } from '@/fixtures/capabilities';
+import { clearMailpit, countMailpitMessages } from '@/fixtures/mail';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // external-mock 的 SendGrid-style 发信 mock 控制面（**假设新端**，跟 /__mock/gcal/*
@@ -292,6 +293,79 @@ async function runHappyMainline(request: APIRequestContext, csrf: string): Promi
   expect(inbox[0]!.subject).toBe('OpenAPI mail');
 }
 
+// FORM_MAIL_SPEC —— 一个**声明表单编码**的假 vendor（Mailgun 那一族）。除了 requestBody 的
+// 媒体类型和端点，其余跟上面那份 SendGrid 式的 spec 是同构的。
+const FORM_MAIL_SPEC = {
+  openapi: '3.0.3',
+  info: { title: 'Sample Mailgun-style Mail', version: '1.0.0' },
+  servers: [{ url: 'http://external-mock:9000/__mock/mailapi' }],
+  paths: {
+    '/send-form': {
+      post: {
+        operationId: 'mail.send',
+        security: [{ bearer: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/x-www-form-urlencoded': {
+              schema: {
+                type: 'object',
+                properties: {
+                  from: { type: 'string' }, to: { type: 'string' },
+                  subject: { type: 'string' }, text: { type: 'string' },
+                },
+                required: ['from', 'to'],
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'queued' }, '400': { description: 'missing field' } },
+      },
+    },
+  },
+  components: { securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } } },
+} as const;
+
+// FORM_MAIL_BINDING —— 同一个契约 op，只是构造的是**平字段**（表单没有嵌套）。
+// id 从 body 里取 —— 真 Mailgun 就是这么回的（不在头里）。
+const FORM_MAIL_BINDING = {
+  category: 'mail',
+  kind: 'openapi',
+  operations: {
+    send: {
+      op: 'mail.send',
+      request:
+        '{ "from": "StandMeet Verify <verify@mock.test>", "to": to, ' +
+        '"subject": subject, "text": body }',
+      response: '{ "id": id }',
+    },
+  },
+} as const;
+
+// runFormEncodedSend —— 装一个声明表单编码的连接器，发一封，断它**真的送出去了**。
+// 收据不看产品自己说什么：去 Mailpit 数一遍（那个假 vendor 收下之后经 SMTP 转投过去）。
+async function runFormEncodedSend(request: APIRequestContext, csrf: string): Promise<void> {
+  await clearMailpit(request);
+  const r = await createConnector(request, csrf, {
+    spec: FORM_MAIL_SPEC, binding: FORM_MAIL_BINDING,
+  });
+  expect(r.status, r.error ?? '').toBe(201);
+  const st = await connectApiKey(request, csrf, r.id!);
+  expect(st.connected, 'precondition: the key saves and the connector connects').toBe(true);
+
+  const sent = await diagSend(request, csrf, st.id, {
+    to: 'recruiter@corp.test', subject: 'form encoded', text: 'sent as a form, not as JSON',
+  });
+  expect(
+    sent.ok,
+    'the vendor declares a form-encoded body — sending JSON gets "from parameter is missing"',
+  ).toBe(true);
+
+  await expect.poll(
+    async () => countMailpitMessages(request), { timeout: 15_000 },
+  ).toBeGreaterThan(0);
+}
+
 // runRequestConstruct —— 断 mock 录到的 raw body 是 SendGrid 嵌套形
 // （personalizations/content），证明 request 方向的 JSONata 构造能力。
 async function runRequestConstruct(request: APIRequestContext, csrf: string): Promise<void> {
@@ -408,6 +482,24 @@ test.describe('connector · openapi mail (SendGrid-style, kind=openapi fills the
   // err: 绑定声明 category="mail" 但 spec/ops 不真发信 → 装配期（或运行期）flag。
   test('a mail binding whose spec/ops do not actually send is flagged (at assemble or runtime)',
     async () => { await runNonSendingFlagged(request, csrf); });
+
+  // F-C-54 —— **spec 说 body 是表单编码，运行时照旧发 JSON。**
+  //
+  // ①🔴 真环境（真 Mailgun 账号 + 真 sending key）：按它要的 multipart 发 → 200 +
+  // `{"id":"<…@sandbox….mailgun.org>"}`，Gmail 真收到。同一个端点、同一把 key，body 换成
+  // `application/json` → **400 `{"message":"from parameter is missing"}`** —— 它只是没看见那些字段。
+  // 而产品**只会发 JSON**（`runtime.go:174` / `runtime_raw.go:51` 写死），spec 里声明的
+  // 媒体类型（`spec.go:187` 只读 `application/json`）根本没被看过。
+  //
+  // 这不是边角：Mailgun / Twilio / Stripe 的发信、发短信、收款端点都是表单编码。
+  // 替身以前的每个假 vendor 都只说 JSON，所以这一整类在测试里不存在
+  // （[[stand-in-is-politer-than-reality]]）。
+  //
+  // 判据能判负：**跟上面那条 happy 用的是同一套装配、同一把 key、同一个契约**，
+  // 唯一的差别是 spec 声明 `application/x-www-form-urlencoded`、端点是只收表单的那一个。
+  // 红只可能意味着一件事：声明的媒体类型没被照做。
+  test('a spec that declares a form-encoded body is actually sent as a form (F-C-54)',
+    async () => { await runFormEncodedSend(request, csrf); });
 
   // dep-gating: 断开 openapi mail 连接器 → mail.send re-gate。经「mail 作为访客 capability」，已实现。
   test('disconnect the openapi mail connector → mail.send re-gates',

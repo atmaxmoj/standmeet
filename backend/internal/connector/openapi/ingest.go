@@ -8,14 +8,45 @@ package openapi
 import (
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 	"slices"
+	"strconv"
 	"strings"
 
 	yaml "go.yaml.in/yaml/v3"
 )
 
-// MaxSpecBytes —— 摄入 spec 的尺寸上限（防超大/失控 spec）。
-const MaxSpecBytes = 2 << 20 // 2 MiB
+// defaultMaxSpecBytes —— 摄入 spec 的尺寸上限的默认值（防超大/失控 spec）。
+const defaultMaxSpecBytes = 2 << 20 // 2 MiB
+
+// MaxSpecBytes —— 这台实例实际收多大的 spec。**owner 配得动**（`CONNECTOR_SPEC_MAX_BYTES`）。
+//
+// 为什么它不能是常量：这一节的导语邀请 owner「upload your own OpenAPI connector」，而真世界里
+// 的厂商文档常常远超 2 MiB —— GitHub 自己发布的 `api.github.com.json` 是 **12 MB**，于是这个
+// 产品对它最常见的一个 API 直接说「装不了」，而 owner 没有任何旋钮可拧（F-C-53）。
+// 上限本身是对的（一份失控的文档不该拖垮实例），**「多大」是部署的事，不是编译期的事**。
+// **名字必须以字面量出现在 `os.Getenv("…")` 里**：`check-knobs-reachable` 就是这么找旋钮的。
+// 第一版写成 `envBytesOr("CONNECTOR_SPEC_MAX_BYTES", …)`（名字进了 helper 的参数），闸门当场
+// 看不见它 —— 而那道闸今早才刚从「只扫 config.go」放宽。**加固过的闸门被下一个新写法绕开**，
+// 所以取值的辅助函数只收**值**，不收 key。
+var MaxSpecBytes = bytesOr(os.Getenv("CONNECTOR_SPEC_MAX_BYTES"), defaultMaxSpecBytes)
+
+// bytesOr —— 把一个字节数环境变量的值读成正整数；空/非法/非正 → 用默认值。
+// 非法值不静默吞：日志说一句再走默认（一个打错的旋钮不该把实例锁死在 0 上）。
+func bytesOr(raw string, def int) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return def
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		slog.Default().Warn("ignoring unusable CONNECTOR_SPEC_MAX_BYTES, using the default",
+			"value", raw, "default", def)
+		return def
+	}
+	return n
+}
 
 // ValidateIngest —— 校验一份待摄入的 spec，OK → 返回候选标题（info.title）；否则 → 人类可读 error。
 func ValidateIngest(raw []byte) (string, error) {

@@ -6,8 +6,11 @@ import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
 
-// 客户端尺寸闸（跟后端 openapi.MaxSpecBytes 对齐）：超大 spec 不上传，本地直接拒。
-const MAX_SPEC_BYTES = 2 * 1024 * 1024;
+// 这里**不再自己判尺寸**。这一格原来抄了一份 `2 * 1024 * 1024`「跟后端对齐」——
+// 而后端那个数现在是 owner 配得动的旋钮（`CONNECTOR_SPEC_MAX_BYTES`）。两份一旦分叉，
+// 症状是：owner 把上限调到 12 MiB 好装 GitHub 的文档，浏览器仍按自己那份 2 MiB 拒，
+// 而他改的那个旋钮看起来毫无作用（同一个事实两个家）。
+// 上限只有服务端知道，也只由它回答 —— 它那句话已经写得很清楚（"spec is too large…"）。
 
 const AuthFieldSchema = z.object({
   key: z.string(),
@@ -74,19 +77,11 @@ interface IngestState {
 async function runValidate(
   body: { spec?: string; url?: string; base_url?: string },
 ): Promise<IngestState> {
-  const tooBig = (body.spec?.length ?? 0) > MAX_SPEC_BYTES;
-  const fallback: IngestState = {
-    error: 'Spec is too large (over the size limit). Provide a smaller spec.',
-    candidate: null,
-    auth: null,
-  };
-  return tooBig
-    ? fallback
-    : adminAPI.post('/connectors/validate-spec', body, VerdictSchema)
-        .then(verdictToState)
-        .catch(() => ({
-          error: 'Could not validate the spec. Please try again.', candidate: null, auth: null,
-        }));
+  return adminAPI.post('/connectors/validate-spec', body, VerdictSchema)
+    .then(verdictToState)
+    .catch(() => ({
+      error: 'Could not validate the spec. Please try again.', candidate: null, auth: null,
+    }));
 }
 
 export function useConnectorIngest(): ConnectorIngestHook {
