@@ -307,7 +307,11 @@ async function callBook(
     `${BACKEND}/api/v1/sessions/${visitor.conversation_id}/tools/calendar_book`,
     {
       headers: { Authorization: `Bearer ${visitor.session_token}` },
-      data: { topic: 'PA 5xx', duration_min: 30, preferred_times: [futureSlot(7, 14)] },
+      // **不能跟前面那条用例同一格**：那条已经订过 `futureSlot(7, 14)`，而 booker 是「先占位
+      // 再插入」，占位带 TTL 活在宿主的 capstore 里（mock 的 reset 清不掉它）。撞上去的话
+      // 第二次拿到的是 `bookConflictWire{Conflict, Detail}` —— **那个形状没有 `error` 字段**，
+      // 于是这条用例读到空串，而注入的 500 根本没轮到，红得跟「产品没话说」一模一样。
+      data: { topic: 'PA 5xx', duration_min: 30, preferred_times: [futureSlot(8, 15)] },
     },
   );
   return { status: res.status(), body: await res.json() as BookToolResp };
