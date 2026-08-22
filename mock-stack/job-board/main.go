@@ -206,6 +206,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	// 而 owner 只能在面板上补 base URL。一条守卫因此能覆盖整段真实旅程:抓 → 被拒并点名 →
 	// 补 base URL → 出候选 → 装配。
 	mux.HandleFunc("GET /vendor-openapi/no-servers.json", s.serveVendorSpecNoServers)
+	mux.HandleFunc("GET /vendor-openapi/too-big.json", s.serveVendorSpecTooBig)
 
 	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)

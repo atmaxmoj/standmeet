@@ -1,0 +1,39 @@
+{
+  "_why": "connector-assembly check 4：拿 **GitHub 自己发布的** OpenAPI 描述（`github/rest-api-description`，真 vendor 的真 spec）走产品的 URL 摄入。它 12MB，而产品的上限是 2MiB —— 先看产品对一份真实世界的大 spec 说什么，那句话本身就是这条 item 该照见的东西。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [
+    1280,
+    1700
+  ],
+  "shots": [
+    {
+      "name": "ca-72-github-spec-after-fix",
+      "url": "/admin/connectors",
+      "steps": [
+        {
+          "wait": 3000
+        },
+        {
+          "click": "[data-testid=\"connector-add-open\"]"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "type": [
+            "[data-testid=\"connector-spec-url-input\"]",
+            "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
+          ]
+        },
+        {
+          "click": "[data-testid=\"connector-spec-fetch-button\"]"
+        },
+        {
+          "wait": 45000
+        }
+      ],
+      "wait": 2000,
+      "fullPage": true
+    }
+  ]
+}

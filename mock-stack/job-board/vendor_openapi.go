@@ -42,3 +42,30 @@ func (s *server) serveVendorSpecNoServers(w http.ResponseWriter, _ *http.Request
 		s.log.Warn("write vendor spec", "err", err)
 	}
 }
+
+// serveVendorSpecTooBig —— **一份合法但过大的厂商文档**（F-C-52）。
+//
+// 真世界里这就是常态：GitHub 自己发布的 `api.github.com.json` 是 **12 MB**，而这个产品收
+// 2 MiB。粘贴那条路会说「太大了」，抓 URL 那条路以前只会说「invalid JSON」—— 因为限长读器
+// 正好读到上限，截断处的半截 JSON 解析失败。owner 于是去找一个不存在的语法错误。
+//
+// 这里发的是**合法 JSON**：一个巨大的 description 把体积撑过上限，别的什么都对。
+// 「太大」和「写坏了」必须分得开，而分得开的前提是替身答得出前一种。
+func (s *server) serveVendorSpecTooBig(w http.ResponseWriter, _ *http.Request) {
+	const padBytes = 3 << 20 // 3 MiB > 后端的 2 MiB 上限
+	pad := make([]byte, padBytes)
+	for i := range pad {
+		pad[i] = 'x'
+	}
+	w.Header().Set("Content-Type", "application/json")
+	head := `{"openapi":"3.0.3","info":{"title":"Enormous Vendor","version":"1.0.0",` +
+		`"description":"`
+	tail := `"},"paths":{"/ping":{"get":{"operationId":"ping","responses":{"200":{` +
+		`"description":"ok"}}}}}}`
+	for _, part := range [][]byte{[]byte(head), pad, []byte(tail)} {
+		if _, err := w.Write(part); err != nil {
+			s.log.Warn("write oversized vendor spec", "err", err)
+			return
+		}
+	}
+}

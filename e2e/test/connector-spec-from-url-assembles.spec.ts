@@ -23,6 +23,8 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // SPEC_URL / BASE_URL —— 都指 external-mock:后端(不是浏览器)去抓,所以要用容器内可达的地址;
 // 它也在 CONNECTOR_EGRESS_ALLOW 里,装配期的出站静态校验才放行。
 const SPEC_URL = 'http://external-mock:9000/vendor-openapi/no-servers.json';
+// TOO_BIG_SPEC_URL —— 合法 JSON,只是大过这台实例收的尺寸（真世界里 GitHub 的 12 MB 就是这样）。
+const TOO_BIG_SPEC_URL = 'http://external-mock:9000/vendor-openapi/too-big.json';
 const BASE_URL = 'http://external-mock:9000';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -63,6 +65,31 @@ test.describe('a spec fetched from a URL can actually be assembled', () => {
       // 证据在连接器列表里,不在按钮上。
       expect(await newConnectorID(page, before), 'a URL-fetched spec must assemble')
         .not.toBe('');
+    });
+
+  // F-C-52 —— **抓回来的文档太大，产品说它「写坏了」。**
+  //
+  // ①🔴 真环境撞到的：把 **GitHub 自己发布的** `api.github.com.json`（12 MB，合法 JSON）
+  // 贴进 URL 那一格 → 产品答 *"could not parse the spec (invalid JSON or YAML)"*。
+  // owner 会去找一个不存在的语法错误。
+  //
+  // ②🎯 边界差一：`svc_validate.go` 的 `io.LimitReader(resp.Body, MaxSpecBytes)` **正好读到上限**，
+  // 于是 `len(raw) > MaxSpecBytes` 永不成立，那句正确的话（粘贴那条路一直在用的
+  // "spec is too large (over the 2 MiB size limit)"）在这条路上**永远说不出口**，
+  // 只剩截断处的解析失败。
+  //
+  // 判据要能判负：不但要说「太大」，**而且不许说「invalid JSON」** —— 后者正是它以前说的。
+  test('a fetched spec that is merely too large says so, not "invalid JSON" (F-C-52)',
+    async ({ adminPage: page }) => {
+      await openConnectorAdd(page);
+      await page.getByTestId('connector-spec-url-input').fill(TOO_BIG_SPEC_URL);
+      await page.getByTestId('connector-spec-fetch-button').click();
+
+      const said = page.getByTestId('connector-spec-error');
+      await expect(said, 'it has to name the size').toContainText(/too large|size limit/i);
+      await expect(
+        said, 'a valid document that is merely oversized is not malformed',
+      ).not.toContainText(/invalid json|could not parse/i);
     });
 
   // F-C-26 —— 装配失败必须**在模态里**说出来。用一个品类不存在的 binding 制造一次真实的后端

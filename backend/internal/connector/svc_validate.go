@@ -87,8 +87,14 @@ func (s *Service) fetchSpec(ctx context.Context, url string) ([]byte, error) {
 }
 
 // readSpecResponse —— 读响应体（限长）+ 关体 + 非 2xx 视为失败。
+//
+// **多读一个字节，就为了分得清「太大」和「写坏了」**（F-C-52）。读到正好 `MaxSpecBytes` 时，
+// 下游那句 `len(raw) > MaxSpecBytes` 永不成立，于是一份**合法但过大**的文档在截断处解析失败，
+// 产品对 owner 说的是「invalid JSON or YAML」—— 他会去找一个不存在的语法错误。
+// 真世界里这不是边角：GitHub 自己发布的 `api.github.com.json` 是 12 MB。
+// 粘贴那条路一直说得对（`ValidateIngest` 先量长度），是这条抓取的路够不着同一句话。
 func readSpecResponse(resp *http.Response) ([]byte, error) {
-	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, MaxSpecBytes))
+	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, MaxSpecBytes+1))
 	if cerr := resp.Body.Close(); cerr != nil && rerr == nil {
 		rerr = cerr
 	}
