@@ -147,9 +147,13 @@ async function expectProbeSays(
   await row.getByTestId('mcp-server-check').click();
 
   const said = row.getByTestId('mcp-server-check-result');
-  await expect(said, '探针要说出到底发生了什么').toContainText(want.says, { timeout: 25_000 });
+  await expect(
+    said, 'the probe has to name what actually happened',
+  ).toContainText(want.says, { timeout: 25_000 });
   // 先等到上面那句成立，元素必定在了，这条否定断言才判得了负
   // （[[negated-assertion-passes-while-absent]]）。
-  await expect(said, 'owner 粘错东西不是这台实例坏了').not.toContainText(/internal error/i);
+  await expect(
+    said, 'the owner pasting the wrong thing is not this instance breaking',
+  ).not.toContainText(/internal error/i);
 }
 

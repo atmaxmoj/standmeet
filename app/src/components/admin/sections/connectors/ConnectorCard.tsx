@@ -14,13 +14,29 @@ import type { CatalogEntry } from '@/lib/admin/use-connector-catalog';
 import { credFieldLabel } from '@/lib/admin/cred-field-label';
 
 export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
-  const hook = useConnectorCard(entry.id);
   return (
     <li
       data-testid={`connector-row-${entry.id}`}
       className="crosshair border border-(--color-rule) rounded-sm bg-(--color-surface)/30 p-4"
     >
       <span className="ch-tl" /><span className="ch-br" />
+      <ConnectorCardBody entry={entry} />
+    </li>
+  );
+}
+
+// ConnectorCardBody —— 一张卡的主体：状态 + 派生凭据表单 + Connect/Disconnect。
+//
+// **内置的和 owner 自己传进来的共用这一份**（F-C-47）。传进来的那一族原先只渲染
+// 「品类 / 来源 / kind / 状态 / 删除」—— 于是产品让 owner 建一个**它不给任何办法去连**
+// 的连接器，而那一节的导语正写着 "upload your own (OpenAPI / protocol) connector"。
+// 缺的从来不是能力：`/{id}/credential-form`、`/{id}/credentials`、`/{id}/connect`
+// 对任何 id 都在，表单也本来就是**后端按连接器自己的声明派生**的 —— 所以这里没有为
+// caldav 或任何一种 kind 写第二套 UI，只是把同一个主体接到了另一族行上。
+export function ConnectorCardBody({ entry }: { entry: CatalogEntry }) {
+  const hook = useConnectorCard(entry.id);
+  return (
+    <>
       <CardHead category={entry.category} connected={hook.connected} connecting={hook.connecting} />
       <ScopeShortfallNote missing={hook.missingScopes} />
       <UnreadableNote reason={hook.unreadable} />
@@ -31,7 +47,7 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
       <Actions hook={hook} />
       <ErrorLine error={hook.error} />
       <ConnectorOps ops={entry.owner_ops ?? []} onRan={hook.reloadStatus} />
-    </li>
+    </>
   );
 }
 

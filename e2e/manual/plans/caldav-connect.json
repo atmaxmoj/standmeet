@@ -1,8 +1,18 @@
 {
-  "_why": "connector-assembly check 5：把刚建的 protocol(caldav) 连接器指向真 Radicale（`make verify-caldav-up` 起的那台，enforce 鉴权、认 REPORT filter、展开 RRULE + VTIMEZONE —— 替身四样全无）。先看卡片长什么样，再填 url/user/pass 连上。",
+  "_why": "两件事一趟：(1) F-C-47 的 ⑤ —— 那个上传的 caldav 连接器现在该有 url/username/password 三格和一颗 CONNECT；(2) connector-assembly check 5 的第一半 —— 把它指向真 Radicale（`make verify-caldav-up` 起的那台）并连上，鉴权是真的（匿名 401 / 带凭据 207 / 错密码 401，已单独验过）。密码是这台一次性审计 server 的，写在 compose 注释里，不是任何真凭据。",
   "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
   "viewport": [1280, 3400],
   "shots": [
-    { "name": "ca-61-caldav-card", "url": "/admin/connectors", "wait": 3500, "fullPage": true }
+    { "name": "ca-62-uploaded-row-now-takes-creds", "url": "/admin/connectors", "wait": 3500, "fullPage": true },
+    { "name": "ca-63-caldav-connected", "url": "/admin/connectors",
+      "steps": [
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"connector-row-calendar\"] [data-testid=\"connector-field-url\"]", "http://radicale:5232/verify/cal/"] },
+        { "type": ["[data-testid=\"connector-row-calendar\"] [data-testid=\"connector-field-username\"]", "verify"] },
+        { "type": ["[data-testid=\"connector-row-calendar\"] [data-testid=\"connector-field-password\"]", "verify-caldav-pw"] },
+        { "click": "[data-testid=\"connector-row-calendar\"] [data-testid=\"connector-connect-button\"]" },
+        { "wait": 12000 }
+      ],
+      "wait": 1500, "fullPage": true }
   ]
 }

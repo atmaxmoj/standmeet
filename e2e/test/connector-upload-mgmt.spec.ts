@@ -116,7 +116,47 @@ test.describe('connector · area G upload / manage', () => {
     expect(put.status(), 'PUT (edit) a built-in connector → 409 builtin_readonly').toBe(409);
     await request.dispose();
   });
+
+  // F-C-47 —— **传得进来，连不上去。**
+  //
+  // ①🔴 真环境（prod）：经 owner MCP 建了一个 protocol(caldav) 连接器，后台
+  // 「CONNECTORS YOU UPLOADED」里确实有它 —— 一行 `calendar [uploaded] [protocol] ·
+  // not connected` 加一个 `×`，**就这些**。没有凭据框、没有 CONNECT、点不开。
+  // 而这一节的导语自己写着 *"you can upload your own (OpenAPI / protocol) connector"*。
+  //
+  // ②🎯 三处都读过：`CatalogCards` 只按 `/connectors/catalog` 渲染（就三个内置）；
+  // `ConnectorList.ConnectorRowItem` 只画品类/来源/kind/状态/删除；owner MCP 也没有存凭据的
+  // op。**而后端是齐的** —— `/{id}/credential-form`、`/{id}/credentials`、`/{id}/connect`
+  // 挂在 `/{id}` 那一组上，对任何 id 都在。缺的不是能力，是没有一个面把它接出来
+  // （[[button-that-cannot-be-wired]]）。
+  //
+  // 判据要能判负：不断「有个表单」（一张空表单也能过），断**这份 spec 自己的认证方案**
+  // 派生出来的那个字段 —— 它只可能来自后端按这个连接器算出来的凭据表单。
+  test('an uploaded connector can be given credentials, not just listed (F-C-47)',
+    ({ adminPage: page }) => uploadedRowTakesCredentials(page));
 });
+
+// uploadedRowTakesCredentials —— 传一个连接器，然后在同一页上找给它填凭据的地方。
+async function uploadedRowTakesCredentials(page: Page): Promise<void> {
+  await uploadConnector(page, validCalendarSpec(), calendarBinding());
+
+  const row = page.getByTestId('connector-row-calendar');
+  await expect(row).toBeVisible();
+
+  // 断的是内置卡真正渲染的那两样（`connector-field-*` + CONNECT）——
+  // 第一版我断了 `connector-cred-form`，那个 testid 在另一个老组件里、**内置卡也没有**，
+  // 于是修完照样红：红得不知所以然（[[read-the-failure-before-theorising]]）。
+  // client_id 只可能来自后端按**这份 spec 声明的 oauth2 方案**派生的表单 ——
+  // 断一个具体字段，一张空表单就过不了。
+  await expect(
+    row.getByTestId('connector-field-client_id'),
+    'an uploaded connector must take credentials, not just be listed and deleted',
+  ).toBeVisible();
+  await expect(
+    row.getByTestId('connector-connect-button'),
+    'and there must be somewhere to press once they are filled in',
+  ).toBeVisible();
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // 本地 helper（实现落地后提升为共享 fixture：openConnectorAdd / uploadConnector +

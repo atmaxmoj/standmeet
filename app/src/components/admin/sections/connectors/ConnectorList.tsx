@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { ConnectorCardBody } from '@/components/admin/sections/connectors/ConnectorCard';
 import {
   originOf, type ConnectorListHook, type ConnectorRow,
 } from '@/lib/admin/use-connector-list';
@@ -47,22 +48,25 @@ function LoadError({ show }: { show: boolean }) {
   ) : null;
 }
 
+// ConnectorRowItem —— owner 自己传进来的那一族。**跟内置卡共用同一个主体**
+// （`ConnectorCardBody`）：品类名和状态由它渲，这里只多出「来源 / kind / 删除」那一行。
+//
+// 原先这里只有那一行，没有凭据表单也没有 CONNECT —— 传得进来、连不上去（F-C-47）。
+// 品类名和状态**只许有一处**：它们本来在这里各画一遍（`connector-status` 曾经是这一行的），
+// 共用主体之后由 CardHead 负责，否则同一格上会压着第二串字。
 function ConnectorRowItem({ row, onDelete }: { row: ConnectorRow; onDelete: () => void }) {
   return (
     <li
       data-testid={`connector-row-${row.category}`}
-      className="crosshair border border-(--color-rule) rounded-sm bg-(--color-surface)/30 p-4 flex items-center gap-3"
+      className="crosshair border border-(--color-rule) rounded-sm bg-(--color-surface)/30 p-4"
     >
       <span className="ch-tl" /><span className="ch-br" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-(--color-ink)">{row.category}</span>
-          <OriginBadge row={row} />
-          <span className="mono text-[10px] text-(--color-faint)">{row.kind}</span>
-        </div>
-        <StatusLine connected={row.connected} />
+      <div className="flex items-center gap-2 mb-2">
+        <OriginBadge row={row} />
+        <span className="mono text-[10px] text-(--color-faint)">{row.kind}</span>
+        <span className="ml-auto"><DeleteControl onDelete={onDelete} /></span>
       </div>
-      <DeleteControl onDelete={onDelete} />
+      <ConnectorCardBody entry={row} />
     </li>
   );
 }
@@ -76,14 +80,6 @@ function OriginBadge({ row }: { row: ConnectorRow }) {
     >
       {originOf(row)}
     </span>
-  );
-}
-
-function StatusLine({ connected }: { connected: boolean }) {
-  return (
-    <p data-testid="connector-status" className="mono text-[11px] text-(--color-muted) mt-0.5">
-      {connected ? 'connected' : 'not connected'}
-    </p>
   );
 }
 
