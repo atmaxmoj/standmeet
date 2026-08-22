@@ -1,0 +1,49 @@
+{
+  "_why": "connector-assembly check 5 的实质：**重复规则 + 时区展开对不对**。真 Radicale 上有一条每周一的会（Europe/Berlin 16:00–16:30 = 东部 10:00–10:30，正落在预约策略的 09:00–18:00 里），Radicale 按 8/31 展开得没问题（单独用产品那份 free-busy REPORT 问过）。现在让产品自己去问那一天：**10:00 那格不该被提供**。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [
+    1280,
+    1700
+  ],
+  "shots": [
+    {
+      "name": "ca-67-slots-after-fix",
+      "url": "/?code=VOICE-01",
+      "login": false,
+      "steps": [
+        {
+          "wait": 3000
+        },
+        {
+          "type": [
+            "[data-testid=\"visitor-name-input\"]",
+            "CalDAV Prober"
+          ]
+        },
+        {
+          "click": "button:has-text(\"START\")"
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "type": [
+            "[data-testid=\"chat-input-field\"]",
+            "What half-hour slots do you have on Monday 31 August 2026? List every one you can offer that day, with times."
+          ]
+        },
+        {
+          "press": [
+            "[data-testid=\"chat-input-field\"]",
+            "Enter"
+          ]
+        },
+        {
+          "wait": 90000
+        }
+      ],
+      "wait": 3000,
+      "fullPage": true
+    }
+  ]
+}

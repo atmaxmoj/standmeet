@@ -5,9 +5,31 @@
 // 抄一份是最省事的做法，也正是让两份判据慢慢走岔的做法 —— 所以搬进 fixtures/，
 // 两条 spec 共用一份（顺带让那个文件回到行数闸门以内）。
 
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+
+/**
+ * activateConnector —— 把一个连接器设为它品类槽的 active（一个品类一个 active；连上不自动抢占）。
+ *
+ * 等激活在 `GET /connectors` 里坐实再返回 —— booker 按 active 槽解析，杜绝「刚 activate 就 book」的竞态。
+ */
+export async function activateConnector(
+  request: APIRequestContext, csrf: string, id: string,
+): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/activate`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  if (res.status() !== 200) throw new Error(`activate ${id}: ${res.status()}`);
+  await expect.poll(async () => {
+    const list = await request.get(`${BACKEND}/api/admin/connectors`);
+    if (list.status() !== 200) return false;
+    const rows = (await list.json() as { connectors?: { id: string; active?: boolean }[] })
+      .connectors ?? [];
+    return rows.find((c) => c.id === id)?.active === true;
+  }, { timeout: 10_000 }).toBe(true);
+}
 
 /** openConnectorCard —— 从侧栏点进 connectors 区，定位某个连接器的卡（不用 page.goto）。 */
 export async function openConnectorCard(page: Page, id: string): Promise<Locator> {

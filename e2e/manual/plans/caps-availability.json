@@ -1,0 +1,8 @@
+{
+  "_why": "访客那场会话 `tools:13`，一个日历工具都没有。别从日志边角推 —— 能力面板自己有一列 availability，去读产品对「Book a meeting 为什么不可用」的回答。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 3400],
+  "shots": [
+    { "name": "ca-65-capabilities-availability", "url": "/admin/connectors", "wait": 4000, "fullPage": true }
+  ]
+}

@@ -23,8 +23,19 @@ type caldavState struct {
 type caldavColl struct {
 	events []caldavEvent
 	busy   []busyWindow
-	fails  map[string]int // op("create_event"/"list_busy"/"cancel_event") → 返回的 status（一次性）
+	// busyStyle —— free-busy-query 回哪一种形状（见 busyStyleComponent）。空 = FREEBUSY 属性。
+	busyStyle string
+	fails     map[string]int // op("create_event"/"list_busy"/"cancel_event") → 返回的 status（一次性）
 }
+
+// busyStyleComponent —— **真服务器的另一种答法**：一段忙时一个 `VFREEBUSY` 组件，
+// 时间写在 `DTSTART` / `DTEND` 上，一行 `FREEBUSY:` 都没有。Radicale 就是这么回的。
+//
+// 这个替身以前只会 `FREEBUSY:<start>/<end>` 那一种，而产品的解析器也只认那一种 ——
+// 于是「解析出零条忙时」在这里永远发生不了，测不到（F-C-50：真环境上产品因此
+// 对访客说「这天连着一整天没有空档」，而日历上有一场每周一的会）。
+// [[stand-in-is-politer-than-reality]]：先教替身按真世界的样子答话。
+const busyStyleComponent = "component"
 
 // caldavEvent —— 录到的一个会（归一字段，供测试断言）。
 type caldavEvent struct {
@@ -63,27 +74,40 @@ func (c *caldavColl) takeFail(op string) int {
 func (s *server) serveCalDAVReport(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
 	var fail int
-	var periods []string
+	var busy []busyWindow
+	var style string
 	s.withCalDAV(coll, func(c *caldavColl) {
 		fail = c.takeFail("list_busy")
-		for i := range c.busy {
-			periods = append(periods, c.busy[i].Start+"/"+c.busy[i].End)
-		}
+		busy = append(busy, c.busy...)
+		style = c.busyStyle
 	})
 	if fail != 0 {
 		http.Error(w, "injected", fail)
 		return
 	}
-	var b strings.Builder
-	b.WriteString("BEGIN:VCALENDAR\r\nBEGIN:VFREEBUSY\r\n")
-	for _, p := range periods {
-		fmt.Fprintf(&b, "FREEBUSY:%s\r\n", p)
-	}
-	b.WriteString("END:VFREEBUSY\r\nEND:VCALENDAR\r\n")
 	w.Header().Set("Content-Type", "text/calendar")
-	if _, err := io.WriteString(w, b.String()); err != nil {
+	if _, err := io.WriteString(w, freeBusyBody(busy, style)); err != nil {
 		s.log.Warn("write caldav report", logErrKey, err)
 	}
+}
+
+// freeBusyBody —— 两种真实答法。`component` 那一种一段一个 VFREEBUSY、时间在 DTSTART/DTEND 上
+// （Radicale）；默认那一种是 FREEBUSY 属性（Google/Fastmail 一族）。
+func freeBusyBody(busy []busyWindow, style string) string {
+	var b strings.Builder
+	b.WriteString("BEGIN:VCALENDAR\r\n")
+	for i := range busy {
+		if style == busyStyleComponent {
+			fmt.Fprintf(&b,
+				"BEGIN:VFREEBUSY\r\nDTSTART:%s\r\nDTEND:%s\r\nFBTYPE:BUSY\r\nEND:VFREEBUSY\r\n",
+				busy[i].Start, busy[i].End)
+			continue
+		}
+		fmt.Fprintf(&b, "BEGIN:VFREEBUSY\r\nFREEBUSY:%s/%s\r\nEND:VFREEBUSY\r\n",
+			busy[i].Start, busy[i].End)
+	}
+	b.WriteString("END:VCALENDAR\r\n")
+	return b.String()
 }
 
 // serveCalDAVPut —— PUT <coll>/<uid>.ics：解析 VEVENT 录会（含 create_event 失败注入）。
@@ -203,6 +227,8 @@ func (s *server) serveCalDAVFail(w http.ResponseWriter, r *http.Request) {
 
 type caldavSetBusyReq struct {
 	Busy []busyWindow `json:"busy"`
+	// Style —— 忙时用哪一种形状回（见 busyStyleComponent）。空 = 老样子。
+	Style string `json:"style"`
 }
 
 // serveCalDAVSetBusy —— 设某 collection 的忙时段（free-busy-query 回这些）。
@@ -218,7 +244,7 @@ func (s *server) serveCalDAVSetBusy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	s.withCalDAV(coll, func(c *caldavColl) { c.busy = req.Busy })
+	s.withCalDAV(coll, func(c *caldavColl) { c.busy = req.Busy; c.busyStyle = req.Style })
 	writeOK(s.log, w)
 }
 

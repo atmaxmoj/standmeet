@@ -34,6 +34,11 @@ import { findCapability } from '@/fixtures/capabilities';
 import { issueCodeWithSkills, expectCalendarBookExposed } from '@/fixtures/agent-skills-grant';
 import { issueSession } from '@/fixtures/visitor';
 import { scriptMockToolCall, sendAndDrain } from '@/fixtures/mock-llm-script';
+import { activateConnector } from '@/fixtures/connector-card';
+import {
+  setCalDAVBusy, busyStyleComponent, busyStyleProperty,
+  getCalDAVEvents as getCalDAVEventsIn, resetCalDAV as resetCalDAVIn,
+} from '@/fixtures/caldav-mock';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // Mock 控制面：gcal (oauth2 calendar) / caldav (protocol calendar) / smtp+mailpit (mail)
@@ -288,32 +293,72 @@ async function bookAndAssert(
   expect(events[0]!.attendees ?? []).toContain('rachel@example.com');
 }
 
-// activateConnector —— 把一个连接器设为它品类槽的 active（一个品类一个 active；连上不自动抢占）。
-async function activateConnector(request: APIRequestContext, csrf: string, id: string): Promise<void> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/activate`, {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  if (res.status() !== 200) throw new Error(`activate ${id}: ${res.status()}`);
-  // 等激活在 GET /connectors 里坐实再返回 —— booker 按 active 槽解析，杜绝「刚 activate 就 book」竞态。
-  await expect.poll(async () => {
-    const list = await request.get(`${BACKEND}/api/admin/connectors`);
-    if (list.status() !== 200) return false;
-    const rows = (await list.json() as { connectors?: { id: string; active?: boolean }[] }).connectors ?? [];
-    return rows.find((c) => c.id === id)?.active === true;
-  }, { timeout: 10_000 }).toBe(true);
-}
-
 const CALDAV_COLL = 'hmcal';
 
-// getCalDAVEvents —— CalDAV combo 的会落在 CalDAV mock 的 collection 里（不是 gcal store），单独读它。
-async function getCalDAVEvents(request: APIRequestContext): Promise<CalEvent[]> {
-  const res = await request.get(`${MOCK}/__mock/caldav/${CALDAV_COLL}/events`);
-  if (res.status() !== 200) throw new Error(`caldav events: ${res.status()}`);
-  return (await res.json() as { events: CalEvent[] }).events;
+// CalDAV 替身那几个 helper 在 fixtures/caldav-mock.ts —— 这个 spec 的 collection 是固定的，
+// 所以本地包一层，省掉每次传同样两个参数。
+const getCalDAVEvents = (r: APIRequestContext) => getCalDAVEventsIn(r, MOCK, CALDAV_COLL);
+const resetCalDAV = (r: APIRequestContext) => resetCalDAVIn(r, MOCK, CALDAV_COLL);
+
+// caldavComboBooks —— protocol · calendar · CalDAV 那一格：装上 → 激活 → 真订一次落到它的 collection。
+// **必须显式 activate**：前面的 combo 已经占了 calendar 槽，连上不自动抢占，否则 booker 走的是
+// 旧的 gcal 连接器，会落进 gcal store 而不是 CalDAV coll。
+async function caldavComboBooks(page: Page, request: APIRequestContext): Promise<void> {
+  const { csrf } = await login(request, OWNER.email, OWNER.password);
+  await resetCalDAV(request);
+  const conn = await assembleCalDAV(page, request);
+  await activateConnector(request, csrf, conn.id);
+  await bookAndAssert(request, csrf, 9, getCalDAVEvents);
 }
 
-async function resetCalDAV(request: APIRequestContext): Promise<void> {
-  await request.post(`${MOCK}/__mock/caldav/${CALDAV_COLL}/reset`, { data: {} }).catch(() => undefined);
+// assembleCalDAV —— 内置 CalDAV 卡 + 固定字段；url 指 collection（后端容器经 MOCK_API 打）。
+async function assembleCalDAV(page: Page, request: APIRequestContext): Promise<ConnRef> {
+  return assembleProtocol(page, request, {
+    category: 'calendar',
+    fields: {
+      url: `${MOCK_API}/caldav/${CALDAV_COLL}`, username: 'owner', password: 'pw', tls: 'none',
+    },
+  });
+}
+
+// busyWindowBlocksEitherShape —— 三步，自带正对照：
+//   ① 已支持的形状必须挡住（证明「挡忙时」这条机制本身通）
+//   ② 空档必须订得进去（否则 ① 的 0 可能只是「订会整个坏了」）
+//   ③ 同一小时换成真服务器的形状，仍必须挡住 —— 红只可能是「那种回包没被读懂」
+async function busyWindowBlocksEitherShape(page: Page, request: APIRequestContext): Promise<void> {
+  const { csrf } = await login(request, OWNER.email, OWNER.password);
+  await resetCalDAV(request);
+  const conn = await assembleCalDAV(page, request);
+  await activateConnector(request, csrf, conn.id);
+
+  const busy = futureSlot(10, 10);
+
+  await busyOn(request, busy, busyStyleProperty);
+  await bookOnce(request, csrf, busy);
+  expect(
+    await getCalDAVEvents(request),
+    'a busy hour reported as a FREEBUSY property must not be booked over',
+  ).toHaveLength(0);
+
+  await bookOnce(request, csrf, futureSlot(10, 14));
+  expect(
+    await getCalDAVEvents(request),
+    'control: a free hour on this very calendar does book',
+  ).toHaveLength(1);
+
+  await busyOn(request, busy, busyStyleComponent);
+  await bookOnce(request, csrf, busy);
+  expect(
+    await getCalDAVEvents(request),
+    'the same busy hour, reported as VFREEBUSY components, must still block',
+  ).toHaveLength(1);
+}
+
+// busyOn —— 这个 spec 用的 collection 固定，helper 在 fixtures/caldav-mock.ts。
+async function busyOn(
+  request: APIRequestContext, start: string, style: string,
+): Promise<void> {
+  await setCalDAVBusy(request, MOCK, CALDAV_COLL, start, style);
 }
 
 // getEvents —— 读 calendar provider mock 记录的 event（gcal mock 收所有 calendar combo）。
@@ -416,21 +461,26 @@ test.describe('connector · happy combination matrix (kind × category × auth f
   // 前面 combo 已占了 calendar 槽（连上不自动抢占），故装配后显式 activate 这个 caldav 并坐实，
   // booker 才走它（落 CalDAV mock 的 coll，不是 gcal store）。
   test('protocol calendar (CalDAV): pick built-in card → fixed form → booker books',
-    async ({ adminPage: page }) => {
-      const { csrf } = await login(request, OWNER.email, OWNER.password);
-      await resetCalDAV(request);
-      // CalDAV url 指 collection（后端容器经 MOCK_API 打，SSRF 白名单内）；会落 CalDAV mock 的 coll。
-      const conn = await assembleProtocol(page, request, {
-        category: 'calendar',
-        fields: {
-          url: `${MOCK_API}/caldav/${CALDAV_COLL}`, username: 'owner', password: 'pw', tls: 'none',
-        },
-      });
-      // 品类槽「一个 active」：前面 combo 已占了 calendar 槽，连上不自动抢占 → 显式激活这个 CalDAV
-      // 连接器，让 booker 走它（否则 booker 用旧的 gcal 连接器，会落 gcal store 不是 CalDAV coll）。
-      await activateConnector(request, csrf, conn.id);
-      await bookAndAssert(request, csrf, 9, getCalDAVEvents);
-    });
+    ({ adminPage: page }) => caldavComboBooks(page, request));
+
+  // F-C-50 —— **真服务器把忙时写成 VFREEBUSY 组件（DTSTART/DTEND），产品当成「这天全空」。**
+  //
+  // ①🔴 prod 上真撞到的：连一台真 Radicale，日历里有一条每周一的会（Europe/Berlin 16:00 =
+  // 东部 10:00，落在可预约窗口里），访客问那天的空档 → 产品报 18 格、9:00–18:00 连着，
+  // 说 *"a clean run available … with no gaps"*，10:00 那格就在里面。
+  //
+  // ②🎯 `caldav_client.go` 的 `freeBusyValue` 只认 `FREEBUSY` 开头的行、只认 UTC 的
+  // `<start>/<end>`；Radicale 一行 `FREEBUSY:` 都没有 → 解析出 0 条忙时。而旁边那句
+  // 「无法解析的行跳过（优雅降级，不崩）」把**「我看不懂这个回答」变成了「这个日历是空的」**
+  // —— 对这个字段来说那是相反的两件事（[[empty-is-not-json-null]]）。
+  //
+  // 替身先教会规矩：`set_busy` 现在收一个 `style`，`component` 那种就是 Radicale 的答法
+  // （[[stand-in-is-politer-than-reality]]）。
+  //
+  // **自带正对照**：先在一个空档订成一次，再往忙的那一格订。少了第一步的话，
+  // 任何原因导致的「订不进去」都会让这条绿（[[red-in-the-wrong-place]]）。
+  test('a busy window reported as VFREEBUSY components still blocks that slot (F-C-50)',
+    ({ adminPage: page }) => busyWindowBlocksEitherShape(page, request));
 
   // combo 4 —— openapi · mail · bearer：spec → bearer 表单 → connect → mail.send 真发。
   test('openapi mail + bearer: assemble → bearer form → MailContract.Send delivers',

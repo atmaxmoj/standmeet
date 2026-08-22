@@ -101,6 +101,16 @@ services:
       # resilience check 3 needs a provider endpoint that fails on demand, and the product's
       # own provider form is the only legal way to point at one.
       - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
+      # CONNECTOR_EGRESS_ALLOW —— the same posture for the CONNECTOR guard
+      # (internal/connector/egress.go), which is a separate policy from the one above: that one
+      # covers everything the backend dials, this one covers what an assembled connector may reach.
+      # Empty stays the default here too.
+      #
+      # It was read by the backend and passed by the DEV compose only, so on a shipped stack an
+      # owner could never point a connector at a self-hosted service — a CalDAV server or a mailer
+      # on their own LAN is exactly what the protocol connectors are for (F-C-49). The connect just
+      # failed, and the card blamed their credentials.
+      - CONNECTOR_EGRESS_ALLOW=${CONNECTOR_EGRESS_ALLOW:-}
       # NOTE: no *_BASE_URL / GOOGLE_* overrides here — prod talks to the real
       # Greenhouse / Lever / Ashby / marketplace / Google endpoints (backend
       # defaults). dev adds the mock overrides; that's the only env difference.

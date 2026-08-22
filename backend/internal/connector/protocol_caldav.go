@@ -94,7 +94,17 @@ func (c *caldavConnector) FreeBusy(
 	if serr := caldavStatusErr(r.Status); serr != nil {
 		return nil, serr
 	}
-	rows := parseFreeBusy(r.Body)
+	return busyIntervals(r.Body)
+}
+
+// busyIntervals —— 把一份 free-busy 响应翻成契约的忙时区间。
+// **读不出来 → 报错，不是「没有忙时」**（F-C-50）：上层据此说「查不到你的日历」，
+// 而不是把整天当空的排出去。
+func busyIntervals(body string) ([]contract.BusyInterval, error) {
+	rows, perr := parseFreeBusy(body)
+	if perr != nil {
+		return nil, fmt.Errorf("caldav free-busy: %w", perr)
+	}
 	out := make([]contract.BusyInterval, 0, len(rows))
 	for i := range rows {
 		out = append(out, contract.BusyInterval{Start: rows[i].Start, End: rows[i].End})

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-knobs-reachable.sh —— every knob the product READS must be reachable on the stack we SHIP.
 #
-# The product is self-hosted: a setting exists for the owner, not for us. `config.go` reading an
+# The product is self-hosted: a setting exists for the owner, not for us. Code reading an
 # environment variable proves the code can be configured; it proves nothing about whether the person
 # who runs `make prod-up` can configure it. Captcha was exactly that — documented as opt-in, read by
 # the config, and passed by neither compose file nor named in `.env.example`, so no owner could ever
@@ -9,49 +9,68 @@
 # container — a path that existed only in the tester's hands.
 #
 # A knob is reachable when the prod compose passes it (so a value in `.env` arrives) or
-# `.env.example` names it (so the owner knows it exists). Anything else must be listed below with a
+# `.env.example` names it (so the owner knows it exists). Anything else must be exempt below with a
 # reason, in the file, where the next person reads it.
 #
-# Self-test: `check-knobs-reachable-test.sh` plants an unreachable owner knob and expects red.
+# **Scans the whole backend, not just config.go** (F-C-49). It used to read `config.go` alone while
+# its first line claimed "every knob the product READS". `CONNECTOR_EGRESS_ALLOW` is read in
+# `axisconn/register.go` and passed by the dev compose only — so on a shipped prod stack a connector
+# could never reach a self-hosted service, and this gate reported green the whole time. It was
+# telling the truth about what it looked at, which reads as the truth about the tree.
+#
+# Self-test: `check-knobs-reachable-test.sh` plants an unreachable knob in config.go AND outside it,
+# and expects red for both.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-CONFIG="$ROOT/backend/cmd/server/config/config.go"
+BACKEND="$ROOT/backend"
 COMPOSE="$ROOT/docker-compose.prod.yml"
 EXAMPLE="$ROOT/.env.example"
 
-# DEV_ONLY —— knobs that are deliberately unreachable in production, each with the reason.
+# is_exempt —— knobs deliberately unreachable in production, each with the reason.
 #
-# The `*_BASE_URL` family exists so dev and e2e can point a source at a mock. Production leaving
-# them unset is CORRECT: unset means "use the real endpoint". Making them settable would invite an
-# owner to repoint their job feeds at something we do not control, for no benefit.
-DEV_ONLY='_BASE_URL$'
+#   *_BASE_URL              dev and e2e point a source at a mock. Production leaving them unset is
+#                           CORRECT: unset means "use the real endpoint". Making them settable would
+#                           invite an owner to repoint their job feeds at something we do not
+#                           control, for no benefit.
+#   AGENT_TURN_TIMEOUT      both are there so e2e can shorten the budgets and force the
+#   FORCE_FINAL_TIMEOUT     past-the-boundary path — `agent_loop_budget.go:272` says so in as many
+#                           words. An owner shortening them would only cut their own turns short.
+#   SANDBOX_WORKSPACE_ROOT  a path inside the container with a working default; moving it means
+#                           changing the image's mounts too, so it is not a setting on its own.
+is_exempt() {
+	case "$1" in
+	*_BASE_URL | AGENT_TURN_TIMEOUT | FORCE_FINAL_TIMEOUT | SANDBOX_WORKSPACE_ROOT) return 0 ;;
+	esac
+	return 1
+}
 
 fail=0
-knobs="$(grep -o 'os\.Getenv("[A-Z0-9_]*")' "$CONFIG" | sed 's/.*("//; s/")//' | sort -u)"
+knobs="$(grep -rho 'os\.Getenv("[A-Z0-9_]*")' --include='*.go' --exclude='*_test.go' "$BACKEND" |
+	sed 's/.*("//; s/")//' | sort -u)"
 
-# The scan must be able to see something — a config file that stopped matching would otherwise
-# report a clean tree (gate-can-go-blind).
+# The scan must be able to see something — a tree that stopped matching would otherwise
+# report clean (gate-can-go-blind).
 count="$(printf '%s\n' "$knobs" | grep -c . || true)"
-if [ "$count" -lt 10 ]; then
-	echo "check-knobs-reachable: found only $count knobs in config.go — the scan is blind, not the tree clean."
+if [ "$count" -lt 20 ]; then
+	echo "check-knobs-reachable: found only $count knobs in backend/ — the scan is blind, not the tree clean."
 	exit 2
 fi
 
 for knob in $knobs; do
-	case "$knob" in
-	*_BASE_URL) continue ;;
-	esac
+	if is_exempt "$knob"; then
+		continue
+	fi
 	if grep -q "$knob" "$COMPOSE" || grep -q "$knob" "$EXAMPLE"; then
 		continue
 	fi
-	echo "check-knobs-reachable: $knob is read by config.go but the shipped prod stack offers no way to set it"
+	echo "check-knobs-reachable: $knob is read by the backend but the shipped prod stack offers no way to set it"
 	echo "  → add it to docker-compose.prod.yml's backend environment AND to .env.example,"
-	echo "     or add it to DEV_ONLY in this script with the reason it must stay unreachable."
+	echo "     or add it to is_exempt in this script with the reason it must stay unreachable."
 	fail=1
 done
 
 if [ "$fail" -ne 0 ]; then
 	exit 1
 fi
-echo "check-knobs-reachable: $count knobs in config.go; every owner-facing one is settable on the prod stack (${DEV_ONLY} exempt by declaration)."
+echo "check-knobs-reachable: $count knobs read across backend/; every owner-facing one is settable on the prod stack (exemptions declared in this script)."

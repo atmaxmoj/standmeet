@@ -1,0 +1,18 @@
+{
+  "_why": "connector-assembly check 5 的 `book` 那一半：在真 CalDAV server 上真订一场。订 11:00（空档），订完去 Radicale 上查那个 .ics 在不在 —— 回执不看产品自己说什么，去外部看（[[receipt-check-belongs-next-to-the-action]]）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "viewport": [1280, 1700],
+  "shots": [
+    { "name": "ca-68-booked-on-caldav", "url": "/?code=VOICE-01", "login": false,
+      "steps": [
+        { "wait": 3000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "CalDAV Booker"] },
+        { "click": "button:has-text(\"START\")" },
+        { "wait": 3500 },
+        { "type": ["[data-testid=\"chat-input-field\"]", "Please book me 11:00 AM on Monday 31 August 2026, 30 minutes, to talk about the audit."] },
+        { "press": ["[data-testid=\"chat-input-field\"]", "Enter"] },
+        { "wait": 90000 }
+      ],
+      "wait": 3000, "fullPage": true }
+  ]
+}
