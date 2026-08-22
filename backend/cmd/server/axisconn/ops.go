@@ -54,6 +54,16 @@ func connectorRegistryOps(ops connectorOps) []fp.Op {
 			Invoke:      catalogConnectors(ops),
 		},
 		{
+			ID: "connectors.agent_ops",
+			Description: "List the operations each connected connector exposes to a visitor's " +
+				"AI, grouped by connector. These names are what a skill's allowed_tools must " +
+				"carry for the operation to be reachable in a session.",
+			InputSchema: fp.NoArgs,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      agentOpsList(ops),
+		},
+		{
 			ID:          "connectors.status",
 			Description: "Read a single connector's status (category / kind + flags).",
 			InputSchema: connectorIDSchema,

@@ -129,6 +129,49 @@ func (r *SkillRepo) Delete(ctx context.Context, ownerID, skillID string) error {
 	return nil
 }
 
+// UpdateSkillInput —— Update 入参。字段顺序按 govet fieldalignment 排。
+type UpdateSkillInput struct {
+	OwnerID      string
+	SkillID      string
+	Name         string
+	Description  string
+	Prompt       string
+	AllowedTools []string
+}
+
+// Update —— 改一份 owner 自己的技能（正文 + 它可以调的工具）。builtin 改不了
+// （query 带 `is_builtin = false`）→ 无行 → ErrSkillBuiltinImmutable。
+//
+// 这条路以前**只有 sqlc 那一层存在，一个调用者都没有** —— 于是设计源写着的
+// 「安装完可以改 prompt 或 allowed-tools」在产品里一直没有落点，而 owner 自己传的连接器
+// 只能靠一份声明了它 operation 名字的技能才调得到（F-C-57）。
+func (r *SkillRepo) Update(ctx context.Context, in *UpdateSkillInput) (entity.Skill, error) {
+	args, perr := parseOwnerAndSkillID(in.OwnerID, in.SkillID)
+	if perr != nil {
+		return entity.Skill{}, perr
+	}
+	row, err := db.New(r.pool).UpdateSkill(ctx, db.UpdateSkillParams{
+		ID: args.skillUUID, OwnerID: args.ownerUUID,
+		Name: in.Name, Description: in.Description, Prompt: in.Prompt,
+		AllowedTools: pgstore.NilSafeStrings(in.AllowedTools),
+	})
+	if err != nil {
+		return entity.Skill{}, updateSkillErr(err)
+	}
+	return toDomainSkill(&row), nil
+}
+
+// updateSkillErr —— 把 pg 的两种拒绝翻成本域的哨兵。无行 = 谓词把 builtin 挡下了。
+func updateSkillErr(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return entity.ErrSkillBuiltinImmutable
+	}
+	if name, hit := pgstore.UniqueViolation(err); hit && name == "skills_owner_name_uniq" {
+		return entity.ErrSkillNameTaken
+	}
+	return fmt.Errorf("update skill: %w", err)
+}
+
 type skillIDArgs struct {
 	skillUUID pgtype.UUID
 	ownerUUID pgtype.UUID

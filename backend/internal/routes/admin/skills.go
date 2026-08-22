@@ -27,6 +27,10 @@ func (h *Handlers) MountSkills(r chi.Router) {
 		r.Post("/", h.dispatchOp(face, "skill_create", bodyArgs, jsonCreated))
 		r.Patch("/{skill_id}",
 			h.dispatchOp(face, "skill_set_enabled", bodyWithURLParam("skill_id"), jsonOK))
+		// PUT = 换掉这份技能的正文和它可以调的工具。PATCH 那条只管开关那一位，
+		// 两件事分开是因为它们的入参和失败方式都不一样（改名会撞唯一约束，开关不会）。
+		r.Put("/{skill_id}",
+			h.dispatchOp(face, "skill_update", bodyWithURLParam("skill_id"), jsonOK))
 		r.Delete("/{skill_id}",
 			h.dispatchOp(face, "skill_delete", urlParamArgs("skill_id"), jsonOK))
 	})

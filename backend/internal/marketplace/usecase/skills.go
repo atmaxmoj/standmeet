@@ -61,6 +61,39 @@ func CreateSkill(
 	return skill, nil
 }
 
+// UpdateSkillReq —— skill.update 入参。
+type UpdateSkillReq struct {
+	OwnerID      string
+	SkillID      string
+	Name         string
+	Description  string
+	Prompt       string
+	AllowedTools []string
+}
+
+// UpdateSkill —— 改一份 owner 自己的技能：正文，以及**它可以调哪些工具**。
+//
+// 后者是 owner 唯一能把一个连接器的 operation 授出去的地方：会话的工具闸比的是
+// 「这个角色挂的技能的 allowed_tools 里有没有 `op_<id>`」，而角色本身没有工具清单。
+// 以前这条路只有市场导入和 owner-MCP 走得通，GUI 一个入口都没有（F-C-57）。
+func UpdateSkill(
+	ctx context.Context, deps SkillsDeps, in *UpdateSkillReq,
+) (entity.Skill, error) {
+	if in.OwnerID == "" || in.SkillID == "" || in.Name == "" {
+		return entity.Skill{}, apierr.ErrEmptyField
+	}
+	skill, err := deps.Skills.Update(ctx, &repo.UpdateSkillInput{
+		OwnerID: in.OwnerID, SkillID: in.SkillID, Name: in.Name,
+		Description: in.Description, Prompt: in.Prompt, AllowedTools: in.AllowedTools,
+	})
+	if err != nil {
+		// 一律包一层，但用 %w —— 哨兵照样穿得过去，上面按 errors.Is 分文案的那张表
+		// （ops/skills.go 的 skillErrClasses）一个字都不用改。
+		return entity.Skill{}, fmt.Errorf("update skill: %w", err)
+	}
+	return skill, nil
+}
+
 // ListSkills —— admin / MCP skill.list。
 func ListSkills(
 	ctx context.Context, deps SkillsDeps, ownerID string,

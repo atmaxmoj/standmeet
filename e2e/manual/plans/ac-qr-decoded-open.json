@@ -1,0 +1,15 @@
+{
+  "_why": "application-commit check 3 —— 解码器从**显示出来的那一页**读出的字串，逐字拿去打开。判据是「解码出来的正是这次申请的访客 URL，打开它不经 /gate 直接开一个会话」。",
+  "login": false,
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "viewport": [420, 900],
+  "shots": [
+    {
+      "name": "ac-71-qr-decoded-lands",
+      "url": "http://192.168.124.4:38227/?code=app-7kp6cp",
+      "steps": [{ "wait": 6000 }],
+      "wait": 1000,
+      "fullPage": false
+    }
+  ]
+}

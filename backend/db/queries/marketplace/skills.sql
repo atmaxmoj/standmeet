@@ -29,9 +29,15 @@ SELECT * FROM skills WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC;
 DELETE FROM skills WHERE id = $1 AND owner_id = $2 AND is_builtin = false;
 
 -- name: UpdateSkill :one
+-- owner 改自己那份技能的正文和它可以调的工具。设计源的原话：安装会「写一份你完全拥有的
+-- 本地副本 —— 之后可以改 prompt 或 allowed-tools，跟市场解耦」。
+--
+-- `is_builtin = false` 跟 DeleteSkill 同一条谓词：内置那几个由 seeder 每次启动 upsert
+-- （UpsertBuiltin 会覆写 description/prompt），在这里改了下次起来就没了 —— 一个存得进去、
+-- 又会自己消失的编辑，比不让改更糟。命中 0 行是回执，调用方据此翻 builtin/not-found。
 UPDATE skills
 SET name = $3, description = $4, prompt = $5, allowed_tools = $6, updated_at = now()
-WHERE id = $1 AND owner_id = $2
+WHERE id = $1 AND owner_id = $2 AND is_builtin = false
 RETURNING *;
 
 -- name: SetSkillEnabled :one

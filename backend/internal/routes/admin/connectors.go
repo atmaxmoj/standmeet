@@ -40,6 +40,10 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 		r.Get("/", h.dispatchOp(face, "connectors.list", emptyArgs, jsonListOK("connectors")))
 		r.Get("/catalog",
 			h.dispatchOp(face, "connectors.catalog", emptyArgs, jsonListOK("connectors")))
+		// 已连上的连接器各自暴露了哪些 operation —— 技能编辑器据此给出可授权的清单，
+		// 而不是请 owner 手打一个产品自己规范化出来的名字（F-C-57）。
+		r.Get("/agent-ops",
+			h.dispatchOp(face, "connectors.agent_ops", emptyArgs, jsonListOK("connectors")))
 		r.Post("/", h.dispatchOp(face, "connectors.create", connectorWriteArgs, jsonCreated))
 		h.mountDeclaredOps(r, face)
 		r.Post("/validate-spec", h.dispatchOp(face, "connectors.validate_spec", bodyArgs, jsonOK))

@@ -110,6 +110,42 @@ func (s *Slots) AgentConnectorsByID(ids []string) []consumer.AgentToolConnector 
 	return out
 }
 
+// AgentOpsByID —— 这些连接器各自暴露出来的 agent op，**按连接器分组**。
+//
+// 跟 AgentConnectorsByID 的区别只有一样：那条给会话装配用，丢掉了 id；这条给 owner
+// **授权**用，而授权界面必须说得出「这个 operation 是哪个连接器的」——一份 GitHub spec
+// 上千个 op，不分组就是一张读不了的清单。
+func (s *Slots) AgentOpsByID(ids []string) map[string][]AgentOpView {
+	out := make(map[string][]AgentOpView, len(ids))
+	for _, id := range ids {
+		c, ok := s.hub.Resolve(id)
+		if !ok {
+			continue
+		}
+		atc, isAgent := c.(consumer.AgentToolConnector)
+		if !isAgent || !atc.ExposesAgentTools() {
+			continue
+		}
+		out[id] = toAgentOpViews(atc.AgentOps())
+	}
+	return out
+}
+
+// AgentOpView —— 一个可授权的 operation 在本包外面看到的样子。
+// 用本包自己的类型回出去，组装根不必认识 `connector/consumer` 那一层。
+type AgentOpView struct {
+	Name        string
+	Description string
+}
+
+func toAgentOpViews(ops []consumer.AgentOp) []AgentOpView {
+	out := make([]AgentOpView, 0, len(ops))
+	for i := range ops {
+		out = append(out, AgentOpView{Name: ops[i].Name, Description: ops[i].Description})
+	}
+	return out
+}
+
 // AgentCall —— diag/agent-call：按 id 解析连接器、跑一个 op（注入 auth 调 SaaS），回原始响应。
 // 未注册 / 非 agent 连接器 → errNoActiveConnector（diag 翻 404）。不回裸接口。
 func (s *Slots) AgentCall(

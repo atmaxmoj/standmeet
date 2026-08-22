@@ -17,10 +17,15 @@ import (
 )
 
 // connectorOps —— 通用注册表要的那点东西。
-type connectorOps struct{ svc *connector.Service }
+type connectorOps struct {
+	svc *connector.Service
+	// slots —— 只为 connectors.agent_ops 那一条：要问「这个已连上的连接器暴露了哪些
+	// operation」，而那件事住在 live hub 里，不在库里。
+	slots *connector.Slots
+}
 
 func newConnectorOps(d *deps.Runtime) connectorOps {
-	return connectorOps{svc: NewService(d)}
+	return connectorOps{svc: NewService(d), slots: d.ConnectorSlots}
 }
 
 func connectorWriteOps(ops connectorOps) []fp.Op {

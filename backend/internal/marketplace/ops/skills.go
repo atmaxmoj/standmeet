@@ -43,6 +43,16 @@ func Skills(deps usecase.SkillsDeps) []fp.Op {
 			Invoke:      createSkill(deps),
 		},
 		{
+			ID: "skill_update",
+			Description: "Edit an owner-curated skill: its prompt, its description, and " +
+				"which tools it may call. Naming a connector operation here is what lets a " +
+				"visitor's AI reach an uploaded connector. Builtin skills cannot be edited.",
+			InputSchema: skillUpdateSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      updateSkill(deps),
+		},
+		{
 			ID: "skill_set_enabled",
 			Description: "Globally enable or disable a skill. A disabled skill never enters " +
 				"the agent, even when a role attaches it. Builtin skills can be toggled; " +
@@ -77,6 +87,21 @@ var (
 			"enabled":{"type":"boolean","description":"true to enable, false to disable."}
 		},
 		"required":["skill_id","enabled"]
+	}`)
+
+	skillUpdateSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"skill_id":{"type":"string","description":"Skill id."},
+			"name":{"type":"string","description":"Skill name, unique per owner."},
+			"prompt":{"type":"string",
+				"description":"System prompt fragment appended to the base persona."},
+			"description":{"type":"string","description":"Optional one-line description."},
+			"allowed_tools":{"type":"array","items":{"type":"string"},
+				"description":
+				"Tool ids unlocked on roles with this skill; see connectors.agent_ops."}
+		},
+		"required":["skill_id","name","prompt"]
 	}`)
 
 	skillCreateSchema = json.RawMessage(`{
@@ -169,6 +194,35 @@ func createSkill(deps usecase.SkillsDeps) fp.Invoke {
 	}
 }
 
+func updateSkill(deps usecase.SkillsDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := decodeSkillUpdate(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		skill, err := usecase.UpdateSkill(ctx, deps, &usecase.UpdateSkillReq{
+			OwnerID: ownerID, SkillID: in.SkillID, Name: in.Name,
+			Description: in.Description, Prompt: in.Prompt, AllowedTools: in.AllowedTools,
+		})
+		if err != nil {
+			return nil, skillErr(err)
+		}
+		return json.Marshal(toSkillOut(&skill))
+	}
+}
+
+func decodeSkillUpdate(raw json.RawMessage) (skillArgs, error) {
+	in, perr := decodeSkillArgs(raw)
+	if perr != nil {
+		return in, perr
+	}
+	return in, fp.RequireArgs(
+		[2]string{"skill_id", in.SkillID},
+		[2]string{"name", in.Name},
+		[2]string{"prompt", in.Prompt},
+	)
+}
+
 func decodeSkillCreate(raw json.RawMessage) (skillArgs, error) {
 	in, perr := decodeSkillArgs(raw)
 	if perr != nil {
@@ -233,7 +287,12 @@ var skillErrClasses = []struct {
 		return fp.Coded(
 			fp.Conflict("a skill with that name is already installed"), "skill_name_taken")
 	}},
+	// 措辞不说「删」—— 同一个哨兵现在也管编辑，而「删不掉」对一个想改 prompt 的 owner
+	// 是一句不相干的话（[[collapsed-error-class-kills-its-own-branch]] 的同族）。
 	{entity.ErrSkillBuiltinImmutable, func() error {
-		return fp.Coded(fp.Forbidden("builtin skill cannot be deleted"), "skill_builtin_immutable")
+		return fp.Coded(
+			fp.Forbidden("a builtin skill cannot be edited or deleted — "+
+				"install a copy to change it"),
+			"skill_builtin_immutable")
 	}},
 }
