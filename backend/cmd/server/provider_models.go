@@ -16,8 +16,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	"github.com/atmaxmoj/standmeet/internal/infra/providermodels"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
@@ -41,9 +44,24 @@ func (l *providerModelLister) ListModels(
 	}
 	models, lerr := providermodels.List(ctx, row.Provider, row.Endpoint, key)
 	if lerr != nil {
-		return nil, fmt.Errorf("list provider models: %w", lerr)
+		return nil, sayableListErr(lerr)
 	}
 	return models, nil
+}
+
+// sayableListErr —— 把「provider 那侧怎么了」翻成**收口认识的类别**。
+//
+// 为什么翻译落在组装根：`providermodels` 说的是 HTTP 的话（DisplayError 自带状态码 +
+// 人话），域和收口都不认识 HTTP。不翻的话它一路当成未知错误，owner 在按钮底下读到的是
+// **`internal error`** —— 而同一次失败在访客那条路上是一句「Couldn't reach the model
+// provider — check the base URL and key.」。**同一个故障，两个面两句话，其中一句什么都没说。**
+// （这是 F-R-11 的修法自己带出来的，驱 check 3 第三格时当场撞到。）
+func sayableListErr(err error) error {
+	var de apierr.DisplayError
+	if !errors.As(err, &de) {
+		return fmt.Errorf("list provider models: %w", err)
+	}
+	return fp.Coded(fp.BadInput(de.DisplayMessage()), de.DisplayCode())
 }
 
 func (l *providerModelLister) providerRow(

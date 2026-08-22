@@ -1,0 +1,14 @@
+{
+  "_why": "resilience check 3 ⭐ 的第四格：**被限流**。故障代理在 `/v1/models` 上回 429 + `Retry-After: 30`（限流是唯一伪造的那一个响应 —— 没法让真上游按需限流；被测的是产品怎么说这件事）。\n\n判据：屏幕上是一句人话，**不许倒出状态码/上游响应体**，而且要跟「够不着」「这把 key 没权限」分得开 —— 429 是「等一会儿再来」，不是「你配错了」。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1100],
+  "login": true,
+  "shots": [
+    { "name": "res-66-rate-limited", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"ai-provider-load-models\"]" },
+        { "wait": 14000 }
+      ], "wait": 1500 }
+  ]
+}

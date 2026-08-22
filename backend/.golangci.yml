@@ -295,6 +295,13 @@ linters:
       # package, same reason.
       - path: cmd/server/axis(cap|conn)/
         linters: [wrapcheck]
+      # provider_models.go does that same classification for the port it implements:
+      # providermodels speaks HTTP (DisplayError), the faces speak facadeparity, and the
+      # composition root is where that translation belongs. fp.Coded/BadInput MAKE the
+      # classified error — wrapping one buries the sentence the owner is supposed to read
+      # (it read "internal error" until this translation existed).
+      - path: cmd/server/provider_models\.go
+        linters: [wrapcheck]
       # providermodels classifies a provider failure into the display vocabulary
       # (apierr.Display / DisplayWrap) for whoever asks — same job as an ops package,
       # same reason: those constructors MAKE the error, and wrapping one would hide the

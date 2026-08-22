@@ -403,7 +403,37 @@ func (s *server) serveState(w http.ResponseWriter, _ *http.Request) {
 // 两个 id 而不是一个：**一个的时候「列表回来了」和「产品自己塞了个默认」分不开**。
 // 名字带 `mock-` 前缀，好让守卫断言的是「这台自托管端点报出来的东西」，
 // 而不是任何一家真 provider 的型号。
-func (s *server) serveModels(w http.ResponseWriter, _ *http.Request) {
+// chatOnlyKey —— **一把能聊、但列不出模型的 key**（F-R-12）。真世界里这一类到处都是：
+// 列模型要另一种权限。触发点是 key 本身而不是 URL —— 判据说的就是「这把 key 不行」，
+// 而产品自己拼 `/v1/models`，查询串根本传不进来。
+const chatOnlyKey = "sk-chat-but-cannot-list"
+
+// rateLimitedKey —— **正被限流的那把 key**（F-R-12）。跟上面那把是两件事：一个是「你不许」，
+// 一个是「现在不行」，而 owner 的下一步一个是去改权限、一个是等一分钟。
+const rateLimitedKey = "sk-rate-limited-right-now"
+
+// serveModels —— 替身以前只会答应。于是「上游明确拒绝」和「够不着」在产品里塌成同一句话，
+// 没人看得出来（F-R-12）。现在它会像真 provider 那样拒绝一次。
+func (s *server) serveModels(w http.ResponseWriter, r *http.Request) {
+	auth := r.Header.Get("Authorization")
+	if strings.Contains(auth, chatOnlyKey) {
+		w.WriteHeader(http.StatusForbidden)
+		writeJSON(s.log, w, map[string]any{
+			"error": map[string]any{
+				"message": "this key is not permitted to list models",
+				"type":    "insufficient_permissions",
+			},
+		})
+		return
+	}
+	if strings.Contains(auth, rateLimitedKey) {
+		w.Header().Set("Retry-After", "30")
+		w.WriteHeader(http.StatusTooManyRequests)
+		writeJSON(s.log, w, map[string]any{
+			"error": map[string]any{"message": "rate limit exceeded", "type": "rate_limit_error"},
+		})
+		return
+	}
 	type modelRow struct {
 		ID     string `json:"id"`
 		Object string `json:"object"`

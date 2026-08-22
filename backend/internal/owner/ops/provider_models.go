@@ -11,6 +11,7 @@ package ops
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
@@ -39,9 +40,33 @@ func listProviderModels(lister usecase.ProviderModelLister) fp.Invoke {
 		}
 		models, err := usecase.ListProviderModels(ctx, lister, ownerID, args.ID)
 		if err != nil {
-			return nil, providerErr("list provider models", err)
+			return nil, alreadySaidOr(err, "list provider models")
 		}
 		return json.Marshal(providerModelsOut{Models: models})
+	}
+}
+
+// alreadySaidOr —— 端口那侧已经把话说清楚了就**原样放行**，没说清才由这里兜底。
+//
+// 为什么需要这一句：provider 那侧的失败带着一句给 owner 看的人话（组装根翻好的），而
+// 一路上每层都习惯性加个前缀。第一版就是这样，屏幕上出现的是
+// `list provider models: list provider models: Couldn't reach the model provider…` ——
+// 三段里只有最后一段是说给人听的（驱 check 3 第三格时看见的）。
+func alreadySaidOr(err error, what string) error {
+	if fp.IsBadInput(err) {
+		return unwrapToClassified(err)
+	}
+	return providerErr(what, err)
+}
+
+// unwrapToClassified —— 剥到那一层「自己会说话」的错误，把外面加的前缀留在日志里。
+func unwrapToClassified(err error) error {
+	for {
+		inner := errors.Unwrap(err)
+		if inner == nil || !fp.IsBadInput(inner) {
+			return err
+		}
+		err = inner
 	}
 }
 

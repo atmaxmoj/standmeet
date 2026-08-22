@@ -5,6 +5,7 @@
 // 走 Anthropic 路径在后续 spec 里。
 
 import { test, expect } from '@/fixtures/test';
+import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -100,30 +101,74 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
   //
   // 判据要能判负：**先存后重载**，再点。这条用例跟上面那条的差别只有「重载」两个字。
   test('a stored key still lists models — the owner should not have to retype it (F-R-11)',
-    async ({ adminPage: page }) => {
-      await gotoAdminSection(page, 'api-mcp');
-      await page.getByTestId('ai-provider-custom').click();
-      await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
-      // model 是保存的必填项（SAVE 在它空着时是灰的）—— 先手输一个，这一条要验的是
-      // **保存之后**那次 LOAD MODELS，不是保存本身。
-      await page.getByTestId('ai-provider-model').fill('mock-selfhost-large');
-      await page.getByTestId('ai-provider-key').fill('sk-selfhost-does-not-check-keys');
-      await page.getByTestId('ai-provider-save').click();
+    ({ adminPage: page }) => storedKeyStillLists(page));
 
-      // 重新打开这一屏 —— 现在 key 框是空的，而库里那把还在。这就是 owner 的日常。
-      await gotoAdminSection(page, 'dashboard');
-      await gotoAdminSection(page, 'api-mcp');
-      await expect(
-        page.getByText('key set · leave blank to keep'),
-        'precondition: the key really is stored and the field really is empty',
-      ).toBeVisible({ timeout: 10_000 });
-      await page.getByTestId('ai-provider-load-models').click();
+  // F-R-12 —— **「够不着」和「够到了、它拒绝了」不是同一件事。**
+  //
+  // resilience check 3 ⭐ 点名的那一格：一把**能聊、但列不出模型**的 key（真 provider 上
+  // 常见，列模型要另一种权限）。产品当时对这一类说的是 *"Couldn't reach the model
+  // provider — check the base URL and key."* —— 而地址一点问题都没有，owner 会被支去查
+  // 一个没坏的东西。跟 F-C-42 是同一族：把「拒绝」说成「拨不通」。
+  //
+  // 替身先教会规矩：llm-gateway 现在对 `sk-chat-but-cannot-list` 这把 key 在 `/v1/models`
+  // 上回 403 + 真 provider 那种错误体（[[stand-in-is-politer-than-reality]]）。
+  test('a key that chats but cannot list models says so (F-R-12)',
+    ({ adminPage: page }) => expectModelsSentence(page, {
+      key: 'sk-chat-but-cannot-list',
+      // 说的是「它拒绝了这把 key」，不是「够不着」；上游的响应体一个字不许露。
+      says: /refused to list models for this key/i,
+      neverSays: /insufficient_permissions/,
+    }));
 
-      const picker = page.getByTestId('ai-provider-model-select');
-      await expect(
-        picker,
-        'a configured provider must list its models without the owner retyping the key',
-      ).toBeVisible({ timeout: 15_000 });
-    });
+  // 同一族的第三种「不给」：**被限流**。跟上面那条的区别不是措辞而是**下一步**——
+  // 一个要去改权限，一个只要等一会儿。少了这一句，owner 会去翻地址和 key，而那两样都没毛病。
+  test('a rate-limited provider says to wait, not to check the key (F-R-12)',
+    ({ adminPage: page }) => expectModelsSentence(page, {
+      key: 'sk-rate-limited-right-now',
+      says: /wait a moment/i,
+      neverSays: /rate_limit_error/,
+    }));
 });
+
+// storedKeyStillLists —— 存一次、重新打开这一屏、再点 LOAD MODELS。
+// 「重载」这两个字就是这条跟上一条的全部差别，也是产品当初翻车的地方（F-R-11）。
+async function storedKeyStillLists(page: Page): Promise<void> {
+  await gotoAdminSection(page, 'api-mcp');
+  await page.getByTestId('ai-provider-custom').click();
+  await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
+  // model 是保存的必填项（SAVE 在它空着时是灰的）—— 先手输一个，这一条要验的是
+  // **保存之后**那次 LOAD MODELS，不是保存本身。
+  await page.getByTestId('ai-provider-model').fill('mock-selfhost-large');
+  await page.getByTestId('ai-provider-key').fill('sk-selfhost-does-not-check-keys');
+  await page.getByTestId('ai-provider-save').click();
+
+  await gotoAdminSection(page, 'dashboard');
+  await gotoAdminSection(page, 'api-mcp');
+  await expect(
+    page.getByText('key set · leave blank to keep'),
+    'precondition: the key really is stored and the field really is empty',
+  ).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('ai-provider-load-models').click();
+
+  await expect(
+    page.getByTestId('ai-provider-model-select'),
+    'a configured provider must list its models without the owner retyping the key',
+  ).toBeVisible({ timeout: 15_000 });
+}
+
+// expectModelsSentence —— 拿一把会被上游拒绝的 key 点 LOAD MODELS，读按钮底下那句话。
+async function expectModelsSentence(
+  page: Page, want: { key: string; says: RegExp; neverSays: RegExp },
+): Promise<void> {
+  await gotoAdminSection(page, 'api-mcp');
+  await page.getByTestId('ai-provider-custom').click();
+  await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
+  await page.getByTestId('ai-provider-key').fill(want.key);
+  await page.getByTestId('ai-provider-load-models').click();
+
+  const said = page.getByTestId('ai-provider-models-error');
+  await expect(said, 'it has to say something').toBeVisible({ timeout: 15_000 });
+  await expect(said, 'the sentence has to name what actually happened').toContainText(want.says);
+  await expect(said, 'no upstream body echoed at the owner').not.toContainText(want.neverSays);
+}
 

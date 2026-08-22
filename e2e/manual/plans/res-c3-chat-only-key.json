@@ -1,0 +1,21 @@
+{
+  "_why": "resilience check 3 ⭐ 的第三格：**一把能聊、但列不出模型的 key**。\n\n故障代理坐在真 provider 前面，`/models` 上装一发 403 —— **只挡这一条路径**，聊天照常转发到真上游，所以这正是判据说的那种 key：chat 能用，list 不能。\n\n判据：屏幕上给一句**说得出「列不出来」**的人话，**不许把上游的原始响应体/状态码倒出来**。（F-R-11 修完之后，这句话现在渲在按钮正下方，不再是角落的 toast。）",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/resilience/shots",
+  "viewport": [1280, 1100],
+  "login": true,
+  "shots": [
+    { "name": "res-64-point-at-proxy", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "type": ["[data-testid=\"ai-provider-endpoint\"]", "http://llm-fault:9500"] },
+        { "click": "[data-testid=\"ai-provider-save\"]" },
+        { "wait": 5000 }
+      ], "wait": 1500 },
+    { "name": "res-65-cannot-list-sentence", "url": "/admin/api-mcp",
+      "steps": [
+        { "wait": 4000 },
+        { "click": "[data-testid=\"ai-provider-load-models\"]" },
+        { "wait": 14000 }
+      ], "wait": 1500 }
+  ]
+}
