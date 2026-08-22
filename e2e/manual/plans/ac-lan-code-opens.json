@@ -1,0 +1,9 @@
+{
+  "_why": "手机扫完会落在哪 —— 先用**同一个局域网地址**在浏览器里走一遍，确认那张码真的开得了访客聊天。这一步不替代 check 3/4（那两条要真相机、真纸），只是保证你举起手机的时候它不会白试。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "viewport": [420, 900],
+  "shots": [
+    { "name": "ac-71-lan-code-opens", "url": "http://192.168.124.4:38227/?code=app-74dg3x", "login": false,
+      "steps": [{ "wait": 4000 }], "wait": 1500 }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "_why": "application-commit check 3/4 的前置：QR 印的是 `owner.public_url`，而这台实例上它是 `http://localhost:38227` —— **手机上的 localhost 是手机自己**，举起手机扫那张纸一定打不开（[[localhost-is-a-privileged-origin]]）。改成本机的局域网地址（`192.168.124.4:38227`，已验证 200），QR 才是一个手机够得到的地址。驱完还原。走产品自己的那一屏。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/application-commit/shots",
+  "viewport": [1280, 1700],
+  "shots": [
+    { "name": "ac-60-public-url-before", "url": "/admin/page", "wait": 3500 },
+    { "name": "ac-61-public-url-lan", "url": "/admin/page",
+      "steps": [
+        { "wait": 3500 },
+        { "click": "[data-testid=\"public-url-change-btn\"]" },
+        { "wait": 1200 },
+        { "type": ["[data-testid=\"public-url-input\"]", "http://192.168.124.4:38227"] },
+        { "click": "[data-testid=\"public-url-save-btn\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 1500 }
+  ]
+}

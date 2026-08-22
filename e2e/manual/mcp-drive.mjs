@@ -1,7 +1,7 @@
 // mcp-drive.mjs —— 用**产品自己的** stdio MCP 客户端跑几个 owner 工具。
 // 不手搓 Sigv1 签名器（[[c3-stdio-sdk-sigv1-401]]）：起 bin/standmeet-mcp，走 JSON-RPC over stdio。
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const CLIENT = process.argv[2];
 const HOST = process.argv[3];
@@ -56,11 +56,30 @@ for (const call of CALLS) {
   const out = await rpc('tools/call', { name: call.name, arguments: call.args ?? {} });
   const content = out.result?.content ?? out.error;
   console.log(`\n=== ${call.name} ${JSON.stringify(call.args ?? {})}`);
+  saveBlobs(content, call.name);
   // 打印上限可调（`MCP_PRINT=0` = 不截）。**截断必须说出来**：默认那 4000 字符会把一份
   // JSON 从中间切开，切口长得就像服务端发了半截回执 —— 我差点把自己的显示上限当成产品缺陷。
   printCapped(JSON.stringify(content, null, 1));
 }
 proc.kill();
+
+// saveBlobs —— `MCP_SAVE_BLOBS=<dir>` 时，把回参里的内嵌附件写成文件。
+//
+// 为什么要有：有些 op 的产物**只在回执里**（`applications.commit` 的 PDF 就是 —— 后台那颗
+// download 按钮是禁用的，标题写着 pdfNotKept）。owner 真正的 MCP 客户端会把附件交到手上，
+// 而这个驱动器以前只会把它打印成一大串 base64。要拿去打印的那份纸就在里面。
+function saveBlobs(content, callName) {
+  const dir = process.env.MCP_SAVE_BLOBS;
+  if (!dir || !Array.isArray(content)) return;
+  content.forEach((part, i) => {
+    const res = part?.resource;
+    if (typeof res?.blob !== 'string') return;
+    const ext = String(res.mimeType ?? '').includes('pdf') ? 'pdf' : 'bin';
+    const path = `${dir}/${callName}-${i}.${ext}`;
+    writeFileSync(path, Buffer.from(res.blob, 'base64'));
+    console.log(`# saved ${path} (${res.mimeType ?? 'unknown'}, ${res.blob.length} b64 chars)`);
+  });
+}
 
 // printCapped —— 按 `MCP_PRINT`（字符数，0 = 不截）打印，截了就在末尾说清楚截了多少。
 function printCapped(text) {
