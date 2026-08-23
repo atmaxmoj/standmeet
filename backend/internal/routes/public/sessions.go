@@ -8,12 +8,14 @@ package public
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
@@ -161,6 +163,46 @@ func writeCodeIntro(
 	}
 	if eerr := json.NewEncoder(w).Encode(resp); eerr != nil {
 		log.Error("encode code intro", "err", eerr)
+	}
+}
+
+// OpenCodeSession —— 拿一张码换一场会话，交回**装配好的能力入参**。
+//
+// 住在这里的理由：这个文件是这个实例所有「码 → 会话」的去处。访客 MCP 面
+// （mcp_visitor.go）要的是同一件事，只是它没有 HTTP body、只有一个 Authorization 头 ——
+// 那是**传输**的差别，不是业务的差别。各写一份的话，配额、成员解析、失败措辞会各飘各的。
+//
+// 回 nil 表示没开成，第二个返回值是那句要给对面看的话（走 visitorErrCases，
+// 跟其他面同一张表）。
+func (h *Handlers) OpenCodeSession(
+	ctx context.Context, code, visitorName, ip string,
+) (OpenedCodeSession, apierr.Envelope) {
+	res, err := conversation.IssueCodeSession(ctx, &h.Visitor,
+		&conversation.IssueCodeSessionInput{
+			Code: code, VisitorName: visitorName, ClientIP: ip,
+		})
+	if err != nil {
+		h.recordVisitorMCPFail(ctx, ip, err)
+		return OpenedCodeSession{}, apierr.Classify(err, visitorErrCases)
+	}
+	h.CodeGuard.Reset(ctx, ip)
+	return OpenedCodeSession{
+		In:     assembleInputFromSession(&res.Session.Data, res.Chat.ID),
+		ConvID: res.Chat.ID,
+	}, apierr.Envelope{}
+}
+
+// OpenedCodeSession —— 开成了的那一场。In 为 nil 表示没开成（看同时回的那个信封）。
+type OpenedCodeSession struct {
+	In     *capreg.AssembleInput
+	ConvID string
+}
+
+// recordVisitorMCPFail —— 只有**码本身不对**才计一次。名额满了、码过期，都不是在猜码，
+// 把它们一起计进去等于拿一个正当访客的失败去锁他自己的地址。
+func (h *Handlers) recordVisitorMCPFail(ctx context.Context, ip string, err error) {
+	if errors.Is(err, access.ErrCodeInvalid) {
+		h.CodeGuard.RecordFail(ctx, ip)
 	}
 }
 

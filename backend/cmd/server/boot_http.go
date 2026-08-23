@@ -21,6 +21,7 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -130,6 +131,11 @@ func New(deps *Deps) http.Handler {
 	if deps.PubAPI != nil {
 		deps.PubAPI.Mount(r)
 	}
+	// 两个 MCP 面，两个平面：`/mcp` 是 owner 自己的（Sigv1 验签），
+	// `/mcp/visitor` 是**拿着码的人**的（Bearer 那张码）。
+	// 先挂访客那条：chi 的 Mount 按前缀匹配，`/mcp` 挂在前面会把它一起吃掉。
+	r.Mount("/mcp/visitor",
+		deps.Public.MountVisitorMCP(paritymanifest.APIRenderableTools()))
 	r.Mount("/mcp", mcphandle.New(&deps.MCP))
 	assertDispatcherConformance(deps)
 	return r
