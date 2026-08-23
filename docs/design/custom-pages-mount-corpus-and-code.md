@@ -61,6 +61,75 @@ State it as an invariant, because it is the thing that can silently go wrong:
   call made by the visitor chat with the same grant.
 - **I-2** — hosting a page grants nothing. If the owner publishes a page that reads corpus and
   hands the URL to a stranger, the stranger sees the public slice, not the owner's slice.
+- **I-3 — no access snapshot.** What the owner withdraws stops being reachable. Withdrawal
+  covers three things and all three are resolved per request, never frozen at first contact:
+  the **page** (rolled back or deleted → `/p/<slug>` stops serving), the **corpus** (an entry
+  unpublished → the page stops showing it), and the **grant** (a code revoked → the page's
+  agent stops answering). The only thing outside our reach is the viewer's own browser cache —
+  and that is the boundary precisely because everything on our side of it is not cached.
+
+  ⚠️ **Verified gap, 2026-08-23:** the asset route sets no `Cache-Control` at all
+  (`routes/public/custom_pages.go`), while its neighbour `page.go` sets `no-cache`. With no
+  header a browser may cache heuristically, so a withdrawn page can still open on reload —
+  and that is not "the browser cached it", that is us failing to say not to. Fix belongs with
+  I-3, not with the browser.
+
+### The code binding — a page is a rendering of a code
+
+The governing sentence, and everything below follows from it:
+
+> **A page gives a code a rendering.**
+
+The code is unchanged: same grant, same role, same identity prompt, same meters, same
+transcript. The page changes only what the reader looks at. So the correct question about any
+code feature is never "does the page support it" but "**why would the page have changed it**"
+— and the answer must always be that it did not.
+
+That makes the inheritance list an invariant rather than a feature list:
+
+> **I-5** — a session opened through a page is the same session as one opened through chat with
+> the same code. Everything the code carries carries: the who's-reading name prompt, member
+> count against `max_members`, turns against `max_turns_per_session`, provider metering, ghost
+> policy, denials, expiry and revocation — and the conversation appears on the code's side in
+> `/admin/conversations`, attributed to that code, readable by the owner afterwards.
+
+If any of those behaves differently on a page, the page has stopped being a rendering and has
+become a second channel — which is the thing this whole design refuses.
+
+A code may be attached to **one** custom page, or to none.
+
+- Attached: presenting that code lands on **that page** — the QR on a résumé opens the page the
+  owner built for that recruiter, not the default chat. The page receives the code and its
+  agent runs scoped to it, so the reader gets that code's slice of the corpus.
+- Not attached: today's behaviour, unchanged — the code lands on the visitor chat.
+
+One code, at most one page. The reverse is not constrained: a page may be reachable with no
+code at all (anonymous, public slice), which is what the worked example does.
+
+This makes the landing decision a property of **the code**, not of the page — so a page never
+has to ask who is arriving, and revoking the code (I-3) withdraws the landing too.
+
+**Visible from both ends.** The binding is one fact, so both screens read it, neither stores a
+second copy: `/admin/codes` shows which page a code opens, and `/admin/custom-pages` shows which
+code opens a page. A binding you can only see from one side is a binding people forget they made.
+
+### Precedence: an arriving grant wins
+
+A page has its own access settings — reachable anonymously, and whether it offers **BYOK**
+(the reader brings their own key). Those settings describe the page **when nobody presents a
+grant**.
+
+**The moment a code is attached, the code governs and the page's own settings are inert.** Its
+role decides what the corpus call returns and what the agent may do; if the code does not allow
+BYOK, the page's BYOK setting does not resurrect it.
+
+Stated as the rule, because it is the kind of thing two screens will otherwise disagree about:
+
+> **I-4** — page-level access settings apply only in the absence of a grant. A page reached
+> through a code is scoped by that code, never by the page.
+
+The panel must say so where the setting lives, or the owner will set "allow BYOK" on a page,
+attach a code that forbids it, and reasonably expect the setting to mean something.
 
 ## 4. Why the SDK cannot simply be added to the sandbox
 
@@ -112,6 +181,30 @@ when those are built:
 **Note on scope.** V-1..V-4 describe the destination. This design does not require the 24
 endpoints to move in one change; it requires that the custom-page mount be built **on** the
 facade rather than beside it, so the count stops growing.
+
+## 5b. Authoring belongs on the panel too
+
+The owner-plane rule is **completeness**: every owner op renders on every owner facade
+(`facade-parity.md`). Custom-page authoring does not — `custom_page.list` is on admin, and
+`create` / `write_file` / `build` / `get_build` / `promote_to_staging` / `promote_to_live` /
+`rollback` / `delete` are MCP-only.
+
+That is registered as a deliberate exception, and **its reason is circular**:
+
+> `fp.Only("authoring a custom page means writing code and driving the sandbox builder; the
+> panel has no such surface", "mcp")` — `internal/owner/ops/custom_pages.go`
+
+"The panel has no such surface" describes the state it is being used to justify. Worse, it is
+encoded where the ratchet reads it, so the gate stops reporting the gap. This is the same shape
+as F-C-47 (an uploaded connector with nowhere to enter credentials) and F-C-57 (an exposure
+switch with nowhere to complete the grant): **the capability is whole, the face is missing.**
+
+**Requirement:** the panel carries authoring. The owner pastes source, builds, watches the
+build, and promotes — from `/admin/custom-pages`. The exception is removed rather than reworded,
+so the ratchet demands the routes and keeps demanding them.
+
+The MCP path stays. This is parity, not migration: the owner drives it from Claude when that is
+convenient, and from the panel when that is.
 
 ## 6. What "mount" looks like to the owner
 
@@ -208,6 +301,44 @@ above, because the page it builds renders one heading. Add:
 
 The last one is the invariant. If only the first three exist, a page that leaks the owner's
 private corpus passes the suite.
+
+**The existing coverage is three tests** — the happy lifecycle, a "no dead button" check, and
+staging→live→delete — plus one path-traversal test. Nine ops, and **not one failure case**.
+Missing, and each is a case an owner will actually hit:
+
+- a build that **fails** (source that does not compile) — the owner must be told what broke,
+  and the live page must not change;
+- promoting a build that is not built;
+- `rollback` — and after it, `/p/<slug>` stops serving (I-3);
+- delete while live — same;
+- a slug that already exists;
+- a page that imports the SDK — nothing covers this at all today;
+- **withdrawal takes effect (I-3)**: unpublish a corpus entry the page shows, reload, it is
+  gone; revoke the code the page carries, and its agent stops answering;
+- **the code binding**: a code attached to a page lands there; the same code with the page
+  detached lands on chat; a code cannot be attached to two pages; the binding reads the same
+  from `/admin/codes` and from `/admin/custom-pages`;
+- **precedence (I-4)**: a page with BYOK enabled, reached through a code that forbids it, does
+  not offer BYOK. Assert on the page — asserting the stored setting proves nothing, since the
+  defect is that the setting is honoured when it should be inert;
+- **inheritance (I-5)** — the set that decides whether a page is a rendering or a second
+  channel. Each of these is a case, not a bullet on a checklist:
+  - the **who's-reading** prompt appears on the page and the name reaches the transcript;
+  - a second reader on the same code counts against `max_members`, and the page refuses past it;
+  - turns count against `max_turns_per_session`, and the page says so when the allowance is out;
+  - the conversation is **visible on the code's side**: it appears in `/admin/conversations`
+    attributed to that code, with the page's turns in it — an owner must not have to guess
+    which surface a transcript came from;
+  - revoking the code mid-session stops the page's agent (I-3);
+  - provider metering and ghost policy behave as they do in chat.
+
+  **Write these against chat as the oracle**, not against fresh expectations: the assertion is
+  "the page does what the same code does in chat", so a change to code semantics moves both at
+  once and cannot drift into a page-only branch.
+
+The failure cases are the ones that decide whether an owner trusts the panel. A build that
+fails silently and leaves the old page up is indistinguishable, from the owner's chair, from a
+build that worked.
 
 ## 10. Build order
 
