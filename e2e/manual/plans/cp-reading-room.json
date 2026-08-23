@@ -1,0 +1,15 @@
+{
+  "_why": "custom-pages 验收 —— 这一版不是一个 <h1>。页面自己读 owner 的语料（fetchPage 的 insights/projects，点条目再 fetchWikiLanding 读正文），右栏是真 agent（useChatSession + AnswerText）。先拍落地的样子。",
+  "login": false,
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-pages/shots",
+  "viewport": [1280, 1100],
+  "shots": [
+    {
+      "name": "cp-20-reading-room",
+      "url": "/p/reading-room",
+      "steps": [{ "wait": 7000 }],
+      "wait": 1500,
+      "fullPage": false
+    }
+  ]
+}

@@ -9,6 +9,15 @@ WORKDIR /opt/builder
 COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 
+# The SDK an owner's page imports. Staged into this context by
+# infra/scripts/builder-vendor.sh — it is a workspace package, not a published one,
+# and this build context is ./builder, so it cannot be COPYed from sdk/.
+#
+# Without it a hosted page can render text and nothing else: no corpus, no agent.
+# Dropped into node_modules rather than npm-installed so `import '@standmeet/sdk'`
+# resolves by name, exactly as react does.
+COPY vendor/@standmeet ./node_modules/@standmeet
+
 COPY template ./template
 COPY runner.mjs ./runner.mjs
 

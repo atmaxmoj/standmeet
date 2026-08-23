@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -107,6 +107,18 @@ dev:
 
 # sdk-build —— 让 sdk-core/sdk/embed 三包都 tsup 出 dist/ 给 app dogfood。
 # app-build 之前先跑 sdk-build，让 Next 编译时能找到 @standmeet/sdk-core/dist。
+# builder-vendor —— 把 SDK 产物摆进自定义页 builder 的构建上下文。
+#
+# **为什么必须有这一步**：builder 镜像里 owner 的页面只能 import 到
+# /opt/builder/node_modules 里有的东西，而那里只有 react/vite —— 所以托管出来的页面
+# 除了渲染文字什么都做不了（没有 corpus、没有 agent）。SDK 是 workspace 包不是发布包，
+# 而 builder 的构建上下文是 ./builder，镜像 COPY 不到 sdk/，只能先摆过去。
+#
+# ⚠️ 跟 `prod-app: app-build` 同一族：**产物在哪就先产在哪**，而这一族的失效方式是
+# 拷到一份**旧的**还照印成功。脚本因此不静默拷贝：缺了就建，建完报出摆了什么。
+builder-vendor:
+	@infra/scripts/builder-vendor.sh
+
 sdk-build:
 	@pnpm -F @standmeet/sdk-core build
 	@pnpm -F @standmeet/agent-core build
@@ -121,7 +133,7 @@ app-build: sdk-build
 	@pnpm install --frozen-lockfile
 	@pnpm -F standmeet-app build
 
-dev-up: app-build
+dev-up: app-build builder-vendor
 	@infra/plugins/provision.sh
 	# Rebuild ONLY the services whose code changes every loop (app + backend). The mocks
 	# (mcp-server-mock / external-mock / llm-gateway / mail-mock) also have build: contexts but rarely
@@ -131,6 +143,16 @@ dev-up: app-build
 	@docker compose -f docker-compose.dev.yml build app backend
 	@docker compose -f docker-compose.dev.yml up -d --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
+
+# dev-rebuild-builder —— 重建自定义页 builder 镜像并换上容器。
+#
+# 改了 `builder/`（runner / template / Dockerfile）**或改了 SDK** 之后要跑：页面能 import
+# 到什么，取决于镜像里 /opt/builder/node_modules 有什么，而那是镜像构建期定死的。
+# 先 builder-vendor 摆产物再 build —— 跟 dev-rebuild-mocks 同一条教训：只 build 不换容器，
+# 跑的还是旧进程，而红看起来跟产品的红一模一样。
+dev-rebuild-builder: builder-vendor
+	@docker compose -p standmeet-dev -f docker-compose.dev.yml build builder
+	@docker compose -p standmeet-dev -f docker-compose.dev.yml up -d --no-deps builder
 
 # dev-rebuild-mocks —— force-rebuild the mock/support images (only needed when a mock's source
 # changed; the normal dev-up path reuses their cached images).
@@ -153,7 +175,7 @@ dev-rebuild-mocks:
 # address ever reaches the backend: conversations record no source IP, IP bans
 # have nothing to target, and the per-IP code lockout becomes one shared bucket.
 # The backend says so once in its log when it happens.
-prod-up:
+prod-up: builder-vendor
 	@test -f .env || { echo "create .env first: cp .env.example .env && edit"; exit 2; }
 	@infra/plugins/provision.sh
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build --wait
@@ -187,6 +209,12 @@ prod-backend:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml build backend
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait backend
 	@echo "[prod] backend rebuilt (app reused) — http://localhost:38227"
+
+# prod-rebuild-builder —— `dev-rebuild-builder` 的对称物。改了 builder/ 或 SDK 之后，
+# prod 上的页面能 import 到什么同样是镜像构建期定死的。
+prod-rebuild-builder: builder-vendor
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml build builder
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --no-deps builder
 
 prod-down:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down

@@ -17,7 +17,8 @@ Verified by reading, 2026-08-22:
 | The host serves the built files byte-for-byte from `<page_id>/<build_id>/dist`, reverse-proxied from `/p/<slug>`. | `backend/internal/routes/public/custom_pages.go` |
 | The SDK already packages both halves the owner would want: corpus reads and an agent turn. | `sdk/packages/react/src/index.ts` — `StandMeetProvider`, `useStandMeet`, `useChatSession`, `AnswerText`, `httpPromptSource`, `httpAgentTurnStreamer` |
 | The four advertised templates are translation keys. No template artifact exists, and `custom_page.create` takes only slug and title. | `app/src/components/admin/sections/CustomPagesSection.tsx:207` |
-| The outward HTTP surface is 24 flat endpoints. There is no single visitor entry. | `backend/internal/routes/public/*.go` |
+| The outward plane already converges. Outward ops are declared once; two outward facades (`chat`, `api`) project them; direction is enforced so the planes cannot mix. | `backend/internal/infra/paritymanifest/manifest_outward.go`, `internal/infra/facadeparity` |
+| Chat and the API-key facade assemble through the same registry, so ACL / denial / quota behave identically by construction. | `capreg.Registry.AssembleVisitor*`, `capload/api_key_toolset.go` |
 
 So: an owner can host a page, and that page can render text. It cannot read one line of the
 owner's corpus, and it cannot ask the owner's AI anything. The capability exists one directory
@@ -80,18 +81,21 @@ So the mount is a **host contract**, not an import:
 
 ## 5. The visitor facade — one exit
 
-Today's 24 endpoints under `routes/public` grew one at a time. Each new outward client adds
-its own path, and a page or a Gateway would add more. That is the shape this design refuses.
+**This section originally claimed the convergence was missing. It is not — that claim was
+made by counting route files, and most of `routes/public` is static and meta (robots.txt,
+sitemap, appearance.css, output, report), not capability surface. Only four files dispatch
+capabilities, and they already share one assembly.** The correction matters, because building
+"the visitor facade" would have rebuilt `facade-directions.md`, which is already implemented.
 
-**Requirement:** there is one visitor facade. Every outward actor exits through it —
-the visitor chat, a custom page, the API-key surface, and any future Gateway.
+What is actually true: the outward plane converges at the capability layer. Outward ops are
+declared once in `ManifestOutward()`; `chat` and `api` are projections; `facadeparity.Conform`
+refuses to let an owner-plane op render outward. A custom page therefore needs **no new
+facade** — it is a client of the existing `chat` facade, reached the same way the embed already
+reaches it cross-origin.
 
-This mirrors two conventions the repo already runs on:
-
-- outbound capability converges on the dispatcher (`dispatcher-outbound-convergence`);
-- inbound host operations converge on hostdesk (`hostdesk.md`).
-
-The visitor plane is the third convergence, and it is the one still missing. Concretely:
+So this section states a **rule to keep**, not work to do. The invariants below are what stop
+the next client from growing the surface — and they are the acceptance test for IM and Gateway
+when those are built:
 
 - **V-1** — an outward capability is declared once, and every outward facade projects it.
   Adding a facade adds no capability; it adds a projection.
@@ -202,10 +206,10 @@ private corpus passes the suite.
 Four slices. Each is separately verifiable, and the order is a dependency order, not a
 preference.
 
-**S1 — the visitor facade exists.** Declare the outward capabilities once and give the facade
-a single grant-resolution point (V-2). Project today's chat onto it and leave the 24 endpoints
-answering, so nothing outward changes behaviour yet. Done when the chat runs through the
-facade and the parity ratchet covers the outward plane (V-4).
+**S1 — nothing to build.** The outward plane is already declared, projected and direction-
+enforced (§1, §5). S1 is a **check**, not a slice: confirm a page needs no new outward op and
+no new endpoint. If at any point in S2–S4 the answer is "add a route under `routes/public`",
+stop — that is the convergence failing, and the fix is upstream in `ManifestOutward()`.
 
 **S2 — the page can carry a session.** SDK into the builder image, `set_mounts`, and the build
 emitting the SDK only when a mount asks for it. Done when a page that mounts nothing issues
@@ -217,7 +221,7 @@ the one that must be written first.
 
 **S4 — one real template, and the false labels removed.**
 
-**The trap in this order:** S1 is the slice with no visible result. It is also the only one
-that makes S2–S4 additions rather than new paths — and the one that decides whether IM, when
-it arrives, is a projection or another pile. If S1 gets deferred because S2 shows something on
-screen, the convergence never happens; that is how the 24 endpoints got there.
+**S4 is not decoration.** The acceptance for this work is a page with real function — corpus
+on it, an agent on it, and a design that someone would actually publish. A page that renders a
+heading proves the lifecycle and nothing else; that is what the current audit shot shows, and
+it is why this document exists.

@@ -103,3 +103,6 @@ mock-stack/mail/mail
 # real PNG assets living under app/, docs/ or sdk/ are unaffected. Audit shots belong in
 # the round's trajectory dir (already ignored above); pass an absolute path when saving one.
 /*.png
+
+# builder/vendor —— SDK 产物的暂存地（infra/scripts/builder-vendor.sh 生成），不进仓库。
+builder/vendor/
