@@ -226,6 +226,26 @@ test.describe('custom pages · withdrawal is not a snapshot (I-3)', () => {
     expect(after.status(), 'a deleted page stops serving').toBeGreaterThanOrEqual(400);
   });
 
+  // 托管页的自由度**是一个可以被一行 header 一次性拿走的东西**。
+  //
+  // 页面能放远端图片 / mp4 / 音频 / 第三方 iframe / 远端字体，靠的是这条路上没有 CSP，
+  // 也没有 X-Frame-Options。哪天谁在 app 或 backend 上加一条「安全加固」的默认头，
+  // **每一个 owner 建的页会同时哑掉**，而且不报错：图不显示、视频不播、iframe 一片空白。
+  // 这条守的就是那个 —— 断的是「我们没有对浏览器说不许」，不是某一个素材能不能加载
+  // （那要真去公网取，把整套 e2e 绑在别人的可用性上）。
+  test('nothing on this path tells the browser to refuse third-party media', async () => {
+    const live = await liveAt(request, csrf, 'openpage');
+    expect(live.status()).toBe(200);
+    const h = live.headers();
+    expect(h['content-security-policy'] ?? '',
+      'a CSP here would silently kill remote img/video/audio on every custom page').toBe('');
+    expect(h['content-security-policy-report-only'] ?? '').toBe('');
+    // 第三方 iframe 是**这一页嵌别人**，跟 X-Frame-Options（别人嵌这一页）方向相反，
+    // 所以这里只断我们没有拿 CSP 的 frame-src 去挡自己的页面 —— 上一条已经覆盖了。
+    expect(h['cross-origin-embedder-policy'] ?? '',
+      'COEP would break every cross-origin image and media on the page').toBe('');
+  });
+
   test('the page is never handed to the browser as cacheable', async () => {
     const live = await liveAt(request, csrf, 'nocache');
     // 撤下之后还能打开，如果是我们让浏览器存的，那就是我们的问题不是浏览器的。

@@ -1,0 +1,30 @@
+{
+  "_why": "看这一页真的长什么样。分三段拍：hero（远端视频在播）、中段（图廊 + 音频 + 语料）、页脚（iframe 地图）。判据是**素材真的出现在截图上** —— DOM 里有一个 <img> 什么也不证明。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "viewport": [1440, 1000],
+  "login": false,
+  "shots": [
+    {
+      "name": "cpcb-91-hero",
+      "url": "/p/lucerna",
+      "steps": [{ "wait": 9000 }],
+      "wait": 1500,
+      "fullPage": false
+    },
+    {
+      "name": "cpcb-92-full",
+      "steps": [{ "wait": 3000 }],
+      "wait": 2000,
+      "fullPage": true
+    },
+    {
+      "name": "cpcb-93-map",
+      "steps": [
+        { "scroll": ["body", 4200] },
+        { "wait": 8000 }
+      ],
+      "wait": 1500,
+      "fullPage": false
+    }
+  ]
+}
