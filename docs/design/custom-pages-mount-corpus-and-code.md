@@ -160,11 +160,19 @@ the code the same way every visitor surface does — in the URL — and the faca
 a role. **This is what makes I-1 and I-2 true rather than aspirational**: the page has no way
 to obtain a grant the viewer does not already have.
 
-**C. Where the mount is declared — on the page, read at build.**
+**C. Where the mount is declared — nowhere. The import is the mount.**
 
-The mount changes what the build emits, so it must be known when `custom_page.build` runs. It
-is a property of the page, not of a file or of one build. One op, one home:
-`custom_page.set_mounts { slug, corpus, code }`.
+This was going to be `custom_page.set_mounts { slug, corpus, code }`. Building it showed the op
+is not needed: vite bundles what the entry reaches, so a page that does not import
+`@standmeet/sdk` ships none of it, and a page that imports it has mounted it. The opt-in the
+requirement asked for is expressed by the source itself.
+
+Nothing is lost by dropping it, because the flag was never a security gate — I-1 and I-2 hold
+regardless of who imports what, since the page can only ever obtain the viewer's own grant.
+
+What a `set_mounts` op would still buy is **owner visibility**: the admin list saying which
+pages reach the corpus. That is worth having and is a different, smaller feature — a read over
+the stored source, not a switch.
 
 **D. The four advertised templates — build one, stop naming the rest.**
 
@@ -211,15 +219,19 @@ enforced (§1, §5). S1 is a **check**, not a slice: confirm a page needs no new
 no new endpoint. If at any point in S2–S4 the answer is "add a route under `routes/public`",
 stop — that is the convergence failing, and the fix is upstream in `ManifestOutward()`.
 
-**S2 — the page can carry a session.** SDK into the builder image, `set_mounts`, and the build
-emitting the SDK only when a mount asks for it. Done when a page that mounts nothing issues
-zero requests, and a page that mounts `code` holds a real turn through the facade.
+**S2 — the page can carry a session. ✅ built.** The SDK closure is staged into the builder
+image (`infra/scripts/builder-vendor.sh`), so `import "@standmeet/sdk"` resolves. No mount flag
+was needed — see fork C.
 
-**S3 — corpus mount.** `useStandMeet` reads through the same facade with the same role. Done
-when the anonymous / coded / private-entry triple in §9 holds — the private-entry negative is
-the one that must be written first.
+**S3 — corpus mount. ✅ built.** A page reads pinned corpus with `fetchPage`, opens an entry
+with `fetchWikiLanding`, and holds an anonymous turn with `useChatSession`, all through the
+existing chat facade. Driven on prod: `corpus_search` ×2, `corpus_read` ×4 against real notes,
+4039-character answer. The §9 negative — a page cannot read what the viewer's role cannot —
+is **not yet guarded**, and is the next thing to write.
 
-**S4 — one real template, and the false labels removed.**
+**S4 — one real template, and the false labels removed.** The worked example exists
+(`docs/design/examples/reading-room.App.tsx`); promoting it to a selectable template and
+removing the three labels that name nothing is still open.
 
 **S4 is not decoration.** The acceptance for this work is a page with real function — corpus
 on it, an agent on it, and a design that someone would actually publish. A page that renders a
