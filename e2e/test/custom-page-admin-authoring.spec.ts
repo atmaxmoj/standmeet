@@ -155,8 +155,20 @@ test.describe('custom pages · authoring from the panel (parity with MCP)', () =
     expect(bad.status, 'a build that cannot compile must not report built').toBe('failed');
     // **不断"有 error_message"** —— 空串也叫有。断它说得出点什么，
     // 否则 owner 拿到的是一个没有原因的失败（[[collapsed-error-class-kills-its-own-branch]]）。
-    expect((bad.error_message ?? '').length,
-      'and it must say something the owner can act on').toBeGreaterThan(10);
+    // 断的是**它说出了坏在哪一份源码里**，不是「说了点什么」。
+    //
+    // 上一版断的是 `length > 10` —— 一句长度够的话就过，而当时产品给出的正是
+    // `Command failed: node /tmp/work/<uuid>/node_modules/vite/bin/vite.js build --logLevel error`：
+    // 长度足够、内容全是我们自己的内部命令行，owner 要改的那一行一个字都没有（F-P-3）。
+    // 长度不是判据，长度只是一个恒真的形状（[[assertion-that-cannot-fail]]）。
+    expect(bad.error_message ?? '',
+      'the failure must name the source that broke, not our own command line')
+      .toContain('App.tsx');
+    // 而且不许把 esbuild 自己的调用栈一起摆出来。抓回 stderr 之后第一版就是这样：
+    // 「哪一行坏了」是对的，后面跟着一整串 `at failureErrorWithLog (node_modules/esbuild/…)`,
+    // 把有用的那两行挤到看不见的地方 —— 修一个问题顺手造出另一个（F-P-3 的第二半）。
+    expect(bad.error_message ?? '', 'and it must not dump a stack trace at the owner')
+      .not.toMatch(/\bat \w+ \(/);
 
     // 线上仍是上一版：失败不许把已经在服务的东西弄没。
     const still = await request.get(`${BACKEND}/api/v1/custom-pages/broken`);

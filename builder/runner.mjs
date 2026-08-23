@@ -95,16 +95,57 @@ function setupViteProject(workDir, files, entry) {
   );
 }
 
+// runViteBuild —— 跑一次构建。**编译器说的话要抓回来**：`stdio: 'inherit'` 把 vite 的
+// 诊断丢进 builder 容器自己的日志，于是 owner 那一侧只剩 execFileSync 自己那句
+// `Command failed: node /tmp/work/<uuid>/…/vite.js build --logLevel error` ——
+// 长度够、一个字都用不上，而 owner 要改的正是它没说的那一行（F-P-3）。
+//
+// 抓回来之后还得**去掉工作目录**：`/tmp/work/<uuid>/` 是我们的内部地址，
+// 印给 owner 只会让他去找一个不存在的文件。剩下的是 `src/owner/App.tsx:3:1` 这样的相对路径。
 function runViteBuild(workDir) {
-  execFileSync(
-    'node',
-    [join(workDir, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--logLevel', 'error'],
-    {
-      cwd: workDir,
-      stdio: ['ignore', 'inherit', 'inherit'],
-      env: { ...process.env, NODE_ENV: 'production' },
-    },
-  );
+  try {
+    execFileSync(
+      'node',
+      [join(workDir, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--logLevel', 'error'],
+      {
+        cwd: workDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        env: { ...process.env, NODE_ENV: 'production' },
+      },
+    );
+  } catch (e) {
+    throw new Error(viteFailureText(e, workDir));
+  }
+}
+
+function viteFailureText(e, workDir) {
+  const said = `${e?.stderr ?? ''}${e?.stdout ?? ''}`.trim();
+  // 编译器一句话没说的时候（比如进程被杀）才退回 execFileSync 那句 —— 说不清就说
+  // 我们知道的那点，不编一个更具体的原因。
+  const text = said === '' ? (e?.message ?? String(e)) : said;
+  return stripWorkDir(dropStackFrames(text), workDir);
+}
+
+// dropStackFrames —— 砍掉 esbuild 自己的调用栈。
+//
+// 抓回 stderr 之后，owner 拿到的是「哪一行坏了」**加上**一整串
+// `at failureErrorWithLog (node_modules/esbuild/lib/main.js:1748:15) at …`。
+// 那串是我们的依赖在我们的容器里的内部路径：对 owner 一个字都用不上，
+// 而它把真正有用的那两行挤到了看不见的地方。产品的规矩是界面上不出现裸栈。
+function dropStackFrames(text) {
+  const kept = [];
+  for (const line of text.split('\n')) {
+    if (/^\s*at\s/.test(line)) break;
+    kept.push(line);
+  }
+  return kept.join('\n').trim();
+}
+
+// stripWorkDir —— `/tmp/work/<uuid>/` 是我们的内部地址，印给 owner 只会让他
+// 去找一个不存在的文件。去掉之后剩下 `src/owner/App.tsx:3:0` 这样的相对路径。
+function stripWorkDir(text, workDir) {
+  return text.split(`${workDir}/`).join('').split(workDir).join('');
 }
 
 async function markBuilt(buildID, outputPath) {

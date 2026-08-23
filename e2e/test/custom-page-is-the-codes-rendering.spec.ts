@@ -189,8 +189,13 @@ test.describe('everything the code carries, carries onto the page', () => {
     // 一个静默失败的页面跟一个还在想的页面长得一样。
     const second = await scriptMockReplyText(admin.request, 'this must never render');
     await askOnPage(page, `second ${second}`);
-    await expect(sm(page, 'error'), 'the page says the allowance ran out')
-      .not.toHaveText('', { timeout: 30_000 });
+    // 断的是**后端为这次拒绝写的那句话到了屏幕上**，不是「有东西显示出来了」。
+    // 上一版的页面印的是 `send message: 403`：SDK 把状态码留下、把那句话扔了，
+    // 于是每一个用 SDK 建的页面都拿一个数字招呼读者（F-P-5）。
+    await expect(sm(page, 'error'), 'the page says the allowance ran out, in words')
+      .toContainText('turn limit', { timeout: 30_000 });
+    await expect(sm(page, 'error'), 'and not a bare status code')
+      .not.toContainText('403');
     await expect(sm(page, 'answer'), 'and no second answer arrives')
       .not.toContainText('this must never render');
   });
@@ -213,8 +218,9 @@ test.describe('everything the code carries, carries onto the page', () => {
     await second.getByTestId('visitor-name-submit').click();
 
     // 名额满了要在**进门那一刻**被挡住，而且说得出为什么 —— 挂了页也不该换一种说法。
-    await expect(second.getByTestId('visitor-name-input'),
-      'a code with one name left does not admit a second reader')
+    // 断的是那句话，不是「输入框还在」：产品把输入框换成了拒绝的理由，那是对的做法。
+    await expect(second.getByText(/reached its limit of names/i),
+      'a code with one name left tells the second reader why')
       .toBeVisible({ timeout: 20_000 });
     expect(new URL(second.url()).pathname, 'and the second reader never reaches the page')
       .not.toBe('/p/named');

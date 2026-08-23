@@ -1,0 +1,33 @@
+{
+  "_why": "custom-page-code-binding check 5 后半 —— 带着 ROOM-001（每场 1 轮）进页面，问两次。第一次要答得出来，第二次要被同一套配额挡住并且**页面说出来**。判据是页面上多了一句话，不是「没答出来」：一个静默失败的页面跟一个还在想的页面长得一样。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    {
+      "name": "cpcb-81-first-turn",
+      "url": "/?code=ROOM-001",
+      "steps": [
+        { "wait": 6000 },
+        { "type": ["[data-testid=\"visitor-name-input\"]", "Meter Mo"] },
+        { "click": "[data-testid=\"visitor-name-submit\"]" },
+        { "wait": 12000 },
+        { "type": [".ask input", "name one thing you build"] },
+        { "press": [".ask input", "Enter"] },
+        { "wait": 90000 }
+      ],
+      "wait": 1500,
+      "fullPage": false
+    },
+    {
+      "name": "cpcb-82-second-turn-refused",
+      "steps": [
+        { "type": [".ask input", "and one more thing"] },
+        { "press": [".ask input", "Enter"] },
+        { "wait": 20000 }
+      ],
+      "wait": 1500,
+      "fullPage": false
+    }
+  ]
+}

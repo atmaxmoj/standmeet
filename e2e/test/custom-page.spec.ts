@@ -13,7 +13,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
-import { gotoAdminSection } from '@/fixtures/navigate';
+import { goto, gotoAdminSection, reloadAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -95,7 +95,74 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
       await page.getByTestId('custom-page-slug').fill('from-the-panel');
       await expect(page.getByTestId('custom-page-publish')).toBeEnabled();
     });
+
+  // F-P-2 —— **改一版再发一次**是这一屏最常做的事，不是边角情况。
+  //
+  // 上一版把「建」写死在发布序列的第一步，于是第二次发同一个 slug 撞 409，整条序列在那里
+  // 停住：源码没写上去、构建没跑、线上还是旧的。owner 手上只有一个按钮，而这个按钮
+  // 对一个已经存在的页面**永远不工作**。
+  //
+  // 断的是**第二版真的上线了**，不是「没报错」：报没报错跟页面换没换是两件事。
+  test('publishing the same slug again ships the new source (F-P-2)',
+    async ({ adminPage: page }) => {
+      // 两次真构建，沙箱一次只建一个 —— 默认 30s 的用例预算会在第一次的轮询中途断掉，
+      // 而那个红读起来像「第二次没发出去」，其实是排队被截断（[[red-in-the-wrong-place]]）。
+      test.setTimeout(300_000);
+      await publishFromPanel(page, 'twice-over', markerApp('FIRST_CUT'));
+      await expectServed(page, 'twice-over', 'FIRST_CUT');
+
+      await publishFromPanel(page, 'twice-over', markerApp('SECOND_CUT'));
+      await expectServed(page, 'twice-over', 'SECOND_CUT');
+    });
+
+  // F-P-4 —— **发得出去就得撤得回来**。
+  //
+  // 「owner 在 admin 撤了，访客就访问不到」是这一族的规矩之一，而上一版这一屏只有
+  // 「看线上」一个动作：撤下只在 MCP 上，于是 owner 要把自己刚发的东西拿下来，
+  // 得另开一个 Claude 会话。判据在**访客那一侧** —— 面板说撤了不算数。
+  test('the panel can take a page down again, and the visitor loses it (F-P-4)',
+    async ({ adminPage: page }) => {
+      test.setTimeout(300_000);
+      await publishFromPanel(page, 'withdrawn', markerApp('STILL_UP'));
+      await expectServed(page, 'withdrawn', 'STILL_UP');
+
+      await reloadAdminSection(page, 'custom-pages');
+      await page.getByTestId('custom-page-takedown-withdrawn').click();
+
+      await expect.poll(async () => {
+        const after = await page.request.get('/api/v1/custom-pages/withdrawn');
+        return after.status();
+      }, { message: 'a page taken down in the panel stops serving' }).toBeGreaterThanOrEqual(400);
+    });
 });
+
+function markerApp(marker: string): string {
+  return `export default function App() {\n  return <main><h1>${marker}</h1></main>;\n}`;
+}
+
+// publishFromPanel —— 填 slug、粘源码、点发布，等构建走到终态。**只等终态**：
+// 断「还在跑」对任何实现都成立。
+async function publishFromPanel(page: Page, slug: string, source: string): Promise<void> {
+  // 每次**整页回**面板 —— 上一趟看完线上页之后浏览器停在 `/p/<slug>`，那上面没有侧栏，
+  // 点导航的 gotoAdminSection 到不了；红会落在跟这条 check 无关的地方。
+  await reloadAdminSection(page, 'custom-pages');
+  await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+  await page.getByTestId('custom-page-slug').fill(slug);
+  await page.getByTestId('custom-page-source').fill(source);
+  await page.getByTestId('custom-page-publish').click();
+  // 沙箱一次只建一个，这一族里别的用例也在建 —— 预算给的是排队。
+  await expect(page.getByTestId('custom-page-build-status'))
+    .toHaveText(/built/i, { timeout: 180_000 });
+}
+
+async function expectServed(page: Page, slug: string, marker: string): Promise<void> {
+  const served = await page.request.get(`/api/v1/custom-pages/${slug}`);
+  expect(served.status(), `/p/${slug} is serving`).toBe(200);
+  const assets = await page.request.get(`/p/${slug}`);
+  expect(await assets.text(), `the live page carries ${marker}`).toContain('<div id="root">');
+  await goto(page, `/p/${slug}`);
+  await expect(page.getByRole('heading', { name: marker })).toBeVisible({ timeout: 20_000 });
+}
 
 async function mcpSetup(
   request: APIRequestContext,

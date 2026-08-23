@@ -1,0 +1,21 @@
+{
+  "_why": "custom-page-code-binding check 5 —— 码带着的那一整套，在页面上一点没变。这一趟只调**轮数**：把 ROOM-001 的每场轮数改成 1，然后在页面上问两次。第二次必须被同一套配额挡住，而且页面得说出来 —— 一个静默失败的页面跟一个还在想的页面长得一样。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "cpcb-80-set-turns",
+      "url": "/admin/codes",
+      "steps": [
+        { "wait": 6000 },
+        { "click": "[data-testid=\"code-card-ROOM-001\"] >> text=EDIT" },
+        { "wait": 1500 },
+        { "type": ["[data-testid=\"code-max-turns\"]", "1"] },
+        { "click": "[data-testid=\"code-save\"]" },
+        { "wait": 3000 }
+      ],
+      "wait": 800,
+      "fullPage": false
+    }
+  ]
+}

@@ -103,6 +103,10 @@
     "byoaiOn": "readers may bring their own key",
     "byoaiOff": "no bring-your-own-key",
     "byoaiVoid": "byok · decided by the code",
+    "takeDown": "take down",
+    "tookDown": "/p/{slug} is no longer served",
+    "delete": "delete",
+    "deleted": "/p/{slug} is gone",
     "byoaiNote": "Applies only when nobody presents a code. A reader arriving with a code is scoped by that code, and this setting does not apply.",
     "templatesAvailable": "templates available",
     "templates": {

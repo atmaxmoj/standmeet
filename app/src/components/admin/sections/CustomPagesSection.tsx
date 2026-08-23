@@ -167,6 +167,8 @@ function ByoaiVoid({ slug }: { slug: string }) {
   );
 }
 
+// block —— 上一版是行内 `<button>`，于是它紧接在「哪些码开这一页」那句后面，
+// 屏幕上读成 `…anonymous onlyno bring-your-own-key`：两句话粘成一句谁也看不懂的话（UX-98）。
 function ByoaiButton({ page }: { page: CustomPageSummary }) {
   const t = useTranslations('adminPages.customPages');
   const { setByoai } = useCustomPages();
@@ -175,7 +177,7 @@ function ByoaiButton({ page }: { page: CustomPageSummary }) {
   return (
     <button
       type="button"
-      className="mono text-[10px] mt-1 text-(--color-accent) hover:underline"
+      className="block mono text-[10px] mt-1 text-(--color-accent) hover:underline"
       data-testid={`custom-page-byoai-${page.slug}`}
       onClick={() => void run(() => setByoai(page.slug, !allow), { success: byoaiToast(page.slug, allow) })}
     >
@@ -238,11 +240,50 @@ function DateCell({ iso }: { iso: string }) {
   );
 }
 
+// ActionsCell —— 看、下线、删。**发得出去就得撤得回来**：少了后两个，
+// 「owner 在 admin 撤了，访客就访问不到」这条规矩在这一屏上根本没法执行，
+// owner 得开一个 Claude 会话调 MCP 才能把自己刚发的东西拿下来（F-P-4）。
 function ActionsCell({ page }: { page: CustomPageSummary }) {
   return (
-    <td className="px-4 py-3 text-right">
+    <td className="px-4 py-3 text-right whitespace-nowrap">
       <ViewLiveLink page={page} />
+      <TakeDownLink page={page} />
+      <DeleteLink slug={page.slug} />
     </td>
+  );
+}
+
+// TakeDownLink —— 下线。构建还在，随时可以再上线，所以它跟「删掉」是两个动作，
+// 后果不一样就不合成一个。没在服务的页面不显示这个 —— 一个撤不下来的东西不该有撤的入口。
+function TakeDownLink({ page }: { page: CustomPageSummary }) {
+  const t = useTranslations('adminPages.customPages');
+  const { rollback } = useCustomPages();
+  const run = useAction();
+  return page.has_live ? (
+    <button
+      type="button"
+      data-testid={`custom-page-takedown-${page.slug}`}
+      className="ml-3 mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
+      onClick={() => void run(() => rollback(page.slug), { success: t('tookDown', { slug: page.slug }) })}
+    >
+      {t('takeDown')}
+    </button>
+  ) : null;
+}
+
+function DeleteLink({ slug }: { slug: string }) {
+  const t = useTranslations('adminPages.customPages');
+  const { removePage } = useCustomPages();
+  const run = useAction();
+  return (
+    <button
+      type="button"
+      data-testid={`custom-page-delete-${slug}`}
+      className="ml-3 mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
+      onClick={() => void run(() => removePage(slug), { success: t('deleted', { slug }) })}
+    >
+      {t('delete')}
+    </button>
   );
 }
 

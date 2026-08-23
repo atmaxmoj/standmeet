@@ -292,9 +292,12 @@ function OpensCol({ code }: { code: CodeView }) {
     { success: `${code.code} now opens ${slug === '' ? 'the visitor chat' : `/p/${slug}`}` },
   );
   return (
-    <MetaPair label={t('codeCard.opensLabel')}>
+    // col-span-full —— 这一格装的是**一个地址**（`/p/reading-room`），不是一个短词。
+    // 挤在三列里的时候它把自己的值截成了 `the visitor ch⌄`：一个读不完的下拉框，
+    // owner 看不出这张码到底开哪一页（UX-99）。
+    <MetaPair label={t('codeCard.opensLabel')} className="col-span-full sm:col-span-2">
       <SelectField
-        className="min-w-0 max-w-full"
+        className="w-full"
         mono
         value={code.custom_page_slug}
         onChange={(e) => void onPick(e.target.value)}

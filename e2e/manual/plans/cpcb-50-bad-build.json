@@ -1,0 +1,34 @@
+{
+  "_why": "custom-page-code-binding check 2 ⭐ —— 一次编译不过的构建要**说得出话**，而且不许动线上。判据是屏幕上那句话里有 owner 能拿去改代码的东西，以及 /p/panel-made 撤下之前之后都还在服务（这是这一屏可不可信的分水岭：悄悄失败、线上还是旧页，在 owner 眼里跟成功一模一样）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    {
+      "name": "cpcb-50-before",
+      "url": "/p/panel-made",
+      "steps": [{ "wait": 4000 }],
+      "wait": 500,
+      "fullPage": false
+    },
+    {
+      "name": "cpcb-51-bad-build",
+      "url": "/admin/custom-pages",
+      "steps": [
+        { "wait": 6000 },
+        { "type": ["[data-testid=\"custom-page-slug\"]", "panel-made"] },
+        { "type": ["[data-testid=\"custom-page-source\"]", "export default function App() {\n  return <main><h1>never built</h1></main>;\n"] },
+        { "click": "[data-testid=\"custom-page-publish\"]" },
+        { "wait": 45000 }
+      ],
+      "wait": 1000,
+      "fullPage": false
+    },
+    {
+      "name": "cpcb-52-live-untouched",
+      "url": "/p/panel-made",
+      "steps": [{ "wait": 4000 }],
+      "wait": 500,
+      "fullPage": false
+    }
+  ]
+}

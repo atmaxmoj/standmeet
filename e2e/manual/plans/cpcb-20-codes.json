@@ -1,0 +1,14 @@
+{
+  "_why": "custom-page-code-binding check 6 —— 绑定要**两头都看得见**。先看码那一侧现在长什么样：每张卡上该有一个「opens」，默认是访客对话。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "viewport": [1280, 1600],
+  "shots": [
+    {
+      "name": "cpcb-20-codes",
+      "url": "/admin/codes",
+      "steps": [{ "wait": 6000 }],
+      "wait": 1000,
+      "fullPage": true
+    }
+  ]
+}

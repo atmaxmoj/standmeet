@@ -210,7 +210,7 @@ async function* streamMessage(
   // （[[collapsed-error-class-kills-its-own-branch]]）。
   // 同一个文件里的 `issueSession` 早就是这么做的；这条只是没跟上。
   if (!res.ok || !res.body) {
-    throw Object.assign(new Error(`send message: ${res.status}`), { status: res.status });
+    throw await turnError(res);
   }
   // 边流边攒这一轮的答案，收场时接进逐字稿 —— 下一轮就带着它走。
   let answer = '';
@@ -219,6 +219,28 @@ async function* streamMessage(
     yield ev;
   }
   rememberTurn(histories, conversationID, content, answer);
+}
+
+// turnError —— 一轮被拒时抛出的错误。**message 就是后端写给读者的那句话。**
+//
+// 上一版抛的是 `send message: 403`，状态码留下了、那句话扔了 —— 而调用方渲染的正是
+// `error.message`，于是每一个用这个 SDK 建的页面都拿一个数字招呼读者：
+// 「配额用完了」「码被撤销了」「这一场正忙」在屏幕上全是三位数（F-P-5）。
+// 同一个文件里的 `issueSession` 早就把信封读出来了；这条一直没跟上。
+//
+// status / code 仍然挂在错误上：调用方要**分类**（429 是「这一场正忙着」，等它完再问）
+// 靠的是它们，不是那句话的措辞。信封读不出来才退回状态码那句。
+async function turnError(res: Response): Promise<Error> {
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: { code?: unknown; message?: unknown };
+  };
+  const env = body.error ?? {};
+  const said = typeof env.message === 'string' ? env.message.trim() : '';
+  return Object.assign(new Error(said === '' ? `send message: ${res.status}` : said), {
+    status: res.status,
+    code: typeof env.code === 'string' ? env.code : '',
+    serverMessage: said,
+  });
 }
 
 // composeSystem —— 这一场的 system prompt：先按 `system_prompt_part_ids` 逐段取回固定

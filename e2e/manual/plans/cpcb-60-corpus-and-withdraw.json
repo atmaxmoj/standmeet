@@ -1,0 +1,19 @@
+{
+  "_why": "custom-page-code-binding checks 3 / 7 —— ① 页面上打开语料里的一条（读者看到的是他读得到的那一份）；② 在**面板上**把 panel-made 撤下来，再去访客那一侧看它是不是真没了。「撤了就访问不到」这条规矩，得在 admin 上执行得了才算数。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "viewport": [1280, 1400],
+  "login": false,
+  "shots": [
+    {
+      "name": "cpcb-60-note-open",
+      "url": "/p/reading-room",
+      "steps": [
+        { "wait": 8000 },
+        { "click": "button.row" },
+        { "wait": 5000 }
+      ],
+      "wait": 800,
+      "fullPage": false
+    }
+  ]
+}

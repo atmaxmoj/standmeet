@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
+import { APIError } from '@/lib/api/api-error';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -39,6 +40,8 @@ export interface CustomPagesHook {
   getBuild: (buildID: string) => Promise<BuildView>;
   promote: (slug: string, buildID: string) => Promise<void>;
   setByoai: (slug: string, allow: boolean) => Promise<void>;
+  rollback: (slug: string) => Promise<void>;
+  removePage: (slug: string) => Promise<void>;
 }
 
 export const customPagesStore = createResourceStore<CustomPageSummary[]>({
@@ -53,7 +56,7 @@ export function useCustomPages(): CustomPagesHook {
   return {
     status: r.status, rows: r.data ?? [], error: r.error,
     refresh: customPagesStore.getState().refresh,
-    createPage, writeFile, build, getBuild, promote, setByoai,
+    createPage, writeFile, build, getBuild, promote, setByoai, rollback, removePage,
   };
 }
 
@@ -90,13 +93,29 @@ async function promote(slug: string, buildID: string): Promise<void> {
 export async function publishPage(
   slug: string, source: string, onTick: (b: BuildView) => void,
 ): Promise<BuildView> {
-  await createPage(slug, slug);
+  await ensurePage(slug);
   await writeFile(slug, 'App.tsx', source);
   const started = await build(slug);
   onTick(started);
   const settled = await pollBuild(started.build_id, onTick);
   await promoteIfBuilt(slug, settled);
   return settled;
+}
+
+// ensurePage —— 发布序列的第一步是「**这个页在不在**」，不是「建一个新页」。
+//
+// 改一版再发一次是这一屏最常做的事。上一版把 createPage 写死在第一步，于是第二次发
+// 同一个 slug 撞 409，整条序列停在那里：源码没写上去、构建没跑、线上还是旧的 ——
+// 面板上那个唯一的按钮对一个已经存在的页面**永远不工作**（F-P-2）。
+//
+// 只咽 409 这一种。别的失败照旧抛出去：一个 500 被当成「已经有了」的话，
+// 接下来的写和构建都会打在一个不存在的页上，而 owner 只会看到一次莫名其妙的构建失败。
+async function ensurePage(slug: string): Promise<void> {
+  try {
+    await createPage(slug, slug);
+  } catch (e) {
+    if (!(e instanceof APIError) || e.status !== 409) throw e;
+  }
 }
 
 async function pollBuild(id: string, onTick: (b: BuildView) => void): Promise<BuildView> {
@@ -116,6 +135,22 @@ async function promoteIfBuilt(slug: string, settled: BuildView): Promise<void> {
 }
 
 const POLL_MS = 1500;
+
+// rollback / removePage —— **撤下**。owner 在面板上发得出去，就得在面板上撤得回来：
+// 少了这两个，「admin 撤了访客就访问不到」这条规矩在面板上根本执行不了，
+// owner 得开一个 Claude 会话去调 MCP 才能把自己刚发的东西拿下来（F-P-4）。
+//
+// rollback 只下线（构建还在，可以再上）；delete 是整页没了。两个动作分开摆，
+// 因为它们的后果不一样。
+async function rollback(slug: string): Promise<void> {
+  await adminAPI.post(`/custom-pages/${slug}/rollback`, {}, z.object({}).passthrough());
+  await customPagesStore.getState().refresh();
+}
+
+async function removePage(slug: string): Promise<void> {
+  await adminAPI.deleteVoid(`/custom-pages/${slug}`);
+  await customPagesStore.getState().refresh();
+}
 
 async function setByoai(slug: string, allow: boolean): Promise<void> {
   await adminAPI.put(`/custom-pages/${slug}/byoai`, { allow_byoai: allow },

@@ -1,0 +1,26 @@
+{
+  "_why": "custom-page-code-binding checks 1 / 3 / 4 / 8 的前置 —— 在**面板上**写一个真页（语料索引 + 问答栏 + 自带 key 那条路），发布。后面几条 check 要有东西可看：一个只印一行字的页面能让每条断言绿，而它什么也证明不了。源码从 docs/design/examples/reading-room.App.tsx 粘进来（typeFile，跟人复制粘贴一样）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "viewport": [1280, 1400],
+  "shots": [
+    {
+      "name": "cpcb-10-authoring",
+      "url": "/admin/custom-pages",
+      "steps": [
+        { "wait": 5000 },
+        { "type": ["[data-testid=\"custom-page-slug\"]", "reading-room"] },
+        { "typeFile": ["[data-testid=\"custom-page-source\"]", "../docs/design/examples/reading-room.App.tsx"] },
+        { "click": "[data-testid=\"custom-page-publish\"]" },
+        { "wait": 4000 }
+      ],
+      "wait": 500,
+      "fullPage": false
+    },
+    {
+      "name": "cpcb-11-published",
+      "steps": [{ "wait": 90000 }],
+      "wait": 1500,
+      "fullPage": true
+    }
+  ]
+}
