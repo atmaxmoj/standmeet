@@ -12,6 +12,7 @@
 // 都是 client-side hook；业务逻辑都在这里。Components 只渲染。
 
 import { useCallback, useState } from 'react';
+import { VISITOR_SESSION_STORAGE_KEY } from '@standmeet/sdk-core';
 
 import {
   issueBYOAISession,
@@ -22,7 +23,9 @@ import { storeBYOAI } from '@/lib/gate/byoai-vault';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { rememberVisitorName } from '@/lib/visitor/visitor-name';
 
-const BYOAI_STORAGE_KEY = 'standmeet:visitor-session';
+// 键名从 SDK 来：自定义页面上的 agent 要**接手**这场已颁发的 session（页面是这张码的
+// 一个渲染），读的就是这一份。两边各写一遍字面量的话，改一处另一处静默失联。
+const BYOAI_STORAGE_KEY = VISITOR_SESSION_STORAGE_KEY;
 
 import { z } from 'zod';
 
@@ -62,6 +65,10 @@ const StoredVisitorSessionSchema = z.object({
   session_token: z.string(),
   conversation_id: z.string(),
   byoai: z.boolean(),
+  // custom_page_slug —— 这张码扫出来看到的是哪一页。**落地决定的唯一落点**：
+  // 领码有两条路（/gate 提交、名字选择器），两条都走这个 persist，所以谁也漏不掉。
+  // 空串 = 默认对话。老 blob 没这个字段 → default ''。
+  custom_page_slug: z.string().default(''),
   capabilities: z.array(CapStateSchema).optional(),
   tool_specs: z.array(ToolSpecSchema).optional(),
   system_prompt_part_ids: z.array(z.string()).optional(),
@@ -82,6 +89,7 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
     session_token: sess.session_token,
     conversation_id: sess.conversation_id,
     byoai,
+    custom_page_slug: sess.custom_page_slug ?? '',
     capabilities: sess.capabilities ? [...sess.capabilities] : undefined,
     tool_specs: sess.tool_specs ? [...sess.tool_specs] : undefined,
     system_prompt_part_ids: sess.system_prompt_part_ids

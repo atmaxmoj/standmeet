@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -53,13 +54,34 @@ func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
 		// 于是撤下的页面照样打得开。那不是「浏览器自己缓存了」，是我们没说别缓存。
 		// 唯一该落在我们控制之外的，是读者已经存进本地的那一份。
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		fp, err := resolveAssetPath(r.Context(), h, r)
+		asset, err := resolveAsset(r.Context(), h, r)
 		if err != nil {
 			writeAssetErr(h.Log, w, err)
 			return
 		}
-		serveFile(h.Log, w, fp, baseHrefFor(r))
+		serveFile(h.Log, w, asset.path, headFor(r, asset.allowBYOAI))
 	}
+}
+
+// pageHead —— 服务 index.html 时要注进 <head> 的东西。空 base = 这一次不是根入口
+// （子资源请求），什么都不注。
+type pageHead struct {
+	base       string
+	allowBYOAI bool
+}
+
+func headFor(r *http.Request, allowBYOAI bool) pageHead {
+	return pageHead{base: baseHrefFor(r), allowBYOAI: allowBYOAI}
+}
+
+// tags —— 注进 <head> 的那几行。
+//
+// byoai 那一条**每次请求现读**：owner 在面板上关掉自带 key，下一次打开这一页就是新值 ——
+// 页面里不存快照，也不必再多问一个端点。这跟不发缓存头是同一件事的两半
+// （撤下的东西必须立刻停止生效）。
+func (p pageHead) tags() string {
+	return `<base href="` + html.EscapeString(p.base) + `">` +
+		`<meta name="standmeet-page-byoai" content="` + strconv.FormatBool(p.allowBYOAI) + `">`
 }
 
 // baseHrefFor —— 给 index.html 注入 <base href> 用。空 assetPath 即根入口，
@@ -73,14 +95,25 @@ func baseHrefFor(r *http.Request) string {
 	return fmt.Sprintf("/p/%s/", chi.URLParam(r, "slug"))
 }
 
-func resolveAssetPath(
+// resolvedAsset —— 这一次要给出的文件，加上服务它时页自己的设置。
+type resolvedAsset struct {
+	path       string
+	allowBYOAI bool
+}
+
+func resolveAsset(
 	ctx context.Context, h *CustomPageHandlers, r *http.Request,
-) (string, error) {
-	build, err := owner.ResolveLiveBuild(ctx, h.Deps, h.Owners, chi.URLParam(r, "slug"))
+) (resolvedAsset, error) {
+	live, err := owner.ResolveLiveBuild(ctx, h.Deps, h.Owners, chi.URLParam(r, "slug"))
 	if err != nil {
-		return "", err
+		return resolvedAsset{}, err
 	}
-	return joinSafeAssetPath(h.BuildsRoot, build.PageID, build.ID, chi.URLParam(r, "*"))
+	fp, perr := joinSafeAssetPath(
+		h.BuildsRoot, live.Build.PageID, live.Build.ID, chi.URLParam(r, "*"))
+	if perr != nil {
+		return resolvedAsset{}, perr
+	}
+	return resolvedAsset{path: fp, allowBYOAI: live.AllowBYOAI}, nil
 }
 
 // joinSafeAssetPath —— 把 owner-provided assetPath 拼成 host 文件路径，强校验
@@ -122,7 +155,7 @@ func insideRoot(target, buildRoot string) bool {
 		strings.HasPrefix(target, buildRoot+string(filepath.Separator))
 }
 
-func serveFile(log *slog.Logger, w http.ResponseWriter, fp, baseHref string) {
+func serveFile(log *slog.Logger, w http.ResponseWriter, fp string, head pageHead) {
 	f, openErr := os.Open(filepath.Clean(fp))
 	if openErr != nil {
 		respondOpenErr(log, w, fp, openErr)
@@ -130,8 +163,8 @@ func serveFile(log *slog.Logger, w http.ResponseWriter, fp, baseHref string) {
 	}
 	defer closeAndLog(log, f)
 	w.Header().Set("Content-Type", contentTypeFor(fp))
-	if shouldInjectBase(fp, baseHref) {
-		writeHTMLWithBase(log, w, f, baseHref)
+	if shouldInjectBase(fp, head.base) {
+		writeHTMLWithBase(log, w, f, head)
 		return
 	}
 	streamFile(log, w, f)
@@ -149,22 +182,23 @@ func streamFile(log *slog.Logger, w io.Writer, f io.Reader) {
 
 // writeHTMLWithBase —— 流式读 index.html，遇到 `<head>` 后插 `<base href>`，
 // 让 vite 的 ./assets/... 永远以 /p/<slug>/ 为基址（实例单 owner，URL 不带 handle —— F-L-44）。
-func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, baseHref string) {
+func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, head pageHead) {
 	body, err := io.ReadAll(f)
 	if err != nil {
 		log.Error("read html", logErr, err)
 		return
 	}
-	out := injectBase(string(body), baseHref)
+	out := injectHead(string(body), head)
 	if _, werr := io.WriteString(w, out); werr != nil {
 		log.Warn("write html with base", logErr, werr)
 	}
 }
 
-func injectBase(htmlBody, baseHref string) string {
-	// html.EscapeString 把 baseHref 里可能的 " < > & 转义，杜绝攻击者用
-	// 畸形 URL（比如 handle 含 quote）注入额外属性 → XSS。
-	tag := `<base href="` + html.EscapeString(baseHref) + `">`
+// injectHead —— 把 <base> 和这一页的设置注进 <head>。
+// html.EscapeString 把 baseHref 里可能的 " < > & 转义，杜绝攻击者用
+// 畸形 URL（比如 handle 含 quote）注入额外属性 → XSS。
+func injectHead(htmlBody string, head pageHead) string {
+	tag := head.tags()
 	if i := strings.Index(htmlBody, "<head>"); i >= 0 {
 		return htmlBody[:i+len("<head>")] + tag + htmlBody[i+len("<head>"):]
 	}

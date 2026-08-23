@@ -102,6 +102,7 @@
     "boundNone": "no code opens this — anonymous only",
     "byoaiOn": "readers may bring their own key",
     "byoaiOff": "no bring-your-own-key",
+    "byoaiVoid": "byok · decided by the code",
     "byoaiNote": "Applies only when nobody presents a code. A reader arriving with a code is scoped by that code, and this setting does not apply.",
     "templatesAvailable": "templates available",
     "templates": {

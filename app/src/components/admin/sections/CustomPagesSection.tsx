@@ -23,6 +23,7 @@ import {
   type CustomPagesHook,
   type CustomPageSummary,
 } from '@/lib/admin/use-custom-pages';
+import { useAction } from '@/lib/ui/use-action';
 import { stampDay } from '@/lib/ui/format-time';
 
 export function CustomPagesSection() {
@@ -129,7 +130,7 @@ function BindingCell({ page }: { page: CustomPageSummary }) {
   return (
     <td className="px-4 py-3 mono text-[10px]" data-testid={`custom-page-codes-${page.slug}`}>
       <BoundCodes codes={page.bound_codes ?? []} />
-      <ByoaiLine allow={page.allow_byoai ?? false} />
+      <ByoaiToggle page={page} />
     </td>
   );
 }
@@ -147,11 +148,44 @@ function BoundCodes({ codes }: { codes: readonly string[] }) {
     : <span className="text-(--color-faint)">{t('boundNone')}</span>;
 }
 
-function ByoaiLine({ allow }: { allow: boolean }) {
+// ByoaiToggle —— 这一页允不允许访客自带 key。
+//
+// **挂了码就作废**：码决定准入，页自己那一格不再说了算（"pages 给了 code 一个渲染"）。
+// 所以挂了码时不是把控件藏起来，而是明说它被顶掉了 —— 藏起来的话，owner 会以为
+// 自己上次设的还算数。
+function ByoaiToggle({ page }: { page: CustomPageSummary }) {
+  const bound = (page.bound_codes ?? []).length > 0;
+  return bound ? <ByoaiVoid slug={page.slug} /> : <ByoaiButton page={page} />;
+}
+
+function ByoaiVoid({ slug }: { slug: string }) {
   const t = useTranslations('adminPages.customPages');
   return (
-    <div className="text-(--color-faint) mt-1">{allow ? t('byoaiOn') : t('byoaiOff')}</div>
+    <div className="text-(--color-faint) mt-1" data-testid={`custom-page-byoai-void-${slug}`}>
+      {t('byoaiVoid')}
+    </div>
   );
+}
+
+function ByoaiButton({ page }: { page: CustomPageSummary }) {
+  const t = useTranslations('adminPages.customPages');
+  const { setByoai } = useCustomPages();
+  const run = useAction();
+  const allow = page.allow_byoai ?? false;
+  return (
+    <button
+      type="button"
+      className="mono text-[10px] mt-1 text-(--color-accent) hover:underline"
+      data-testid={`custom-page-byoai-${page.slug}`}
+      onClick={() => void run(() => setByoai(page.slug, !allow), { success: byoaiToast(page.slug, allow) })}
+    >
+      {allow ? t('byoaiOn') : t('byoaiOff')}
+    </button>
+  );
+}
+
+function byoaiToast(slug: string, wasAllowed: boolean): string {
+  return `BYOK ${wasAllowed ? 'off' : 'on'} for /p/${slug}`;
 }
 
 function TemplateCell() {

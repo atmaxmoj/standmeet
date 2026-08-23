@@ -11,6 +11,7 @@ import type {
   IssueSessionInput,
   SSEEvent,
 } from '@standmeet/sdk-core';
+import { adoptStoredSession } from '@standmeet/sdk-core';
 import { useStandMeet } from './provider.js';
 
 export interface ChatMessage {
@@ -47,7 +48,11 @@ export function useChatSession(input: IssueSessionInput): ChatState {
     appendAssistant(setMessages, assistantID);
     try {
       if (!sessionRef.current) {
-        const s = await client.issueSession(input);
+        // 先接手浏览器里已经颁发的那一场。**页面是这张码的一个渲染**：读者带着码进来，
+        // 页上的 agent 就该是那张码的 agent —— 同一份授权、同一套配额、同一份记账。
+        // 自己另开一场匿名的，屏幕上看不出差别，而读者的名字、名额、轮数全部落空。
+        // 没有已颁发的 session（路过的匿名读者）才照 input 开一场。
+        const s = adoptStoredSession() ?? await client.issueSession(input);
         // system prompt 一场拼一次(fragment + 这场的 persona)。不拼 = 空 system,那样答出来
         // 的东西跟这个 owner 无关(F-O-2)。
         sessionRef.current = {

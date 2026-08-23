@@ -17,6 +17,7 @@ import { useRoles } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
 import { useCodes, type CodeView } from '@/lib/admin/use-codes';
+import { useCustomPages } from '@/lib/admin/use-custom-pages';
 
 type Props = {
   code: CodeView;
@@ -136,6 +137,7 @@ function CodeCardBody({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeVi
       <RoleCol code={code} />
       <PromptCol code={code} />
       <GhostEvidenceCol code={code} />
+      <OpensCol code={code} />
       <QRCol code={code} onShowQR={onShowQR} />
       <QuotaBar code={code} />
     </div>
@@ -270,6 +272,39 @@ function QRCol({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => 
       >
         <span data-testid="code-qr"><QRCode value={link} size={72} /></span>
       </button>
+    </MetaPair>
+  );
+}
+
+// OpensCol —— 这张码扫出来是什么。默认是访客对话；挂上一页，就换成那一页
+// （"pages 给了 code 一个渲染"）。
+//
+// **绑定住在码上**，所以「一张码至多一页」是这个下拉框的形状本身 —— 单选，选新的顶掉旧的，
+// 没有「再加一页」这个动作可做。空选项 = 解绑，明说成「访客对话」：不写的话，
+// 「没挂页」和「这一版还不显示绑定」在屏幕上是同一件事。
+function OpensCol({ code }: { code: CodeView }) {
+  const t = useTranslations('adminAccess');
+  const { setCustomPage } = useCodes();
+  const { rows } = useCustomPages();
+  const run = useAction();
+  const onPick = (slug: string) => run(
+    () => setCustomPage(code.id, slug),
+    { success: `${code.code} now opens ${slug === '' ? 'the visitor chat' : `/p/${slug}`}` },
+  );
+  return (
+    <MetaPair label={t('codeCard.opensLabel')}>
+      <SelectField
+        className="min-w-0 max-w-full"
+        mono
+        value={code.custom_page_slug}
+        onChange={(e) => void onPick(e.target.value)}
+        testid={`code-opens-${code.code}`}
+      >
+        <option value="">{t('codeCard.opensChat')}</option>
+        {rows.map((p) => (
+          <option key={p.id} value={p.slug}>{t('codeCard.opensPageOption', { slug: p.slug })}</option>
+        ))}
+      </SelectField>
     </MetaPair>
   );
 }

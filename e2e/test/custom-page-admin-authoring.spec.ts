@@ -93,9 +93,16 @@ async function liveAt(
 }
 
 // freshOwner —— 每条用例一个干净实例 + 登录好的 admin 请求上下文。两个 describe 共用。
+// 每条用例都要真构建一次页面（沙箱起 vite，**一次只建一个**）。默认 30s 的
+// 用例预算把上面那个 180s 轮询**截断在中途** —— 于是超时读起来像「构建卡住了」，
+// 而真正的原因是排队（[[red-in-the-wrong-place]]）。放宽的是排队预算，
+// 轮询自己仍有终点，真的建不出来照样红。
+const BUILD_BUDGET_MS = 240_000;
+
 async function freshOwner(playwright: Playwright): Promise<{
   request: APIRequestContext; csrf: string;
 }> {
+  test.setTimeout(BUILD_BUDGET_MS);
   resetInstance();
   const request = await playwright.request.newContext({ timeout: 30_000 });
   await claim(request, findSetupToken(), {

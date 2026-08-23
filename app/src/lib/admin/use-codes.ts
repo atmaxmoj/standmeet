@@ -36,6 +36,10 @@ export const CodeViewSchema = z.object({
   // member_count —— 已经进来几个人。上限单独摆着说明不了任何事:一张满了的码跟一张全新的码
   // 会长得一模一样,而访客那头已经被挡在门外了(F-D-2)。旧后端不发这个字段,所以 nullish→0。
   member_count: z.number().nullish().transform((v) => v ?? 0),
+  // custom_page_slug —— 这张码开哪一页。'' = 开默认的访客对话。
+  // nullish：旧后端不发这个字段，而少一个字段不该让整份码列表静默失败
+  // （[[zod-unknown-is-not-optional]]）。
+  custom_page_slug: z.string().nullish().transform((v) => v ?? ''),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
@@ -66,6 +70,7 @@ export interface CodesHook {
   revokeCode: (id: string) => Promise<void>;
   updateQuotas: (id: string, input: QuotasInput) => Promise<void>;
   setGhostEvidence: (id: string, value: boolean | null) => Promise<void>;
+  setCustomPage: (id: string, slug: string) => Promise<void>;
 }
 
 // codesStore —— module-singleton；一次 fetch、所有 component 共享。
@@ -88,6 +93,7 @@ export function useCodes(): CodesHook {
     revokeCode,
     updateQuotas,
     setGhostEvidence,
+    setCustomPage,
   };
 }
 
@@ -116,6 +122,19 @@ async function setGhostEvidence(id: string, value: boolean | null): Promise<void
   );
   codesStore.getState().mutate((prev) =>
     (prev ?? []).map((c) => c.id === updated.id ? updated : c));
+}
+
+// setCustomPage —— 这张码开哪一页。空串 = 解绑，回到默认的访客对话。
+// 一张码最多挂一页 —— 所以这里是**赋值**，不是「加一个」：换一页就顶掉原来那页。
+// 回执发的是**回读到的** slug，不是入参回声 —— 所以存进 store 的也是回执那一份，
+// 而不是刚才选的那一个（[[write-with-no-receipt]]）。
+async function setCustomPage(id: string, slug: string): Promise<void> {
+  const done = await adminAPI.patch(
+    `/codes/${id}/custom-page`, { slug },
+    z.object({ code_id: z.string(), custom_page_slug: z.string() }),
+  );
+  codesStore.getState().mutate((prev) => (prev ?? []).map(
+    (c) => c.id === done.code_id ? { ...c, custom_page_slug: done.custom_page_slug } : c));
 }
 
 function toCreateBody(input: CreateCodeInput): Record<string, unknown> {

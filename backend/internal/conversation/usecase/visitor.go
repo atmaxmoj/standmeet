@@ -45,15 +45,20 @@ type SessionQuota struct {
 // 字段顺序：重 sub-struct (Conversation / Session) 在前，slice 中，strings
 // 后，int 末 —— 让 fieldalignment 满意。
 type IssueCodeSessionResult struct {
-	Chat        entity.Chat
-	Code        string
-	CodeLabel   string
-	VisitorName string
-	MemberID    string
-	Members     []access.CodeMember
-	Ghosts      []string
-	Session     access.IssuedVisitor
-	Quota       SessionQuota
+	Chat      entity.Chat
+	Code      string
+	CodeLabel string
+	// CustomPageSlug —— 这张码开哪一页。**落地决定跟着颁发一起下来**，不是访客到了再问一次：
+	// 每一条领码的路（/gate 提交、名字选择器）都恰好走这一次调用，而只有 intro 带这个字段的话，
+	// 不走 intro 的那条路会静默落回默认对话（[[copied-invalidation-goes-stale]]）。
+	// 空串 = 开默认对话。
+	CustomPageSlug string
+	VisitorName    string
+	MemberID       string
+	Members        []access.CodeMember
+	Ghosts         []string
+	Session        access.IssuedVisitor
+	Quota          SessionQuota
 }
 
 // codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
@@ -105,11 +110,12 @@ func finalizeCodeSession(
 	}
 	return IssueCodeSessionResult{
 		Session: a.Issued, Chat: a.Conv,
-		Code: code.Code, CodeLabel: code.Label, VisitorName: in.VisitorName,
-		Members:  members,
-		Ghosts:   code.Ghosts,
-		MemberID: a.Member.ID,
-		Quota:    codeSessionQuotaWithUsed(ctx, deps, code, &a.Conv),
+		Code: code.Code, CodeLabel: code.Label, CustomPageSlug: code.CustomPageSlug,
+		VisitorName: in.VisitorName,
+		Members:     members,
+		Ghosts:      code.Ghosts,
+		MemberID:    a.Member.ID,
+		Quota:       codeSessionQuotaWithUsed(ctx, deps, code, &a.Conv),
 	}, nil
 }
 

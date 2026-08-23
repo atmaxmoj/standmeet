@@ -174,6 +174,9 @@ export interface PublicSessionResponse {
   // 用它说出访客进的是哪一片（设计源 docs/design/project/app.js）。后端一直在发，
   // 这里以前没声明，于是被整条前端链路丢掉、退回 'invited' 兜底（UX-68）。
   readonly code_label?: string;
+  // custom_page_slug —— 这张码扫出来看到的是哪一页；空串 = 默认对话。
+  // 落地决定跟着颁发一起下来，领码的每一条路都拿得到同一个答案。
+  readonly custom_page_slug?: string;
   readonly visitor_name?: string;
   // member_id —— 这次解析到的 member id;client 存下,再来带上续会(尤其匿名)。
   readonly member_id?: string;

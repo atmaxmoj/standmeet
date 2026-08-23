@@ -15,6 +15,7 @@ import { issueCodeSession } from '@/lib/api/public';
 import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { codeLandingHref } from '@/lib/visitor/code-landing';
 import { seedEphemeralStores } from '@/lib/page/use-chat-restore';
 import {
   loadMemberID, rememberMemberID, rememberVisitorName, rememberVisitorEmail,
@@ -101,6 +102,10 @@ export function useIssuePendingCode(): IssuePending {
         rememberMemberID(sess.member_id ?? '');
       }
       usePendingCodeStore.getState().consume();
+      // 这张码挂了页 → 就地换成那一页。**扫出来看到的就该是那一页**；留在默认对话上，
+      // owner 建的那个渲染等于没建。整页导航（不是 router.push）是有意的：那一页是构建产物，
+      // 不在这个 Next 应用的路由树里。
+      goToCodeLanding(sess.custom_page_slug ?? '');
       return 'ok';
     } catch (e) {
       return classifyIssueError(e);
@@ -109,6 +114,12 @@ export function useIssuePendingCode(): IssuePending {
     }
   }, []);
   return { busy, issue };
+}
+
+function goToCodeLanding(slug: string): void {
+  const href = codeLandingHref(slug);
+  if (href === '' || typeof window === 'undefined') return;
+  window.location.assign(href);
 }
 
 // classifyIssueError —— 403 名字满 → 'full'(保留 pending,picker 显满额);

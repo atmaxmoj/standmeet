@@ -45,12 +45,15 @@ type sessionMemberResp struct {
 }
 
 type createSessionResponse struct {
-	SessionToken        string                   `json:"session_token"`
-	ConversationID      string                   `json:"conversation_id"`
-	Code                string                   `json:"code,omitempty"`
-	MemberID            string                   `json:"member_id,omitempty"`
-	CodeLabel           string                   `json:"code_label,omitempty"`
-	VisitorName         string                   `json:"visitor_name,omitempty"`
+	SessionToken   string `json:"session_token"`
+	ConversationID string `json:"conversation_id"`
+	Code           string `json:"code,omitempty"`
+	MemberID       string `json:"member_id,omitempty"`
+	CodeLabel      string `json:"code_label,omitempty"`
+	VisitorName    string `json:"visitor_name,omitempty"`
+	// CustomPageSlug —— 这张码扫出来看到的是哪一页。**空串 = 默认对话**，恒发（不 omitempty）：
+	// 少一个字段和「就是空」在读者那一侧长得一样，而这一个字段决定访客下一跳去哪。
+	CustomPageSlug      string                   `json:"custom_page_slug"`
 	SystemPromptPersona string                   `json:"system_prompt_persona"`
 	Members             []sessionMemberResp      `json:"members"`
 	Capabilities        []capreg.CapabilityState `json:"capabilities"`
@@ -235,6 +238,7 @@ func writeCreateSession(
 		MemberID:       res.MemberID,
 		CodeLabel:      res.CodeLabel,
 		VisitorName:    res.VisitorName,
+		CustomPageSlug: res.CustomPageSlug,
 		SystemPromptPersona: conversation.ComposeDynamicPersona(res.Session.Data.RoleSnapshot,
 			owner.FullNameOf(ctx, h.Owners, res.Session.Data.OwnerID)),
 		Capabilities:        bundle.States,

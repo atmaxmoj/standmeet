@@ -4,7 +4,8 @@
 // 行为 mirror docs/design/project/gate.js CodeInput：归一化大写 + 去非
 // [A-Z0-9-] + 32 字符上限；paste 自动 submit；错码 → shake + 清空 + refocus。
 
-import type { GateHook } from '@/lib/gate/use-gate';
+import { loadStoredSession, type GateHook } from '@/lib/gate/use-gate';
+import { codeLandingHref } from '@/lib/visitor/code-landing';
 
 export function normalizeCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 32);
@@ -50,12 +51,20 @@ export async function submitCodeAndGo(
   if (ok) deps.router.push(postGateHref());
 }
 
-// postGateHref —— 过闸后回 `/`;若访客是从首页带着问题(/gate?q=)来的,把 ?q= 串回去,
+// postGateHref —— 过闸后去哪。
+//
+// 这张码绑了页就去那一页 —— **扫出来看到的就该是那一页**，而不是先落在默认对话上再想办法。
+// 落地决定跟着颁发一起下来、由 persistSession 存进同一份 session，所以这里不必再问一次后端，
+// 也不会跟名字选择器那条路给出两个答案。
+//
+// 没绑就回 `/`;若访客是从首页带着问题(/gate?q=)来的,把 ?q= 串回去,
 // 让 ChatRoom mount 时接着答(不丢问题)。
 export function postGateHref(): string {
   if (typeof window === 'undefined') {
     return '/';
   }
+  const landing = codeLandingHref(loadStoredSession()?.custom_page_slug ?? '');
+  if (landing !== '') return landing;
   const q = new URL(window.location.href).searchParams.get('q');
   return q === null || q === '' ? '/' : `/?q=${encodeURIComponent(q)}`;
 }

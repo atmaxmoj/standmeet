@@ -26,7 +26,10 @@
     "quota": "quota",
     "status": "status · {status}",
     "viewConversations": "view conversations →",
-    "openShare": "open the share panel — big QR, copyable link, printable"
+    "openShare": "open the share panel — big QR, copyable link, printable",
+    "opensLabel": "opens",
+    "opensChat": "the visitor chat",
+    "opensPageOption": "/p/{slug}"
   },
   "codeCorpus": {
     "loadError": "Couldn’t load this code’s corpus scope. Reload and retry.",

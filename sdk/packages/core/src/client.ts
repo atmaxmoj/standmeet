@@ -77,7 +77,9 @@ export interface StandMeetClient {
     byoai?: BYOAIHeaders,
   ): AsyncGenerator<SSEEvent, void, unknown>;
   // composeSystem —— 这一场的 system prompt（fragment + persona）。一场拼一次，整场复用。
-  composeSystem(session: PublicSessionResponse): Promise<string>;
+  // 收的是它**真正读的那两个字段**，不是整份颁发回执：接手一场已有 session 的页面
+  // 手上只有存下来的那几项，而这里从来没用过 quota / members。
+  composeSystem(session: SystemPromptSource): Promise<string>;
 }
 
 // TurnMsg —— 发给后端的一条历史消息（后端 `ChatRequestMsg` 的线上形状）。
@@ -223,8 +225,14 @@ async function* streamMessage(
 // fragment（visitor-header + 每个能力一段），再把这一场**动态**的那一段 persona 接在后面
 // （role 人格 + 这张码自己的 prompt + 授权 skill 的清单）。顺序要紧：persona 是 owner 为这个
 // 受众写的东西，压在通用说明之上 —— 跟 agent-core 里那条路一模一样，只是那边给的是 React 宿主。
+// SystemPromptSource —— 拼这一场 system prompt 要的全部输入。
+export interface SystemPromptSource {
+  readonly system_prompt_part_ids?: readonly string[];
+  readonly system_prompt_persona?: string;
+}
+
 async function composeSystem(
-  f: typeof fetch, baseURL: string, session: PublicSessionResponse,
+  f: typeof fetch, baseURL: string, session: SystemPromptSource,
 ): Promise<string> {
   const parts: string[] = [];
   for (const id of session.system_prompt_part_ids ?? []) {

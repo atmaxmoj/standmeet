@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   StandMeetProvider, useStandMeet, useChatSession, AnswerText,
 } from "@standmeet/sdk";
+import { byoaiOffered, hasVisitorGrant } from "@standmeet/sdk-core";
 
 type Card = { wiki_id: string; title: string; excerpt: string; path: string };
 type Page = {
@@ -118,7 +119,15 @@ function Ask() {
   }
   return (
     <div className="rail">
-      <div className="mono">ask · answered from the corpus</div>
+      <div className="mono" data-sm="ask-scope">
+        {hasVisitorGrant() ? "ask · you are here on a code" : "ask · answered from the corpus"}
+      </div>
+      {/* 自带 key 这条路只在**没人带授权**的时候给。带着码进来的读者手里那份比自带 key 大，
+          而且是 owner 给的 —— 再问一次「要不要用你自己的 key」，等于把 owner 的决定
+          交回给读者。判断在 SDK 里（`byoaiOffered`），页面只负责渲染。 */}
+      {byoaiOffered()
+        ? <a className="mono out" href="/gate" data-sm="byok">bring your own key ↗</a>
+        : null}
       <div className="ask">
         <input
           value={draft}

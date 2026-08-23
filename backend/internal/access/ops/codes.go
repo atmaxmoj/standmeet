@@ -180,8 +180,11 @@ type codeRow struct {
 	AssumedRoleID        string  `json:"assumed_role_id"`
 	// ProviderID —— 空 = 这张码没指定,继承 role 再退默认。**出站必须带上**:
 	// owner 能写却看不见的字段,面板下次打开就只能猜。
-	ProviderID string   `json:"provider_id"`
-	Ghosts     []string `json:"ghosts"`
+	ProviderID string `json:"provider_id"`
+	// CustomPageSlug —— 这张码开哪一页。**空串 = 开默认的访客对话**，不是「没答上来」。
+	// 页那一侧看得到码，这一侧看得到页 —— 只能单向看见的绑定，人会忘了自己建过。
+	CustomPageSlug string   `json:"custom_page_slug"`
+	Ghosts         []string `json:"ghosts"`
 	// MemberCount —— 已经进来几个人。**上限单独发是不够的**:只有上限的话,一张满了的码
 	// 跟一张全新的码在面板上长得一模一样,而访客那边已经被 member_quota_reached 挡住了
 	// (F-D-2)。访客顶栏一直渲染 "1 / 5 names",owner 侧却拿不到这个数。
@@ -195,9 +198,10 @@ func toCodeRow(c *entity.Code, memberCount int32) codeRow {
 		Ghosts:     nonNilStrings(c.Ghosts),
 		MaxMembers: c.MaxMembers, MaxTurnsPerSession: c.MaxTurnsPerSession,
 		RequireGhostEvidence: c.RequireGhostEvidence, PromptID: c.PromptID,
-		CreatedAt:   c.CreatedAt.UTC().Format(time.RFC3339),
-		ExpiresAt:   formatOptionalTime(c.ExpiresAt),
-		MemberCount: memberCount,
+		CreatedAt:      c.CreatedAt.UTC().Format(time.RFC3339),
+		ExpiresAt:      formatOptionalTime(c.ExpiresAt),
+		CustomPageSlug: c.CustomPageSlug,
+		MemberCount:    memberCount,
 	}
 }
 

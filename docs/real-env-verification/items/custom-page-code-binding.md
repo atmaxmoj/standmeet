@@ -3,7 +3,7 @@
 - **Module:** A custom page that reads the owner's corpus and carries the owner's agent, authored from the panel, and reachable through an access code that opens it instead of the default visitor chat. The code is unchanged by this — same grant, same quotas, same transcript — only what the reader looks at differs.
 - **Surface:** `/admin/custom-pages` (authoring, BYOK switch, which codes open a page), `/admin/codes` (which page a code opens), and the hosted page at `/p/<slug>`.
 - **Real dep:** The prod stack, a real sandbox build, a real model for the page's agent, and real corpus — the owner's own vault mirror. Nothing here is provable against a stub: a page that renders a stubbed answer proves nothing about whether the agent is scoped by the code.
-- **Backing e2e:** `custom-page-admin-authoring` · `custom-page-code-binding` · `custom-page` · `mcp-page-lifecycle`.
+- **Backing e2e:** `custom-page-admin-authoring` · `custom-page-code-binding` · `custom-page-is-the-codes-rendering` · `custom-page` · `mcp-page-lifecycle`.
 
 ## Checks
 
@@ -23,19 +23,19 @@
 - **Steps:** Publish a page that lists the owner's pinned corpus and opens an entry. Open it **anonymously**. Then open it through a code whose role grants more. Compare what each sees. Then unpublish an entry the page shows and reload.
 - **Expected:** Anonymous sees the public slice. The coded reader sees that code's slice — same build, same URL. Unpublishing removes the entry from the page on the next load.
 - **Note:** the negative is the half that matters — a page cannot show what the viewer's role cannot read. Prove it with an entry that is private, and assert **on the page**, not on the API; the API being correct while the page caches or over-fetches is exactly the failure this check exists for.
-- **Backing test:** anonymous half → `custom-page-code-binding.spec.ts`; the private-entry negative → `gap`
+- **Backing test:** anonymous half → `custom-page-code-binding.spec.ts`; the private-entry negative → `custom-page-is-the-codes-rendering.spec.ts`
 
 ### 4 — The page's agent is the code's agent ⭐
-- **Steps:** Bind a code to the page. Open `/p/<slug>` through that code. Answer the who's-reading prompt. Ask something the corpus can answer. Then open `/admin/conversations`.
-- **Expected:** The identity prompt appears and the name reaches the transcript. The answer is grounded in the corpus and in the owner's voice. **The conversation appears under that code**, with the page's turns in it — an owner must not have to guess which surface a transcript came from.
+- **Steps:** Bind a code to the page. Enter the code at the front door the way a reader would — scan the QR, or open the shared link. Answer the who's-reading prompt. Ask something the corpus can answer. Then open `/admin/conversations`.
+- **Expected:** Entering the code lands the reader **on that page**, not on the default chat — the reader never types a `/p/` URL. The identity prompt appears and the name reaches the transcript. The answer is grounded in the corpus and in the owner's voice. **The conversation appears under that code**, with the page's turns in it — an owner must not have to guess which surface a transcript came from.
 - **Mock gap:** CI can assert a turn happens; it cannot assert the answer is the owner's voice, or that a real model used the real corpus.
-- **Backing test:** `gap`
+- **Backing test:** `custom-page-is-the-codes-rendering.spec.ts`
 
 ### 5 — Everything the code carries, carries
 - **Steps:** On a code bound to a page, exercise the machinery: open a second reader against `max_members`, spend turns against `max_turns_per_session`, then revoke the code mid-session.
 - **Expected:** Each behaves exactly as it does in chat with the same code — the member count fills and then refuses, the turn allowance runs out and the page says so, and a revoked code stops the page's agent.
 - **Write it against chat as the oracle**, not against fresh expectations: the assertion is "the page does what the same code does in chat", so a change to code semantics moves both and cannot drift into a page-only branch.
-- **Backing test:** `gap`
+- **Backing test:** `custom-page-is-the-codes-rendering.spec.ts`
 
 ### 6 — The binding reads the same from both ends
 - **Steps:** Bind a code to a page. Read `/admin/codes`. Read `/admin/custom-pages`. Then rebind the code to a second page and read both again.
@@ -51,7 +51,7 @@
 - **Steps:** Turn on BYOK for a page. Bind a code that does not allow BYOK. Open the page through that code.
 - **Expected:** BYOK is not offered. The page's own setting applies only when nobody presents a grant.
 - **Note:** Assert on the page. Asserting the stored setting proves nothing — the defect being guarded against is the setting being *honoured* when it should be inert.
-- **Backing test:** `gap`
+- **Backing test:** `custom-page-is-the-codes-rendering.spec.ts`
 
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 

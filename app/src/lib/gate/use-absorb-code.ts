@@ -15,7 +15,9 @@
 
 import { useEffect } from 'react';
 
+import { loadStoredSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { codeLandingHref } from '@/lib/visitor/code-landing';
 import { peekStoredSession } from '@/lib/visitor/session-store';
 import { clearNameDismiss } from '@/lib/visitor/visitor-name';
 
@@ -44,6 +46,20 @@ function absorbFromURL(): void {
   const rest = url.searchParams.toString();
   const next = url.pathname + (rest ? `?${rest}` : '') + url.hash;
   window.history.replaceState(null, '', next);
+  landOnRendering(code);
+}
+
+// landOnRendering —— 第二次打开同一条链接（已经在这张码的具名会话里，上面那一支
+// 早退了、不会再颁发一次）也要落到这张码的页上。
+//
+// 落地在颁发那一刻存进了 session，所以这里读的是同一个事实，不是另算一遍。
+// **漏掉这一支的话，缺陷只在「回访」时出现**：第一次扫码好好的，第二次点同一个链接
+// 落在默认对话上 —— 而 owner 手上只有一张码，试一次是试不出来的。
+function landOnRendering(code: string): void {
+  if (!alreadyInNamedSession(code)) return;
+  const href = codeLandingHref(loadStoredSession()?.custom_page_slug ?? '');
+  if (href === '' || window.location.pathname === href) return;
+  window.location.assign(href);
 }
 
 // alreadyInNamedSession —— 当前是否已有一张**同码且已具名**的活跃 session。

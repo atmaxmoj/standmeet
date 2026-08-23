@@ -113,6 +113,29 @@ has to ask who is arriving, and revoking the code (I-3) withdraws the landing to
 second copy: `/admin/codes` shows which page a code opens, and `/admin/custom-pages` shows which
 code opens a page. A binding you can only see from one side is a binding people forget they made.
 
+#### How it landed — three seams, none of them the page author's job
+
+I-5 is only an invariant if a page author cannot break it by forgetting something. Three
+mechanisms carry it, and none of them lives in page source:
+
+1. **The landing rides on the issue receipt.** `POST /api/v1/sessions` returns
+   `custom_page_slug` (empty = the default chat). Both ways to redeem a code — submitting on
+   `/gate`, and the identity picker after arriving with `?code=` — go through the same
+   `persistSession`, so the landing is stored once and neither path can be left behind on the
+   old behaviour. The code never rides the URL to get there.
+2. **The page adopts the session it finds.** `useChatSession` calls `adoptStoredSession()`
+   before it would issue anything: if the browser already holds a session (the gate just issued
+   it), the page's agent *is* that session — same token, same conversation, same meters, same
+   ledger. A page that fetched `?code=` itself would work equally well right up until an author
+   forgot, and a forgotten one degrades to an anonymous session that looks identical on screen.
+3. **The page's own settings are read per request.** Serving `index.html` injects
+   `<meta name="standmeet-page-byoai">` from the row being served, next to the `<base href>`
+   already injected. So there is no second endpoint, no snapshot, and a setting withdrawn in
+   the panel is gone on the next load — the same rule as the missing cache headers (I-3).
+
+`byoaiOffered()` in the SDK is then just `!hasVisitorGrant() && pageAllowsBYOAI()` — I-4
+expressed once, where both halves are known.
+
 ### Precedence: an arriving grant wins
 
 A page has its own access settings — reachable anonymously, and whether it offers **BYOK**

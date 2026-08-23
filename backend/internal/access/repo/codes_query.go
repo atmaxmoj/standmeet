@@ -90,15 +90,31 @@ func (r *CodeRepo) ListByOwner(
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	q := db.New(r.pool)
-	rows, err := q.ListAccessCodesByOwner(ctx, ownerUUID)
+	// 带页的那一版：多一个 LEFT JOIN 取 slug，好让**码那一侧**也看得到自己开哪一页。
+	// 绑定是一个事实，两个面板读同一处（[[names-that-lie]] 的反面：不存第二份）。
+	rows, err := q.ListAccessCodesWithPageByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list access codes: %w", err)
 	}
 	out := make([]entity.Code, 0, len(rows))
 	for i := range rows {
-		out = append(out, CodeFromRow(&rows[i]))
+		out = append(out, codeFromListRow(&rows[i]))
 	}
 	return out, nil
+}
+
+func codeFromListRow(row *db.ListAccessCodesWithPageByOwnerRow) entity.Code {
+	c := CodeFromRow(&db.AccessCode{
+		ID: row.ID, OwnerID: row.OwnerID, Code: row.Code, Label: row.Label,
+		Purpose: row.Purpose, Ghosts: row.Ghosts, ExpiresAt: row.ExpiresAt,
+		Status: row.Status, MaxTurnsPerSession: row.MaxTurnsPerSession,
+		MaxMembers: row.MaxMembers, RequireGhostEvidence: row.RequireGhostEvidence,
+		ProviderID: row.ProviderID, CreatedAt: row.CreatedAt,
+		AssumedRoleID: row.AssumedRoleID, PromptID: row.PromptID,
+		InlinePrompt: row.InlinePrompt, CustomPageID: row.CustomPageID,
+	})
+	c.CustomPageSlug = row.CustomPageSlug
+	return c
 }
 
 // CodeFromRow —— db.AccessCode 行 → access.Code 领域对象。jobs 的 application-commit
