@@ -25,12 +25,18 @@ func CustomPages(deps usecase.CustomPageDeps) []fp.Op {
 	return append(customPageReadOps(deps), customPageAuthoringOps(deps)...)
 }
 
-// authoringOnMCP —— 写这一组只在 MCP 上,理由写在这儿一次。
-func authoringOnMCP() fp.Reach {
-	return fp.Only(
-		"authoring a custom page means writing code and driving the sandbox builder; "+
-			"the panel has no such surface", "mcp")
-}
+// ⚠️ 这里曾经有一条 `authoringOnMCP()`：
+//
+//	fp.Only("authoring a custom page means writing code and driving the sandbox builder;
+//	         the panel has no such surface", "mcp")
+//
+// **它的理由是循环的** —— 「面板没有这个界面」是被它拿来解释的那个现状本身。而且它写在
+// 棘轮读得到的地方，于是这个缺口从此不再被报：一条自己让自己合法的例外。
+//
+// 删掉它，让完整性重新生效（owner 面的规矩就是「每个 owner op 在每个 owner facade 上都有」）。
+// 棘轮现在会**要求**这几条挂上 admin，并且一直要求下去。MCP 那条路不动 —— 这是 parity，
+// 不是搬家：owner 在 Claude 里方便就走那条，在面板上方便就走这条。
+// 同族：F-C-47（传进来的连接器没有填凭据的面）、F-C-57（勾了 expose 却无处授权）。
 
 func customPageReadOps(deps usecase.CustomPageDeps) []fp.Op {
 	return []fp.Op{
@@ -48,7 +54,7 @@ func customPageReadOps(deps usecase.CustomPageDeps) []fp.Op {
 			Description: "Poll one build: pending → building → built | failed.",
 			InputSchema: buildIDSchema,
 			Kind:        fp.Read,
-			Reach:       authoringOnMCP(),
+			Reach:       fp.OwnerRead(),
 			Invoke:      getCustomPageBuild(deps),
 		},
 	}

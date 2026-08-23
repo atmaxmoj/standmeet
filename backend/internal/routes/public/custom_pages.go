@@ -48,6 +48,11 @@ func (h *CustomPageHandlers) Mount(r chi.Router) {
 
 func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// **不许被当成快照。** owner 撤下（rollback / delete）之后，这个地址就该停止服务；
+		// 而这一路以前一个 Cache-Control 都没发 —— 没有头，浏览器按启发式自己缓存，
+		// 于是撤下的页面照样打得开。那不是「浏览器自己缓存了」，是我们没说别缓存。
+		// 唯一该落在我们控制之外的，是读者已经存进本地的那一份。
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		fp, err := resolveAssetPath(r.Context(), h, r)
 		if err != nil {
 			writeAssetErr(h.Log, w, err)

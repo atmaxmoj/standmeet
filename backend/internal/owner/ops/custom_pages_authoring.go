@@ -19,7 +19,7 @@ func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
 			Description: "Create a custom page, served at /<handle>/p/<slug>.",
 			InputSchema: pageCreateSchema,
 			Kind:        fp.Action,
-			Reach:       authoringOnMCP(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      createCustomPage(deps),
 		},
 		{
@@ -27,7 +27,7 @@ func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
 			Description: "Add or overwrite one source file in the page's draft.",
 			InputSchema: pageFileSchema,
 			Kind:        fp.Action,
-			Reach:       authoringOnMCP(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      writeCustomPageFile(deps),
 		},
 		{
@@ -36,7 +36,7 @@ func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
 				"returned build id with custom_page.get_build.",
 			InputSchema: pageSlugSchema,
 			Kind:        fp.Action,
-			Reach:       authoringOnMCP(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      buildCustomPage(deps),
 		},
 		{
@@ -44,7 +44,7 @@ func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
 			Description: "Put a finished build on staging, where only the owner can see it.",
 			InputSchema: pagePromoteSchema,
 			Kind:        fp.Action,
-			Reach:       authoringOnMCP(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      promoteCustomPage(deps, usecase.PromoteToStaging, "promote to staging"),
 		},
 		{
@@ -52,7 +52,7 @@ func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
 			Description: "Put a finished build live, where visitors see it.",
 			InputSchema: pagePromoteSchema,
 			Kind:        fp.Action,
-			Reach:       authoringOnMCP(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      promoteCustomPage(deps, usecase.PromoteToLive, "promote to live"),
 		},
 		{
@@ -60,7 +60,7 @@ func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
 			Description: "Send live back to the previous build. No-op if there is none.",
 			InputSchema: pageSlugSchema,
 			Kind:        fp.Action,
-			Reach:       authoringOnMCP(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      rollbackCustomPage(deps),
 		},
 		{
@@ -68,7 +68,7 @@ func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
 			Description: "Delete a custom page.",
 			InputSchema: pageSlugSchema,
 			Kind:        fp.Action,
-			Reach:       authoringOnMCP(),
+			Reach:       fp.OwnerAction(),
 			Invoke:      deleteCustomPage(deps),
 		},
 	}
