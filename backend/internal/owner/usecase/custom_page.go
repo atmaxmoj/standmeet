@@ -49,6 +49,20 @@ func CreatePage(
 	return page, nil
 }
 
+// SetPageByoai —— 这一页在**无人出示 grant 时**给不给读者用自己的 key。
+//
+// 只在那种情况下生效：带 code 进来的读者由那张码决定一切，这个设置随之作废（I-4）。
+// 这条规矩不写在这儿 —— 它写在装配那一侧，因为「谁说了算」是装配的事；这里只存 owner 的意思。
+func SetPageByoai(
+	ctx context.Context, deps CustomPageDeps, ownerID, slug string, allow bool,
+) (entity.CustomPage, error) {
+	page, err := deps.Pages.SetByoai(ctx, ownerID, slug, allow)
+	if err != nil {
+		return entity.CustomPage{}, fmt.Errorf("set page byoai: %w", err)
+	}
+	return page, nil
+}
+
 // WriteFileInput —— 累计写一个文件到 page 的下一个 draft。
 type WriteFileInput struct {
 	OwnerID string

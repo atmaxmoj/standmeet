@@ -13,10 +13,33 @@ import (
 )
 
 func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
+	return append(customPageSettingOps(deps), customPageBuildOps(deps)...)
+}
+
+// customPageSettingOps —— 页面自己的设置（不涉及构建）。
+func customPageSettingOps(deps usecase.CustomPageDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID:          "custom_page.create",
-			Description: "Create a custom page, served at /<handle>/p/<slug>.",
+			ID: "custom_page.set_byoai",
+			Description: "Allow or forbid readers bringing their own key on this page. " +
+				"This applies only when nobody presents a grant — a reader arriving with " +
+				"an access code is scoped by that code, and this setting is then inert.",
+			InputSchema: pageByoaiSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setCustomPageByoai(deps),
+		},
+	}
+}
+
+func customPageBuildOps(deps usecase.CustomPageDeps) []fp.Op {
+	return []fp.Op{
+		{
+			ID: "custom_page.create",
+			// F-L-44：这里曾写 `/<handle>/p/<slug>` —— 那个地址 404，真地址是 `/p/<slug>`
+			// （实例是单 owner，URL 不带 handle）。**owner 的 AI 只读 description**，
+			// 所以一个说错的地址就是它转告给 owner 的地址。
+			Description: "Create a custom page, served at /p/<slug>.",
 			InputSchema: pageCreateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -168,6 +191,25 @@ func deleteCustomPage(deps usecase.CustomPageDeps) fp.Invoke {
 			return nil, customPageErr(err)
 		}
 		return json.Marshal(deletedPageOut{Slug: in.Slug, Deleted: true})
+	}
+}
+
+// setCustomPageByoai —— 这一页在无人出示 grant 时给不给用自己的 key。
+func setCustomPageByoai(deps usecase.CustomPageDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := decodePageSlug(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		if in.AllowByoai == nil {
+			return nil, fp.BadInput("allow_byoai is required")
+		}
+		page, err := usecase.SetPageByoai(ctx, deps, ownerID, in.Slug, *in.AllowByoai)
+		if err != nil {
+			return nil, customPageErr(err)
+		}
+		out := toCustomPageOut(&page)
+		return json.Marshal(out)
 	}
 }
 

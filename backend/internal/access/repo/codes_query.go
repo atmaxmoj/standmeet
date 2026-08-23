@@ -45,9 +45,21 @@ func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (entity.Code, err
 // 不在热路上。
 func (r *CodeRepo) GetByCode(ctx context.Context, code string) (entity.Code, error) {
 	q := db.New(r.pool)
-	row, err := q.GetAccessCode(ctx, code)
+	// 带页的那一版：多一个 LEFT JOIN 取 slug。落地决定（这张码开哪一页）要在访客带码
+	// 进来的那一刻就答得出来，而 slug 在页那张表上 —— 在 SQL 层取，访客这条路就不必跨域。
+	row, err := q.GetAccessCodeWithPage(ctx, code)
 	if err == nil {
-		return CodeFromRow(&row), nil
+		c := CodeFromRow(&db.AccessCode{
+			ID: row.ID, OwnerID: row.OwnerID, Code: row.Code, Label: row.Label,
+			Purpose: row.Purpose, Ghosts: row.Ghosts, ExpiresAt: row.ExpiresAt,
+			Status: row.Status, MaxTurnsPerSession: row.MaxTurnsPerSession,
+			MaxMembers: row.MaxMembers, RequireGhostEvidence: row.RequireGhostEvidence,
+			ProviderID: row.ProviderID, CreatedAt: row.CreatedAt,
+			AssumedRoleID: row.AssumedRoleID, PromptID: row.PromptID,
+			InlinePrompt: row.InlinePrompt, CustomPageID: row.CustomPageID,
+		})
+		c.CustomPageSlug = row.CustomPageSlug
+		return c, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return entity.Code{}, fmt.Errorf("get access code: %w", err)

@@ -123,10 +123,12 @@ type codeIntroRequest struct {
 }
 
 type codeIntroResponse struct {
-	Label       string `json:"label"`
-	Greeting    string `json:"greeting"`
-	MaxMembers  int32  `json:"max_members"`
-	MemberCount int32  `json:"member_count"`
+	Label    string `json:"label"`
+	Greeting string `json:"greeting"`
+	// CustomPageSlug —— 这张码开哪一页。**空串 = 开默认对话**，不是「没答上来」。
+	CustomPageSlug string `json:"custom_page_slug"`
+	MaxMembers     int32  `json:"max_members"`
+	MemberCount    int32  `json:"member_count"`
 }
 
 // codeIntro —— 名字选择器 pre-issue peek:code(走 body)→ greeting + 名字上限/
@@ -151,7 +153,8 @@ func writeCodeIntro(
 	w.WriteHeader(http.StatusOK)
 	resp := codeIntroResponse{
 		Label: res.Label, Greeting: res.Greeting,
-		MaxMembers: res.MaxMembers, MemberCount: res.MemberCount,
+		CustomPageSlug: res.CustomPageSlug,
+		MaxMembers:     res.MaxMembers, MemberCount: res.MemberCount,
 	}
 	if eerr := json.NewEncoder(w).Encode(resp); eerr != nil {
 		log.Error("encode code intro", "err", eerr)

@@ -39,6 +39,8 @@ func (h *Handlers) mountCustomPageItem(r chi.Router, face *dispatcher.Face) {
 		r.Put("/files",
 			h.dispatchOp(face, "custom_page.write_file", bodyWithURLParam("slug"), jsonOK))
 		r.Post("/build", h.dispatchOp(face, "custom_page.build", urlParamArgs("slug"), jsonOK))
+		r.Put("/byoai",
+			h.dispatchOp(face, "custom_page.set_byoai", bodyWithURLParam("slug"), jsonOK))
 		r.Post("/staging",
 			h.dispatchOp(face, "custom_page.promote_to_staging", bodyWithURLParam("slug"), jsonOK))
 		r.Post("/live",

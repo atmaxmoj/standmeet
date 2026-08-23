@@ -3,29 +3,49 @@ INSERT INTO custom_pages (owner_id, slug, title)
 VALUES ($1, $2, $3)
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          created_at, updated_at;
+          allow_byoai, created_at, updated_at;
 
 -- name: GetCustomPageBySlug :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       created_at, updated_at
+       allow_byoai, created_at, updated_at
 FROM custom_pages
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted';
 
 -- name: GetCustomPageByID :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       created_at, updated_at
+       allow_byoai, created_at, updated_at
 FROM custom_pages
 WHERE id = $1 AND status != 'deleted';
 
 -- name: ListCustomPagesByOwner :many
-SELECT id, owner_id, slug, title, status,
-       live_build_id, staging_build_id, previous_live_build_id,
-       created_at, updated_at
-FROM custom_pages
-WHERE owner_id = $1 AND status != 'deleted'
-ORDER BY created_at DESC;
+-- 带上 allow_byoai，以及**哪些码开这一页**（绑定的另一头）。
+-- 码→页是至多一个；页→码没有这个限制，所以这里是一个数组而不是一个值。
+-- 空数组 = 没有码指向它，它只能被匿名打开。
+SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
+       cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
+       cp.allow_byoai, cp.created_at, cp.updated_at,
+       COALESCE(
+           ARRAY(
+               SELECT ac.code::text FROM access_codes ac
+               WHERE ac.custom_page_id = cp.id AND ac.status = 'active'
+               ORDER BY ac.created_at
+           ),
+           ARRAY[]::text[]
+       )::text[] AS bound_codes
+FROM custom_pages cp
+WHERE cp.owner_id = $1 AND cp.status != 'deleted'
+ORDER BY cp.created_at DESC;
+
+-- name: SetCustomPageByoai :one
+-- 这一页在**没有人出示 grant 时**给不给读者用自己的 key。来了 code 就作废（I-4）。
+UPDATE custom_pages
+SET allow_byoai = $3, updated_at = now()
+WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
+RETURNING id, owner_id, slug, title, status,
+          live_build_id, staging_build_id, previous_live_build_id,
+          allow_byoai, created_at, updated_at;
 
 -- name: SetCustomPageLive :one
 -- 把当前 live_build_id 落到 previous_live_build_id（支持 rollback）再设新 live。
@@ -36,7 +56,7 @@ SET previous_live_build_id = live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          created_at, updated_at;
+          allow_byoai, created_at, updated_at;
 
 -- name: SetCustomPageStaging :one
 UPDATE custom_pages
@@ -44,7 +64,7 @@ SET staging_build_id = $2, updated_at = now()
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          created_at, updated_at;
+          allow_byoai, created_at, updated_at;
 
 -- name: RollbackCustomPageLive :one
 -- previous_live_build_id 提回 live，previous 清空。previous 本来就是 NULL
@@ -56,7 +76,7 @@ SET live_build_id          = previous_live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          created_at, updated_at;
+          allow_byoai, created_at, updated_at;
 
 -- name: SoftDeleteCustomPage :exec
 UPDATE custom_pages

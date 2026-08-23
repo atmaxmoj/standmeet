@@ -82,6 +82,20 @@ func RevokeCode(ctx context.Context, d CodesDeps, ownerID, codeID string) error 
 	return nil
 }
 
+// SetCodeCustomPage —— 这张码开哪一页。slug 空串 = 解绑，退回默认的访客对话。
+//
+// **不撤会话**（跟 RevokeCode 不同）：换渲染不是撤授权，正在对话的人不该被踢出去。
+// 下一次带这张码进来才落到新地方。
+func SetCodeCustomPage(
+	ctx context.Context, d CodesDeps, ownerID, codeID, slug string,
+) (entity.Code, error) {
+	code, err := d.Codes.SetCustomPage(ctx, ownerID, codeID, slug)
+	if err != nil {
+		return entity.Code{}, fmt.Errorf("set code custom page: %w", err)
+	}
+	return code, nil
+}
+
 // CodeQuotaUpdate —— 改配额。每个字段三态:没提到 = 保持原值,显式空 = 不限。
 //
 // 底下那条 SQL 盲写两列,所以"没提到"必须在这里读回原值填上 —— 少发一个字段等于把它

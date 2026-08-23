@@ -19,6 +19,13 @@ type CustomPage struct {
 	Slug                string
 	Title               string
 	Status              string // 'active' | 'archived' | 'deleted'
+	// BoundCodes —— 哪些**活着的**码开这一页（绑定的另一头）。
+	// 码→页至多一个，页→码没有这个限制，所以这里是一个数组。
+	// 空 = 没有码指向它，只能被匿名打开。
+	BoundCodes []string
+	// AllowBYOAI —— 没有人出示 grant 时，这一页给不给读者用自己的 key。
+	// **来了 code 就作废**：出示的 grant 决定一切（I-4）。
+	AllowBYOAI bool
 }
 
 // CustomPageBuild —— 一次 sandbox vite build 的状态 + 产物路径。

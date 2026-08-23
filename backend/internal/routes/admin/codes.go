@@ -43,6 +43,9 @@ func (h *Handlers) MountCodes(r chi.Router) {
 		h.dispatchOp(face, "codes.update_quotas", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Patch("/{code_id}/ghost-evidence",
 		h.dispatchOp(face, "codes.set_ghost_evidence", bodyWithURLParam(paramCodeID), jsonOK))
+	// 这张码开哪一页。空 slug = 解绑，退回默认的访客对话。
+	r.Patch("/{code_id}/custom-page",
+		h.dispatchOp(face, "codes.set_custom_page", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Get("/{code_id}/members",
 		h.dispatchOp(face, "codes.list_members", urlParamArgs(paramCodeID), jsonOK))
 	h.mountCodeACL(r, face)

@@ -15,10 +15,14 @@ import (
 
 // CodeIntroResult —— 名字选择器展示用。
 type CodeIntroResult struct {
-	Label       string
-	Greeting    string
-	MaxMembers  int32
-	MemberCount int32
+	Label    string
+	Greeting string
+	// CustomPageSlug —— 这张码开哪一页。空 = 开默认的访客对话（今天的行为）。
+	// 落地决定在这里给出，因为访客带码进来时前端**已经**在调 codes/intro 了：
+	// 不必为「去哪」再加一次往返，也不必让页面自己去问「我该不该存在」。
+	CustomPageSlug string
+	MaxMembers     int32
+	MemberCount    int32
 }
 
 // CodeIntro —— code → label + greeting(role 的;空则按 owner handle 拼默认)+
@@ -36,10 +40,11 @@ func CodeIntro(
 		return CodeIntroResult{}, fmt.Errorf("count members: %w", cerr)
 	}
 	return CodeIntroResult{
-		Label:       code.Label,
-		Greeting:    resolveCodeGreeting(ctx, deps, &code),
-		MaxMembers:  derefInt32(code.MaxMembers),
-		MemberCount: count,
+		Label:          code.Label,
+		Greeting:       resolveCodeGreeting(ctx, deps, &code),
+		CustomPageSlug: code.CustomPageSlug,
+		MaxMembers:     derefInt32(code.MaxMembers),
+		MemberCount:    count,
 	}, nil
 }
 

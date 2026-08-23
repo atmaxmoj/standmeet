@@ -97,6 +97,40 @@ func revokeCode(deps usecase.CodesDeps) fp.Invoke {
 	}
 }
 
+// codePageArgs —— codes.set_custom_page 的入参。slug 空串 = 解绑。
+type codePageArgs struct {
+	CodeID string `json:"code_id"`
+	Slug   string `json:"slug"`
+}
+
+// setCodeCustomPage —— 把这张码指向某一页，或清掉。
+//
+// **绑定住在码上**（access_codes.custom_page_id），所以「一张码至多一页」是结构保证的，
+// 不靠校验；而页那一侧看到的是「哪些码开我」，同一个事实两处读、谁也不存第二份。
+func setCodeCustomPage(deps usecase.CodesDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in codePageArgs
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return nil, fp.BadInput("invalid arguments: " + err.Error())
+		}
+		if perr := fp.RequireArgs([2]string{"code_id", in.CodeID}); perr != nil {
+			return nil, perr
+		}
+		code, err := usecase.SetCodeCustomPage(ctx, deps, ownerID, in.CodeID, in.Slug)
+		if err != nil {
+			return nil, codeErr(err)
+		}
+		return json.Marshal(codePageOut{CodeID: code.ID, CustomPageSlug: code.CustomPageSlug})
+	}
+}
+
+// codePageOut —— 绑定的回执：**回读到的那个 slug**，不是入参回声。
+// 回声只能证明「我收到了」，回读才证明「它现在就是这样」（[[write-with-no-receipt]]）。
+type codePageOut struct {
+	CodeID         string `json:"code_id"`
+	CustomPageSlug string `json:"custom_page_slug"`
+}
+
 type codeQuotaArgs struct {
 	MaxMembers         fp.OptionalInt32 `json:"max_members"`
 	MaxTurnsPerSession fp.OptionalInt32 `json:"max_turns_per_session"`

@@ -21,6 +21,7 @@ type AccessCode struct {
 	MaxMembers           *int32
 	RequireGhostEvidence *bool
 	ProviderID           pgtype.UUID
+	CustomPageID         pgtype.UUID
 	CreatedAt            pgtype.Timestamptz
 	AssumedRoleID        pgtype.UUID
 	PromptID             pgtype.UUID
@@ -219,6 +220,7 @@ type CustomPage struct {
 	LiveBuildID         pgtype.UUID
 	StagingBuildID      pgtype.UUID
 	PreviousLiveBuildID pgtype.UUID
+	AllowByoai          bool
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 }

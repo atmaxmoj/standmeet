@@ -22,6 +22,16 @@ RETURNING *;
 -- 而且有害:它让 citext 上那个 UNIQUE 索引用不上。**列的类型就是那条规矩**,别在查询里再写一遍。
 SELECT * FROM access_codes WHERE code = $1 AND status = 'active';
 
+-- name: GetAccessCodeWithPage :one
+-- 同 GetAccessCode，外加**这张码开哪一页**的 slug。
+-- 落地决定要在 codes/intro 那一刻做出来（访客带码进来时前端已经在调它），而 slug 是
+-- 页那张表上的东西 —— 用 join 在 SQL 层取，访客那条路就不必跨域去问 owner 域要。
+-- 空串 = 没绑，开默认的访客对话。
+SELECT ac.*, COALESCE(cp.slug, '')::text AS custom_page_slug
+FROM access_codes ac
+LEFT JOIN custom_pages cp ON cp.id = ac.custom_page_id AND cp.status != 'deleted'
+WHERE ac.code = $1 AND ac.status = 'active';
+
 -- name: GetAccessCodeAnyStatus :one
 -- 不带状态过滤:让仓储分得出「这张码不存在」和「这张码被撤销了」。
 -- 只按 status='active' 查的话两种都是 no-rows,访客那句拒绝就只能合成一句,
@@ -33,6 +43,24 @@ SELECT * FROM access_codes WHERE id = $1;
 
 -- name: ListAccessCodesByOwner :many
 SELECT * FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC;
+
+-- name: ListAccessCodesWithPageByOwner :many
+-- 同上，外加**这张码开哪一页**。绑定是一个事实，两个面板读同一处：
+-- 码那一侧看得到页，页那一侧看得到码（ListCustomPagesByOwner 带 bound_codes）。
+-- LEFT JOIN：没绑的码 slug 为空，那是「开默认访客对话」，不是缺数据。
+SELECT ac.*, COALESCE(cp.slug, '')::text AS custom_page_slug
+FROM access_codes ac
+LEFT JOIN custom_pages cp ON cp.id = ac.custom_page_id AND cp.status != 'deleted'
+WHERE ac.owner_id = $1
+ORDER BY ac.created_at DESC;
+
+-- name: SetAccessCodeCustomPage :one
+-- 绑/解绑。$3 为 NULL = 解绑，码退回默认落地。
+-- 一张码至多一页 —— 这是一列而不是一张关系表，所以「至多一个」是结构保证的，不靠校验。
+UPDATE access_codes
+SET custom_page_id = $3
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
 
 -- RevokeAccessCode was deleted: it was `:exec`, which discards the row count, so a revoke that
 -- matched nothing came back as success. CodeRepo.Revoke hand-writes the same UPDATE precisely to

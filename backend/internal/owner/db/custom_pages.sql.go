@@ -43,7 +43,7 @@ INSERT INTO custom_pages (owner_id, slug, title)
 VALUES ($1, $2, $3)
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          created_at, updated_at
+          allow_byoai, created_at, updated_at
 `
 
 type CreateCustomPageParams struct {
@@ -64,6 +64,7 @@ func (q *Queries) CreateCustomPage(ctx context.Context, arg CreateCustomPagePara
 		&i.LiveBuildID,
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -124,7 +125,7 @@ func (q *Queries) GetCustomPageBuild(ctx context.Context, id pgtype.UUID) (Custo
 const getCustomPageByID = `-- name: GetCustomPageByID :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       created_at, updated_at
+       allow_byoai, created_at, updated_at
 FROM custom_pages
 WHERE id = $1 AND status != 'deleted'
 `
@@ -141,6 +142,7 @@ func (q *Queries) GetCustomPageByID(ctx context.Context, id pgtype.UUID) (Custom
 		&i.LiveBuildID,
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -150,7 +152,7 @@ func (q *Queries) GetCustomPageByID(ctx context.Context, id pgtype.UUID) (Custom
 const getCustomPageBySlug = `-- name: GetCustomPageBySlug :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       created_at, updated_at
+       allow_byoai, created_at, updated_at
 FROM custom_pages
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 `
@@ -172,6 +174,7 @@ func (q *Queries) GetCustomPageBySlug(ctx context.Context, arg GetCustomPageBySl
 		&i.LiveBuildID,
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -204,23 +207,49 @@ func (q *Queries) GetLatestCustomPageBuild(ctx context.Context, pageID pgtype.UU
 }
 
 const listCustomPagesByOwner = `-- name: ListCustomPagesByOwner :many
-SELECT id, owner_id, slug, title, status,
-       live_build_id, staging_build_id, previous_live_build_id,
-       created_at, updated_at
-FROM custom_pages
-WHERE owner_id = $1 AND status != 'deleted'
-ORDER BY created_at DESC
+SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
+       cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
+       cp.allow_byoai, cp.created_at, cp.updated_at,
+       COALESCE(
+           ARRAY(
+               SELECT ac.code::text FROM access_codes ac
+               WHERE ac.custom_page_id = cp.id AND ac.status = 'active'
+               ORDER BY ac.created_at
+           ),
+           ARRAY[]::text[]
+       )::text[] AS bound_codes
+FROM custom_pages cp
+WHERE cp.owner_id = $1 AND cp.status != 'deleted'
+ORDER BY cp.created_at DESC
 `
 
-func (q *Queries) ListCustomPagesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]CustomPage, error) {
+type ListCustomPagesByOwnerRow struct {
+	ID                  pgtype.UUID
+	OwnerID             pgtype.UUID
+	Slug                string
+	Title               string
+	Status              string
+	LiveBuildID         pgtype.UUID
+	StagingBuildID      pgtype.UUID
+	PreviousLiveBuildID pgtype.UUID
+	AllowByoai          bool
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+	BoundCodes          []string
+}
+
+// 带上 allow_byoai，以及**哪些码开这一页**（绑定的另一头）。
+// 码→页是至多一个；页→码没有这个限制，所以这里是一个数组而不是一个值。
+// 空数组 = 没有码指向它，它只能被匿名打开。
+func (q *Queries) ListCustomPagesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ListCustomPagesByOwnerRow, error) {
 	rows, err := q.db.Query(ctx, listCustomPagesByOwner, ownerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CustomPage
+	var items []ListCustomPagesByOwnerRow
 	for rows.Next() {
-		var i CustomPage
+		var i ListCustomPagesByOwnerRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
@@ -230,8 +259,10 @@ func (q *Queries) ListCustomPagesByOwner(ctx context.Context, ownerID pgtype.UUI
 			&i.LiveBuildID,
 			&i.StagingBuildID,
 			&i.PreviousLiveBuildID,
+			&i.AllowByoai,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.BoundCodes,
 		); err != nil {
 			return nil, err
 		}
@@ -251,7 +282,7 @@ SET live_build_id          = previous_live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          created_at, updated_at
+          allow_byoai, created_at, updated_at
 `
 
 // previous_live_build_id 提回 live，previous 清空。previous 本来就是 NULL
@@ -268,6 +299,7 @@ func (q *Queries) RollbackCustomPageLive(ctx context.Context, id pgtype.UUID) (C
 		&i.LiveBuildID,
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -360,6 +392,41 @@ func (q *Queries) SetCustomPageBuildFailed(ctx context.Context, arg SetCustomPag
 	return i, err
 }
 
+const setCustomPageByoai = `-- name: SetCustomPageByoai :one
+UPDATE custom_pages
+SET allow_byoai = $3, updated_at = now()
+WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
+RETURNING id, owner_id, slug, title, status,
+          live_build_id, staging_build_id, previous_live_build_id,
+          allow_byoai, created_at, updated_at
+`
+
+type SetCustomPageByoaiParams struct {
+	OwnerID    pgtype.UUID
+	Slug       string
+	AllowByoai bool
+}
+
+// 这一页在**没有人出示 grant 时**给不给读者用自己的 key。来了 code 就作废（I-4）。
+func (q *Queries) SetCustomPageByoai(ctx context.Context, arg SetCustomPageByoaiParams) (CustomPage, error) {
+	row := q.db.QueryRow(ctx, setCustomPageByoai, arg.OwnerID, arg.Slug, arg.AllowByoai)
+	var i CustomPage
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Slug,
+		&i.Title,
+		&i.Status,
+		&i.LiveBuildID,
+		&i.StagingBuildID,
+		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const setCustomPageLive = `-- name: SetCustomPageLive :one
 UPDATE custom_pages
 SET previous_live_build_id = live_build_id,
@@ -368,7 +435,7 @@ SET previous_live_build_id = live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          created_at, updated_at
+          allow_byoai, created_at, updated_at
 `
 
 type SetCustomPageLiveParams struct {
@@ -389,6 +456,7 @@ func (q *Queries) SetCustomPageLive(ctx context.Context, arg SetCustomPageLivePa
 		&i.LiveBuildID,
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -401,7 +469,7 @@ SET staging_build_id = $2, updated_at = now()
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          created_at, updated_at
+          allow_byoai, created_at, updated_at
 `
 
 type SetCustomPageStagingParams struct {
@@ -421,6 +489,7 @@ func (q *Queries) SetCustomPageStaging(ctx context.Context, arg SetCustomPageSta
 		&i.LiveBuildID,
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

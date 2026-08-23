@@ -37,6 +37,10 @@ type Code struct {
 	// InlinePrompt —— #104 扩展：随码内联的 per-code prompt。非空时冻进 RoleSnapshot.code_prompt_body
 	// （优先于 PromptID 库引用）。发码方（如 job-loop）随码带一段 persona 上下文用，不污染 prompt 库。
 	InlinePrompt string
+	// CustomPageSlug —— 这张码开哪一页。空 = 开默认的访客对话（今天的行为）。
+	// **页面是这张码的一个渲染**：授权、配额、身份、记账全不变，只换读者看到的样子。
+	// slug 而不是 id：用它的两处（落地跳转、面板显示）要的都是 slug，存 id 就得两处各查一次。
+	CustomPageSlug string
 	// ProviderID —— 这张码指定的 provider(空 = 继承 role,再默认)。**码压过 role**:
 	// 码是发出去的那张票,是更具体的声明。
 	ProviderID string

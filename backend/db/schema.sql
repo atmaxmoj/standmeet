@@ -307,6 +307,12 @@ CREATE TABLE access_codes (
     -- provider_id —— 这张码用哪个 provider。NULL = 继承(role,再默认)。**码压过 role**。
     -- SET NULL:那条 provider 被删 → 这张码退回默认,码本身照常用(见 owner_providers)。
     provider_id               uuid          REFERENCES owner_providers(id) ON DELETE SET NULL,
+    -- custom_page_id —— 这张码开哪一页。NULL = 开默认的访客对话（今天的行为）。
+    -- 页面是这张码的一个**渲染**：授权、配额、身份、记账全不变，只换读者看到的样子。
+    -- **一张码至多一页**，所以它是码上的一列而不是一张关系表：绑定是一个事实，
+    -- 两个面板都读它，谁也不存第二份。SET NULL —— 页删了码退回默认落地，而不是跟着消失。
+    -- 外键在 custom_pages 建完之后补（这张表在它前面，内联写就是前向引用，新卷上直接失败）。
+    custom_page_id            uuid,
     created_at                timestamptz   NOT NULL DEFAULT now()
 );
 
@@ -667,11 +673,20 @@ CREATE TABLE custom_pages (
     live_build_id          uuid,
     staging_build_id       uuid,
     previous_live_build_id uuid,
+    -- allow_byoai —— 没有人出示 grant 时，这一页给不给读者用自己的 key。
+    -- **来了 code 就作废**：出示的 grant 决定一切，页面自己的设置只在无人出示时生效（I-4）。
+    allow_byoai            boolean       NOT NULL DEFAULT false,
     created_at             timestamptz   NOT NULL DEFAULT now(),
     updated_at             timestamptz   NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX custom_pages_owner_slug_idx ON custom_pages(owner_id, slug);
+
+-- access_codes.custom_page_id 的外键：这张表在 access_codes 之后建，所以约束补在这里。
+ALTER TABLE access_codes
+    ADD CONSTRAINT access_codes_custom_page_id_fkey
+    FOREIGN KEY (custom_page_id) REFERENCES custom_pages(id) ON DELETE SET NULL;
+CREATE INDEX access_codes_custom_page_idx ON access_codes(custom_page_id);
 
 CREATE TABLE custom_page_builds (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),

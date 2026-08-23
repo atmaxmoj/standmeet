@@ -92,7 +92,7 @@ INSERT INTO access_codes (
     assumed_role_id, max_members, prompt_id, inline_prompt, provider_id
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type CreateAccessCodeParams struct {
@@ -141,6 +141,7 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
 		&i.ProviderID,
+		&i.CustomPageID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -182,7 +183,7 @@ func (q *Queries) CreateCodeMember(ctx context.Context, arg CreateCodeMemberPara
 }
 
 const getAccessCode = `-- name: GetAccessCode :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
 `
 
 // **不要在这里加 lower()**:`code` 列是 `citext`(见 schema.sql:245),比较本来就不分大小写。
@@ -204,6 +205,7 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
 		&i.ProviderID,
+		&i.CustomPageID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -213,7 +215,7 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 }
 
 const getAccessCodeAnyStatus = `-- name: GetAccessCodeAnyStatus :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1
 `
 
 // 不带状态过滤:让仓储分得出「这张码不存在」和「这张码被撤销了」。
@@ -235,6 +237,7 @@ func (q *Queries) GetAccessCodeAnyStatus(ctx context.Context, code string) (Acce
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
 		&i.ProviderID,
+		&i.CustomPageID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -244,7 +247,7 @@ func (q *Queries) GetAccessCodeAnyStatus(ctx context.Context, code string) (Acce
 }
 
 const getAccessCodeByID = `-- name: GetAccessCodeByID :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE id = $1
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE id = $1
 `
 
 func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (AccessCode, error) {
@@ -263,10 +266,69 @@ func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (Access
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
 		&i.ProviderID,
+		&i.CustomPageID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
 		&i.InlinePrompt,
+	)
+	return i, err
+}
+
+const getAccessCodeWithPage = `-- name: GetAccessCodeWithPage :one
+SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.custom_page_id, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS custom_page_slug
+FROM access_codes ac
+LEFT JOIN custom_pages cp ON cp.id = ac.custom_page_id AND cp.status != 'deleted'
+WHERE ac.code = $1 AND ac.status = 'active'
+`
+
+type GetAccessCodeWithPageRow struct {
+	ID                   pgtype.UUID
+	OwnerID              pgtype.UUID
+	Code                 string
+	Label                string
+	Purpose              string
+	Ghosts               []byte
+	ExpiresAt            pgtype.Timestamptz
+	Status               string
+	MaxTurnsPerSession   *int32
+	MaxMembers           *int32
+	RequireGhostEvidence *bool
+	ProviderID           pgtype.UUID
+	CustomPageID         pgtype.UUID
+	CreatedAt            pgtype.Timestamptz
+	AssumedRoleID        pgtype.UUID
+	PromptID             pgtype.UUID
+	InlinePrompt         string
+	CustomPageSlug       string
+}
+
+// 同 GetAccessCode，外加**这张码开哪一页**的 slug。
+// 落地决定要在 codes/intro 那一刻做出来（访客带码进来时前端已经在调它），而 slug 是
+// 页那张表上的东西 —— 用 join 在 SQL 层取，访客那条路就不必跨域去问 owner 域要。
+// 空串 = 没绑，开默认的访客对话。
+func (q *Queries) GetAccessCodeWithPage(ctx context.Context, code string) (GetAccessCodeWithPageRow, error) {
+	row := q.db.QueryRow(ctx, getAccessCodeWithPage, code)
+	var i GetAccessCodeWithPageRow
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Code,
+		&i.Label,
+		&i.Purpose,
+		&i.Ghosts,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.MaxTurnsPerSession,
+		&i.MaxMembers,
+		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.CustomPageID,
+		&i.CreatedAt,
+		&i.AssumedRoleID,
+		&i.PromptID,
+		&i.InlinePrompt,
+		&i.CustomPageSlug,
 	)
 	return i, err
 }
@@ -374,7 +436,7 @@ func (q *Queries) GetOrCreateCodeMember(ctx context.Context, arg GetOrCreateCode
 }
 
 const listAccessCodesByOwner = `-- name: ListAccessCodesByOwner :many
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]AccessCode, error) {
@@ -399,10 +461,82 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 			&i.MaxMembers,
 			&i.RequireGhostEvidence,
 			&i.ProviderID,
+			&i.CustomPageID,
 			&i.CreatedAt,
 			&i.AssumedRoleID,
 			&i.PromptID,
 			&i.InlinePrompt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAccessCodesWithPageByOwner = `-- name: ListAccessCodesWithPageByOwner :many
+SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.custom_page_id, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS custom_page_slug
+FROM access_codes ac
+LEFT JOIN custom_pages cp ON cp.id = ac.custom_page_id AND cp.status != 'deleted'
+WHERE ac.owner_id = $1
+ORDER BY ac.created_at DESC
+`
+
+type ListAccessCodesWithPageByOwnerRow struct {
+	ID                   pgtype.UUID
+	OwnerID              pgtype.UUID
+	Code                 string
+	Label                string
+	Purpose              string
+	Ghosts               []byte
+	ExpiresAt            pgtype.Timestamptz
+	Status               string
+	MaxTurnsPerSession   *int32
+	MaxMembers           *int32
+	RequireGhostEvidence *bool
+	ProviderID           pgtype.UUID
+	CustomPageID         pgtype.UUID
+	CreatedAt            pgtype.Timestamptz
+	AssumedRoleID        pgtype.UUID
+	PromptID             pgtype.UUID
+	InlinePrompt         string
+	CustomPageSlug       string
+}
+
+// 同上，外加**这张码开哪一页**。绑定是一个事实，两个面板读同一处：
+// 码那一侧看得到页，页那一侧看得到码（ListCustomPagesByOwner 带 bound_codes）。
+// LEFT JOIN：没绑的码 slug 为空，那是「开默认访客对话」，不是缺数据。
+func (q *Queries) ListAccessCodesWithPageByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ListAccessCodesWithPageByOwnerRow, error) {
+	rows, err := q.db.Query(ctx, listAccessCodesWithPageByOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAccessCodesWithPageByOwnerRow
+	for rows.Next() {
+		var i ListAccessCodesWithPageByOwnerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Code,
+			&i.Label,
+			&i.Purpose,
+			&i.Ghosts,
+			&i.ExpiresAt,
+			&i.Status,
+			&i.MaxTurnsPerSession,
+			&i.MaxMembers,
+			&i.RequireGhostEvidence,
+			&i.ProviderID,
+			&i.CustomPageID,
+			&i.CreatedAt,
+			&i.AssumedRoleID,
+			&i.PromptID,
+			&i.InlinePrompt,
+			&i.CustomPageSlug,
 		); err != nil {
 			return nil, err
 		}
@@ -545,11 +679,51 @@ func (q *Queries) MemberExistsByName(ctx context.Context, arg MemberExistsByName
 	return exists, err
 }
 
+const setAccessCodeCustomPage = `-- name: SetAccessCodeCustomPage :one
+UPDATE access_codes
+SET custom_page_id = $3
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt
+`
+
+type SetAccessCodeCustomPageParams struct {
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	CustomPageID pgtype.UUID
+}
+
+// 绑/解绑。$3 为 NULL = 解绑，码退回默认落地。
+// 一张码至多一页 —— 这是一列而不是一张关系表，所以「至多一个」是结构保证的，不靠校验。
+func (q *Queries) SetAccessCodeCustomPage(ctx context.Context, arg SetAccessCodeCustomPageParams) (AccessCode, error) {
+	row := q.db.QueryRow(ctx, setAccessCodeCustomPage, arg.ID, arg.OwnerID, arg.CustomPageID)
+	var i AccessCode
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Code,
+		&i.Label,
+		&i.Purpose,
+		&i.Ghosts,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.MaxTurnsPerSession,
+		&i.MaxMembers,
+		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.CustomPageID,
+		&i.CreatedAt,
+		&i.AssumedRoleID,
+		&i.PromptID,
+		&i.InlinePrompt,
+	)
+	return i, err
+}
+
 const setAccessCodeGhostEvidence = `-- name: SetAccessCodeGhostEvidence :one
 UPDATE access_codes
 SET require_ghost_evidence = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type SetAccessCodeGhostEvidenceParams struct {
@@ -575,6 +749,7 @@ func (q *Queries) SetAccessCodeGhostEvidence(ctx context.Context, arg SetAccessC
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
 		&i.ProviderID,
+		&i.CustomPageID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -597,7 +772,7 @@ const updateAccessCodeQuotas = `-- name: UpdateAccessCodeQuotas :one
 UPDATE access_codes
 SET max_turns_per_session = $3, max_members = $4
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type UpdateAccessCodeQuotasParams struct {
@@ -632,6 +807,7 @@ func (q *Queries) UpdateAccessCodeQuotas(ctx context.Context, arg UpdateAccessCo
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
 		&i.ProviderID,
+		&i.CustomPageID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,
@@ -644,7 +820,7 @@ const updateAccessCodeRole = `-- name: UpdateAccessCodeRole :one
 UPDATE access_codes
 SET assumed_role_id = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type UpdateAccessCodeRoleParams struct {
@@ -670,6 +846,7 @@ func (q *Queries) UpdateAccessCodeRole(ctx context.Context, arg UpdateAccessCode
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
 		&i.ProviderID,
+		&i.CustomPageID,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
 		&i.PromptID,

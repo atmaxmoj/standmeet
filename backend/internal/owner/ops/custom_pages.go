@@ -100,6 +100,17 @@ var (
 		},
 		"required":["slug","build_id"]
 	}`)
+
+	pageByoaiSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"slug":{"type":"string"},
+			"allow_byoai":{"type":"boolean",
+				"description":
+				"Applies only when no grant is presented; a code scopes the reader instead."}
+		},
+		"required":["slug","allow_byoai"]
+	}`)
 )
 
 // customPageOut / buildOut —— 出站形状(两个面同一份)。
@@ -111,8 +122,13 @@ type customPageOut struct {
 	LiveBuildID string `json:"live_build_id,omitempty"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
-	HasLive     bool   `json:"has_live"`
-	HasStaging  bool   `json:"has_staging"`
+	// BoundCodes —— 哪些活着的码开这一页。绑定的另一头；码那一侧看得到页，这一侧看得到码。
+	// **总是发数组，空也发** —— 缺席和「没有码指向它」是两件事。
+	BoundCodes []string `json:"bound_codes"`
+	HasLive    bool     `json:"has_live"`
+	HasStaging bool     `json:"has_staging"`
+	// AllowBYOAI —— 无人出示 grant 时给不给用自己的 key。来了 code 就作废（I-4）。
+	AllowBYOAI bool `json:"allow_byoai"`
 }
 
 type buildOut struct {
@@ -124,8 +140,13 @@ type buildOut struct {
 }
 
 func toCustomPageOut(p *entity.CustomPage) customPageOut {
+	codes := p.BoundCodes
+	if codes == nil {
+		codes = []string{} // 空数组，不是 null —— 读者分不出 null 和「没有」（[[empty-is-not-json-null]]）。
+	}
 	v := customPageOut{
 		ID: p.ID, Slug: p.Slug, Title: p.Title, Status: p.Status,
+		BoundCodes: codes, AllowBYOAI: p.AllowBYOAI,
 		HasLive: p.LiveBuildID != nil, HasStaging: p.StagingBuildID != nil,
 		CreatedAt: p.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
@@ -176,11 +197,15 @@ func getCustomPageBuild(deps usecase.CustomPageDeps) fp.Invoke {
 
 // pageArgs —— 这一组共用的入参袋(每个操作只读它需要的那几个字段)。
 type pageArgs struct {
-	Slug    string `json:"slug"`
-	Title   string `json:"title"`
-	Path    string `json:"path"`
-	Content string `json:"content"`
-	BuildID string `json:"build_id"`
+	// AllowByoai —— set_byoai 的入参。**指针**：分得出「没给这个字段」和「显式给了 false」，
+	// 裸 bool 会把两者都读成关（[[lesson-not-swept-to-neighbours]] 那一课的同族）。
+	// 排在最前是 fieldalignment 的要求（指针在前）。
+	AllowByoai *bool  `json:"allow_byoai"`
+	Slug       string `json:"slug"`
+	Title      string `json:"title"`
+	Path       string `json:"path"`
+	Content    string `json:"content"`
+	BuildID    string `json:"build_id"`
 }
 
 func decodePageArgs(raw json.RawMessage) (pageArgs, error) {

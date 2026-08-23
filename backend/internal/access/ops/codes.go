@@ -63,6 +63,17 @@ func codeCoreOps(d CodesDeps) []fp.Op {
 			Invoke:      revokeCode(d.Codes),
 		},
 		{
+			ID: "codes.set_custom_page",
+			Description: "Point this code at a custom page, or clear it. Presenting the code " +
+				"then opens that page instead of the default visitor chat — the page is a " +
+				"rendering of the code, so the grant, quotas, identity prompt and transcript " +
+				"are unchanged. An empty slug clears the binding. A code opens at most one page.",
+			InputSchema: codePageSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setCodeCustomPage(d.Codes),
+		},
+		{
 			ID:          "codes.update_quotas",
 			Description: "Change a code's quotas (members, turns per session, bookings).",
 			InputSchema: withExtraFields(codeQuotaSchema, extras.Fields()),
@@ -136,6 +147,16 @@ var (
 			"code_id":{"type":"string","description":"Access code id."},
 			"require_ghost_evidence":{"type":["boolean","null"],
 				"description":"true / false, or null to inherit the role's setting."}
+		},
+		"required":["code_id"]
+	}`)
+
+	codePageSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"code_id":{"type":"string","description":"Access code id."},
+			"slug":{"type":"string",
+				"description":"Custom page slug; empty clears the binding."}
 		},
 		"required":["code_id"]
 	}`)

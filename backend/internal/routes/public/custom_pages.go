@@ -148,7 +148,7 @@ func streamFile(log *slog.Logger, w io.Writer, f io.Reader) {
 }
 
 // writeHTMLWithBase —— 流式读 index.html，遇到 `<head>` 后插 `<base href>`，
-// 让 vite 的 ./assets/... 永远以 /<handle>/p/<slug>/ 为基址。
+// 让 vite 的 ./assets/... 永远以 /p/<slug>/ 为基址（实例单 owner，URL 不带 handle —— F-L-44）。
 func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, baseHref string) {
 	body, err := io.ReadAll(f)
 	if err != nil {

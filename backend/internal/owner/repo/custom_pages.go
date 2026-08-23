@@ -99,9 +99,22 @@ func (r *CustomPageRepo) ListByOwner(
 	}
 	out := make([]entity.CustomPage, 0, len(rows))
 	for i := range rows {
-		out = append(out, toDomainCustomPage(&rows[i]))
+		out = append(out, listedCustomPage(&rows[i]))
 	}
 	return out, nil
+}
+
+// listedCustomPage —— 列表那一条比其余多一样：**哪些码开这一页**。
+// 它是绑定的另一头 —— 码那一侧看得到页，页这一侧看得到码，一个事实两处读、谁也不存第二份。
+func listedCustomPage(row *db.ListCustomPagesByOwnerRow) entity.CustomPage {
+	page := toDomainCustomPage(&db.CustomPage{
+		ID: row.ID, OwnerID: row.OwnerID, Slug: row.Slug, Title: row.Title,
+		Status: row.Status, LiveBuildID: row.LiveBuildID,
+		StagingBuildID: row.StagingBuildID, PreviousLiveBuildID: row.PreviousLiveBuildID,
+		AllowByoai: row.AllowByoai, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	})
+	page.BoundCodes = row.BoundCodes
+	return page
 }
 
 // buildRefIDs —— SetLive / SetStaging 共用：把 page id + build id 一次解析成
@@ -136,6 +149,27 @@ func (r *CustomPageRepo) SetLive(
 	})
 	if err != nil {
 		return entity.CustomPage{}, fmt.Errorf("set live: %w", err)
+	}
+	return toDomainCustomPage(&row), nil
+}
+
+// SetByoai —— 这一页在无人出示 grant 时给不给读者用自己的 key。
+// 无行 = 这个 owner 没有这个 slug（或已删）→ ErrCustomPageNotFound，不是静默成功。
+func (r *CustomPageRepo) SetByoai(
+	ctx context.Context, ownerID, slug string, allow bool,
+) (entity.CustomPage, error) {
+	ownerUUID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return entity.CustomPage{}, fmt.Errorf("parse owner id: %w", perr)
+	}
+	row, err := db.New(r.pool).SetCustomPageByoai(ctx, db.SetCustomPageByoaiParams{
+		OwnerID: ownerUUID, Slug: slug, AllowByoai: allow,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entity.CustomPage{}, entity.ErrCustomPageNotFound
+		}
+		return entity.CustomPage{}, fmt.Errorf("set byoai: %w", err)
 	}
 	return toDomainCustomPage(&row), nil
 }
@@ -193,13 +227,14 @@ func (r *CustomPageRepo) Delete(ctx context.Context, pageID string) error {
 
 func toDomainCustomPage(row *db.CustomPage) entity.CustomPage {
 	page := entity.CustomPage{
-		ID:        pgstore.FormatUUID(row.ID),
-		OwnerID:   pgstore.FormatUUID(row.OwnerID),
-		Slug:      row.Slug,
-		Title:     row.Title,
-		Status:    row.Status,
-		CreatedAt: row.CreatedAt.Time,
-		UpdatedAt: row.UpdatedAt.Time,
+		ID:         pgstore.FormatUUID(row.ID),
+		OwnerID:    pgstore.FormatUUID(row.OwnerID),
+		Slug:       row.Slug,
+		Title:      row.Title,
+		Status:     row.Status,
+		AllowBYOAI: row.AllowByoai,
+		CreatedAt:  row.CreatedAt.Time,
+		UpdatedAt:  row.UpdatedAt.Time,
 	}
 	if row.LiveBuildID.Valid {
 		s := pgstore.FormatUUID(row.LiveBuildID)
