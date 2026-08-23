@@ -13,8 +13,14 @@
 // backtick 原始串里误用了 Go 字符串拼接 `"+`)。Go 侧有 schema_valid_test 兜底,这条在
 // e2e 把"真客户端能发现完整工具面"钉死。
 //
-// golden = 全部 owner_only 工具(内建 128 + jobs 插件 10 + 连接器 manifest 声明的 1 = 139)。
+// golden = 全部 owner_only 工具(内建 132 + jobs 插件 10 + 连接器 manifest 声明的 1 = 143)。
 // 加/删 owner 工具时这条会红 —— 那是**有意**的:逼你同步更新工具面预期。
+//
+// ⚠️ **这份手写清单已经第三次过期了**（F-P-6）。它是一个「必须有人记得更新」的检查器 ——
+// 而同一个事实已经有一个不会忘的家：`internal/infra/paritymanifest` 是 owner 能力的
+// 单一真源，`server.New` 启动时就拿它跟活着的两个面对一遍，不合就 panic。
+// 这里再抄一份，抄的人一忘就静默飘掉。结构版见 F-P-6：把预期**从清单派生**，
+// 而不是手写（[[structure-means-no-responsibility-class]]）。
 //
 // **owner 工具有三个来源**,不是两个:host 侧写死的、能力插件的、以及**连接器 manifest 里的
 // `owner_ops:`**。第三个来源是后加的(F-C-16 的 connectors.calendar_check),而那次没更新这份
@@ -46,6 +52,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // 这四条以前只有面板有（waypoints 读写 / ghost-evidence / corpus 收回整份），
   // 既没有 MCP 孪生也没进台账。搬进收口之后两个面同时欠它们。
   'codes.set_corpus_denials', 'codes.set_ghost_evidence',
+  // codes.set_custom_page —— 这张码扫出来开哪一页（页是码的一个渲染）。
+  'codes.set_custom_page',
   'codes.waypoints', 'codes.set_waypoints',
   // corpus —— genre 是**参数**,不是三套工具:归一化前这里是 11 个工具
   // (raw_dump / list_recent_{raw,wiki,output} / update_{wiki,output} /
@@ -83,7 +91,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // 没有它,一行 ext-MCP 上的证据只有 owner 自己粘进去的那个 URL(F-D-8)。
   'mcp_server_create', 'mcp_server_list', 'mcp_server_check', 'mcp_server_delete',
   'mcp_server_grant_dep',
-  'skill_create', 'skill_list', 'skill_delete', 'skill_set_enabled',
+  // skill_update —— 2026-08-22 随「owner 能把连接器的接口授出去」一起加的，
+  // **而这份 golden 当时没跟着改**（第三次了，见文件头那段）。
+  'skill_create', 'skill_update', 'skill_list', 'skill_delete', 'skill_set_enabled',
   'capabilities.list', 'capabilities.set_enabled', 'capabilities.delete',
   // writings
   // save 还是 writing_create(multipart 那半边没搬,见 res_writings.go 的说明);
@@ -95,6 +105,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'custom_page.write_file', 'custom_page.build', 'custom_page.delete',
   'custom_page.promote_to_staging', 'custom_page.promote_to_live',
   'custom_page.rollback',
+  // custom_page.set_byoai —— 这一页允不允许读者自带 key（挂了码之后作废，由码定）。
+  'custom_page.set_byoai',
   // page / calendar / booking / appearance
   'page.get', 'page.put', 'page.set_public_url',
   'page.pin', 'page.unpin',
@@ -110,6 +122,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'connectors.create', 'connectors.update', 'connectors.delete',
   'connectors.activate', 'connectors.disconnect',
   'connectors.validate_spec', 'connectors.mail_test_send',
+  // connectors.agent_ops —— 同 skill_update，2026-08-22 那一批加的，golden 没跟。
+  'connectors.agent_ops',
   // **第三个来源**：连接器 manifest 自己声明的 owner op（`owner_ops:`）。
   // 上面那些是 host 侧写死的；这一条住在 `backend/connectors/google-calendar/manifest.yaml`，
   // 由 F-C-16 加进来 —— 而这份 golden 当时没跟着改，于是它从那时起一直红着没人看见
