@@ -15,6 +15,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { AuthoringPanel } from '@/components/admin/sections/custom-pages/AuthoringPanel';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   pickCustomPagesBodyState,
@@ -35,7 +36,7 @@ export function CustomPagesSection() {
       />
       <Intro />
       <CustomPagesBody hook={hook} />
-      <TemplatesBlock />
+      <AuthoringPanel />
     </>
   );
 }
@@ -101,7 +102,7 @@ function TableHead() {
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('page')}</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('template')}</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('visibility')}</th>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('views')}</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('access')}</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('updated')}</th>
         <th className="text-right px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('actions')}</th>
       </tr>
@@ -115,10 +116,41 @@ function PageRow({ page }: { page: CustomPageSummary }) {
       <PageCell page={page} />
       <TemplateCell />
       <VisibilityCell hasLive={page.has_live} hasStaging={page.has_staging} />
-      <ViewsCell />
+      <BindingCell page={page} />
       <DateCell iso={page.updated_at} />
       <ActionsCell page={page} />
     </tr>
+  );
+}
+
+// BindingCell —— 哪些码开这一页。**绑定的另一头**：码那一侧看得到页，这一侧看得到码。
+// 只能单向看见的绑定，人会忘了自己建过。
+function BindingCell({ page }: { page: CustomPageSummary }) {
+  return (
+    <td className="px-4 py-3 mono text-[10px]" data-testid={`custom-page-codes-${page.slug}`}>
+      <BoundCodes codes={page.bound_codes ?? []} />
+      <ByoaiLine allow={page.allow_byoai ?? false} />
+    </td>
+  );
+}
+
+// BoundCodes —— 哪些码开这一页。
+//
+// 这里的「空」跟列表空态不是一回事：行已经加载好了，`bound_codes` 是它上面的一个字段，
+// 空就是**真的没有码指向它**，不存在「加载失败看起来也像空」那种歧义
+// （check-one-empty-state 防的是后者）。
+function BoundCodes({ codes }: { codes: readonly string[] }) {
+  const t = useTranslations('adminPages.customPages');
+  const bound = codes.join(' · ');
+  return bound !== ''
+    ? <span className="text-(--color-ink)">{t('boundCodes')} {bound}</span>
+    : <span className="text-(--color-faint)">{t('boundNone')}</span>;
+}
+
+function ByoaiLine({ allow }: { allow: boolean }) {
+  const t = useTranslations('adminPages.customPages');
+  return (
+    <div className="text-(--color-faint) mt-1">{allow ? t('byoaiOn') : t('byoaiOff')}</div>
   );
 }
 
@@ -136,14 +168,6 @@ function VisibilityCell({ hasLive, hasStaging }: { hasLive: boolean; hasStaging:
   return (
     <td className={`px-4 py-3 mono text-[10px] tracking-[0.12em] uppercase ${view.tone}`}>
       {t(view.key)}
-    </td>
-  );
-}
-
-function ViewsCell() {
-  return (
-    <td className="px-4 py-3 mono text-[10px] text-(--color-faint)">
-      —
     </td>
   );
 }
@@ -204,30 +228,8 @@ function ViewLiveLink({ page }: { page: CustomPageSummary }) {
   );
 }
 
-const TEMPLATE_IDS = ['press-kit', 'list-prose', 'menu', 'auto-now'] as const;
-
-function TemplatesBlock() {
-  const t = useTranslations('adminPages.customPages');
-  return (
-    <div className="mt-6 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/30 p-4">
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        {t('templatesAvailable')}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {TEMPLATE_IDS.map((id) => (
-          <TemplateCard key={id} label={t(`templates.${id}.label`)} desc={t(`templates.${id}.desc`)} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TemplateCard({ label, desc }: { label: string; desc: string }) {
-  return (
-    <div className="border border-(--color-rule) p-3 rounded-[3px]">
-      <div className="mono text-[11px] text-(--color-ink) tracking-[0.04em]">{label}</div>
-      <div className="reading text-[12.5px] text-(--color-muted) mt-1">{desc}</div>
-    </div>
-  );
-}
+// TEMPLATES AVAILABLE 那一块删了：`press-kit / list-prose / menu / auto-now` 四张卡是
+// **纯 i18n 文案** —— 仓库里没有任何模板产物，`custom_page.create` 也不收 template 参数。
+// 面上摆着四个 owner 拿不到的东西，比什么都不摆更糟（[[names-that-lie]]）。
+// 真模板做出来一个，再把它挂回来。
 

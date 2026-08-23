@@ -78,17 +78,22 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
   // F-N-1: the section header must NOT present a dead "+ new page" button. Page creation is
   // MCP-driven (custom_page.create/.build/.promote_to_live) — the button had no onClick and did
   // nothing on click. Guard: the affordance is absent and the MCP direction is what's shown.
-  test('no dead "+ new page" affordance — creation is MCP-driven (F-N-1)',
+  // F-N-1 原本断的是「没有 + new page 这个空转的入口」—— 那时面板确实建不了页，所以
+  // 摆一个按钮就是骗人。**现在它建得了**（写这一组不再只在 MCP 上），于是同一条规矩
+  // 换了个断法：入口要在，而且**要真的接着东西**。
+  //
+  // 「按钮不该存在」和「按钮该存在且能用」是同一条规矩在两种世界下的样子；
+  // 留着旧断言的话，它会在能力补上之后反过来拦住正确的产品。
+  test('the authoring affordance exists and is wired (F-N-1, in the world where it works)',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'custom-pages');
       await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
-      await expect(
-        page.getByRole('button', { name: /new page/i }),
-      ).toHaveCount(0);
-      // The page still TELLS the owner how to create one — the affordance is removed, not the
-      // direction. (The `custom_page.create` copy lives in the empty state, which isn't rendered
-      // here because the preceding test leaves a page in the list; the intro always is.)
-      await expect(page.getByText(/Build via MCP/i)).toBeVisible();
+      await expect(page.getByTestId('custom-page-source')).toBeVisible();
+      await expect(page.getByTestId('custom-page-publish')).toBeVisible();
+      // 空 slug 时禁用 —— 那不是「死按钮」，那是它说得出自己现在还不能做什么。
+      await expect(page.getByTestId('custom-page-publish')).toBeDisabled();
+      await page.getByTestId('custom-page-slug').fill('from-the-panel');
+      await expect(page.getByTestId('custom-page-publish')).toBeEnabled();
     });
 });
 

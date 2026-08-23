@@ -71,7 +71,10 @@ async function buildUntilSettled(
     const got = await api(request, csrf, 'get', `/builds/${id}`);
     row = got.body;
     return row.status ?? 'pending';
-  }, { timeout: 90_000, message: 'the build never reached a terminal state' })
+    // 180s 不是「等久一点碰运气」：沙箱**一次只建一个**，而这一族里好几条用例都要真构建，
+    // 于是它们在同一个 builder 上排队。单跑这条 9.5 秒就到终态，整族一起跑就会排在别人后面。
+    // 预算给的是**排队**，不是给一次可能永远不来的构建。
+  }, { timeout: 180_000, message: 'the build never reached a terminal state' })
     .toMatch(/^(built|failed)$/);
   return row;
 }

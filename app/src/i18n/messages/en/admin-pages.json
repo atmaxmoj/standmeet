@@ -64,7 +64,7 @@
     "intro": {
       "before": "Custom pages live at",
       "slugPath": "/p/<slug>",
-      "after": ". Each binds a template to data from your corpus and renders with the same chrome as the public site. Build via MCP — owner drives the lifecycle from Claude."
+      "after": ". Write one below, or drive the same lifecycle from Claude over MCP — both do the same thing. A page can read your corpus and carry your AI; an access code can be pointed at one, so presenting that code opens the page instead of the default chat."
     },
     "empty": {
       "lead": "No custom pages yet. Owner creates / builds / promotes via MCP",
@@ -77,7 +77,7 @@
       "page": "page",
       "template": "template",
       "visibility": "visibility",
-      "views": "views",
+      "access": "access",
       "updated": "updated",
       "actions": "actions"
     },
@@ -89,6 +89,20 @@
     "slugPath": "/p/{slug}",
     "viewLive": "view live",
     "noLiveBuild": "no live build",
+    "authorHeading": "write a page",
+    "authorHelp": "Paste the page's App.tsx. It is built in a sandbox and, if the build succeeds, published at /p/<slug>. You can import @standmeet/sdk to read your corpus and to ask your AI.",
+    "slugLabel": "slug — the page lives at /p/<slug>",
+    "sourceLabel": "App.tsx",
+    "publish": "build + publish →",
+    "published": "Page published",
+    "buildRunning": "building…",
+    "buildBuilt": "built",
+    "buildFailed": "build failed",
+    "boundCodes": "opened by",
+    "boundNone": "no code opens this — anonymous only",
+    "byoaiOn": "readers may bring their own key",
+    "byoaiOff": "no bring-your-own-key",
+    "byoaiNote": "Applies only when nobody presents a code. A reader arriving with a code is scoped by that code, and this setting does not apply.",
     "templatesAvailable": "templates available",
     "templates": {
       "press-kit": {
