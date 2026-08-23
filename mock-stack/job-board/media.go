@@ -20,6 +20,7 @@ package main
 import (
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // pixelPNG —— 1x1 透明 PNG,最小合法字节流。跟 e2e fixture 里那份是同一张图。
@@ -65,6 +66,7 @@ type mediaFile struct {
 // mediaFiles —— 路径 → 发什么。声明的类型跟真实字节**故意在 lying.png 那条上不一致**。
 var mediaFiles = map[string]mediaFile{
 	"pixel.png":        {"image/png", pixelPNG},
+	uaRequired:         {"image/png", pixelPNG},
 	"anim.gif":         {"image/gif", tinyGIF},
 	"shot.webp":        {"image/webp", tinyWebP},
 	"clip.mp4":         {"video/mp4", tinyMP4},
@@ -75,9 +77,35 @@ var mediaFiles = map[string]mediaFile{
 	"not-an-image.txt": {"text/plain; charset=utf-8", []byte("this is not an image")},
 }
 
+// uaRequired —— 这个文件名**要求一个像样的 User-Agent**，否则 403。
+//
+// 真世界里这不是边角：Wikimedia 的机器人策略明确要求描述性 UA，对着默认的
+// `Go-http-client/…` 直接 403 —— 而「从维基百科贴一张图」正是 owner 最可能做的一件事。
+// 替身比真实世界客气的话，产品会一路绿到 owner 手里才第一次撞上
+// （[[stand-in-is-politer-than-reality]]）。
+const uaRequired = "ua-required.png"
+
+// descriptiveUA —— 什么样算「像样」：非空，而且不是 HTTP 库的默认值。
+// 判的是**默认值**而不是某个白名单：白名单会把「我们换了个 UA」也判成违规。
+func descriptiveUA(ua string) bool {
+	if ua == "" {
+		return false
+	}
+	return !strings.HasPrefix(ua, "Go-http-client/") &&
+		!strings.HasPrefix(ua, "python-requests/") &&
+		!strings.HasPrefix(ua, "curl/")
+}
+
 // serveMedia —— 按文件名发。表里没有 → 404(missing.png 走这条)。
 func (s *server) serveMedia(w http.ResponseWriter, r *http.Request) {
-	f, ok := mediaFiles[r.PathValue("filename")]
+	name := r.PathValue("filename")
+	if name == uaRequired && !descriptiveUA(r.Header.Get("User-Agent")) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("clients must send a descriptive User-Agent"))
+		return
+	}
+	f, ok := mediaFiles[name]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return

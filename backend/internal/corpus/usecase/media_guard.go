@@ -35,6 +35,11 @@ import (
 
 const mediaFetchTimeout = 15 * time.Second
 
+// mediaFetchUA —— 取素材时自报家门。**不是装饰**：好几个大站（Wikimedia 最典型）
+// 的机器人策略要求描述性 UA，对 HTTP 库的默认值直接 403。带上产品名和项目地址，
+// 是这类抓取的通行做法 —— 对方要限流或者要联系我们时找得到人。
+const mediaFetchUA = "StandMeet/0.1 (self-hosted; +https://github.com/atmaxmoj/standmeet)"
+
 // 按 kind 的体积上限。一段视频天生比一张图大 —— 同一个数卡两者等于禁掉视频。
 const (
 	maxImageBytes      = 10 << 20 // 配图 / hero
@@ -170,6 +175,11 @@ func getOverHTTP(ctx context.Context, rawURL string) (*http.Response, error) {
 	if rerr != nil {
 		return nil, fmt.Errorf("%w: build request: %s", entity.ErrMediaRejected, rerr.Error())
 	}
+	// 自报家门。不带 UA 的话 Go 发的是 `Go-http-client/2.0`，而**要求描述性 UA 的主机
+	// 会直接 403** —— Wikimedia 就是其中之一，而「从维基百科贴一张图」正是 owner 最常做的
+	// 一件事。于是这条路在最常见的来源上不通，owner 只看到一句 `status 403`（F-P-7）。
+	// 带上产品名和地址是这类抓取的通行做法：对方要限流或联系我们时找得到人。
+	req.Header.Set("User-Agent", mediaFetchUA)
 	resp, herr := client.Do(req)
 	if herr != nil {
 		return nil, fmt.Errorf("%w: fetch: %s", entity.ErrMediaRejected, herr.Error())

@@ -16,6 +16,7 @@ import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 import { claim, createAPIToken, login } from '@/fixtures/admin';
 import { createCode, revokeCode } from '@/fixtures/codes';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
+import { MEDIA, uploadAsset } from '@/fixtures/genre-assets';
 import { initMCP } from '@/fixtures/mcp';
 import { bindCodeToPage, publishPage, setPageByoai } from '@/fixtures/custom-page-rig';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -166,6 +167,45 @@ test.describe('a page cannot show what the viewer cannot read', () => {
       .toHaveText('denied', { timeout: 20_000 });
     await expect(sm(page, 'note')).toHaveText('');
   });
+});
+
+// 一张托管页能不能放**实例自己的**素材。
+//
+// 远端 URL 当然能放（那条路上没有 CSP），但那不是理由绕开自家的存储：
+// `assets.upload` 收一个地址、服务端自己取回来、字节落进实例的对象存储，从此跟第三方无关。
+// 代价是两条约束，而这两条都只有在页面上才看得出来：
+//   · 地址是**签名的、一小时过期** —— 写死进构建产物的页面，上线一小时后就是一片碎图；
+//   · 素材挂在**语料条目**上，页面拿它得走「取那条笔记、读它的 assets」。
+test.describe('a page can serve the instance’s own media, not just remote URLs', () => {
+  let admin: Admin;
+
+  test.beforeEach(async ({ playwright }) => { admin = await freshOwner(playwright); });
+  test.afterEach(async () => { await admin.request.dispose(); });
+
+  test('an asset uploaded to a note shows up on the page, fetched at view time',
+    async ({ page }) => {
+      await publishPage(admin.request, admin.csrf, 'hosted');
+      const token = await createAPIToken(admin.request, admin.csrf, 'page-assets');
+      const sid = await initMCP(admin.request, token);
+
+      const note = await seedWiki(admin.request, token, sid,
+        { title: 'Shot Note', body: 'has a picture', path: 'shot-note' });
+      await publishEntry(admin.request, token, sid, { genre: 'wiki', id: note.wikiID });
+      const up = await uploadAsset({ request: admin.request, token, sid },
+        'wiki', note.wikiID, MEDIA.pixel, { filename: 'on-the-page.png' });
+      expect(up.content_type).toBe('image/png');
+
+      await goto(page, '/p/hosted?shot=shot-note');
+      await expect(sm(page, 'hosted-state')).toHaveText('ready', { timeout: 20_000 });
+      await expect(sm(page, 'hosted-name')).toHaveText('on-the-page.png');
+
+      // **断的是它真的画出来了**，不是「有个 <img>」。签名地址过期 / holder 解析错 /
+      // 存储没连上，三种都会留下一个尺寸为 0 的 <img>，而截图和 DOM 断言都看不出来
+      // （[[text-assertion-cannot-see-layout]]）。
+      const drawn = await sm(page, 'hosted').evaluate(
+        (el) => el instanceof HTMLImageElement && el.complete && el.naturalWidth > 0);
+      expect(drawn, 'the instance-hosted image actually decoded').toBe(true);
+    });
 });
 
 test.describe('everything the code carries, carries onto the page', () => {

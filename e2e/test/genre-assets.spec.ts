@@ -161,6 +161,21 @@ test.describe('按地址取素材:每条守卫都要撞得响', () => {
     await expect(uploadAsset(s, 'wiki', id, MEDIA.insecure)).rejects.toThrow(/https/i);
   });
 
+  // F-P-7 —— **要求描述性 User-Agent 的主机，我们必须取得到。**
+  //
+  // 上一版建请求时一个 UA 都不带，Go 于是发默认的 `Go-http-client/2.0`，而 Wikimedia
+  // 的机器人策略对这类 UA 直接 403。「从维基百科贴一张图」是 owner 最可能做的一件事，
+  // 于是这条路在最常见的来源上直接不通 —— 而 owner 看到的只有一句 `media rejected: status 403`。
+  //
+  // 判据是**取回来了**，不是「没报错」：这一条要能把「我们改了 UA」和「我们还在发默认值」
+  // 分开，所以替身那一侧先学会这条规矩（403 除非 UA 像样），再让它红。
+  test('主机要求描述性 User-Agent → 取得回来(不能发库的默认 UA)', async () => {
+    const id = await createEntry(s, 'wiki', 'ua-required', 'body');
+    const up = await uploadAsset(s, 'wiki', id, MEDIA.uaRequired, { filename: 'ua.png' });
+    expect(up.content_type, '取回的是那张图，不是一句 403').toBe('image/png');
+    expect(up.size_bytes).toBeGreaterThan(0);
+  });
+
   // 当图片用(kind=image,默认)时必须真是图片 —— 否则 owner 递一个 HTML 页面进来就成了"一张图"。
   // 但**附件不适用这条**:附件本来就不是图片,一刀切会把下载按钮那条整条毙掉。
   // "多媒体"不是只有 png。gif / webp / mp4 都得收得下 —— 否则 owner 贴一张动图就卡住。

@@ -44,6 +44,28 @@ function Ask() {
   );
 }
 
+// Hosted —— **实例自己在服务的那份素材**。地址是签名的、一小时过期，所以只能在
+// 运行时取；素材挂在语料条目上，取它的路径就是「取那条笔记，读它的 assets」。
+function Hosted() {
+  const sm = useStandMeet();
+  const path = new URL(window.location.href).searchParams.get("shot");
+  const [asset, setAsset] = useState(null);
+  useEffect(() => {
+    if (!path) return;
+    void sm.fetchWikiLanding(path)
+      .then((n) => setAsset((n?.assets ?? []).find((a) => a.content_type.startsWith("image/")) ?? null))
+      .catch(() => setAsset(null));
+  }, [sm, path]);
+  if (!asset) return <div data-sm="hosted-state">none</div>;
+  return (
+    <div>
+      <div data-sm="hosted-state">ready</div>
+      <img data-sm="hosted" src={asset.url} alt={asset.original_filename} />
+      <div data-sm="hosted-name">{asset.original_filename}</div>
+    </div>
+  );
+}
+
 // Reader —— 打开语料里的一条。**这一页只能给出读者自己读得到的东西**：
 // 取不到就明说取不到，不留一个说不清是"还没到"还是"不给你看"的空白。
 function Reader() {
@@ -80,6 +102,7 @@ function Room() {
         {cards.map((c) => <li key={c.wiki_id} data-sm-title={c.title}>{c.title}</li>)}
       </ol>
       <Reader />
+      <Hosted />
       <Ask />
     </main>
   );

@@ -26,6 +26,9 @@ export const MEDIA = {
   notImage: `${MEDIA_BASE}/not-an-image.txt`,
   missing: `${MEDIA_BASE}/missing.png`,
   insecure: 'http://external-mock:9000/media/pixel.png', // 非 https
+  // uaRequired —— 一个**要求描述性 User-Agent** 的主机。Wikimedia 就是这样的：
+  // 对着 HTTP 库的默认 UA 直接 403，而「从维基百科贴一张图」是 owner 最常做的一件事。
+  uaRequired: `${MEDIA_BASE}/ua-required.png`,
 } as const;
 
 /** bulk —— 发指定 MB 数、指定类型的字节。上限是按 kind 分的,所以同一个大小要能当两种用。 */

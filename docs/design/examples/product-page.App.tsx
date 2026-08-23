@@ -13,6 +13,12 @@ import { StandMeetProvider, useStandMeet, useChatSession, AnswerText } from "@st
 import { byoaiOffered, hasVisitorGrant } from "@standmeet/sdk-core";
 
 type Card = { wiki_id: string; title: string; excerpt: string; path: string };
+// Landing —— 取回一条语料时拿到的东西。`assets` 是挂在它上面的文件（签名地址，一小时有效）。
+type Asset = {
+  asset_id: string; kind: string; content_type: string;
+  original_filename: string; url: string; size_bytes: number;
+};
+type Landing = { title: string; excerpt: string; path: string; assets?: readonly Asset[] };
 type Page = {
   owner: { handle: string; full_name: string; location: string };
   content: { hero_prose: string; insights: readonly Card[]; projects: readonly Card[] };
@@ -30,12 +36,10 @@ const MEDIA = {
     { src: "https://picsum.photos/id/1062/900/1200", alt: "audiobook karaoke" },
   ],
   portrait: "https://picsum.photos/id/1005/400/400",
-  // pasted —— **owner 随手丢过来的一个地址**，不是我挑的。留着是因为它带一个真实的坑：
-  // 人贴过来的是 `zh.wikipedia.org/wiki/File:…`（那是**说明页**，不是图），
-  // 真正的文件在 `upload.wikimedia.org/…`，要问一次 API 才拿得到。
-  // 任何一个往自己页面上贴维基图片的人都会撞这一下。
-  pasted: "https://upload.wikimedia.org/wikipedia/zh/e/eb/" +
-    "%E9%A3%8E%E6%B5%81%E4%B8%80%E4%BB%A3%E7%94%B5%E5%BD%B1%E6%B5%B7%E6%8A%A5.jpg",
+  // 这里**没有**那张海报的地址 —— 它已经不是远端素材了。
+  // 它经 `assets.upload` 被拉进实例自己的存储，页面运行时从语料上取（见 <Hosted/>）。
+  // 顺便记下那次踩的坑：owner 递过来的是 `zh.wikipedia.org/wiki/File:…`，那是**说明页**
+  // 不是图；真文件在 `upload.wikimedia.org/…`，要问一次 API 才拿得到。
   map:
     "https://www.openstreetmap.org/export/embed.html" +
     "?bbox=2.2241%2C48.8156%2C2.4699%2C48.9022&layer=mapnik",
@@ -230,21 +234,31 @@ function Gallery() {
   );
 }
 
-// Pasted —— 证明「随便给一个地址就能上」。这一张不是我挑的素材库，是 owner 当场丢过来的
-// 一个维基链接；页面对它没有任何特殊处理 —— 因为**本来就不需要**。
-function Pasted() {
+// Hosted —— **这一张是我们自己在服务的**。
+//
+// 上一版直接热链维基百科；那能用，但没必要：`assets.upload` 收一个地址、**服务端自己去取**、
+// 字节落进实例的对象存储，从此这张图跟第三方站点再无关系（它挂了、改了、防了盗链，都不影响）。
+//
+// 两件事因此必须在**运行时**做，不能写死在源码里：
+//   · 地址是**签名 URL，一小时过期** —— 粘进构建产物的话，页面上线一小时后就是一片碎图。
+//   · 素材挂在**语料条目**上（asset 必须有 holder），所以取它的路径是「取那条笔记，读它的 assets」。
+// 也就是说：这一块每次打开都是新拿的，跟撤下语料立刻生效是同一件事。
+function Hosted({ note }: { note: Landing | null }) {
+  const shot = (note?.assets ?? []).find((a) => a.content_type.startsWith("image/"));
+  if (!shot) return null;
   return (
     <section className="pasted">
-      <img src={MEDIA.pasted} alt="风流一代 电影海报" data-sm="pasted" />
+      <img src={shot.url} alt={shot.original_filename} data-sm="hosted" />
       <div>
-        <div className="mono" style={{ color: "var(--muted)" }}>pasted from a url</div>
-        <p style={{ margin: ".5rem 0 0", maxWidth: "30em", lineHeight: 1.55 }}>
-          Nothing on this page was uploaded. This one came straight from
-          <span className="mono" style={{ textTransform: "none", letterSpacing: 0 }}>
-            {" upload.wikimedia.org"}
-          </span>
-          {" "}— the same as the video, the audio and the map.
+        <div className="mono" style={{ color: "var(--muted)" }}>served by this instance</div>
+        <p style={{ margin: ".5rem 0 0", maxWidth: "32em", lineHeight: 1.55 }}>
+          This one is not hotlinked. It was pulled in once and now lives in the owner&rsquo;s own
+          storage — the address is signed and short-lived, so the page fetches it fresh every
+          time rather than baking it into the build.
         </p>
+        <div className="mono" style={{ marginTop: ".6rem", color: "var(--muted)" }}>
+          {shot.original_filename} · {Math.round(shot.size_bytes / 1024)} KB
+        </div>
       </div>
     </section>
   );
@@ -357,7 +371,10 @@ function Ask() {
 function Body() {
   const sm = useStandMeet();
   const [page, setPage] = useState<Page | null>(null);
-  const [open, setOpen] = useState<{ title: string; excerpt: string; path: string } | null>(null);
+  const [open, setOpen] = useState<Landing | null>(null);
+  // shot —— 实例自己在服务的那张图。跟着**第一条语料**取回来：素材挂在语料上，
+  // 所以拿它的路径就是「取那条笔记，读它的 assets」。每次打开都是新签的地址。
+  const [shot, setShot] = useState<Landing | null>(null);
   const seen = useRef(false);
   useEffect(() => {
     if (seen.current) return;
@@ -365,6 +382,11 @@ function Body() {
     void sm.fetchPage().then(setPage as never).catch(() => setPage(null));
   }, [sm]);
   const cards = page ? [...page.content.insights, ...page.content.projects] : [];
+  const first = cards[0]?.path;
+  useEffect(() => {
+    if (!first) return;
+    void sm.fetchWikiLanding(first).then(setShot as never).catch(() => setShot(null));
+  }, [sm, first]);
   const onOpen = (c: Card) => {
     void sm.fetchWikiLanding(c.path).then(setOpen as never).catch(() => setOpen(null));
   };
@@ -380,7 +402,7 @@ function Body() {
       <div className="wrap">
         <Specs />
         <Gallery />
-        <Pasted />
+        <Hosted note={shot} />
         <div className="cols">
           <main>
             <Sound />
@@ -400,9 +422,13 @@ function Body() {
       <footer>
         <div className="wrap">
           <div className="mono">© {page ? page.owner.handle : " "} · built on standmeet</div>
-          <p style={{ marginTop: ".8rem", maxWidth: "40em" }}>
-            Every image, the video, the audio and the map on this page come from
-            <em> remote URLs</em> — none of them are in the build.
+          {/* 这句话必须跟着页面走。上一版写「全部来自远端 URL」，而海报已经改成
+              实例自己在服务了 —— 屏幕上一句过期的断言，跟一个坏掉的功能一样是缺陷。 */}
+          <p style={{ marginTop: ".8rem", maxWidth: "44em" }}>
+            Two ways in, both by URL and neither in the build: the gallery, video, audio and map
+            come straight from <em>remote hosts</em>; the poster was pulled into this
+            instance&rsquo;s own storage once and is <em>served from here</em>, on a signed
+            address resolved fresh on every view.
           </p>
         </div>
       </footer>
