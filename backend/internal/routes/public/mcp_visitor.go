@@ -247,6 +247,25 @@ func runVisitorToolCall(
 	return mcpgo.NewToolResultText(out)
 }
 
+// writeVisitorMCPErr —— 拒绝这一次连接。
+//
+// 401 必须**自报认证方式**。MCP 的认证故事是 OAuth 2.1，所以一个光秃秃的 401，
+// 守规矩的客户端会当成「这台服务器要 OAuth」然后跑去做发现 —— 官方 Inspector 就是这样，
+// 人看到的是 `Interactive OAuth requires a TTY`，而我们写的那句「带上你的访问码」
+// 一个字都没露面（F-P-8）。**body 里有那句话是不够的：没人会看到 body。**
+//
+// 按 RFC 6750 报 Bearer，并把那句话放进 error_description —— 客户端会把它显示出来。
 func writeVisitorMCPErr(w http.ResponseWriter, status int, msg string) {
+	if status == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", bearerChallenge(msg))
+	}
 	http.Error(w, msg, status)
+}
+
+// bearerChallenge —— `Bearer realm="standmeet", error_description="…"`。
+// 引号里的内容要转义：那句话里出现一个双引号就会把这个头截断，
+// 而截断的头比没有还糟 —— 客户端会读到半句。
+func bearerChallenge(msg string) string {
+	safe := strings.NewReplacer(`"`, `'`, "\\", "", "\r", " ", "\n", " ").Replace(msg)
+	return `Bearer realm="standmeet", error="invalid_token", error_description="` + safe + `"`
 }

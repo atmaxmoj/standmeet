@@ -83,6 +83,15 @@ async function rpcNoAuth(
   return { status: res.status(), body: parseRPC(await res.text()) };
 }
 
+// rpcNoAuthRaw —— 不带凭据发一次，**把原始响应交回去**：这一条要断的是响应头，
+// 而上面那个 helper 只交回 body。
+async function rpcNoAuthRaw(request: APIRequestContext) {
+  return request.post(MCP, {
+    headers: { 'Content-Type': 'application/json' },
+    data: { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
+  });
+}
+
 // parseRPC —— streamable HTTP 可能以 SSE 帧回，也可能直接回 JSON。两种都得读得懂，
 // 否则「协议对不上」会被读成「产品坏了」。
 function parseRPC(text: string): Record<string, unknown> {
@@ -98,6 +107,23 @@ function parseRPC(text: string): Record<string, unknown> {
 function toolNames(body: Record<string, unknown>): string[] {
   const result = body['result'] as { tools?: { name: string }[] } | undefined;
   return (result?.tools ?? []).map((t) => t.name);
+}
+
+// OUTWARD —— 对外那一组工具。**线上报出来的每一个名字都必须在这里面**。
+// owner 面和访客面住在同一个进程、挂载点只差一个前缀，一个 owner 工具漏到这张表上，
+// 访客的 AI 就直接拿到了它。
+const OUTWARD = [
+  'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
+  'calendar_list_slots', 'calendar_book',
+];
+
+// expectAllOutward —— 清单那侧的棘轮两边读的是同一份名单，证不了「这一面真的挂对了」；
+// 只有问活着的端点才分得出「挂上了正确的一组」和「挂上了别的一组 / 过滤器太狠」。
+function expectAllOutward(names: string[]): void {
+  for (const n of names) {
+    expect(OUTWARD, `the live face advertises "${n}", which is not an outward tool`)
+      .toContain(n);
+  }
 }
 
 interface Admin { request: APIRequestContext; csrf: string }
@@ -131,22 +157,25 @@ test.describe('a visitor can point their own AI client at this instance', () => 
     // 等于这个实例什么也不提供（[[assertion-that-cannot-fail]]）。
     expect(names.length, 'the code grants something to work with').toBeGreaterThan(0);
 
-    // **这一条才是活的那个检查。** 清单那侧的棘轮（MCPVisitorMissing）两边读的是同一份
-    // 名单，它证不了「这一面真的挂对了」；只有问活着的端点才分得出「挂上了正确的一组」
-    // 和「挂上了别的一组 / 过滤器太狠」。
-    //
-    // 而且反向也要断死：**线上报出来的每一个名字都必须是对外那一组里的**。
-    // owner 面和访客面住在同一个进程、挂载点只差一个前缀，一个 owner 工具漏到这张表上，
-    // 访客的 AI 就直接拿到了它。
-    const OUTWARD = [
-      'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
-      'calendar_list_slots', 'calendar_book',
-    ];
-    for (const n of names) {
-      expect(OUTWARD, `the live face advertises "${n}", which is not an outward tool`)
-        .toContain(n);
-    }
+    expectAllOutward(names);
   });
+
+  // F-P-8 —— 401 必须**自报认证方式**。
+  //
+  // MCP 的认证故事是 OAuth 2.1，所以一个不带 `WWW-Authenticate` 的 401，
+  // 守规矩的客户端会当成「这台服务器要 OAuth」然后去跑发现流程 —— 官方 Inspector
+  // 就是这么做的，屏幕上出现的是 `Interactive OAuth requires a TTY`，
+  // 而我们写给人看的那句「带上你的访问码」它根本没显示。
+  //
+  // body 里有那句话是不够的：**没人会看到 body**。
+  test('the 401 says which scheme to use, so a real client does not go hunting for OAuth',
+    async () => {
+      const res = await rpcNoAuthRaw(admin.request);
+      expect(res.status()).toBe(401);
+      const wa = res.headers()['www-authenticate'] ?? '';
+      expect(wa, 'a bare 401 sends a conformant client into the OAuth flow')
+        .toMatch(/^Bearer/i);
+    });
 
   test('no code at all is refused, and says how to present one', async () => {
     const bare = await rpcNoAuth(admin.request, 'tools/list');
