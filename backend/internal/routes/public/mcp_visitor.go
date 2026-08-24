@@ -19,6 +19,7 @@ package public
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
@@ -75,7 +76,7 @@ func (h *Handlers) visitorMCPAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sess, refusal := h.openVisitorMCP(r)
 		if sess == nil {
-			writeVisitorMCPErr(w, refusal.Status, refusal.Message)
+			h.writeVisitorMCPErr(w, r, refusal.Status, refusal.Message)
 			return
 		}
 		ctx := context.WithValue(r.Context(), visitorMCPKey{}, sess)
@@ -247,25 +248,87 @@ func runVisitorToolCall(
 	return mcpgo.NewToolResultText(out)
 }
 
-// writeVisitorMCPErr —— 拒绝这一次连接。
+// writeVisitorMCPErr —— 拒绝这一次连接，**答在对方在听的那一层**。
 //
-// 401 必须**自报认证方式**。MCP 的认证故事是 OAuth 2.1，所以一个光秃秃的 401，
-// 守规矩的客户端会当成「这台服务器要 OAuth」然后跑去做发现 —— 官方 Inspector 就是这样，
-// 人看到的是 `Interactive OAuth requires a TTY`，而我们写的那句「带上你的访问码」
-// 一个字都没露面（F-P-8）。**body 里有那句话是不够的：没人会看到 body。**
+// 这里曾经是 401 + `WWW-Authenticate`。头是按 RFC 6750 写对了，然而在 MCP 里 401 的语义
+// **就是**「去做 OAuth」（规范的认证故事是 OAuth 2.1 + 受保护资源元数据），于是守规矩的
+// 客户端转头去跑发现流程 —— 官方 Inspector 打印的是 `Interactive OAuth requires a TTY`，
+// 我们写的那句「带上你的访问码」一个字没露面（F-P-8）。**body 里有那句话是不够的：
+// 没人会看到 body。**
 //
-// 按 RFC 6750 报 Bearer，并把那句话放进 error_description —— 客户端会把它显示出来。
-func writeVisitorMCPErr(w http.ResponseWriter, status int, msg string) {
-	if status == http.StatusUnauthorized {
-		w.Header().Set("WWW-Authenticate", bearerChallenge(msg))
+// 401 那条路是给 OAuth 服务器定的，我们不是。所以改成 JSON-RPC 错误：客户端渲染的正是它。
+// id 从请求里回显 —— 按 id 配对响应的客户端，收到 `id:null` 会当成对不上而挂着等。
+//
+// 代价写在这儿：**auth 失败在访问日志里长得像成功（200）**。分辨它要看 JSON-RPC 的
+// error.code，或者猜码那道闸自己的计数。
+func (h *Handlers) writeVisitorMCPErr(
+	w http.ResponseWriter, r *http.Request, status int, msg string,
+) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	resp := visitorMCPRefusal(requestID(r), status, msg)
+	if eerr := json.NewEncoder(w).Encode(resp); eerr != nil {
+		h.Log.Error("encode visitor mcp refusal", "err", eerr)
 	}
-	http.Error(w, msg, status)
 }
 
-// bearerChallenge —— `Bearer realm="standmeet", error_description="…"`。
-// 引号里的内容要转义：那句话里出现一个双引号就会把这个头截断，
-// 而截断的头比没有还糟 —— 客户端会读到半句。
-func bearerChallenge(msg string) string {
-	safe := strings.NewReplacer(`"`, `'`, "\\", "", "\r", " ", "\n", " ").Replace(msg)
-	return `Bearer realm="standmeet", error="invalid_token", error_description="` + safe + `"`
+// visitorMCPErrCode —— JSON-RPC 的实现自定义区间（-32000..-32099）。
+const visitorMCPErrCode = -32001
+
+// visitorMCPIDProbeMax —— 只为读一个 id 而读的上限。这条路已经决定要拒了，
+// 不该为此把一个任意大的 body 读进内存。
+const visitorMCPIDProbeMax = 64 << 10
+
+type visitorMCPErrData struct {
+	HTTPStatus int `json:"http_status"`
+}
+
+type visitorMCPErrDetail struct {
+	// Message 就是那句给人看的话。
+	Message string `json:"message"`
+	// Data.HTTPStatus —— 这次拒绝的**种类**（401 票不对 / 429 被闸挡住）。
+	// 合成一句的话，两种人的下一步就分不出来了。
+	Data visitorMCPErrData `json:"data"`
+	Code int               `json:"code"`
+}
+
+type visitorMCPErrBody struct {
+	JSONRPC string              `json:"jsonrpc"`
+	ID      json.RawMessage     `json:"id"`
+	Error   visitorMCPErrDetail `json:"error"`
+}
+
+func visitorMCPRefusal(id json.RawMessage, status int, msg string) visitorMCPErrBody {
+	return visitorMCPErrBody{
+		JSONRPC: "2.0", ID: id,
+		Error: visitorMCPErrDetail{
+			Code: visitorMCPErrCode, Message: msg,
+			Data: visitorMCPErrData{HTTPStatus: status},
+		},
+	}
+}
+
+// requestID —— 回显请求里的 id。**按 id 配对响应的客户端，收到 `id:null` 会当成对不上
+// 而挂着等** —— 一个永远不返回的调用，比一句难看的错误糟得多。读不出来才退回 null。
+func requestID(r *http.Request) json.RawMessage {
+	raw, err := io.ReadAll(io.LimitReader(r.Body, visitorMCPIDProbeMax))
+	if err != nil {
+		return jsonNull
+	}
+	return idFromBody(raw)
+}
+
+var jsonNull = json.RawMessage("null")
+
+func idFromBody(raw []byte) json.RawMessage {
+	var probe struct {
+		ID json.RawMessage `json:"id"`
+	}
+	if uerr := json.Unmarshal(raw, &probe); uerr != nil {
+		return jsonNull
+	}
+	if len(probe.ID) == 0 {
+		return jsonNull
+	}
+	return probe.ID
 }

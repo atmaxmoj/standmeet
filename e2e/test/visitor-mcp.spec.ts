@@ -104,6 +104,22 @@ function parseRPC(text: string): Record<string, unknown> {
   }
 }
 
+// refusalOf —— 一次拒绝里**那句给人看的话**。
+//
+// 拒绝现在走 JSON-RPC 错误（HTTP 200），因为在 MCP 里 401 的语义是「去做 OAuth」，
+// 客户端渲染的是错误对象而不是状态码（F-P-8）。所以断言也得跟着挪到那一层 ——
+// 这一族里每一条拒绝用例都从这里取词。
+function refusalOf(res: RPCResult): string {
+  const err = res.body['error'] as { message?: unknown } | undefined;
+  return typeof err?.message === 'string' ? err.message : '';
+}
+
+// grantedOK —— 这次调用是**成功**的：拿到了 result，而且没有 error。
+// 只断 HTTP 200 已经不够了 —— 拒绝现在也是 200。
+function grantedOK(res: RPCResult): boolean {
+  return res.body['result'] !== undefined && res.body['error'] === undefined;
+}
+
 function toolNames(body: Record<string, unknown>): string[] {
   const result = body['result'] as { tools?: { name: string }[] } | undefined;
   return (result?.tools ?? []).map((t) => t.name);
@@ -151,7 +167,7 @@ test.describe('a visitor can point their own AI client at this instance', () => 
     expect(code.code).toBe('MCPV-001');
 
     const listed = await rpc(admin.request, 'MCPV-001', 'tools/list');
-    expect(listed.status, JSON.stringify(listed.body)).toBe(200);
+    expect(grantedOK(listed), JSON.stringify(listed.body)).toBe(true);
     const names = toolNames(listed.body);
     // 断**有工具**，不是「没报错」：一个空表在协议上完全合法，而对访客的 AI 来说
     // 等于这个实例什么也不提供（[[assertion-that-cannot-fail]]）。
@@ -160,60 +176,67 @@ test.describe('a visitor can point their own AI client at this instance', () => 
     expectAllOutward(names);
   });
 
-  // F-P-8 —— 401 必须**自报认证方式**。
+  // F-P-8 —— 拒绝要答在**对方在听的那一层**。
   //
-  // MCP 的认证故事是 OAuth 2.1，所以一个不带 `WWW-Authenticate` 的 401，
-  // 守规矩的客户端会当成「这台服务器要 OAuth」然后去跑发现流程 —— 官方 Inspector
-  // 就是这么做的，屏幕上出现的是 `Interactive OAuth requires a TTY`，
-  // 而我们写给人看的那句「带上你的访问码」它根本没显示。
+  // 这条曾经断 401 + `WWW-Authenticate`。头按 RFC 6750 写对了，然而在 MCP 里 401 的语义
+  // **就是**「去做 OAuth」，于是官方 Inspector 转头去跑发现流程，屏幕上是
+  // `Interactive OAuth requires a TTY`，我们那句「带上你的访问码」一个字没露面。
   //
-  // body 里有那句话是不够的：**没人会看到 body**。
-  test('the 401 says which scheme to use, so a real client does not go hunting for OAuth',
+  // 所以现在断的是 JSON-RPC 错误对象 —— 客户端渲染的正是它。
+  test('a refusal comes back as a JSON-RPC error, which is what a client renders',
     async () => {
       const res = await rpcNoAuthRaw(admin.request);
-      expect(res.status()).toBe(401);
-      const wa = res.headers()['www-authenticate'] ?? '';
-      expect(wa, 'a bare 401 sends a conformant client into the OAuth flow')
-        .toMatch(/^Bearer/i);
+      const body = parseRPC(await res.text());
+      const err = body['error'] as { message?: unknown; data?: { http_status?: number } };
+      expect(typeof err?.message === 'string' ? err.message : '',
+        'the sentence must be where the client will render it').toMatch(/access code/i);
+      // 种类也要留住：401 是票不对，429 是被闸挡住，两种人的下一步不一样。
+      expect(err?.data?.http_status, 'the kind of refusal survives the move').toBe(401);
     });
+
+  // **id 必须回显。** 按 id 配对响应的客户端收到 `id:null` 会当成对不上而一直等 ——
+  // 一个永远不返回的调用，比一句难看的错误糟得多。
+  test('a refusal echoes the request id, so the client can match it', async () => {
+    const res = await rpcNoAuthRaw(admin.request);
+    expect(parseRPC(await res.text())['id'], 'the client pairs on this').toBe(1);
+  });
 
   test('no code at all is refused, and says how to present one', async () => {
     const bare = await rpcNoAuth(admin.request, 'tools/list');
-    expect(bare.status).toBe(401);
-    // 拒绝要说得出下一步 —— 一个只回 401 的端点，对面的客户端不知道该带什么。
-    const said = bare.body['raw'];
-    expect(typeof said === 'string' ? said : '', 'it names the credential to bring')
-      .toMatch(/access code/i);
+    // 拒绝要说得出下一步 —— 只回一个状态码的话，对面的客户端不知道该带什么。
+    expect(refusalOf(bare), 'it names the credential to bring').toMatch(/access code/i);
   });
 
   test('a code that does not exist is refused in the same words as everywhere else',
     async () => {
       const res = await rpc(admin.request, 'NOPE-999', 'tools/list');
-      expect(res.status).toBe(401);
       // 断**那句话本身**，不是「有回应」。同一张拒绝表（visitorErrCases）意味着
       // 打错字的人在这一面读到的，跟他在网页上读到的是同一句 —— 而这一句指的是
       // 下一步（重新粘一次），不是一个状态码。
-      const said = res.body['raw'];
-      expect(typeof said === 'string' ? said : '',
+      expect(refusalOf(res),
         'the same words the web path uses for a typo').toMatch(/no such access code/i);
     });
 
   test('a revoked code stops working on this face too', async () => {
     const code = await createCode(admin.request, admin.csrf,
       { code: 'MCPV-REV', label: 'REVOKED' });
-    expect((await rpc(admin.request, 'MCPV-REV', 'tools/list')).status).toBe(200);
+    // 撤销**之前**先证它是通的 —— 少了这一句，撤销之后的红可能一直都是红。
+    expect(grantedOK(await rpc(admin.request, 'MCPV-REV', 'tools/list')),
+      'it works before the revoke').toBe(true);
 
     await revokeCode(admin.request, admin.csrf, code.id);
 
     // **撤销是撤销**。少了这一条，owner 以为收回了授权，而那个客户端还连着。
+    // 断那句话而不是状态码：撤销跟打错字要说不同的话，两种人的下一步不一样。
     const after = await rpc(admin.request, 'MCPV-REV', 'tools/list');
-    expect(after.status, 'a revoked code cannot open the MCP face').toBe(401);
+    expect(refusalOf(after), 'a revoked code cannot open the MCP face')
+      .toMatch(/revoked/i);
   });
 
   test('the name the client sends reaches the owner’s transcript', async () => {
     await createCode(admin.request, admin.csrf, { code: 'MCPV-WHO', label: 'NAMED' });
     const named = await rpc(admin.request, 'MCPV-WHO', 'tools/list', {}, 'Rae From Claude');
-    expect(named.status).toBe(200);
+    expect(grantedOK(named), JSON.stringify(named.body)).toBe(true);
 
     // 网页那条路有「你是谁」的弹窗，这一面没有界面可弹 —— 但 owner 那一侧
     // 不该因此看到一段没有来处的逐字稿。
@@ -227,11 +250,14 @@ test.describe('a visitor can point their own AI client at this instance', () => 
   test('the member allowance is the code’s allowance here too', async () => {
     await createCode(admin.request, admin.csrf,
       { code: 'MCPV-CAP', label: 'CAPPED', max_members: 1 });
-    expect((await rpc(admin.request, 'MCPV-CAP', 'tools/list', {}, 'First')).status).toBe(200);
+    // 第一个名字先进得来 —— 正对照，否则第二个被挡可能跟名额无关。
+    expect(grantedOK(await rpc(admin.request, 'MCPV-CAP', 'tools/list', {}, 'First')),
+      'the first name gets in').toBe(true);
 
     // 第二个名字要被同一套名额挡住 —— 换一个面不该换一套规矩。
+    // 断那句话：跟网页上那个人读到的是同一句「这张码满了」。
     const second = await rpc(admin.request, 'MCPV-CAP', 'tools/list', {}, 'Second');
-    expect(second.status, 'a full code admits no one new, on any face')
-      .toBeGreaterThanOrEqual(400);
+    expect(refusalOf(second), 'a full code admits no one new, on any face')
+      .toMatch(/full|no more names/i);
   });
 });
