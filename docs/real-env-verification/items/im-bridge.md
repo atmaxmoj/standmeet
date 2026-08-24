@@ -3,7 +3,11 @@
 - **Module:** The IM bridge (`im-bridge/`). Someone holding an access code sends a direct message to the owner's bot on a chat platform, and talks to the owner's AI there. The code is unchanged by this — same grant, same role, same quotas, same transcript; only where the reader sits differs.
 - **Surface:** A direct-message thread on a real chat platform, plus `/admin/conversations` and `/admin/codes` on the owner's side.
 - **Real dep:** A real chat platform account and a real bot, real corpus, and a real model. The bridge's own logic is fully covered by unit tests against a stand-in adapter — what those cannot cover is the platform: message length caps, rate limits, markdown dialects, and whether a DM even reaches the handler.
-- **Backing e2e:** `im-bridge` unit suite (`make im-bridge-test`) — 21 tests over the code-recognition, conversation and wiring layers.
+- **Backing e2e:** `im-bridge` unit suite (`make im-bridge-test`) — 34 tests over the code-recognition, conversation, chunking, config and wiring layers.
+
+> **Configuration is owner-facing, not environment-facing.** The bot token is a credential like any other connector's — it belongs in `/admin/connectors`, encrypted in `owner_connectors`, not in `.env`. The compose service therefore carries only wiring (the backend address and the visitor entry point) and the bridge asks the instance which token to use, the same shape as the builder polling `/internal/builds/claim`.
+>
+> **Not built yet:** the Telegram connector entry in the admin UI and the `/internal/im/config` route behind it. The bridge already speaks that contract and waits gracefully until it answers, so this is a defined seam rather than an open question. It is not a ten-minute addition: every connector today has a *backend* consumer (smtp sends, calendar books), and a credential consumed only by a sidecar is a shape the connector axis does not have yet. Deciding it properly means reading the category-contract and manifest invariants, not guessing at them.
 
 ## Checks
 

@@ -5,7 +5,7 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test
+.PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
@@ -103,6 +103,14 @@ im-bridge-test:
 	else \
 	  echo "[skip] im-bridge/ has no node_modules — skipping"; \
 	fi
+
+# im-bridge-up —— 起 IM 桥。**不需要任何环境变量**：bot token 是 owner 在 admin 里
+# 配的连接器凭据，桥启动后自己去内部接口取。没配就空转等着。
+im-bridge-up:
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build im-bridge
+
+im-bridge-logs:
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml logs -f --tail=100 im-bridge
 
 e2e-lint:
 	@if [ -d e2e/node_modules ]; then \

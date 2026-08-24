@@ -190,6 +190,28 @@ services:
     volumes:
       - custom_pages_data:/srv/custom-pages
 
+  # im-bridge —— 拿着码的人从聊天软件里私聊 owner 的 AI。
+  #
+  # **这里只有接线，没有设置**：后端地址和访客入口是部署拓扑，bot token 不是 ——
+  # 那是 owner 在 admin 里配的连接器凭据（跟 mail / calendar 一样），
+  # 桥启动后从内部接口取。凭据不进 env，也不进 compose。
+  #
+  # 走长轮询：不监听端口、不需要公网回调 —— 自托管场景下 webhook 那条路多数人做不到。
+  # 没配 IM 连接器时，桥就一直空转等着，不会报错刷屏。
+  im-bridge:
+    build:
+      context: .
+      dockerfile: im-bridge/Dockerfile
+    restart: unless-stopped
+    environment:
+      # 桥是**外部访客客户端**：问答走访客那条公开路（app），
+      # 只有「我该用哪个 token」这一件事走内部口（backend），跟 builder 同一个形状。
+      - STANDMEET_BASE_URL=http://app:3000
+      - BACKEND_INTERNAL_URL=http://backend:8000
+    depends_on:
+      app:
+        condition: service_started
+
   db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped

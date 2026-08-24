@@ -9,11 +9,13 @@
   },
   "dependencies": {
     "@chat-adapter/state-memory": "^4.38.1",
+    "@chat-adapter/telegram": "^4.38.1",
     "@standmeet/sdk-core": "workspace:*",
     "chat": "^4.38.1"
   },
   "devDependencies": {
     "@chat-adapter/tests": "^4.38.1",
+    "tsx": "^4.23.12",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   }

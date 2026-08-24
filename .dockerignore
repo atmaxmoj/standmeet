@@ -13,6 +13,23 @@
 infra/*
 !infra/scripts
 
+# im-bridge 也用根 context（它要 @standmeet/sdk-core，那在 sdk/ 下，跳不出自己的目录）。
+# 只挑源码和 pnpm 的三份清单进来 —— node_modules 由下面那条统一排掉，
+# 所以后端那个 context 只多了几百 KB 的源码。
+!im-bridge
+!sdk
+sdk/*
+!sdk/packages
+sdk/packages/*
+!sdk/packages/core
+!pnpm-workspace.yaml
+!pnpm-lock.yaml
+!package.json
+
+# 依赖目录一律不进 context：镜像里自己装，带进去只会又大又不一致。
+**/node_modules/
+**/dist/
+
 # Re-exclude noise inside the included trees (mirrors the old backend/.dockerignore).
 # .git excluded → lint's gitleaks scans the tree, not history; history out of image.
 **/.git/
