@@ -1,0 +1,83 @@
+# .gitleaks.toml —— secret scanning for this repo.
+#
+# Two things get published from here, and they expose different sets of bytes:
+#
+#   `git push`        → the whole HISTORY. A secret deleted in a later commit is still in it.
+#   registry publish  → the IMAGE FILESYSTEM. `.gitignore` has no say over that; `.dockerignore`
+#                       does, and the two lists are not the same list.
+#
+# `make secrets` scans the history; `make secrets-image` scans the built image itself rather
+# than a stand-in for it. Both refuse to run when gitleaks is absent — see check-secrets.sh.
+#
+# ── Never write `paths` in an allowlist here ─────────────────────────────────────────────
+# gitleaks treats an allowlist `paths` entry as a reason to **skip the file entirely**, before
+# any rule runs, and `condition = "AND"` does not hold it back. The first version of this file
+# had `paths = ['''docs/design/project/''']` next to a value pattern, meaning to say "these
+# four fake tokens, in this one directory". What it actually did was stop scanning that
+# directory: `scanned ~0 bytes`. A planted AWS key sat there unnoticed. The self-test in
+# check-secrets.sh is what caught it, which is the whole reason that self-test exists.
+#
+# So every allowlist below anchors on the VALUE (or, where the value is random, on the field
+# name via `regexTarget`). Anchoring on value has a second payoff: `make secrets` reads
+# HISTORY, and in history files move — `internal/cryptobox/` became `internal/infra/cryptobox/`
+# and line numbers shift. A path-anchored allowlist silences today's copy and leaves ten old
+# ones red, which is a permanently-red gate that everyone learns to walk past.
+#
+# What is deliberately NOT allowlisted: the local scratch that really does hold real
+# credentials — `.playwright-mcp/` (a Google OAuth client-secret JSON and PEMs left behind by
+# browser driving), `eval-harness/.env`, `e2e/manual-runs/*/downloads/`. Those are gitignored
+# and excluded from every build context, so they reach neither a push nor an image. Silencing
+# them here would mean the one scan that could ever notice them moving would stay quiet.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+cryptobox test constant. The literal says what it is, and the AES key it derives exists only \
+inside `go test`.\
+"""
+regexes = ['''test-instance-secret-at-least-32-bytes-long-xyz''']
+
+[[allowlists]]
+description = """
+HKDF info string. `HKDF(session_token, "standmeet-byoai-v1")` — the literal is a domain \
+separator, published in the design and repeated wherever the BYOAI envelope is explained. \
+The secret in that expression is the session token, which is not here.\
+"""
+regexes = ['''standmeet-byoai-v1''']
+
+[[allowlists]]
+description = """
+Design prototype fixtures. `docs/design/project/` is vanilla HTML with no backend: \
+admin-data.js holds four made-up API tokens so the tokens table has rows to render, and \
+admin.js builds a fake PEM out of `Math.random()` for the key-reveal screen. \
+Listed as four exact literals, not as an `sm_live_[A-Za-z0-9]+` pattern: real API keys in \
+this product carry the `smk_` prefix (access/usecase/api_key.go), so no live key can look \
+like these — but a pattern would also cover the next fake-looking string someone pastes in, \
+and four literals cover exactly the four that exist.\
+"""
+regexes = [
+  '''sm_live_5kJ7d3v9aQR2cXBfYpMwH8tNL4uVe''',
+  '''sm_live_xK9pQwRtY8mV3jBnAsLcEhUf2dN6o''',
+  '''sm_live_aB2cD4eF6gH8iJ0kL2mN4oP6qR8sT''',
+  '''sm_live_jXq2pL8mN3vR7tY1wK4eF6sH9cB5g''',
+  '''MC4CAQAwBQYDK2VwBCIEIH\+''',
+]
+
+[[allowlists]]
+description = """
+Next.js per-build keys. `previewModeSigningKey`, `previewModeEncryptionKey` and the Server \
+Actions `encryptionKey` are minted by the build, live in `.next/`, and ship inside every Next \
+standalone image; rotating one means nothing more than rebuilding. Their values are random, \
+so this anchors on the field name via `regexTarget = "match"` — NOT on the `.next/` path, \
+which would skip the whole directory (see the note at the top). Only `make secrets-image` \
+ever reaches these: `.next/` is not tracked.\
+"""
+regexTarget = "match"
+regexes = [
+  '''previewModeSigningKey"\s*:\s*"''',
+  '''previewModeEncryptionKey"\s*:\s*"''',
+  '''encryptionKey"\s*:\s*"''',
+  '''encryption\.key"\s*:\s*"''',
+]

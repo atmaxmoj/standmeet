@@ -5,14 +5,21 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: lint secrets secrets-image release-build release-push backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
 # 各自跑 eslint + tsc + knip。backend-no-mock 是 G-Y 强制的"backend 不
 # 准含 mock-only 代码"约束。
-lint: env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint im-bridge-test verify-items
+lint: secrets env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint im-bridge-test verify-items
+
+# secrets —— 密钥扫描，排在最前面：它 5 秒，而它挡的那件事没有撤销键。
+#
+# 以前这一步在 `backend/lint` 链里，而它**从来没有扫过任何东西**：那个目标只在 `backend/`
+# 里跑，仓库的 `.git` 在上一层，`[ -d .git ]` 恒假 → 每次打一行 skipping 退 0（F-H-6）。
+secrets:
+	@infra/scripts/check-secrets.sh
 
 # lint-cached —— 跑 lint，但同一棵树只跑一次（见脚本头部：这是 2026-08-18 效率复盘的产物）。
 # `pre-commit` 走这条；人手动跑 `make lint` 时也该走它。逃生门 FORCE_LINT=1。
@@ -1027,3 +1034,86 @@ docker-gc:
 docker-gc-hard:
 	@docker builder prune -af
 	@docker image prune -f
+
+# ── release: 把镜像推到 registry ─────────────────────────────────
+#
+# 一个仓库有两条把字节送出去的路，它们各自看得见的东西不一样：
+#
+#   `git push`  → 整部**历史**。在后面某次提交里删掉的密钥，推上去照样在。
+#   registry    → **镜像文件系统**。`.gitignore` 对它没有发言权，`.dockerignore` 才有 ——
+#                 而这两张单子不是同一张。本机此刻就躺着真凭据（`.playwright-mcp/` 里
+#                 一份 Google OAuth client-secret 和几个 PEM、`eval-harness/.env`）：
+#                 它们进不了 git，进不进镜像是另一个问题，由另一张单子回答。
+#
+# 所以推之前两条都扫：`secrets` 扫历史 + 暂存区，`secrets-image` 扫**镜像本身**。
+#
+# **为什么扫镜像而不是扫它的构建上下文**：上下文是替身。判据要落在真的要发出去的那个东西
+# 上 —— `.dockerignore` 少写一条、Dockerfile 里多一句 COPY，上下文扫描都看不见，镜像扫描
+# 看得见。
+REGISTRY ?= ghcr.io/atmaxmoj
+
+# TAG —— **从 git tag 反解，不手填**。打了 `v0.0.1` 的那一笔上它就是 `v0.0.1`；之后的提交是
+# `v0.0.1-3-gabc1234`，一眼看得出「这不是那个发布」。版本号只有一个家（[[事实归产生它的那一方]]）——
+# Makefile 里再抄一份的话，「记得改版本号」就成了一条迟早没人记得的规矩。
+TAG ?= $(shell git describe --tags --always --dirty)
+
+IMAGES := backend app builder im-bridge
+
+# release-build —— 按 REGISTRY/TAG 把四个镜像建出来（不推）。
+# app 的 .next 由宿主 `app-build` 产出后 COPY 进镜像，所以它必须先跑。
+#
+# context / dockerfile / target 跟 docker-compose.prod.yml 同源。用 `docker build` 而不是
+# `compose build`：`compose images -q` 查的是**运行中的容器**，没起容器就返回空串，于是打标
+# 那一步拿到一个空的源（第一次就是这么炸的）。发布不需要起任何容器。
+release-build: app-build builder-vendor
+	@for svc in $(IMAGES); do \
+	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
+	  echo "[release] building $$img"; \
+	  case $$svc in \
+	    backend)   docker build -t $$img -f backend/Dockerfile --target production . ;; \
+	    app)       docker build -t $$img ./app ;; \
+	    builder)   docker build -t $$img ./builder ;; \
+	    im-bridge) docker build -t $$img -f im-bridge/Dockerfile . ;; \
+	  esac || exit 1; \
+	  docker tag $$img $(REGISTRY)/standmeet-$$svc:latest || exit 1; \
+	done
+	@echo "[release] built: $(IMAGES) @ $(TAG)"
+
+# secrets-image —— 扫**要发出去的那个镜像的文件系统**。
+#
+# `docker export` 出来的就是这个镜像的 rootfs，不是它的近似。跳过依赖/vendor 目录
+# （node_modules、Go 的 module 缓存、python site-packages）：那里面是第三方仓库自带的
+# 测试夹具，扫出来全是别人的假密钥，会把真信号淹掉。
+secrets-image:
+	@command -v gitleaks >/dev/null 2>&1 || { \
+	  echo "secrets-image: gitleaks is not installed — this gate cannot run."; \
+	  echo "               install it rather than skipping: a skipped secret scan"; \
+	  echo "               reports success for work it did not do."; exit 2; }
+	@for svc in $(IMAGES); do \
+	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
+	  docker image inspect $$img >/dev/null 2>&1 || { \
+	    echo "secrets-image: $$img not built — run 'make release-build' first"; exit 2; }; \
+	  echo "[secrets-image] $$img"; \
+	  d=$$(mktemp -d); \
+	  cid=$$(docker create $$img); \
+	  docker export $$cid | tar -x -C $$d \
+	    --exclude='*node_modules*' --exclude='*site-packages*' \
+	    --exclude='usr/local/go/*' --exclude='root/go/pkg/*' 2>/dev/null || true; \
+	  docker rm -f $$cid >/dev/null; \
+	  gitleaks dir $$d --config .gitleaks.toml --no-banner --redact; st=$$?; \
+	  rm -rf $$d; \
+	  [ $$st -eq 0 ] || { echo "secrets-image: secrets inside $$img — do NOT push."; exit 1; }; \
+	done
+	@echo "[secrets-image] all $(words $(IMAGES)) images clean"
+
+# release-push —— 推。**两道密钥闸门是它的前置**，绕不过去。
+#
+# 登录不在这里：`docker login ghcr.io` 要一个 PAT，那是 owner 自己敲的东西。
+release-push: secrets secrets-image
+	@for svc in $(IMAGES); do \
+	  echo "[release] pushing $(REGISTRY)/standmeet-$$svc:$(TAG)"; \
+	  docker push $(REGISTRY)/standmeet-$$svc:$(TAG) \
+	    || { echo "[release] push denied? log in first: docker login ghcr.io"; exit 1; }; \
+	  docker push $(REGISTRY)/standmeet-$$svc:latest || exit 1; \
+	done
+	@echo "[release] pushed $(IMAGES) @ $(TAG) + latest to $(REGISTRY)"

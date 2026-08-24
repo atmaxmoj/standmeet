@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler axes-declare-in-data boundary-thin no-nil-container no-raw-http arch connector-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler axes-declare-in-data boundary-thin no-nil-container no-raw-http arch connector-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -170,18 +170,15 @@ escape-lint:
 	@"$$(go env GOPATH)/bin/go-escape-lint" -f /tmp/auth-escape.log -pkg .
 	@rm -f /tmp/auth-escape.log
 
-# Scan for secrets — pre-commit-only gate.
-secrets:
-	@if ! command -v gitleaks >/dev/null 2>&1; then \
-	  echo "secrets: gitleaks not installed, skipping (pre-commit on host catches this)"; \
-	  exit 0; \
-	fi; \
-	if [ -d .git ]; then \
-	  gitleaks protect --staged --no-banner --redact >/dev/null 2>&1 \
-	    || { echo "gitleaks: secrets in staged diff — abort commit."; exit 1; }; \
-	else \
-	  echo "secrets: no .git in cwd, skipping (pre-commit on host catches this)"; \
-	fi
+# secrets —— 撤了。它在**每一次**运行里都什么也没扫。
+#
+# 这个目标只在 `backend/` 里跑,而仓库的 `.git` 在上一层 —— `[ -d .git ]` 恒假,于是它每次都
+# 走 else 分支,打一行 "no .git in cwd, skipping (pre-commit on host catches this)" 然后退 0。
+# 而它指望的那个 "pre-commit on host" 走的是根 `make lint` → `backend-lint` → **它自己**:
+# 一条指回自身的免责说明。第二条出口同样静默:gitleaks 没装也直接退 0。
+#
+# 密钥扫描现在收口在根:`make secrets` → `infra/scripts/check-secrets.sh`,扫暂存区 + 整部
+# 历史,gitleaks 缺席时**红**,而且每次跑之前先种一个诱饵证明自己看得见。
 
 # `make test` runs the Go unit/integration tests (testify, no DB/docker).
 # Pure-logic + in-process coverage; e2e lives in the root `make test`.
