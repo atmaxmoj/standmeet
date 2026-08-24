@@ -66,6 +66,13 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
       // wait for the turn to settle before toggling — list_slots isn't
       // return-directly, so a final answer streams after the card; interacting
       // mid-stream races the chat's re-renders.
+      //
+      // 等的是 `chat-progress` 消失,**不是** `answer-body` 可见。后者在第一个 token
+      // 落地的那一刻就为真 —— 它分不出「这一轮完了」和「正在流」,于是这条等待
+      // 在最需要它的时候(答案很长)什么也没等到。全量那次红在下面第二次 click:
+      // 元素一直在动,Playwright 的 stable 永远等不到。产品自己有落地回执 ——
+      // 那一行只在最后一条 dialog 还 pending 时渲染,落地即整条消失。
+      await expect(page.getByTestId('chat-progress')).toHaveCount(0, { timeout: 30_000 });
       await expect(page.locator('[data-testid="answer-body"]').last())
         .toBeVisible({ timeout: 20_000 });
 

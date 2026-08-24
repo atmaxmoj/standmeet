@@ -774,11 +774,16 @@ test-only: dev-up
 # then `make test-only SPEC=<same>` to rebuild with the fix and see it go green.
 #
 #   make test-asis SPEC=job-pool-stays-visible
+#   make test-asis SPEC=job-pool-stays-visible REPEAT=5
+#
+# REPEAT is honoured here too. It used to be accepted and silently dropped — you would ask for
+# five runs of a suspected flake, get one, and read the pass as five. A recipe that takes a
+# variable it does not use reports success for work it never did.
 test-asis:
-	@test -n "$(SPEC)" || (echo "usage: make test-asis SPEC=<spec-name> [GREP=<title pattern>]"; exit 2)
+	@test -n "$(SPEC)" || (echo "usage: make test-asis SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
 	@docker compose -f docker-compose.dev.yml ps --status running --quiet backend | grep -q . \
 		|| (echo "[test-asis] dev backend is not running — run 'make dev-up' first"; exit 2)
-	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)"); \
+	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
 # test-captcha —— bring the dev stack up WITH captcha on, using Cloudflare's published test keys,

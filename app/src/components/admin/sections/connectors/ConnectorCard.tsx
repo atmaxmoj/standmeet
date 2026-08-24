@@ -256,10 +256,13 @@ function Actions({ hook }: { hook: ConnectorCardHook }) {
   const t = useTranslations('adminIntegrations.common');
   return (
     <div className="flex gap-2">
+      {/* 派生表单没回来之前按不动:那一帧的 Connect 不知道自己该走 dance 还是原地连,
+          按下去会把一个 oauth2 连接器送进非 dance 那条路,owner 读到的是一句
+          「The connection test failed.」—— 属于另一条路的话（F-C-60）。 */}
       <button
-        type="button" onClick={hook.connect}
+        type="button" onClick={hook.connect} disabled={!hook.ready}
         data-testid="connector-connect-button"
-        className="sm-btn sm-btn-solid sm-btn-sm"
+        className="sm-btn sm-btn-solid sm-btn-sm disabled:opacity-40"
       >
         {t('connect')}
       </button>

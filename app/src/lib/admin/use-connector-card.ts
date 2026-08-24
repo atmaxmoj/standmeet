@@ -53,6 +53,18 @@ export interface ConnectorCardHook {
   hasCredentials: boolean;
   /** 这台实例读不懂这份凭据了（F-C-41）。空串 = 正常。非空 = 要 owner 重新连一次的那句话。 */
   unreadable: string;
+  /**
+   * 这张卡**已经知道自己是哪种连接**了（`/credential-form` 回来了）。
+   *
+   * 谁要它：Connect 按 `authType` 分叉 —— oauth2 走 dance，别的原地连。而 `authType` 在表单
+   * 回来之前是空串，于是那一帧按下去，一个 oauth2 连接器会走完 bearer 那条路，得到的是
+   * 「The connection test failed.」—— 一句**属于另一条路**的话（F-C-60）。
+   *
+   * 为什么不判 `authType !== ''`：那是拿一个值的内容当就绪信号。连接器声明什么样的
+   * `auth_type` 是它自己的事，某天有一种是空的，Connect 就永远按不动了。就绪与否是
+   * 「问过没有」，跟答案长什么样无关。
+   */
+  ready: boolean;
   connecting: boolean;
   error: string;
   /**
@@ -113,6 +125,8 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   // missingScopes —— 卡上那句「这个授权做不了什么」要的名字（F-B-8）。
   const [missingScopes, setMissingScopes] = useState<string[]>([]);
   const [schemes, setSchemes] = useState<string[]>([]);
+  // formLoaded —— 派生表单问回来了没有。见 ConnectorCardHook.ready。
+  const [formLoaded, setFormLoaded] = useState(false);
   const status = useConnectorStatus(id);
   const { connected, hasCredentials, unreadable, setConnected, loadStatus } = status;
   const [connecting, setConnecting] = useState(false);
@@ -123,6 +137,8 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   const chosen = useRef<Set<string>>(new Set());
 
   const loadForm = useCallback(() => {
+    // 换了一张卡就重新变成「还不知道」——否则上一张卡的就绪会替这一张背书。
+    setFormLoaded(false);
     void adminAPI.get(`/connectors/${id}/credential-form`, FormSchema)
       .then((f) => {
         setAuthType(f.auth_type);
@@ -135,6 +151,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
         chosen.current = new Set(granted);
         setGranted(granted);
         setMissingScopes(distinctNeeds(f.shortfall ?? []));
+        setFormLoaded(true);
       })
       // 表单没拉到别静默：否则卡片一片空白、owner 无从填凭据也不知为何。
       .catch(() => setError('Couldn’t load this connector’s setup form. Reload and retry.'));
@@ -177,6 +194,10 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   }, [id]);
 
   const connect = useCallback(() => {
+    // 表单还没回来就没有「哪一支」可分 —— 按钮此时是禁用的，这一条是第二道:
+    // 键盘/脚本/竞态照样能触发一次点击，而分错支的代价是一个 oauth2 连接器读到
+    // 一句非 dance 路的失败话。
+    if (!formLoaded) return;
     setError('');
     // 同步翻「connecting…」：点下去立刻有反馈，且状态当场离开 "not connected"（"connecting"
     // 不匹配 /^connected$/，所以断言仍会真等到回程）。
@@ -187,7 +208,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
       ? () => startDance(id, { setConnecting, setError })
       : () => runNonDanceConnect(id, { setConnecting, setConnected, setError });
     void saveCreds().then(go);
-  }, [id, authType, setConnected, saveCreds]);
+  }, [id, authType, formLoaded, setConnected, saveCreds]);
 
   const disconnect = useCallback(() => {
     void adminAPI.postVoid(`/connectors/${id}/disconnect`, {})
@@ -198,7 +219,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
 
   return {
     authType, fields, scopes, granted, missingScopes, schemes, connected, hasCredentials,
-    unreadable, connecting, error, reloadStatus: loadStatus,
+    unreadable, ready: formLoaded, connecting, error, reloadStatus: loadStatus,
     // 只记在这一屏上，不发出去 —— 提交点是 Connect（F-C-46）。
     setField: (k, v) => { values.current[k] = v; },
     setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); },
