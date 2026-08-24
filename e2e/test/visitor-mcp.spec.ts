@@ -126,10 +126,26 @@ test.describe('a visitor can point their own AI client at this instance', () => 
 
     const listed = await rpc(admin.request, 'MCPV-001', 'tools/list');
     expect(listed.status, JSON.stringify(listed.body)).toBe(200);
+    const names = toolNames(listed.body);
     // 断**有工具**，不是「没报错」：一个空表在协议上完全合法，而对访客的 AI 来说
     // 等于这个实例什么也不提供（[[assertion-that-cannot-fail]]）。
-    expect(toolNames(listed.body).length,
-      'the code grants something to work with').toBeGreaterThan(0);
+    expect(names.length, 'the code grants something to work with').toBeGreaterThan(0);
+
+    // **这一条才是活的那个检查。** 清单那侧的棘轮（MCPVisitorMissing）两边读的是同一份
+    // 名单，它证不了「这一面真的挂对了」；只有问活着的端点才分得出「挂上了正确的一组」
+    // 和「挂上了别的一组 / 过滤器太狠」。
+    //
+    // 而且反向也要断死：**线上报出来的每一个名字都必须是对外那一组里的**。
+    // owner 面和访客面住在同一个进程、挂载点只差一个前缀，一个 owner 工具漏到这张表上，
+    // 访客的 AI 就直接拿到了它。
+    const OUTWARD = [
+      'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
+      'calendar_list_slots', 'calendar_book',
+    ];
+    for (const n of names) {
+      expect(OUTWARD, `the live face advertises "${n}", which is not an outward tool`)
+        .toContain(n);
+    }
   });
 
   test('no code at all is refused, and says how to present one', async () => {

@@ -16,6 +16,14 @@ import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 const (
 	FacadeChat = "chat"
 	FacadeAPI  = "api"
+	// FacadeMCPVisitor —— 访客把**自己的** AI 客户端指过来的那一面（`/mcp/visitor`，
+	// 认一张码）。跟 api 同属对外平面、同样是程序面（LLM 在对面，不在我们这儿），
+	// 所以它渲染的是同一组非 Agentic 的对外能力。
+	//
+	// 它在这里登记，是因为「以后加一个面也从这边出」只有登记了才成立：
+	// 上一版这一面是**建完就挂上去**的，没有任何东西保证它跟别的对外面报出同一套东西，
+	// 也没有任何东西拦住有人往它上面挂一个 owner 能力。
+	FacadeMCPVisitor = "mcp-visitor"
 )
 
 // Outward op-ids. The non-Agentic ones are api candidates (they enter KnownAPIGaps until the api
@@ -56,6 +64,22 @@ func ManifestOutward() []fp.Op {
 // in Wave D; FacadeChat above reserves its name.)
 func apiFacade() fp.Facade {
 	return fp.Facade{Name: FacadeAPI, Plane: fp.PlaneOutward, ServesRead: true, ServesActn: true}
+}
+
+// mcpVisitorFacade —— 访客 MCP 面的画像。跟 api 同一档：对外平面、程序面（不载 Agentic）、
+// 读和动作都服务。**同一档就该报同一套东西** —— 两个对外面各报各的，正是这条轴要防的事。
+func mcpVisitorFacade() fp.Facade {
+	return fp.Facade{
+		Name: FacadeMCPVisitor, Plane: fp.PlaneOutward, ServesRead: true, ServesActn: true,
+	}
+}
+
+// MCPVisitorMissing —— 按 Reach 本该出现在访客 MCP 面、却没有被任何一个活工具实现的 op。
+// 跟 APIMissing 同一个形状、同一个棘轮：从渲染器里掉一个工具，它就重新长出来 → 红。
+func MCPVisitorMissing(liveTools []string) []string {
+	exposure := fp.Exposure{Facade: mcpVisitorFacade(), Exposed: exposedAPIOps(liveTools)}
+	return missingOnFacade(fp.Conform(ManifestOutward(), []fp.Exposure{exposure}),
+		FacadeMCPVisitor)
 }
 
 // outwardTool —— the visitor-facing tool name that realizes an outward op on the chat/api facades.
@@ -126,9 +150,15 @@ func exposedAPIOps(liveAPITools []string) map[string]bool {
 }
 
 func missingAPIOps(vs []fp.Violation) []string {
+	return missingOnFacade(vs, FacadeAPI)
+}
+
+// missingOnFacade —— 某一个面上「本该有却没有」的那些 op。两个对外面共用一份提取，
+// 是因为它们问的是同一个问题；各写一份的话，加第三个面时又会各飘各的。
+func missingOnFacade(vs []fp.Violation, facade string) []string {
 	out := []string{}
 	for _, v := range vs {
-		if v.Facade == FacadeAPI && v.Kind == "missing" {
+		if v.Facade == facade && v.Kind == "missing" {
 			out = append(out, v.OpID)
 		}
 	}

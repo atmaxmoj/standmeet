@@ -201,6 +201,40 @@ when those are built:
   `facade-directions.md` specifies. A capability grantable to a role renders on every outward
   facade unless the class is explicitly excepted, and the exception is written down.
 
+### 2026-08-23 — the first new face tested this, and found the rule was convention
+
+Building the **visitor MCP face** (`/mcp/visitor`, bearer = an access code) was the first time
+V-3 was actually exercised, and it exposed the gap between what this section claimed and what
+was enforced:
+
+- The **assembly** convergence was real. The face needed no new capability and no new endpoint
+  under `routes/public` for chat — it reuses `AssembleVisitorBundle` / `AssembleVisitorForTool`
+  and the ordinary session. V-3 held.
+- The **parity** convergence was not enforced for it. `apiFacade()` was the only registered
+  outward facade profile; `FacadeChat` was a reserved name. A face could be written, mounted and
+  shipped without appearing anywhere in `ManifestOutward()`'s conformance — which is exactly what
+  the first version of it did.
+
+So V-1 and V-4 were true of `api` and true as intent, but nothing made them true of a *new*
+face. The fix is registration, not exhortation: `FacadeMCPVisitor` + `mcpVisitorFacade()` +
+`MCPVisitorMissing()`, mirroring the api ratchet.
+
+**What each check actually proves** — worth stating, because two of the three are weaker than
+they look:
+
+| check | catches | does not catch |
+|---|---|---|
+| `TestOutward_MCPVisitorRatchet` | a new outward op added to the manifest without a renderer | a face mounted with the wrong list — both sides read `APIRenderableTools()` |
+| `TestOutward_OwnerOpOnMCPVisitorIsLeak` | an owner capability rendered on the visitor face | nothing about what is live |
+| `visitor-mcp.spec.ts` `tools/list` | a mis-mounted or over-filtered live face; an owner tool reaching the wire | manifest-level drift |
+
+Only the third asks the running system. The leak test is the one that justifies registering the
+facade at all: the owner MCP face and the visitor MCP face live in one process and differ by a
+URL prefix, so "an owner op renders to a visitor" is a plausible mistake, not a theoretical one.
+
+**Still open:** a real-env item driving this face with an actual desktop client. The e2e proves
+the protocol; it does not prove Claude Desktop connects.
+
 **Note on scope.** V-1..V-4 describe the destination. This design does not require the 24
 endpoints to move in one change; it requires that the custom-page mount be built **on** the
 facade rather than beside it, so the count stops growing.
