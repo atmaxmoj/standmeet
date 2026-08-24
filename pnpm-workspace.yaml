@@ -6,3 +6,6 @@ packages:
   - 'app'
   - 'e2e'
   - 'sdk/packages/*'
+  # im-bridge —— 进工作区（builder/ 不进）：它**要用 @standmeet/sdk-core**，
+  # 桥本质就是又一个访客客户端，跟自定义页、embed 走同一个客户端。
+  - 'im-bridge'

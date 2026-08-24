@@ -5,14 +5,14 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
+.PHONY: lint backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
 # 各自跑 eslint + tsc + knip。backend-no-mock 是 G-Y 强制的"backend 不
 # 准含 mock-only 代码"约束。
-lint: env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint verify-items
+lint: env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint im-bridge-test verify-items
 
 # lint-cached —— 跑 lint，但同一棵树只跑一次（见脚本头部：这是 2026-08-18 效率复盘的产物）。
 # `pre-commit` 走这条；人手动跑 `make lint` 时也该走它。逃生门 FORCE_LINT=1。
@@ -92,6 +92,16 @@ sdk-lint:
 	  cd sdk && pnpm -r lint; \
 	else \
 	  echo "[skip] sdk/ has no node_modules — skipping"; \
+	fi
+
+# im-bridge-test —— IM 桥的单测。**它不进 e2e**：桥是一个外部访客客户端，
+# 它的逻辑（认码 / 开会话 / 配额 / 撤销 / 挡回声）对着替身就能证完，不需要起整套栈。
+# 真平台那一趟归 docs/real-env-verification/items/im-bridge.md。
+im-bridge-test:
+	@if [ -d im-bridge/node_modules ]; then \
+	  pnpm -F @standmeet/im-bridge lint && pnpm -F @standmeet/im-bridge test; \
+	else \
+	  echo "[skip] im-bridge/ has no node_modules — skipping"; \
 	fi
 
 e2e-lint:
