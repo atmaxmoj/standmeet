@@ -67,6 +67,21 @@ regexes = [
 
 [[allowlists]]
 description = """
+Minified JS assignment expressions. `generic-api-key` fires on a `key`-ish identifier next \
+to a high-entropy-looking token, and minified bundles are nothing but that: the app image \
+tripped on `j=f.atlasCount` sitting after `f.keyCount,`. \
+\
+Anchored on the SHAPE of the captured value, not on the value itself: minified names change \
+on every build, so a list of literals would need updating each release and would be stale by \
+the next one. What is allowed is an identifier assigned a dotted member expression — no \
+credential contains `=` followed by a dotted path. A bare `x=SOMEOPAQUESECRET` in a bundle \
+still goes red, which matters: a NEXT_PUBLIC_ value gets inlined into client bundles, and \
+that is a real way to ship a key.\
+"""
+regexes = ['''^[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)+$''']
+
+[[allowlists]]
+description = """
 Next.js per-build keys. `previewModeSigningKey`, `previewModeEncryptionKey` and the Server \
 Actions `encryptionKey` are minted by the build, live in `.next/`, and ship inside every Next \
 standalone image; rotating one means nothing more than rebuilding. Their values are random, \

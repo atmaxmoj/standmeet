@@ -1081,9 +1081,19 @@ release-build: app-build builder-vendor
 
 # secrets-image —— 扫**要发出去的那个镜像的文件系统**。
 #
-# `docker export` 出来的就是这个镜像的 rootfs，不是它的近似。跳过依赖/vendor 目录
-# （node_modules、Go 的 module 缓存、python site-packages）：那里面是第三方仓库自带的
-# 测试夹具，扫出来全是别人的假密钥，会把真信号淹掉。
+# `docker export` 出来的就是这个镜像的 rootfs，不是它的近似。
+#
+# **它挡的到底是什么**：git 那道闸门只看得见被跟踪的文件。而镜像里有什么由 `.dockerignore`
+# 决定 —— 一个 git 忽略的文件照样进得了镜像。本机此刻就有真凭据处在这个位置
+# （`.playwright-mcp/` 下的 Google OAuth client-secret 和 PEM、`eval-harness/.env`）：
+# 它们进不了历史，所以只有这道闸门可能拦得住。
+#
+# **它覆盖不到的**（明说，别让 "all images clean" 读起来像全覆盖）：
+#   · gitleaks 跳过二进制。backend 镜像 77 MB，扫到的是 3.7 MB —— 那个 Go 可执行文件没扫。
+#     可以接受的理由是它里面的字符串只能来自**源码**（历史那道扫过）或 build arg（我们一个
+#     都不传），不是因为扫过了。
+#   · 下面排除的是**基础镜像自带的目录**（node 的头文件、系统库、第三方依赖树）。那些字节
+#     不是我们放进去的，上游原样带来的。我们自己 COPY 的东西（/app、/srv、二进制）都在扫描面内。
 secrets-image:
 	@command -v gitleaks >/dev/null 2>&1 || { \
 	  echo "secrets-image: gitleaks is not installed — this gate cannot run."; \
@@ -1098,11 +1108,22 @@ secrets-image:
 	  cid=$$(docker create $$img); \
 	  docker export $$cid | tar -x -C $$d \
 	    --exclude='*node_modules*' --exclude='*site-packages*' \
-	    --exclude='usr/local/go/*' --exclude='root/go/pkg/*' 2>/dev/null || true; \
+	    --exclude='usr/local/go/*' --exclude='root/go/pkg/*' \
+	    --exclude='usr/include/*' --exclude='usr/local/include/*' \
+	    --exclude='usr/share/*' 2>/dev/null || true; \
 	  docker rm -f $$cid >/dev/null; \
-	  gitleaks dir $$d --config .gitleaks.toml --no-banner --redact; st=$$?; \
-	  rm -rf $$d; \
-	  [ $$st -eq 0 ] || { echo "secrets-image: secrets inside $$img — do NOT push."; exit 1; }; \
+	  wd=$$(docker image inspect $$img --format '{{.Config.WorkingDir}}'); \
+	  can=$$d$${wd:-}/.sm-secrets-canary.txt; \
+	  mkdir -p $$(dirname $$can); \
+	  printf 'aws_secret_access_key = "%s"\n' \
+	    "$$(head -c 30 /dev/urandom | base64 | tr -d '/+=' | head -c 40)" > $$can; \
+	  rep=$$(mktemp -t sm-secrets-XXXX).json; \
+	  gitleaks dir $$d --config .gitleaks.toml --no-banner --redact \
+	    --report-format json --report-path $$rep >/dev/null 2>&1; \
+	  python3 infra/scripts/secrets-image-verdict.py $$rep $$d "$$img" \
+	    "$${wd:-}/.sm-secrets-canary.txt"; st=$$?; \
+	  rm -rf $$d $$rep; \
+	  [ $$st -eq 0 ] || exit $$st; \
 	done
 	@echo "[secrets-image] all $(words $(IMAGES)) images clean"
 
