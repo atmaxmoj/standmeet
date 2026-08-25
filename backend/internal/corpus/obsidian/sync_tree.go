@@ -14,8 +14,12 @@ type vaultNote struct {
 	genre      string
 	sourcePath string
 	body       string
-	segs       []string
-	fm         corpFM
+	// rawFM —— 这个文件的 frontmatter **原文**（不含 `---` 围栏）。
+	// `fm` 是解析后的结果，它只留下产品认识的那十几个 key；导出要写回 owner 自己写的
+	// `langs` / `aliases-zh` / `owns`，以及内联数组这类形态，只能靠这一份原文（F-L-67）。
+	rawFM string
+	segs  []string
+	fm    corpFM
 }
 
 // desiredNode —— 期望树的一个节点。file == nil = 自动补的中间节点(无 backing 文件)。

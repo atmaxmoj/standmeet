@@ -11,6 +11,9 @@ type nodeContent struct {
 	body       string
 	excerpt    string
 	srcPath    string
+	// rawFM —— vault 里那一块 frontmatter 的原文。产品不认识的 key 和它们的形态只活在这里；
+	// 导出照着它写回去，否则同步一次就把 owner 自己写的键删了（F-L-67）。
+	rawFM      string
 	lang       string
 	tags       []string
 	cssClasses []string
@@ -27,7 +30,8 @@ func contentOf(n *desiredNode) nodeContent {
 	}
 	return nodeContent{
 		body: n.file.body, excerpt: n.file.fm.Excerpt, srcPath: n.file.sourcePath,
-		tags: n.file.fm.Tags, cssClasses: n.file.fm.CSSClasses,
+		rawFM: n.file.rawFM,
+		tags:  n.file.fm.Tags, cssClasses: n.file.fm.CSSClasses,
 		aliases: n.file.fm.Aliases, published: n.file.fm.Publish,
 		publishSet: n.file.fm.PublishSet,
 		lang:       n.file.fm.Lang, langLabels: n.file.fm.LangLabels,

@@ -18,6 +18,17 @@ const WORKSPACE_ROOT = path.resolve(APP_DIR, '..');
 const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: WORKSPACE_ROOT,
+  // proxyTimeout —— rewrite 反代的上限。Next 的默认值是 **30 秒**，而 owner 唯一那条路
+  // （浏览器 → 这个 app → backend）上有一个耗时随他的库大小长的操作：vault 导入。
+  // 真 vault（1082 篇）直连后端实测 **50 秒** —— 也就是说默认值下它必然被砍。
+  //
+  // 砍断的样子很难认：代理掐掉连接，浏览器拿到一个网络错误，而后端那一侧**已经写了一半**
+  // （日志里是 "context canceled"，import 提前收尾并返回 200）。owner 读到「失败」，
+  // 于是再导一次 —— 而库里已经是半成品。
+  //
+  // 跟 F-L-20（1000 个 part 的墙）、F-L-69（后端 30s WriteTimeout）是同一族：
+  // 一个没人声明过的默认值，让真实规模的 vault 用不了。真正的上限交给后端的 ctx。
+  experimental: { proxyTimeout: 15 * 60 * 1000 },
   // node-tikzjax(/render-tikz 用):(1) 保持 external 不被 Next 打进 route bundle —— 否则
   // __dirname 变、它读的 ../tex/*.gz 找不着;(2) 显式 trace-include 那 3 个运行时 TeX 资产
   // (core.dump.gz / tex.wasm.gz / tex_files.tar.gz 是 fs.read 的,不走 import,tracing 抓不到)。

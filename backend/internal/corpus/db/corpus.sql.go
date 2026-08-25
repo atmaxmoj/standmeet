@@ -15,7 +15,7 @@ const createRawEntry = `-- name: CreateRawEntry :one
 
 INSERT INTO corpus_notes (owner_id, genre, title, body, inbox_source, inbox_meta, tags, flagged_private)
 VALUES ($1, 'raw', $2, $3, $4, $5, $6, $7)
-RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, obsidian_frontmatter, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type CreateRawEntryParams struct {
@@ -62,6 +62,7 @@ func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) 
 		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
+		&i.ObsidianFrontmatter,
 		&i.InboxSource,
 		&i.InboxMeta,
 		&i.FlaggedPrivate,
@@ -83,7 +84,7 @@ func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) 
 }
 
 const getRawByID = `-- name: GetRawByID :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, obsidian_frontmatter, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
 `
 
 type GetRawByIDParams struct {
@@ -112,6 +113,7 @@ func (q *Queries) GetRawByID(ctx context.Context, arg GetRawByIDParams) (CorpusN
 		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
+		&i.ObsidianFrontmatter,
 		&i.InboxSource,
 		&i.InboxMeta,
 		&i.FlaggedPrivate,
@@ -133,7 +135,7 @@ func (q *Queries) GetRawByID(ctx context.Context, arg GetRawByIDParams) (CorpusN
 }
 
 const listRawByOwner = `-- name: ListRawByOwner :many
-SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, obsidian_frontmatter, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND genre = 'raw' AND archived = false
 ORDER BY created_at DESC
 LIMIT $2
@@ -174,6 +176,7 @@ func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) 
 			&i.LangLabels,
 			&i.ObsidianSourcePath,
 			&i.ObsidianImportedAt,
+			&i.ObsidianFrontmatter,
 			&i.InboxSource,
 			&i.InboxMeta,
 			&i.FlaggedPrivate,
@@ -235,7 +238,7 @@ const updateRawBody = `-- name: UpdateRawBody :one
 UPDATE corpus_notes
 SET body = $3, tags = $4, flagged_private = $5
 WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
-RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, aliases, source_ids, show_as_source, excerpt, published, css_classes, lang, lang_labels, obsidian_source_path, obsidian_imported_at, obsidian_frontmatter, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type UpdateRawBodyParams struct {
@@ -275,6 +278,7 @@ func (q *Queries) UpdateRawBody(ctx context.Context, arg UpdateRawBodyParams) (C
 		&i.LangLabels,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
+		&i.ObsidianFrontmatter,
 		&i.InboxSource,
 		&i.InboxMeta,
 		&i.FlaggedPrivate,

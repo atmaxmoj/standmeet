@@ -206,6 +206,20 @@ CREATE TABLE corpus_notes (
     -- web-wins 靠 updated_at > imported_at 判断(owner 在 web 改过 → sync 不覆盖)。
     obsidian_source_path  text      NOT NULL DEFAULT '',
     obsidian_imported_at  timestamptz NULL,
+    -- obsidian_frontmatter —— 这条笔记在 vault 里那一块 frontmatter 的**原文**（不含 `---` 围栏）。
+    --
+    -- 为什么要存原文而不是解析后的字段：产品只认识十来个 key，而真 vault 上还写着 `langs`
+    -- （596 篇）、`aliases-zh`（595 篇）、`owns`（33 篇）这些它不认识的。以前的做法是解析时
+    -- 「未知 key 直接忽略」—— 忽略在导入侧是对的，但导出侧因此**无从写回**，于是同步一次
+    -- 就把它们从 owner 的库里删了（F-L-67）。
+    --
+    -- 存原文还顺带保住了**形态**：`tags: [a, b]` 是内联数组，重新渲染会变成缩进 list；
+    -- 键的顺序也会被重排。内容一样而字节不一样，在一个 git 管着的 vault 里就是一场
+    -- 每次同步都发生的假 diff。
+    --
+    -- 导出时它不是原样回吐：产品拥有的那几个 key 如果在网页上被改过，就地补丁掉那几行，
+    -- 其余原样带回。没有这一块的笔记（网页/MCP 新建的）照旧按字段渲染。
+    obsidian_frontmatter  text      NOT NULL DEFAULT '',
     -- inbox fields —— only meaningful for genre='raw' (the ingest inbox folded into the one corpus
     -- structure, #151). inbox_source = 'mcp' | 'obsidian:<path>'; inbox_meta = arbitrary dump context;
     -- flagged_private / archived = inbox triage; promoted_to = the wiki note this raw was promoted into.

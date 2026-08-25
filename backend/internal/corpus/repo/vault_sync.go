@@ -39,7 +39,17 @@ type SyncNote struct {
 	// 它们**不是装饰**：aliases 是链接解析的输入（`[[别名]]` 靠它解开），lang 是多语言
 	// 渲染契约的一半。以前这个视图没有它们，于是导出连读都没读 —— 而 owner 用「导出」
 	// 再导回来，就会把真语料上的这两样抹平。
-	Lang        string
+	Lang string
+	// Excerpt / CSSClasses / LangLabels —— 产品**存着**却从来没导出过的三样（F-L-67）。
+	// 上一次修这个形状（F-L-59）只扫到了 lang/aliases 两个字段，邻居原样留着。
+	CSSClasses []string
+	LangLabels map[string]string
+	// SourcePath —— 这条笔记来自 vault 里的哪个文件。导出用它保住**布局**：
+	// 「文件夹里只有它自己」的 folder-note 在树上没有子节点，光看树会被写成同级文件（F-L-68）。
+	SourcePath string
+	// Frontmatter —— vault 里那一块 frontmatter 的原文（不含 `---` 围栏）。导出照着它打补丁，
+	// 保住产品不认识的 key 和它们的形态（F-L-67）。空 = 这条笔记不是从 vault 来的。
+	Frontmatter string
 	Tags        []string
 	Aliases     []string
 	HasImported bool
@@ -122,12 +132,15 @@ type CreateSyncNoteInput struct {
 	Excerpt     string // frontmatter `excerpt:` — the separate authored summary
 	SourcePath  string
 	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
-	Tags        []string
-	CSSClasses  []string
-	Aliases     []string
+	// Frontmatter —— 这个文件在 vault 里那一块 frontmatter 的**原文**（不含 `---` 围栏）。
+	// 产品不认识的 key 只活在这里，形态（内联数组 / 键序）也只活在这里。见 schema 上的注释。
+	Frontmatter string
 	// Lang / LangLabels —— frontmatter 的 `lang:` / `lang-labels:`(见 schema 上的注释:
 	// 语言**集**不存,它从正文的语言面推)。
 	Lang       string
+	Tags       []string
+	CSSClasses []string
+	Aliases    []string
 	LangLabels []byte
 	Published  bool
 }
@@ -149,6 +162,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 		Aliases:     nilSafeTags(in.Aliases),
 		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
 		Lang: in.Lang, LangLabels: jsonOrEmpty(in.LangLabels),
+		ObsidianFrontmatter: in.Frontmatter,
 	})
 	if qerr != nil {
 		return "", fmt.Errorf("create sync note: %w", qerr)
@@ -157,6 +171,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 }
 
 // UpdateSyncNoteInput —— vault sync update(relocate + 重写)。
+// Frontmatter 同 CreateSyncNoteInput：vault 里那一块的原文。
 type UpdateSyncNoteInput struct {
 	ParentID    *string
 	OwnerID     string
@@ -166,10 +181,11 @@ type UpdateSyncNoteInput struct {
 	Excerpt     string // frontmatter `excerpt:` — the separate authored summary
 	SourcePath  string
 	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
+	Frontmatter string
+	Lang        string
 	Tags        []string
 	CSSClasses  []string
 	Aliases     []string
-	Lang        string
 	LangLabels  []byte
 	Published   bool
 }
@@ -191,6 +207,7 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 		Aliases:     nilSafeTags(in.Aliases),
 		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
 		Lang: in.Lang, LangLabels: jsonOrEmpty(in.LangLabels),
+		ObsidianFrontmatter: in.Frontmatter,
 	}); qerr != nil {
 		return fmt.Errorf("update sync note: %w", qerr)
 	}
@@ -286,30 +303,7 @@ func (r *VaultSyncRepo) GetCSSClasses(ctx context.Context, ownerID, id string) [
 	return classes
 }
 
-// ListAllForExport —— owner 所有 corp note(任一 genre),给 vault export 反向渲染成 .md。
-func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([]SyncNote, error) {
-	owner, err := pgstore.ParseUUID(ownerID)
-	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
-	}
-	rows, qerr := db.New(r.pool).ListAllNotesForExport(ctx, owner)
-	if qerr != nil {
-		return nil, fmt.Errorf("list notes for export: %w", qerr)
-	}
-	out := make([]SyncNote, 0, len(rows))
-	for i := range rows {
-		sn := SyncNote{
-			ID: pgstore.FormatUUID(rows[i].ID), Genre: rows[i].Genre, Title: rows[i].Title,
-			Body: rows[i].Body, Published: rows[i].Published, Tags: rows[i].Tags,
-			Lang: rows[i].Lang, Aliases: rows[i].Aliases,
-		}
-		if rows[i].ParentID.Valid {
-			sn.ParentID = pgstore.FormatUUID(rows[i].ParentID)
-		}
-		out = append(out, sn)
-	}
-	return out, nil
-}
+// ListAllForExport + decodeLangLabels 住在 vault_sync_export.go —— 导出是另一件事。
 
 func syncNoteFromRow(n *db.CorpusNote) SyncNote {
 	out := SyncNote{

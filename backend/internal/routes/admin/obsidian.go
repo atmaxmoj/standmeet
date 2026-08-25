@@ -15,14 +15,10 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"mime/multipart"
 	"net/http"
-	"net/url"
-	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -195,8 +191,22 @@ type importResultView struct {
 	Deleted int `json:"deleted"`
 }
 
+// vaultImportWriteBudget —— 一次 vault 导入允许写多久。
+//
+// `http.Server.WriteTimeout` 是 **30 秒**，压在每一条响应上。对常规 endpoint 合理，对这一条
+// 不是：它的耗时随 owner 的 vault 大小长，而真 vault（1082 篇）实测就在 16–30 秒这一档 ——
+// 一直贴着墙。撞上去的样子很难认：服务端把连接掐了，浏览器拿到的是一个网络错误，
+// 而**导入其实做完了**（库里已经写好，只有回执写不出去，日志里是 "context canceled"）。
+// owner 会以为失败了，然后再导一次。
+//
+// 这跟 F-L-7（1000 个 part 的墙）是同一类：一个没人声明过的数字，让真实规模的 vault 用不了。
+// 也跟 agent turn 那次（`extendStreamWriteDeadline`）是同一个解法：把**这条连接**的写期限推开，
+// 真正的上限交给 ctx。
+const vaultImportWriteBudget = 10 * time.Minute
+
 func (h *Handlers) importObsidian() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		extendImportWriteDeadline(h.Log, w)
 		files, err := parseImportMultipart(w, r)
 		if err != nil {
 			writeError(h.Log, w, envBadReq(err.Error()))
@@ -217,6 +227,16 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 			Deleted: res.Deleted, Errors: res.Errors,
 		}
 		writeImportJSON(h.Log, w, &result)
+	}
+}
+
+// extendImportWriteDeadline —— 把这条连接的写期限推到 vaultImportWriteBudget。
+// 不支持 deadline 的 writer（httptest 等）返 ErrNotSupported —— 记一行即可。
+func extendImportWriteDeadline(log *slog.Logger, w http.ResponseWriter) {
+	rc := http.NewResponseController(w)
+	if err := rc.SetWriteDeadline(time.Now().Add(vaultImportWriteBudget)); err != nil {
+		log.Warn("vault import: extend write deadline unsupported (capped at server WriteTimeout)",
+			"err", err)
 	}
 }
 
@@ -245,102 +265,5 @@ func isAuthoritativeUpload(r *http.Request) bool {
 	return r.FormValue("authoritative") == "true"
 }
 
-// parseImportMultipart —— **流式**读 part,不用 ParseMultipartForm。
-//
-// 为什么不能用 ParseMultipartForm:它把整个表单先缓冲下来,而 Go 的 mime/multipart.ReadForm 对
-// 一张表单的 part 数有个 **1000 的硬上限**,超了整个请求报 "message too large"。那个数字我们从
-// 没声明过,也调不了 —— 而本文件声明的 maxObsidianImportSize 是**字节**(200MB),跟它毫不相干。
-// 结果就是:一个 574 wiki + 435 raw 的真实 vault(过完客户端过滤 1033 个文件)导不进来,而负载
-// 只有 6.2MB,连声明额度的 4% 都不到。实测边界:999 个 part 成功,1001 个 part 400(F-L-20)。
-//
-// 换成 NextPart() 逐个读,是把「自建 git 服务怎么吞一个仓库」翻译过来:forge 收 packfile 是
-// **一个流、边读边处理**,对象再多也碰不到任何 part 计数 —— 因为它压根不把请求拆成 N 份缓冲。
-// 这里同理:一次一个 part,读完就转成 VaultFile,没有全表单物化,也就没有份数上限。
-// 字节数仍由 MaxBytesReader 兜住,那才是我们**声明过**的那道限制。
-func parseImportMultipart(
-	w http.ResponseWriter, r *http.Request,
-) ([]obsidian.VaultFile, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxObsidianImportSize)
-	mr, merr := r.MultipartReader()
-	if merr != nil {
-		return nil, fmt.Errorf("parse multipart: %w", merr)
-	}
-	return streamVaultFiles(mr, r)
-}
-
-// streamVaultFiles —— 逐个 part 读完整个请求,读一个丢一个,不留整表单。
-func streamVaultFiles(mr *multipart.Reader, r *http.Request) ([]obsidian.VaultFile, error) {
-	acc := &vaultParts{files: make([]obsidian.VaultFile, 0), form: url.Values{}}
-	for {
-		p, err := mr.NextPart()
-		if err != nil {
-			return acc.done(err, r)
-		}
-		acc.take(p)
-	}
-}
-
-// vaultParts —— 流式读的累加器。读错先记下来,等流走完再一起报:半路 return 会把剩下的 part
-// 留在连接上,客户端拿到的是一个断掉的写。
-type vaultParts struct {
-	err   error
-	form  url.Values
-	files []obsidian.VaultFile
-}
-
-func (a *vaultParts) take(p *multipart.Part) {
-	defer closeBestEffort(p)
-	body, rerr := io.ReadAll(p)
-	if rerr != nil {
-		a.err = fmt.Errorf("read vault file %q: %w", p.FormName(), rerr)
-		return
-	}
-	a.put(p.FormName(), p.FileName(), body)
-}
-
-// put —— 有 filename 的是 vault 文件;其余是普通表单值(authoritative 就走这条)。
-// field 名携带完整 rel;剥可能的 vault-name 前缀让 path 从 vault root 算起(genre 前缀保留)。
-func (a *vaultParts) put(name, filename string, body []byte) {
-	if filename == "" {
-		a.form.Set(name, string(body))
-		return
-	}
-	a.files = append(a.files, obsidian.VaultFile{
-		RelPath: normalizeVaultRel(name), Body: body,
-	})
-}
-
-// done —— 流结束。非文件 part 回填进 r.Form:走 MultipartReader 之后 r.FormValue 不再自己解析,
-// 不回填的话 authoritative 标记会静默丢失,一次「整个 vault」的同步就退化成只增不删。
-func (a *vaultParts) done(err error, r *http.Request) ([]obsidian.VaultFile, error) {
-	r.Form = a.form
-	if a.err != nil {
-		return nil, a.err
-	}
-	if !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse multipart: %w", err)
-	}
-	return a.files, nil
-}
-
-func closeBestEffort(c io.Closer) {
-	if err := c.Close(); err != nil {
-		_ = err
-	}
-}
-
-// normalizeVaultRel —— webkitRelativePath 首段若是 vault 文件夹名(非 genre)则剥掉,让 path 从
-// vault root 算起(owner 选 my-vault/,filename = "my-vault/wiki/x.md" → "wiki/x.md")。首段本身就是
-// genre(wiki/…,如直接上传或测试)则原样保留 —— 否则 genre 会被误当 vault 名剥掉。
-func normalizeVaultRel(name string) string {
-	parts := strings.SplitN(name, "/", 2)
-	if len(parts) == 2 && stripsVaultPrefix(parts[0]) {
-		return parts[1]
-	}
-	return name
-}
-
-// stripsVaultPrefix —— 首段是要剥的 vault 文件夹名:既非 genre 又非 dotdir(.obsidian config 要留)。
-func stripsVaultPrefix(seg string) bool {
-	return !obsidian.IsVaultTopFolder(seg) && !strings.HasPrefix(seg, ".")
-}
+// multipart 的流式读取住在 obsidian_multipart.go —— 一个上千 part 的请求怎么读完
+// 而不整份物化，是跟这两个 endpoint 的编排不同的一件事。

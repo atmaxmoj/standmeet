@@ -176,39 +176,40 @@ type ConversationGhost struct {
 }
 
 type CorpusNote struct {
-	ID                 pgtype.UUID
-	OwnerID            pgtype.UUID
-	Genre              string
-	ParentID           pgtype.UUID
-	Title              string
-	Body               string
-	Tags               []string
-	Aliases            []string
-	SourceIds          []pgtype.UUID
-	ShowAsSource       bool
-	Excerpt            string
-	Published          bool
-	CssClasses         []string
-	Lang               string
-	LangLabels         []byte
-	ObsidianSourcePath string
-	ObsidianImportedAt pgtype.Timestamptz
-	InboxSource        string
-	InboxMeta          []byte
-	FlaggedPrivate     bool
-	Archived           bool
-	PromotedTo         pgtype.UUID
-	Slug               string
-	Visibility         string
-	LockedBody         string
-	CoverHeadline      string
-	CoverHue           string
-	CoverImageAssetID  pgtype.UUID
-	ReadMinutes        int32
-	CrossRefs          []string
-	PublishedAt        pgtype.Timestamptz
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
+	ID                  pgtype.UUID
+	OwnerID             pgtype.UUID
+	Genre               string
+	ParentID            pgtype.UUID
+	Title               string
+	Body                string
+	Tags                []string
+	Aliases             []string
+	SourceIds           []pgtype.UUID
+	ShowAsSource        bool
+	Excerpt             string
+	Published           bool
+	CssClasses          []string
+	Lang                string
+	LangLabels          []byte
+	ObsidianSourcePath  string
+	ObsidianImportedAt  pgtype.Timestamptz
+	ObsidianFrontmatter string
+	InboxSource         string
+	InboxMeta           []byte
+	FlaggedPrivate      bool
+	Archived            bool
+	PromotedTo          pgtype.UUID
+	Slug                string
+	Visibility          string
+	LockedBody          string
+	CoverHeadline       string
+	CoverHue            string
+	CoverImageAssetID   pgtype.UUID
+	ReadMinutes         int32
+	CrossRefs           []string
+	PublishedAt         pgtype.Timestamptz
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
 }
 
 type CustomPage struct {

@@ -204,7 +204,20 @@ FROM up WHERE up.parent_id IS NULL;
 -- Vault export: all corp notes(any genre) with body/tree/publish — 反向 render 成 vault .md。
 -- lang / aliases 一起取（F-L-59）：导出少了它们，owner 导出再导回来就会把双语配对和
 -- `[[别名]]` 的解析输入在**真语料上**抹平。丢失从这条 SELECT 开始，不是从渲染开始。
-SELECT id, genre, parent_id, title, body, tags, published, lang, aliases
+--
+-- 上一句话写对了，但只扫到了它当时那两个字段（[[lesson-not-swept-to-neighbours]]）。
+-- excerpt / css_classes / lang_labels 三个列一直在库里，这条 SELECT 从来没取过，
+-- 于是导出一个都不写 —— owner 同步下来就少了它们（F-L-67）。
+--
+-- obsidian_source_path：这条笔记**来自 vault 里的哪个文件**。导出要它是为了不改布局：
+-- 一个「文件夹里只有它自己」的 folder-note（`x/y/y.md`）在树上没有子节点，导出于是把它
+-- 写成同级的 `x/y.md` —— 内容没变，但镜像替 owner 搬了家（F-L-68，真 vault 上 22 篇）。
+--
+-- obsidian_frontmatter：这条笔记在 vault 里那一块 frontmatter 的原文。产品不认识的 key
+-- （真 vault 上 `langs` 596 篇、`aliases-zh` 595 篇、`owns` 33 篇）只活在这里；不取它，
+-- 导出就只能按自己认识的那十几个 key 重新渲染，等于把其余的删掉。
+SELECT id, genre, parent_id, title, body, tags, published, lang, aliases,
+       excerpt, css_classes, lang_labels, obsidian_source_path, obsidian_frontmatter
 FROM corpus_notes WHERE owner_id = $1
 ORDER BY created_at;
 
@@ -258,8 +271,8 @@ HAVING count(*) > 1;
 -- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
 -- inbox_source is the vault-source tag for genre='raw' ("obsidian:<path>"); empty for other genres.
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, aliases, lang, lang_labels, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now())
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, aliases, lang, lang_labels, obsidian_frontmatter, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now())
 RETURNING *;
 
 -- name: UpdateNoteSync :one
@@ -268,7 +281,8 @@ RETURNING *;
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
     obsidian_source_path = $8, css_classes = $9, inbox_source = $10, excerpt = $11,
-    aliases = $12, lang = $13, lang_labels = $14, obsidian_imported_at = now(), updated_at = now()
+    aliases = $12, lang = $13, lang_labels = $14, obsidian_frontmatter = $15,
+    obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 

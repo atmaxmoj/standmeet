@@ -107,7 +107,7 @@ func toRawVaultNote(f *VaultFile, segs []string) vaultNote {
 func toVaultNote(f *VaultFile, segs []string) vaultNote {
 	p := parseCorpNote(f.Body)
 	return vaultNote{
-		genre: segs[0], sourcePath: f.RelPath, fm: p.fm, body: p.body,
+		genre: segs[0], sourcePath: f.RelPath, fm: p.fm, body: p.body, rawFM: p.rawFM,
 		segs: normalizeSegs(segs[1:]),
 	}
 }

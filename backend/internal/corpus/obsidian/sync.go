@@ -199,7 +199,7 @@ func createNode(ctx context.Context, op *nodeOp) {
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
 		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses, Aliases: op.c.aliases,
 		Lang: op.c.lang, LangLabels: marshalLabels(op.c.langLabels),
-		InboxSource: inboxSourceFor(op.node.genre, op.c),
+		InboxSource: inboxSourceFor(op.node.genre, op.c), Frontmatter: op.c.rawFM,
 	})
 	if err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
@@ -223,7 +223,7 @@ func updateNode(ctx context.Context, op *nodeOp, existing *corpus.SyncNote) {
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
 		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses, Aliases: op.c.aliases,
 		Lang: op.c.lang, LangLabels: marshalLabels(op.c.langLabels),
-		InboxSource: inboxSourceFor(op.node.genre, op.c),
+		InboxSource: inboxSourceFor(op.node.genre, op.c), Frontmatter: op.c.rawFM,
 	}); err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
 		return

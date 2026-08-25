@@ -29,7 +29,10 @@ type corpFM struct {
 // parsedNote —— parseCorpNote 的结果(避免多返回名/无名之争)。
 type parsedNote struct {
 	body string
-	fm   corpFM
+	// rawFM —— frontmatter 原文（不含 `---` 围栏）。解析会丢掉不认识的 key 和形态，
+	// 而导出要把 owner 写的东西原样送回去，所以原文必须一起带出来（F-L-67）。
+	rawFM string
+	fm    corpFM
 }
 
 // parseCorpNote —— 容错地拆 frontmatter + body(复用包内 SplitFrontmatter:只认文件头第一段
@@ -38,7 +41,7 @@ func parseCorpNote(raw []byte) parsedNote {
 	text := strings.ReplaceAll(string(raw), "\r\n", newline)
 	text = strings.ReplaceAll(text, "\r", newline)
 	s := SplitFrontmatter(text)
-	return parsedNote{fm: parseFMLines(s.YAML), body: s.Body}
+	return parsedNote{fm: parseFMLines(s.YAML), body: s.Body, rawFM: s.YAML}
 }
 
 var reListItem = regexp.MustCompile(`^\s*-\s*(.+?)\s*$`)
