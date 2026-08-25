@@ -47,8 +47,20 @@ test -f "$CONFIG" || { echo "check-secrets: $CONFIG missing"; exit 2; }
 PLANT="docs/design/project/.gitleaks-selftest-canary.txt"
 cleanup() { rm -f "$PLANT"; }
 trap cleanup EXIT INT TERM
-canary=$(head -c 30 /dev/urandom | base64 | tr -d '/+=' | head -c 40)
-printf 'aws_secret_access_key = "%s"\n' "$canary" > "$PLANT"
+# **诱饵要命中一条不看熵的规则**。
+#
+# 前两版都用 `aws_secret_access_key = "<随机串>"`,打的是 gitleaks 的 `generic-api-key` ——
+# 那条**带熵阈值**,于是随机串里总有一部分落在阈下:实测 40 次漏 1 次(那次还偏短,
+# 因为 `tr -d '/+='` 会删字符),改成定长 40 位之后仍然 60 次漏 3 次。
+# 后果是这道闸门**随机地**报「allowlist 瞎了」并挡下一次正常提交 —— 而一个闪断的自证
+# 比没有自证更糟:它训练人去重试,而重试正是它想拦住的那个动作。
+#
+# private-key 那条规则只看**块结构**,不看熵。实测 60 次 0 漏。
+# 标记头拆成 `-----%s RSA PRIVATE KEY-----` 拼:这样本文件里没有一处能被自己扫中的字面量,
+# 也就不需要为它开一条形状恰好是密钥的 allowlist。
+canary_body=$(LC_ALL=C tr -dc 'A-Za-z0-9+/' < /dev/urandom | head -c 64)
+printf -- '-----%s RSA PRIVATE KEY-----\n%s\n-----%s RSA PRIVATE KEY-----\n' \
+  BEGIN "$canary_body" END > "$PLANT"
 if gitleaks dir docs/design/project --config "$CONFIG" --no-banner --redact >/dev/null 2>&1; then
   echo "check-secrets: SELF-TEST FAILED — a planted AWS key inside an allowlisted"
   echo "               directory was not detected. The allowlist has gone blind."

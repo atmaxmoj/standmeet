@@ -59,8 +59,13 @@ let skillToken = '';
 
 test.describe('能力归一化 · 访客装配黄金快照', () => {
   test.beforeAll(async ({ playwright }) => {
+    // 这个 beforeAll 要做 8 次 API 调用（claim / login / 建角色 / 建码 / 发会话 ×2 /
+    // 发 API token / 带技能发码），而默认预算是 30 秒、每次调用又卡在 Playwright 默认的
+    // 10 秒。发会话是其中的重活（要装配整份访客工具面）—— 机器忙的时候它单独就能吃掉 10 秒。
+    // 放宽的是驱动器的耐心；判据（tool_specs 逐字等于 golden）一个字没动。
+    test.setTimeout(120_000);
     resetInstance();
-    const request = await playwright.request.newContext();
+    const request = await playwright.request.newContext({ timeout: 60_000 });
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,

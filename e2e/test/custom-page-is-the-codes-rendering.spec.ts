@@ -202,9 +202,15 @@ test.describe('a page can serve the instance’s own media, not just remote URLs
       // **断的是它真的画出来了**，不是「有个 <img>」。签名地址过期 / holder 解析错 /
       // 存储没连上，三种都会留下一个尺寸为 0 的 <img>，而截图和 DOM 断言都看不出来
       // （[[text-assertion-cannot-see-layout]]）。
-      const drawn = await sm(page, 'hosted').evaluate(
-        (el) => el instanceof HTMLImageElement && el.complete && el.naturalWidth > 0);
-      expect(drawn, 'the instance-hosted image actually decoded').toBe(true);
+      // **等到它画出来，而不是看一眼**。`hosted-state` 翻 ready 说的是页面自己的状态，
+      // 它早于浏览器把这张图取完并解码 —— 一次性的 evaluate 因此会在机器忙的时候
+      // 采样在解码之前，报「没画出来」。判据一个字没改（还是 complete && naturalWidth > 0），
+      // 改的是它从采样变成等待。全量第 630 条就是这么红的，而单跑 5/5 全绿。
+      await expect.poll(
+        () => sm(page, 'hosted').evaluate(
+          (el) => el instanceof HTMLImageElement && el.complete && el.naturalWidth > 0),
+        { timeout: 20_000, message: 'the instance-hosted image actually decoded' },
+      ).toBe(true);
     });
 });
 
