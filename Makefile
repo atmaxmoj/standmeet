@@ -1141,6 +1141,12 @@ release-assert-stripped:
 #     都不传），不是因为扫过了。
 #   · 下面排除的是**基础镜像自带的目录**（node 的头文件、系统库、第三方依赖树）。那些字节
 #     不是我们放进去的，上游原样带来的。我们自己 COPY 的东西（/app、/srv、二进制）都在扫描面内。
+#     其中两条是 db 镜像加进来时补的，各自核实过来路：
+#       `etc/ssl/private/` —— Debian `ssl-cert` 包在 postinst 生成的自签名占位证书
+#         （snakeoil）。`pgvector/pgvector:pg16` 这个上游镜像里本来就有；这套栈连库走
+#         `sslmode=disable`，它是死的。
+#       `usr/lib/` —— 发行版的库和头文件（那次报的是 perl 的 CORE/cop.h）。
+#     两条都验过：五个 Dockerfile 没有一个往这两处写东西，所以排除它们不会遮住我们自己的字节。
 secrets-image:
 	@command -v gitleaks >/dev/null 2>&1 || { \
 	  echo "secrets-image: gitleaks is not installed — this gate cannot run."; \
@@ -1157,7 +1163,8 @@ secrets-image:
 	    --exclude='*node_modules*' --exclude='*site-packages*' \
 	    --exclude='usr/local/go/*' --exclude='root/go/pkg/*' \
 	    --exclude='usr/include/*' --exclude='usr/local/include/*' \
-	    --exclude='usr/share/*' 2>/dev/null || true; \
+	    --exclude='usr/share/*' --exclude='usr/lib/*' \
+	    --exclude='etc/ssl/private/*' 2>/dev/null || true; \
 	  docker rm -f $$cid >/dev/null; \
 	  wd=$$(docker image inspect $$img --format '{{.Config.WorkingDir}}'); \
 	  can=$$d$${wd:-}/.sm-secrets-canary.txt; \
