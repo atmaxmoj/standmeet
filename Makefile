@@ -1057,7 +1057,10 @@ REGISTRY ?= ghcr.io/atmaxmoj
 # Makefile 里再抄一份的话，「记得改版本号」就成了一条迟早没人记得的规矩。
 TAG ?= $(shell git describe --tags --always --dirty)
 
-IMAGES := backend app builder im-bridge
+# db 也在里面：Coolify 的「粘贴一份 compose」没有仓库，`./backend/db/schema.sql` 那种
+# 相对挂载在那里必然挂空 —— 而 postgres 挂空的表现是**静默起一个空库**。把 schema 烤进
+# 镜像，注册表部署就一处挂载都不需要（infra/db/Dockerfile）。
+IMAGES := backend app builder im-bridge db
 
 # release-build —— 按 REGISTRY/TAG 把四个镜像建出来（不推）。
 # app 的 .next 由宿主构建后 COPY 进镜像，所以它必须先跑。
@@ -1088,6 +1091,7 @@ release-build: sdk-build builder-vendor
 	    app)       docker build -t $$img ./app ;; \
 	    builder)   docker build -t $$img ./builder ;; \
 	    im-bridge) docker build -t $$img -f im-bridge/Dockerfile . ;; \
+	    db)        docker build -t $$img -f infra/db/Dockerfile . ;; \
 	  esac || exit 1; \
 	  docker tag $$img $(REGISTRY)/standmeet-$$svc:latest || exit 1; \
 	done

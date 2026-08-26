@@ -1,13 +1,18 @@
 # docker-compose.coolify.yml —— 在 Coolify 上跑一台 StandMeet。
 #
-# **怎么部署、为什么是 git source、要配哪两个域名、沙箱开不开、起来之后怎么自证 ——
-# 全在 README 的 "Deploying on Coolify" 一节。** 这里只解释「这一行为什么长这样」。
+# **直接粘进 Coolify 的 "Docker Compose Empty" 就行**（New Resource → Docker Based →
+# Docker Compose Empty）。不需要 git source：一处宿主挂载都没有 —— schema 烤在 db 镜像里，
+# 五个镜像全部从 ghcr 拉。
+#
+# 要配哪两个域名、沙箱开不开、起来之后怎么自证 —— 在 README 的 "Deploying on Coolify"。
+# 这里只解释「这一行为什么长这样」。
 #
 # ⚠️ 这份模版没有在真 Coolify 上跑过。仓库里别的东西都是量过、驱过、有回执的，这一份不是。
+# 起来之后按 README 那四条逐条对，尤其第一条（表建了没有）—— 它失败时是无声的。
 #
 # 跟 docker-compose.prod.yml 的三处不同：不 build 只拉镜像（app 镜像 COPY 的是宿主上
-# 已经构建好的 .next）、不发布宿主端口（Coolify 的反代按域名接管）、域名和密码走
-# Coolify 的 magic 变量。
+# 已经构建好的 .next，从 git 建不出来）、不发布宿主端口（Coolify 的反代按域名接管）、
+# 域名和密码走 Coolify 的 magic 变量。
 
 name: standmeet
 
@@ -17,7 +22,7 @@ services:
     # 它先跑两道密钥闸门（历史 + 镜像文件系统），都过了才推，tag 从 `git describe` 反解。
     #
     # **别用 v0.0.1**：那个 tag 只有 backend 一张镜像在（验凭据时推的），另外三张不存在。
-    image: ghcr.io/atmaxmoj/standmeet-app:v0.0.2
+    image: ghcr.io/atmaxmoj/standmeet-app:v0.0.3
     restart: unless-stopped
     environment:
       # Coolify 看到这个名字就给 app 的 3000 口分配域名并接上反代。
@@ -48,7 +53,7 @@ services:
       start_period: 20s
 
   backend:
-    image: ghcr.io/atmaxmoj/standmeet-backend:v0.0.2
+    image: ghcr.io/atmaxmoj/standmeet-backend:v0.0.3
     restart: unless-stopped
     environment:
       - HOST=0.0.0.0
@@ -119,7 +124,7 @@ services:
 
   # builder —— owner 自己写的 React 页面在这里构建，产物落进 custom_pages_data。
   builder:
-    image: ghcr.io/atmaxmoj/standmeet-builder:v0.0.2
+    image: ghcr.io/atmaxmoj/standmeet-builder:v0.0.3
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
@@ -138,7 +143,7 @@ services:
   #
   # 走长轮询：不监听端口、不需要公网回调 —— 自托管场景下 webhook 那条路多数人做不到。
   im-bridge:
-    image: ghcr.io/atmaxmoj/standmeet-im-bridge:v0.0.2
+    image: ghcr.io/atmaxmoj/standmeet-im-bridge:v0.0.3
     restart: unless-stopped
     environment:
       - STANDMEET_BASE_URL=http://app:3000
@@ -147,8 +152,15 @@ services:
       app:
         condition: service_started
 
+  # db —— pgvector，schema 已经烤在镜像里（infra/db/Dockerfile）。
+  #
+  # 不用挂 `./backend/db/schema.sql`：粘贴式的 compose 没有仓库，那一行会挂空，
+  # 而 postgres 挂空的表现是**静默起一个空库**，不报错 —— 然后后端每条查询都炸。
+  #
+  # ⚠️ schema 只在**数据卷第一次创建时**跑一遍。升级不走这里，走
+  # `backend/db/migrations/`：换个新版本的 db 镜像**不会**改动已有的库。
   db:
-    image: pgvector/pgvector:pg16
+    image: ghcr.io/atmaxmoj/standmeet-db:v0.0.3
     restart: unless-stopped
     environment:
       - POSTGRES_DB=standmeet
@@ -156,14 +168,6 @@ services:
       - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # schema.sql **只在数据卷第一次创建时**被 postgres 跑一遍。
-      #
-      # 这一行要仓库真的在部署目录里（所以上面说必须用 git source）。挂不上的表现是
-      # postgres **静默起一个空库**，不是报错 —— 然后 backend 每条查询都炸。
-      #
-      # ⚠️ **升级不走这里。** 这条只管新装。已经在跑的实例升到新版本，要跑
-      # `backend/db/migrations/` 下的 migration，然后用 `make schema-drift` 自证对齐。
-      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
       interval: 3s

@@ -16,33 +16,31 @@ files on your disk remain the thing you edit.
 
 Template: [`infra/coolify/docker-compose.coolify.yml`](infra/coolify/docker-compose.coolify.yml)
 
-**New Resource → Docker Compose**, source = this git repository, compose path =
-`infra/coolify/docker-compose.coolify.yml`.
+**New Resource → Docker Based → Docker Compose Empty**, then paste the template in. No git
+source needed: there is not a single host mount, and all five images come from ghcr.
 
-### It has to be a git source, not a pasted compose
-
-The template bind-mounts `./backend/db/schema.sql` into Postgres, and that path only
-resolves if the repository is actually checked out into the deployment directory. Paste
-the compose file into Coolify's editor instead and the mount points at nothing — at which
-point **Postgres silently starts an empty database** rather than failing, and every backend
-query breaks afterwards with no clue pointing back here.
+The schema is baked into the `standmeet-db` image rather than bind-mounted, because a pasted
+compose has no repository behind it — `./backend/db/schema.sql` would resolve to nothing, and
+**Postgres starts an empty database silently** rather than failing, leaving every later query
+broken with nothing pointing back at the cause. `backend/db/schema.sql` is still the one
+source; the image copies it at build time, alongside the other four.
 
 ### It pulls images, it does not build them
 
 `app/Dockerfile` copies a `.next/standalone` that was built on the host; it does not run
 `next build` itself. A fresh checkout has no `.next`, so building this stack from git cannot
-work. The template therefore pins published images — `v0.0.2` is on ghcr and is what it
+work. The template therefore pins published images — `v0.0.3` is on ghcr and is what it
 points at.
 
 To cut your own:
 
 ```bash
-git tag -a v0.0.3 -m "…"                      # the tag is the version; nothing else holds it
+git tag -a v0.0.4 -m "…"                      # the tag is the version; nothing else holds it
 docker login ghcr.io                           # a PAT, or: gh auth refresh -s write:packages
 make release-build && make release-push
 ```
 
-The image tag comes from `git describe`, so a dirty tree publishes as `v0.0.3-dirty` rather
+The image tag comes from `git describe`, so a dirty tree publishes as `v0.0.4-dirty` rather
 than quietly claiming to be the release. `make release-push` will not push until `make
 secrets` (the full history) and `make secrets-image` (the built image filesystems) both come
 back clean.
