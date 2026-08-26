@@ -30,17 +30,29 @@ query breaks afterwards with no clue pointing back here.
 ### It pulls images, it does not build them
 
 `app/Dockerfile` copies a `.next/standalone` that was built on the host; it does not run
-`next build` itself. A fresh checkout has no `.next`, so building this stack from git
-cannot work. Push the images first:
+`next build` itself. A fresh checkout has no `.next`, so building this stack from git cannot
+work. The template therefore pins published images — `v0.0.2` is on ghcr and is what it
+points at.
+
+To cut your own:
 
 ```bash
-docker login ghcr.io          # needs a PAT with write:packages
-make release-push             # runs both secret gates, then pushes
+git tag -a v0.0.3 -m "…"                      # the tag is the version; nothing else holds it
+docker login ghcr.io                           # a PAT, or: gh auth refresh -s write:packages
+make release-build && make release-push
 ```
 
-`make release-push` will not push until `make secrets` (history) and `make secrets-image`
-(the built image filesystems) both come back clean. The image tag comes from `git describe`,
-so tag the release before building rather than editing a version into the Makefile.
+The image tag comes from `git describe`, so a dirty tree publishes as `v0.0.3-dirty` rather
+than quietly claiming to be the release. `make release-push` will not push until `make
+secrets` (the full history) and `make secrets-image` (the built image filesystems) both come
+back clean.
+
+`release-build` is not `app-build`. It sets `STRIP_TEST_HOOKS=1`, which removes every
+`data-testid` from the shipped markup, and then asserts they are gone rather than trusting
+the flag — the switch lives in a string comparison in `next.config.ts`, and a strip that
+silently stopped working looks exactly like one that works. The dev and prod stacks keep
+their testids: e2e and the real-environment audits both locate by them, and neither is the
+build that goes to visitors.
 
 ### Two domains
 
