@@ -5,7 +5,7 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint secrets secrets-image release-build release-push backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: lint secrets secrets-image release-build release-assert-stripped release-push backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
@@ -1060,12 +1060,26 @@ TAG ?= $(shell git describe --tags --always --dirty)
 IMAGES := backend app builder im-bridge
 
 # release-build —— 按 REGISTRY/TAG 把四个镜像建出来（不推）。
-# app 的 .next 由宿主 `app-build` 产出后 COPY 进镜像，所以它必须先跑。
+# app 的 .next 由宿主构建后 COPY 进镜像，所以它必须先跑。
 #
 # context / dockerfile / target 跟 docker-compose.prod.yml 同源。用 `docker build` 而不是
 # `compose build`：`compose images -q` 查的是**运行中的容器**，没起容器就返回空串，于是打标
 # 那一步拿到一个空的源（第一次就是这么炸的）。发布不需要起任何容器。
-release-build: app-build builder-vendor
+#
+# ── 这里不复用 `app-build`，因为发布的 app 是**另一种构建** ──────────────────────────
+#
+# `next.config.ts` 早就声明了 dual-build：`STRIP_TEST_HOOKS=1` 时 SWC 在编译期把
+# `data-testid` 全部剥掉，注释写的是「真正发布给访客的 build」设它。
+# 而这个变量**全仓库只出现在那一个文件里** —— 没有任何地方设过（F-A-45）。
+# 于是至今每一个 app 镜像都把 804 处 testid 原样送给访客：它们是内部组件结构的说明书，
+# 也是给抓取/自动化用的稳定选择器 —— 而验证码和限流那一整套机制正是要让自动化变贵。
+#
+# **只在这条路上剥**：dev 的 e2e 靠 testid 定位，prod 栈上的真环境审计也靠它驱动。
+# 那两条都不是「发给访客的 build」。
+release-build: sdk-build builder-vendor
+	@pnpm install --frozen-lockfile
+	@STRIP_TEST_HOOKS=1 pnpm -F standmeet-app build
+	@$(MAKE) release-assert-stripped
 	@for svc in $(IMAGES); do \
 	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
 	  echo "[release] building $$img"; \
@@ -1078,6 +1092,35 @@ release-build: app-build builder-vendor
 	  docker tag $$img $(REGISTRY)/standmeet-$$svc:latest || exit 1; \
 	done
 	@echo "[release] built: $(IMAGES) @ $(TAG)"
+
+# release-assert-stripped —— **证明剥掉了**，不是相信它剥掉了。
+#
+# 这个开关活在 next.config.ts 的一个字符串比较里：改个名、升一次 Next、动一下 compiler 那段，
+# 它都会静默失效 —— 而失效的样子跟生效一模一样（镜像照样建出来、照样能跑）。
+# 所以这一步既判「剥干净了」，也判「我确实扫到了东西」：产物目录为空的话，
+# 「零个 testid」是一句没有意义的真话。
+# 三处豁免，每一处都是**机械的**（按路径），不是一份 testid 名单：
+#   · node_modules —— Next 自己的 devtools 包里有 `data-testid="geist-icon"`。别人的代码。
+#   · server.js / required-server-files.json —— 那里面是**配置回声**
+#     （`"reactRemoveProperties":{"properties":["^data-testid$"]}`），不是元素上的属性。
+#     它出现恰恰说明剥这件事配上了。
+#   · /admin/ —— 这条规则剥的是 **JSX 属性**；交给第三方库的**对象键**（Tiptap 的
+#     `editorProps.attributes`）它结构上看不见。那一处在 owner 的编辑器上，
+#     而这个开关声明的目的是「发给访客的 HTML 干净」—— 访客到不了 /admin。
+release-assert-stripped:
+	@test -d app/.next/standalone || { echo "release: app/.next/standalone 不存在 —— 没扫到东西，'零个 testid' 不算数"; exit 2; }
+	@files=$$(find app/.next/standalone -type f -not -path '*/node_modules/*' | wc -l | tr -d ' '); \
+	  test "$$files" -gt 100 || { echo "release: 扫描面只有 $$files 个文件，不对"; exit 2; }; \
+	  hits=$$(grep -rl "data-testid" app/.next/standalone 2>/dev/null \
+	    | grep -v '/node_modules/' \
+	    | grep -v '/server\.js$$' \
+	    | grep -v '/required-server-files\.json$$' \
+	    | grep -v '/app/admin/'); \
+	  test -z "$$hits" || { \
+	    echo "release: 访客侧的产物里还有 data-testid —— STRIP_TEST_HOOKS 没生效，或者"; \
+	    echo "         有人把 testid 当对象键传给了库（那样剥不掉，得挪成 JSX 属性）："; \
+	    echo "$$hits" | sed 's/^/           /'; exit 1; }; \
+	  echo "[release] 访客侧产物已剥 testid（扫了 $$files 个文件）"
 
 # secrets-image —— 扫**要发出去的那个镜像的文件系统**。
 #
