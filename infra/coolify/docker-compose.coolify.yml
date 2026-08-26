@@ -1,0 +1,254 @@
+# docker-compose.coolify.yml —— 在 Coolify 上跑一台 StandMeet。
+#
+# **怎么部署、为什么是 git source、要配哪两个域名、沙箱开不开、起来之后怎么自证 ——
+# 全在 README 的 "Deploying on Coolify" 一节。** 这里只解释「这一行为什么长这样」。
+#
+# ⚠️ 这份模版没有在真 Coolify 上跑过。仓库里别的东西都是量过、驱过、有回执的，这一份不是。
+#
+# 跟 docker-compose.prod.yml 的三处不同：不 build 只拉镜像（app 镜像 COPY 的是宿主上
+# 已经构建好的 .next）、不发布宿主端口（Coolify 的反代按域名接管）、域名和密码走
+# Coolify 的 magic 变量。
+
+name: standmeet
+
+services:
+  app:
+    # ⚠️ 换成你自己推上去的 tag。这些镜像**目前还不在 ghcr 上** —— 本轮 `make release-push`
+    # 卡在凭据缺 `write:packages`。推之前先 `docker login ghcr.io`，然后 `make release-push`
+    # （它会先跑两道密钥闸门：历史 + 镜像文件系统，都过了才推）。
+    image: ghcr.io/atmaxmoj/standmeet-app:v0.0.1
+    restart: unless-stopped
+    environment:
+      # Coolify 看到这个名字就给 app 的 3000 口分配域名并接上反代。
+      # 生成出来的值（https://…）后面被 STORAGE_PUBLIC_URL 之外的地方引用。
+      - SERVICE_FQDN_APP_3000
+      - BACKEND_URL=http://backend:8000
+      - NODE_ENV=production
+    networks:
+      default:
+        # 点号别名。单段主机名 "app" 会触发 Chromium 的 HTTPS 升级启发式，
+        # gotenberg 去取打印页时报 ERR_SSL_PROTOCOL_ERROR；带点的名字绕开它。
+        aliases:
+          - app.standmeet.local
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # 打 app **自己**的那条，不打被反代到 backend 的 `/api/v1/instance` ——
+      # 那样量的是两跳，后端一慢就把一个没坏的 app 判成 unhealthy，然后编排器重启它。
+      # 坏消息会传染，好消息传不回去。
+      #
+      # ⚠️ 这条路由（app/src/app/api/app-health/route.ts）在本轮**写了但还没验**：
+      # 它需要重建 app 镜像才生效，而当时机器 load 50 跑不动。用它之前先确认镜像里有。
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/app-health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  backend:
+    image: ghcr.io/atmaxmoj/standmeet-backend:v0.0.1
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DATABASE_URL=postgres://standmeet:${SERVICE_PASSWORD_POSTGRES}@db:5432/standmeet?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - SESSION_KEY=${SERVICE_PASSWORD_64_SESSION}
+      # INSTANCE_SECRET —— 连接器凭据/token 的静态加密密钥（≥32 字符，否则 cryptobox 拒绝启动）。
+      #
+      # ⚠️ **换掉它 = 现有凭据全部解不开**。prod 上真轮换过一次：后端正常起来，而
+      # /admin/connectors 把每一张卡渲成 "not connected" + 一排空框 —— 库里密文和
+      # connected_at 都还在，屏幕上一个字都没有（F-C-41）。
+      # 用 Coolify 生成的这一份，**生成之后就别动**。
+      - INSTANCE_SECRET=${SERVICE_PASSWORD_64_INSTANCE}
+      # Coolify 终止 TLS，所以 cookie 必须带 Secure。
+      - SECURE_COOKIE=true
+      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - GOTENBERG_URL=http://gotenberg:3000
+      # 点号别名，见 app 那一格的说明。
+      - PRINT_BASE_URL=http://app.standmeet.local:3000
+      # ── 存储 ──────────────────────────────────────────────────────────────────
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=standmeet
+      - STORAGE_SECRET_KEY=${SERVICE_PASSWORD_64_MINIO}
+      - STORAGE_BUCKET=standmeet
+      - STORAGE_USE_SSL=false
+      # STORAGE_PUBLIC_URL —— **浏览器**去取图片用的地址，不是容器网络里的地址。
+      # 签名 URL 是发给访客浏览器的，指向 minio:9000 的话浏览器解析不了。
+      # 所以 minio 需要它自己的域名（见下面那一格）。
+      - STORAGE_PUBLIC_URL=${SERVICE_FQDN_MINIO_9000}
+      # ── 下面这些空着就是默认姿态，按需再填 ────────────────────────────────────
+      # 人机校验：两个都填了才开。
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
+      - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
+      # Meilisearch：不填 = 语料搜索走 Postgres 全文检索（这套栈自带的那条路）。
+      - MEILI_URL=${MEILI_URL:-}
+      - MEILI_KEY=${MEILI_KEY:-}
+      # SSRF 白名单：**空是生产姿态**，挡掉所有内网地址。
+      - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
+      # 连接器的出站白名单（跟上面那条是两套策略：上面管后端自己拨出去的，
+      # 这条管装配出来的连接器能到哪）。owner 要接自己内网的 CalDAV / 邮件服务器时填。
+      - CONNECTOR_EGRESS_ALLOW=${CONNECTOR_EGRESS_ALLOW:-}
+      # 一份 OpenAPI spec 的字节上限（默认 2 MiB）。GitHub 的 REST 描述是一个 12 MB 的文件，
+      # 想接那种厂商就得调高。
+      - CONNECTOR_SPEC_MAX_BYTES=${CONNECTOR_SPEC_MAX_BYTES:-}
+      # 技能市场读哪个仓库；空 = 公共的 anthropics/skills。
+      - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
+      # ── 沙箱插件：默认关。开它之前读文件末尾那一节 ──────────────────────────
+      # - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
+      # - SANDBOX_DRIVER=docker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+    volumes:
+      - custom_pages_data:/srv/custom-pages
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  # builder —— owner 自己写的 React 页面在这里构建，产物落进 custom_pages_data。
+  builder:
+    image: ghcr.io/atmaxmoj/standmeet-builder:v0.0.1
+    restart: unless-stopped
+    environment:
+      - BACKEND_INTERNAL_URL=http://backend:8000
+      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - custom_pages_data:/srv/custom-pages
+
+  # im-bridge —— 拿着码的人从聊天软件里私聊 owner 的 AI。
+  #
+  # **这里只有接线，没有设置**：bot token 是 owner 在 /admin/connectors 里配的凭据
+  # （跟 mail / calendar 同一类），桥启动后从内部接口取。凭据不进 env，也不进这个文件。
+  # 没配 IM 连接器时它空转等着，不报错刷屏。
+  #
+  # 走长轮询：不监听端口、不需要公网回调 —— 自托管场景下 webhook 那条路多数人做不到。
+  im-bridge:
+    image: ghcr.io/atmaxmoj/standmeet-im-bridge:v0.0.1
+    restart: unless-stopped
+    environment:
+      - STANDMEET_BASE_URL=http://app:3000
+      - BACKEND_INTERNAL_URL=http://backend:8000
+    depends_on:
+      app:
+        condition: service_started
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=standmeet
+      - POSTGRES_USER=standmeet
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # schema.sql **只在数据卷第一次创建时**被 postgres 跑一遍。
+      #
+      # 这一行要仓库真的在部署目录里（所以上面说必须用 git source）。挂不上的表现是
+      # postgres **静默起一个空库**，不是报错 —— 然后 backend 每条查询都炸。
+      #
+      # ⚠️ **升级不走这里。** 这条只管新装。已经在跑的实例升到新版本，要跑
+      # `backend/db/migrations/` 下的 migration，然后用 `make schema-drift` 自证对齐。
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # 封顶 + 到顶了丢最旧的。这里装着访客会话、限流桶、job 池（1 天 TTL）。
+    # 不封顶它一直涨，涨到宿主受不了 —— 那时候不是「最旧的会话没了」，
+    # 是**整个容器被 OOM 杀掉、所有会话一起没**，而 owner 只会听说「访客打不开」。
+    #
+    # `allkeys-lru` 而不是 `noeviction`：到顶了要丢东西。`noeviction` 会让**写入失败**，
+    # 访客收到一个错而 owner 那边什么都看不到。会话和限流桶都是可再生的。
+    command:
+      - redis-server
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # gotenberg —— 简历 PDF 的 headless Chromium 渲染边车。
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    # Gotenberg 8 默认的 deny-list 挡掉私有 / docker 网段（172.x、10.x）→ 内部渲染全 403。
+    # 清空 deny + 放开 allow（这个口只在容器网络里）。
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=false
+      - --chromium-deny-list=
+      - --chromium-allow-list=.*
+      - --api-timeout=60s
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  # minio —— 自带的 S3 兼容对象存储。bucket "standmeet" 由 backend 首次启动时自动建。
+  #
+  # **它需要自己的域名**：owner 上传的图片是用签名 URL 发给访客浏览器的，
+  # 那个地址必须是浏览器解析得到的公网地址，不能是 `minio:9000`。
+  # 在 Coolify 里给这一格单独配一个子域（比如 files.你的域名）。
+  minio:
+    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    restart: unless-stopped
+    command: server /data --console-address ":9201"
+    environment:
+      - SERVICE_FQDN_MINIO_9000
+      - MINIO_ROOT_USER=standmeet
+      - MINIO_ROOT_PASSWORD=${SERVICE_PASSWORD_64_MINIO}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  miniodata: {}
+  custom_pages_data: {}
+
+# ── 沙箱插件（可选，默认关）—— 取舍和风险见 README，这里只给要加的那几行 ────────────
+#
+# 给 backend 加：
+#
+#     user: "0:0"
+#     security_opt: [seccomp:unconfined, apparmor:unconfined]
+#     cap_add: [SYS_ADMIN, NET_ADMIN]      # 建 user/mount/pid namespace + bwrap 的 loopback
+#     volumes:
+#       - /var/run/docker.sock:/var/run/docker.sock
+#       - ./infra/prod-plugins.json:/etc/standmeet/plugins.json:ro
+#       - ./infra/plugins:/srv/plugins:ro   # 144 MB，同样要 git source
+#
+# ⚠️ 这几行合起来让这个容器成为**宿主的管理员**，不是「权限大一点」。
+#    只在独占主机上开。理由和那次真事故写在 README。

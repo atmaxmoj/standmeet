@@ -36,7 +36,11 @@ services:
       # 普通访问走 nginx/Caddy 时再映回 80/443，dev 直连 38127 即可。
       - "38127:3000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/v1/instance"]
+      # 打 app **自己**的那条（见 app/src/app/api/app-health/route.ts）。以前打的是
+      # `/api/v1/instance` —— 那条被反代到 backend，于是这个检查量的是两跳，3 秒的
+      # timeout 一到负载就不够（实测 6.8s），健康的 app 被判 unhealthy，`--wait` 跟着失败，
+      # 每条 e2e 的 ensureStackUp 一起红。依赖健不健康归依赖自己的检查管。
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/app-health"]
       interval: 5s
       timeout: 3s
       retries: 12

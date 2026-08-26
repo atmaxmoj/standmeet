@@ -38,7 +38,10 @@ services:
       # host:38227). Host ports are offset from dev's so both stacks coexist.
       - "38227:3000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/v1/instance"]
+      # 打 app **自己**的那条（见 app/src/app/api/app-health/route.ts）。以前打的是
+      # `/api/v1/instance` —— 那条被反代到 backend，于是这个检查量的是两跳。后端一慢，
+      # 一个没坏的 app 就被判 unhealthy 并被编排器重启：坏消息会传染，而好消息传不回去。
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/app-health"]
       interval: 5s
       timeout: 3s
       retries: 12
