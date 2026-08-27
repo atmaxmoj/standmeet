@@ -22,7 +22,7 @@ services:
     # 它先跑两道密钥闸门（历史 + 镜像文件系统），都过了才推，tag 从 `git describe` 反解。
     #
     # **别用 v0.0.1**：那个 tag 只有 backend 一张镜像在（验凭据时推的），另外三张不存在。
-    image: ghcr.io/atmaxmoj/standmeet-app:v0.0.3
+    image: ghcr.io/atmaxmoj/standmeet-app:v0.0.4
     restart: unless-stopped
     environment:
       # Coolify 看到这个名字就给 app 的 3000 口分配域名并接上反代。
@@ -53,7 +53,7 @@ services:
       start_period: 20s
 
   backend:
-    image: ghcr.io/atmaxmoj/standmeet-backend:v0.0.3
+    image: ghcr.io/atmaxmoj/standmeet-backend:v0.0.4
     restart: unless-stopped
     environment:
       - HOST=0.0.0.0
@@ -107,9 +107,41 @@ services:
       - CONNECTOR_SPEC_MAX_BYTES=${CONNECTOR_SPEC_MAX_BYTES:-}
       # 技能市场读哪个仓库；空 = 公共的 anthropics/skills。
       - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
-      # ── 沙箱插件：默认关。开它之前读文件末尾那一节 ──────────────────────────
+      # ── 第三方沙箱插件（origin=managed）：默认关，要挂宿主的 manifest + docker.sock。
+      # 内建那五个（retrieval / ask_visitor / summarize / booker / mail-sender）**不走这里** ——
+      # 它们烤在镜像的 /srv/plugins 里，靠下面那组权限起 bwrap。两件事，别混。
       # - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
       # - SANDBOX_DRIVER=docker
+    # ── 内建能力的 bwrap 沙箱要这几行,少一行访客就答不出话 ──────────────────────
+    #
+    # 这里原来是空的,而那不是"少配了一项",是**把产品关掉了**:内建的五个能力全走
+    # `sandbox_stdio`,主进程用 bwrap 起隔离环境再 spawn 插件。容器默认的
+    # seccomp/apparmor profile 挡 unshare(CLONE_NEW*),默认 cap set 里也没有 SYS_ADMIN,
+    # 于是 bwrap 一个都起不来 —— 而失败是**静默降级**:dial 失败折成 ErrHidden、不阻塞 chat,
+    # 这一轮就带着 0 个工具去问模型(F-A-1)。
+    #
+    # 线上真实的样子(sijie.xyz,2026-08-27):三个能力的 prompt 片段全回 0 字节
+    # (dev 同一端点是 2002 / 1280 / 1558),模型手里没有任何 tool schema,于是照着
+    # system prompt 的散文**把工具调用写成了纯文本 XML**:
+    #   `<tool_calls><invoke name="search">…` —— 连工具名都是编的(真名是 corpus_search),
+    # 而后端回 `stop_reason=end_turn`,产品把这段协议原文当成完成的答案发布给访客。
+    #
+    # 我当初把这几行做成了"可选,默认关"的一段注释。那个默认值是我自己发明的,
+    # 它让一台**装好了、跑起来了、每个健康检查都绿**的实例答不了任何一个访客
+    # ([[invented-default-grants-privilege]])。
+    #
+    # ⚠️ 取舍说清楚:seccomp/apparmor 放开 + SYS_ADMIN,这个容器的隔离比默认弱得多。
+    #    **但没有挂 docker.sock** —— 那一条才是让容器变成宿主管理员的那半,而内建能力
+    #    用不着它(插件二进制烤在镜像里)。共享主机上这是必须守住的界线。
+    user: "0:0"
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      # SYS_ADMIN: 建 user/mount/pid namespace。NET_ADMIN: bwrap --unshare-net 要把
+      # 沙箱里的 loopback 拉起来(否则 "loopback: Failed RTM_NEWADDR")。
+      - SYS_ADMIN
+      - NET_ADMIN
     depends_on:
       db:
         condition: service_healthy
@@ -130,7 +162,7 @@ services:
 
   # builder —— owner 自己写的 React 页面在这里构建，产物落进 custom_pages_data。
   builder:
-    image: ghcr.io/atmaxmoj/standmeet-builder:v0.0.3
+    image: ghcr.io/atmaxmoj/standmeet-builder:v0.0.4
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
@@ -149,7 +181,7 @@ services:
   #
   # 走长轮询：不监听端口、不需要公网回调 —— 自托管场景下 webhook 那条路多数人做不到。
   im-bridge:
-    image: ghcr.io/atmaxmoj/standmeet-im-bridge:v0.0.3
+    image: ghcr.io/atmaxmoj/standmeet-im-bridge:v0.0.4
     restart: unless-stopped
     environment:
       - STANDMEET_BASE_URL=http://app:3000
@@ -166,7 +198,7 @@ services:
   # ⚠️ schema 只在**数据卷第一次创建时**跑一遍。升级不走这里，走
   # `backend/db/migrations/`：换个新版本的 db 镜像**不会**改动已有的库。
   db:
-    image: ghcr.io/atmaxmoj/standmeet-db:v0.0.3
+    image: ghcr.io/atmaxmoj/standmeet-db:v0.0.4
     restart: unless-stopped
     environment:
       - POSTGRES_DB=standmeet
@@ -249,17 +281,20 @@ volumes:
   miniodata: {}
   custom_pages_data: {}
 
-# ── 沙箱插件（可选，默认关）—— 取舍和风险见 README，这里只给要加的那几行 ────────────
+# ── 第三方沙箱插件（origin=managed）—— 可选，默认关 ────────────────────────────────
+#
+# **这一节说的不是内建能力。**内建那五个（retrieval / ask_visitor / summarize / booker /
+# mail-sender）烤在镜像里，靠 backend 上面那组 bwrap 权限跑，没有它们访客就答不出话 ——
+# 那不是可选项。这一节说的是 owner 自己装的第三方 MCP server。
 #
 # 给 backend 加：
 #
-#     user: "0:0"
-#     security_opt: [seccomp:unconfined, apparmor:unconfined]
-#     cap_add: [SYS_ADMIN, NET_ADMIN]      # 建 user/mount/pid namespace + bwrap 的 loopback
+#     environment:
+#       - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
+#       - SANDBOX_DRIVER=docker
 #     volumes:
 #       - /var/run/docker.sock:/var/run/docker.sock
 #       - ./infra/prod-plugins.json:/etc/standmeet/plugins.json:ro
-#       - ./infra/plugins:/srv/plugins:ro   # 144 MB，同样要 git source
 #
-# ⚠️ 这几行合起来让这个容器成为**宿主的管理员**，不是「权限大一点」。
-#    只在独占主机上开。理由和那次真事故写在 README。
+# ⚠️ `docker.sock` 让这个容器成为**宿主的管理员**，不是「权限大一点」。
+#    只在独占主机上挂。理由和那次真事故写在 README。
