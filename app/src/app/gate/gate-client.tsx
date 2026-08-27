@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl';
 import { TopBar } from '@/components/page/TopBar';
 import { BYOAIPanel } from '@/components/gate/BYOAIPanel';
 import { CodePanel } from '@/components/gate/CodePanel';
+import { ReadPanel } from '@/components/gate/ReadPanel';
 import { RequestPanel } from '@/components/gate/RequestPanel';
 import { Seal } from '@/components/gate/Seal';
 import { WhatsBehind } from '@/components/gate/WhatsBehind';
@@ -16,9 +17,14 @@ import { useTheme } from '@/lib/page/use-theme';
 import { useGate } from '@/lib/gate/use-gate';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
-type Props = { handle: string; canDeliverCodes: boolean };
+type Props = {
+  handle: string;
+  canDeliverCodes: boolean;
+  publicWiki: number;
+  publicWritings: number;
+};
 
-export function GateClient({ handle, canDeliverCodes }: Props) {
+export function GateClient({ handle, canDeliverCodes, publicWiki, publicWritings }: Props) {
   const { dark, toggle } = useTheme();
   const hook = useGate();
   // Landing on /gate means visitor is exiting any prior session — clear it so
@@ -32,6 +38,10 @@ export function GateClient({ handle, canDeliverCodes }: Props) {
         <div className="max-w-[920px] mx-auto px-6 lg:px-10 py-14 lg:py-20">
           <Hero handle={handle} hook={hook} canDeliverCodes={canDeliverCodes} />
           <Sep />
+          {/* 读排在 BYOAI 前面：这三扇门按门槛从低到高排。已经公开的东西不需要任何凭据，
+              而 BYOAI 要访客自己掏一把 API key。把最便宜的那扇门排在后面（或者像以前那样
+              根本不给），等于让「读一读他写了什么」比「去弄一把 key」还费劲。 */}
+          <ReadPanel publicWiki={publicWiki} publicWritings={publicWritings} />
           <BYOAIPanel hook={hook} />
           <WhatsBehind />
           {/* request-access 整块仅在 owner 能发码(connected mail connector)时展示 —— 发不出就别让访客白填 */}

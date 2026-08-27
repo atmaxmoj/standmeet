@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-push release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -738,10 +738,27 @@ sqlc-gen:
 # test-results/ 会被下一次 `make test-only` 整个覆盖，而修 bug 时第一件事就是跑单条 ——
 # 于是全量的现场在你需要它的前一秒被自己抹掉，只能靠重抓，而重抓是 SOP 明令的下策。
 # 归档是自动的：靠"记得先备份"就等于没有。
+# `--project=chromium` 是必须写出来的:配置里有两个 project(桌面 + 手机视口),
+# 而 playwright 不指定就**两个都跑**。不写的话 `make test` 的时长翻倍,而且手机那一轮
+# 的红会混进全量的判据里 —— 那是另一条战线,自己有入口(test-mobile)。
 test: dev-up
 	@infra/scripts/machine-witness.sh & w=$$!; \
-		cd e2e && pnpm exec playwright test; st=$$?; cd ..; \
+		cd e2e && pnpm exec playwright test --project=chromium; st=$$?; cd ..; \
 		kill $$w 2>/dev/null; $(MAKE) archive-failures; exit $$st
+
+# mobile-shots —— 390×844 下每个面各留一张图,产出给人眼看,**不是**功能测试。
+# GREP=admin 只驱 admin 那组。图落在 e2e/manual-runs/mobile-sweep/,同名覆盖,
+# 所以改完重跑就是同一个文件名的前后对照。
+mobile-shots: dev-up
+	@cd e2e && pnpm exec playwright test --project=mobile $(if $(GREP),-g "$(GREP)")
+	@echo "[mobile] $$(ls e2e/manual-runs/mobile-sweep/*.png 2>/dev/null | wc -l | tr -d ' ') 张 → e2e/manual-runs/mobile-sweep/"
+
+# mobile-shots-asis —— 同上,但不重建、不 up,打正在跑的那套栈。改 CSS 的循环里用这个。
+mobile-shots-asis:
+	@docker compose -f docker-compose.dev.yml ps --status running --quiet backend | grep -q . \
+		|| (echo "[mobile-shots-asis] dev backend is not running — run 'make dev-up' first"; exit 2)
+	@cd e2e && pnpm exec playwright test --project=mobile $(if $(GREP),-g "$(GREP)")
+	@echo "[mobile] $$(ls e2e/manual-runs/mobile-sweep/*.png 2>/dev/null | wc -l | tr -d ' ') 张 → e2e/manual-runs/mobile-sweep/"
 
 # archive-failures —— 把这一轮的失败现场复制到 e2e/test-results-archive/<UTC 时间戳>/。
 # 没有失败就什么都不做。归档目录带时间戳，所以历次全量互不覆盖。

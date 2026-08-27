@@ -22,7 +22,10 @@ export function SectionHeader(props: Props) {
   return (
     <div
       data-testid="section-header"
-      className="flex items-baseline justify-between border-b border-(--color-rule) pb-4 mb-7 gap-6"
+      // flex-wrap：窄屏上标题这一组和右上角那个动作按钮放不进一行。不换行的话按钮
+      // `shrink-0` 会把标题挤成一列窄字（`+ NEW CODE` 那格甚至压在标题上面）。
+      // 换行之后按钮落到第二行，一个动作都不少。
+      className="flex flex-wrap items-baseline justify-between border-b border-(--color-rule) pb-4 mb-7 gap-x-6 gap-y-3"
     >
       <SectionHeaderTitle
         title={navLabel(props.slug)}
@@ -60,9 +63,16 @@ function SectionTitleLine({ title, count }: { title: string; count?: ReactNode }
   );
 }
 
+// 计数在窄屏上**自成一行**。跟在 32px 衬线标题后面走内联时，`connectors ·
+// calendar · mail live · upload your own` 这种会散成三四行长短不一的碎块，
+// 读起来像标题本身断了。占一整行之后它是一行读得完的元数据。
 function SectionCount({ count }: { count?: ReactNode }) {
   return count != null
-    ? <span className="text-(--color-faint) mono ml-3 text-[14px] tracking-[0.1em]">· {count}</span>
+    ? (
+      <span className="text-(--color-faint) mono text-[14px] tracking-[0.1em] ml-3 max-sm:block max-sm:ml-0 max-sm:mt-2">
+        · {count}
+      </span>
+    )
     : null;
 }
 

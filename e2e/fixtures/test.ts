@@ -51,10 +51,22 @@ export const test = base.extend<Fixtures>({
   adminPage: async ({ page, ownerCredentials }, use) => {
     await page.goto('/admin');
     const loginEmail = page.getByTestId('email');
-    const adminSidebar = page.getByTestId('admin-nav-page');
+    // 「admin 装好了」的信号是**外壳在**，不是「那一列侧栏看得见」。
+    // 窄屏上侧栏是抽屉,关着时按设计就是不可见的,只等侧栏的话每一个 admin spec
+    // 都会在 fixture 里超时,而红会报在 fixture 上、看着像 admin 在手机上渲不出来。
+    // 两个入口任一**可见**即可:桌面出侧栏,窄屏出那个开关。
+    //
+    // 不能写成 `a.or(b).first()`:`or` 按 DOM 顺序挑,而顶栏那个开关排在侧栏前面 ——
+    // 桌面上它是 `lg:hidden`(display:none)却仍在 DOM 里,于是 `.first()` 每次都挑中
+    // 那个永远不会可见的元素,整套 admin spec 全部超时([[geometry-sees-one-element]] 的同类:
+    // 选择器命中的和人看见的不是同一个)。要的是「谁先可见」,那就得两个各等各的。
+    const shellReady = () => Promise.race([
+      page.getByTestId('admin-nav-page').waitFor({ state: 'visible', timeout: 15_000 }),
+      page.getByTestId('admin-nav-toggle').waitFor({ state: 'visible', timeout: 15_000 }),
+    ]);
     await Promise.race([
       loginEmail.waitFor({ state: 'visible', timeout: 15_000 }),
-      adminSidebar.waitFor({ state: 'visible', timeout: 15_000 }),
+      shellReady(),
     ]);
     if (await loginEmail.isVisible()) {
       await loginEmail.fill(ownerCredentials.email);
@@ -63,7 +75,7 @@ export const test = base.extend<Fixtures>({
       // sweep 模式下 372 spec 串跑、admin login + 首屏渲染会被资源压力
       // 拖到 10s 之外；超出 actionTimeout=10s 默认会零星 flake (sweep
       // 跑了几次 admin-wiki-crud / admin-seo 都被这条踩过)。30s 留余量。
-      await adminSidebar.waitFor({ state: 'visible', timeout: 30_000 });
+      await shellReady();
     }
     await use(page);
   },

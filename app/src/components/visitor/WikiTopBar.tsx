@@ -16,16 +16,19 @@ const NAV_CLS =
   'mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) '
   + 'hover:text-(--color-ink) transition-colors no-underline';
 
+// flex-wrap：窄屏上品牌那一组和导航那一组放不进一行。上一版两组都不换行也不收缩，于是它们
+// **互相压上去** —— 面包屑的 `WIKI` 和导航的 `WRITINGS` 渲成一串 `WIKIWRITING`，右端的主题
+// 开关还被裁在屏幕外。换行而不是砍掉任何一项：导航落到第二行，一个入口都不少。
 export function WikiTopBar({ handle, reading }: { handle: string; reading?: string }) {
   const { dark, toggle } = useTheme();
   const t = useTranslations('visitor.wikiTopBar');
   return (
     <header
-      className="flex items-center justify-between pt-[18px] pb-[14px] px-6 lg:px-8 border-b border-(--color-rule)"
+      className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 pt-[18px] pb-[14px] px-4 sm:px-6 lg:px-8 border-b border-(--color-rule)"
       data-testid="wiki-topbar"
     >
       <Brand handle={handle} reading={reading} />
-      <nav className="flex items-baseline gap-6">
+      <nav className="flex items-baseline gap-5 sm:gap-6">
         <Link href="/writings" className={NAV_CLS}>{t('writing')}</Link>
         <Link href="/" className={NAV_CLS}>{t('chat')}</Link>
         <button
@@ -45,7 +48,7 @@ export function WikiTopBar({ handle, reading }: { handle: string; reading?: stri
 function Brand({ handle, reading }: { handle: string; reading?: string }) {
   const t = useTranslations('visitor.wikiTopBar');
   return (
-    <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3">
+    <div className="mono text-[11px] tracking-[0.14em] uppercase flex flex-wrap items-baseline gap-x-3 gap-y-1 min-w-0">
       <Link href="/" className="text-(--color-ink) no-underline">{t('brand')}</Link>
       <span className="text-(--color-faint)">/</span>
       <Link href="/" className="text-(--color-muted) no-underline">{handle}</Link>

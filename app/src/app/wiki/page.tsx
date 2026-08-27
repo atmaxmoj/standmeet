@@ -32,7 +32,7 @@ export default async function WikiIndexPage() {
             {t('wiki.indexHeading')}
           </h1>
           {/* SSR 那份是匿名视角(SEO 要它);受邀访客的那份由客户端带 token 再取(F-L-14)。 */}
-          <WikiIndexRoots roots={roots} />
+          <WikiIndexRoots roots={roots} stats={stats} />
         </div>
       </ReaderLayout>
     </div>

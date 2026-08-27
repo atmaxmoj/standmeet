@@ -70,5 +70,12 @@
     "anonVisitor": "visitor",
     "sentBody": "Thanks, {name}. The owner reads these by hand — no bot, no queue. If it’s a fit, they’ll reach out to <accent>{email}</accent> themselves with a code and which slice of the corpus it opens.",
     "sentTail": "Not every note gets a reply. If you don’t hear back in a week, that’s the reply."
+  },
+  "read": {
+    "kicker": "no code? · read",
+    "heading": "Some of it is already open.",
+    "body": "The published part of the corpus needs nothing from you — no code, no key. Read it the way you would read anyone’s notes.",
+    "wiki": "wiki",
+    "writings": "writings"
   }
 }

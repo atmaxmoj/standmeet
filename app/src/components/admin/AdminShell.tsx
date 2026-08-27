@@ -7,7 +7,7 @@
 
 'use client';
 
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
@@ -39,18 +39,31 @@ function adminActiveSlug(pathname: string | null): AdminSlug {
   return ADMIN_SLUGS.find((s) => s === seg) ?? 'dashboard';
 }
 
+// AdminLayout —— 顶栏 + 侧栏 + 正文。
+//
+// 窄屏上侧栏是**抽屉**，不是那 232px 的固定一列。理由是量出来的：390px 的屏上侧栏照旧占
+// 232，正文只剩 158px —— 标题裁成 "dashboar"，统计卡片一行一两个字，`483` 从卡片里溢出来。
+// 而这一切**没有任何横向溢出**（`scrollWidth === clientWidth`），所以每一条现成断言都是绿的：
+// 元素没有超出视口，它们是被压扁的（[[text-assertion-cannot-see-layout]]）。
+// 26 个分区全都这样，因为坏的是外壳，不是哪一页。
+//
+// `lg` 以上一个像素都没动 —— 功能套件跑在桌面尺寸，侧栏照旧是静态的一列。
 function AdminLayout({
   active, handle, email, children,
 }: {
   active: AdminSlug; handle: string; email: string; children: ReactNode;
 }) {
   const badges = useSidebarBadges();
+  const [navOpen, setNavOpen] = useState(false);
+  const closeNav = useCallback(() => setNavOpen(false), []);
+  const toggleNav = useCallback(() => setNavOpen((v) => !v), []);
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <TopBar handle={handle} email={email} />
+      <TopBar handle={handle} email={email} navOpen={navOpen} onToggleNav={toggleNav} />
       <div className="flex-1 flex min-h-0">
-        <AdminSidebar active={active} badges={badges} />
-        <main className="flex-1 px-8 lg:px-12 py-8 overflow-y-auto">
+        <AdminSidebar active={active} badges={badges} open={navOpen} onClose={closeNav} />
+        {/* min-w-0：flex 子项默认 min-width:auto，正文里一张宽表格会把整列撑开而不是自己滚。 */}
+        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-12 py-6 lg:py-8 overflow-y-auto">
           {/* Fills a normal large office screen (27–32" QHD→4K); not 49"/57" ultrawides. */}
           <div className="max-w-[2400px]">{children}</div>
         </main>

@@ -57,6 +57,26 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      // 留痕那套**只**属于 mobile project。不排掉的话它会跟着每一次全量在桌面尺寸
+      // 再跑一遍,产出一堆没人看的图,还把全量拖长。两个 project 的范围写成互斥的,
+      // 这样"跑错了那一套"这件事没有发生的余地。
+      testIgnore: /mobile-sweep\.spec\.ts/,
+    },
+    // mobile —— 手机视口下的截图留痕。
+    //
+    // 这里跑的**不是**功能套件,是 mobile-sweep 那一份截图留痕(见那个文件开头)。
+    // 理由:响应式坏掉的样子断言看不见 —— 线上 admin 在 390px 上
+    // `scrollWidth === clientWidth`、没有任何元素超过视口宽度、每一条现成断言照样绿,
+    // 而正文被侧栏挤到只剩 158px。元素没有溢出,它们是**被压扁的**
+    // ([[text-assertion-cannot-see-layout]])。判据只能是人眼,所以产出是图。
+    //
+    // 只换视口,**不开 isMobile / hasTouch**:响应式 CSS 的断点只看宽度,而模拟触摸会
+    // 顺带改掉 hover、点击语义和 UA,把布局的问题和交互的问题混成一堆。要驱触摸那一档
+    // 单独再开一个 project,别把两件事塞进一个。
+    {
+      name: 'mobile',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+      testMatch: /mobile-sweep\.spec\.ts/,
     },
   ],
 });

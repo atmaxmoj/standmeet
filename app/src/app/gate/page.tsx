@@ -11,10 +11,22 @@
 // owner handle 从 /api/v1/instance SSR fetch 拿（仅用于显示，不影响路由）。
 
 import { fetchInstance } from '@/lib/api/instance';
+import { fetchWikiTreeStats, fetchWritingsPage } from '@/lib/api/public';
 
 import { GateClient } from '@/app/gate/gate-client';
 
 export default async function GatePage() {
-  const instance = await fetchInstance();
-  return <GateClient handle={instance.handle} canDeliverCodes={instance.can_deliver_codes} />;
+  // 匿名身份取（不带 token）—— 这两个数说的正是「**没有码**的人能读到多少」，
+  // 而这一页上的人恰好就是没有码的人。带 token 取到的是别人的视角。
+  const [instance, wikiStats, writings] = await Promise.all([
+    fetchInstance(), fetchWikiTreeStats(), fetchWritingsPage(),
+  ]);
+  return (
+    <GateClient
+      handle={instance.handle}
+      canDeliverCodes={instance.can_deliver_codes}
+      publicWiki={Math.max(wikiStats.entries - wikiStats.gated, 0)}
+      publicWritings={writings.writings.length}
+    />
+  );
 }

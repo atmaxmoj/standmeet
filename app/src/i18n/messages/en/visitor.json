@@ -88,6 +88,7 @@
   "wikiTreeView": {
     "head": "wiki tree",
     "stats": "<num>{entries}</num> entries · <num>{roots}</num> roots · <num>{gated}</num> gated",
-    "gatedHint": "these entries are private — enter a code"
+    "gatedHint": "these entries are private — enter a code",
+    "indexEmpty": "nothing published here yet."
   }
 }

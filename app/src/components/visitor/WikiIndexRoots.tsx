@@ -12,25 +12,34 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+import type { WikiTreeStats } from '@/lib/api/public';
 import type { TreeNode } from '@/lib/corpus/tree';
+import { WikiIndexEmpty } from '@/components/visitor/WikiIndexEmpty';
 import { subscribeScopedRoots } from '@/lib/visitor/load-wiki-children';
 
-export function WikiIndexRoots({ roots }: { roots: readonly TreeNode[] }) {
+export function WikiIndexRoots({ roots, stats }: {
+  roots: readonly TreeNode[];
+  stats: WikiTreeStats;
+}) {
   const [scoped, setScoped] = useState<readonly TreeNode[] | null>(null);
   useEffect(() => subscribeScopedRoots(setScoped), []);
   const shown = scoped ?? roots;
   return (
-    <ul className="flex flex-col gap-3 list-none p-0 m-0" data-testid="wiki-index-roots">
-      {shown.map((n) => (
-        <li key={n.id}>
-          <Link
-            href={`/wiki/${n.path}`}
-            className="font-serif text-(--color-ink) hover:text-(--color-accent) text-[19px]"
-          >
-            {n.title} <span className="text-(--color-faint)">→</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="flex flex-col gap-3 list-none p-0 m-0" data-testid="wiki-index-roots">
+        {shown.map((n) => (
+          <li key={n.id}>
+            <Link
+              href={`/wiki/${n.path}`}
+              className="font-serif text-(--color-ink) hover:text-(--color-accent) text-[19px]"
+            >
+              {n.title} <span className="text-(--color-faint)">→</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {/* 空列表自己说明为什么 —— 那句话以前只在侧栏里，而侧栏在窄屏上不存在。 */}
+      <WikiIndexEmpty stats={stats} empty={shown.length === 0} />
+    </>
   );
 }

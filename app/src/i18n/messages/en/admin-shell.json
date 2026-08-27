@@ -2,7 +2,8 @@
   "sidebar": {
     "instanceLabel": "instance ·",
     "uptimeLabel": "uptime ·",
-    "groupPrefix": "──"
+    "groupPrefix": "──",
+    "closeNav": "close the section list"
   },
   "topBar": {
     "brand": "standmeet",
@@ -10,7 +11,10 @@
     "live": "live",
     "notAnswering": "not answering",
     "viewPublic": "view public ↗",
-    "signOut": "sign out"
+    "signOut": "sign out",
+    "navOpen": "sections",
+    "navClose": "close",
+    "versionLabel": "version ·"
   },
   "pulse": {
     "title": "corpus pulse",
