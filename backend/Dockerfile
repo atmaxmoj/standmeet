@@ -23,7 +23,15 @@
 # 换来的风险，说清楚：**镜像不再自己证明代码干净**，它信任提交那一关。
 # 绕过的办法只有 `git commit --no-verify`。真要一道独立的门，它该在 CI 上（这个仓库
 # 现在没有），而不是让每次构建重跑一遍。
-FROM golang:1.26-alpine AS deps
+# `--platform=$BUILDPLATFORM` —— 工具链跑在**构建这台机器**的架构上，不跟着目标架构走。
+#
+# 为什么要写这一句：发布是多架构的（linux/amd64 + linux/arm64）。不写的话，
+# buildx 会为 amd64 那一路拉一个 amd64 的 golang 镜像，在 arm64 的 Mac 上**用 QEMU 模拟执行**
+# 整棵 Go 树的编译 —— 实测单这一格跑了 35 分钟还没完，五个镜像要几小时。
+#
+# 而 Go 本来就是交叉编译的：让编译器原生跑，把 `GOARCH` 换成目标架构就行（见 builder stage）。
+# 模拟的是**执行**，交叉编译换的是**输出**，后者没有那个代价。
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS deps
 WORKDIR /app
 
 RUN apk add --no-cache git bash make
@@ -40,9 +48,12 @@ WORKDIR /app/backend
 
 # Stage 2: Build
 FROM deps AS builder
+# TARGETARCH 由 buildx 按当前正在构建的那一路注入（amd64 / arm64）。
+# CGO 关着，所以纯交叉编译，不需要任何目标架构的工具链。
+ARG TARGETARCH
 ENV CGO_ENABLED=0 GOOS=linux
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build \
+    GOARCH=$TARGETARCH go build \
     -trimpath \
     -ldflags='-s -w' \
     -o /out/standmeet \
@@ -59,7 +70,8 @@ COPY mcp-servers ./mcp-servers
 RUN --mount=type=cache,target=/root/.cache/go-build \
     for p in ask-visitor summarize booker retrieval mail-sender; do \
       (cd /app/mcp-servers/"$p" && \
-        go build -trimpath -ldflags='-s -w' -o /srv/plugins/"$p"/"$p" .) || exit 1; \
+        GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' \
+          -o /srv/plugins/"$p"/"$p" .) || exit 1; \
     done
 WORKDIR /app/backend
 
