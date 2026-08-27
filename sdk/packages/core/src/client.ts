@@ -231,16 +231,49 @@ async function* streamMessage(
 // status / code 仍然挂在错误上：调用方要**分类**（429 是「这一场正忙着」，等它完再问）
 // 靠的是它们，不是那句话的措辞。信封读不出来才退回状态码那句。
 async function turnError(res: Response): Promise<Error> {
-  const body = (await res.json().catch(() => ({}))) as {
-    error?: { code?: unknown; message?: unknown };
-  };
-  const env = body.error ?? {};
+  const env = await readErrEnvelope(res);
   const said = typeof env.message === 'string' ? env.message.trim() : '';
   return Object.assign(new Error(said === '' ? `send message: ${res.status}` : said), {
     status: res.status,
     code: typeof env.code === 'string' ? env.code : '',
     serverMessage: said,
   });
+}
+
+interface ErrEnvelope { code?: unknown; message?: unknown }
+
+// readErrEnvelope —— 后端写给读者的那句话，**两种信封都认**。
+//
+// 一轮被拒有两种落法，形状不一样：
+//   - 流还没开 → `text/event-stream` + `event: error / data: {code, message}`
+//     （`llm_chat_stream.go` 的 `writeLLMPreStreamErr`）
+//   - 其余 → `{"error": {code, message}}`
+//
+// 这里原来只读后一种。前一种撞上 `res.json()` 直接抛，被 `.catch` 吞成空信封，
+// 于是退回 `send message: 503` —— 正是这个函数的注释说它修好了的那件事
+// （F-P-5：拿三位数招呼读者）。而 provider 类的错**全都**走前一种信封。
+// 兄弟那条路上的同一处失明见 `agent-adapters.ts` 的 `streamAgentTurnHTTP`。
+async function readErrEnvelope(res: Response): Promise<ErrEnvelope> {
+  const raw = await res.text().catch(() => '');
+  if (raw === '') return {};
+  const direct = parseErrJSON(raw);
+  if (direct !== null) return direct.error ?? direct;
+  // SSE：取 `event: error` 那一帧的 data 行。
+  for (const line of raw.split('\n')) {
+    if (!line.startsWith('data:')) continue;
+    const frame = parseErrJSON(line.slice('data:'.length).trim());
+    if (frame !== null) return frame.error ?? frame;
+  }
+  return {};
+}
+
+function parseErrJSON(s: string): (ErrEnvelope & { error?: ErrEnvelope }) | null {
+  try {
+    const v: unknown = JSON.parse(s);
+    return v !== null && typeof v === 'object' ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 // composeSystem —— 这一场的 system prompt：先按 `system_prompt_part_ids` 逐段取回固定

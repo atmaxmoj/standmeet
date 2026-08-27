@@ -83,12 +83,39 @@ async function* streamAgentTurnHTTP(
       visitor_timezone: browserTimezone(),
     }),
   });
-  if (!res.ok || res.body === null) {
+  if (res.body === null) {
     // 把 HTTP status 挂在 error 上,让上层(agent-core send)区分 401/403
     // (session 失效 → 提示重进)和真正的连接掉线。
-    throw Object.assign(new Error(`agent.turn: ${res.status}`), { status: res.status });
+    throw statusError(res.status);
   }
-  yield* parseAgentTurnSSE(res.body);
+  // **非 2xx 也要把 body 读完。**
+  //
+  // 后端每一条 pre-stream 错误都写成 `text/event-stream` + 非 2xx +
+  // `event: error / data: {code, message}`(`llm_chat_stream.go` 的 `writeLLMPreStreamErr`),
+  // 而 message 是它**专门为读者写好的那句话** —— 八条,各说各的原因:
+  // owner_unconfigured / overloaded / network / timeout / rate_limited /
+  // unsupported_provider / invalid_api_key / endpoint_blocked。
+  //
+  // 这里原来是 `if (!res.ok) throw`:body 一个字节都没读就扔了,于是那八句话一句都到不了
+  // 屏幕上,全塌成 agent-core 按 status 猜的兜底话术(F-A-24 的访客那一半)。
+  // 现场是 prod 刚认领完那台:后端回 503 + "This page doesn't have an AI provider set up
+  // yet.",访客读到的却是"连接断了,再问一次" —— 连接好好的,而再问一万次也是这一句。
+  // 401 那格更糟:owner 的 key 坏了,产品对访客说"你的会话失效了,重开访问链接"。
+  //
+  // **服务端自己写的原因,永远比按状态码猜的强。**信封空着才退回状态码那条路
+  // ([[collapsed-error-class-kills-its-own-branch]])。
+  let sawEvent = false;
+  for await (const ev of parseAgentTurnSSE(res.body)) {
+    sawEvent = true;
+    yield ev;
+  }
+  // body 里什么都没有(非 SSE 的 502 页 / 空响应) → 401/403 那条分支还得留着:
+  // 它是「重进」和「重试」的分界,而那时确实没有别的凭据。
+  if (!res.ok && !sawEvent) throw statusError(res.status);
+}
+
+function statusError(status: number): Error {
+  return Object.assign(new Error(`agent.turn: ${status}`), { status });
 }
 
 // browserTimezone —— 访客 IANA tz(Intl…timeZone)。环境拿不到 → 空字符串
