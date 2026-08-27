@@ -83,7 +83,13 @@ services:
       # STORAGE_PUBLIC_URL —— **浏览器**去取图片用的地址，不是容器网络里的地址。
       # 签名 URL 是发给访客浏览器的，指向 minio:9000 的话浏览器解析不了。
       # 所以 minio 需要它自己的域名（见下面那一格）。
-      - STORAGE_PUBLIC_URL=${SERVICE_FQDN_MINIO_9000}
+      #
+      # ⚠️ 用 `SERVICE_URL_*` 不是 `SERVICE_FQDN_*`：Coolify 的约定是
+      # **FQDN 不带 scheme、URL 带**。写成 FQDN 的话这里拿到 `host:9000`，
+      # 而后端要拿它 `url.Parse(...).Host` —— 没有 scheme 时 Go 返回空主机名**且不报错**，
+      # 于是整个实例崩在一句指着 `STORAGE_ENDPOINT` 的话上，而那个变量是对的（F-S-1）。
+      # 后端现在会当场拒绝并点名是这一行，但先别让它走到那一步。
+      - STORAGE_PUBLIC_URL=${SERVICE_URL_MINIO_9000}
       # ── 下面这些空着就是默认姿态，按需再填 ────────────────────────────────────
       # 人机校验：两个都填了才开。
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}

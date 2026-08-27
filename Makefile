@@ -5,7 +5,7 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint secrets secrets-image release-build release-assert-stripped release-push backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-push release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
@@ -1079,6 +1079,17 @@ IMAGES := backend app builder im-bridge db
 #
 # **只在这条路上剥**：dev 的 e2e 靠 testid 定位，prod 栈上的真环境审计也靠它驱动。
 # 那两条都不是「发给访客的 build」。
+# RELEASE_PLATFORMS —— 发布的镜像必须是**多架构**的。
+#
+# 这一条是踩出来的：v0.0.3 在 Mac 上构建，五个镜像全是 linux/arm64。推上 ghcr、
+# 部署到一台 x86_64 的服务器 —— **拉得下来、跑不起来**，每个容器启动即退。
+# 现象骗人得厉害：db / redis / minio 这些跟我配置毫无关系的也一起退，
+# 于是看起来像整份 compose 有问题，而我为此逐个排除了变量展开、镜像可见性、
+# compose 解析、卷命名四类原因，每类一轮。真正的差别是「我这台是 arm64」。
+#
+# 自托管的人用什么机器不由我们决定，所以发布面必须覆盖两种。
+RELEASE_PLATFORMS ?= linux/amd64,linux/arm64
+
 release-build: sdk-build builder-vendor
 	@pnpm install --frozen-lockfile
 	@STRIP_TEST_HOOKS=1 pnpm -F standmeet-app build
@@ -1181,14 +1192,83 @@ secrets-image:
 	done
 	@echo "[secrets-image] all $(words $(IMAGES)) images clean"
 
-# release-push —— 推。**两道密钥闸门是它的前置**，绕不过去。
+# release-repro —— 拿**已发布的镜像**在本机把一份 compose 跑起来，为的是看日志。
+#
+# 存在的理由：远端那台 Coolify 是 4.1.2，而容器/服务日志的 API 端点是 **4.2.0 才加的**
+# （查了 changelog 才知道，不是路径写错）。那台又进不去 SSH。于是「容器为什么退出」
+# 在那台机器上拿不到。
+#
+# 但那是「拿不到**那台**的日志」，不是「拿不到日志」：镜像是公开的、compose 读得到，
+# 同一份东西在本机跑一遍，日志全在手上。用它排查线上起不来的问题，比逐个假设去试便宜得多。
+#
+#   make release-repro FILE=<compose 路径>        起来
+#   make release-repro-logs FILE=<同一份>          看日志
+#   make release-repro-down FILE=<同一份>          收摊
+REPRO_PROJECT ?= smrepro
+release-repro:
+	@test -n "$(FILE)" || (echo "usage: make release-repro FILE=<compose.yml>"; exit 2)
+	@docker compose -f $(FILE) -p $(REPRO_PROJECT) up -d --remove-orphans || true
+	@echo "[repro] 起完了。看日志: make release-repro-logs FILE=$(FILE)"
+
+release-repro-logs:
+	@test -n "$(FILE)" || (echo "usage: make release-repro-logs FILE=<compose.yml>"; exit 2)
+	@docker compose -f $(FILE) -p $(REPRO_PROJECT) ps
+	@docker compose -f $(FILE) -p $(REPRO_PROJECT) logs --tail=$(LINES) 2>&1 | tail -n 200
+
+release-repro-down:
+	@test -n "$(FILE)" || (echo "usage: make release-repro-down FILE=<compose.yml>"; exit 2)
+	@docker compose -f $(FILE) -p $(REPRO_PROJECT) down -v --remove-orphans
+
+# release-push —— **多架构**构建并推。两道密钥闸门是它的前置，绕不过去。
+#
+# 为什么这里重新构建一次而不是 `docker push` 本地那份：多架构镜像**装不进本地 daemon**
+# （一个 tag 只能装一个平台），只能 buildx 直接推。`release-build` 那一份仍然有用 ——
+# 它是 `secrets-image` 扫的对象，也是本机复现用的那份。
+#
+# 两者的字节差别只在基础镜像的二进制上：我们自己 COPY 的东西逐字一样，
+# 所以扫本地那份对「有没有把密钥打进去」这个问题是有效的。
 #
 # 登录不在这里：`docker login ghcr.io` 要一个 PAT，那是 owner 自己敲的东西。
 release-push: secrets secrets-image
+	@docker buildx inspect standmeet-release >/dev/null 2>&1 \
+	  || docker buildx create --name standmeet-release --driver docker-container >/dev/null
 	@for svc in $(IMAGES); do \
-	  echo "[release] pushing $(REGISTRY)/standmeet-$$svc:$(TAG)"; \
-	  docker push $(REGISTRY)/standmeet-$$svc:$(TAG) \
-	    || { echo "[release] push denied? log in first: docker login ghcr.io"; exit 1; }; \
-	  docker push $(REGISTRY)/standmeet-$$svc:latest || exit 1; \
+	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
+	  echo "[release] buildx --push $$img ($(RELEASE_PLATFORMS))"; \
+	  case $$svc in \
+	    backend)   ctx="-f backend/Dockerfile --target production ." ;; \
+	    app)       ctx="./app" ;; \
+	    builder)   ctx="./builder" ;; \
+	    im-bridge) ctx="-f im-bridge/Dockerfile ." ;; \
+	    db)        ctx="-f infra/db/Dockerfile ." ;; \
+	  esac; \
+	  docker buildx build --builder standmeet-release \
+	    --platform $(RELEASE_PLATFORMS) \
+	    -t $$img -t $(REGISTRY)/standmeet-$$svc:latest \
+	    --push $$ctx \
+	    || { echo "[release] push failed — logged in? docker login ghcr.io"; exit 1; }; \
 	done
+	@$(MAKE) release-assert-multiarch
 	@echo "[release] pushed $(IMAGES) @ $(TAG) + latest to $(REGISTRY)"
+
+# release-assert-multiarch —— **推上去的 manifest 必须真的含 amd64**。
+#
+# 不是多此一举：v0.0.3 就是全 arm64 推出去的，拉得下来、在 x86_64 上跑不起来，
+# 而症状是「所有容器启动即退」—— 看起来像 compose 坏了。一次 `--platform` 写漏、
+# 一次 buildx builder 退化成默认 driver，都会静默地把发布面缩回一种架构。
+# 所以判结果，不判命令。
+release-assert-multiarch:
+	@for svc in $(IMAGES); do \
+	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
+	  archs=$$(docker manifest inspect $$img 2>/dev/null \
+	    | python3 -c "import sys,json;d=json.load(sys.stdin);print(' '.join(sorted({m['platform']['architecture'] for m in d.get('manifests',[]) if m['platform']['architecture']!='unknown'})))"); \
+	  case "$$archs" in \
+	    *amd64*) echo "  $$svc: $$archs" ;; \
+	    *) echo "release: $$img 不含 amd64（只有 '$$archs'）—— x86_64 的机器拉得到但跑不起来"; exit 1 ;; \
+	  esac; \
+	done
+	@echo "[release] 五个镜像都含 amd64 ✓"
+
+# 这里曾经有一个单架构的 `docker push` 版本。删掉而不是留着：它推出去的正是
+# v0.0.3 那种只在 arm64 上能跑的镜像，而留着一个能把缺陷重新引入的入口，
+# 迟早有人走它。发布只有 buildx 这一条路。

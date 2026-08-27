@@ -95,13 +95,29 @@ func buildMinioClient(endpoint string, cfg *Config) (*minio.Client, error) {
 
 // buildPresignClient —— PublicURL 空 → 复用 internal；非空 → 用 public
 // host 做一个仅用来 PresignedGetObject 的 client，避免后置改 host 破坏签名。
+//
+// **没有 scheme 必须当场拒绝，并且说清楚是哪个变量。**
+// `url.Parse("files.example.com:9000")` 不报错：它把整串当成 opaque，`Host` 是空串。
+// 那个空串一路传进 minio.New，实例崩在
+// `new minio client "": Endpoint:  does not follow ip address or domain name standards` ——
+// 而这句话指着 endpoint，owner 会去查 `STORAGE_ENDPOINT`，可那一个他设对了。
+// 真环境上撞过一次：整栈起不来，db/redis/minio 全健康，只有 backend 崩溃循环，
+// 而日志把人指向一个没问题的变量（F-S-1）。
+//
+// 这不是边角输入：`STORAGE_PUBLIC_URL` 是**浏览器侧**地址，自托管的人自然写
+// `files.example.com`；Coolify 的 magic FQDN 变量存回来时也会把 `http://` 吃掉。
 func buildPresignClient(cfg *Config, internal *minio.Client) (*minio.Client, error) {
 	if cfg.PublicURL == "" {
 		return internal, nil
 	}
 	parsed, err := url.Parse(cfg.PublicURL)
 	if err != nil {
-		return nil, fmt.Errorf("storage: parse public url: %w", err)
+		return nil, fmt.Errorf("storage: parse STORAGE_PUBLIC_URL %q: %w", cfg.PublicURL, err)
+	}
+	if parsed.Host == "" {
+		return nil, fmt.Errorf(
+			"storage: STORAGE_PUBLIC_URL %q has no scheme — write it as https://%s",
+			cfg.PublicURL, cfg.PublicURL)
 	}
 	return buildMinioClient(parsed.Host, cfg)
 }
