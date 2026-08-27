@@ -8,48 +8,38 @@
 # retrieval and visitor grounding is dead (F-A-1). The build context is repo-root
 # (docker-compose: context: .) so mcp-servers/ is reachable.
 
-# Stage 1: Lint
+# Stage 1: Deps
 #
-# 跑同 lefthook pre-commit 一样的 `make lint` 链。作为部署门 —— 失败这里就出不了
-# binary。Cacheable: BuildKit 复用 apk + go install + go mod download 层。
-FROM golang:1.26-alpine AS lint
+# ── 这里曾经跑一整套 `make lint` ────────────────────────────────────────────────────
+#
+# 撤掉了，因为它检查的东西**已经被检查过一次**：lefthook 的 pre-commit 跑的就是同一条
+# `make lint` 链、同一份源码、同一套规则。代码进不了提交就进不了镜像，所以这一遍
+# 拦不住任何前一遍拦不住的东西。
+#
+# 代价是实打实的：一次发布五个镜像，backend 这一格要把 20 多个检查器加 golangci 再跑一遍；
+# 而 `release-push` 走 buildx 双架构时，它在 amd64 上还要**再跑一遍**（模拟执行，更慢）。
+# 同一套 lint 在一条发布链上跑三次，而每一处单独看都说得通 —— 重复是它们组合出来的。
+#
+# 换来的风险，说清楚：**镜像不再自己证明代码干净**，它信任提交那一关。
+# 绕过的办法只有 `git commit --no-verify`。真要一道独立的门，它该在 CI 上（这个仓库
+# 现在没有），而不是让每次构建重跑一遍。
+FROM golang:1.26-alpine AS deps
 WORKDIR /app
 
 RUN apk add --no-cache git bash make
-
-# golangci-lint is PINNED, not @latest. With @latest the image's linter was whatever was newest
-# when this layer got built, so it disagreed with the host's: the image's revive had rules enabled
-# (unhandled-error, line-length, cognitive-complexity) that the host build did not, and code that
-# was "0 issues" locally failed the image build. A pinned version makes `golangci-lint run` on the
-# host mean the same thing as in the image. Bumping it is its own change, with its own findings to
-# fix -- the same discipline the Makefile already applies to sqlc.
-RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 \
- && go install github.com/fe3dback/go-arch-lint@latest \
- && go install github.com/fzipp/gocyclo/cmd/gocyclo@latest \
- && go install github.com/maxpoletaev/go-escape-lint@latest
-ENV PATH="/root/go/bin:${PATH}"
 
 # 依赖先下（独立缓存层）。backend 不再 import 任何 mcp-servers 模块，只需 backend 自己。
 COPY backend/go.mod backend/go.sum ./backend/
 WORKDIR /app/backend
 RUN go mod download
 
-# 全量源码 + lint。lint 工具住在 backend 外（infra/scripts —— max-lines/routes-cyclo/
-# connector-boundary 是 shell，check-no-nil-container 是独立 Go module），make lint 经
-# ../infra/scripts 调它们，故镜像 lint stage 也得带上。
 WORKDIR /app
 COPY backend ./backend
 COPY infra/scripts ./infra/scripts
 WORKDIR /app/backend
-# 编译缓存挂成 BuildKit cache —— 源码改了 layer 会失效，但 eino 等依赖的 object
-# 文件不变；持久化 GOCACHE + golangci cache 让每次只重编改过的包，不再冷编全树
-# （这才是慢的真因，依赖 download 早在上面 go mod download 层缓存住了）。
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/root/.cache/golangci-lint \
-    make lint
 
 # Stage 2: Build
-FROM lint AS builder
+FROM deps AS builder
 ENV CGO_ENABLED=0 GOOS=linux
 RUN --mount=type=cache,target=/root/.cache/go-build \
     go build \
