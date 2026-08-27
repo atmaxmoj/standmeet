@@ -19,6 +19,7 @@ import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
+import { corpusHref } from '@/lib/corpus/href';
 import type { BacklinkRef, WritingView } from '@/lib/api/public';
 import { Cover } from '@/components/writings/Cover';
 import { CorpusContent } from '@/components/page/CorpusContent';
@@ -84,7 +85,7 @@ function Backlinks({ refs }: { refs: BacklinkRef[] }) {
         {refs.map((r) => (
           <li key={r.slug} data-testid={`backlink-${r.slug}`}>
             <Link
-              href={`/writings/${r.slug}`}
+              href={corpusHref({ genre: 'writing', slug: r.slug })}
               className="text-(--color-ink) hover:text-(--color-accent)"
             >
               {r.title}

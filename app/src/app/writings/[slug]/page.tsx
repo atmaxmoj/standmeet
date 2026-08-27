@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
+import { corpusHref } from '@/lib/corpus/href';
 import { fetchWriting, fetchWritingContext } from '@/lib/api/public';
 import { WritingArticle } from '@/components/writings/WritingArticle';
 import { WritingTreeAside } from '@/components/writings/WritingTreeAside';
@@ -65,7 +66,7 @@ function Crumb({ node }: { node: TreeNode }) {
   return (
     <>
       <span className="text-(--color-faint)">{'▸'}</span>
-      <Link href={`/writings/${node.path}`} className="text-(--color-muted) hover:text-(--color-ink)">
+      <Link href={corpusHref({ genre: 'writing', slug: node.path })} className="text-(--color-muted) hover:text-(--color-ink)">
         {node.title}
       </Link>
     </>

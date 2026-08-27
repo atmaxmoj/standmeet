@@ -113,7 +113,7 @@ func (l *pgCorpusLister) findWriting(
 	// GetPublishedByPath 名副其实（只回已发布的），所以这里 Published 恒 true —— 写成
 	// 显式的 IsPublished() 而不是字面 true：判据仍来自那一行，不来自函数名的承诺。
 	return Entry{
-		ID: w.ID(), Path: path, Title: w.Title(), Genre: "writing", Body: writingBodyText(&w),
-		Published: w.IsPublished(),
+		ID: w.ID(), Path: path, Slug: w.Slug(), Title: w.Title(), Genre: "writing",
+		Body: writingBodyText(&w), Published: w.IsPublished(),
 	}, true
 }

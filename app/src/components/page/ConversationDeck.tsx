@@ -16,6 +16,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { citationHref } from '@/lib/corpus/href';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
@@ -215,13 +216,16 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
   );
 }
 
-// CitationRow —— 点引用 = 跳到那篇 document 在 owner 站上的公开页
-// (/<genre>/<树派生 path>),新标签打开。不再 inline 展开原文。
+// CitationRow —— 点引用 = 跳到那篇 document 在 owner 站上的公开页，新标签打开。
+//
+// 地址由 `citationHref` 算，这里不拼。上一版是 `/${c.genre}/${c.path}`（这个文件一份、
+// ChatTranscript 一份），它把体裁名当成了路由名 —— writings 的体裁是单数、路由是复数，
+// 于是 prod 上那唯一一篇公开 writing 的引用点开是 404。
 function CitationRow({ c }: { c: Citation }) {
   return (
     <li>
       <a
-        href={`/${c.genre}/${c.path}`}
+        href={citationHref(c)}
         target="_blank"
         rel="noreferrer"
         className="flex items-baseline gap-3 hover:text-(--color-accent) transition-colors"

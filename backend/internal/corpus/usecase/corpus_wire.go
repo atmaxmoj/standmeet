@@ -30,7 +30,10 @@ type readResultWire struct {
 	Genre     string            `json:"genre"`
 	Body      string            `json:"body"`
 	Path      string            `json:"path"`
-	Title     string            `json:"title"`
+	// Slug —— writings 才有。公开站按 slug 寻址一条 writing（`/writings/<slug>`），而 Path
+	// 是它在树里的位置（`writings/<slug>`）。少了它，引用方只能拿 Path 拼，拼出来是 404。
+	Slug  string `json:"slug,omitempty"`
+	Title string `json:"title"`
 	// Lang / Languages —— 这份正文是哪一种语言,以及这条笔记还有哪些语言可读。
 	// 后者一定要给:不然 agent 连"有别的语言"都不知道,也就谈不上自己决定读哪种。
 	// 单语笔记:Lang 空、Languages 空数组。

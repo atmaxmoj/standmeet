@@ -19,6 +19,9 @@ export type Citation = {
   // 反查,绕开树路径在 ACL 子集下对不上的坑)。path 只给 UI 显示。
   id: string;
   path: string;
+  // slug —— writings 才有,**给链接用**(`corpusHref`)。path 那一栏是给人看的位置,
+  // 不是地址:writings 在公开站上按 slug 寻址,拿 path 去拼会 404。
+  slug: string;
   title: string;
   // G-3: corpus_read 已经把 body 拿到手；存进 citation 让 UI 点击直接展
   // 开原文，免一次额外后端 fetch (+ 二次 ACL 评估)。
@@ -199,7 +202,9 @@ function pushCitationFromTool(
   // 按 id 去重 + 落库:同一 entry 读多次只引一次。
   if (r.id === '' || accum.seenCitedIDs.has(r.id)) return;
   accum.seenCitedIDs.add(r.id);
-  accum.citations.push({ genre: r.genre, id: r.id, path: r.path, title: r.title, body: r.body });
+  accum.citations.push({
+    genre: r.genre, id: r.id, path: r.path, slug: r.slug, title: r.title, body: r.body,
+  });
 }
 
 

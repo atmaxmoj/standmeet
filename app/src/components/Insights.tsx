@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 
+import { corpusHref } from '@/lib/corpus/href';
 import type { PagePinCard } from '@/lib/api/public';
 
 import { DeckHeader } from '@/components/page/DeckHeader';
@@ -35,7 +36,7 @@ function InsightRow({ idx, card, numbered }: {
     >
       <RowOrdinal idx={idx} show={numbered} />
       <div>
-        <Link href={`/wiki/${card.path}`} className="group block">
+        <Link href={corpusHref({ genre: 'wiki', path: card.path })} className="group block">
           <InsightTitle text={card.title} />
         </Link>
         <InsightExcerpt text={card.excerpt} />

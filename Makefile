@@ -80,6 +80,7 @@ app-lint:
 	@infra/scripts/check-no-native-file-input.sh
 	@infra/scripts/check-one-layer-scale.sh
 	@infra/scripts/check-one-section-heading.sh
+	@infra/scripts/check-one-corpus-href.sh
 	@infra/scripts/check-one-select.sh
 	@infra/scripts/check-one-text-input.sh
 	@infra/scripts/check-one-time-format.sh

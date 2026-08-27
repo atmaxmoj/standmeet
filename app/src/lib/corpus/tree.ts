@@ -9,6 +9,12 @@ export const TreeNodeSchema = z.object({
   title: z.string(),
   // path —— 导航 + testid 的稳定键。wiki = 树派生 path;writing = slug
   //(writing 的"路径"就是它的 slug,landing 是 /writings/<slug>)。
+  //
+  // ⚠️ **这个字段的含义按体裁不同**,所以别拿它自己拼地址。同一个名字装两种东西,
+  // 曾经让 `/${genre}/${path}` 这一句在 wiki 上对、在 writing 上渲出 404
+  // (`/writing/writings/<slug>`,prod 上那唯一一篇公开 writing 的引用)。
+  // 要地址就走 `lib/corpus/href.ts` 的 `corpusHref` —— 哪种体裁用哪个标识只写在那里,
+  // 而闸门 `check-one-corpus-href` 不许别处再拼一份。
   path: z.string(),
   has_children: z.boolean(),
   // locked —— writing private 节点(teaser only)。wiki 不带,可选。

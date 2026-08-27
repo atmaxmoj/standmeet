@@ -9,6 +9,7 @@
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
+import { corpusHref } from '@/lib/corpus/href';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import styles from '@/components/admin/sections/OutputSection.module.css';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
@@ -291,7 +292,7 @@ function ViewLiveLink({ path, indexed }: { path?: string | null; indexed: boolea
   const t = useTranslations('adminCorpus.output');
   return indexed && path ? (
     <a
-      href={`/output/${path}`} target="_blank" rel="noreferrer"
+      href={corpusHref({ genre: 'output', path })} target="_blank" rel="noreferrer"
       data-testid="output-view-live"
       className="text-(--color-accent) hover:underline"
     >

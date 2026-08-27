@@ -11,6 +11,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { citationHref } from '@/lib/corpus/href';
 import { useThinkingWord } from '@/lib/page/thinking-words';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
@@ -159,7 +160,7 @@ function CitationRow({ c }: { c: Citation }) {
   return (
     <li>
       <a
-        href={`/${c.genre}/${c.path}`}
+        href={citationHref(c)}
         target="_blank"
         rel="noreferrer"
         className="mono text-[11px] text-(--color-muted) hover:text-(--color-accent) transition-colors flex items-baseline gap-2"

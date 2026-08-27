@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
+import { corpusHref } from '@/lib/corpus/href';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
 import { coverURL, expandBody } from '@/lib/corpus/media';
@@ -226,7 +227,7 @@ function Crumb({ node }: { node: TreeNode }) {
     <>
       <span className="text-(--color-faint)">{'▸'}</span>
       <Link
-        href={`/wiki/${node.path}`}
+        href={corpusHref({ genre: 'wiki', path: node.path })}
         className="font-serif italic text-[13px] normal-case tracking-normal text-(--color-muted) hover:text-(--color-ink)"
       >
         {node.title}
@@ -245,7 +246,7 @@ function RelatedRail(
         {items.map((r) => (
           <li key={r.path}>
             <Link
-              href={`/wiki/${r.path}`}
+              href={corpusHref({ genre: 'wiki', path: r.path })}
               className="reading text-(--color-ink) hover:text-(--color-accent) text-[15px]"
             >
               {r.title} <span className="text-(--color-faint)">→</span>

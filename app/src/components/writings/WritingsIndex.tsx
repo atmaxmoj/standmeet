@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 
+import { corpusHref } from '@/lib/corpus/href';
 import type { WritingView } from '@/lib/api/public';
 import { WritingsScrollLoader } from '@/components/writings/WritingsScrollLoader';
 import { WritingCardLead, WritingRow } from '@/components/writings/WritingCards';
@@ -105,7 +106,7 @@ function RecommendedCard({ writing }: { writing: WritingView }) {
   const t = useTranslations('writings.common');
   return (
     <Link
-      href={`/writings/${writing.slug}`}
+      href={corpusHref({ genre: 'writing', slug: writing.slug })}
       className="block border border-(--color-rule) rounded-[3px] p-5 hover:border-(--color-ink) transition-colors"
     >
       <h4 className="font-serif text-[18px] text-(--color-ink) font-normal leading-[1.3] mb-2">

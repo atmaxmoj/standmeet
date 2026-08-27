@@ -5,6 +5,10 @@
 export interface CorpusReadWire {
   id: string;
   path: string;
+  // slug —— writings 才有。公开站按 slug 寻址一条 writing（`/writings/<slug>`），而 path
+  // 是它在树里的位置（`writings/<slug>`，带 vault 那层目录）。两者不能互相顶替：
+  // 拿 path 去拼地址，prod 上拼出来的是 `/writing/writings/…`，一个 404。
+  slug: string;
   genre: string;
   title: string;
   body: string;
@@ -18,11 +22,12 @@ export function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
   if (!isRecord(raw)) return null;
   const id = readString(raw['id']);
   const path = readString(raw['path']);
+  const slug = readString(raw['slug']);
   const genre = readString(raw['genre']);
   const title = readString(raw['title']) || path;
   const body = readString(raw['body']);
   const showAsSource = raw['show_as_source'] !== false;
-  return { id, path, genre, title, body, showAsSource };
+  return { id, path, slug, genre, title, body, showAsSource };
 }
 
 // citableCorpusRead —— 该 corpus_read 是否进 cited footer:只 wiki/output/writing;

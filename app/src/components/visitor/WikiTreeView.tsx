@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { corpusHref } from '@/lib/corpus/href';
 import { LazyTree } from '@/components/corpus/LazyTree';
 import type { TreeNode } from '@/lib/corpus/tree';
 import type { WikiTreeStats } from '@/lib/api/public';
@@ -64,7 +65,7 @@ function TreeStats({ stats }: { stats: WikiTreeStats }) {
 function WikiLabel({ node, active }: { node: TreeNode; active: boolean }) {
   return (
     <Link
-      href={`/wiki/${node.path}`}
+      href={corpusHref({ genre: 'wiki', path: node.path })}
       className={`${styles['link']} ${node.locked ? styles['locked'] : ''}`}
       data-active={active ? 'true' : undefined}
       title={node.title}

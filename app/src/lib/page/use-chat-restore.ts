@@ -161,9 +161,14 @@ function toDialogs(v: VisitorView): Dialog[] {
 }
 
 // toCitations —— 聚合里的引用(genre/path/title)重建成前端 Citation。id/body
-// restore 时拿不到也不需要(CitationRow 只用 genre/path/title 渲链接)。
+// restore 时拿不到也不需要(CitationRow 只用 genre/path 算链接、title 显示)。
+//
+// slug 恒空,而这里**不是**在偷懒:存下来的那份 `DialogCitationSchema` 的 genre 枚举只有
+// `wiki | output` —— writings 压根不在持久化的逐字稿里,所以这条路到不了需要 slug 的那一格。
+// （顺带说明了 href 那个缺陷为什么只在实时那一轮暴露：刷新之后 writing 的引用整条就没了。
+//   那是同一族的另一个缺口，单独记着，不在这一趟里扩。）
 function toCitations(cites: readonly DialogCitation[] | undefined): Citation[] {
   return (cites ?? []).map((c): Citation => ({
-    genre: c.genre, id: '', path: c.path, title: c.title, body: '',
+    genre: c.genre, id: '', path: c.path, slug: '', title: c.title, body: '',
   }));
 }

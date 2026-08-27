@@ -9,6 +9,7 @@ import { useCallback } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { corpusHref } from '@/lib/corpus/href';
 import { LazyTree } from '@/components/corpus/LazyTree';
 import type { TreeNode } from '@/lib/corpus/tree';
 import { fetchWritingTree } from '@/lib/api/public';
@@ -32,7 +33,7 @@ export function WritingTreeAside({ activeSlug }: { activeSlug: string }) {
 function WritingLabel({ node, active }: { node: TreeNode; active: boolean }) {
   return (
     <Link
-      href={`/writings/${node.path}`}
+      href={corpusHref({ genre: 'writing', slug: node.path })}
       className={styles['link']}
       data-active={active ? 'true' : undefined}
       data-locked={node.locked ? 'true' : undefined}

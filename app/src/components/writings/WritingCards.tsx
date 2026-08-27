@@ -6,6 +6,7 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { corpusHref } from '@/lib/corpus/href';
 import type { WritingView } from '@/lib/api/public';
 import { Cover } from '@/components/writings/Cover';
 
@@ -18,7 +19,7 @@ export function WritingCardLead({
       className="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-10 lg:gap-12 mb-20 group"
       data-writing-card={writing.slug}
     >
-      <Link href={`/writings/${writing.slug}`} className="block">
+      <Link href={corpusHref({ genre: 'writing', slug: writing.slug })} className="block">
         <Cover
           cover={writing}
           assetURLs={writing.asset_urls ?? {}}
@@ -36,7 +37,7 @@ function WritingCardLeadMeta({
   return (
     <div className="flex flex-col">
       <WritingCardLeadKicker writing={writing} />
-      <Link href={`/writings/${writing.slug}`}>
+      <Link href={corpusHref({ genre: 'writing', slug: writing.slug })}>
         <h2 className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors text-[clamp(34px,4vw,46px)] leading-[1.08] tracking-[-0.018em] font-normal">
           {writing.title}
         </h2>
@@ -92,7 +93,7 @@ export function WritingRow({ writing, idx }: { writing: WritingView; idx: number
   const t = useTranslations('writings');
   return (
     <Link
-      href={`/writings/${writing.slug}`}
+      href={corpusHref({ genre: 'writing', slug: writing.slug })}
       className="group grid grid-cols-[60px_1fr_auto] gap-6 lg:gap-10 py-7 border-t border-(--color-rule) items-baseline"
     >
       <div

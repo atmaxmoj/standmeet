@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+import { corpusHref } from '@/lib/corpus/href';
 import type { WikiTreeStats } from '@/lib/api/public';
 import type { TreeNode } from '@/lib/corpus/tree';
 import { WikiIndexEmpty } from '@/components/visitor/WikiIndexEmpty';
@@ -30,7 +31,7 @@ export function WikiIndexRoots({ roots, stats }: {
         {shown.map((n) => (
           <li key={n.id}>
             <Link
-              href={`/wiki/${n.path}`}
+              href={corpusHref({ genre: 'wiki', path: n.path })}
               className="font-serif text-(--color-ink) hover:text-(--color-accent) text-[19px]"
             >
               {n.title} <span className="text-(--color-faint)">→</span>

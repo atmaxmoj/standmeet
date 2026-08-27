@@ -8,6 +8,7 @@
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
+import { corpusHref } from '@/lib/corpus/href';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Chip } from '@/components/admin/atoms/Chip';
 import { CorpusEntryForm, corpusParentOptions } from '@/components/admin/sections/corpus/CorpusEntryForm';
@@ -328,7 +329,7 @@ function ViewLiveLink({ path, indexed }: { path?: string | null; indexed: boolea
   const t = useTranslations('adminCorpus.wiki');
   return indexed && path ? (
     <a
-      href={`/wiki/${path}`} target="_blank" rel="noreferrer"
+      href={corpusHref({ genre: 'wiki', path })} target="_blank" rel="noreferrer"
       data-testid="wiki-view-live"
       className="text-(--color-muted) hover:text-(--color-accent)"
     >

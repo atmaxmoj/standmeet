@@ -148,7 +148,7 @@ func readWire(
 	view := ViewFor(body, want, identityLangOf(ctx, l, req.OwnerID, entry.ID), entry.Title)
 	wire := &readResultWire{
 		ID: entry.ID, Genre: entry.Genre, Body: view.Body,
-		Path: entry.Path, Title: entry.Title, CSSClasses: entry.CSSClasses,
+		Path: entry.Path, Slug: entry.Slug, Title: entry.Title, CSSClasses: entry.CSSClasses,
 		ShowAsSource: entry.ShowAsSource,
 		Lang:         view.Lang, Languages: view.Languages,
 	}

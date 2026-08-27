@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 
+import { corpusHref } from '@/lib/corpus/href';
 import type { PagePinCard } from '@/lib/api/public';
 
 import { DeckHeader } from '@/components/page/DeckHeader';
@@ -23,7 +24,7 @@ export function Projects({ projects }: { projects: readonly PagePinCard[] }) {
 function ProjectRow({ card }: { card: PagePinCard }) {
   return (
     <li>
-      <Link href={`/wiki/${card.path}`} className="group flex items-baseline gap-3 flex-wrap mb-3">
+      <Link href={corpusHref({ genre: 'wiki', path: card.path })} className="group flex items-baseline gap-3 flex-wrap mb-3">
         <h3 className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors text-[24px] font-medium tracking-[-0.012em] leading-[1.1]">
           {card.title}
         </h3>

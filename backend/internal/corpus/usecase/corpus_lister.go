@@ -35,8 +35,14 @@ type Meta struct {
 
 // Entry —— a full entry (read result): path + body.
 type Entry struct {
-	ID         string
-	Path       string
+	ID   string
+	Path string
+	// Slug —— writings only. **公开站上一条 writing 是按 slug 寻址的**（`/writings/<slug>`），
+	// 而 Path 是它在树里的位置（`writings/<slug>`，带 vault 那层目录）。两者不是一回事，
+	// 而少了这一个字段，引用它的那一方只能拿 Path 去拼地址 —— prod 上拼出来的是
+	// `/writing/writings/the-business-model-wedge`，一个 404。
+	// wiki / output 按 Path 寻址，它们这里是空串。
+	Slug       string
 	Title      string
 	Genre      string
 	Body       string
