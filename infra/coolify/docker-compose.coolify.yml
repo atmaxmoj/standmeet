@@ -30,12 +30,27 @@ services:
       - SERVICE_FQDN_APP_3000
       - BACKEND_URL=http://backend:8000
       - NODE_ENV=production
-    networks:
-      default:
-        # 点号别名。单段主机名 "app" 会触发 Chromium 的 HTTPS 升级启发式，
-        # gotenberg 去取打印页时报 ERR_SSL_PROTOCOL_ERROR；带点的名字绕开它。
-        aliases:
-          - app.standmeet.local
+    # ⚠️ **这里不许再声明 networks。** 这是那个反复出现的 504 的成因。
+    #
+    # Coolify 给每个服务注入项目网（`<serviceUuid>`，external）。这里原本还写了一个
+    # `default:` 块（只为给 app 起一个带点的别名 `app.standmeet.local`），于是 **app 是
+    # 整栈唯一挂在两张网上的容器**。容器挂多张网时 traefik 必须挑一张去取 IP，而这份
+    # compose 没有 `traefik.docker.network` 标签 —— 它挑到 `default` 那张（traefik 根本不在
+    # 那张网上），SYN 发出去没人应，挂满 30 秒变 **504**（连接被拒会是 502 秒回）。
+    #
+    # 每次部署容器重建、IP 重新分配 = 重新掷一次骰子。所以它表现为「部署之后有时候坏，
+    # 重新部署一下就好」，而**重新部署不是修好，是重新掷了一次**。
+    # 每一条观察都对得上：只有这一个项目坏（只有它写了第二张网）、6/6 全挂不闪断、
+    # app 容器自己 `running:healthy`（容器内 127.0.0.1:3000 一直是通的）。
+    #
+    # 那个别名在这里**本来就没起作用**：它注册在 `default` 上，而 gotenberg 只在项目网上，
+    # 根本解析不到 —— 也就是说线上 PDF 打印早就是坏的，别名只贡献了那张让 traefik 挑错的网。
+    # （`docker-compose.prod.yml` 里它是对的：那边所有服务共用同一张隐式 default。）
+    #
+    # 代价写清楚：单段主机名 `app` 会触发 Chromium 的 HTTPS 升级启发式，gotenberg 取打印页
+    # 可能报 ERR_SSL_PROTOCOL_ERROR。真撞上的话，补救是在**项目网**上加别名并配
+    # `traefik.docker.network=<项目网名>` —— 两者都要那个每台实例不同的生成名，所以模版里
+    # 给不出，得在自己那台实例上填。整站可达优先于 PDF 那一条路。
     depends_on:
       backend:
         condition: service_healthy
@@ -72,8 +87,9 @@ services:
       - SECURE_COOKIE=true
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - GOTENBERG_URL=http://gotenberg:3000
-      # 点号别名，见 app 那一格的说明。
-      - PRINT_BASE_URL=http://app.standmeet.local:3000
+      # gotenberg 取打印页用的地址。**单段主机名**：带点的别名要第二张网，而那正是
+      # 504 的成因（见 app 服务上那段说明）。
+      - PRINT_BASE_URL=http://app:3000
       # ── 存储 ──────────────────────────────────────────────────────────────────
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=standmeet
