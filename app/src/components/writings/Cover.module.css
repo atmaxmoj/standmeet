@@ -73,7 +73,8 @@
   position: absolute;
   top: 14%; left: 6%; max-width: 76%;
   font-family: var(--font-serif);
-  font-size: clamp(28px, 11cqi, 96px);
+  /* --fit-cqi 由组件按文本长度算（见 Cover.tsx 的 fitCqi）；没设时退回原来的 11cqi。 */
+  font-size: clamp(20px, calc(var(--fit-cqi, 11) * 1cqi), 96px);
   font-weight: 400;
   letter-spacing: -0.025em;
   line-height: 0.92;
@@ -86,7 +87,8 @@
   text-align: right;
   font-family: 'Newsreader', serif;
   font-style: italic;
-  font-size: clamp(20px, 7.5cqi, 64px);
+  /* 同上。这一格是那篇 essay 爆框的地方：excerpt 125 字符 × 64px，从顶端溢出被切掉。 */
+  font-size: clamp(15px, calc(var(--fit-cqi, 7.5) * 1cqi), 64px);
   font-weight: 400;
   letter-spacing: -0.025em;
   line-height: 0.92;

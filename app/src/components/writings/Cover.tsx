@@ -67,8 +67,45 @@ function CoverLockOverlayMaybe({ locked }: { locked?: boolean }) {
 }
 
 function CoverRule() { return <div className={styles.rule} />; }
-function CoverHeadline({ text }: { text: string }) { return <span className={styles.headline}>{text}</span>; }
-function CoverSub({ text }: { text: string }) { return <span className={styles.sub}>{text}</span>; }
+
+// fitCqi —— 这段字该用多大的字号（单位 cqi，相对封面宽度）。
+//
+// 为什么要算：封面是**固定比例**的框（21/9 + overflow:hidden），而字号原本只跟容器宽度走
+// （`clamp(20px, 7.5cqi, 64px)`）。短标题（"wedge."）好看，一整句就爆框 ——
+// prod 上那篇 essay 的 excerpt 是 125 个字符，`.sub` 锚在 `bottom:14%` 往上长，
+// 直接从封面顶端溢出去被切掉，第一行读不到。字号不跟**文本有多少**走，这是必然的。
+//
+// 关系是推出来的，不是试出来的：宽 W 的列里 N 个字符、字号 F，行数 ≈ N·k·F/W，
+// 高度 ≈ N·k·F²/W。要它等于可用高度 H，就得到 **F ∝ √(H·W/N)** —— 也就是 F ∝ 1/√N。
+// K 由「现有那个设计好的短标题不许变样」定：上限仍是原来的 clamp，长文本才往下走。
+function fitCqi(text: string, maxCqi: number): number {
+  const n = Math.max(text.trim().length, 1);
+  return Math.min(maxCqi, FIT_K / Math.sqrt(n));
+}
+
+// FIT_K —— 由「一个 6 字符的标题应当撑到设计上限」定出来的比例常数（11 × √6 ≈ 27，
+// 取 45 让中等长度不至于缩得过快；上限那一侧由各自的 clamp 兜着，所以它只影响长文本）。
+const FIT_K = 45;
+
+// fitStyle —— 把算出来的字号交给 CSS。自定义属性不在 `CSSProperties` 的键里，所以类型
+// 走 `Record`，不写类型断言（闸门禁 `as`，而断言在这里也确实只是把编译器说服了）。
+function fitStyle(text: string, maxCqi: number): Record<string, string> {
+  return { '--fit-cqi': String(fitCqi(text, maxCqi)) };
+}
+
+function CoverHeadline({ text }: { text: string }) {
+  return (
+    // eslint-disable-next-line no-restricted-syntax -- 字号由内容长度算出,运行时才知道
+    <span className={styles.headline} style={fitStyle(text, 11)}>{text}</span>
+  );
+}
+
+function CoverSub({ text }: { text: string }) {
+  return (
+    // eslint-disable-next-line no-restricted-syntax -- 同上:这一个值只能在拿到文本后算
+    <span className={styles.sub} style={fitStyle(text, 7.5)}>{text}</span>
+  );
+}
 function CoverTag() {
   const t = useTranslations('writings.cover');
   return <span className={styles.tag}>{t('tag')}</span>;
