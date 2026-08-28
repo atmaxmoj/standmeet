@@ -22,7 +22,7 @@ services:
     # 它先跑两道密钥闸门（历史 + 镜像文件系统），都过了才推，tag 从 `git describe` 反解。
     #
     # **别用 v0.0.1**：那个 tag 只有 backend 一张镜像在（验凭据时推的），另外三张不存在。
-    image: ghcr.io/atmaxmoj/standmeet-app:v0.1.0
+    image: ghcr.io/atmaxmoj/standmeet-app:v0.1.1
     restart: unless-stopped
     environment:
       # Coolify 看到这个名字就给 app 的 3000 口分配域名并接上反代。
@@ -68,7 +68,7 @@ services:
       start_period: 20s
 
   backend:
-    image: ghcr.io/atmaxmoj/standmeet-backend:v0.1.0
+    image: ghcr.io/atmaxmoj/standmeet-backend:v0.1.1
     restart: unless-stopped
     environment:
       - HOST=0.0.0.0
@@ -178,7 +178,7 @@ services:
 
   # builder —— owner 自己写的 React 页面在这里构建，产物落进 custom_pages_data。
   builder:
-    image: ghcr.io/atmaxmoj/standmeet-builder:v0.1.0
+    image: ghcr.io/atmaxmoj/standmeet-builder:v0.1.1
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
@@ -197,7 +197,7 @@ services:
   #
   # 走长轮询：不监听端口、不需要公网回调 —— 自托管场景下 webhook 那条路多数人做不到。
   im-bridge:
-    image: ghcr.io/atmaxmoj/standmeet-im-bridge:v0.1.0
+    image: ghcr.io/atmaxmoj/standmeet-im-bridge:v0.1.1
     restart: unless-stopped
     environment:
       - STANDMEET_BASE_URL=http://app:3000
@@ -214,7 +214,7 @@ services:
   # ⚠️ schema 只在**数据卷第一次创建时**跑一遍。升级不走这里，走
   # `backend/db/migrations/`：换个新版本的 db 镜像**不会**改动已有的库。
   db:
-    image: ghcr.io/atmaxmoj/standmeet-db:v0.1.0
+    image: ghcr.io/atmaxmoj/standmeet-db:v0.1.1
     restart: unless-stopped
     environment:
       - POSTGRES_DB=standmeet
