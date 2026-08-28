@@ -79,16 +79,23 @@ export function BYOAIPanel({ hook }: Props) {
 
   return (
     <section id="byoai" data-testid="byoai-panel">
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-10">
-        <BYOAIHeadline />
-        <BYOAIForm
-          form={form} onProvider={onProvider}
-          onEndpoint={onEndpoint} onModel={onModel}
-          apiKey={apiKey} setApiKey={setApiKey}
-          reveal={reveal} setReveal={setReveal}
-          onSubmit={onSubmit} busy={hook.byoai.busy} error={hook.byoai.error}
-          models={models} modelError={modelError} canStore={canStore}
-        />
+      {/* 两列还是一列，看**这一格有多宽**（`@md`），不是看视口有多宽（`md:`）。
+          原来是 `md:grid-cols-[1fr_2fr]`：视口一过 768 就必两列 —— 而这个面板现在也长在
+          阅读器右栏那条 380px 的轨道里，1920 的屏上它照样判成"宽"，于是塌成两列窄栏，
+          每行一两个词，端点和 key 的输入框直接溢出到屏幕外。
+          组件被搬到别处时，跟着它走的是标记，不是它当初那个版面的宽度。 */}
+      <div className="@container">
+        <div className="grid grid-cols-1 @md:grid-cols-[1fr_2fr] gap-10">
+          <BYOAIHeadline />
+          <BYOAIForm
+            form={form} onProvider={onProvider}
+            onEndpoint={onEndpoint} onModel={onModel}
+            apiKey={apiKey} setApiKey={setApiKey}
+            reveal={reveal} setReveal={setReveal}
+            onSubmit={onSubmit} busy={hook.byoai.busy} error={hook.byoai.error}
+            models={models} modelError={modelError} canStore={canStore}
+          />
+        </div>
       </div>
     </section>
   );
@@ -302,7 +309,9 @@ function ModelRow({
         models={models} onLoad={onLoad}
         testidPrefix="byoai"
         loadDisabled={loadDisabled}
-        className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1"
+        // flex-wrap：`LOAD MODELS` 跟输入框并排，而这个面板现在也长在 380px 的阅读器
+        // 右栏里 —— 不换行的话按钮被切在容器外，读者根本点不到它。
+        className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-(--color-rule) pb-1"
         inputClassName={MODEL_INPUT_CLASS}
       />
       <ModelError message={modelError} />

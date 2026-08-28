@@ -90,5 +90,10 @@
     "stats": "<num>{entries}</num> entries · <num>{roots}</num> roots · <num>{gated}</num> gated",
     "gatedHint": "these entries are private — enter a code",
     "indexEmpty": "nothing published here yet."
+  },
+  "readerChat": {
+    "kicker": "ask about this",
+    "heading": "Ask this entry a question.",
+    "lede": "The AI answers in the owner’s voice, grounded in this corpus. Bring your own key and start — it never leaves your browser."
   }
 }

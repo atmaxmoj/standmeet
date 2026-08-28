@@ -1,0 +1,61 @@
+/* ReaderChatRail.module.css —— 右侧那一列「问这篇」。
+ *
+ * 宽度跟左边那条树轨同一套算法：正文 920px 对视口居中，两边留白由视口决定，
+ * 轨道**就是那条留白**。所以两边对称，而且都压不到正文。
+ *   1536px 视口 → 308px 留白      1920 → 500      2560 → 820
+ *
+ * 门槛同样按「有没有地方站」定，不按断点：留白 ≥ 260px 才渲染，反解出视口 ≥ 1500。
+ * 窄屏这一列整个不出现 —— 右下角那个浮动钮本来就是为窄屏做的形态，两者不重叠。 */
+
+.rail {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: none;
+  overflow-y: auto;
+  width: min(380px, calc((100vw - 920px) / 2 - 2.5rem));
+  padding-right: 1.5rem;
+  padding-left: 0.5rem;
+  padding-top: 2.5rem;
+  scrollbar-width: thin;
+}
+
+/* 1700 而不是 1500：门槛的判据是**这一列装不装得下要装的东西**，不是我拍一个数。
+ * 1536 的屏上留白 308、轨道 268 —— 量出来 BYOAI 表单里的输入框有 4 处溢出（它们有最小宽度，
+ * 不是想多窄就多窄）。1700 的屏留白 390、轨道 350，量出来溢出 0。
+ * 装不下就整个不渲染：右下角那个浮动钮本来就是窄屏的形态，读者不会因此少一条路。 */
+@media (min-width: 1700px) {
+  .rail { display: block; }
+}
+
+.invite {
+  border-left: 1px solid var(--color-rule);
+  padding-left: 1.25rem;
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 0.5rem;
+}
+
+.heading {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 380;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--color-ink);
+  margin-bottom: 0.5rem;
+}
+
+.lede {
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}

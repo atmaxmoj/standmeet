@@ -20,6 +20,7 @@ import type { ReactNode } from 'react';
 
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { WikiTopBar } from '@/components/visitor/WikiTopBar';
+import { ReaderChatRail } from '@/components/visitor/ReaderChatRail';
 import { WikiTreeView } from '@/components/visitor/WikiTreeView';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiTreeStats } from '@/lib/api/public';
@@ -42,6 +43,9 @@ export default async function WikiLayout({ children }: { children: ReactNode }) 
         <main className="flex-1 min-w-0 overflow-y-auto" data-testid="wiki-scroll">
           <div className="mx-auto max-w-[920px] px-6">{children}</div>
         </main>
+        {/* 右栏「问这篇」，跟左边的树对称。**没会话时也渲**：那时它是 BYOAI 的入口 ——
+            读者填自己的 key 就能开始问，而不是只有滑到正文最底下才看得见一句提示。 */}
+        <ReaderChatRail>{null}</ReaderChatRail>
       </div>
     </div>
   );
