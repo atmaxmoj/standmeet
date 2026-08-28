@@ -6,7 +6,7 @@
 // 同一个 ChatMarkdown 组件、同一套 plugins、同一个 .chat-md scope；测
 // 等于测 prod。
 
-import { test, expect, type APIRequestContext } from '@/fixtures/test';
+import { test, expect, type APIRequestContext, type Page } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
@@ -31,6 +31,17 @@ const FIXTURE_BODIES = {
     '- item two',
     '',
     '[link](https://example.com)',
+  ].join('\n'),
+
+  // cjk —— **中文里的强调**。分开一段是因为它跟上面那段走的不是同一条规则：
+  // CommonMark 判 `**` 闭不闭合要看「右侧贴合」——前面不能是标点，除非后面是空白或标点。
+  // 英文的 `**bold**,` 天然满足（后面是逗号），中文的 `**……广告。**这句话` 不满足
+  // （前面 `。`、后面汉字），于是闭合失败、整段退化成字面星号。
+  // 上面那段一直在测强调，测的却正好是那条规则**碰巧成立**的那一侧。
+  cjk: [
+    '它的整个产品就是一句话：**我们不拿你的访客数据卖广告。**这句话 Google 说不出口。',
+    '',
+    '**Tally 对 Typeform。**Typeform 按收到的回复数收费。',
   ].join('\n'),
 
   gfm: [
@@ -97,6 +108,13 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
       await expect(body.locator('a').first()).toHaveAttribute('href', 'https://example.com');
     });
 
+  // 中文的 `**粗体。**` 必须是粗体，不是屏幕上的四个星号。
+  //
+  // 判据是**渲染出了 strong 元素**，不是"文本里没有星号" —— 后者在整段没渲染出来时
+  // 也会通过。两条都要：星号变成了标签，而且标签里装着那句话。
+  test('cjk · 中文里的 **强调** 是强调，不是字面星号',
+    async ({ page }) => { await assertCjkEmphasis(page); });
+
   test('gfm · table / strikethrough / autolink',
     async ({ page }) => {
       await goto(page, `/wiki/${pathFor('gfm')}`);
@@ -145,6 +163,22 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 // 地址树派生:URL = 标题 slug。title `Render fixture · ${key}` → render-fixture-${key}。
 function pathFor(key: FixtureKey): string {
   return `render-fixture-${key}`;
+}
+
+// assertCjkEmphasis —— 中文的 `**粗体。**` 必须渲成 strong。
+//
+// 判据是**渲染出了 strong 元素**，不是"文本里没有星号"—— 后者在整段根本没渲染出来时
+// 也会通过。两条都要：星号变成了标签，而且标签里装着那句话。
+async function assertCjkEmphasis(page: Page): Promise<void> {
+  await goto(page, `/wiki/${pathFor('cjk')}`);
+  const body = page.getByTestId('wiki-body');
+  await expect(body).toBeVisible();
+  await expect(body.locator('strong').first(), '`**` 闭合了,渲成了 strong')
+    .toHaveText('我们不拿你的访客数据卖广告。');
+  await expect(body.locator('strong').nth(1), '第二处同样,不是只有第一处侥幸')
+    .toHaveText('Tally 对 Typeform。');
+  // 判负的那一半：先钉住上面两条(强调真的在)，这一条才不是在空页上恒真。
+  await expect(body, '星号不许出现在屏幕上').not.toContainText('**');
 }
 
 async function seedAllFixtures(request: APIRequestContext): Promise<void> {

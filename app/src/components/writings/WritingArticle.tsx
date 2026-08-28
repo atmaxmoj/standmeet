@@ -16,8 +16,6 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import Markdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
 
 import { corpusHref } from '@/lib/corpus/href';
 import type { BacklinkRef, WritingView } from '@/lib/api/public';
@@ -26,6 +24,7 @@ import { CorpusContent } from '@/components/page/CorpusContent';
 import { markdownComponents, markdownStyles } from '@/components/writings/WritingArticleMarkdown';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
+import { CORPUS_REMARK_PLUGINS } from '@/components/page/markdown';
 import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { expandBody } from '@/lib/corpus/media';
@@ -191,8 +190,11 @@ function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string,
       data-testid="writing-article-body"
     >
       <CorpusContent>
+        {/* 管线跟 wiki / chat **同一份**（`CORPUS_REMARK_PLUGINS`）。这里以前自己配了
+            第二套（只有 gfm + math），于是同一批 owner markdown 在两个面上渲出两种结果 ——
+            中文的 `**粗体。**` 在这一面退化成字面星号，而在另一面是对的。 */}
         <Markdown
-          remarkPlugins={[remarkGfm, remarkMath]}
+          remarkPlugins={CORPUS_REMARK_PLUGINS}
           rehypePlugins={[rehypeKatex]}
           components={markdownComponents}
         >

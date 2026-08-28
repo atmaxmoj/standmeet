@@ -14,6 +14,7 @@ import { lazy, Suspense } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import remarkCjkFriendly from 'remark-cjk-friendly';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
@@ -61,6 +62,23 @@ const BLOCK_RENDERERS: Record<string, (source: string) => React.ReactElement> = 
 };
 
 // schema —— defaultSchema + 允许 className (KaTeX 注的 .katex / .katex-display)。
+// CORPUS_REMARK_PLUGINS —— **渲染 owner 语料的那一套，只有这一份。**
+//
+// 以前 writings 文章页自己配了第二份（只有 gfm + math），于是两个面对同一批 markdown
+// 给出两种结果，而差异只有在恰好撞上的那一篇上才看得见。
+//
+// `remarkCjkFriendly` 就是那样撞出来的：CommonMark 的分隔符两侧规则里，闭合的 `**`
+// 要求「右侧贴合」—— 前面不能是标点，除非后面是空白或标点。中文里
+// `**……卖广告。**这句话` 前面正好是 `。`、后面是汉字，于是闭合不成立，整段退化成字面星号，
+// 屏幕上是 `**我们不拿你的访客数据卖广告。**`。作者在 Obsidian 里看到的是粗体 ——
+// **产品渲染的是 owner 的 vault，两边不一致的时候错的是产品。**
+//
+// 这个不能自己写几行绕过去：星号在解析阶段就已经是文本了，要改的是 micromark 的
+// attention 分词器，而这个插件实现的正是 CommonMark 那份 CJK 扩展。
+export const CORPUS_REMARK_PLUGINS = [
+  remarkGfm, remarkMath, remarkCjkFriendly, remarkCallouts, remarkVaultLinks,
+];
+
 const SAFE_SCHEMA: typeof defaultSchema = {
   ...defaultSchema,
   attributes: {
@@ -114,7 +132,7 @@ export function ChatMarkdown(
   return (
     <div className={cls}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath, remarkCallouts, remarkVaultLinks]}
+        remarkPlugins={CORPUS_REMARK_PLUGINS}
         // ORDER MATTERS (F-R-3): sanitize FIRST, then katex. rehype-katex emits dozens of spans
         // whose LAYOUT lives in inline `style` (strut heights, vlist offsets, sub/sup positions).
         // rehype-sanitize strips `style` — so if it runs AFTER katex it guts every equation
