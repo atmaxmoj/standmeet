@@ -129,14 +129,15 @@ test.describe('multilingual reader · the switcher', () => {
       const nav = page.getByTestId('language-switch');
       await expect(nav).toBeVisible();
       // Labels: the built-in native spelling for non-Latin scripts, uppercase otherwise.
-      await expect(page.getByTestId('language-en')).toHaveText('EN');
-      await expect(page.getByTestId('language-zh')).toHaveText('中文');
-      await expect(page.getByTestId('language-ja')).toHaveText('日本語');
+      await expect(nav.locator('[hreflang="en"]')).toHaveText('EN');
+      await expect(nav.locator('[hreflang="zh"]')).toHaveText('中文');
+      await expect(nav.locator('[hreflang="ja"]')).toHaveText('日本語');
     });
 
   test('clicking one changes the address, so the link can be shared', async ({ page }) => {
     await readIn(page, '');
-    await page.getByTestId('language-zh').click();
+    const nav = page.getByTestId('language-switch');
+    await nav.locator('[hreflang="zh"]').click();
     await expect(page).toHaveURL(/\?lang=zh$/);
     await expect(page.getByTestId('wiki-landing')).toContainText('关于动力学的中文正文');
   });

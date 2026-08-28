@@ -50,12 +50,16 @@ export function WikiReaderClient({
   initialWiki: WikiEntry | null; handle: string; ownerName: string; slug: string;
   initialCtx: TreeContext; stats: WikiTreeStats; lang?: string;
 }) {
-  const [wiki, setWiki] = useState<WikiEntry | null>(initialWiki);
-  const [ctx, setCtx] = useState<TreeContext>(initialCtx);
-  useEffect(
-    () => loadScopedLanding(slug, initialWiki !== null, setWiki, setCtx, lang),
-    [initialWiki, slug, lang],
-  );
+  // **派生，不是把 prop 抄进 state。**
+  //
+  // 这里原本是 `useState(initialWiki)`，而 `useState` 的初值**只在首次挂载时被读一次**：
+  // 之后 prop 再变，state 一动不动。整页重载的时候这没暴露 —— 每次导航都是一次新挂载，
+  // 初值天然是新的。切换器改成客户端导航之后，React 复用同一个组件实例，服务端已经
+  // 换成中文那一面的 `initialWiki` 被静静忽略，地址变了、屏幕上还是英文。
+  //
+  // 形状跟这个仓库里同类的地方对齐（`WikiIndexRoots` 的 `scoped ?? roots`、
+  // `TreeStats` 的 `scoped ?? stats`）：SSR 那一份是匿名视角的保底，带 token 的重取覆盖它。
+  const { wiki, ctx } = useScopedLanding(slug, initialWiki, initialCtx, lang);
   return wiki
     ? (
       <WikiLandingContent
@@ -63,6 +67,19 @@ export function WikiReaderClient({
       />
     )
     : <RestrictedDoc genre="wiki" slug={slug} />;
+}
+
+// useScopedLanding —— SSR 那一份(匿名视角)配上带 token 的重取(受邀视角),后者有就用后者。
+function useScopedLanding(
+  slug: string, initialWiki: WikiEntry | null, initialCtx: TreeContext, lang: string,
+): { wiki: WikiEntry | null; ctx: TreeContext } {
+  const [scoped, setScoped] = useState<WikiEntry | null>(null);
+  const [scopedCtx, setScopedCtx] = useState<TreeContext | null>(null);
+  useEffect(
+    () => loadScopedLanding(slug, initialWiki !== null, setScoped, setScopedCtx, lang),
+    [initialWiki, slug, lang],
+  );
+  return { wiki: scoped ?? initialWiki, ctx: scopedCtx ?? initialCtx };
 }
 
 function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {

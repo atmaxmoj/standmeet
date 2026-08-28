@@ -1275,10 +1275,17 @@ release-push: secrets secrets-image
 # 而症状是「所有容器启动即退」—— 看起来像 compose 坏了。一次 `--platform` 写漏、
 # 一次 buildx builder 退化成默认 driver，都会静默地把发布面缩回一种架构。
 # 所以判结果，不判命令。
+# `2>/dev/null` 拿掉了 —— 它把 `docker manifest inspect` 的失败原因整个吞掉，
+# 于是 registry 刚推完还没同步、或者认证过期时，这条闸门死在一句
+# `JSONDecodeError: Expecting value: line 1 column 1` 上，而真正的原因一个字都没有。
+# 这已经误报过两次（v0.0.6 / v0.0.7），两次五个镜像其实都推上去了、都是双架构。
+# 空输出现在自己说自己是空的，读者第一眼看到的是 docker 说的那句话。
 release-assert-multiarch:
 	@for svc in $(IMAGES); do \
 	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
-	  archs=$$(docker manifest inspect $$img 2>/dev/null \
+	  raw=$$(docker manifest inspect $$img) || \
+	    { echo "release: docker manifest inspect $$img 失败（上面那行是它说的原因）"; exit 1; }; \
+	  archs=$$(printf '%s' "$$raw" \
 	    | python3 -c "import sys,json;d=json.load(sys.stdin);print(' '.join(sorted({m['platform']['architecture'] for m in d.get('manifests',[]) if m['platform']['architecture']!='unknown'})))"); \
 	  case "$$archs" in \
 	    *amd64*) echo "  $$svc: $$archs" ;; \

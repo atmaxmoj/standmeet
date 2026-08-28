@@ -138,8 +138,11 @@ function ArticleHeader({ writing }: { writing: WritingView }) {
         {writing.excerpt}
       </p>
       {/* 多语 writing 的切换器。跟 wiki reader **共用同一个组件** —— 那边一直有，
-          这边一直没有，读者拿到一面就到头了（F-R-6）。少于两种语言时组件自己不渲染。 */}
-      <div className="mt-5">
+          这边一直没有，读者拿到一面就到头了（F-R-6）。少于两种语言时组件自己不渲染。
+
+          靠右由**摆放它的这一侧**决定，不写进组件里：同一个切换器 wiki reader 也在用，
+          而那边的版式是另一回事。组件负责「切什么」，位置归用它的人。 */}
+      <div className="mt-5 flex justify-end">
         <LanguageSwitch
           languages={writing.languages ?? []}
           current={writing.lang ?? ''}

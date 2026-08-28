@@ -8,8 +8,13 @@
 //   · 爬虫和 agent 抓那个 URL 拿到的就是那一面(服务端渲染的);
 //   · 后退键回到上一种语言,而不是回到上一页。
 //
+// 走 `next/link` 而不是裸 `<a>`:上面那三条**一条都不靠整页重载**,而裸 `<a>` 会把整份文档
+// 重新加载一遍 —— 读者读到一半切个语言,页面白一下、滚动位置丢了。`Link` 是客户端导航,
+// 地址照换、爬虫拿到的还是服务端那一面(同一个 URL)、后退键行为不变,只是不再重载。
+// `scroll={false}` 是必须的:切语言不是换页,人还在读同一篇的同一处,不该被弹回顶部。
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import type { LanguageOption } from '@/lib/api/public';
@@ -48,14 +53,16 @@ function LanguageLink({
     ? 'text-(--color-paper) bg-(--color-ink) px-1.5 py-0.5'
     : 'text-(--color-muted) hover:text-(--color-ink) px-1.5 py-0.5';
   return (
-    <a
+    // 不挂 `data-testid`：`Link` 是组件，testid 只能落在裸 DOM 元素上（闸门管这个）。
+    // 定位走 `hrefLang` / 可访问名字 —— 那也正是读者认它们的方式。
+    <Link
       href={`${pathname}?lang=${option.code}`}
       hrefLang={option.code}
-      data-testid={`language-${option.code}`}
+      scroll={false}
       aria-current={active ? 'true' : undefined}
       className={cls}
     >
       {option.label}
-    </a>
+    </Link>
   );
 }

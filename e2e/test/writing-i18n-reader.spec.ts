@@ -95,6 +95,35 @@ test.describe('a multilingual writing reads as content, not as source', () => {
       expect(await body.innerText(), 'the other pane is gone, not hidden')
         .not.toContain('Attack the business model');
     });
+
+  // 切语言**不许整页重载**。
+  //
+  // 上面那条用例只断言「内容换了」—— 而整页重载也会让它绿，所以它对这件事是瞎的。
+  // 切换器原本是裸 `<a href>`：读者读到一半切个语言，整份文档重新加载，页面白一下、
+  // 滚动位置丢回顶部。地址要换（链接可分享、爬虫拿到那一面），但那三条理由**没有一条
+  // 需要重载**，`next/link` 的客户端导航全都满足。
+  //
+  // 判据是确定性的：重载会抹掉 window 上的一切。先在 window 上做个记号，切完还在
+  // 就是没重载 —— 而不是去数网络请求或者比时间（那两样都是代理指标）。
+  // 滚动位置那一半**没有守卫**：这个文件种的文章太短，页面根本滚不动，
+  // 于是「切完还在原处」是恒真的。第一版写了那条断言，而它自己的正对照
+  // （先断言真的滚下去了）当场把它挡了下来 —— 恒真的断言不如没有
+  // （[[assertion-that-cannot-fail]]）。要守它得有一篇够长的种子，而这个文件的种子
+  // 被同组别的用例按内容断言着，不该为这一条改。`scroll={false}` 照常发，只是这里不假装测了它。
+  test('切语言不重载整页', async ({ page }) => {
+    await goto(page, '/writings/i18n-wedge');
+    const body = page.getByTestId('writing-article-body');
+    await expect(body).toBeVisible({ timeout: 10_000 });
+
+    await page.evaluate(() => { (window as unknown as Record<string, unknown>)['__notReloaded'] = 1; });
+
+    await page.getByTestId('language-switch').getByText('中文').click();
+    await expect.poll(async () => (await body.innerText()).includes('攻击商业模式'),
+      { message: '切换要真的换过去', timeout: 10_000 }).toBe(true);
+
+    expect(await page.evaluate(() => (window as unknown as Record<string, unknown>)['__notReloaded']),
+      '整页重载会把这个记号抹掉').toBe(1);
+  });
 });
 
 interface WritingInput {
