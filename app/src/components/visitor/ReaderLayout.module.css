@@ -6,29 +6,32 @@
  * 这条渐隐跟 UX-56 那张 sneak-peek 卡片是**同一条约定**：一张会被切的东西，
  * 切口处要有续读信号。少了它，被切读起来像"坏了"而不是"还有"。
  *
- * 铺在轨道上而不是内层滚动容器上：伪元素要相对**视口里那条切口**定位，
- * 而内层是滚动的，把它挂在里面会跟着内容一起滚走。 */
+ * ⚠️ 伪元素必须挂在**内层那个滚动容器**上，而且用 `position: sticky; bottom: 0`。
+ * 第一版挂在外层轨道（`absolute` 的那个）上：轨道跟文档一样高、根本不是被切的那一个，
+ * 于是渐隐落在文档底部而不是树的切口上 —— 线上验的时候树在底部仍然是硬切
+ * （`principles` 直接断在边缘）。被切的是谁，信号就得长在谁身上。 */
 
 .rail {
-  /* 让 ::after 相对这条轨道定位。轨道本身已经是 absolute，这里只声明意图。 */
-  pointer-events: none;
+  /* 轨道只负责定位，本身不画东西。 */
 }
 
-/* 轨道里的东西要能点（上面那行是给伪元素用的，别把链接一起关掉）。 */
 .railInner {
-  pointer-events: auto;
+  /* 让 ::after 相对这个滚动容器定位 —— sticky 的包含块就是它。 */
+  position: relative;
   /* 滚动条不占版面宽度，也不在纸色底上画一条灰槽。 */
   scrollbar-width: thin;
 }
 
-/* 切口处的渐隐。高度给足一行字，让"还有"这件事在余光里也成立。 */
-.rail::after {
+/* 切口处的渐隐：sticky 贴着滚动容器的底边，内容滚过去它不动。
+ * `margin-top: -3rem` 让它盖在最后几行字上，而不是把内容往上推。 */
+.railInner::after {
   content: '';
   position: sticky;
   display: block;
   bottom: 0;
   height: 3rem;
   margin-top: -3rem;
+  pointer-events: none;
   background: linear-gradient(
     to bottom,
     color-mix(in oklab, var(--color-paper) 0%, transparent),
