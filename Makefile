@@ -1197,9 +1197,13 @@ secrets-image:
 	  docker rm -f $$cid >/dev/null; \
 	  wd=$$(docker image inspect $$img --format '{{.Config.WorkingDir}}'); \
 	  can=$$d$${wd:-}/.sm-secrets-canary.txt; \
+	  : "诱饵必须命中一条**不看熵**的规则。这里原本种的是 aws_secret_access_key,"; \
+	  : "而那条规则带熵阈值 —— 随机串总有一部分落在阈下,于是自证会零星失败(v0.1.1 那次"; \
+	  : "builder 镜像就没报出来),而**自证失败会挡住整条发布**。私钥块是结构性规则,不看熵。"; \
+	  : "`check-secrets.sh` 早就为同一个理由换过了 —— 这一处当时没跟着改。"; \
 	  mkdir -p $$(dirname $$can); \
-	  printf 'aws_secret_access_key = "%s"\n' \
-	    "$$(head -c 30 /dev/urandom | base64 | tr -d '/+=' | head -c 40)" > $$can; \
+	  printf -- '-----%s RSA PRIVATE KEY-----\n%s\n-----%s RSA PRIVATE KEY-----\n' \
+	    BEGIN "$$(LC_ALL=C tr -dc 'A-Za-z0-9+/' < /dev/urandom | head -c 64)" END > $$can; \
 	  rep=$$(mktemp -t sm-secrets-XXXX).json; \
 	  gitleaks dir $$d --config .gitleaks.toml --no-banner --redact \
 	    --report-format json --report-path $$rep >/dev/null 2>&1; \
