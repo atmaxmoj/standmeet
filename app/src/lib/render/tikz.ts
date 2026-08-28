@@ -38,7 +38,28 @@ function wrapDocument(source: string): string {
     : `\\begin{document}\n${source}\n\\end{document}`;
 }
 
+// queue —— node-tikzjax 的 WASM TeX 引擎是**进程内单例**,不可重入:两次渲染同时进去会
+// 互相踩,双方一起抛 `TeX engine render failed`。线上实测同一份源码单发 200、并发 2 个时
+// 两个都 422(0.6s 就回,连超时都没到)。
+//
+// 而**一页有几张图,浏览器就同时发几个请求** —— 于是读者看到的是「有的图渲出来了,有的
+// 印着一整段 LaTeX 源码」,哪几张失败还是随机的。图越多越容易撞。所以串行不是调优,
+// 是这个引擎的使用前提。
+//
+// ponytail: 每进程一条队列。多进程/多副本时各串各的,而单例本来就是进程内的,够用;
+// 真到要跨副本限流再上共享锁。
+let queue: Promise<unknown> = Promise.resolve();
+
 function renderValidated(source: string): Promise<TikzResult> {
+  const run = queue.then(() => renderExclusive(source));
+  // 队列只用来排队,不传播失败 —— 一次渲染挂了不该把后面所有图一起带走。
+  queue = run.catch(() => undefined);
+  return run;
+}
+
+// renderExclusive —— 计时从**真正开跑**那一刻起,不含排队等待:否则一页图一多,
+// 排在后面的还没轮到就被判超时。
+function renderExclusive(source: string): Promise<TikzResult> {
   const rendered = tex2svg(wrapDocument(source), {
     showConsole: false, embedFontCss: true, fontCssUrl: FONT_CSS_URL,
   })
