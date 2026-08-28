@@ -11,6 +11,7 @@ import { getTranslations } from 'next-intl/server';
 import { corpusHref } from '@/lib/corpus/href';
 import { fetchWriting, fetchWritingContext } from '@/lib/api/public';
 import { WritingArticle } from '@/components/writings/WritingArticle';
+import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { WritingTreeAside } from '@/components/writings/WritingTreeAside';
 import type { TreeNode } from '@/lib/corpus/tree';
 
@@ -25,20 +26,19 @@ interface PageProps {
 
 export default async function WritingArticlePage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  // 走跟 wiki 同一个阅读器骨架（ReaderLayout）。这里原本是自己写的一份 flex
+  // （树 + `flex-1` 正文），于是同一个毛病出现了两次：正文只在**树之外剩下的那段**里
+  // 居中（读者看到的是一篇没对准的文章），而树被切的地方没有任何续读信号。
+  // 共用一份之后，「正文对视口居中」和「切口有渐隐」都只需要在一个地方成立。
   const { lang } = await searchParams;
   try {
     const writing = await fetchWriting(slug, lang ?? '');
     const ctx = await fetchWritingContext(slug);
     return (
-      <div className="mx-auto max-w-[1180px] px-6 flex gap-12 items-start">
-        <div className="hidden lg:block pt-10">
-          <WritingTreeAside activeSlug={slug} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <ReaderBreadcrumb ancestors={ctx.ancestors} current={writing.title} />
-          <WritingArticle writing={writing} />
-        </div>
-      </div>
+      <ReaderLayout mainTestId="writing-page" aside={<WritingTreeAside activeSlug={slug} />}>
+        <ReaderBreadcrumb ancestors={ctx.ancestors} current={writing.title} />
+        <WritingArticle writing={writing} />
+      </ReaderLayout>
     );
   } catch {
     notFound();

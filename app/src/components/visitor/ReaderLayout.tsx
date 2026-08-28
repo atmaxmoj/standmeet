@@ -1,7 +1,24 @@
-// ReaderLayout —— wiki reader 两列骨架,对齐设计 wiki-frame(240px + 1fr,全宽不
-// 居中)。**文档整体滚动**(避免内滚容器够不到底);左 toc 贴左沿 + border-right
-// 分割线 + sticky 钉在 session strip(29px)下面 + 自己 overflow-y 滚(长树独立滚);
-// 中间一条可拖的把手调 toc 宽;右正文走文档流。
+// ReaderLayout —— wiki reader 的骨架：**视口居中的正文** + 左侧贴边的树。
+//
+// ── 正文为什么用绝对定位把树挪出去 ───────────────────────────────────────────────
+//
+// 上一版是 `flex`：aside(可拖宽) + 分隔条 + `main flex-1`。于是正文只在**剩下的那段**里
+// 居中 —— 树占多宽，正文就偏右多少。读者看到的是一篇没对准的文章，而树越宽偏得越狠。
+// 现在正文是 `mx-auto max-w-[920px]`（对**视口**居中，跟 /writings 首页同一口径），
+// 树 `absolute` 挂在它左边的留白里，不参与占位，所以正文的位置跟树宽无关。
+//
+// 顺带去掉了那根可拖宽的分隔条：它存在的意义是"树占多宽由读者定"，而树一旦不再挤正文，
+// 这个自由度就不再解决任何问题，只留下一个要维护的拖拽状态。
+//
+// ── 树被切的时候必须看得出来 ─────────────────────────────────────────────────────
+//
+// 树 sticky + 自己滚，是一个**取舍**而不是疏忽：要么它跟着整页滚（一个滚动区，什么都
+// 够得到，但翻到文章中段树就滚没了），要么常驻但成为第二个滚动区。选后者。
+//
+// 代价是真实的，而且被撞到过：树比视口高时下半截被切，鼠标在正文上滚它不动，
+// 读者的结论是「下面明显还有东西，但我滚不下去」。所以切口必须自己说话 ——
+// `styles.railFade` 在底部铺一条渐隐（跟 UX-56 那条 sneak-peek 卡片同一条约定：
+// **一张会被切的东西，切口处要有续读信号**）。少了它，被切读起来像"坏了"而不是"还有"。
 //
 // aside / children 都由 server page 传进来(client 组件可接 server 子树作 props)。
 
@@ -9,9 +26,9 @@
 
 import type { ReactNode } from 'react';
 
-import { useResizableWidth } from '@/lib/visitor/use-resizable';
+import styles from '@/components/visitor/ReaderLayout.module.css';
 
-// STRIP_H —— SessionStrip 的高(sticky top:0)。toc sticky 钉在它下面,别重叠。
+// STICKY_TOP —— SessionStrip 的高(sticky top:0)。树钉在它下面,别重叠。
 const STICKY_TOP = 'top-[30px] max-h-[calc(100dvh-30px)]';
 
 export function ReaderLayout({ aside, children, mainTestId }: {
@@ -19,31 +36,19 @@ export function ReaderLayout({ aside, children, mainTestId }: {
   children: ReactNode;
   mainTestId: string;
 }) {
-  const { width, startDrag, dragging } = useResizableWidth();
   return (
-    <div className="flex items-start">
+    <div className="relative">
+      {/* 树：xl 以下整个不渲染 —— 窄屏塞不下一棵树，而挤进来的代价是正文没法读。
+          绝对定位 = 不占位 = 正文的居中跟它无关。 */}
       <aside
-        className={`hidden lg:block shrink-0 self-start sticky ${STICKY_TOP} overflow-y-auto`}
-        // eslint-disable-next-line no-restricted-syntax -- toc width is drag-controlled, runtime-dynamic
-        style={{ width }}
+        className={`hidden xl:block absolute left-0 top-0 w-[240px] pl-6 ${styles['rail']}`}
         data-testid="wiki-toc"
       >
-        {aside}
+        <div className={`sticky ${STICKY_TOP} overflow-y-auto ${styles['railInner']}`}>
+          {aside}
+        </div>
       </aside>
-      {/* 分割线 = 这条把手的 border-left。self-stretch → 撑满整行(文章)高度,
-          所以竖线全高,不只到 toc 内容底。同时它就是拖拽热区。 */}
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="resize sidebar"
-        onPointerDown={startDrag}
-        className={[
-          'hidden lg:block shrink-0 self-stretch w-1 cursor-col-resize border-l transition-colors',
-          dragging ? 'border-(--color-accent)' : 'border-(--color-rule) hover:border-(--color-accent)',
-        ].join(' ')}
-        data-testid="wiki-toc-resize"
-      />
-      <main className="flex-1 min-w-0 px-6 lg:px-10" data-testid={mainTestId}>
+      <main className="mx-auto max-w-[920px] px-6 min-w-0" data-testid={mainTestId}>
         {children}
       </main>
     </div>
