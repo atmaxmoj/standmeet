@@ -5,7 +5,7 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-push release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
@@ -1116,7 +1116,8 @@ release-build: sdk-build builder-vendor
 	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
 	  echo "[release] building $$img"; \
 	  case $$svc in \
-	    backend)   docker build -t $$img -f backend/Dockerfile --target production . ;; \
+	    backend)   docker build -t $$img -f backend/Dockerfile --target production \
+	                 --build-arg STANDMEET_VERSION=$(TAG) . ;; \
 	    app)       docker build -t $$img ./app ;; \
 	    builder)   docker build -t $$img ./builder ;; \
 	    im-bridge) docker build -t $$img -f im-bridge/Dockerfile . ;; \
@@ -1124,7 +1125,27 @@ release-build: sdk-build builder-vendor
 	  esac || exit 1; \
 	  docker tag $$img $(REGISTRY)/standmeet-$$svc:latest || exit 1; \
 	done
+	@$(MAKE) release-assert-version
 	@echo "[release] built: $(IMAGES) @ $(TAG)"
+
+# release-assert-version —— **问镜像本人它是哪一版**，不问构建命令。
+#
+# 版本号靠 `-ldflags -X` 在发布时烧进二进制，而漏传 build-arg 是**无声**的：
+# 镜像照样建得出来、照样跑得起来，只是从此对外报缺省值。这条缺陷刚咬过一次 ——
+# 那个 `var` 是专为 ldflags 留的，注释里也写着"发布时覆写"，而构建命令里从来没有那一句，
+# 于是线上跑着 v0.1.3 的镜像、`/api/v1/instance` 说 0.1.0。版本号的唯一用处是出事时
+# 说得清自己在哪个 build，一个跟 build 无关的数把这个用处整个抵消掉。
+#
+# 判的是**产物**：起容器、`--version`、拿它说的那个字符串跟 $(TAG) 逐字比。
+# 不需要 db/redis/整套栈 —— 那条子命令在 config.Load 之前就返回。
+release-assert-version:
+	@img=$(REGISTRY)/standmeet-backend:$(TAG); \
+	  got=$$(docker run --rm --entrypoint /app/standmeet $$img --version 2>&1 | tail -1); \
+	  test "$$got" = "$(TAG)" || { \
+	    echo "release: $$img 自报版本 '$$got'，而这一版是 '$(TAG)'"; \
+	    echo "         漏传 --build-arg STANDMEET_VERSION 就是这个样子 —— 镜像能跑，版本号是假的"; \
+	    exit 2; }; \
+	  echo "  backend 自报 $$got ✓"
 
 # release-assert-stripped —— **证明剥掉了**，不是相信它剥掉了。
 #
@@ -1267,7 +1288,7 @@ release-push: secrets secrets-image
 	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
 	  echo "[release] buildx --push $$img ($(RELEASE_PLATFORMS))"; \
 	  case $$svc in \
-	    backend)   ctx="-f backend/Dockerfile --target production ." ;; \
+	    backend)   ctx="-f backend/Dockerfile --target production --build-arg STANDMEET_VERSION=$(TAG) ." ;; \
 	    app)       ctx="./app" ;; \
 	    builder)   ctx="./builder" ;; \
 	    im-bridge) ctx="-f im-bridge/Dockerfile ." ;; \

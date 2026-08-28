@@ -22,6 +22,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/axiscap"
 	"github.com/atmaxmoj/standmeet/cmd/server/axisconn"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	"github.com/atmaxmoj/standmeet/cmd/server/wire"
 
 	// time/tzdata 把 IANA 时区库嵌进二进制 —— 静态 CGO_ENABLED=0 binary 跑在不带 tzdata 的
@@ -52,6 +53,10 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(log)
+
+	if code := versionSubcommand(); code >= 0 {
+		os.Exit(code)
+	}
 
 	if code := passwordResetSubcommand(log); code >= 0 {
 		os.Exit(code)
@@ -304,7 +309,9 @@ func serve(ctx context.Context, rt *deps.Runtime, addr string, stop context.Canc
 	rt.Log.Info("plugins enabled", "names", rt.PluginRegistry.Names())
 
 	go func() {
-		rt.Log.Info("server starting", "addr", srv.Addr)
+		// 版本进启动日志:"这条日志是哪个 build 打的"必须从日志本身答得出,
+		// 不能靠回忆当时线上是哪一版。
+		rt.Log.Info("server starting", "addr", srv.Addr, "version", port.AppVersion())
 		if lerr := srv.ListenAndServe(); lerr != nil && !errors.Is(lerr, http.ErrServerClosed) {
 			rt.Log.Error("listen", "err", lerr)
 			stop()

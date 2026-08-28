@@ -51,11 +51,16 @@ FROM deps AS builder
 # TARGETARCH 由 buildx 按当前正在构建的那一路注入（amd64 / arm64）。
 # CGO 关着，所以纯交叉编译，不需要任何目标架构的工具链。
 ARG TARGETARCH
+# STANDMEET_VERSION —— 发布时把 tag 烧进二进制。`port.appVersion` 一直是 `var` 就为了
+# 这一句,而这一句从来没写过:于是实例对外报的是源码里那个字面量,跟真正跑着的镜像无关。
+# 线上跑着 v0.1.3 而 /api/v1/instance 说 0.1.0,就是这么来的。
+# 不传就还是那个字面量 —— 所以它现在写作 "dev",一眼看得出"这一份没盖过章"。
+ARG STANDMEET_VERSION=dev
 ENV CGO_ENABLED=0 GOOS=linux
 RUN --mount=type=cache,target=/root/.cache/go-build \
     GOARCH=$TARGETARCH go build \
     -trimpath \
-    -ldflags='-s -w' \
+    -ldflags="-s -w -X github.com/atmaxmoj/standmeet/cmd/server/port.appVersion=${STANDMEET_VERSION}" \
     -o /out/standmeet \
     ./cmd/server
 
