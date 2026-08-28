@@ -40,8 +40,11 @@ export function ReaderLayout({ aside, children, mainTestId }: {
     <div className="relative">
       {/* 树：xl 以下整个不渲染 —— 窄屏塞不下一棵树，而挤进来的代价是正文没法读。
           绝对定位 = 不占位 = 正文的居中跟它无关。 */}
+      {/* `inset-y-0` 而不是 `top-0`：轨道要跟文档一样高，里面那层 sticky 才有得走。
+          只给 top-0 的话轨道自己只有内容那么高，滚过它之后 sticky 无处可粘 ——
+          树留在文档顶端，往下读就整个不见了（第一版就是这样，滚到底一棵树都没有）。 */}
       <aside
-        className={`hidden xl:block absolute left-0 top-0 w-[240px] pl-6 ${styles['rail']}`}
+        className={`hidden xl:block absolute left-0 inset-y-0 w-[240px] pl-6 ${styles['rail']}`}
         data-testid="wiki-toc"
       >
         <div className={`sticky ${STICKY_TOP} overflow-y-auto ${styles['railInner']}`}>
