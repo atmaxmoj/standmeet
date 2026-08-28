@@ -1200,7 +1200,9 @@ secrets-image:
 	  : "诱饵必须命中一条**不看熵**的规则。这里原本种的是 aws_secret_access_key,"; \
 	  : "而那条规则带熵阈值 —— 随机串总有一部分落在阈下,于是自证会零星失败(v0.1.1 那次"; \
 	  : "builder 镜像就没报出来),而**自证失败会挡住整条发布**。私钥块是结构性规则,不看熵。"; \
-	  : "`check-secrets.sh` 早就为同一个理由换过了 —— 这一处当时没跟着改。"; \
+	  : "check-secrets.sh 早就为同一个理由换过了 —— 这一处当时没跟着改。"; \
+	  : "这行的文件名不加反引号:recipe 里的注释也是 shell,反引号是命令替换 ——"; \
+	  : "带上就变成每次发布都去 PATH 上找一个同名脚本并执行它。"; \
 	  mkdir -p $$(dirname $$can); \
 	  printf -- '-----%s RSA PRIVATE KEY-----\n%s\n-----%s RSA PRIVATE KEY-----\n' \
 	    BEGIN "$$(LC_ALL=C tr -dc 'A-Za-z0-9+/' < /dev/urandom | head -c 64)" END > $$can; \
