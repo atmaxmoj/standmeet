@@ -8,6 +8,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
@@ -19,7 +20,13 @@ import { loadWikiChildren, subscribeScopedStats } from '@/lib/visitor/load-wiki-
 
 import styles from '@/components/visitor/WikiTreeView.module.css';
 
-export function WikiTreeView({ activePath, stats }: { activePath: string; stats: WikiTreeStats }) {
+// activePath 从 **URL** 派生，不再由调用方传。
+//
+// 传 prop 的话，外层那个 layout 就得跟着「当前是哪一篇」变 —— 而 layout 一变就重渲，
+// 树又回到「每点一篇文章刷一次」。高亮本来就是 URL 的函数，让它直接读 URL，
+// layout 因此可以完全不关心当前在哪一篇（[[names-that-lie]] 的反面：让数据来自它真正的源）。
+export function WikiTreeView({ stats }: { stats: WikiTreeStats }) {
+  const activePath = decodeURIComponent(usePathname() ?? '').replace(/^\/wiki\/?/, '');
   const t = useTranslations('visitor.wikiTreeView');
   const openPaths = prefixSet(activePath);
   const renderLabel = useCallback(

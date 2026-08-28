@@ -1204,6 +1204,13 @@ secrets-image:
 	  mkdir -p $$(dirname $$can); \
 	  printf -- '-----%s RSA PRIVATE KEY-----\n%s\n-----%s RSA PRIVATE KEY-----\n' \
 	    BEGIN "$$(LC_ALL=C tr -dc 'A-Za-z0-9+/' < /dev/urandom | head -c 64)" END > $$can; \
+	  : "覆盖量要打出来。上一版只说 clean —— 而 backend 镜像里我们自己 COPY 的东西是"; \
+	  : "6 个 Go 二进制 + 1 个 entrypoint.sh,gitleaks 跳过二进制,所以那张镜像上这道闸门"; \
+	  : "实际扫的是**一个 shell 脚本**。它跟 app 镜像(整个 .next 都是文本)打印同一句 clean,"; \
+	  : "而两者背后的证据量差着三个数量级。数不出来的时候,'clean' 读起来像全覆盖。"; \
+	  txt=$$(find $$d -type f -exec file -b --mime-type {} \; 2>/dev/null | grep -c '^text/' || true); \
+	  bin=$$(find $$d -type f -exec file -b --mime-type {} \; 2>/dev/null | grep -c 'executable' || true); \
+	  echo "                 扫描面: $$txt 个文本文件 / 跳过 $$bin 个二进制"; \
 	  rep=$$(mktemp -t sm-secrets-XXXX).json; \
 	  gitleaks dir $$d --config .gitleaks.toml --no-banner --redact \
 	    --report-format json --report-path $$rep >/dev/null 2>&1; \

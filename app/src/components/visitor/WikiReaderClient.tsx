@@ -23,14 +23,9 @@ import { CorpusContent } from '@/components/page/CorpusContent';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
 import { ReaderAboutCard } from '@/components/visitor/ReaderAboutCard';
-import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
-import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { WikiScopedSubEntries } from '@/components/visitor/WikiScopedSubEntries';
-import { WikiTopBar } from '@/components/visitor/WikiTopBar';
-import { WikiTreeView } from '@/components/visitor/WikiTreeView';
 import { loadScopedLanding, type WikiLandingEntry } from '@/lib/visitor/scoped-reader';
-import type { WikiTreeStats } from '@/lib/api/public';
 import type { TreeContext, TreeNode } from '@/lib/corpus/tree';
 
 import styles from '@/app/wiki/[...path]/wiki-landing.module.css';
@@ -45,10 +40,10 @@ export type WikiRef = { path: string; title: string };
 export type WikiEntry = WikiLandingEntry;
 
 export function WikiReaderClient({
-  initialWiki, handle, ownerName, slug, initialCtx, stats, lang = '',
+  initialWiki, handle, ownerName, slug, initialCtx, lang = '',
 }: {
   initialWiki: WikiEntry | null; handle: string; ownerName: string; slug: string;
-  initialCtx: TreeContext; stats: WikiTreeStats; lang?: string;
+  initialCtx: TreeContext; lang?: string;
 }) {
   // **派生，不是把 prop 抄进 state。**
   //
@@ -63,7 +58,7 @@ export function WikiReaderClient({
   return wiki
     ? (
       <WikiLandingContent
-        wiki={wiki} handle={handle} ownerName={ownerName} slug={slug} ctx={ctx} stats={stats}
+        wiki={wiki} handle={handle} ownerName={ownerName} slug={slug} ctx={ctx}
       />
     )
     : <RestrictedDoc genre="wiki" slug={slug} />;
@@ -82,36 +77,32 @@ function useScopedLanding(
   return { wiki: scoped ?? initialWiki, ctx: scopedCtx ?? initialCtx };
 }
 
-function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
-  wiki: WikiEntry; handle: string; ownerName: string; slug: string;
-  ctx: TreeContext; stats: WikiTreeStats;
+function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
+  wiki: WikiEntry; handle: string; ownerName: string; slug: string; ctx: TreeContext;
 }) {
+  // 顶栏 / 会话条 / 树都搬去了 `wiki/layout.tsx`：Next 在同级页面之间导航时**保留 layout**，
+  // 所以换一篇文章不再重挂整个外壳（树不闪、每层不重拉），而且外壳固定、只有正文自己滚。
+  // 这里只出这一篇自己的内容。
   return (
-    <div>
-      <WikiTopBar handle={handle} reading={wiki.title} />
-      <SessionStrip />
-      <ReaderLayout mainTestId="wiki-landing" aside={<WikiTreeView activePath={slug} stats={stats} />}>
-        <div className="max-w-[920px] mx-auto pt-10 pb-24">
-          <Breadcrumb ancestors={ctx.ancestors} current={wiki.title} />
-          <OgCoverMaybe entry={wiki} seed={slug} />
-          <MetaStrip entry={wiki} ownerName={ownerName} />
-          <div className="max-w-[680px] mx-auto mt-3">
-            <LanguageSwitch languages={wiki.languages ?? []} current={wiki.lang ?? ''} />
-          </div>
-          <article className="max-w-[680px] mx-auto mt-2">
-            <WikiBody
-              body={wiki.body} assetURLs={wiki.asset_urls} cssClasses={wiki.css_classes}
-            />
-            <Attachments assets={wiki.assets} testid="wiki-attachments" />
-          </article>
-          <div className="max-w-[760px] mx-auto">
-            <WikiScopedSubEntries slug={slug} initial={ctx.children} />
-            <RelatedRail items={wiki.related} title="read next" testid="related-rail-read-next" />
-            <RelatedRail items={wiki.cited_by} title="cited by" testid="related-rail-cited-by" />
-            <ReaderAboutCard genre="wiki" handle={handle} />
-          </div>
-        </div>
-      </ReaderLayout>
+    <div data-testid="wiki-landing" className="pt-10 pb-24">
+      <Breadcrumb ancestors={ctx.ancestors} current={wiki.title} />
+      <OgCoverMaybe entry={wiki} seed={slug} />
+      <MetaStrip entry={wiki} ownerName={ownerName} />
+      <div className="max-w-[680px] mx-auto mt-3">
+        <LanguageSwitch languages={wiki.languages ?? []} current={wiki.lang ?? ''} />
+      </div>
+      <article className="max-w-[680px] mx-auto mt-2">
+        <WikiBody
+          body={wiki.body} assetURLs={wiki.asset_urls} cssClasses={wiki.css_classes}
+        />
+        <Attachments assets={wiki.assets} testid="wiki-attachments" />
+      </article>
+      <div className="max-w-[760px] mx-auto">
+        <WikiScopedSubEntries slug={slug} initial={ctx.children} />
+        <RelatedRail items={wiki.related} title="read next" testid="related-rail-read-next" />
+        <RelatedRail items={wiki.cited_by} title="cited by" testid="related-rail-cited-by" />
+        <ReaderAboutCard genre="wiki" handle={handle} />
+      </div>
       <FloatingChatDock docContext={{ title: wiki.title, path: slug, genre: 'wiki' }} />
     </div>
   );

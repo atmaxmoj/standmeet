@@ -6,35 +6,26 @@
 
 import { getTranslations } from 'next-intl/server';
 
-import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { WikiIndexRoots } from '@/components/visitor/WikiIndexRoots';
-import { SessionStrip } from '@/components/visitor/SessionStrip';
-import { WikiTopBar } from '@/components/visitor/WikiTopBar';
-import { WikiTreeView } from '@/components/visitor/WikiTreeView';
-import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiTree, fetchWikiTreeStats } from '@/lib/api/public';
 
 export const dynamic = 'force-dynamic';
 
 export default async function WikiIndexPage() {
-  const [roots, instance, stats, t] = await Promise.all([
-    fetchWikiTree('', ''), fetchInstance(), fetchWikiTreeStats(),
-    getTranslations('reader'),
+  // instance / 顶栏那些由 layout 取 —— 这一页只需要自己的数据。
+  const [roots, stats, t] = await Promise.all([
+    fetchWikiTree('', ''), fetchWikiTreeStats(), getTranslations('reader'),
   ]);
+  // 顶栏 / 会话条 / 树都在 `wiki/layout.tsx` 里 —— 它们跨文章不重挂，也不跟着正文滚。
+  // 这里只出这一页自己的内容。
   return (
-    <div>
-      <WikiTopBar handle={instance.handle} />
-      <SessionStrip />
-      <ReaderLayout mainTestId="wiki-index" aside={<WikiTreeView activePath="" stats={stats} />}>
-        <div className="max-w-[920px] mx-auto pt-10 pb-24">
-          <div className="smallcaps mb-2">{t('wiki.indexKicker')}</div>
-          <h1 className="font-serif text-(--color-ink) text-[clamp(32px,4vw,48px)] font-[380] tracking-[-0.02em] leading-[1.05] mb-8 text-pretty">
-            {t('wiki.indexHeading')}
-          </h1>
-          {/* SSR 那份是匿名视角(SEO 要它);受邀访客的那份由客户端带 token 再取(F-L-14)。 */}
-          <WikiIndexRoots roots={roots} stats={stats} />
-        </div>
-      </ReaderLayout>
+    <div className="pt-10 pb-24">
+      <div className="smallcaps mb-2">{t('wiki.indexKicker')}</div>
+      <h1 className="font-serif text-(--color-ink) text-[clamp(32px,4vw,48px)] font-[380] tracking-[-0.02em] leading-[1.05] mb-8 text-pretty">
+        {t('wiki.indexHeading')}
+      </h1>
+      {/* SSR 那份是匿名视角(SEO 要它);受邀访客的那份由客户端带 token 再取(F-L-14)。 */}
+      <WikiIndexRoots roots={roots} stats={stats} />
     </div>
   );
 }

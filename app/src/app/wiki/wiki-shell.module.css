@@ -1,0 +1,55 @@
+/* wiki-shell.module.css —— 阅读器外壳的左侧树轨。
+ *
+ * ── 宽度跟着留白走，不是一个定值 ───────────────────────────────────────────────
+ *
+ * 正文是 920px、对视口居中，所以左边那条留白的宽度**由视口决定**：
+ *   1280px 视口 → 180px      1536 → 308      1920 → 500      2560 → 820
+ *
+ * 上一版给了固定的 240px。宽屏上它浪费掉几百像素的留白，而窄屏上它比留白还宽、
+ * 直接压到正文上。更要命的是深层嵌套：`logic → chomsky-hierarchy → regular-languages
+ * → regular-equivalences → kleene-theorem` 这种，缩进吃掉大半，每个标签折成两三行，
+ * 一棵树读起来像一列碎词。
+ *
+ * 现在轨道**就是那条留白**（减去两侧呼吸），所以屏幕越宽树越好读，而它永远压不到正文。
+ *
+ * ── 为什么是 1500px 而不是 Tailwind 的 xl(1280) ────────────────────────────────
+ *
+ * 1280 的留白只有 180px —— 放一棵带缩进的树是不够的，渲出来就是那列碎词。
+ * 门槛按**留白够不够用**定（≥ 260px），反解出来视口要 ≥ 920 + 2×290 = 1500。
+ * 拿断点当判据的话，判的是"屏幕算不算大"，而真正的问题是"这棵树有没有地方站"。 */
+
+.rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  display: none;
+  overflow-y: auto;
+  /* 留白减去左右呼吸；上限 380 —— 再宽的树只会让眼睛横跳。 */
+  width: min(380px, calc((100vw - 920px) / 2 - 2.5rem));
+  padding-left: 1.5rem;
+  padding-right: 0.5rem;
+  scrollbar-width: thin;
+}
+
+@media (min-width: 1500px) {
+  .rail { display: block; }
+}
+
+/* 切口处的渐隐 —— 树比视口高时下半截被切，切口必须自己说"下面还有"。
+ * 跟 UX-56 那张 sneak-peek 卡片同一条约定。挂在**滚动容器自己**身上：
+ * 被切的是谁，信号就长在谁身上。 */
+.rail::after {
+  content: '';
+  position: sticky;
+  display: block;
+  bottom: 0;
+  height: 3rem;
+  margin-top: -3rem;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-paper) 0%, transparent),
+    var(--color-paper)
+  );
+}

@@ -13,7 +13,7 @@ import type { Metadata } from 'next';
 
 import { WikiReaderClient } from '@/components/visitor/WikiReaderClient';
 import { fetchInstance } from '@/lib/api/instance';
-import { fetchWikiContext, fetchWikiLanding, fetchWikiTreeStats } from '@/lib/api/public';
+import { fetchWikiContext, fetchWikiLanding } from '@/lib/api/public';
 import { parseWikiLanding } from '@/lib/visitor/wiki-landing';
 
 // catch-all [...path]：path 可含 `/` (projects/lucerna 这种分组)。
@@ -48,8 +48,9 @@ export default async function WikiLandingPage(
   // SSR fetches anonymously (published-only, for crawlers/SEO). WikiReaderClient re-fetches WITH the
   // stored visitor token when this comes back null, so an invited viewer reads in-scope gated entries
   // (F-L-11 bearer-aware reader) while published entries keep their fast SSR path.
-  const [wiki, instance, ctx, stats] = await Promise.all([
-    fetchWikiLanding(slug, want), fetchInstance(), fetchWikiContext(slug), fetchWikiTreeStats(),
+  // 树和顶栏在 `wiki/layout.tsx` 里自己取数据 —— 这一页不再需要 stats。
+  const [wiki, instance, ctx] = await Promise.all([
+    fetchWikiLanding(slug, want), fetchInstance(), fetchWikiContext(slug),
   ]);
   return (
     <WikiReaderClient
@@ -61,7 +62,6 @@ export default async function WikiLandingPage(
       ownerName={instance.name || instance.handle}
       slug={slug}
       initialCtx={ctx}
-      stats={stats}
       lang={want}
     />
   );
