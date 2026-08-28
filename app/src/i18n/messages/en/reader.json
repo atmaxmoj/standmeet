@@ -13,7 +13,6 @@
   },
   "wiki": {
     "by": "by",
-    "sourcesCount": "{count, plural, one {# corpus source} other {# corpus sources}}",
     "backToWiki": "← wiki",
     "subEntries": "sub-entries",
     "attachments": "attachments",

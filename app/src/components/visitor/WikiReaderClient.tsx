@@ -174,10 +174,6 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
         <span>{formatDate(entry.updated_at)}</span>
         <span className="text-(--color-faint)">·</span>
         <span>{t('wiki.by')} <span className="text-(--color-ink)">{ownerName}</span></span>
-        <span className="text-(--color-faint)">·</span>
-        <span data-testid="wiki-sources-count">
-          {t('wiki.sourcesCount', { count: entry.sources_count })}
-        </span>
         {entry.tags.map((tag) => (
           <Link key={tag} href={`/writings?tag=${encodeURIComponent(tag)}`} className="ml-1.5 no-underline">
             <span className="mono text-[10px] tracking-[0.1em] text-(--color-muted) border border-(--color-rule) rounded-[2px] px-1.5 py-0.5 hover:text-(--color-ink)">

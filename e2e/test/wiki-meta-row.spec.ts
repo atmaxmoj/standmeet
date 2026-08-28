@@ -65,14 +65,20 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
   //
   // 判据换成设计语言那一条：**一件事在一屏上只说一遍**。分工也定死：
   // 面包屑只回答「我在哪」，meta 行回答「这是什么、谁写的、什么时候、引了几条」。
-  test('日期和来源数各只出现一次:面包屑只导航,meta 行讲这条笔记',
+  //
+  // 「N corpus sources」那一格**已经拆掉**。它读的是 `raw → promote` 那条链的长度，而 vault
+  // 导入建的是 wiki 条目本身，这条链是空的 —— 于是它在整个 575 条语料上恒显示 `0`。
+  // 一个永远是零的计数不提供信息，只占着 meta 行的位置，还让人以为"这篇没有出处"，
+  // 而真相是"这套流程你没用过"。owner 判定它没用，拆了。
+  // 不变量本身没变，下面照旧守：一件事在一屏上只说一遍。
+  test('日期只出现一次:面包屑只导航,meta 行讲这条笔记',
     async ({ page }) => {
       await goto(page, `/wiki/${PATH}`);
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
-      // 一条来源就说 “1 corpus source”。这条断言以前逐字钉着 `1 corpus sources` ——
-      // 把一个复数 bug 记成了产品要求（[[parked-test-carries-a-wrong-diagnosis]] 同一形状）。
-      await expect(page.getByTestId('wiki-sources-count')).toHaveText('1 corpus source');
       await expect(page.getByTestId('wiki-meta')).toContainText(OWNER.fullName);
+      // 拆掉之后不许换个说法又冒出来 —— 判负的那一半。
+      await expect(page.getByTestId('wiki-meta'), '来源计数已移除，不该以任何措辞回来')
+        .not.toContainText('corpus source');
 
       const crumb = page.getByTestId('wiki-breadcrumb');
       // 取文本再判 —— `.not.toContainText` 在元素还没出现时也算通过
