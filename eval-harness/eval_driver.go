@@ -12,7 +12,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
@@ -26,6 +28,10 @@ const evalOwnerName = "Sijie Wang"
 // LLM cred. Construct one per launch; it carries no shared state, so N can run in
 // parallel (the prompt-experiment use case).
 type EvalDriver struct {
+	// FailSearchFirst —— 头 N 次 corpus_search 直接报错,之后恢复。默认 0 = 从不报错。
+	FailSearchFirst int
+	searchCalls     int
+
 	roleBody string
 	corpus   []agentcore.VisitorCorpusEntry
 	skill    *agentcore.VisitorSkillSpec
@@ -83,12 +89,30 @@ func (d *EvalDriver) Resolve(_ context.Context) (agentcore.Cred, error) { return
 // over its host socket. ACL-free in-memory ops over the persona corpus (incl. private
 // entries); the agentcore bridge applies the granted-glob ACL, so privacy still holds.
 
+// SearchCorpus —— 词级匹配,不是整条 query 当子串。
+//
+// 上一版是 `strings.Contains(title+body, wholeQuery)`,而那**两个方向都不像真的**,
+// 并且它给的梯度是反的:正文里有 "Regulation is the core… A regulator holds…",
+// 一个正常的查询 `regulation theory` 因为这两个词没连着出现 → 0 条,而偷懒的
+// `regulator` → 命中。于是任何"agent 该不该把问题问得更具体"的实验,都会被这个
+// 替身判成「越具体越差」。替身要按真索引的规矩答,再拿它去量产品。
+//
+// 规矩取两个真后端的公共部分:**按词切,一个词命中就算命中,词序无关**
+// (Postgres FTS 和 Meili 都是这样)。CJK 不切词 —— 连续中文串按整串比,
+// 这正是 Postgres 那条路的行为,也是这套语料上最保守的假设。
 func (d *EvalDriver) SearchCorpus(_ context.Context, query string) ([]agentcore.CorpusHit, error) {
-	q := strings.ToLower(strings.TrimSpace(query))
+	// FailSearchFirst —— 前 N 次调用直接报错(默认 0 = 从不报错)。给「工具报错之后 agent
+	// 会不会换路」那个探针用。做成 EvalDriver 自己的字段而不是包一层:launchCandidate
+	// 硬绑 *EvalDriver,包出来的类型进不去。
+	d.searchCalls++
+	if d.searchCalls <= d.FailSearchFirst {
+		return nil, fmt.Errorf("search backend unavailable (attempt %d)", d.searchCalls)
+	}
+	terms := searchTerms(query)
 	hits := make([]agentcore.CorpusHit, 0, len(d.corpus))
 	for i := range d.corpus {
 		e := &d.corpus[i]
-		if q != "" && !strings.Contains(strings.ToLower(e.Title+" "+e.Body), q) {
+		if !matchesAnyTerm(strings.ToLower(e.Title+" "+e.Body), terms) {
 			continue
 		}
 		hits = append(hits, agentcore.CorpusHit{
@@ -97,6 +121,27 @@ func (d *EvalDriver) SearchCorpus(_ context.Context, query string) ([]agentcore.
 		})
 	}
 	return hits, nil
+}
+
+// searchTerms —— 把查询切成词。空查询 → 空切片(调用方视作"全返")。
+func searchTerms(query string) []string {
+	return strings.FieldsFunc(strings.ToLower(strings.TrimSpace(query)), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+}
+
+// matchesAnyTerm —— 任一词命中即命中(OR)。真索引按相关度排序、不做 AND 过滤,
+// 这里不排序,所以取 OR —— 宁可多给几条让 agent 自己分诊,那也是它手上有 corpus_peek 的原因。
+func matchesAnyTerm(hay string, terms []string) bool {
+	if len(terms) == 0 {
+		return true
+	}
+	for _, t := range terms {
+		if strings.Contains(hay, t) {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *EvalDriver) ListCorpus(_ context.Context, parentPath string, _ int) ([]agentcore.CorpusHit, error) {
