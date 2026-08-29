@@ -35,6 +35,28 @@ export function useCitationHref():
   return (c) => withLang(citationHref(c), lang);
 }
 
+// useReaderLangHref —— 给一条**已经算好的**地址接上语言。
+//
+// 正文里的链接不经 corpusHref:vault 的 `[[X]]` 由后端改写成 `/wiki/<path>` 再交给
+// markdown 渲染。而那恰恰是读者读着读着点得最多的一种链接 —— 面包屑带上了语言、
+// 正文里的没带,选择照样在第一次点击时丢掉(线上量到的就是这个:面包屑三条带 ?lang=zh,
+// 正文里三条光秃秃)。
+//
+// 只认本站的语料路径:外链和别的路由原样不动 —— 给第三方的地址挂一个我们的查询参数
+// 既没用又冒犯。
+export function useReaderLangHref(): (href: string) => string {
+  const lang = useSearchParams()?.get('lang') ?? '';
+  return (href: string) => (isCorpusPath(href) ? withLang(href, lang) : href);
+}
+
+const CORPUS_PATH = /^\/(wiki|output|writings)\//;
+
+// isCorpusPath —— 本站的语料地址,而且**还没带查询串**。带了的自己已经说清要什么,
+// 不覆盖(比如切换器自己那几条 `?lang=en`)。
+function isCorpusPath(href: string): boolean {
+  return CORPUS_PATH.test(href) && !href.includes('?');
+}
+
 // withLang —— 空地址原样返回（调用方据此不渲染链接，见 corpusHref）。
 function withLang(href: string, lang: string): string {
   return href === '' || lang === '' ? href : `${href}?lang=${encodeURIComponent(lang)}`;

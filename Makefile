@@ -5,7 +5,7 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
@@ -389,6 +389,25 @@ prod-clean:
 # prod-fresh —— recreate the prod stack from scratch (fresh schema).
 # Inherits prod-clean's confirmation: `make prod-fresh I_MEAN_IT=yes`.
 prod-fresh: prod-clean prod-up
+
+# release-gc —— 一轮发布之后把它自己占的东西还回去。
+#
+# 一次 `release-push` 留下两样常驻:多架构构建用的 buildx builder(一个容器,实测
+# 常驻近 1 GB)和它内部的构建缓存。它们不会自己走 —— 上一次发布结束 42 小时之后
+# 还在那儿占着,而这台机器上同时跑着别的项目。
+#
+# **只动本仓库自己的东西**:按名字停 standmeet-release 这一个 builder,按标签删悬空的
+# standmeet 镜像。不碰全局的 `docker system prune` —— 那会连别人的缓存一起清掉,
+# 而这台机器是多项目共用的(同一条教训:范围要收在自己那份上)。
+release-gc:
+	@docker buildx rm standmeet-release >/dev/null 2>&1 \
+	  && echo "  buildx builder standmeet-release 已删(下次发布自动重建)" \
+	  || echo "  buildx builder standmeet-release 不在"
+	@n=$$(docker images -f dangling=true -q --filter=reference='ghcr.io/atmaxmoj/standmeet-*' | wc -l | tr -d ' '); \
+	  docker images -f dangling=true -q --filter=reference='ghcr.io/atmaxmoj/standmeet-*' \
+	    | xargs -r docker rmi >/dev/null 2>&1 || true; \
+	  echo "  悬空的 standmeet 镜像: 清掉 $$n 个"
+	@echo "[release-gc] 只清了本仓库自己的构建产物,别的项目的缓存没动"
 
 # gateway-up —— 只起 llm-gateway sidecar (eval-smoke 用)，不跑 app-build /
 # 整栈。Anthropic-compat mock，host :9300，确定性脚本回复。

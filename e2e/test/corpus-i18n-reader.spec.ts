@@ -50,6 +50,9 @@ const BODY = [
   '>',
   '> > [!lang] ja',
   '> > 二番目の日本語の区画。',
+  '',
+  // 正文里的 vault 链接 —— 它走的是后端的 `[[X]]` 改写那条路,不是 corpusHref 那条。
+  'See also [[Second Note]].',
 ].join('\n');
 
 // 第二条笔记 —— 只为「换一条笔记接着读」那条用例存在,所以只要两种语言分得开就够。
@@ -192,6 +195,20 @@ test.describe('multilingual reader · the switcher', () => {
     expect(new URL(page.url()).searchParams.get('lang'), '语言选择要跟着走').toBe('zh');
     await expect(page.getByTestId('wiki-landing'), '而且真的读到中文那一面')
       .toContainText('第二条笔记的中文');
+  });
+
+  // **正文里**那些链接也得带上。它们跟树上那些不是同一条路:vault 的 `[[X]]` 由后端
+  // 改写成 `/wiki/<path>` 再交给 markdown 渲染,不经 corpusHref。上线之后在线上量到过:
+  // 面包屑三条都带了 `?lang=zh`,正文里三条光秃秃 —— 而读着读着点得最多的正是后者。
+  // 一处修好、另一处照旧,读者感觉不到差别(同样是点一下就回英文)。
+  test('正文里的 wikilink 也带着语言', async ({ page }) => {
+    await readIn(page, 'zh');
+    const body = page.getByTestId('wiki-body');
+    await expect(body).toBeVisible();
+    const link = body.getByRole('link', { name: 'Second Note' });
+    await expect(link, '正文里那条 [[Second Note]] 渲成了链接').toBeVisible();
+    expect(await link.getAttribute('href'), '正文里的链接同样要带语言')
+      .toContain('lang=zh');
   });
 });
 

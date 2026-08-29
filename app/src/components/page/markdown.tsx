@@ -18,6 +18,7 @@ import remarkCjkFriendly from 'remark-cjk-friendly';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
+import { useReaderLangHref } from '@/lib/corpus/use-corpus-href';
 import { remarkCallouts } from '@/components/page/markdown-callouts';
 import { remarkVaultLinks } from '@/components/page/markdown-vault-links';
 import {
@@ -121,6 +122,15 @@ function LazyBlock(
 // 见 ChatMarkdown.module.css 的 .article 修饰。两种共用同一条 markdown 管线。
 type MarkdownVariant = 'chat' | 'article';
 
+// CorpusAnchor —— 正文里的链接。vault 的 `[[X]]` 由后端改写成 `/wiki/<path>` 才进
+// markdown,不经 corpusHref —— 所以读者选的语言在**正文里那些链接**上会掉,而那正是
+// 读着读着点得最多的一种。这里给它们接上;外链一个字不动。
+function CorpusAnchor(props: React.ComponentPropsWithoutRef<'a'>): React.ReactElement {
+  const withLang = useReaderLangHref();
+  const { href, ...rest } = props;
+  return <a href={withLang(href ?? '')} {...rest} />;
+}
+
 export function ChatMarkdown(
   { source, variant = 'chat' }: { source: string; variant?: MarkdownVariant },
 ): React.ReactElement {
@@ -141,7 +151,7 @@ export function ChatMarkdown(
         // still stripping any <script> the LLM/skill output carried. This is katex's own
         // recommended sanitize order — do not swap it back.
         rehypePlugins={[[rehypeSanitize, SAFE_SCHEMA], rehypeKatex]}
-        components={{ code: MarkdownCode }}
+        components={{ code: MarkdownCode, a: CorpusAnchor }}
       >
         {escapeCurrencyDollars(promoteDisplayMath(source))}
       </ReactMarkdown>
