@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
-import { corpusHref } from '@/lib/corpus/href';
+import { useCorpusHref } from '@/lib/corpus/use-corpus-href';
 import type { TreeNode } from '@/lib/corpus/tree';
 import { subscribeScopedChildren } from '@/lib/visitor/load-wiki-children';
 
@@ -18,6 +18,7 @@ export function WikiScopedSubEntries({ slug, initial }: { slug: string; initial:
   const t = useTranslations('reader');
   const [nodes, setNodes] = useState<TreeNode[]>(initial);
   useEffect(() => subscribeScopedChildren(slug, setNodes), [slug]);
+  const href = useCorpusHref();
   return nodes.length > 0 ? (
     <div className="mt-12" data-testid="wiki-subentries">
       <div className="smallcaps mb-3">{t('wiki.subEntries')}</div>
@@ -25,7 +26,7 @@ export function WikiScopedSubEntries({ slug, initial }: { slug: string; initial:
         {nodes.map((c) => (
           <li key={c.id}>
             <Link
-              href={corpusHref({ genre: 'wiki', path: c.path })}
+              href={href({ genre: 'wiki', path: c.path })}
               className="reading text-(--color-ink) hover:text-(--color-accent) text-[15px]"
             >
               {c.title} <span className="text-(--color-faint)">→</span>

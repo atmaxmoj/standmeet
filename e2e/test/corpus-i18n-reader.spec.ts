@@ -52,15 +52,39 @@ const BODY = [
   '> > 二番目の日本語の区画。',
 ].join('\n');
 
+// 第二条笔记 —— 只为「换一条笔记接着读」那条用例存在,所以只要两种语言分得开就够。
+const SECOND_BODY = [
+  '> [!i18n]',
+  '> > [!lang] en',
+  '> > The second note, in English.',
+  '>',
+  '> > [!lang] zh',
+  '> > 第二条笔记的中文正文。',
+].join('\n');
+
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async ({ playwright }) => {
+  // hook **不吃** describe 那份 timeout,自己要一份:这里 claim 一个 owner、开 MCP、
+  // 种两条笔记再各发布一次,30 秒的默认预算不够。
+  test.setTimeout(120_000);
   O = await setupRetrievalOwner(playwright, 'i18nreader');
   const seeded = await seedWiki(O.request, O.apiToken, O.sid, {
     title: 'Dynamics', path: 'projects/dynamics', body: BODY,
   });
   wikiID = seeded.wikiID;
   await setPublished(O.request, O.csrf, wikiID, true);
+
+  // 第二条多语笔记 —— 「选了语言接着读别的」这件事一条笔记上验不了。
+  //
+  // 种在**根上**而不是 `projects/` 下:目录节点(`projects`)是按路径自动建出来的,
+  // 没人发布过它,于是它 published=false,树的根层匿名只返回空 —— 它下面两条已发布的
+  // 笔记跟着一起不可达(实测 `GET /api/v1/wiki-tree` → `{"nodes":[]}`)。
+  // 那是另一条缺陷,不该由这条用例扛:它要问的是语言跟不跟着走。
+  const second = await seedWiki(O.request, O.apiToken, O.sid, {
+    title: 'Second Note', path: 'second', body: SECOND_BODY,
+  });
+  await setPublished(O.request, O.csrf, second.wikiID, true);
 });
 
 test.afterAll(async () => { await O.request.dispose(); });
@@ -148,6 +172,27 @@ test.describe('multilingual reader · the switcher', () => {
       await expect(page.getByTestId('wiki-landing'), 'falls back, no 500')
         .toContainText('English prose about');
     });
+
+  // 选完语言接着往下读 —— 这是读者真正在做的事,而语言选择在**第一次点开另一条笔记**
+  // 时就没了:树上每条链接都是光秃秃的 `/wiki/<path>`,一点回英文。
+  // 只能选一次的选择等于没有这个选择(owner 原话:「那我要他有什么用」)。
+  //
+  // 宽视口是必须的:树轨按设计只在 ≥1500px 出现(窄屏走别的形态),默认 1280 的视口上
+  // 根本没有那几条链接可点 —— 那样这条用例会因为「找不到元素」而红,红得跟缺陷无关。
+  test('选了语言之后接着点别的笔记，语言跟着走', async ({ page }) => {
+    await page.setViewportSize({ width: 1700, height: 1000 });
+    await readIn(page, 'zh');
+    await expect(page.getByTestId('wiki-landing')).toContainText('关于动力学的中文正文');
+
+    const other = page.getByTestId('wiki-toc').getByRole('link', { name: 'Second Note' });
+    await expect(other, '树上要看得见另一条笔记').toBeVisible({ timeout: 10_000 });
+    await other.click();
+    await page.waitForURL('**/wiki/second**');
+
+    expect(new URL(page.url()).searchParams.get('lang'), '语言选择要跟着走').toBe('zh');
+    await expect(page.getByTestId('wiki-landing'), '而且真的读到中文那一面')
+      .toContainText('第二条笔记的中文');
+  });
 });
 
 // 页头印了标题,正文第一行又印一次 —— vault 里两种形状都有:

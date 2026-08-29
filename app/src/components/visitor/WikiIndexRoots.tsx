@@ -12,7 +12,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-import { corpusHref } from '@/lib/corpus/href';
+import { useCorpusHref } from '@/lib/corpus/use-corpus-href';
 import type { WikiTreeStats } from '@/lib/api/public';
 import type { TreeNode } from '@/lib/corpus/tree';
 import { WikiIndexEmpty } from '@/components/visitor/WikiIndexEmpty';
@@ -25,13 +25,14 @@ export function WikiIndexRoots({ roots, stats }: {
   const [scoped, setScoped] = useState<readonly TreeNode[] | null>(null);
   useEffect(() => subscribeScopedRoots(setScoped), []);
   const shown = scoped ?? roots;
+  const href = useCorpusHref();
   return (
     <>
       <ul className="flex flex-col gap-3 list-none p-0 m-0" data-testid="wiki-index-roots">
         {shown.map((n) => (
           <li key={n.id}>
             <Link
-              href={corpusHref({ genre: 'wiki', path: n.path })}
+              href={href({ genre: 'wiki', path: n.path })}
               className="font-serif text-(--color-ink) hover:text-(--color-accent) text-[19px]"
             >
               {n.title} <span className="text-(--color-faint)">→</span>

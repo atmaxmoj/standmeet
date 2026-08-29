@@ -12,7 +12,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
-import { corpusHref } from '@/lib/corpus/href';
+import { useCorpusHref } from '@/lib/corpus/use-corpus-href';
 import { LazyTree } from '@/components/corpus/LazyTree';
 import type { TreeNode } from '@/lib/corpus/tree';
 import type { WikiTreeStats } from '@/lib/api/public';
@@ -70,9 +70,11 @@ function TreeStats({ stats }: { stats: WikiTreeStats }) {
 }
 
 function WikiLabel({ node, active }: { node: TreeNode; active: boolean }) {
+  // useCorpusHref 而不是 corpusHref:读者选的语言要跟着链接走,否则点开下一条就回英文。
+  const href = useCorpusHref();
   return (
     <Link
-      href={corpusHref({ genre: 'wiki', path: node.path })}
+      href={href({ genre: 'wiki', path: node.path })}
       className={`${styles['link']} ${node.locked ? styles['locked'] : ''}`}
       data-active={active ? 'true' : undefined}
       title={node.title}

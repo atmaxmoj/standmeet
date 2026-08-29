@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { corpusHref } from '@/lib/corpus/href';
+import { WritingCrumb } from '@/components/writings/WritingCrumb';
 import { fetchWriting, fetchWritingContext } from '@/lib/api/public';
 import { WritingArticle } from '@/components/writings/WritingArticle';
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
@@ -55,20 +55,10 @@ async function ReaderBreadcrumb({ ancestors, current }: { ancestors: TreeNode[];
       data-testid="writing-breadcrumb"
     >
       <Link href="/writings" className="text-(--color-muted) hover:text-(--color-ink)">{t('back')}</Link>
-      {ancestors.map((a) => <Crumb key={a.id} node={a} />)}
+      {ancestors.map((a) => <WritingCrumb key={a.id} node={a} />)}
       <span className="text-(--color-faint)">{'▸'}</span>
       <span className="text-(--color-ink)">{current}</span>
     </nav>
   );
 }
 
-function Crumb({ node }: { node: TreeNode }) {
-  return (
-    <>
-      <span className="text-(--color-faint)">{'▸'}</span>
-      <Link href={corpusHref({ genre: 'writing', slug: node.path })} className="text-(--color-muted) hover:text-(--color-ink)">
-        {node.title}
-      </Link>
-    </>
-  );
-}

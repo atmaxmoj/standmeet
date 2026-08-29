@@ -11,7 +11,7 @@
 
 import { useTranslations } from 'next-intl';
 
-import { citationHref } from '@/lib/corpus/href';
+import { useCitationHref } from '@/lib/corpus/use-corpus-href';
 import { useThinkingWord } from '@/lib/page/thinking-words';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
@@ -157,10 +157,11 @@ function CitationsList({ citations }: { citations?: readonly Citation[] }) {
 }
 
 function CitationRow({ c }: { c: Citation }) {
+  const href = useCitationHref();
   return (
     <li>
       <a
-        href={citationHref(c)}
+        href={href(c)}
         target="_blank"
         rel="noreferrer"
         className="mono text-[11px] text-(--color-muted) hover:text-(--color-accent) transition-colors flex items-baseline gap-2"

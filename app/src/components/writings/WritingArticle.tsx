@@ -17,7 +17,7 @@ import { useTranslations } from 'next-intl';
 import Markdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 
-import { corpusHref } from '@/lib/corpus/href';
+import { useCorpusHref } from '@/lib/corpus/use-corpus-href';
 import type { BacklinkRef, WritingView } from '@/lib/api/public';
 import { Cover } from '@/components/writings/Cover';
 import { CorpusContent } from '@/components/page/CorpusContent';
@@ -72,6 +72,7 @@ function UnlockedView({ writing }: { writing: WritingView }) {
 // 引到本篇的来源。空就不渲染。
 function Backlinks({ refs }: { refs: BacklinkRef[] }) {
   const t = useTranslations('writings.article');
+  const href = useCorpusHref();
   return refs.length === 0 ? null : (
     <aside
       className="max-w-[680px] mx-auto px-6 lg:px-0 mt-16 pt-8 border-t border-(--color-rule)"
@@ -84,7 +85,7 @@ function Backlinks({ refs }: { refs: BacklinkRef[] }) {
         {refs.map((r) => (
           <li key={r.slug} data-testid={`backlink-${r.slug}`}>
             <Link
-              href={corpusHref({ genre: 'writing', slug: r.slug })}
+              href={href({ genre: 'writing', slug: r.slug })}
               className="text-(--color-ink) hover:text-(--color-accent)"
             >
               {r.title}

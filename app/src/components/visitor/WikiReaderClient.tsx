@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
-import { corpusHref } from '@/lib/corpus/href';
+import { useCorpusHref } from '@/lib/corpus/use-corpus-href';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
 import { coverURL, expandBody } from '@/lib/corpus/media';
@@ -227,11 +227,12 @@ function Breadcrumb({ ancestors, current }: {
 }
 
 function Crumb({ node }: { node: TreeNode }) {
+  const href = useCorpusHref();
   return (
     <>
       <span className="text-(--color-faint)">{'▸'}</span>
       <Link
-        href={corpusHref({ genre: 'wiki', path: node.path })}
+        href={href({ genre: 'wiki', path: node.path })}
         className="font-serif italic text-[13px] normal-case tracking-normal text-(--color-muted) hover:text-(--color-ink)"
       >
         {node.title}
@@ -243,6 +244,7 @@ function Crumb({ node }: { node: TreeNode }) {
 function RelatedRail(
   { items, title, testid }: { items: readonly WikiRef[]; title: string; testid: string },
 ) {
+  const href = useCorpusHref();
   return items.length > 0 ? (
     <div className="mt-12" data-testid={testid}>
       <div className="smallcaps mb-3">{title}</div>
@@ -250,7 +252,7 @@ function RelatedRail(
         {items.map((r) => (
           <li key={r.path}>
             <Link
-              href={corpusHref({ genre: 'wiki', path: r.path })}
+              href={href({ genre: 'wiki', path: r.path })}
               className="reading text-(--color-ink) hover:text-(--color-accent) text-[15px]"
             >
               {r.title} <span className="text-(--color-faint)">→</span>

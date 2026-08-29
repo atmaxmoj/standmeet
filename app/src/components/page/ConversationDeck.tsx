@@ -16,7 +16,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { citationHref } from '@/lib/corpus/href';
+import { useCitationHref } from '@/lib/corpus/use-corpus-href';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
@@ -222,10 +222,11 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
 // ChatTranscript 一份），它把体裁名当成了路由名 —— writings 的体裁是单数、路由是复数，
 // 于是 prod 上那唯一一篇公开 writing 的引用点开是 404。
 function CitationRow({ c }: { c: Citation }) {
+  const href = useCitationHref();
   return (
     <li>
       <a
-        href={citationHref(c)}
+        href={href(c)}
         target="_blank"
         rel="noreferrer"
         className="flex items-baseline gap-3 hover:text-(--color-accent) transition-colors"
