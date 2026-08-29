@@ -51,6 +51,11 @@ services:
       context: .                   # repo root: backend links mcp-servers/* in-process
       dockerfile: backend/Dockerfile
       target: production           # build stage 已经跑了 lint；dev 走完整链
+      args:
+        # dev 也盖版本章。不盖的话 dev 报 "dev"，而 "dev" 不是发行版本号 ——
+        # 于是升级检查在 dev 走的是「比不了」那条分支，线上走的是「比得了」那条，
+        # 两边根本不是同一条路。盖一个**落后的**发行号，dev 就跟一台该升级的真实例一样。
+        STANDMEET_VERSION: v0.0.1
     restart: unless-stopped
     environment:
       - HOST=0.0.0.0
@@ -110,6 +115,9 @@ services:
       # public internet (rate limits / determinism). Production leaves
       # these unset → real api.github.com / api.skillsmp.com.
       - MARKETPLACE_GITHUB_BASE_URL=http://external-mock:9000/marketplace/github
+      # 升级检查问的那个镜像库。指到 mock —— 一条打公网才成立的用例，
+      # 在没网的机器上红得跟产品坏了一模一样。
+      - STANDMEET_RELEASE_REGISTRY=http://external-mock:9000/registry
       - MARKETPLACE_SKILLSMP_BASE_URL=http://external-mock:9000/marketplace/skillsmp
       # Gotenberg sidecar (headless Chromium) for resume PDF rendering.
       # applications.commit POSTs the admin /print/application URL here and

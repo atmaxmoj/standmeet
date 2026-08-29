@@ -10,7 +10,14 @@ import "github.com/atmaxmoj/standmeet/internal/stats/ops"
 type (
 	InstanceDeps     = ops.InstanceDeps
 	SystemInfoSource = ops.SystemInfoSource
+	UpgradeDeps      = ops.UpgradeDeps
+	UpgradeSources   = ops.UpgradeSources
+	ReleaseSource    = ops.ReleaseSource
+	Redeploy         = ops.Redeploy
 )
 
 // 操作组（实现:ops）.
-var InstanceOps = ops.Instance
+var (
+	InstanceOps = ops.Instance
+	UpgradeOps  = ops.Upgrade
+)

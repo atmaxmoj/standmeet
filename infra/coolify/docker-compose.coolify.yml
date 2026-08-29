@@ -123,6 +123,14 @@ services:
       - CONNECTOR_SPEC_MAX_BYTES=${CONNECTOR_SPEC_MAX_BYTES:-}
       # 技能市场读哪个仓库；空 = 公共的 anthropics/skills。
       - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
+      # /admin/system 那个升级按钮打给谁。这台实例没有宿主控制权（下面刻意不挂
+      # docker.sock），所以它自己拉不动镜像、重建不了容器 —— 能做这件事的是 Coolify。
+      # 在 Coolify 里给这个服务开一条 deploy webhook，把那个 URL 填在这里，按钮就真按得动。
+      # 留空也行：按钮会如实说自己做不到，并告诉 owner 该怎么升。
+      - STANDMEET_REDEPLOY_HOOK=${STANDMEET_REDEPLOY_HOOK:-}
+      # 去哪儿问「有没有新版」。空 = 官方镜像库。
+      - STANDMEET_RELEASE_REGISTRY=${STANDMEET_RELEASE_REGISTRY:-}
+      - STANDMEET_RELEASE_REPO=${STANDMEET_RELEASE_REPO:-}
       # ── 第三方沙箱插件（origin=managed）：默认关，要挂宿主的 manifest + docker.sock。
       # 内建那五个（retrieval / ask_visitor / summarize / booker / mail-sender）**不走这里** ——
       # 它们烤在镜像的 /srv/plugins 里，靠下面那组权限起 bwrap。两件事，别混。

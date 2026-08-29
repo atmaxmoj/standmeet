@@ -96,6 +96,10 @@ type Runtime struct {
 	PrintStore         *printsess.Store
 	MarketplaceClient  *marketplace.Client
 	AgentSkills        *capreg.Registry
+	// Upgrade —— /admin/system 的升级那一格:去哪儿问有没有新版,以及请谁重新部署这台实例。
+	// 两个都在组装根构造(port/upgrade.go),因为它们一个走出站 HTTP、
+	// 一个拿的是 owner 填的部署凭据,都不属于 stats 域。
+	Upgrade stats.UpgradeSources
 	// DepRegistry —— 命名依赖(连接器)注册表。registerAgentSkills 建好后回填:
 	// 装配期的 Requires 闸、ext-mcp 的 dep-grant 闸、市场卡的「还缺哪个连接器」共用这一份。
 	DepRegistry *capreg.DepRegistry

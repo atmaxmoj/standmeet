@@ -96,6 +96,9 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			System: port.NewSysInfoProvider(d), Usage: d.InferenceUsageRepo,
 			Growth: d.GrowthRepo, Activity: d.ActivityRepo, Jobs: d.JobRegistry,
 		},
+		Upgrade: stats.UpgradeDeps{
+			System: port.NewSysInfoProvider(d), UpgradeSources: d.Upgrade,
+		},
 	})
 	// 两根插件轴自己的那两个资源:它们没有域可归(读的是能力注册表和连接器槽),
 	// 所以声明也在这一侧 —— 见 axiscap/ops.go / axiscap/config.go。

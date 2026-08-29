@@ -220,6 +220,11 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /marketplace/github/contents/skills/{id}/SKILL.md", s.serveMarketplaceGitHubSkillMD)
 	mux.HandleFunc("GET /marketplace/skillsmp/skills/{id}", s.serveMarketplaceSkillsMPSkillMD)
 
+	// OCI registry mock —— /admin/system 的「有没有新版」。真实对象是 ghcr.io;
+	// STANDMEET_RELEASE_REGISTRY 在 dev/e2e 指到这里。
+	mux.HandleFunc("GET /registry/token", s.serveRegistryToken)
+	mux.HandleFunc("GET /registry/v2/{owner}/{repo}/tags/list", s.serveRegistryTags)
+
 	// Google Calendar OAuth + API + FreeBusy mocks. Backend's
 	// internal/gcal package points GOOGLE_OAUTH_BASE_URL and
 	// GOOGLE_CALENDAR_BASE_URL at these in dev/e2e.

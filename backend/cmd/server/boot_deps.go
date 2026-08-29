@@ -195,9 +195,9 @@ func assembleRuntimeDeps(
 		PdfRenderer:        buildPDFRenderer(log, cfg, printStore),
 		ReportPDFRenderer:  buildReportPDFRenderer(cfg),
 		MarketplaceClient: marketplace.NewFromEnv(
-			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
-		),
+			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL),
 		AgentSkills: capreg.NewRegistry(),
+		Upgrade:     upgradeSources(cfg),
 		// 两颗探针造在这里:开封器只在组装根拿得到(见 deps.go 上那两个字段)。
 		MCPProber:      &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
 		ProviderModels: &providerModelLister{owners: repos.owner},

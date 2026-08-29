@@ -10,22 +10,21 @@ import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
+import { UpgradePanel } from '@/components/admin/sections/system/UpgradePanel';
 import { useScheduledJobs, jobRowViews } from '@/lib/admin/use-jobs';
 import {
   useSystemInfo, deployView, healthList, resourceStats, type SystemInfo,
 } from '@/lib/admin/use-system-info';
 
 export function SystemSection() {
-  const t = useTranslations('adminShell.system');
   const { info } = useSystemInfo();
   return (
     <>
-      <SectionHeader
-        kicker="settings · runtime"
-        slug="system"
-        action={<button className="sm-btn sm-btn-outline sm-btn-sm" type="button">{t('checkForUpdates')}</button>}
-      />
+      {/* 顶栏那个按钮搬进 UpgradePanel 了 —— 它原先没有 onClick,接不上任何东西,
+          而按钮旁边还得有地方说结果(升上去了没有),顶栏那一格放不下。 */}
+      <SectionHeader kicker="settings · runtime" slug="system" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <UpgradePanel />
         <DeploymentBlock info={info} />
         <ResourcesBlock info={info} />
         <JobsTable />

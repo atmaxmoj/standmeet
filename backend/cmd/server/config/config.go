@@ -74,6 +74,22 @@ type Config struct {
 	// 是可选加速层,Postgres 仍是 source-of-truth。env: MEILI_URL / MEILI_KEY
 	MeiliURL string
 	MeiliKey string
+	// RedeployHookURL —— /admin/system 那个「升级」按钮打给谁。
+	//
+	// 这台实例**没有**宿主的控制权(compose 里 backend 刻意不挂 docker.sock),所以它自己
+	// 拉不动镜像、重建不了容器。真正能做这件事的是编排它的那一方(Coolify / Portainer /
+	// 一条 CI webhook),而权限得由 owner 亲手给:他把那一方给的重新部署 URL 填在这里。
+	//
+	// 产品不发明这个权限,也不假设编排方是谁 —— 只认一个不透明的 URL,POST 它。
+	// 空 = 按钮如实说自己做不到,改成告诉 owner 该跑哪条命令。
+	// env: STANDMEET_REDEPLOY_HOOK
+	RedeployHookURL string
+	// ReleaseRegistry / ReleaseRepo —— 去哪儿问「有没有新版」。默认官方镜像库;
+	// 自建 fork 的人改 repo,dev/e2e 把 registry 指到本地 mock(一条打公网才成立的
+	// 用例,在没网的机器上红得跟产品坏了一模一样)。
+	// env: STANDMEET_RELEASE_REGISTRY / STANDMEET_RELEASE_REPO
+	ReleaseRegistry string
+	ReleaseRepo     string
 	// QueryQueueMaxConcurrent —— visitor chat agent loop 全局并发上限；
 	// 防一个 owner 的 anthropic 配额被并发访客打爆。≤0 关闭限流（dev 默认）。
 	// env: QUERY_QUEUE_MAX_CONCURRENT
@@ -97,6 +113,13 @@ var (
 const (
 	defaultGotenbergHost = "gotenberg:3000"
 	defaultPrintHost     = "app:3000"
+)
+
+// defaultReleaseRegistry / defaultReleaseRepo —— 官方镜像库,`instance.upgrade_check`
+// 去这里问已发布了哪些版本。自己 fork 出去发的人用那两个 env 换掉。
+const (
+	defaultReleaseRegistry = "https://ghcr.io"
+	defaultReleaseRepo     = "atmaxmoj/standmeet-backend"
 )
 
 // internalURL 拼一条内网 compose 服务的 base URL。私有 docker 网内明文 http
@@ -141,6 +164,9 @@ func Load() (*Config, error) {
 		PrintBaseURL:               envOr("PRINT_BASE_URL", internalURL(defaultPrintHost)),
 		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
 		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
+		RedeployHookURL:            os.Getenv("STANDMEET_REDEPLOY_HOOK"),
+		ReleaseRegistry:            envOr("STANDMEET_RELEASE_REGISTRY", defaultReleaseRegistry),
+		ReleaseRepo:                envOr("STANDMEET_RELEASE_REPO", defaultReleaseRepo),
 		StorageUseSSL:              os.Getenv("STORAGE_USE_SSL") == "true",
 		SecureCookie:               envOr("SECURE_COOKIE", "true") == "true",
 	}

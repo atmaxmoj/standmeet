@@ -24,6 +24,7 @@ type Deps struct {
 	Corpus         corpus.Deps
 	Writings       corpus.OpsWritingsDeps
 	Instance       stats.InstanceDeps
+	Upgrade        stats.UpgradeDeps
 	Page           owner.OpsPage
 	Account        owner.OpsAccountDeps
 	Roles          access.OpsRoles
@@ -60,7 +61,9 @@ func Collect(d *Deps) []Resource {
 		{Name: "account", Ops: owner.AccountOps(d.Account)},
 		{Name: "custom_pages", Ops: owner.CustomPageOps(d.CustomPages)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
-		{Name: "instance", Ops: stats.InstanceOps(d.Instance)},
+		// 升级那两个口也姓 instance —— 同一个资源,两组声明。
+		{Name: "instance", Ops: append(
+			stats.InstanceOps(d.Instance), stats.UpgradeOps(d.Upgrade)...)},
 		{Name: "mcp_servers", Ops: marketplace.MCPServerOps(d.MCPServers)},
 		{Name: "skills", Ops: marketplace.SkillOps(d.Skills)},
 		{Name: "marketplace", Ops: marketplace.MarketplaceOps(d.Marketplace)},

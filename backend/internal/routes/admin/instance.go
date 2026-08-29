@@ -34,4 +34,6 @@ func (h *Handlers) MountInstance(r chi.Router) {
 		h.dispatchOp(face, "instance.corpus_graph", queryArgsRenamed(nil, "limit"), jsonOK))
 	r.Get("/stats/activity", h.dispatchOp(face, "instance.activity", emptyArgs, jsonOK))
 	r.Get("/stats/jobs", h.dispatchOp(face, "instance.jobs", emptyArgs, jsonOK))
+	r.Get("/upgrade", h.dispatchOp(face, "instance.upgrade_check", emptyArgs, jsonOK))
+	r.Post("/upgrade", h.dispatchOp(face, "instance.upgrade", emptyArgs, jsonOK))
 }
