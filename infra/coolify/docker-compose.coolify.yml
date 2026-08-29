@@ -110,9 +110,19 @@ services:
       # 人机校验：两个都填了才开。
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
-      # Meilisearch：不填 = 语料搜索走 Postgres 全文检索（这套栈自带的那条路）。
-      - MEILI_URL=${MEILI_URL:-}
-      - MEILI_KEY=${MEILI_KEY:-}
+      # Meilisearch：语料搜索的词法索引，现在**随栈自带**（下面有服务）。
+      #
+      # 它以前不在，退路是 Postgres 全文。在线上量过：那条退路**做不了中文** ——
+      # `to_tsvector('english', …)` 从不切分中文，于是查询只有在逐字等于正文里那一段
+      # 连续中文时才命中。`无限衍义` 找得到，`限衍`、`三个序列` 全是 0，`三张资格证`
+      # 连"标题里就有这五个字"的那篇都找不到（正文里那一段是「与三张资格证」）。
+      # 英文不受影响 —— 双语语料因此从一侧看完全正常，这个洞才藏得住。
+      #
+      # 空索引比退路更糟，所以这件事成立只因为后端**开机自动回填**
+      # （wire.SearchIndex → ReindexOwner），另有周期 reconcile 补齐。挂上去 + 重启，
+      # 迁移就这些。想用栈外的 Meili 就填这两个，下面那个服务可以删掉。
+      - MEILI_URL=${MEILI_URL:-http://meilisearch:7700}
+      - MEILI_KEY=${MEILI_KEY:-${SERVICE_PASSWORD_MEILI}}
       # SSRF 白名单：**空是生产姿态**，挡掉所有内网地址。
       - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
       # 连接器的出站白名单（跟上面那条是两套策略：上面管后端自己拨出去的，
@@ -175,6 +185,11 @@ services:
         condition: service_healthy
       gotenberg:
         condition: service_healthy
+      # meilisearch —— 故意**不**用 service_healthy：没有它后端照常起（搜索退到 Postgres
+      # 全文，并在 /admin/system 上如实说自己降级了）。等它 = 把一个可选索引变成
+      # 「实例起不来」的理由。
+      meilisearch:
+        condition: service_started
     volumes:
       - custom_pages_data:/srv/custom-pages
     healthcheck:
@@ -259,6 +274,26 @@ services:
       timeout: 3s
       retries: 10
 
+  # meilisearch —— 语料搜索的词法索引。它在栈里，是因为退路（Postgres 全文）切不动中文，
+  # 见上面 MEILI_URL 那段。
+  #
+  # 不映射宿主端口：backend 走 compose 网络连它，healthcheck 在容器内跑 —— 于是它不会跟
+  # 宿主上别的项目已经在跑的 Meili 撞端口（这台机器上就有一个）。
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    restart: unless-stopped
+    environment:
+      - MEILI_MASTER_KEY=${SERVICE_PASSWORD_MEILI}
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_ENV=production
+    volumes:
+      - meilidata:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   # gotenberg —— 简历 PDF 的 headless Chromium 渲染边车。
   gotenberg:
     image: gotenberg/gotenberg:8
@@ -303,6 +338,7 @@ volumes:
   pgdata: {}
   redisdata: {}
   miniodata: {}
+  meilidata: {}
   custom_pages_data: {}
 
 # ── 第三方沙箱插件（origin=managed）—— 可选，默认关 ────────────────────────────────

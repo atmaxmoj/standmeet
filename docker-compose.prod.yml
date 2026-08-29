@@ -80,12 +80,24 @@ services:
       # the code and false of the product: there was no way for an owner to opt in.
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
-      # Meilisearch —— optional lexical search. Unset = corpus search runs on Postgres FTS,
-      # which is the default this stack ships with (no meili service here). Set both to point
-      # at your own instance. Same reason as above: a knob the product reads has to be settable
-      # by the person running it.
-      - MEILI_URL=${MEILI_URL:-}
-      - MEILI_KEY=${MEILI_KEY:-}
+      # Meilisearch —— the lexical index corpus search runs on. It ships IN this stack now.
+      #
+      # It used to be absent, with these two empty, and the fallback (Postgres FTS) was called
+      # "the default this stack ships with". Measured on the live instance, that fallback cannot
+      # do CJK: `to_tsvector('english', …)` never segments Chinese, so a query matches only when
+      # it is byte-for-byte a contiguous Chinese run as it appears in the text. `无限衍义` found
+      # its note; `限衍` and `三个序列` found nothing, and `三张资格证` missed a note whose own
+      # heading contains it (the run there is `与三张资格证`). English was unaffected — which is
+      # why a bilingual corpus made the hole invisible from one side.
+      #
+      # An empty index would be worse than the fallback, so this is safe only because the backend
+      # backfills at boot (wire.SearchIndex → ReindexOwner) and a periodic reconcile keeps it
+      # whole. Attaching the service and restarting is the whole migration.
+      #
+      # Point these at your own Meili to run one outside the stack; the service below is then
+      # dead weight you can drop.
+      - MEILI_URL=${MEILI_URL:-http://meilisearch:7700}
+      - MEILI_KEY=${MEILI_KEY:-${MEILI_MASTER_KEY:-standmeet_meili_key}}
       # MinIO / S3 storage for owner-uploaded images + attachments.
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-standmeet}
@@ -155,6 +167,11 @@ services:
         condition: service_healthy
       gotenberg:
         condition: service_healthy
+      # meilisearch —— NOT a hard dependency on purpose: the backend starts fine without it
+      # (search degrades to Postgres FTS and says so on /admin/system). Waiting on it would
+      # turn an optional index into a reason the instance cannot boot.
+      meilisearch:
+        condition: service_started
     ports:
       - "8100:8000"
     # sandbox 需要 root + docker socket：owner-curated skill 脚本跑在隔离
@@ -295,6 +312,26 @@ services:
       retries: 12
       start_period: 5s
 
+  # meilisearch —— the lexical index for corpus search. In the stack because the alternative
+  # (Postgres FTS) cannot segment Chinese; see the MEILI_URL comment on the backend.
+  #
+  # No host port: the backend reaches it over the compose network, and the healthcheck runs
+  # inside the container — so it cannot collide with another Meili already on the host.
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    restart: unless-stopped
+    environment:
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-standmeet_meili_key}
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_ENV=production
+    volumes:
+      - meilidata:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   # minio —— bundled S3-compatible object storage (self-contained stack).
   # Bucket "standmeet" auto-created on first backend boot via internal/storage.
   minio:
@@ -319,4 +356,5 @@ volumes:
   pgdata: {}
   redisdata: {}
   miniodata: {}
+  meilidata: {}
   custom_pages_data: {}

@@ -32,6 +32,7 @@ env-lint:
 	@infra/scripts/check-knobs-reachable.sh
 	@infra/scripts/check-knobs-reachable-test.sh
 	@infra/scripts/check-redis-bounded.sh
+	@infra/scripts/check-search-index-shipped.sh
 	@infra/scripts/check-doc-make-targets.sh
 
 backend-lint:
