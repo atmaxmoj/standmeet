@@ -23,6 +23,9 @@ type ownerOut struct {
 	PublicURL string `json:"public_url"`
 	// Timezone —— IANA 时区名。它是 owner 的档案,不是哪个能力的设置。
 	Timezone string `json:"timezone"`
+	// PendingEmail —— 已请求、还没被确认的新邮箱。空 = 没有待确认的改动。
+	// **必须发出来**:看不见的待确认状态,等于 owner 不知道自己按下的那一下有没有生效。
+	PendingEmail string `json:"pending_email,omitempty"`
 }
 
 type meOut struct {
@@ -44,14 +47,22 @@ func readMe(deps usecase.AccountDeps) fp.Invoke {
 			Owner: ownerOut{
 				OwnerID: profile.ID, Email: profile.Email, Handle: profile.Handle,
 				FullName: profile.FullName, PublicURL: profile.PublicURL,
-				Timezone: profile.ProfileTimezone,
+				Timezone: profile.ProfileTimezone, PendingEmail: profile.PendingEmail,
 			},
 			Settings: settingsPayload(&settings),
 		})
 	}
 }
 
-func changeEmail(deps usecase.AccountDeps) fp.Invoke {
+// emailChangeOut —— 回执要说清**发生了什么**,不是"成功了"。
+// pending 非空 = 寄了一封确认信、身份没动;空 = 当场换好了。界面上那两句话不一样,
+// 而一个说不出区别的回执会让 owner 以为已经改完了(non-unique signal)。
+type emailChangeOut struct {
+	Email   string `json:"email"`
+	Pending string `json:"pending_email,omitempty"`
+}
+
+func changeEmail(deps usecase.EmailChangeDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in struct {
 			CurrentPassword string `json:"current_password"`
@@ -60,13 +71,23 @@ func changeEmail(deps usecase.AccountDeps) fp.Invoke {
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return nil, fp.BadInput("invalid arguments: " + err.Error())
 		}
-		updated, err := usecase.UpdateOwnerEmail(ctx, deps, &usecase.EmailUpdateInput{
+		out, err := usecase.RequestEmailChange(ctx, deps, &usecase.EmailChangeInput{
 			OwnerID: ownerID, CurrentPassword: in.CurrentPassword, NewEmail: in.NewEmail,
 		})
 		if err != nil {
 			return nil, accountErr(err)
 		}
-		return json.Marshal(ownerFieldOut{Email: updated.Email})
+		return json.Marshal(emailChangeOut{Email: out.Email, Pending: out.Pending})
+	}
+}
+
+func cancelEmailChange(deps usecase.EmailChangeDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
+		owner, err := usecase.CancelEmailChange(ctx, deps, ownerID)
+		if err != nil {
+			return nil, accountErr(err)
+		}
+		return json.Marshal(emailChangeOut{Email: owner.Email})
 	}
 }
 

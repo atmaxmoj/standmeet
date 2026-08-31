@@ -96,7 +96,7 @@ func (c *applicationsCapability) handleCommit(
 	if args.DraftID == "" {
 		return capreg.MCPError("draft_id is required")
 	}
-	committed, err := jobsuc.CommitApplication(ctx, *c.apps, ownerID, args.DraftID)
+	committed, err := jobsuc.CommitApplication(ctx, c.apps, ownerID, args.DraftID)
 	if err != nil {
 		return applicationsCapErrToResult(c.log, err, "commit")
 	}

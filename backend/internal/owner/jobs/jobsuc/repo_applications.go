@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -48,6 +49,9 @@ type CommitInput struct {
 	ApplicationID string
 	CodePlaintext string
 	CodeLabel     string
+	// CodePromptID —— builtin `hiring` prompt 的 id。集中管理的那一层招聘语境;
+	// 空 = 这台实例还没种出 hiring(不该发生,但不阻断投递)。
+	CodePromptID  *string
 	CodePurpose   string
 	AssumedRoleID string
 }
@@ -166,11 +170,14 @@ func insertAccessCode(
 	ctx context.Context, tx pgx.Tx, in *CommitInput, briefing string,
 ) (access.Code, error) {
 	code, err := access.CreateAccessCodeTx(ctx, tx, &access.CreateAccessCodeInput{
-		OwnerID:            in.OwnerID,
-		Code:               in.CodePlaintext,
-		Label:              in.CodeLabel,
-		Purpose:            in.CodePurpose,
-		AssumedRoleID:      in.AssumedRoleID,
+		OwnerID:       in.OwnerID,
+		Code:          in.CodePlaintext,
+		Label:         in.CodeLabel,
+		Purpose:       in.CodePurpose,
+		AssumedRoleID: in.AssumedRoleID,
+		// 两层：集中管理的招聘语境（prompt_id → builtin `hiring`）+ 这一张码专属的那一句。
+		// 它们是叠加的,所以自动签的码不必在"招聘语境"和"哪个职位"之间二选一。
+		PromptID:           in.CodePromptID,
 		InlinePrompt:       briefing,
 		ExpiresAt:          in.CodeExpiresAt,
 		MaxMembers:         in.MaxMembers,
@@ -183,23 +190,54 @@ func insertAccessCode(
 	return code, nil
 }
 
-// recruiterBriefing —— 从 draft 的 job_snapshot 拼一段 persona 上下文，冻进 app-码的 inline_prompt
-// （#104 扩展）：让 recruiter session 里的 AI 知道「对方在为哪个岗评估我」。core 无脑注入这段、不知道
-// 它是应聘身份；job-loop 在这里（发码时）供给。解析失败 / 无 title → 空串（不阻断 commit）。
+// recruiterBriefing —— 从 draft 的 job_snapshot 拼**这一张码专属**的那一句：对方在为哪个岗
+// 评估我。它叠在 `hiring` prompt（码的 prompt_id）之后 —— 通用的招聘语境归那一份，
+// 这里只说"是哪个职位"。
+//
+// ⚠️ 曾经在 `snap.Title == ""` 时返回空串，而那时 prompt_id 那一档没人填、两档又是互斥的
+// —— 于是招聘板吐一行没有 title 的数据，签出去的就是一张**哑码**：招聘官扫进来落在默认
+// 人格里，agent 照着产品定位笔记答"这不是一个适合找工作的人设"。
+// 现在两件事一起兜住：prompt_id 永远挂着 hiring，而这里即使认不出职位也说清来路。
 func recruiterBriefing(jobSnapshotJSON []byte) string {
+	const arrivedVia = "They reached you through a job application you sent — " +
+		"answer as the candidate."
 	var snap struct {
 		Title   string `json:"title"`
 		Company string `json:"company"`
 	}
-	if err := json.Unmarshal(jobSnapshotJSON, &snap); err != nil || snap.Title == "" {
-		return ""
+	if err := json.Unmarshal(jobSnapshotJSON, &snap); err != nil {
+		return arrivedVia
 	}
-	role := snap.Title
-	if snap.Company != "" {
-		role += " at " + snap.Company
+	role := describeRole(snap.Title, snap.Company)
+	if role == "" {
+		// 板子没给职位名。语境照旧成立 —— 缺的只是"哪个岗",不是"是不是招聘"。
+		return arrivedVia
 	}
 	return "You are speaking with a recruiter who received your job application for " + role +
 		". They reached you through that application — answer as the candidate, about that role."
+}
+
+// describeRole —— 职位描述。title 空但 company 在时仍说得出来路（"a role at MockCo"）,
+// 空串表示两样都没有。
+func describeRole(title, company string) string {
+	title = strings.TrimSpace(title)
+	company = strings.TrimSpace(company)
+	switch {
+	case title == "":
+		return roleAtCompany(company)
+	case company == "":
+		return title
+	default:
+		return title + " at " + company
+	}
+}
+
+// roleAtCompany —— 只有公司名时还说得出来路；两样都没有才是真的说不出。
+func roleAtCompany(company string) string {
+	if company == "" {
+		return ""
+	}
+	return "a role at " + company
 }
 
 // appInsert —— insertApplication args packed (keeps it within the argument limit).

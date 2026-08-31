@@ -62,8 +62,9 @@ func (r *Repo) UpdateEmail(
 		return entity.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := db.New(r.pool)
+	// 规范化在这一层,不在调用方 —— 见 email.go 的头注释。
 	row, qerr := q.UpdateOwnerEmail(ctx, db.UpdateOwnerEmailParams{
-		ID: pgID, Email: newEmail,
+		ID: pgID, Email: NormalizeEmail(newEmail),
 	})
 	if qerr != nil {
 		return entity.Owner{}, translateEmailUpdateErr(qerr)

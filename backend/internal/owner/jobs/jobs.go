@@ -41,7 +41,11 @@ type Deps struct {
 	DraftsRepo   *jobsuc.ResumeDraftRepo
 	AppsRepo     *jobsuc.ApplicationRepo
 	SourcesRepo  *jobsuc.JobSourceRepo
-	Log          *slog.Logger
+	// Seed —— 这个插件自己要种的那两条 builtin（hiring prompt + role）要的仓储。
+	// 归插件而不是归内核的 roles_seed：`hiring` 是 job loop 的概念，
+	// 不是一档内核级访问层（见 jobsuc/seed.go 的头注释）。
+	Seed jobsuc.SeedDeps
+	Log  *slog.Logger
 }
 
 // Plugin —— jobs outbound plugin 入口。J.5 起持 Deps 闭包；
@@ -59,6 +63,7 @@ var (
 	_ capabilities.CapabilityRegistrar = (*Plugin)(nil)
 	_ capabilities.AdminRouter         = (*Plugin)(nil)
 	_ capabilities.PeriodicWorker      = (*Plugin)(nil)
+	_ capabilities.OwnerSeeder         = (*Plugin)(nil)
 )
 
 // resumeDraftSweepEvery —— 草稿是 1d TTL。读路径本来就 SQL 过滤掉过期行(正确性不靠这个
@@ -105,4 +110,13 @@ func (p *Plugin) MountAdminRoutes(r chi.Router) {
 		// 共用这份 deps（F-E-9）。给 admin 单独攒一份就是第二份真相。
 		Commit: p.deps.Applications,
 	})
+}
+
+// SeedOwner —— capabilities.OwnerSeeder 实现。外壳只转发：域里的活儿归 jobsuc，
+// 这个包按 arch 规则碰不到域 facade。
+func (p *Plugin) SeedOwner(ctx context.Context, ownerID string) error {
+	if err := jobsuc.SeedOwner(ctx, p.deps.Seed, ownerID); err != nil {
+		return fmt.Errorf("seed jobs builtins: %w", err)
+	}
+	return nil
 }

@@ -2,7 +2,8 @@
 // 归因得到**的结果。
 //
 // 怎么撞上的：驱 corpus-search 的 check 2 ⭐ 时，agent 在一轮里同时发了 `recursive convergence`
-// 和 `递归收敛` 两个 `corpus_search`。回来两条 `agent tool done`：一条 `result_bytes:2`（空）、
+// 和 `递归收敛` 两个 `corpus_search`。回来两条 `agent tool done`：一条空手（F-S-2 之后
+// 空手也带一句提醒，所以不再是 2 字节）、
 // 一条 7883。**哪条属于哪次搜索，日志里没有任何字段能回答** —— `start` 带 args，`done` 只有
 // name + 字节数，而并行派发让先后顺序不作数。于是「CJK 查询到底命中没有」这个问题今天无法回答，
 // 而它正是那条 check 的后半段。

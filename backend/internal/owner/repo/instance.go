@@ -163,7 +163,7 @@ func claimTx(
 	}
 
 	row, err := q.CreateOwner(ctx, db.CreateOwnerParams{
-		Email:        input.Email,
+		Email:        NormalizeEmail(input.Email),
 		PasswordHash: input.PasswordHash,
 		Handle:       input.Handle,
 		FullName:     input.FullName,

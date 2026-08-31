@@ -16,6 +16,7 @@ import { NewTokenInline } from '@/components/admin/sections/api/NewTokenInline';
 import { TokenRow } from '@/components/admin/sections/api/TokenRow';
 import { MCPClientPanel } from '@/components/admin/sections/api/MCPClientPanel';
 import { MCPDownloadPanel } from '@/components/admin/sections/api/MCPDownloadPanel';
+import { EmbedPanel } from '@/components/admin/sections/api/EmbedPanel';
 import { MCPServersPanel } from '@/components/admin/sections/api/MCPServersPanel';
 import { AIProviderPanel } from '@/components/admin/sections/api/AIProviderPanel';
 import { APIKeysPanel } from '@/components/admin/sections/api/APIKeysPanel';
@@ -71,6 +72,9 @@ function Ready({ hook }: { hook: TokensHook }) {
       <MCPClientPanel />
       <MCPDownloadPanel />
       <MCPServersPanel />
+      {/* embed 放最后：前面几块都是 owner 自己的程序连进来,这一块反过来 ——
+          把这台实例的 chat 放到**别人的网站**上去。 */}
+      <EmbedPanel />
     </div>
   );
 }

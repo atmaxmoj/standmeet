@@ -21,7 +21,10 @@ type committedApplicationViewT struct {
 	Status        string         `json:"status"`
 	CreatedAt     string         `json:"created_at"`
 	CodeExpiresAt string         `json:"code_expires_at,omitempty"`
-	JobSnapshot   fetchedJobView `json:"job_snapshot"`
+	// Warning —— 投出去了，但有件事 owner 该知道（omitempty：没有就不出现）。
+	Warning string `json:"warning,omitempty"`
+	// JobSnapshot 放末位：govet fieldalignment（它是这一堆里最大的那个）。
+	JobSnapshot fetchedJobView `json:"job_snapshot"`
 }
 
 // submissionHint —— Phase 4 next-step contract。Claude 读 type='submit_via_playwright'
@@ -53,6 +56,7 @@ func committedApplicationView(c *jobsmodel.CommittedApplication) committedApplic
 		CreatedAt:     c.Application.CreatedAt.Format(mcpTimeFmt),
 		JobSnapshot:   fetchedJobToView(&c.Application.JobSnapshot),
 		NextAction:    buildSubmissionHint(c),
+		Warning:       c.Warning,
 	}
 	if c.AccessCode.ExpiresAt != nil {
 		v.CodeExpiresAt = c.AccessCode.ExpiresAt.Format(mcpTimeFmt)

@@ -44,7 +44,11 @@ type CommittedApplication struct {
 	Application Application
 	AccessCode  access.Code
 	QRURL       string
-	PDF         []byte
+	// Warning —— 投出去了，但有件事 owner 该知道（空 = 没有）。
+	// 今天只有一件：hiring role 圈着 CV 而那条笔记不存在 —— 招聘官问雇主和日期时
+	// 会被告知"不在笔记里"。**不阻断投递**，只是让这件事不再静默。
+	Warning string
+	PDF     []byte
 }
 
 // ErrApplicationNotFound —— 按 (id, owner_id) 反查未命中。

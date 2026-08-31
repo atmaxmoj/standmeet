@@ -86,6 +86,13 @@ func runWithCfg(
 		return fmt.Errorf("connect pg: %w", err)
 	}
 	defer db.Close()
+	// **升级就发生在这里** —— 不是某个要人记得跑的独立步骤。
+	// 这一版带来的 schema 改动编在同一个二进制里，部署这一版＝打这些改动。
+	// 失败就不服务：一个 schema 打了一半的实例会在某条具体查询上炸，
+	// 而那个错误指向查询、不指向原因。
+	if merr := pgstore.Migrate(ctx, db, log); merr != nil {
+		return fmt.Errorf("migrate schema: %w", merr)
+	}
 	rdb, err := connectRedis(ctx, cfg.RedisURL, log)
 	if err != nil {
 		return err

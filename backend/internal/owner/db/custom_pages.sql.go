@@ -181,6 +181,37 @@ func (q *Queries) GetCustomPageBySlug(ctx context.Context, arg GetCustomPageBySl
 	return i, err
 }
 
+const getLatestBuiltCustomPageBuild = `-- name: GetLatestBuiltCustomPageBuild :one
+SELECT id, page_id, status, source_files, output_path,
+       error_message, created_at, built_at
+FROM custom_page_builds
+WHERE page_id = $1 AND status = 'built'
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+// 预览要看的那一次：这一页**最近一次构建成功的**。
+//
+// 不用 GetLatestCustomPageBuild：那一条不筛状态，pending / building / failed 都可能拿到，
+// 而那些没有产物 —— owner 会看见一片空白，还以为是自己写的页有问题。
+// 也不看 staging_build_id：那要 agent 记得多调一次 promote_to_staging，
+// 忘了就什么都看不见，而 owner 要的是"看到它刚做了什么"。
+func (q *Queries) GetLatestBuiltCustomPageBuild(ctx context.Context, pageID pgtype.UUID) (CustomPageBuild, error) {
+	row := q.db.QueryRow(ctx, getLatestBuiltCustomPageBuild, pageID)
+	var i CustomPageBuild
+	err := row.Scan(
+		&i.ID,
+		&i.PageID,
+		&i.Status,
+		&i.SourceFiles,
+		&i.OutputPath,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+		&i.BuiltAt,
+	)
+	return i, err
+}
+
 const getLatestCustomPageBuild = `-- name: GetLatestCustomPageBuild :one
 SELECT id, page_id, status, source_files, output_path,
        error_message, created_at, built_at

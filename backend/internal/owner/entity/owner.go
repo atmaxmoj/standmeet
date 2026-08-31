@@ -25,6 +25,10 @@ type Owner struct {
 	// 用于 BookingPolicy / calendar.book 解释 working_hours / weekday；空串
 	// fallback UTC。owner 在 admin profile 改。
 	ProfileTimezone string
+	// PendingEmail —— 已请求、但**还没被证明收得到信**的新邮箱。空串 = 没有待确认的改动。
+	// 它不是身份：登录、恢复短语都还认 Email 那一列。面板要把它显示出来 ——
+	// 看不见的待确认状态 = owner 不知道自己按下的那一下有没有生效。
+	PendingEmail string
 }
 
 // Settings —— owner 聚合的"配置切面"，跟 identity 分开。
@@ -71,6 +75,11 @@ type CreateOwnerInput struct {
 var (
 	// ErrEmailTaken —— claim 时 email 已被占用（v1 不该发生但保留）。
 	ErrEmailTaken = errors.New("email already taken")
+	// ErrPendingEmailNotFound —— 确认链接对不上任何一条待确认的改动：token 错、已过期、
+	// 或者已经用过了。三种**故意**收成一个错 —— 对不认识这个 token 的人，
+	// 区分它们只是在告诉他猜得对不对。分辨"过期"走另一条路（FindByPendingToken），
+	// 那条路只对 token 确实存在的人开。
+	ErrPendingEmailNotFound = errors.New("pending email change not found")
 	// ErrHandleTaken —— claim 时 handle 已被占用。
 	ErrHandleTaken = errors.New("handle already taken")
 	// ErrOwnerNotFound —— 按 id / email 查 owner 未命中（login 时不暴露"用户存在与否"）。

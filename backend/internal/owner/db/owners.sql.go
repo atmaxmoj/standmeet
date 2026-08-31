@@ -11,6 +11,46 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearOwnerPendingEmail = `-- name: ClearOwnerPendingEmail :one
+UPDATE owners
+SET pending_email = NULL, pending_email_token_hash = '', pending_email_expires_at = NULL
+WHERE id = $1
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+`
+
+// owner 反悔。:one + RETURNING 才知道到底清没清到行(:exec 把行数扔了)。
+func (q *Queries) ClearOwnerPendingEmail(ctx context.Context, id pgtype.UUID) (Owner, error) {
+	row := q.db.QueryRow(ctx, clearOwnerPendingEmail, id)
+	var i Owner
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
+		&i.Handle,
+		&i.FullName,
+		&i.Location,
+		&i.PublicUrl,
+		&i.ByoaiEnabled,
+		&i.ByoaiProviders,
+		&i.ByoaiPublicBlurb,
+		&i.PasswordResetHash,
+		&i.PasswordResetAt,
+		&i.ProfileTimezone,
+		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
+		&i.LastVaultImportDeleted,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const clearOwnerRecoveryHash = `-- name: ClearOwnerRecoveryHash :exec
 UPDATE owners SET recovery_hash = '' WHERE id = $1
 `
@@ -31,6 +71,53 @@ func (q *Queries) ClearPasswordResetToken(ctx context.Context, id pgtype.UUID) e
 	return err
 }
 
+const confirmOwnerPendingEmail = `-- name: ConfirmOwnerPendingEmail :one
+UPDATE owners
+SET email = pending_email,
+    pending_email = NULL,
+    pending_email_token_hash = '',
+    pending_email_expires_at = NULL
+WHERE pending_email_token_hash = $1
+  AND pending_email_token_hash <> ''
+  AND pending_email IS NOT NULL
+  AND pending_email_expires_at > now()
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+`
+
+// 一次性 + 未过期，全在这一条语句里判：命中 0 行 = token 不对 / 已过期 / 已用过。
+// 换完就把三列清空 —— 可重放的确认链接等于把身份挂在一封旧邮件上。
+func (q *Queries) ConfirmOwnerPendingEmail(ctx context.Context, pendingEmailTokenHash string) (Owner, error) {
+	row := q.db.QueryRow(ctx, confirmOwnerPendingEmail, pendingEmailTokenHash)
+	var i Owner
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
+		&i.Handle,
+		&i.FullName,
+		&i.Location,
+		&i.PublicUrl,
+		&i.ByoaiEnabled,
+		&i.ByoaiProviders,
+		&i.ByoaiPublicBlurb,
+		&i.PasswordResetHash,
+		&i.PasswordResetAt,
+		&i.ProfileTimezone,
+		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
+		&i.LastVaultImportDeleted,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const countOwners = `-- name: CountOwners :one
 SELECT COUNT(*) FROM owners
 `
@@ -45,7 +132,7 @@ func (q *Queries) CountOwners(ctx context.Context) (int64, error) {
 const createOwner = `-- name: CreateOwner :one
 INSERT INTO owners (email, password_hash, handle, full_name, public_url)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type CreateOwnerParams struct {
@@ -70,6 +157,9 @@ func (q *Queries) CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -124,7 +214,7 @@ func (q *Queries) GetFirstOwnerResetToken(ctx context.Context) (GetFirstOwnerRes
 }
 
 const getOwnerByEmail = `-- name: GetOwnerByEmail :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE email = $1
+SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE email = $1
 `
 
 func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, error) {
@@ -135,6 +225,9 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -157,7 +250,7 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 }
 
 const getOwnerByHandle = `-- name: GetOwnerByHandle :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE handle = $1
+SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE handle = $1
 `
 
 func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, error) {
@@ -168,6 +261,9 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -190,7 +286,7 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 }
 
 const getOwnerByID = `-- name: GetOwnerByID :one
-SELECT id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE id = $1
+SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE id = $1
 `
 
 func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, error) {
@@ -201,6 +297,48 @@ func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, erro
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
+		&i.Handle,
+		&i.FullName,
+		&i.Location,
+		&i.PublicUrl,
+		&i.ByoaiEnabled,
+		&i.ByoaiProviders,
+		&i.ByoaiPublicBlurb,
+		&i.PasswordResetHash,
+		&i.PasswordResetAt,
+		&i.ProfileTimezone,
+		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
+		&i.LastVaultImportDeleted,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getOwnerByPendingToken = `-- name: GetOwnerByPendingToken :one
+SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners
+WHERE pending_email_token_hash = $1 AND pending_email_token_hash <> ''
+`
+
+// 只为了分辨「过期」和「压根无效」—— 两种都不换身份，但对 owner 说的话不一样，
+// 而他下一步该做什么取决于这两个词的区别。
+func (q *Queries) GetOwnerByPendingToken(ctx context.Context, pendingEmailTokenHash string) (Owner, error) {
+	row := q.db.QueryRow(ctx, getOwnerByPendingToken, pendingEmailTokenHash)
+	var i Owner
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -295,6 +433,60 @@ func (q *Queries) SetOwnerCSS(ctx context.Context, arg SetOwnerCSSParams) error 
 	return err
 }
 
+const setOwnerPendingEmail = `-- name: SetOwnerPendingEmail :one
+UPDATE owners
+SET pending_email = $2, pending_email_token_hash = $3, pending_email_expires_at = $4
+WHERE id = $1
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+`
+
+type SetOwnerPendingEmailParams struct {
+	ID                    pgtype.UUID
+	PendingEmail          *string
+	PendingEmailTokenHash string
+	PendingEmailExpiresAt pgtype.Timestamptz
+}
+
+// 待确认的改邮箱。身份**不动** —— 只有点开信里的链接才换。
+// 第二次请求直接覆盖：两个都能用的话，owner 以为改成了后一个，而某个旧标签页
+// 一点就把身份送去了前一个。
+func (q *Queries) SetOwnerPendingEmail(ctx context.Context, arg SetOwnerPendingEmailParams) (Owner, error) {
+	row := q.db.QueryRow(ctx, setOwnerPendingEmail,
+		arg.ID,
+		arg.PendingEmail,
+		arg.PendingEmailTokenHash,
+		arg.PendingEmailExpiresAt,
+	)
+	var i Owner
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
+		&i.Handle,
+		&i.FullName,
+		&i.Location,
+		&i.PublicUrl,
+		&i.ByoaiEnabled,
+		&i.ByoaiProviders,
+		&i.ByoaiPublicBlurb,
+		&i.PasswordResetHash,
+		&i.PasswordResetAt,
+		&i.ProfileTimezone,
+		&i.CustomCss,
+		&i.LastVaultImportAt,
+		&i.LastVaultImportNew,
+		&i.LastVaultImportUpdated,
+		&i.LastVaultImportSkipped,
+		&i.LastVaultImportDeleted,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const setOwnerRecoveryHash = `-- name: SetOwnerRecoveryHash :exec
 UPDATE owners SET recovery_hash = $2 WHERE id = $1
 `
@@ -332,7 +524,7 @@ SET byoai_enabled = $2,
     byoai_providers = $3,
     byoai_public_blurb = $4
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerBYOAIParams struct {
@@ -355,6 +547,9 @@ func (q *Queries) UpdateOwnerBYOAI(ctx context.Context, arg UpdateOwnerBYOAIPara
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -380,7 +575,7 @@ const updateOwnerEmail = `-- name: UpdateOwnerEmail :one
 UPDATE owners
 SET email = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerEmailParams struct {
@@ -396,6 +591,9 @@ func (q *Queries) UpdateOwnerEmail(ctx context.Context, arg UpdateOwnerEmailPara
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -421,7 +619,7 @@ const updateOwnerFullName = `-- name: UpdateOwnerFullName :one
 UPDATE owners
 SET full_name = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerFullNameParams struct {
@@ -437,6 +635,9 @@ func (q *Queries) UpdateOwnerFullName(ctx context.Context, arg UpdateOwnerFullNa
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -462,7 +663,7 @@ const updateOwnerPasswordHash = `-- name: UpdateOwnerPasswordHash :one
 UPDATE owners
 SET password_hash = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerPasswordHashParams struct {
@@ -478,6 +679,9 @@ func (q *Queries) UpdateOwnerPasswordHash(ctx context.Context, arg UpdateOwnerPa
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -503,7 +707,7 @@ const updateOwnerProfileTimezone = `-- name: UpdateOwnerProfileTimezone :one
 UPDATE owners
 SET profile_timezone = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerProfileTimezoneParams struct {
@@ -519,6 +723,9 @@ func (q *Queries) UpdateOwnerProfileTimezone(ctx context.Context, arg UpdateOwne
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,
@@ -545,7 +752,7 @@ const updateOwnerPublicURL = `-- name: UpdateOwnerPublicURL :one
 UPDATE owners
 SET public_url = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerPublicURLParams struct {
@@ -564,6 +771,9 @@ func (q *Queries) UpdateOwnerPublicURL(ctx context.Context, arg UpdateOwnerPubli
 		&i.Email,
 		&i.PasswordHash,
 		&i.RecoveryHash,
+		&i.PendingEmail,
+		&i.PendingEmailTokenHash,
+		&i.PendingEmailExpiresAt,
 		&i.Handle,
 		&i.FullName,
 		&i.Location,

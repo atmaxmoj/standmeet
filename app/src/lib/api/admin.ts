@@ -159,7 +159,10 @@ const BYOAISettingsViewSchema = z.object({
 export const SettingsViewSchema = z.object({ ai: AISettingsViewSchema, byoai: BYOAISettingsViewSchema });
 
 export const OwnerProfileViewSchema = z.object({
-  owner_id: z.string(), email: z.string(), handle: z.string(), full_name: z.string(), public_url: z.string(),
+  owner_id: z.string(), email: z.string(), handle: z.string(), full_name: z.string(),
+  public_url: z.string(),
+  // pending_email —— 后端 omitempty,没有待确认时字段不出现 → optional。
+  pending_email: z.string().optional(),
 });
 
 export const MeViewSchema = z.object({ owner: OwnerProfileViewSchema, settings: SettingsViewSchema });

@@ -43,4 +43,5 @@ var (
 	ErrPromptNotFound           = entity.ErrPromptNotFound
 	ErrPublicURLNotSet          = entity.ErrPublicURLNotSet
 	ErrUnauthorized             = entity.ErrUnauthorized
+	ErrPendingEmailNotFound     = entity.ErrPendingEmailNotFound
 )

@@ -71,8 +71,18 @@ func toDomainOwner(o *db.Owner) entity.Owner {
 		Location:        o.Location,
 		PublicURL:       o.PublicUrl,
 		ProfileTimezone: o.ProfileTimezone,
+		PendingEmail:    derefString(o.PendingEmail),
 		CreatedAt:       o.CreatedAt.Time,
 	}
+}
+
+// derefString —— nullable 列取值。空指针出空串:调用方要区分的是"有没有待确认",
+// 而不是 NULL 和 ” 的区别(那个区别在这一列上没有含义)。
+func derefString(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 // toOwnerSettings —— owners 行的 byoai_* + **默认那条 provider** 拼成 Settings。

@@ -44,6 +44,8 @@ type (
 	PublicURLDeps              = usecase.PublicURLDeps
 	RecoverInput               = usecase.RecoverInput
 	RecoveryDeps               = usecase.RecoveryDeps
+	EmailChangeDeps            = usecase.EmailChangeDeps
+	LivePage                   = usecase.LivePage
 	SEODeps                    = usecase.SEODeps
 	SetupTokenIssuer           = usecase.SetupTokenIssuer
 	SoleOwnerLookup            = usecase.SoleOwnerLookup
@@ -101,8 +103,13 @@ var (
 	PromoteToStaging          = usecase.PromoteToStaging
 	PublicReady               = usecase.PublicReady
 	Recover                   = usecase.Recover
+	ConfirmEmailChange        = usecase.ConfirmEmailChange
+	ErrPendingEmailExpired    = usecase.ErrPendingEmailExpired
 	RemoveAllowedDomain       = usecase.RemoveAllowedDomain
 	ResolveLiveBuild          = usecase.ResolveLiveBuild
+	ResolvePreviewBuild       = usecase.ResolvePreviewBuild
+	NewPreviewToken           = usecase.NewPreviewToken
+	VerifyPreviewToken        = usecase.VerifyPreviewToken
 	Rollback                  = usecase.Rollback
 	SetOwnerCSS               = usecase.SetOwnerCSS
 	SweepPagePins             = usecase.SweepPagePins

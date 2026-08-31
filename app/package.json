@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/copy-tikz-fonts.mjs && next dev",
-    "prebuild": "node scripts/copy-tikz-fonts.mjs",
+    "dev": "node scripts/copy-tikz-fonts.mjs && node scripts/copy-embed-bundle.mjs && next dev",
+    "prebuild": "node scripts/copy-tikz-fonts.mjs && node scripts/copy-embed-bundle.mjs",
     "build": "next build",
     "start": "next start",
     "test:unit": "vitest run",

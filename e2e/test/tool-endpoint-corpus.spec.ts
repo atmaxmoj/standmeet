@@ -273,7 +273,8 @@ async function assertNarrowSearchExcludesDenied(request: APIRequestContext): Pro
   const denied = await callTool(request, sess, 'corpus_search', { query: 'secret' });
   expect(denied.status).toBe(200);
   expect(denied.body.ok).toBe(true);
-  const deniedRows = (denied.body.result ?? []) as Array<{ path?: string; title?: string }>;
+  // 回执是 {hits, note?} —— note 只在空手时出现（F-S-2：空不等于没有）。
+  const deniedRows = searchHitsOf(denied.body.result);
   expect(deniedRows.map((r) => r.path),
     'corpus_search must not surface a path outside role.corpus_uris').not.toContain(NARROW_DENIED_PATH);
   expect(deniedRows.map((r) => r.title),
@@ -281,7 +282,7 @@ async function assertNarrowSearchExcludesDenied(request: APIRequestContext): Pro
 
   // sanity: the in-scope projects entry IS searchable (so the exclusion isn't "search returns nothing")
   const allowed = await callTool(request, sess, 'corpus_search', { query: 'lucerna' });
-  const allowedRows = (allowed.body.result ?? []) as Array<{ path?: string }>;
+  const allowedRows = searchHitsOf(allowed.body.result);
   expect(allowedRows.map((r) => r.path),
     'in-scope projects entry must still be searchable').toContain(NARROW_ALLOWED_PATH);
 }
@@ -305,4 +306,11 @@ async function assertNoCredsReturns401(
     { data: { query: 'x' } },
   );
   expect(res.status()).toBe(401);
+}
+
+// searchHitsOf —— corpus_search 回执里的命中数组。
+// 这条 spec 直接打 tool 端点(它验的就是端点本身)，所以自己解一层壳。
+function searchHitsOf(result: unknown): Array<{ path?: string; title?: string }> {
+  const r = result as { hits?: Array<{ path?: string; title?: string }> } | undefined;
+  return r?.hits ?? [];
 }

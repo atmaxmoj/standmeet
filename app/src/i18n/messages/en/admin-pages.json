@@ -66,6 +66,7 @@
       "slugPath": "/p/<slug>",
       "after": ". Write one below, or drive the same lifecycle from Claude over MCP — both do the same thing. A page can read your corpus and carry your AI; an access code can be pointed at one, so presenting that code opens the page instead of the default chat."
     },
+    "importsSummary": "what you can import",
     "empty": {
       "lead": "No custom pages yet. Owner creates / builds / promotes via MCP",
       "toolCreate": "custom_page.create",
@@ -126,6 +127,9 @@
         "label": "auto-now",
         "desc": "AI-summarized latest entries · /now"
       }
-    }
+    },
+    "previewLabel": "preview · latest successful build",
+    "previewNoBuild": "Nothing built yet. Ask your AI to write and build this page.",
+    "buildNone": "no build"
   }
 }

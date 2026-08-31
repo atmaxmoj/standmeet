@@ -15,12 +15,11 @@
 import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import {
+  IMPORTABLE_MODULES, STARTER, type ImportableModule,
+} from '@/lib/admin/custom-page-imports';
 import { publishPage, type BuildView } from '@/lib/admin/use-custom-pages';
 import { useAction } from '@/lib/ui/use-action';
-
-const STARTER = `export default function App() {
-  return <main><h1>Hello</h1></main>;
-}`;
 
 export function AuthoringPanel() {
   const t = useTranslations('adminPages.customPages');
@@ -40,6 +39,7 @@ export function AuthoringPanel() {
         {t('authorHeading')}
       </div>
       <p className="reading text-[12.5px] text-(--color-muted) mb-3">{t('authorHelp')}</p>
+      <ImportsHelp />
       <SlugField value={slug} onChange={setSlug} />
       <SourceField value={source} onChange={setSource} />
       <div className="flex items-center gap-3 mt-3">
@@ -53,6 +53,33 @@ export function AuthoringPanel() {
         <BuildLine build={build} />
       </div>
     </section>
+  );
+}
+
+// ImportsHelp —— 能 import 什么。**这一块是这个面板缺的那件东西**：builder 早就 vendor
+// 了 sdk / sdk-core / agent-core，而屏幕上一个字没说，owner 只能靠猜。
+// 清单从 `custom-page-imports.ts` 来，那份有闸门钉着它跟 builder/vendor 一致。
+function ImportsHelp() {
+  const t = useTranslations('adminPages.customPages');
+  return (
+    <details className="mb-3" data-testid="custom-page-imports">
+      <summary className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) cursor-pointer">
+        {t('importsSummary')}
+      </summary>
+      <ul className="mt-2 space-y-2">
+        {IMPORTABLE_MODULES.map((m) => <ImportRow key={m.module} entry={m} />)}
+      </ul>
+    </details>
+  );
+}
+
+function ImportRow({ entry }: { entry: ImportableModule }) {
+  return (
+    <li className="reading text-[12px] text-(--color-muted)">
+      <code className="mono text-[11.5px] text-(--color-ink)">{entry.module}</code>
+      <span className="mono text-[11px]"> {entry.exports.join(' · ')}</span>
+      <div className="text-[11.5px]">{entry.note}</div>
+    </li>
   );
 }
 

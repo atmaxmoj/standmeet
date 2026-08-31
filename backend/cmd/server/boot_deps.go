@@ -12,6 +12,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
+	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
@@ -189,11 +190,11 @@ func assembleRuntimeDeps(
 		CaptchaEnabled:     cfg.TurnstileSiteKey != "" && cfg.TurnstileSecret != "",
 		CaptchaSiteKey:     captchaSiteKeyFor(cfg),
 		SecureCookie:       cfg.SecureCookie,
-		BuildsRoot:         cfg.CustomPagesRoot,
-		SandboxRunner:      sandbox.FromEnv(cfg.SandboxDriver),
-		PrintStore:         printStore,
-		PdfRenderer:        buildPDFRenderer(log, cfg, printStore),
-		ReportPDFRenderer:  buildReportPDFRenderer(cfg),
+		BuildsRoot:         cfg.CustomPagesRoot, SessionKey: cfg.SessionKey,
+		SandboxRunner:     sandbox.FromEnv(cfg.SandboxDriver),
+		PrintStore:        printStore,
+		PdfRenderer:       buildPDFRenderer(log, cfg, printStore),
+		ReportPDFRenderer: buildReportPDFRenderer(cfg),
 		MarketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL),
 		AgentSkills: capreg.NewRegistry(),
@@ -226,7 +227,8 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 	resumeDeps := jobsuc.ResumeDeps{Drafts: d.ResumeDraftRepo, Cache: d.JobCachePool}
 	appsDeps := jobsuc.ApplicationsDeps{
 		Apps: d.ApplicationRepo, Owners: d.OwnerRepo,
-		Roles: d.RoleRepo, Renderer: d.PdfRenderer,
+		Roles: d.RoleRepo, Prompts: port.PromptsByName(d),
+		CVCheck: port.SubjectivityPresence(d), Renderer: d.PdfRenderer,
 	}
 	reg.Register(pluginjobs.New(pluginjobs.Deps{
 		Jobs:         &jobsDeps,
@@ -235,7 +237,9 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 		DraftsRepo:   d.ResumeDraftRepo,
 		AppsRepo:     d.ApplicationRepo,
 		SourcesRepo:  d.JobSourceRepo,
-		Log:          d.Log,
+		// 这个插件自己要种的那两条 builtin（hiring prompt + role）走 OwnerSeeder。
+		Seed: jobsuc.SeedDeps{Prompts: d.PromptRepo, Roles: d.RoleRepo},
+		Log:  d.Log,
 	}))
 	// 这儿曾经还有一句 ownercore —— 那个包装着全部 owner-MCP 能力,一个跨域的大杂烩。
 	// 它的最后一个操作(写长文)已经回 corpus 域了,包整个删掉。

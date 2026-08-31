@@ -95,14 +95,20 @@ func searchTool() mcpgo.Tool {
 	// 紧贴标点、CJK 双字)会直接查不到。真实证据:`递归收敛` 在一份带整段中文的语料上返回 `[]`,
 	// 同一轮的英文查询却拿回 7883 字节,而 agent 不知道该换路,那半个问题就静默地没被回答。
 	// corpus_grep 是为这个建的第二条路(never-miss),名字要出现在这句话里 —— **agent 是在读说明
-	// 的那一刻做选择的**,而空数组那条 wire 被 `tool-endpoint-corpus.spec.ts:146` 钉死,挂不上提示。
+	// 的那一刻做选择的**。
+	//
+	// 而空手那一刻它还会再听见一次:回执里的 `note`(F-S-2)。说明和 note 说的是同一件事,
+	// 分别落在**选工具**和**拿到空手**这两个时刻 —— 后者才是需要改主意的那一刻。
+	// (上一版这里写着"空数组那条 wire 被 tool-endpoint-corpus.spec.ts:146 钉死,挂不上提示"——
+	//  去读那条测试:它只断 status==200 && body.ok==true,从没钉过形状。那是个假阻塞。)
 	return withCard(mcpgo.NewToolWithRawSchema("corpus_search",
-		"Search owner's curated corpus by keyword. Returns matching wiki + output "+
-			"entries with path, title, genre, summary. This is a lexical index, so a hit "+
-			"depends on tokenization: substrings inside a word, terms glued to punctuation, "+
-			"and CJK bigrams can all miss. An empty result therefore does NOT mean the corpus "+
-			"lacks the topic — when it comes back empty and you still believe the material "+
-			"exists, use corpus_grep, which is literal and never-miss.",
+		"Search owner's curated corpus by keyword. Returns {hits, note?}: hits are the "+
+			"matching wiki + output entries with path, title, genre, summary. This is a "+
+			"lexical index, so a hit depends on tokenization: substrings inside a word, "+
+			"terms glued to punctuation, and CJK bigrams can all miss. An empty result "+
+			"therefore does NOT mean the corpus lacks the topic — when hits is empty the "+
+			"result carries a note saying so. If you still believe the material exists, "+
+			"use corpus_grep, which is literal and never-miss.",
 		json.RawMessage(`{
 			"type": "object",
 			"properties": {"query": {"type": "string"}},

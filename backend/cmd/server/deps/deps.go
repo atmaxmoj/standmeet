@@ -124,6 +124,8 @@ type Runtime struct {
 	CorpusIndexer  corpus.Indexer // 写路径索引传播;nil = 未配 Meili
 	CaptchaSiteKey string
 	BuildsRoot     string
+	// SessionKey —— 服务端那把钥匙。预览令牌用它签（HMAC 派生，不落表）。
+	SessionKey     string
 	SecureCookie   bool
 	CaptchaEnabled bool // #169 captcha 是否真启用(非 noop)—— code guard 的 escape 层
 }

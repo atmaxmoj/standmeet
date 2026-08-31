@@ -12,6 +12,8 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+
+import { PagePreview } from '@/components/admin/sections/custom-pages/PagePreview';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
@@ -88,7 +90,7 @@ function CustomPagesTable({ rows }: { rows: readonly CustomPageSummary[] }) {
       <table className="w-full border-collapse">
         <TableHead />
         <tbody>
-          {rows.map((p) => <PageRow key={p.id} page={p} />)}
+          {rows.map((p) => <PageRows key={p.id} page={p} />)}
         </tbody>
       </table>
     </div>
@@ -111,9 +113,26 @@ function TableHead() {
   );
 }
 
+// PageRows —— 一页两行：一行元数据，一行**它长什么样**。
+//
+// 预览跟元数据同属一页，所以不另开一栏或一个抽屉：owner 在指挥 agent 改的时候，
+// 状态和画面要在同一个视野里 —— 要来回切的话他还是只能靠猜。
+function PageRows({ page }: { page: CustomPageSummary }) {
+  return (
+    <>
+      <PageRow page={page} />
+      <tr className="border-b border-(--color-rule)/60 last:border-b-0">
+        <td colSpan={6} className="p-0">
+          <PagePreview page={page} />
+        </td>
+      </tr>
+    </>
+  );
+}
+
 function PageRow({ page }: { page: CustomPageSummary }) {
   return (
-    <tr data-testid={`custom-page-row-${page.slug}`} className="border-b border-(--color-rule)/60 last:border-b-0">
+    <tr data-testid={`custom-page-row-${page.slug}`} className="border-b border-(--color-rule)/60">
       <PageCell page={page} />
       <TemplateCell />
       <VisibilityCell hasLive={page.has_live} hasStaging={page.has_staging} />

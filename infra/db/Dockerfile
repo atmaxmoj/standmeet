@@ -8,9 +8,11 @@
 # schema.sql 仍然是**唯一真源**：这个镜像只是在构建时抄一份进去，抄的动作在
 # `make release-build` 里跟别的镜像一起发生，所以它不可能落后于代码。
 #
-# ⚠️ 这份 schema **只在数据卷第一次创建时**被 postgres 跑一遍。已经在跑的实例升级不走这里，
-# 走 `backend/db/migrations/`。换个新版本的 db 镜像**不会**改动已有的库 —— 镜像是新的，
-# 卷还是旧 schema。
+# ⚠️ 这份 schema **只在数据卷第一次创建时**被 postgres 跑一遍。换个新版本的 db 镜像
+# **不会**改动已有的库 —— 镜像是新的，卷还是旧 schema。
+#
+# 已经在跑的实例靠**后端启动时自己打 migration**（`pgstore.Migrate`，编在后端二进制里）。
+# 所以这两条路各管一端：新卷由这里建，老卷由那一头升 —— 没有第三条要人记得的路。
 
 FROM pgvector/pgvector:pg16
 

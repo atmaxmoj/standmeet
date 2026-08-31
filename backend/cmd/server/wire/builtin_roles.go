@@ -27,4 +27,9 @@ func BuiltinRoles(ctx context.Context, d *deps.Runtime) {
 	if serr := owner.SeedPublicRole(ctx, d.PromptRepo, d.RoleRepo, soleOwner.ID); serr != nil {
 		d.Log.Error("reseed builtin roles at boot", "owner_id", soleOwner.ID, "err", serr)
 	}
+	// 插件那份同理:加一个新的插件 builtin 之后,**已经部署的实例**升级完会少一条,
+	// 而少的那条正是发码时要挂的档 —— 功能在新实例上完好、在所有老实例上坏掉。
+	if perr := d.PluginRegistry.SeedAllOwners(ctx, soleOwner.ID); perr != nil {
+		d.Log.Error("reseed plugin builtins at boot", "owner_id", soleOwner.ID, "err", perr)
+	}
 }

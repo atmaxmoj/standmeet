@@ -81,8 +81,11 @@ func UpdateOwnerEmail(
 	return updated, nil
 }
 
+// normalizeEmail —— **校验**，不是定义规范化。规范化那条规则的家在 `repo.NormalizeEmail`
+// （邮箱进出数据库的唯一咽喉），这里只是按同一把尺子量完再判格式 —— 否则"校验通过的串"
+// 和"存进去的串"会是两个东西。别在这里重新实现 trim/lower。
 func normalizeEmail(raw string) (string, error) {
-	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	trimmed := repo.NormalizeEmail(raw)
 	if trimmed == "" {
 		return "", apierr.ErrEmptyField
 	}

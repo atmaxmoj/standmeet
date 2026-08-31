@@ -25,6 +25,8 @@ components:
     in: tools/archcheck                   # build-time lint tool: internal/'s import-graph gates
   pgstore:
     in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
+  dbfiles:
+    in: db                                       # schema.sql + migrations/ 的 go:embed 载体；只有 pgstore 够得到
   textcut:
     in: internal/infra/textcut                   # 按字符/字节安全截断文本（唯一实现）；domain-less leaf
   plaintext:
@@ -466,6 +468,9 @@ deps:
   pgstore:
     mayDependOn:
       - cryptobox
+      # dbfiles —— migration 的 .sql 编进二进制那一份（升级在后端启动时发生）。
+      # 只有这里够得到：谁都能 import 的话，"schema 归谁管"就散成了好几处。
+      - dbfiles
     anyVendorDeps: true
 
   # Session 管理 setup token、login session、API token。

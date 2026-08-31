@@ -36,7 +36,14 @@ func SeedPublicRole(
 	if jerr := syncPublicRoleJoins(ctx, roles, role.ID()); jerr != nil {
 		return jerr
 	}
-	return seedInvitedRole(ctx, roles, ownerID, promptID)
+	if ierr := seedInvitedRole(ctx, roles, ownerID, promptID); ierr != nil {
+		return ierr
+	}
+	// 这里曾经还种过 job loop 要的 `hiring` prompt + role —— 它们不属于这一份。
+	// 插件的东西落在装配的地方，只因为 seeder 在那儿（跟 PeriodicWorker 那条注释
+	// 记的是同一个教训）。现在归 `internal/owner/jobs/jobs_seed.go`，
+	// 经 capabilities.OwnerSeeder 由宿主在同一个时机调。
+	return nil
 }
 
 // seedInvitedRole —— 产品替 owner 签发的那些码（简历 QR / 批准申请）挂的 builtin role。

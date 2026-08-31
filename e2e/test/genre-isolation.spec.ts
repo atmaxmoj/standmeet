@@ -20,6 +20,9 @@ import { initMCP, callTool } from '@/fixtures/mcp';
 import { seedWiki } from '@/fixtures/corpus';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
+// 用共享的那份 —— 这里曾经自己抄了一份，于是 corpus_search 的 wire 一改
+// 就断在四个地方，而 fixture 一个都吸收不了。
+import { search } from '@/fixtures/retrieval';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -31,8 +34,6 @@ const OWNER = {
 const KEY = 'isolationqx';
 const ALL_CODE = 'ISO-ALL';
 const WIKI_CODE = 'ISO-WIKI';
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-
 type Ctx = { playwright: Playwright };
 let token = '';
 let sid = '';
@@ -110,14 +111,4 @@ async function errorGenreScoped({ playwright }: Ctx): Promise<void> {
 
 async function session(request: APIRequestContext, code: string): Promise<VisitorSession> {
   return issueSession(request, { handle: OWNER.handle, code, visitor_name: 'V' });
-}
-async function search(
-  request: APIRequestContext, s: VisitorSession, query: string,
-): Promise<Array<{ path?: string; genre?: string }>> {
-  const res = await request.post(
-    `${BACKEND}/api/v1/sessions/${s.conversation_id}/tools/corpus_search`,
-    { headers: { Authorization: `Bearer ${s.session_token}` }, data: { query } },
-  );
-  const body = await res.json() as { result?: Array<{ path?: string; genre?: string }> };
-  return body.result ?? [];
 }

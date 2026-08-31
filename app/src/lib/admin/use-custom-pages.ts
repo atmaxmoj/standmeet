@@ -18,9 +18,35 @@ const CustomPageSummarySchema = z.object({
   // （[[zod-unknown-is-not-optional]]：服务端少发一个字段，客户端整份 schema 静默失败）。
   bound_codes: z.array(z.string()).nullish(),
   allow_byoai: z.boolean().nullish(),
+  // latest_build_id —— 面板靠它判"预览该刷新了"：agent 每次 build 产生一个新 id，
+  // 那是唯一跟着 owner 指挥的这件事变的值。optional：后端 omitempty，
+  // 而少一个字段不该把整份列表打挂（[[zod-unknown-is-not-optional]]）。
+  latest_build_id: z.string().optional(),
+  latest_build_status: z.string().optional(),
+  // preview_url —— 面板那块 iframe 的 src，令牌已经签在里面。**不在前端拼**：
+  // 令牌要服务端的钥匙，而前端自己拼的地址迟早跟服务端格式漂移，
+  // 漂移之后的样子是预览一片空白而没有任何东西报错。
+  preview_url: z.string().optional(),
   created_at: z.string(), updated_at: z.string(),
 });
 export type CustomPageSummary = z.infer<typeof CustomPageSummarySchema>;
+
+// PreviewView —— 预览那一块要的三个值。
+export interface PreviewView {
+  src: string;
+  buildID: string;
+  status: string;
+}
+
+// previewView —— 三个 optional 字段各自的落点。落在 lib 而不是组件里：
+// 呈现层的分支上限是 3，而三个 `??` 就已经到顶 —— 判断归这儿，组件只负责摆。
+export function previewView(page: CustomPageSummary): PreviewView {
+  return {
+    src: page.preview_url ?? '',
+    buildID: page.latest_build_id ?? '',
+    status: page.latest_build_status ?? '',
+  };
+}
 
 const BuildSchema = z.object({
   build_id: z.string(), status: z.string(), error_message: z.string().nullish(),
@@ -49,10 +75,24 @@ export const customPagesStore = createResourceStore<CustomPageSummary[]>({
   fetcher: () => adminAPI.get('/custom-pages', z.array(CustomPageSummarySchema)),
 });
 
+// pollEveryMs —— owner 在**别处**（Claude 那边）下指令，这一页没有任何事件可以等，
+// 所以只能问。3 秒：一次构建要几十秒，这个间隔足够让"它开始建了 / 建好了"及时出现，
+// 又不至于把面板变成一个刷新器。
+//
+// 换成 SSE 更省，但那要后端多开一条推送 —— 而这条路上没有第二个消费者，
+// 现在多建一条通道是为一个还不存在的需求付账。
+const pollEveryMs = 3_000;
+
 export function useCustomPages(): CustomPagesHook {
   const r = useResource(customPagesStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  // owner 打开这一页的时候，往往正在另一个窗口指挥 agent 改它。不轮询的话，
+  // 他得自己刷新才看得到 —— 而"我得自己去刷"正是他抱怨的那件事。
+  useEffect(() => {
+    const t = setInterval(() => { void customPagesStore.getState().refresh(); }, pollEveryMs);
+    return () => clearInterval(t);
+  }, []);
   return {
     status: r.status, rows: r.data ?? [], error: r.error,
     refresh: customPagesStore.getState().refresh,

@@ -72,6 +72,22 @@ const nextConfig: NextConfig = {
     fallback: [],
   }),
 
+  // headers: /embed.js 要能被**任意站点**跨源加载 —— 这是它存在的全部理由
+  // （CLAUDE.md 承诺的"单个 <script> 标签 drop-in"）。后端的 /api/v1/* 早就有
+  // PublicCORS 了，而这个文件是 Next 从 public/ 直接发的静态资源，走不到那条中间件，
+  // 所以头得在这里加。少了它，脚本在第三方页面上取不到，而 embed 一行代码都跑不了。
+  headers: () => Promise.resolve([
+    {
+      source: '/embed.js',
+      headers: [
+        { key: 'Access-Control-Allow-Origin', value: '*' },
+        { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+        // 版本跟着实例走，别让别人的站点抱着一份过期的挂半年。
+        { key: 'Cache-Control', value: 'public, max-age=300' },
+      ],
+    },
+  ]),
+
   // 相对 asset 路径在 /p/<slug> 无尾杠时会断（resolve 到 /p/assets/...）。
   // backend serveAsset 在返回 index.html 时注入 <base href="/p/<slug>/">，
   // 避免 Next 端做 redirect 死循环（default trailingSlash=false 跟我们的

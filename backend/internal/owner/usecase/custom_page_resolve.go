@@ -64,3 +64,29 @@ func resolveByOwner(
 	}
 	return LivePage{Build: build, AllowBYOAI: page.AllowBYOAI}, nil
 }
+
+// ResolvePreviewBuild —— **owner 预览用**的那一版：这一页最近一次构建成功的。
+//
+// 为什么要单独一条：`/p/{slug}` 服务的是 live（resolveByOwner 读 LiveBuildID），
+// 于是 agent 建完到 owner 点头之间的那一版，owner **没有任何地方看得见** ——
+// 而那恰恰是他要看的那一版（看完才决定上不上线）。
+//
+// **一条规则，没有 fallback 链**：最近一次构建成功的，就这一条。
+//   - 不看 staging_build_id：那要 agent 记得多调一次 promote_to_staging，
+//     忘了 owner 就什么都看不见、而且不知道为什么。而 owner 要的是"看到它刚做了什么"。
+//   - 只看 built：pending / building / failed 没有产物，渲出来是一片空白，
+//     owner 会以为是自己写的页坏了。最近一次**成功**的那版仍然是他上次看到的东西，
+//     而构建失败该由构建状态那一行说话，不是靠预览变白。
+func ResolvePreviewBuild(
+	ctx context.Context, deps CustomPageDeps, ownerID, slug string,
+) (LivePage, error) {
+	page, perr := deps.Pages.GetBySlug(ctx, ownerID, slug)
+	if perr != nil {
+		return LivePage{}, fmt.Errorf("get page: %w", perr)
+	}
+	build, berr := deps.Builds.GetLatestBuiltForPage(ctx, page.ID)
+	if berr != nil {
+		return LivePage{}, fmt.Errorf("latest built build: %w", berr)
+	}
+	return LivePage{Build: build, AllowBYOAI: page.AllowBYOAI}, nil
+}

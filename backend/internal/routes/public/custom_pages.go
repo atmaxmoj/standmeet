@@ -11,7 +11,6 @@
 package public
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"html"
@@ -54,12 +53,26 @@ func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
 		// 于是撤下的页面照样打得开。那不是「浏览器自己缓存了」，是我们没说别缓存。
 		// 唯一该落在我们控制之外的，是读者已经存进本地的那一份。
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		asset, err := resolveAsset(r.Context(), h, r)
-		if err != nil {
-			writeAssetErr(h.Log, w, err)
-			return
-		}
-		serveFile(h.Log, w, asset.path, headFor(r, asset.allowBYOAI))
+		// 文件那一段跟 admin 预览共用一份（custom_page_serve.go）——
+		// 差别只在**看哪一次构建**，而路径逃逸校验只能有一份。
+		ctx := r.Context()
+		ServeBuildAsset(w, r, &BuildAssetReq{
+			Log:        h.Log,
+			BuildsRoot: h.BuildsRoot,
+			Resolve: func() (BuiltAsset, error) {
+				live, lerr := owner.ResolveLiveBuild(
+					ctx, h.Deps, h.Owners, chi.URLParam(r, "slug"))
+				if lerr != nil {
+					return BuiltAsset{}, lerr
+				}
+				return BuiltAsset{
+					PageID: live.Build.PageID, BuildID: live.Build.ID,
+					AllowBYOAI: live.AllowBYOAI,
+				}, nil
+			},
+			AssetPath: chi.URLParam(r, "*"),
+			BaseHref:  fmt.Sprintf("/p/%s/", chi.URLParam(r, "slug")),
+		})
 	}
 }
 
@@ -68,10 +81,6 @@ func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
 type pageHead struct {
 	base       string
 	allowBYOAI bool
-}
-
-func headFor(r *http.Request, allowBYOAI bool) pageHead {
-	return pageHead{base: baseHrefFor(r), allowBYOAI: allowBYOAI}
 }
 
 // tags —— 注进 <head> 的那几行。
@@ -84,37 +93,8 @@ func (p pageHead) tags() string {
 		`<meta name="standmeet-page-byoai" content="` + strconv.FormatBool(p.allowBYOAI) + `">`
 }
 
-// baseHrefFor —— 给 index.html 注入 <base href> 用。空 assetPath 即根入口，
-// 浏览器 URL 是 /p/<slug>(/)?，所以 base 必须是 /p/<slug>/，让 vite emit
-// 的 `./assets/...` 永远解析对路径。
-func baseHrefFor(r *http.Request) string {
-	asset := chi.URLParam(r, "*")
-	if asset != "" {
-		return ""
-	}
-	return fmt.Sprintf("/p/%s/", chi.URLParam(r, "slug"))
-}
-
-// resolvedAsset —— 这一次要给出的文件，加上服务它时页自己的设置。
-type resolvedAsset struct {
-	path       string
-	allowBYOAI bool
-}
-
-func resolveAsset(
-	ctx context.Context, h *CustomPageHandlers, r *http.Request,
-) (resolvedAsset, error) {
-	live, err := owner.ResolveLiveBuild(ctx, h.Deps, h.Owners, chi.URLParam(r, "slug"))
-	if err != nil {
-		return resolvedAsset{}, err
-	}
-	fp, perr := joinSafeAssetPath(
-		h.BuildsRoot, live.Build.PageID, live.Build.ID, chi.URLParam(r, "*"))
-	if perr != nil {
-		return resolvedAsset{}, perr
-	}
-	return resolvedAsset{path: fp, allowBYOAI: live.AllowBYOAI}, nil
-}
+// 这里曾经有过 resolveAsset / headFor / baseHrefFor / resolvedAsset —— 它们做的事
+// 现在归 custom_page_serve.go 那一份（两个调用方共用），这里只剩"看哪一次构建"。
 
 // joinSafeAssetPath —— 把 owner-provided assetPath 拼成 host 文件路径，强校验
 // 最终路径仍在 BuildsRoot 内。filepath.Clean + HasPrefix containment 兜底。

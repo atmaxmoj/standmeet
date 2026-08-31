@@ -13,6 +13,9 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
+// 用共享的那份 —— 这里曾经自己抄了一份，于是 corpus_search 的 wire 一改
+// 就断在四个地方，而 fixture 一个都吸收不了。
+import { search } from '@/fixtures/retrieval';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -95,13 +98,3 @@ async function corpusRead(
   return body.result ?? {};
 }
 
-async function search(
-  request: APIRequestContext, s: VisitorSession, query: string,
-): Promise<Array<{ path?: string; title?: string }>> {
-  const res = await request.post(
-    `${BACKEND}/api/v1/sessions/${s.conversation_id}/tools/corpus_search`,
-    { headers: { Authorization: `Bearer ${s.session_token}` }, data: { query } },
-  );
-  const body = await res.json() as { result?: Array<{ path?: string; title?: string }> };
-  return body.result ?? [];
-}

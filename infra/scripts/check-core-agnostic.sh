@@ -38,7 +38,17 @@ BASELINE="backend/.core-agnostic-baseline"
 
 # The kernel packages —— they must not let you infer that any concrete capability/connector exists.
 # (internal/usecases was the third; it is dissolved, so the agent engine + capability axis remain.)
-CORE_DIRS="backend/internal/conversation/inference backend/internal/capabilities"
+# access/entity + owner/entity 是 2026-08-31 加进来的。
+#
+# 加它们的原因是一次真实的泄漏：job loop（一个**插件**）要的 `hiring` role 和 prompt
+# 被写进了 `access/entity`，紧挨着 `PublicRoleName` / `InvitedRoleName` —— 内核于是
+# 认识了一个插件的词，而那条 role 还带着一条只有插件说得清的 glob。
+# 那一版 `make lint` 是**绿的**：这两个包当时不在 CORE_DIRS 里，锁结构上看不见。
+#
+# 而它们恰恰是最该锁的：`access/entity` 定义访问层级，`owner/entity` 定义 owner 的
+# 值对象 —— 插件想在内核里"占个名分"，第一个落脚点就是这两处。
+CORE_DIRS="backend/internal/conversation/inference backend/internal/capabilities \
+backend/internal/access/entity backend/internal/owner/entity"
 
 # Concrete capability/connector names. All are words with "almost zero legitimate reason" in the kernel. Deliberately excluded:
 #   - bare "mail"/"email"/"google"/"corpus" —— email is identity, corpus is a kernel primitive; catching them would

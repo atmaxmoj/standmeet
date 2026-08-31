@@ -4,6 +4,12 @@
 -- long-lived instance keeps the shape it was born with. Declaring the new default in schema.sql
 -- fixes tomorrow's instances and nothing else; this file is what the running one gets.
 --
+-- Safe to run again, and it must stay that way: the backend applies every unrecorded migration at
+-- boot (pgstore.Migrate), so this file runs on any instance whose ledger has not yet seen it. The
+-- backfill clears a state the product cannot produce -- cover art exists for writings only, and the
+-- WHERE below excludes writings -- so a second run finds no rows. Do not widen it to a genre the
+-- owner can actually set a hue on: that would turn a re-deploy into data loss.
+--
 -- Two statements, and they are different in kind:
 --
 --   1. the DEFAULT. From now on a note that was never given a hue stores ''. Before this, every

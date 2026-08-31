@@ -6,7 +6,6 @@
 // 意外被扫进检索。这条钉住 lister 层的 raw 排除(独立于 LLM 路径)。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -14,7 +13,10 @@ import { initMCP, callTool } from '@/fixtures/mcp';
 import { seedWiki } from '@/fixtures/corpus';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
-import { issueSession, type VisitorSession } from '@/fixtures/visitor';
+// 用共享的那份 —— 这里曾经自己抄了一份，于是 corpus_search 的 wire 一改
+// 就断在四个地方，而 fixture 一个都吸收不了。
+import { search } from '@/fixtures/retrieval';
+import { issueSession } from '@/fixtures/visitor';
 
 const OWNER = {
   email: 'excluderaw@example.com',
@@ -25,8 +27,6 @@ const OWNER = {
 const CODE = 'EXCLUDERAW-1';
 const RAW_KEY = 'rawonlyqx';
 const WIKI_KEY = 'wikionlyqx';
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('retrieval excludes raw even when the role greedily grants raw://**', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -72,13 +72,3 @@ test.describe('retrieval excludes raw even when the role greedily grants raw://*
     });
 });
 
-async function search(
-  request: APIRequestContext, s: VisitorSession, query: string,
-): Promise<Array<{ path?: string; title?: string }>> {
-  const res = await request.post(
-    `${BACKEND}/api/v1/sessions/${s.conversation_id}/tools/corpus_search`,
-    { headers: { Authorization: `Bearer ${s.session_token}` }, data: { query } },
-  );
-  const body = await res.json() as { result?: Array<{ path?: string; title?: string }> };
-  return body.result ?? [];
-}

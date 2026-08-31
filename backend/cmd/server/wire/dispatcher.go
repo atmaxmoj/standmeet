@@ -67,11 +67,14 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			ModelLister: d.ProviderModels,
 		},
 		Account: owner.OpsAccountDeps{
-			Account:  owner.AccountDeps{Owners: d.OwnerRepo},
-			Recovery: port.RecoveryDeps(d),
+			Account:     owner.AccountDeps{Owners: d.OwnerRepo},
+			Recovery:    port.RecoveryDeps(d),
+			EmailChange: port.EmailChangeDeps(d),
 		},
 		CustomPages: owner.CustomPageDeps{
 			Pages: d.CustomPageRepo, Builds: d.CustomBuildRepo,
+			// 列表要签预览地址 —— 令牌用服务端这把钥匙签，前端不自己拼。
+			PreviewSigningKey: d.SessionKey,
 		},
 		Writings: writingsDepsOf(d),
 		MCPServers: marketplace.MCPServersDeps{

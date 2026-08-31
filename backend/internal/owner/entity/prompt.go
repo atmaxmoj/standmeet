@@ -87,6 +87,9 @@ const PublicPromptBody = "You are an AI proxy for {owner}. " +
 // PublicPromptDescription —— public prompt 的一句简介。
 const PublicPromptDescription = "Plain helpful proxy. No persona overlay."
 
+// job loop 要的那条 `hiring` prompt 曾经在这里。它是那个插件的东西，不是内核的 ——
+// 现在住在 internal/owner/jobs/jobs_seed.go，经 capabilities.OwnerSeeder 种下去。
+
 // ErrPromptNotFound —— prompt id 不存在或不属于该 owner。
 var ErrPromptNotFound = errors.New("prompt not found")
 

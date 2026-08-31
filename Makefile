@@ -33,6 +33,7 @@ env-lint:
 	@infra/scripts/check-knobs-reachable-test.sh
 	@infra/scripts/check-redis-bounded.sh
 	@infra/scripts/check-search-index-shipped.sh
+	@infra/scripts/check-custom-page-imports-declared.sh
 	@infra/scripts/check-doc-make-targets.sh
 
 backend-lint:
@@ -669,9 +670,11 @@ dev-rebuild: app-build
 dev-down:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans
 
-# dev-fresh —— down + 丢掉 dev 的 pg 卷 + 重新起。**schema 改动之后要跑这个**：
-# schema.sql 只在**全新卷**上应用一次，长命的 dev 卷停在它出生时的样子，于是后加的列
-# 只活在文件里，backend 照常起来，直到某条查询才炸（[[schema-lives-in-the-volume-not-the-image]]）。
+# dev-fresh —— down + 丢掉 dev 的 pg 卷 + 重新起。**要一张真正的白纸时才用这条。**
+#
+# schema 改动不必再走这里：写一条 `backend/db/migrations/*.sql`，`make dev-rebuild SVC=backend`
+# 就把它打上去了（后端启动时自己打）。dev 从此跟 prod 走同一条升级路 —— 而这很重要，
+# 因为「dev 靠扔掉卷、prod 靠手打 SQL」的时候，dev 上的绿从来没走过 prod 那条路。
 #
 # 跟 prod-clean 不同，这条**不要** I_MEAN_IT：dev 里的数据本来就是一次性的（每个 spec
 # 自己重置实例），而 prod 的卷装着真语料和真凭据。两条命令危险程度差着量级，

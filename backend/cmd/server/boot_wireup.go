@@ -31,17 +31,18 @@ import (
 // 直接铺开 50+ 行 struct literal，function-length lint 友好。
 func buildServerDeps(d *deps.Runtime) *Deps {
 	return &Deps{
-		DB:                   d.DB,
-		Redis:                d.RDB,
-		Log:                  d.Log,
-		Admin:                buildAdminDeps(d),
-		Public:               buildPublicDeps(d),
-		PubAPI:               buildPubAPIDeps(d),
-		PublicPage:           buildPublicPageDeps(d),
-		PublicSEO:            buildPublicSEODeps(d),
-		PublicCustomPages:    buildPublicCustomPageDeps(d),
-		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
-		PublicPasswordReset:  buildPublicPasswordResetDeps(d),
+		DB:                      d.DB,
+		Redis:                   d.RDB,
+		Log:                     d.Log,
+		Admin:                   buildAdminDeps(d),
+		Public:                  buildPublicDeps(d),
+		PubAPI:                  buildPubAPIDeps(d),
+		PublicPage:              buildPublicPageDeps(d),
+		PublicSEO:               buildPublicSEODeps(d),
+		PublicCustomPages:       buildPublicCustomPageDeps(d),
+		PublicCustomPagePreview: buildPublicCustomPagePreviewDeps(d),
+		PublicAccessRequests:    buildPublicAccessRequestsDeps(d),
+		PublicPasswordReset:     buildPublicPasswordResetDeps(d),
 		PublicWritings: publicroutes.WritingHandlers{
 			Writings: corpus.WritingsDeps{Writings: d.WritingRepo},
 			CrossLink: corpus.CrossLinkQueryDeps{
@@ -103,6 +104,7 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 		PublicURLAdmin: owner.PublicURLDeps{Owners: d.OwnerRepo},
 		AccountAdmin:   owner.AccountDeps{Owners: d.OwnerRepo},
 		Recovery:       port.RecoveryDeps(d),
+		EmailChange:    port.EmailChangeDeps(d),
 		AIProvider: owner.AIProviderDeps{
 			Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
 		},
@@ -292,15 +294,6 @@ func buildPublicSEODeps(d *deps.Runtime) publicroutes.SEOHandlers {
 		},
 		Sessions: d.VisitorStore,
 		Log:      d.Log,
-	}
-}
-
-func buildPublicCustomPageDeps(d *deps.Runtime) publicroutes.CustomPageHandlers {
-	return publicroutes.CustomPageHandlers{
-		Deps:       owner.CustomPageDeps{Pages: d.CustomPageRepo, Builds: d.CustomBuildRepo},
-		Owners:     d.OwnerRepo,
-		Log:        d.Log,
-		BuildsRoot: d.BuildsRoot,
 	}
 }
 

@@ -25,7 +25,7 @@ func commitDraft(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := authmw.OwnerIDFrom(r.Context())
 		committed, err := jobsuc.CommitApplication(
-			r.Context(), *deps.Commit, ownerID, chi.URLParam(r, "id"),
+			r.Context(), deps.Commit, ownerID, chi.URLParam(r, "id"),
 		)
 		if err != nil {
 			handleDraftDetailErr(deps.Log, w, err)

@@ -53,7 +53,7 @@ func TestCommitApplicationRendersBeforePersist(t *testing.T) {
 		Owners:   fakeOwnerLookup{url: "https://alice.example"},
 		Renderer: failingRenderer{},
 	}
-	_, err := jobsuc.CommitApplication(context.Background(), deps, "owner-1", "draft-1")
+	_, err := jobsuc.CommitApplication(context.Background(), &deps, "owner-1", "draft-1")
 	require.Error(t, err, "a render failure must surface")
 	require.False(t, store.committed,
 		"render failure must NOT persist the application — commit stays retryable")

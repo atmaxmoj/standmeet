@@ -132,8 +132,12 @@ export async function mockSetDay(
 // Synthetic day-2 external_id sentinels per source kind. Greenhouse uses
 // int64 upstream so synthetic ids are numeric strings (fetcher converts
 // via strconv at toDomain time); others use opaque strings.
+// MOCK_UNTITLED_DAY2 —— day2 里那条**没有 title** 的 greenhouse 行。真实招聘板会吐
+// 畸形行；替身只吐格式良好的数据就比现实客气，客气背后的缺陷一条都看不见。
+export const MOCK_UNTITLED_DAY2 = '999000003';
+
 export const MOCK_SYNTHETIC_DAY2 = {
-  greenhouse: ['999000001', '999000002'],
+  greenhouse: ['999000001', '999000002', MOCK_UNTITLED_DAY2],
   lever: ['mockday2-1', 'mockday2-2'],
   ashby: ['mockday2-1', 'mockday2-2'],
   remoteok: ['mockday2-1', 'mockday2-2'],

@@ -122,11 +122,27 @@ type customPageOut struct {
 	LiveBuildID string `json:"live_build_id,omitempty"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
+	// LatestBuildID / LatestBuildStatus —— 这一页**最近一次构建**（不管成没成）。
+	//
+	// 面板靠 LatestBuildID 判"预览该刷新了"：owner 在指挥 agent 改页面，而
+	// agent 每次 build 都会产生一个新 id —— 那是唯一跟着这件事变的值
+	// （has_staging 是布尔，换一版它不动；live_build_id 要 promote 了才动）。
+	// Status 一起给，好让 owner 看得见"正在构建"而不是盯着一张没变的旧图。
+	LatestBuildID     string `json:"latest_build_id,omitempty"`
+	LatestBuildStatus string `json:"latest_build_status,omitempty"`
+	// PreviewURL —— 面板那块 iframe 的 src，**令牌已经签在里面**。
+	//
+	// 由后端给而不是前端拼：令牌要服务端的钥匙签，而"前端自己拼一个地址"那条路
+	// 迟早会跟服务端的格式漂移，漂移之后的样子是预览一片空白而没有任何东西报错。
+	PreviewURL string `json:"preview_url,omitempty"`
+
 	// BoundCodes —— 哪些活着的码开这一页。绑定的另一头；码那一侧看得到页，这一侧看得到码。
 	// **总是发数组，空也发** —— 缺席和「没有码指向它」是两件事。
+	// 位置按 govet fieldalignment：slice 排在 string 之后、bool 之前。
 	BoundCodes []string `json:"bound_codes"`
-	HasLive    bool     `json:"has_live"`
-	HasStaging bool     `json:"has_staging"`
+
+	HasLive    bool `json:"has_live"`
+	HasStaging bool `json:"has_staging"`
 	// AllowBYOAI —— 无人出示 grant 时给不给用自己的 key。来了 code 就作废（I-4）。
 	AllowBYOAI bool `json:"allow_byoai"`
 }
@@ -172,10 +188,34 @@ func listCustomPages(deps usecase.CustomPageDeps) fp.Invoke {
 		}
 		out := make([]customPageOut, 0, len(rows))
 		for i := range rows {
-			out = append(out, toCustomPageOut(&rows[i]))
+			v := toCustomPageOut(&rows[i])
+			attachLatestBuild(ctx, deps, &v)
+			attachPreviewURL(&v, ownerID, deps.PreviewSigningKey)
+			out = append(out, v)
 		}
 		return json.Marshal(out)
 	}
+}
+
+// attachLatestBuild —— 补上"最近一次构建"。取不到就留空：**列表不能因为这一条失败**，
+// 那样 owner 连自己有哪些页都看不见了。少一个刷新提示，比整页打不开好。
+func attachLatestBuild(ctx context.Context, deps usecase.CustomPageDeps, v *customPageOut) {
+	build, err := deps.Builds.GetLatestForPage(ctx, v.ID)
+	if err != nil {
+		return
+	}
+	v.LatestBuildID = build.ID
+	v.LatestBuildStatus = build.Status
+}
+
+// attachPreviewURL —— 签一个 10 分钟的预览地址。没有 key 就不给（那时预览打不开，
+// 但列表本身照常 —— 少一块预览比整页打不开好）。
+func attachPreviewURL(v *customPageOut, ownerID, key string) {
+	if key == "" || v.LatestBuildID == "" {
+		return
+	}
+	token := usecase.NewPreviewToken(key, ownerID, v.Slug, time.Now())
+	v.PreviewURL = "/api/v1/custom-pages/" + v.Slug + "/preview/" + token
 }
 
 func getCustomPageBuild(deps usecase.CustomPageDeps) fp.Invoke {

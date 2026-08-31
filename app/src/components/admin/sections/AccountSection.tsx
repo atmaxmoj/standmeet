@@ -6,13 +6,16 @@
 
 'use client';
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { EmailBlock } from '@/components/admin/sections/account/EmailBlock';
 import {
-  emailSaveDisabled, fullNameSaveDisabled, passwordHintMessage, passwordSaveDisabled,
-  recoveryRowView,
+  AcctBlock, PasswordField, SaveBtn,
+} from '@/components/admin/sections/account/atoms';
+import {
+  fullNameSaveDisabled, passwordHintMessage, passwordSaveDisabled, recoveryRowView,
 } from '@/lib/admin/account-form';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useAccount, type AccountHook } from '@/lib/admin/use-account';
@@ -44,22 +47,13 @@ function pickEmail(s: ReturnType<typeof useAdminSession>): string {
   return s.kind === 'ready' ? s.session.email : '';
 }
 
-// AcctBlock —— like the page Block but WITHOUT its section border-t. The account
-// fields already separate with their own input underlines, so the extra divider
-// (only the 2nd block in a card picked it up — e.g. above "email") read redundant.
-function AcctBlock({ title, blurb, children }: { title: string; blurb?: string; children: ReactNode }) {
-  return (
-    <section className="mt-10 first:mt-0">
-      <div className="mb-7 flex items-baseline gap-4 flex-wrap">
-        <h2 className="font-serif text-(--color-ink) text-[22px] font-medium tracking-[-0.012em]">{title}</h2>
-        {blurb ? (
-          <p className="reading-tight text-(--color-muted) flex-1 min-w-[20em] text-[14px] max-w-[46em]">{blurb}</p>
-        ) : null}
-      </div>
-      <div className="space-y-7">{children}</div>
-    </section>
-  );
+// pickPendingEmail —— 有没有一次待确认的改动。**从 session 读**,不在组件里另存一份:
+// owner 关掉标签页再回来,那个待确认状态还在库里,而组件的 useState 早没了
+// (事实归产生它的那一方,别处只查询不记忆)。
+function pickPendingEmail(s: ReturnType<typeof useAdminSession>): string {
+  return s.kind === 'ready' ? (s.session.pendingEmail ?? '') : '';
 }
+
 
 function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType<typeof useAdminSession> }) {
   const t = useTranslations('adminShell.account');
@@ -67,7 +61,10 @@ function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <div className="sm-smallcaps mb-3">{t('profile')}</div>
       <FullNameBlock hook={hook} initialValue={pickFullName(session)} />
-      <EmailBlock hook={hook} initialValue={pickEmail(session)} />
+      <EmailBlock
+        hook={hook} initialValue={pickEmail(session)}
+        pending={pickPendingEmail(session)}
+      />
     </div>
   );
 }
@@ -125,7 +122,10 @@ interface SecurityRowProps {
 
 function SecurityRow({ label, detail, actionLabel, note, onAction, disabled = true }: SecurityRowProps) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
+    <div
+      data-testid="recovery-row"
+      className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0"
+    >
       <div>
         <div className="font-serif text-[15px] text-(--color-ink) flex items-center gap-1.5">
           {label}
@@ -212,60 +212,6 @@ async function runSaveFullName(
   next && toast.success(`Full name updated to ${next}`);
 }
 
-// ─── email block ───────────────────────────────────────────
-
-function EmailBlock({ hook, initialValue }: { hook: AccountHook; initialValue: string }) {
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState(initialValue);
-  const toast = useToast();
-  const disabled = emailSaveDisabled(hook.pending, current, next, initialValue);
-  return (
-    <AcctBlock title="email"
-      blurb="Your login identity. Changing it requires your current password.">
-      <PasswordField
-        testid="account-email-current-password"
-        value={current} onChange={setCurrent} label="current password"
-      />
-      <div className="flex items-baseline gap-3 mt-3">
-        <input
-          type="email"
-          value={next}
-          onChange={(e) => setNext(e.target.value)}
-          spellCheck={false}
-          autoComplete="email"
-          placeholder="you@example.com"
-          data-testid="account-email-new"
-          className="sm-field-input sm-field-lg flex-1 min-w-0"
-        />
-        <SaveBtn
-          testid="account-email-save"
-          disabled={disabled}
-          label="save email"
-          onClick={() => void runSaveEmail(hook, current, next, setCurrent, toast)}
-        />
-      </div>
-    </AcctBlock>
-  );
-}
-
-async function runSaveEmail(
-  hook: AccountHook, current: string, next: string,
-  setCurrent: (v: string) => void,
-  toast: { success: (m: string) => void },
-): Promise<void> {
-  const saved = await hook.updateEmail(current, next);
-  saved && finishEmailSave(setCurrent, toast, saved);
-}
-
-function finishEmailSave(
-  setCurrent: (v: string) => void,
-  toast: { success: (m: string) => void },
-  saved: string,
-): void {
-  setCurrent('');
-  toast.success(`Email updated to ${saved}`);
-}
-
 // ─── password block ────────────────────────────────────────
 
 function PasswordBlock({ hook }: { hook: AccountHook }) {
@@ -321,49 +267,3 @@ function finishPasswordSave(
 
 // ─── shared atoms ──────────────────────────────────────────
 
-interface PasswordFieldProps {
-  testid: string;
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-}
-
-function PasswordField({ testid, value, onChange, label }: PasswordFieldProps) {
-  return (
-    <label className="block mt-3">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        {label}
-      </span>
-      <input
-        type="password"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete="off"
-        spellCheck={false}
-        data-testid={testid}
-        className="sm-field-input sm-field-lg"
-      />
-    </label>
-  );
-}
-
-interface SaveBtnProps {
-  testid: string;
-  disabled: boolean;
-  label: string;
-  onClick: () => void;
-}
-
-function SaveBtn({ testid, disabled, label, onClick }: SaveBtnProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      data-testid={testid}
-      className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
-    >
-      {label}
-    </button>
-  );
-}

@@ -30,7 +30,7 @@ type Credentials struct {
 // ErrOwnerNotFound（usecase 层翻译成 401，避免暴露"用户存在与否"）。
 func (r *Repo) GetCredentialsByEmail(ctx context.Context, email string) (Credentials, error) {
 	q := db.New(r.pool)
-	row, err := q.GetOwnerByEmail(ctx, email)
+	row, err := q.GetOwnerByEmail(ctx, NormalizeEmail(email))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Credentials{}, entity.ErrOwnerNotFound

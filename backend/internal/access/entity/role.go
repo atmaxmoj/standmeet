@@ -274,6 +274,11 @@ var InvitedRoleCorpusURIs = []string{
 	"writing://**",
 }
 
+// 这里曾经有过一条 `HiringRole*` —— job loop 要的那条。它不属于内核：`hiring` 是那个
+// 插件的概念，不是一档内核级访问层，而它带的 glob（招聘官读的 CV 在哪）也只有插件说得清。
+// 现在住在 `internal/owner/jobs/jobs_seed.go`，经 capabilities.OwnerSeeder 种下去。
+// 注意 `check-core-agnostic` 的 CORE_DIRS **不含这个包**，所以那次泄漏 lint 是绿的。
+
 // ErrRoleNotFound —— role id 不存在或不属于该 owner。
 var ErrRoleNotFound = errors.New("role not found")
 

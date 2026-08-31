@@ -41,7 +41,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'subjectivity', label: 'subjectivity' },
       { slug: 'writings', label: 'writings' },
       { slug: 'output', label: 'outputs' },
-      { slug: 'custom-pages', label: 'custom pages' },
     ],
   },
   {
@@ -52,6 +51,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'roles', label: 'roles' },
       { slug: 'prompts', label: 'prompts' },
       { slug: 'requests', label: 'requests', badgeTestId: 'badge-requests' },
+      // custom pages 归 access,不归 corpus:它不是语料的一层,它是**访客落到哪儿**。
+      // 一个 custom page 可以绑到某个 code 上(custom-page-code-binding),
+      // 跟它做邻居的是 codes 和 preview,不是 raw/wiki/output。
+      { slug: 'custom-pages', label: 'custom pages' },
       { slug: 'preview', label: 'preview' },
     ],
   },

@@ -98,6 +98,8 @@ async function search(
   // 不吞状态码：一个拒绝跟"搜到 0 条"在断言里长得一模一样，而它们说的是完全不同的事。
   const text = await res.text();
   expect(res.status(), `corpus_search(${query}) answered ${res.status()}: ${text}`).toBe(200);
-  const body = JSON.parse(text) as { result?: Array<{ path?: string; title?: string }> };
-  return body.result ?? [];
+  // 回执是 {hits, note?}：note 只在空手时出现（F-S-2 —— 空不等于没有）。
+  const body = JSON.parse(text) as
+    { result?: { hits?: Array<{ path?: string; title?: string }> } };
+  return body.result?.hits ?? [];
 }

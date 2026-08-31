@@ -65,6 +65,27 @@ func (r *CustomBuildRepo) GetLatestForPage(
 	return toDomainBuild(&row)
 }
 
+// GetLatestBuiltForPage —— 这一页**最近一次构建成功的**。owner 预览看的就是它。
+//
+// 跟 GetLatestForPage 的差别是筛了状态：那一条会拿到 pending / building / failed，
+// 而那些没有产物 —— owner 看到的是一片空白，还以为是自己写的页有问题。
+func (r *CustomBuildRepo) GetLatestBuiltForPage(
+	ctx context.Context, pageID string,
+) (entity.CustomPageBuild, error) {
+	pgID, perr := pgstore.ParseUUID(pageID)
+	if perr != nil {
+		return entity.CustomPageBuild{}, fmt.Errorf(errParsePageID, perr)
+	}
+	row, err := db.New(r.pool).GetLatestBuiltCustomPageBuild(ctx, pgID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entity.CustomPageBuild{}, entity.ErrCustomPageBuildNotFound
+		}
+		return entity.CustomPageBuild{}, fmt.Errorf("get latest built build: %w", err)
+	}
+	return toDomainBuild(&row)
+}
+
 // GetByID —— builder / MCP poll 状态。
 func (r *CustomBuildRepo) GetByID(
 	ctx context.Context, id string) (entity.CustomPageBuild, error,

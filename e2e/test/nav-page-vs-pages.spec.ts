@@ -1,7 +1,7 @@
 // nav-page-vs-pages.spec.ts —— admin 侧栏两个 "page(s)" 入口必须**可区分**，不是同一个词的两块牌子。
 //
 // rot-D2：slug `page` 顶着 "public page"（settings 组）→ PageSection，就是那唯一一张公开**落地页**；
-// slug `custom-pages` 顶着 "pages"（corpus 组）→ CustomPagesSection，是 MCP 建的、挂在 /p/{slug} 的
+// slug `custom-pages` 顶着 "pages"（access 组）→ CustomPagesSection，是 MCP 建的、挂在 /p/{slug} 的
 // **微站集合**。两块牌子读起来就是同一个词 —— owner 分不清哪扇门是哪扇。一个 label 得说清它开的是什么；
 // "public page" / "pages" 谁也没说清。
 //

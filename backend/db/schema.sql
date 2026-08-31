@@ -50,6 +50,15 @@ CREATE TABLE owners (
     -- recovery_hash —— #100 account recovery phrase 的 hash(只存 hash,明文只进邮件)。
     -- 空 = 没生成过 / 已用掉(单次)。锁在外面时 /recover 拿 email+phrase 对这列。
     recovery_hash        text          NOT NULL DEFAULT '',
+    -- pending_email —— 待确认的新邮箱。email 这一列同时是登录身份**和**恢复渠道,
+    -- 所以它不再当场搬走:新地址先落这里,寄一封确认信,点开了才换过去。
+    -- pending 期间恢复短语仍寄旧地址 —— 新地址还没被证明,把救命通道交给它等于把洞挪个位置。
+    -- 不加 UNIQUE:待确认的地址还不是身份,不该占命名空间。
+    pending_email            citext,
+    -- 只存 hash,跟 recovery_hash / setup_token_hash 一个姿势:明文只进那封邮件。
+    -- 一次性靠确认时清空这三列实现 —— 可重放的确认链接 = 把身份挂在一封旧邮件上。
+    pending_email_token_hash text          NOT NULL DEFAULT '',
+    pending_email_expires_at timestamptz,
     handle               citext        UNIQUE NOT NULL,
     full_name            text          NOT NULL,
     location             text          NOT NULL DEFAULT '',

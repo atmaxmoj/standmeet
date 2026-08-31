@@ -43,21 +43,24 @@ type Deps struct {
 	Log   *slog.Logger
 	// CaptchaVerifier —— login captcha 校验器；composition root 按 env
 	// 装配（turnstile / noop）。
-	CaptchaVerifier      security.Verifier
-	Public               publicroutes.Handlers
-	PublicPage           publicroutes.PageHandlers
-	PublicSEO            publicroutes.SEOHandlers
-	PublicCustomPages    publicroutes.CustomPageHandlers
-	PublicAccessRequests publicroutes.AccessRequestsHandlers
-	PublicPasswordReset  publicroutes.PasswordResetHandlers
-	PublicWritings       publicroutes.WritingHandlers
-	Builds               sysroutes.BuilderDeps
-	TLSAsk               sysroutes.TLSAskDeps
-	PrintSession         sysroutes.PrintSessionDeps
-	DiagRegistry         sysroutes.DiagRegistryDeps
-	DiagSession          sysroutes.DiagSessionDeps
-	DiagConnector        sysroutes.DiagConnectorDeps
-	DiagSandbox          sysroutes.DiagSandboxDeps
+	CaptchaVerifier   security.Verifier
+	Public            publicroutes.Handlers
+	PublicPage        publicroutes.PageHandlers
+	PublicSEO         publicroutes.SEOHandlers
+	PublicCustomPages publicroutes.CustomPageHandlers
+	// PublicCustomPagePreview —— owner 面板里那块预览。公开侧但**凭令牌**:
+	// 它必须在没有 admin cookie 时也能服务(沙箱 iframe 的子资源不带 cookie)。
+	PublicCustomPagePreview publicroutes.CustomPagePreviewHandlers
+	PublicAccessRequests    publicroutes.AccessRequestsHandlers
+	PublicPasswordReset     publicroutes.PasswordResetHandlers
+	PublicWritings          publicroutes.WritingHandlers
+	Builds                  sysroutes.BuilderDeps
+	TLSAsk                  sysroutes.TLSAskDeps
+	PrintSession            sysroutes.PrintSessionDeps
+	DiagRegistry            sysroutes.DiagRegistryDeps
+	DiagSession             sysroutes.DiagSessionDeps
+	DiagConnector           sysroutes.DiagConnectorDeps
+	DiagSandbox             sysroutes.DiagSandboxDeps
 	// PluginRegistry —— J.5: outbound plugins 一次性注册全套 admin REST hook。
 	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
 	PluginRegistry *capabilities.Registry
@@ -75,37 +78,38 @@ type Deps struct {
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
-	Claim           owner.ClaimDeps
-	Login           owner.LoginDeps
-	Keypairs        owner.KeypairDeps
 	Corpus          corpus.Deps
+	ApproveRequests owner.ApproveRequestDeps
 	Conversations   conversation.ConversationsDeps
-	Ghosts          conversation.GhostDeps
-	BYOAI           owner.BYOAIDeps
-	AccessRequests  access.RequestsDeps
-	HandleAdmin     owner.HandleDeps
-	PublicURLAdmin  owner.PublicURLDeps
-	AccountAdmin    owner.AccountDeps
+	Marketplace     marketplace.SearchDeps
+	Keypairs        owner.KeypairDeps
+	Claim           owner.ClaimDeps
+	MCPServers      marketplace.MCPServersDeps
 	Recovery        owner.RecoveryDeps
+	AccessRequests  access.RequestsDeps
+	EmailChange     owner.EmailChangeDeps
 	AIProvider      owner.AIProviderDeps
-	CustomPages     owner.CustomPageDeps
+	Roles           access.RolesDeps
+	Login           owner.LoginDeps
+	Connectors      adminroutes.ConnectorsAdminDeps
+	Assets          corpus.AssetsDeps
 	Skills          marketplace.SkillsDeps
 	Prompts         owner.PromptsDeps
-	Roles           access.RolesDeps
-	MCPServers      marketplace.MCPServersDeps
-	Assets          corpus.AssetsDeps
+	Owners          *owner.Repo
+	AccountAdmin    owner.AccountDeps
+	PublicURLAdmin  owner.PublicURLDeps
 	Writings        corpus.WritingsDeps
 	WritingRefs     *corpus.WritingRefRepo
 	SEO             *corpus.SEORepo
 	Codes           *access.CodeRepo
 	CodeDenials     *access.CodeDenialRepo
-	Owners          *owner.Repo
+	Sessions        *session.OwnerSessionStore
 	Drafts          *jobsuc.ResumeDraftRepo
 	Applications    *jobsuc.ApplicationRepo
-	Marketplace     marketplace.SearchDeps
-	Connectors      adminroutes.ConnectorsAdminDeps
-	ApproveRequests owner.ApproveRequestDeps
-	Sessions        *session.OwnerSessionStore
+	HandleAdmin     owner.HandleDeps
+	BYOAI           owner.BYOAIDeps
+	Ghosts          conversation.GhostDeps
+	CustomPages     owner.CustomPageDeps
 	SecureCookie    bool
 }
 
@@ -179,7 +183,7 @@ func mountAdmin(r chi.Router, deps *Deps) {
 		r.Group(func(r chi.Router) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
-			adminH.MountAuthed(r)
+			adminH.MountAuthed(r, authmw.CredentialGuard(deps.Redis))
 			// 连接器 diag（owner-authed，session cookie path=/api/admin 才到这）。
 			sysroutes.MountDiagConnector(r, deps.DiagConnector)
 			// #147 沙箱管理面（owner-authed；复用 diag handler，路径 /api/admin/sandbox/*）。
@@ -190,9 +194,7 @@ func mountAdmin(r chi.Router, deps *Deps) {
 }
 
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
-	pins := owner.PagePinDeps{
-		Owners: deps.Admin.Owners, Wiki: deps.Admin.Corpus.Wiki,
-	}
+	pins := owner.PagePinDeps{Owners: deps.Admin.Owners, Wiki: deps.Admin.Corpus.Wiki}
 	return &adminroutes.Handlers{
 		Claim: deps.Admin.Claim,
 		Auth: adminroutes.AuthDeps{
@@ -207,24 +209,29 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		CodesAdmin: adminroutes.CodesDeps{Face: wire.AdminFace(deps.Dispatch)},
 		// APIKeysAdmin —— 外发 key 的网页面(F-K-1)。同一个 AdminFace:它按 op 的 reach 过滤,
 		// 而那四个 op 现在声明的是 OwnerRead/OwnerAction(两个 owner 面都长),不再是 mcp-only。
-		APIKeysAdmin:     adminroutes.APIKeysAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		PageAdmin:        adminroutes.PageAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		SEOAdmin:         adminroutes.SEOAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		Conversations:    adminroutes.ConversationsDeps{Face: wire.AdminFace(deps.Dispatch)},
-		BYOAI:            adminroutes.BYOAIDeps{Face: wire.AdminFace(deps.Dispatch)},
-		Domains:          adminroutes.DomainsDeps{Face: wire.AdminFace(deps.Dispatch)},
-		AccessRequests:   adminroutes.AccessRequestsDeps{Face: wire.AdminFace(deps.Dispatch)},
-		HandleAdmin:      adminroutes.HandleDeps{Face: wire.AdminFace(deps.Dispatch)},
-		PublicURLAdmin:   adminroutes.PublicURLDeps{Face: wire.AdminFace(deps.Dispatch)},
-		AccountAdmin:     adminroutes.AccountDeps{Face: wire.AdminFace(deps.Dispatch)},
-		Recovery:         deps.Admin.Recovery,
+		APIKeysAdmin:   adminroutes.APIKeysAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		PageAdmin:      adminroutes.PageAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		SEOAdmin:       adminroutes.SEOAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		Conversations:  adminroutes.ConversationsDeps{Face: wire.AdminFace(deps.Dispatch)},
+		BYOAI:          adminroutes.BYOAIDeps{Face: wire.AdminFace(deps.Dispatch)},
+		Domains:        adminroutes.DomainsDeps{Face: wire.AdminFace(deps.Dispatch)},
+		AccessRequests: adminroutes.AccessRequestsDeps{Face: wire.AdminFace(deps.Dispatch)},
+		HandleAdmin:    adminroutes.HandleDeps{Face: wire.AdminFace(deps.Dispatch)},
+		PublicURLAdmin: adminroutes.PublicURLDeps{Face: wire.AdminFace(deps.Dispatch)},
+		AccountAdmin:   adminroutes.AccountDeps{Face: wire.AdminFace(deps.Dispatch)},
+		Recovery:       deps.Admin.Recovery,
+
+		// 插件那份 builtin 由装配根递进去 —— 注册表住在这儿，路由层够不到它。
+		SeedPlugins:      deps.PluginRegistry.SeedAllOwners,
 		AIProviderAdmin:  adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ProvidersAdmin:   adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		CustomPagesAdmin: adminroutes.CustomPagesDeps{Face: wire.AdminFace(deps.Dispatch)},
-		SkillsAdmin:      adminroutes.SkillsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		PromptsAdmin:     adminroutes.PromptsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		RolesAdmin:       adminroutes.RolesAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		MCPServersAdmin:  adminroutes.MCPServersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		// 预览走域，不走 dispatcher：它发的是**文件字节**，而收口那条路是
+		// JSON op。跟公开侧 /p/{slug} 同一个理由。
+		SkillsAdmin:     adminroutes.SkillsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		PromptsAdmin:    adminroutes.PromptsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		RolesAdmin:      adminroutes.RolesAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		WritingsAdmin: adminroutes.WritingsAdminDeps{
 			Face: wire.AdminFace(deps.Dispatch),
 			WritingsTx: corpus.WritingsTxDeps{
@@ -287,6 +294,7 @@ func mountPublic(r chi.Router, deps *Deps) {
 		(&deps.PublicPage).Mount(r)
 		(&deps.PublicSEO).Mount(r)
 		(&deps.PublicCustomPages).Mount(r)
+		(&deps.PublicCustomPagePreview).Mount(r) // 预览:公开侧但凭令牌
 		(&deps.PublicAccessRequests).Mount(r)
 		(&deps.PublicPasswordReset).Mount(r)
 		(&deps.PublicWritings).Mount(r)

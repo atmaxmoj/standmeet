@@ -31,6 +31,10 @@ export default tseslint.config(
       '**/build/**',
       '**/coverage/**',
       '**/playwright-report/**',
+      // public/ 下两个**构建产物**：TeX 字体和 embed bundle，都是别处的源码
+      // 在 build 时搬进来的，不该按本仓源码的规矩去 lint（tsconfig 也不含它们）。
+      'public/tikz-fonts/**',
+      'public/embed.js',
       '**/*.test.ts',
       // 根目录 config 文件没在 tsconfig 里；typescript-eslint typed-rules
       // 跑不动它们，单独忽略避免 'not found by project service' 报错。

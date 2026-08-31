@@ -6,7 +6,7 @@
 // for admin approve→issue→email to work. The waitForMailTo / clearMailpit
 // helpers read captured mail off Mailpit's HTTP API for assertions.
 
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 import { login } from '@/fixtures/admin';
 
@@ -237,4 +237,42 @@ export async function countMailpitMessages(request: APIRequestContext): Promise<
   if (res.status() !== 200) return 0;
   const body = await res.json() as { messages?: MailpitMessage[] };
   return (body.messages ?? []).length;
+}
+
+// followMailedLink —— 点开信里那条链接。
+//
+// 这不是 `goto`：地址不是测试拼出来的，是**产品自己写进邮件里的**。这正是要验的东西 ——
+// 我们发给用户的那条链接能不能真的用。所以它必须原样走，一个字符都不许由测试补全。
+export async function followMailedLink(page: Page, url: string): Promise<void> {
+  await page.goto(url);
+}
+
+// mailpitHasNothingTo —— 收件箱里**没有**寄给这个地址的信。
+//
+// 断"没发生"的时候尤其要走 fixture 而不是自己拼 URL：端口写错（8025 vs 18025）
+// 时连接直接被拒，而那跟"确实没有这封信"在断言里长得很像 —— 只是这次它红了。
+// 换个写法就会是一条永远绿的假断言（[[assertion-that-cannot-fail]]）。
+export async function mailpitHasNothingTo(
+  request: APIRequestContext, address: string,
+): Promise<boolean> {
+  const res = await request.get(`${MAILPIT}/api/v1/messages`);
+  if (res.status() !== 200) throw new Error(`mailpit unreachable: ${res.status()}`);
+  return !(await res.text()).includes(address);
+}
+
+// recoveryPhraseIn —— 从恢复邮件正文里抠出 phrase（生成端印成一行 `phrase: <...>`）。
+// 与 recovery-phrase.spec.ts 里那份是同一条规则，所以放在 fixture 里只留一份。
+export function recoveryPhraseIn(body: string): string {
+  const m = /phrase:\s*([A-Za-z0-9-]+)/.exec(body);
+  if (m === null) throw new Error(`no recovery phrase in the mail body:\n${body}`);
+  return m[1]!;
+}
+
+// confirmLinkIn —— 从信正文里取出确认链接。取不到就在这里死，别让后面某个断言
+// 莫名其妙地红（[[read-the-failure-before-theorising]]）。
+export function confirmLinkIn(body: string, marker: string): string {
+  const re = new RegExp(`https?://\\S*${marker}\\S*`);
+  const m = re.exec(body);
+  if (m === null) throw new Error(`no ${marker} link in the mail body:\n${body}`);
+  return m[0].replace(/[.,)\]]+$/, '');
 }

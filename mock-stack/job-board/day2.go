@@ -29,6 +29,13 @@ const (
 const (
 	syntheticGreenhouseIDA int64 = 999000001
 	syntheticGreenhouseIDB int64 = 999000002
+	// syntheticGreenhouseIDUntitled —— a row with an EMPTY title. Real boards
+	// serve malformed rows; a stand-in that only ever returns well-formed jobs
+	// is politer than reality, and every defect behind that politeness stays
+	// invisible. `recruiterBriefing` returns "" when the snapshot title is
+	// empty, so the auto-issued code ships with no prompt at all — this row is
+	// what lets a guard see that.
+	syntheticGreenhouseIDUntitled int64 = 999000003
 )
 
 // greenhouseDay2 — drop first 2 jobs in {"jobs":[...]}, append 2 synthetic.
@@ -40,8 +47,25 @@ func greenhouseDay2(raw []byte) []byte {
 	env.Jobs = dropAppendJSON(env.Jobs, []json.RawMessage{
 		greenhouseSyntheticJob(syntheticGreenhouseIDA),
 		greenhouseSyntheticJob(syntheticGreenhouseIDB),
+		greenhouseUntitledJob(syntheticGreenhouseIDUntitled),
 	})
 	return mustMarshal(env)
+}
+
+// greenhouseUntitledJob — same shape, empty title. See the constant's comment.
+func greenhouseUntitledJob(id int64) json.RawMessage {
+	return json.RawMessage(fmt.Sprintf(`{
+		"id": %d,
+		"title": "",
+		"company_name": "MockCo",
+		"location": {"name": "Remote"},
+		"first_published": "2026-05-21T00:00:00Z",
+		"updated_at": "2026-05-21T00:00:00Z",
+		"absolute_url": "https://example.com/jobs/%d",
+		"content": "a row a real board served with no title",
+		"departments": [{"name": "Engineering"}],
+		"offices": [{"name": "Remote"}]
+	}`, id, id))
 }
 
 func greenhouseSyntheticJob(id int64) json.RawMessage {

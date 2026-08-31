@@ -104,13 +104,18 @@ test.describe('F-S-2 · a CJK query must not come back empty-handed and silent',
       expect(english, 'the English query produced a result at all').toBeDefined();
       expect(english ?? 0, 'the English query finds the bilingual note').toBeGreaterThan(2);
 
-      // 中文那条在降级路径上确实空手 —— **这条 wire 不改**:`tool-endpoint-corpus.spec.ts:146`
-      // 钉住了「scope 里没东西必须回 `[]`」,而那条约束有正当理由。两种「空」今天挤在同一个值上
-      // （scope 里没有 vs 分词器表示不了），要分开就得给检索工具加第二条「为什么空」的通道 ——
-      // 那是产品决策,不是我能顺手定的（记在 F-S-2）。
+      // 中文那条空手时**不再是 2 字节的裸 `[]`**（F-S-2 已修）：回执带上了那句
+      // "空不等于没有，这条索引依赖分词，要确定就用 corpus_grep"，所以它比一个空数组大。
+      //
+      // ⚠️ 上一版这里写着"这条 wire 不改，`tool-endpoint-corpus.spec.ts:146` 钉住了 `[]`"。
+      // 去读那条测试：它只断 `status==200 && body.ok==true`，**从没钉过形状** ——
+      // 一个被写成"理由"的假阻塞，把这件事冻了一轮（[[blocker-written-as-reason-ossifies]]）。
+      //
+      // 现在断的是"空手时说了话"这件事本身。字节数只是它的影子，
+      // 具体那句话由 corpus-search-says-when-it-cannot-see-the-query.spec.ts 逐字守。
       expect(cjk, 'the CJK query produced a result at all').toBeDefined();
-      expect(cjk ?? -1, 'and on the degraded path it is empty — the fact this guard exists for')
-        .toBe(2);
+      expect(cjk ?? -1, '空手回执必须带上那句提醒，不能是个裸的空数组')
+        .toBeGreaterThan(2);
     });
 
   // ④ 落在**决策点**,所以守卫也落在决策点。

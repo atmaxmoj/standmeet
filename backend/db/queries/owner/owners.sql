@@ -106,3 +106,39 @@ SET last_vault_import_at = now(),
     last_vault_import_skipped = $4,
     last_vault_import_deleted = $5
 WHERE id = $1;
+
+-- name: SetOwnerPendingEmail :one
+-- 待确认的改邮箱。身份**不动** —— 只有点开信里的链接才换。
+-- 第二次请求直接覆盖：两个都能用的话，owner 以为改成了后一个，而某个旧标签页
+-- 一点就把身份送去了前一个。
+UPDATE owners
+SET pending_email = $2, pending_email_token_hash = $3, pending_email_expires_at = $4
+WHERE id = $1
+RETURNING *;
+
+-- name: ClearOwnerPendingEmail :one
+-- owner 反悔。:one + RETURNING 才知道到底清没清到行(:exec 把行数扔了)。
+UPDATE owners
+SET pending_email = NULL, pending_email_token_hash = '', pending_email_expires_at = NULL
+WHERE id = $1
+RETURNING *;
+
+-- name: ConfirmOwnerPendingEmail :one
+-- 一次性 + 未过期，全在这一条语句里判：命中 0 行 = token 不对 / 已过期 / 已用过。
+-- 换完就把三列清空 —— 可重放的确认链接等于把身份挂在一封旧邮件上。
+UPDATE owners
+SET email = pending_email,
+    pending_email = NULL,
+    pending_email_token_hash = '',
+    pending_email_expires_at = NULL
+WHERE pending_email_token_hash = $1
+  AND pending_email_token_hash <> ''
+  AND pending_email IS NOT NULL
+  AND pending_email_expires_at > now()
+RETURNING *;
+
+-- name: GetOwnerByPendingToken :one
+-- 只为了分辨「过期」和「压根无效」—— 两种都不换身份，但对 owner 说的话不一样，
+-- 而他下一步该做什么取决于这两个词的区别。
+SELECT * FROM owners
+WHERE pending_email_token_hash = $1 AND pending_email_token_hash <> '';

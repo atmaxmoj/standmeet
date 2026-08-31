@@ -335,6 +335,9 @@ type Owner struct {
 	Email                  string
 	PasswordHash           string
 	RecoveryHash           string
+	PendingEmail           *string
+	PendingEmailTokenHash  string
+	PendingEmailExpiresAt  pgtype.Timestamptz
 	Handle                 string
 	FullName               string
 	Location               string

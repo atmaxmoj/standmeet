@@ -24,6 +24,9 @@ import (
 type AccountDeps struct {
 	Account  usecase.AccountDeps
 	Recovery usecase.RecoveryDeps
+	// EmailChange —— 改邮箱要问"发得出信吗"(有 mail connector 就走待确认,没有就当场换),
+	// 所以它比 Account 多一个出站口。
+	EmailChange usecase.EmailChangeDeps
 }
 
 // Account —— me / set_full_name / set_timezone / change_email / change_password /
@@ -75,7 +78,16 @@ func accountCredentialOps(deps AccountDeps) []fp.Op {
 			Kind:        fp.Action,
 			Reach: credentialed(
 				"verifies + changes the login email (current-password gated)"),
-			Invoke: changeEmail(deps.Account),
+			Invoke: changeEmail(deps.EmailChange),
+		},
+		{
+			ID: "account.cancel_email_change",
+			Description: "Drop a pending email change. The confirmation link in the message " +
+				"that was already sent stops working.",
+			InputSchema: noArgs,
+			Kind:        fp.Action,
+			Reach:       credentialed("touches the login identity"),
+			Invoke:      cancelEmailChange(deps.EmailChange),
 		},
 		{
 			ID: "account.change_password",
@@ -148,8 +160,12 @@ var accountErrClasses = []struct {
 	{entity.ErrOwnerNotFound, func() error {
 		return fp.Coded(fp.Unauthed("owner not found"), "unauthorized")
 	}},
+	// 这一族 op 里 ErrUnauthorized 只有一个来源：**当前密码填错了**。owner 已经带着
+	// session 进来了，他在这一步唯一提供的凭据就是那一个字段。所以说"invalid credentials"
+	// 是把一句他能照着做的话，换成了一句他得猜的话 —— 而 CLAUDE.md 要求错误是人话。
+	// 这里也没有枚举风险：能走到这一步的人本来就已经登录了。
 	{entity.ErrUnauthorized, func() error {
-		return fp.Coded(fp.Unauthed("invalid credentials"), "unauthorized")
+		return fp.Coded(fp.Unauthed("current password is incorrect"), "unauthorized")
 	}},
 	{entity.ErrEmailTaken, func() error {
 		return fp.Coded(fp.Conflict("email already in use"), "email_taken")

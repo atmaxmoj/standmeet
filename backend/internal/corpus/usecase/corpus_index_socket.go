@@ -111,7 +111,7 @@ func runCorpusSearch(ctx context.Context, l Lister, req *corpusIndexReq) (string
 	if err != nil {
 		return "", fmt.Errorf("corpus search: %w", err)
 	}
-	return marshalCorpusRows(rows), nil
+	return marshalSearchResult(rows), nil
 }
 
 func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, error) {
@@ -317,14 +317,7 @@ func toCorpusRows(metas []Meta) []Row {
 // marshalCorpusRows —— []Meta → 既有 wire（[{path,title,genre,summary?}]）。Snippet
 // 仅 search 填，list 行为空 → omitempty 落掉 summary，复刻旧 list/search wire 差异。
 func marshalCorpusRows(metas []Meta) string {
-	rows := make([]Row, 0, len(metas))
-	for i := range metas {
-		rows = append(rows, Row{
-			Path: metas[i].Path, Title: metas[i].Title,
-			Genre: metas[i].Genre, Summary: metas[i].Snippet,
-		})
-	}
-	return marshalRows(rows)
+	return marshalRows(rowsOf(metas))
 }
 
 // corpusScopeOf —— the request's corpus scope, exactly as the host froze it.

@@ -26,6 +26,9 @@ import (
 type CustomPageDeps struct {
 	Pages  *repo.CustomPageRepo
 	Builds *repo.CustomBuildRepo
+	// PreviewSigningKey —— 签面板那块预览的地址（HMAC 派生，不落表）。
+	// 空 = 不给预览地址：预览打不开，但列表本身照常。
+	PreviewSigningKey string
 }
 
 // CreatePageInput —— 创建一个 custom page 入参。

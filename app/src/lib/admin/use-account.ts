@@ -14,13 +14,29 @@ import { sessionStore } from '@/lib/admin/use-admin-session';
 import { adminAPI } from '@/lib/api/admin';
 
 const FullNameRespSchema = z.object({ full_name: z.string() });
-const EmailRespSchema = z.object({ email: z.string() });
+// EmailRespSchema —— 回执要说清**发生了什么**：pending_email 非空 = 寄了一封确认信、
+// 身份没动；空 = 当场换好了。界面上那两句话不一样，而一个说不出区别的回执会让 owner
+// 以为已经改完了（non-unique signal）。
+// pending_email 是 optional：后端 omitempty，没有待确认时这个字段根本不出现 ——
+// 用 `.optional()` 而不是 `.default('')`，因为"缺席"和"空串"在这里是同一个意思，
+// 但 schema 得受得住缺席（[[zod-unknown-is-not-optional]]）。
+const EmailRespSchema = z.object({
+  email: z.string(),
+  pending_email: z.string().optional(),
+});
+
+// EmailChangeResult —— 改邮箱这一下的产物。pending 非空 = 还在等新地址确认。
+export interface EmailChangeResult {
+  email: string;
+  pending: string;
+}
 
 export interface AccountHook {
   pending: boolean;
   error: string | null;
   updateFullName: (raw: string) => Promise<string | null>;
-  updateEmail: (currentPassword: string, newEmail: string) => Promise<string | null>;
+  updateEmail: (currentPassword: string, newEmail: string) => Promise<EmailChangeResult | null>;
+  cancelEmailChange: () => Promise<string | null>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   clearError: () => void;
 }
@@ -32,22 +48,30 @@ export function useAccount(): AccountHook {
   const updateFullName = useCallback(async (raw: string): Promise<string | null> => {
     return runUpdate(setPending, setError, async () => {
       const res = await adminAPI.patch('/account/full-name', { full_name: raw }, FullNameRespSchema);
-      sessionStore.getState().reset();
+      await sessionStore.getState().refresh();
       return res.full_name;
     });
   }, []);
 
   const updateEmail = useCallback(
-    async (currentPassword: string, newEmail: string): Promise<string | null> => {
+    async (currentPassword: string, newEmail: string): Promise<EmailChangeResult | null> => {
       return runUpdate(setPending, setError, async () => {
         const res = await adminAPI.patch('/account/email', {
           current_password: currentPassword, new_email: newEmail,
         }, EmailRespSchema);
-        sessionStore.getState().reset();
-        return res.email;
+        await sessionStore.getState().refresh();
+        return { email: res.email, pending: res.pending_email ?? '' };
       });
     }, [],
   );
+
+  const cancelEmailChange = useCallback(async (): Promise<string | null> => {
+    return runUpdate(setPending, setError, async () => {
+      const res = await adminAPI.post('/account/email/cancel', {}, EmailRespSchema);
+      await sessionStore.getState().refresh();
+      return res.email;
+    });
+  }, []);
 
   const updatePassword = useCallback(
     async (currentPassword: string, newPassword: string): Promise<boolean> => {
@@ -62,7 +86,10 @@ export function useAccount(): AccountHook {
   );
 
   const clearError = useCallback(() => setError(null), []);
-  return { pending, error, updateFullName, updateEmail, updatePassword, clearError };
+  return {
+    pending, error, updateFullName, updateEmail, cancelEmailChange,
+    updatePassword, clearError,
+  };
 }
 
 // runUpdate —— 三个 PATCH 共享的 try/catch/状态机模板。

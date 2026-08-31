@@ -162,6 +162,17 @@ export function execSQL(sql: string): void {
   runPsql(sql.replaceAll('"', '\\"'));
 }
 
+// ⚠️ 这里曾经有一个 `applyMigration(name)`：读 `backend/db/migrations/<name>.sql`，
+// 用 psql 在库上跑一遍。升级测试靠它把 migration 打上去。
+//
+// **它让那条测试跑在一条 prod 不存在的路上。** 真实的实例里没有任何人做这一步 ——
+// migration 由后端启动时自己打（`pgstore.Migrate`，编在同一个二进制里）。
+// 于是那条测试证明的是"这个 .sql 文件写得对"，而**升级怎么到达一台实例**这件事
+// 被测试自己代劳了：真正会坏的那一段，一次都没被走过。
+//
+// 删掉它，让升级测试只剩一条路可走 —— `restartBackend()`，也就是部署本身。
+// 同族：[[which-path-is-the-green-on]]。
+
 // querySQL —— 跑一条查询,返回裸值(单行单列,-tA)。断言"这一行还在不在"用它。
 export function querySQL(sql: string): string {
   return execSync(

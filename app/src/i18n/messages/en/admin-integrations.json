@@ -171,5 +171,9 @@
     "revokeConfirm": "Revoke this key? Anything using it stops working immediately.",
     "statusActive": "active",
     "statusRevoked": "revoked"
+  },
+  "embed": {
+    "heading": "Embed on another site",
+    "blurb": "Drop these two lines into any page — your own blog, a client's site, a landing page. No build step and no React: the script registers a <standmeet-chat> element that talks to this instance."
   }
 }

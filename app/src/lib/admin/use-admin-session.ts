@@ -20,6 +20,9 @@ export interface AdminSession {
   handle: string;
   full_name: string;
   public_url: string;
+  // pendingEmail —— 有一次待确认的改邮箱在等着。事实住在库里(owners.pending_email),
+  // 这里只是转述:owner 关掉标签页再回来,那个状态还在,而组件的 useState 早没了。
+  pendingEmail: string;
 }
 
 // AdminSessionState —— `unreachable` 跟 `unauthed` 必须是两态（F-N-2）。
@@ -69,6 +72,7 @@ function adminSessionFromResource(
         owner_id: data.owner.owner_id, email: data.owner.email,
         handle: data.owner.handle, full_name: data.owner.full_name,
         public_url: data.owner.public_url,
+        pendingEmail: data.owner.pending_email ?? '',
       },
     };
   }

@@ -9,7 +9,6 @@ package usecase
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -17,7 +16,6 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // buildRoleSnapshotForCode —— code.AssumedRoleID 必填（schema NOT NULL）→ 构造
@@ -30,8 +28,7 @@ func buildRoleSnapshotForCode(
 		return access.RoleSnapshot{}, err
 	}
 	// #104(+扩展): code 自带的 prompt 冻进 snapshot，persona 在 role persona 之后叠加。
-	// 内联 prompt（发码方随码带，不查库，如 job-loop 的 recruiter 应聘身份）**优先**；空则走
-	// prompt_id 库引用（owner 集中管理那份）。都没 → 空串（persona 逐字不变）。
+	// prompt_id（owner 集中管理的那份）在前，内联（发码方随这张码带的那句）在后 —— 两层**叠加**。
 	codePrompt, perr := resolveCodePrompt(ctx, deps, code)
 	if perr != nil {
 		return access.RoleSnapshot{}, perr
@@ -63,16 +60,8 @@ func loadCodeWaypoints(
 	return wps, nil
 }
 
-// resolveCodePrompt —— #104 扩展的取值：内联 per-code prompt 优先（发码方随码带，不查库），
-// 空则走 prompt_id 库引用（owner 集中管理那份）。
-func resolveCodePrompt(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
-) (string, error) {
-	if code.InlinePrompt != "" {
-		return code.InlinePrompt, nil
-	}
-	return promptBodyByID(ctx, deps, code.OwnerID, code.PromptID)
-}
+// resolveCodePrompt / promptBodyByID 住在 visitor_code_prompt.go —— 那一层的取值
+// 规则（两层叠加）自己够一个文件，而这个文件是 snapshot 的装配。
 
 // roleDenials —— code 层要从 role grant 里砍掉的 capability / skill id（纯 deny）。
 // 非 code 路径（public + byoai）传零值 = 不砍。
@@ -251,24 +240,6 @@ func loadPromptBody(
 		return "", nil
 	}
 	return promptBodyByID(ctx, deps, ownerID, &promptID)
-}
-
-// promptBodyByID —— 按可选 prompt id 取 body（role prompt + #104 per-code prompt 共用）。
-// nil / 不存在（SET NULL 删过）→ 空串（那段 persona 没有，session 照常）。
-func promptBodyByID(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID string, promptID *string,
-) (string, error) {
-	if promptID == nil {
-		return "", nil
-	}
-	prompt, err := deps.Prompts.GetByID(ctx, ownerID, *promptID)
-	if err != nil {
-		if errors.Is(err, owner.ErrPromptNotFound) {
-			return "", nil
-		}
-		return "", fmt.Errorf("get prompt for snapshot: %w", err)
-	}
-	return prompt.Body(), nil
 }
 
 // roleSkillBundle —— loadRoleSkills 返回打包，避开 function-result-limit 3-return。

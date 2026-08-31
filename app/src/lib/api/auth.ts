@@ -82,6 +82,34 @@ export async function recover(input: RecoverInput): Promise<LoginResult> {
   return safeJson(res, LoginResultSchema);
 }
 
+// ConfirmEmailResult —— 确认改邮箱的结果。**返回判别值，不抛** ——
+// 调用方要按 code 说三句不同的话（换好了 / 过期了 / 这封信不是给你的），
+// 而 readError 只给一句人话字符串，分辨不出来。把三类压成一类，
+// 为其中一类准备的那句指引就永远出不来。
+export type ConfirmEmailResult =
+  | { ok: true; email: string }
+  | { ok: false; code: string };
+
+const ConfirmEmailBodySchema = z.object({
+  email: z.string().optional(),
+  error: z.object({ code: z.string().optional() }).optional(),
+});
+
+export async function confirmEmail(token: string): Promise<ConfirmEmailResult> {
+  const res = await fetch('/api/admin/confirm-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  // 走 schema 而不是类型断言：这个回执两种形状，而断言只是把编译器噤声，
+  // 服务端换了形状照样静默走到底（[[zod-unknown-is-not-optional]]）。
+  const parsed = ConfirmEmailBodySchema.safeParse(await res.json().catch(() => ({})));
+  const body = parsed.success ? parsed.data : {};
+  return res.ok
+    ? { ok: true, email: body.email ?? '' }
+    : { ok: false, code: body.error?.code ?? '' };
+}
+
 export interface ResetPasswordInput {
   token: string;
   new_password: string;

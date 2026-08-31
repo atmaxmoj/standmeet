@@ -41,19 +41,28 @@ type Handlers struct {
 	BYOAI             BYOAIDeps
 	AccountAdmin      AccountDeps
 	Recovery          owner.RecoveryDeps
-	PromptsAdmin      PromptsAdminDeps
-	Domains           DomainsDeps
-	AIProviderAdmin   AIProviderDeps
-	ProvidersAdmin    ProvidersAdminDeps
-	PublicURLAdmin    PublicURLDeps
-	SEOAdmin          SEOAdminDeps
-	HandleAdmin       HandleDeps
-	Log               *slog.Logger
-	PageAdmin         PageAdminDeps
-	IPBansAdmin       IPBansAdminDeps
-	ConnectorsAdmin   ConnectorsAdminDeps
-	InstanceAdmin     InstanceAdminDeps // 观测面：system / usage / stats.*
-	AppearanceAdmin   AppearanceAdminDeps
+	EmailChange       owner.EmailChangeDeps
+	// SeedPlugins —— claim 之后让每个 plugin 种下自己那份 builtin。
+	//
+	// 由**装配根**注入：插件注册表住在那儿，而这一层够不到它。内核那份种子
+	// （SeedPublicRole）在 usecase 里自己跑；插件那份只能从外面递进来 ——
+	// 否则插件的东西又会落进内核，只因为种子在那儿。
+	//
+	// nil = 没有插件要种（老的装配路径 / 测试）。best-effort：失败只记日志，不挡 claim。
+	SeedPlugins     func(ctx context.Context, ownerID string) error
+	PromptsAdmin    PromptsAdminDeps
+	Domains         DomainsDeps
+	AIProviderAdmin AIProviderDeps
+	ProvidersAdmin  ProvidersAdminDeps
+	PublicURLAdmin  PublicURLDeps
+	SEOAdmin        SEOAdminDeps
+	HandleAdmin     HandleDeps
+	Log             *slog.Logger
+	PageAdmin       PageAdminDeps
+	IPBansAdmin     IPBansAdminDeps
+	ConnectorsAdmin ConnectorsAdminDeps
+	InstanceAdmin   InstanceAdminDeps // 观测面：system / usage / stats.*
+	AppearanceAdmin AppearanceAdminDeps
 	// CapabilityConfigAdmin —— 通用的能力配置面(取代每个能力一套手写路由)。
 	CapabilityConfigAdmin CapabilityConfigAdminDeps
 	SecureCookie          bool
@@ -72,12 +81,21 @@ func (h *Handlers) MountUnauthed(
 		// #100: 公开的账号恢复 —— {email, phrase} 对上就发 session。跟 login 同套 guard 限速
 		// (brute-force 面一样)。
 		r.Post("/recover", h.recover())
+		// 确认改邮箱 —— **公开**：owner 点开这封信时可能在另一台设备上、没登录。
+		// 要求先登录才能确认，等于要求他先用还没换过去的那个身份登进来。
+		// 不裹 loginGuard：token 是 128-bit 随机 + 只匹配 hash + 一次性 + 24h 过期，
+		// 而且这条路造不出新的改动，只能兑现一次 owner 在登录状态下发起过的改动。
+		r.Post("/confirm-email", h.confirmEmail())
 	})
 }
 
 // MountAuthed 挂需要 owner session 的 endpoint。caller 负责先用
 // middleware.WithOwner 包这个 router。
-func (h *Handlers) MountAuthed(r chi.Router) {
+//
+// credGuard 只裹改凭据那两条（email / password）—— 见 MountAccount。收在这里而不是
+// 在 MountAccount 里自己 new，是因为它要 redis，而 redis 住在装配根；跟 MountUnauthed
+// 收 loginGuard 是同一个约定。
+func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.Handler) {
 	h.MountMe(r)
 	r.Post("/me/logout", h.logout())
 	r.Get("/csrf", h.csrfEndpoint())
@@ -95,7 +113,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountAPIKeys(r)
 	h.MountHandle(r)
 	h.MountPublicURL(r)
-	h.MountAccount(r)
+	h.MountAccount(r, credGuard)
 	h.MountAIProvider(r)
 	h.MountProviders(r)
 	h.MountCustomPages(r)
@@ -193,6 +211,18 @@ func (h *Handlers) claim() http.HandlerFunc {
 	}
 }
 
+// seedPluginsForOwner —— claim 之后让插件种下自己那份 builtin（jobs 的 hiring
+// role/prompt 就是这么来的）。best-effort：失败只记日志，不把 claim 顶回去 ——
+// 跟 seedClaimPublicRole 同一个姿势，而且 boot 那一遍还会再补。
+func (h *Handlers) seedPluginsForOwner(ctx context.Context, ownerID string) {
+	if h.SeedPlugins == nil {
+		return
+	}
+	if err := h.SeedPlugins(ctx, ownerID); err != nil {
+		h.Log.Error("seed plugin builtins after claim", "owner_id", ownerID, "err", err)
+	}
+}
+
 // runClaimAndAutoLogin —— 把 cyclo 控在 ≤3：handler 只做 decode + 派发。
 func (h *Handlers) runClaimAndAutoLogin(
 	w http.ResponseWriter, r *http.Request, req *claimRequest,
@@ -205,6 +235,7 @@ func (h *Handlers) runClaimAndAutoLogin(
 		handleClaimErr(h.Log, w, err)
 		return
 	}
+	h.seedPluginsForOwner(r.Context(), claimed.ID)
 	loggedIn, lerr := owner.Login(r.Context(), h.Auth.Login, &owner.LoginInput{
 		Email: req.Email, Password: req.Password,
 	})

@@ -9,6 +9,8 @@
 package admin
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
@@ -20,15 +22,25 @@ type AccountDeps struct {
 }
 
 // MountAccount 挂 /account/*（caller 前缀 /api/admin）。
-func (h *Handlers) MountAccount(r chi.Router) {
+//
+// email / password 两条**都**裹 credGuard：它们通向同一件事（改凭据），只裹一条等于
+// 没裹 —— 换个入口就绕开（[[gate-after-early-return-is-walkable]]）。
+// full-name / timezone 不裹：它们不验当前密码，没有爆破面。
+func (h *Handlers) MountAccount(r chi.Router, credGuard func(http.Handler) http.Handler) {
 	face := h.AccountAdmin.Face
 	r.Route("/account", func(r chi.Router) {
 		r.Patch("/full-name",
 			h.dispatchOp(face, "account.set_full_name", bodyArgs, jsonOK))
 		r.Patch("/timezone", h.dispatchOp(face, "account.set_timezone", bodyArgs, jsonOK))
-		r.Patch("/email", h.dispatchOp(face, "account.change_email", bodyArgs, jsonOK))
-		r.Patch("/password",
-			h.dispatchOp(face, "account.change_password", bodyArgs, noContent))
+		r.Group(func(r chi.Router) {
+			r.Use(credGuard)
+			r.Patch("/email", h.dispatchOp(face, "account.change_email", bodyArgs, jsonOK))
+			r.Patch("/password",
+				h.dispatchOp(face, "account.change_password", bodyArgs, noContent))
+		})
+		// 撤销待确认的改邮箱。不裹 credGuard：它不验密码,没有爆破面。
+		r.Post("/email/cancel",
+			h.dispatchOp(face, "account.cancel_email_change", emptyArgs, jsonOK))
 		// #100: 生成 recovery phrase（只存 hash，明文邮给 owner）。
 		r.Post("/recovery",
 			h.dispatchOp(face, "account.generate_recovery", emptyArgs, jsonOK))

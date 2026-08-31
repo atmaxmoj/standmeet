@@ -45,12 +45,27 @@ async function visitorTool<T>(
   return { status: res.status(), body: await res.json() as ToolResp<T> };
 }
 
-// search —— corpus_search;返命中数组(ok=false 时空)。
+// SearchResult —— corpus_search 的回执。hits 永远在；note 只在空手时出现，
+// 说清"空不等于没有，这条索引依赖分词"（F-S-2）。
+export interface SearchResult {
+  hits: SearchHit[];
+  note?: string;
+}
+
+// searchResult —— 整份回执（要断 note 的用它）。
+export async function searchResult(
+  request: APIRequestContext, sess: VisitorSession, query: string,
+): Promise<SearchResult> {
+  const { body } = await visitorTool<SearchResult>(request, sess, 'corpus_search', { query });
+  return body.result ?? { hits: [] };
+}
+
+// search —— 只要命中数组。绝大多数 spec 关心的就是这个，
+// 所以 wire 换形状时它们一个字都不用改。
 export async function search(
   request: APIRequestContext, sess: VisitorSession, query: string,
 ): Promise<SearchHit[]> {
-  const { body } = await visitorTool<SearchHit[]>(request, sess, 'corpus_search', { query });
-  return body.result ?? [];
+  return (await searchResult(request, sess, query)).hits ?? [];
 }
 
 // searchTitles —— 命中的 title 集合(断言用)。
