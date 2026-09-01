@@ -36,7 +36,11 @@ services:
     ports:
       # The public entry point. Front it with your TLS proxy (domain:443 →
       # host:38227). Host ports are offset from dev's so both stacks coexist.
-      - "38227:3000"
+      #
+      # 默认绑 127.0.0.1：产品模型是"前置 TLS 反代"，反代跟栈同机、连 localhost 即可。
+      # 直接绑 0.0.0.0 = app 以明文 HTTP 对全网可达（pentest 2026-09-01）。
+      # 反代在别的机器上时，在 .env 里设 APP_BIND_HOST=0.0.0.0 显式打开。
+      - "${APP_BIND_HOST:-127.0.0.1}:38227:3000"
     healthcheck:
       # 打 app **自己**的那条（见 app/src/app/api/app-health/route.ts）。以前打的是
       # `/api/v1/instance` —— 那条被反代到 backend，于是这个检查量的是两跳。后端一慢，
@@ -173,7 +177,9 @@ services:
       meilisearch:
         condition: service_started
     ports:
-      - "8100:8000"
+      # 只绑 127.0.0.1：app 走 docker 内网连 backend，这个发布口只给宿主侧调试。
+      # 绑 0.0.0.0 会把未经 app 反代的 API 对全网敞开（pentest 2026-09-01）。
+      - "127.0.0.1:8100:8000"
     # sandbox 需要 root + docker socket：owner-curated skill 脚本跑在隔离
     # docker container 里。docs 里说明权衡。
     user: "0:0"
@@ -256,7 +262,9 @@ services:
       # schema.sql 是唯一权威：fresh volume 首次启动时 postgres 自动应用。
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
-      - "5532:5432"
+      # 只绑 127.0.0.1：整个数据库。绝不对网络暴露 —— app 走内网服务名，
+      # `make prod-psql` 走 `docker compose exec`（pentest 2026-09-01）。
+      - "127.0.0.1:5532:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
       interval: 3s
@@ -286,7 +294,10 @@ services:
     volumes:
       - redisdata:/data
     ports:
-      - "6479:6379"
+      # 只绑 127.0.0.1：redis 没设密码，key 名就是明文 session token。绑 0.0.0.0 时
+      # 从网络无认证连上，SCAN 一下就拿到 owner 管理员 token → 整个实例接管
+      # （pentest 2026-09-01，整场最严重的一条）。
+      - "127.0.0.1:6479:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -344,8 +355,10 @@ services:
     volumes:
       - miniodata:/data
     ports:
-      - "9210:9000"
-      - "9211:9201"
+      # 只绑 127.0.0.1：对象存储（writing 图片/附件）。app 走内网,发布口只给宿主调试
+      # （pentest 2026-09-01）。
+      - "127.0.0.1:9210:9000"
+      - "127.0.0.1:9211:9201"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
       interval: 5s

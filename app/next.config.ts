@@ -86,6 +86,17 @@ const nextConfig: NextConfig = {
         { key: 'Cache-Control', value: 'public, max-age=300' },
       ],
     },
+    {
+      // 访问码坐在 URL 的 query 里（简历 QR = `/<handle>?code=ABC`）。入口 hook 会立刻
+      // history.replaceState 把它抹掉（use-absorb-code.ts），但首屏那一瞬 JS 还没跑，
+      // 跨源子资源请求会把含码的完整 URL 放进 Referer 头。strict-origin-when-cross-origin：
+      // 同源照常发完整 URL，跨源只发 origin（不含 query）——码从此不会随 Referer 出门
+      // （pentest 2026-09-01；embed.js 那条不受影响，它上面单独放行 CORS）。
+      source: '/:path*',
+      headers: [
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      ],
+    },
   ]),
 
   // 相对 asset 路径在 /p/<slug> 无尾杠时会断（resolve 到 /p/assets/...）。
