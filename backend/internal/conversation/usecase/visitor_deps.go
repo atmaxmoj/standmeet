@@ -6,6 +6,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
@@ -43,6 +44,9 @@ type VisitorSessionDeps struct {
 	// Gas —— 油表(#7)。可空 = 这台实例读不到油量,于是每一场都当作没挂表 ——
 	// 读不到油量就把所有人挡在门外,是拿一个诊断问题去惩罚访客。
 	Gas GasGauge
+	// ProviderDefault —— 把未指定 provider 的会话冻成默认那一箱（见 providerDefaulter）。
+	// 可空 = 不解析（老 facade 没接），那就退回今天的行为：provider_id 留空。
+	ProviderDefault providerDefaulter
 	// CorpusRefs —— 冻 waypoints 时问「这条 evidence_ref 指得到真笔记吗」(F-A-26)。
 	// 可空 = 不做可行性过滤(见 feasibleWaypoints)。
 	CorpusRefs CorpusRefResolver
@@ -54,6 +58,52 @@ type VisitorSessionDeps struct {
 // 实现由组装根接上。这里只问一句"还剩多少",因为要拦的是"这一场还能不能发"。
 type GasGauge interface {
 	Remaining(ctx context.Context, ownerID, providerID string) (*int64, error)
+}
+
+// providerDefaulter —— owner 默认那条 provider 的 id（没配返空串）。
+// 会话签发时把"未指定 provider"冻成具体那一箱，否则匿名/public 花的是默认 key 的钱，
+// 却对 gas 记账和闸门隐形（pentest 2026-09-01）。
+type providerDefaulter interface {
+	DefaultProviderID(ctx context.Context, ownerID string) (string, error)
+}
+
+// resolveSessionProviderID —— 会话要冻的 provider id。已指定就用它；空则冻成 owner
+// 默认那条，让匿名/public 花的默认 key 对 gas 记账和闸门可见（pentest 2026-09-01）。
+// deps.ProviderDefault 为 nil（老 facade 没接）时退回原样，返回 raw —— 跟今天一致。
+func resolveSessionProviderID(
+	ctx context.Context, deps *VisitorSessionDeps, ownerID, raw string,
+) (string, error) {
+	if raw != "" || deps.ProviderDefault == nil {
+		return raw, nil
+	}
+	id, err := deps.ProviderDefault.DefaultProviderID(ctx, ownerID)
+	if err != nil {
+		return "", fmt.Errorf("resolve default provider: %w", err)
+	}
+	return id, nil
+}
+
+// resolveCodeSessionData —— 冻 snapshot、构造会话数据,并把未指定的 provider 冻成 owner
+// 默认那条。码/role 都没指 provider 时,空串会让这场会话花的默认 key 对 gas 记账/闸门隐形
+// （pentest 2026-09-01）—— 所以在这里解析成具体那一箱。住在这里而不是 visitor.go:
+// 它是"装配一场会话"的 plumbing,跟 resolveSessionProviderID 同族,而 visitor.go 已到行数上限。
+func resolveCodeSessionData(
+	ctx context.Context, deps *VisitorSessionDeps,
+	code *access.Code, member *access.CodeMember, in *IssueCodeSessionInput,
+) (*access.VisitorSessionData, error) {
+	snapshot, serr := buildRoleSnapshotForCode(ctx, deps, code)
+	if serr != nil {
+		return nil, serr
+	}
+	sd := buildCodeSessionData(code, access.VisitorProfile{
+		Name: in.VisitorName, Email: in.VisitorEmail,
+	}, member.ID, &snapshot)
+	providerID, perr := resolveSessionProviderID(ctx, deps, code.OwnerID, sd.ProviderID)
+	if perr != nil {
+		return nil, perr
+	}
+	sd.ProviderID = providerID
+	return sd, nil
 }
 
 // RoleCapConfigReader —— 按 role 读各能力自己的配置:**能力 id** → 它那份配置(JSON 对象)。

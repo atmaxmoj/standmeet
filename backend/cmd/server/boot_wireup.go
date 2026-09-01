@@ -224,6 +224,11 @@ func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
 		Gas: port.OwnerGas{Providers: owner.ProvidersUseDeps{
 			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo,
 		}},
+		// 把未指定 provider 的会话冻成 owner 默认那条 —— 否则匿名/public 花的默认 key 对
+		// gas 记账和闸门隐形(pentest 2026-09-01)。跟 Gas 同一个 Providers 依赖,同一个 adapter。
+		ProviderDefault: port.OwnerGas{Providers: owner.ProvidersUseDeps{
+			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo,
+		}},
 		// 冻 waypoints 时问「这条 evidence_ref 指得到真笔记吗」(F-A-26)。跟沙箱读语料
 		// 同一份 IndexDeps —— 「引导得过去」和「读得到」必须是同一件事。
 		CorpusRefs: corpus.NewRefResolver(wire.CorpusIndexDeps(d)),

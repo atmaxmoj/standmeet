@@ -10,14 +10,21 @@ package entity
 import (
 	"crypto/rand"
 	"fmt"
+	"strings"
 )
 
 const (
-	codeLabelMaxLen  = 12
-	codeSuffixBytes  = 2
-	codeSuffixDigits = 4
-	hexShift         = 4    // hex nibble: low/high split per byte
-	hexLowMask       = 0x0F // hex nibble mask
+	codeLabelMaxLen = 12
+	// codeSuffixBytes —— 系统派生码的随机后缀字节数。
+	//
+	// **8 字节 = 64 bit**，不是 2。pentest 2026-09-01 实证：一张走 `invited` role 的码
+	// 读得到全部私有语料，而这种码印在简历 QR 上（公开材料）。16 bit（原值）在锁定下
+	// 单 IP 约 68 天可破、僵尸网络更快 —— 对一个授予全私有语料的 URL bearer 太弱。
+	// 64 bit 让在线暴破的期望远超任何现实时限。旧码是精确匹配的存储串，加长后仍可用。
+	codeSuffixBytes  = 8
+	codeSuffixDigits = codeSuffixBytes * 2 // 每字节两个 hex 字符
+	hexShift         = 4                   // hex nibble: low/high split per byte
+	hexLowMask       = 0x0F                // hex nibble mask
 )
 
 // codeRand —— wrapped for test injection; defaults to crypto/rand。
@@ -81,13 +88,15 @@ func isDigit(c rune) bool      { return c >= '0' && c <= '9' }
 func randomCodeSuffix() string {
 	buf := make([]byte, codeSuffixBytes)
 	if _, err := codeRand(buf); err != nil {
-		return "0000"
+		// rand 失败极罕见。返回可辨认的哨兵 + 一个错误标记,不返回"看起来正常"的低熵串
+		// (那会让一张碰巧全 0 的弱码混进来)。长度跟正常后缀一致,方便一眼认出。
+		return strings.Repeat("0", codeSuffixDigits)
 	}
 	const hex = "0123456789ABCDEF"
-	out := make([]byte, codeSuffixDigits)
-	out[0] = hex[buf[0]>>hexShift]
-	out[1] = hex[buf[0]&hexLowMask]
-	out[2] = hex[buf[1]>>hexShift]
-	out[3] = hex[buf[1]&hexLowMask]
+	// 每字节两个 nibble。跟着 codeSuffixBytes 走,改字节数不用再动这里。
+	out := make([]byte, 0, codeSuffixDigits)
+	for _, b := range buf {
+		out = append(out, hex[b>>hexShift], hex[b&hexLowMask])
+	}
 	return string(out)
 }

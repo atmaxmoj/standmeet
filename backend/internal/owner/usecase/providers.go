@@ -12,6 +12,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -76,6 +77,27 @@ func GasRemaining(
 		return nil, fmt.Errorf("load provider for gas: %w", err)
 	}
 	return ProviderRemaining(ctx, d.Spend, &row)
+}
+
+// DefaultProviderID —— owner 默认那条 provider 的 id。
+//
+// **为什么访客那条路要问它**（pentest 2026-09-01）：一场没指定 provider 的会话
+// （public / 匿名 / 没绑 provider 的 code）在 turn 时会**回落到默认那条**并真花 owner 的钱。
+// 可它的会话里 provider_id 一直是空串 —— 于是用量记不上这一箱、gas 闸（metered && id!=""）
+// 也永不触发。owner 就算给默认那条配了油表，也拦不住匿名花销。会话签发时把这个 id 冻进去，
+// 下游的记账和闸门才看得见花的是哪箱油。
+//
+// 没有 provider 时返 ""＋nil：那是正常状态（实例还没配 key），不是错误 ——
+// 留空串，turn 到时候自己报"未配置"，跟今天一样。
+func DefaultProviderID(ctx context.Context, d ProvidersDeps, ownerID string) (string, error) {
+	row, err := d.Owners.DefaultProvider(ctx, ownerID)
+	if err != nil {
+		if errors.Is(err, entity.ErrProviderNotFound) {
+			return "", nil
+		}
+		return "", fmt.Errorf("default provider id: %w", err)
+	}
+	return row.ID, nil
 }
 
 // CreateProvider —— 建一条。provider 名要在 preset 表里(跟改默认那条同一把尺子);

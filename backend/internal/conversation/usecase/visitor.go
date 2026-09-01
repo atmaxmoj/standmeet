@@ -146,13 +146,12 @@ func issueCodeSessionArtifacts(
 	if err != nil {
 		return codeSessionArtifacts{}, err
 	}
-	snapshot, serr := buildRoleSnapshotForCode(ctx, deps, code)
-	if serr != nil {
-		return codeSessionArtifacts{}, serr
+	// 冻 role snapshot + 构造会话数据 + 把未指定的 provider 解析成默认那一箱,合成一步 ——
+	// 三件事都可能出错,分开写会让这个函数的圈复杂度越界,而它们本就是"装配这一场会话"的一件事。
+	sd, sderr := resolveCodeSessionData(ctx, deps, code, &member, in)
+	if sderr != nil {
+		return codeSessionArtifacts{}, sderr
 	}
-	sd := buildCodeSessionData(code, access.VisitorProfile{
-		Name: in.VisitorName, Email: in.VisitorEmail,
-	}, member.ID, &snapshot)
 	issued, err := deps.Sessions.Issue(ctx, sd)
 	if err != nil {
 		return codeSessionArtifacts{}, fmt.Errorf("issue visitor session: %w", err)

@@ -84,14 +84,19 @@ func finalizePublicSession(
 	if sserr != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("freeze public snapshot: %w", sserr)
 	}
+	// 没有码,所以 public/byoai 听 public role 的。role 没指 provider → 冻成 owner 默认那条,
+	// 不冻空串:空串会让这场匿名会话花的默认 key 对 gas 记账/闸门隐形(pentest 2026-09-01)。
+	providerID, perr := resolveSessionProviderID(ctx, deps, o.ID, snapshot.ProviderID())
+	if perr != nil {
+		return IssueCodeSessionResult{}, perr
+	}
 	issued, err := deps.Sessions.Issue(ctx, &access.VisitorSessionData{
 		OwnerID:      o.ID,
 		Mode:         mode,
 		Visitor:      access.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},
 		RoleSnapshot: &snapshot,
-		// 没有码,所以 public/byoai 就听 public role 的(它没指就是 owner 默认那条)。
-		ProviderID: snapshot.ProviderID(),
-		GasMetered: snapshot.GasMetered(),
+		ProviderID:   providerID,
+		GasMetered:   snapshot.GasMetered(),
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)

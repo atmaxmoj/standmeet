@@ -30,3 +30,14 @@ func (g OwnerGas) Remaining(
 	}
 	return left, nil
 }
+
+// DefaultProviderID —— owner 默认那条 provider 的 id（没配 provider 时空串）。
+// 访客会话签发时用它把"未指定 provider"冻成具体那一箱,否则匿名花销对 gas 记账隐形
+// (见 owner/usecase 的同名函数)。跟 Remaining 同一个 Providers 依赖,复用这个 adapter。
+func (g OwnerGas) DefaultProviderID(ctx context.Context, ownerID string) (string, error) {
+	id, err := owner.DefaultProviderID(ctx, g.Providers, ownerID)
+	if err != nil {
+		return "", fmt.Errorf("default provider id: %w", err)
+	}
+	return id, nil
+}

@@ -75,6 +75,7 @@ var (
 	CreatePrompt              = usecase.CreatePrompt
 	GetWikiLandingInLang      = usecase.GetWikiLandingInLang
 	GasRemaining              = usecase.GasRemaining
+	DefaultProviderID         = usecase.DefaultProviderID
 	DefaultPageContent        = usecase.DefaultPageContent
 	DeleteKeypair             = usecase.DeleteKeypair
 	DeletePage                = usecase.DeletePage
