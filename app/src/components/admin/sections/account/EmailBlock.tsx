@@ -43,9 +43,12 @@ export function EmailBlock({ hook, initialValue, pending }: EmailBlockProps) {
   };
   return (
     <AcctBlock title="email" testid="account-email-block"
+      // 这句以前写着"Changing it moves both" —— 那是加待确认流程**之前**的行为。
+      // 在真 prod 上眼验时看见的：机制换了，说明书没换，于是它对 owner 撒谎
+      // （[[names-that-lie]]）。现在两条分支都说得准：能发信就等确认，不能发就当场换。
       blurb={'Your login identity — and where your recovery phrase is sent. '
-        + 'Changing it moves both, so it needs your current password and the '
-        + 'address twice.'}>
+        + 'Changing it needs your current password and the address twice. If this '
+        + 'instance can send mail, the new address has to confirm before either moves.'}>
       <div>
         <PendingEmailRow
           pending={pending}

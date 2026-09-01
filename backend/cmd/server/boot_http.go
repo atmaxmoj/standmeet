@@ -177,6 +177,7 @@ func mountInternal(r chi.Router, deps *Deps) {
 func mountAdmin(r chi.Router, deps *Deps) {
 	r.Route("/api/admin", func(r chi.Router) {
 		adminH := buildAdminHandlers(deps)
+		mustBeWired(adminH)
 		adminH.MountUnauthed(r, authmw.LoginGuard(
 			deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
 		))
@@ -191,6 +192,15 @@ func mountAdmin(r chi.Router, deps *Deps) {
 			deps.PluginRegistry.MountAllAdminRoutes(r)
 		})
 	})
+}
+
+// mustBeWired —— 装配漏了一组 dep 就别起来。漏抄的代价不是"少个功能"，
+// 而是那条路上的 repo 是 nil，第一次请求空指针 panic，
+// 而 owner 屏幕上看到的是一句完全无关的解释（见 internal/infra/depcheck）。
+func mustBeWired(h *adminroutes.Handlers) {
+	if err := h.AssertDepsWired(); err != nil {
+		panic(err)
+	}
 }
 
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
@@ -220,6 +230,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		PublicURLAdmin: adminroutes.PublicURLDeps{Face: wire.AdminFace(deps.Dispatch)},
 		AccountAdmin:   adminroutes.AccountDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Recovery:       deps.Admin.Recovery,
+		EmailChange:    deps.Admin.EmailChange, // 漏抄它的代价见 internal/infra/depcheck
 
 		// 插件那份 builtin 由装配根递进去 —— 注册表住在这儿，路由层够不到它。
 		SeedPlugins:      deps.PluginRegistry.SeedAllOwners,

@@ -68,6 +68,13 @@ test.describe('account · a new email must prove it is reachable before it becom
       await gotoAdminSection(page, 'account');
       await page.waitForURL('**/admin/account', { timeout: 5_000 });
 
+      // 动手之前，这一块说的话必须跟它的行为一致。加待确认流程之前它写着
+      // "Changing it moves both" —— 机制换了、说明书没换，于是它对 owner 撒谎，
+      // 而这种谎言不会让任何测试变红（[[names-that-lie]]）。在真 prod 上眼验才看见。
+      const blurb = await page.getByTestId('account-email-block').innerText();
+      expect(blurb, '这块说明还在承诺"改了就生效"，而实际要等确认').toContain('confirm');
+      expect(blurb).not.toContain('moves both');
+
       await page.getByTestId('account-email-current-password').fill(OWNER.password);
       await page.getByTestId('account-email-new').fill(NEW_EMAIL);
       await page.getByTestId('account-email-confirm').fill(NEW_EMAIL);

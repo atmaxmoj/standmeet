@@ -27,6 +27,8 @@ components:
     in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
   dbfiles:
     in: db                                       # schema.sql + migrations/ 的 go:embed 载体；只有 pgstore 够得到
+  depcheck:
+    in: internal/infra/depcheck                  # 启动时查一份手抄的依赖表有没有漏行；domain-less leaf
   textcut:
     in: internal/infra/textcut                   # 按字符/字节安全截断文本（唯一实现）；domain-less leaf
   plaintext:
@@ -1050,6 +1052,7 @@ deps:
       - capreg      # Phase H /capabilities：列 registry origin + owner-enable 开关
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
       - security    # #135 /ip-bans: BannedIP value object
+      - depcheck    # 启动时查 buildAdminHandlers 那份手抄的依赖表有没有漏行
     anyVendorDeps: true
 
   # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image

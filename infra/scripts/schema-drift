@@ -186,10 +186,15 @@ def main():
         print(f"  MISSING FUNCTION {f}()")
     for t, c, want, got in diffs:
         print(f"  DEFAULT DIFFERS {t}.{c} — schema.sql says {want}, the database says {got}")
-    print("\nApply them by hand, non-destructively — copy each definition out of "
-          "backend/db/schema.sql (every added column carries a default or is nullable). "
-          "A changed DEFAULT is an ALTER COLUMN … SET DEFAULT; it does not touch existing rows, "
-          "so decide separately whether those rows should be backfilled.")
+    # Do NOT tell the reader to apply these by hand. The backend applies every unrecorded
+    # migration at boot (pgstore.Migrate), so drift means one of two things, and the fix is
+    # different for each -- guessing costs a re-deploy that changes nothing.
+    print("\nDrift means one of two things:\n"
+          "  · this change has no migration yet — write backend/db/migrations/<date>-<name>.sql\n"
+          "    alongside the schema.sql edit; the backend applies it on its next boot.\n"
+          "  · the migration exists but this stack has not been redeployed since — deploy it\n"
+          "    (make prod-up / make dev-rebuild SVC=backend) and the boot applies it.\n"
+          "Check which: SELECT name FROM schema_migrations ORDER BY name.")
     return 1
 
 

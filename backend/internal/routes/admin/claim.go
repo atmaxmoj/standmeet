@@ -68,26 +68,8 @@ type Handlers struct {
 	SecureCookie          bool
 }
 
-// MountUnauthed 挂不需要 owner session 的 endpoint：claim / login。
-// loginGuard 是 brute-force 防御（per-IP rate-limit + equal-time response），
-// 只裹 /login —— claim 用一次性 setup token，brute-force 不实际。
-func (h *Handlers) MountUnauthed(
-	r chi.Router, loginGuard func(http.Handler) http.Handler,
-) {
-	r.Post("/claim", h.claim())
-	r.Group(func(r chi.Router) {
-		r.Use(loginGuard)
-		r.Post("/login", h.login())
-		// #100: 公开的账号恢复 —— {email, phrase} 对上就发 session。跟 login 同套 guard 限速
-		// (brute-force 面一样)。
-		r.Post("/recover", h.recover())
-		// 确认改邮箱 —— **公开**：owner 点开这封信时可能在另一台设备上、没登录。
-		// 要求先登录才能确认，等于要求他先用还没换过去的那个身份登进来。
-		// 不裹 loginGuard：token 是 128-bit 随机 + 只匹配 hash + 一次性 + 24h 过期，
-		// 而且这条路造不出新的改动，只能兑现一次 owner 在登录状态下发起过的改动。
-		r.Post("/confirm-email", h.confirmEmail())
-	})
-}
+// 免登录那几条路的挂载在 mount_unauthed.go —— 那是"哪条路裹哪层 guard"的问题，
+// 跟 claim 这个处理器本身不是一件事。
 
 // MountAuthed 挂需要 owner session 的 endpoint。caller 负责先用
 // middleware.WithOwner 包这个 router。

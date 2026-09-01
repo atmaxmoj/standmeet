@@ -33,7 +33,11 @@ export function CustomPagesSection() {
   return (
     <>
       <SectionHeader
-        kicker="corpus · microsites"
+        // kicker 要跟侧栏的分组一致。这一条以前写着 "corpus · microsites" ——
+        // 而这个入口已经搬去 access 组了（页面是给访客看的东西，不是语料的一种）。
+        // 搬导航时只改了导航，页面自己的那句留在原地，于是同一个东西在两处归属不同
+        // （[[vocabulary-must-not-diverge]]）。真 prod 上眼验才看见。
+        kicker="access · microsites"
         slug="custom-pages"
         count={hook.status === 'ready' ? String(hook.rows.length) : ''}
       />

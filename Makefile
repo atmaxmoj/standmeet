@@ -411,6 +411,33 @@ release-gc:
 	  echo "  悬空的 standmeet 镜像: 清掉 $$n 个"
 	@echo "[release-gc] 只清了本仓库自己的构建产物,别的项目的缓存没动"
 
+# release-prune-old —— 删掉旧版本的 release 镜像,只留最近 KEEP 个版本 + latest。
+#
+# 为什么 `release-gc` 不够:它只清**悬空**的镜像。而每跑一次 `release-build` 就多出
+# 一整组带标签的镜像(5 个),标签在就永远不悬空 —— 于是它们一个都不会被清掉。
+# 18 个版本 × 5 = 84 个镜像堆在一台多项目共用的机器上,而能回滚到的只有最近那一两个。
+#
+# 范围收在自己那份上:只按 `ghcr.io/atmaxmoj/standmeet-*` 匹配,只删版本号排序在
+# KEEP 之外的那些,`latest` 永远留着。不碰全局 prune(同 release-gc 的那条教训)。
+#
+# 用法:make release-prune-old        # 留最近 2 个版本
+#      make release-prune-old KEEP=5
+KEEP ?= 2
+release-prune-old:
+	@set -e; \
+	  all=$$(docker images --format '{{.Tag}}' --filter=reference='ghcr.io/atmaxmoj/standmeet-*' \
+	    | grep -E '^v[0-9]' | sort -u -V); \
+	  n=$$(printf '%s\n' "$$all" | grep -c . || true); \
+	  drop=$$(( n - $(KEEP) )); \
+	  test "$$drop" -gt 0 || { echo "[release-prune-old] $$n 个版本,留 $(KEEP) 个,没有可删的"; exit 0; }; \
+	  old=$$(printf '%s\n' "$$all" | head -n "$$drop"); \
+	  for t in $$old; do \
+	    docker images --format '{{.Repository}}:{{.Tag}}' \
+	      --filter=reference="ghcr.io/atmaxmoj/standmeet-*:$$t" | xargs -r docker rmi >/dev/null 2>&1 || true; \
+	    echo "  删 $$t"; \
+	  done; \
+	  echo "[release-prune-old] 留下最近 $(KEEP) 个版本 + latest"
+
 # gateway-up —— 只起 llm-gateway sidecar (eval-smoke 用)，不跑 app-build /
 # 整栈。Anthropic-compat mock，host :9300，确定性脚本回复。
 gateway-up:
