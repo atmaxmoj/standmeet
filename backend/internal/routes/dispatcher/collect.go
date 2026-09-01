@@ -21,6 +21,7 @@ import (
 type Deps struct {
 	AccessRequests owner.OpsAccessRequests
 	Codes          access.OpsCodes
+	Embeds         access.OpsEmbeds
 	Corpus         corpus.Deps
 	Writings       corpus.OpsWritingsDeps
 	Instance       stats.InstanceDeps
@@ -68,6 +69,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "skills", Ops: marketplace.SkillOps(d.Skills)},
 		{Name: "marketplace", Ops: marketplace.MarketplaceOps(d.Marketplace)},
 		{Name: "codes", Ops: access.CodeOps(d.Codes)},
+		{Name: "embeds", Ops: access.EmbedOps(d.Embeds)},
 		{Name: "access_requests", Ops: owner.AccessRequestOps(d.AccessRequests)},
 		{Name: "seo", Ops: owner.SEOOps(&d.SEO)},
 		{Name: "page", Ops: owner.PageOps(d.Page)},

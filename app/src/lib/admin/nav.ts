@@ -12,7 +12,7 @@ export type AdminSlug =
   | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account'
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
-  | 'preview' | 'obsidian'
+  | 'preview' | 'obsidian' | 'embeds'
   | 'roles' | 'prompts' | 'ip-bans';
 
 export interface SectionDef {
@@ -55,6 +55,9 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       // 一个 custom page 可以绑到某个 code 上(custom-page-code-binding),
       // 跟它做邻居的是 codes 和 preview,不是 raw/wiki/output。
       { slug: 'custom-pages', label: 'custom pages' },
+      // embeds 归 access:一个 embed 把某张码作为 <standmeet-chat> widget 暴露到别人网站上,
+      // 邻居是 codes(它挂的码)和 custom-pages,不是语料。
+      { slug: 'embeds', label: 'embeds' },
       { slug: 'preview', label: 'preview' },
     ],
   },

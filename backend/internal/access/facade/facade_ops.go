@@ -14,6 +14,7 @@ type (
 	KeyExtras  = ops.KeyExtras
 	OpsAPIKeys = ops.APIKeysDeps
 	OpsCodes   = ops.CodesDeps
+	OpsEmbeds  = ops.EmbedsDeps
 	OpsRoles   = ops.RolesDeps
 )
 
@@ -21,5 +22,6 @@ type (
 var (
 	APIKeyOps = ops.APIKeys
 	CodeOps   = ops.Codes
+	EmbedOps  = ops.Embeds
 	RoleOps   = ops.Roles
 )

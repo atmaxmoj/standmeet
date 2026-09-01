@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { z } from 'zod';
 
@@ -46,6 +46,21 @@ export function previewView(page: CustomPageSummary): PreviewView {
     buildID: page.latest_build_id ?? '',
     status: page.latest_build_status ?? '',
   };
+}
+
+// usePinnedPreviewSrc —— 预览 iframe 的 src，钉在 buildID 上。
+//
+// preview_url 里的令牌是后端每次请求现签的（time.Now()），而这一页每 3 秒轮询一次 ——
+// 于是同一次构建的 src 每 3 秒换一个新令牌。iframe 的 key 稳定但 src 一变，React 就更新
+// src attribute → 整个 iframe 重新加载，owner 看到预览每 3 秒闪一下。这里只在 buildID
+// 真的变了（落了一次新构建）时才换 src；令牌 churn 不动它。逻辑落在 lib 而不是组件里，
+// 因为呈现层不许有 if（复杂度上限 3）。
+export function usePinnedPreviewSrc(buildID: string, src: string): string {
+  const pinned = useRef({ buildID: '', src: '' });
+  if (buildID !== '' && buildID !== pinned.current.buildID) {
+    pinned.current = { buildID, src };
+  }
+  return pinned.current.src;
 }
 
 const BuildSchema = z.object({
@@ -199,7 +214,11 @@ async function setByoai(slug: string, allow: boolean): Promise<void> {
 }
 
 export function pickCustomPagesBodyState(hook: CustomPagesHook): CustomPagesBodyState {
+  // 已经有数据就一直显列表 —— 3 秒轮询每次把 status 翻成 'loading',若那时用骨架替换列表,
+  // 整列（含预览 iframe）每 3 秒卸载重挂 → 预览每 3 秒闪一下重载（pentest / owner 反馈
+  // 2026-09-01）。骨架只属于**首次加载**（还没有任何数据）；后台刷新不该打断已经在看的东西。
+  if (hook.rows.length > 0) return 'list';
   if (hook.status === 'idle' || hook.status === 'loading') return 'loading';
   if (hook.status === 'error') return 'error';
-  return hook.rows.length === 0 ? 'empty' : 'list';
+  return 'empty';
 }

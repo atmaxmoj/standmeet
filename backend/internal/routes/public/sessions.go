@@ -33,6 +33,9 @@ type createSessionRequest struct {
 	BYOAIProvider string `json:"byoai_provider,omitempty"`
 	// CaptchaToken —— #169 兑换失败超阈值后,captcha 启用时靠它解锁(关闭时忽略)。
 	CaptchaToken string `json:"captcha_token,omitempty"`
+	// EmbedToken —— widget 的 EdDSA JWT 凭据（防盗）。带它就**不带明文 code**：服务端验签后
+	// 反查出 code。见 [[embed-credential-never-carries-the-code]]。
+	EmbedToken string `json:"embed_token,omitempty"`
 }
 
 type sessionQuotaResp struct {

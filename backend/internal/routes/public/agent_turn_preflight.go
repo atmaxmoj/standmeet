@@ -28,11 +28,30 @@ func preflightAgentTurnQuota(
 	if convID == "" {
 		return true
 	}
-	// 一道闸一行。加第四道时这里加一行,而不是再嵌一层 if —— 顺序即优先级,读得出来。
+	// 一道闸一行。顺序即优先级,读得出来。
 	return allPass([]gate{
 		func() bool { return checkConvOwnership(r, h, auth, w, convID) },
 		func() bool { return enforceTurnQuotaOrWrite(r, h, auth, w, convID) },
+		func() bool { return enforceCodePeriodOrWrite(r, h, auth, w) },
 	})
+}
+
+// enforceCodePeriodOrWrite —— 码级每周期速率闸（embed 规划 2026-09-01）。挂了周期闸的**码**
+// 才走查询;没挂的一次查询都不发。按码共享(跟哪个会话/访客无关) —— 所以只认 CodeID,不认 convID:
+// 公开 embed 码在很多访客/会话上被用,限的是这张码每周期的总量。
+func enforceCodePeriodOrWrite(
+	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter,
+) bool {
+	if h.Visitor.Codes == nil {
+		return true // 测试可能不接 Codes；生产总在
+	}
+	// CheckPeriodLimit 内部处理空 codeID（public/byoai 会话）+ 判额度,返回可直接给
+	// handleVisitorErr 的错误（ErrPeriodLimitReached → 403）。多条件的判断在 repo,不在这里。
+	if err := h.Visitor.Codes.CheckPeriodLimit(r.Context(), auth.Data.CodeID); err != nil {
+		handleVisitorErr(h.Log, w, err)
+		return false
+	}
+	return true
 }
 
 // gate —— 一道准入检查:放行返 true;拦下的那一道自己已经写好响应了。

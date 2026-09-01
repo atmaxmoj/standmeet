@@ -83,6 +83,7 @@ func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.H
 	r.Get("/csrf", h.csrfEndpoint())
 	r.Route("/keypairs", func(r chi.Router) { h.MountKeypairs(r) })
 	r.Route("/codes", func(r chi.Router) { h.MountCodes(r) })
+	r.Route("/embeds", func(r chi.Router) { h.MountEmbeds(r) })
 	h.MountCorpus(r)
 	h.MountCorpusCRUD(r)
 	h.MountConversations(r)

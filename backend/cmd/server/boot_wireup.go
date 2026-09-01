@@ -258,6 +258,8 @@ func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 		Resolver:     d.ProviderResolver,
 		Reports:      d.ChatReportRepo,
 		Sessions:     d.VisitorStore,
+		Embeds:       d.EmbedRepo,
+		EmbedNonce:   port.EmbedNonceStore(d),
 		QueryQueue:   d.QueryQueue,
 		Corpus:       d.Corpus,
 		Subjectivity: corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),

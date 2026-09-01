@@ -92,6 +92,7 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		SEO:            seoDepsOf(d),
 		AccessRequests: accessRequestDepsOf(d),
 		Codes:          codeDepsOf(d),
+		Embeds:         access.OpsEmbeds{Embeds: d.EmbedRepo},
 		Roles:          roleDepsOf(d),
 		Conversations:  conversationDepsOf(d),
 		APIKeys:        apiKeyDepsOf(d),

@@ -4,10 +4,18 @@
 INSERT INTO access_codes (
     owner_id, code, label, purpose, ghosts,
     expires_at, max_turns_per_session,
-    assumed_role_id, max_members, prompt_id, inline_prompt, provider_id
+    assumed_role_id, max_members, prompt_id, inline_prompt, provider_id,
+    limit_per_period
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
+
+-- name: CountCodeTurnsSince :one
+-- 这张码自某时刻起累计了多少轮（跨这张码的所有会话）。每周期速率闸用它数窗口内的量。
+-- 一个 dialog = 一轮。
+SELECT count(*) FROM dialogs d
+JOIN conversations c ON c.id = d.conversation_id
+WHERE c.code_id = $1 AND d.created_at >= $2;
 
 -- name: UpdateAccessCodeRole :one
 -- Admin "reassign role"。新 role 必须属于同 owner（caller 校验过）。

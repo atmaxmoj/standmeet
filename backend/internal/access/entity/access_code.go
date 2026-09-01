@@ -20,31 +20,49 @@ import (
 //
 // #135:per-code 预约配额不在内核 —— booker 能力自管(它的 capstore),内核不认。
 type Code struct {
-	CreatedAt          time.Time
-	ExpiresAt          *time.Time
-	MaxMembers         *int32
-	MaxTurnsPerSession *int32
-	// RequireGhostEvidence —— F-A-10 per-code 覆盖(nil = 继承 role 的开关)。
+	CreatedAt            time.Time
+	ExpiresAt            *time.Time
+	MaxMembers           *int32
+	MaxTurnsPerSession   *int32
 	RequireGhostEvidence *bool
 	PromptID             *string
-	ID                   string
-	OwnerID              string
+	LimitPerPeriod       *PeriodLimit
 	Code                 string
+	OwnerID              string
 	Label                string
 	Purpose              string
 	Status               string
 	AssumedRoleID        string
-	// InlinePrompt —— #104 扩展：随码内联的 per-code prompt。非空时冻进 RoleSnapshot.code_prompt_body
-	// （优先于 PromptID 库引用）。发码方（如 job-loop）随码带一段 persona 上下文用，不污染 prompt 库。
-	InlinePrompt string
-	// CustomPageSlug —— 这张码开哪一页。空 = 开默认的访客对话（今天的行为）。
-	// **页面是这张码的一个渲染**：授权、配额、身份、记账全不变，只换读者看到的样子。
-	// slug 而不是 id：用它的两处（落地跳转、面板显示）要的都是 slug，存 id 就得两处各查一次。
-	CustomPageSlug string
-	// ProviderID —— 这张码指定的 provider(空 = 继承 role,再默认)。**码压过 role**:
-	// 码是发出去的那张票,是更具体的声明。
-	ProviderID string
-	Ghosts     []string
+	InlinePrompt         string
+	CustomPageSlug       string
+	ProviderID           string
+	ID                   string
+	Ghosts               []string
+}
+
+// PeriodLimit —— 一张码每个周期能花多少(可再生速率闸)。max_turns_per_session 是每场、
+// gas 是总量;这一个是**每周期自动回满**的桶。公开 embed 码用它防被薅。
+type PeriodLimit struct {
+	// Unit —— 'turns' 或 'gas'。turns 数 dialog 条数,gas 数 token 用量。
+	Unit          string `json:"unit"`
+	Amount        int64  `json:"amount"`
+	PeriodSeconds int64  `json:"period_seconds"`
+}
+
+// TurnsWindow —— 一个有效 turns 闸的两个数：额度 + 滚动窗口秒。
+type TurnsWindow struct {
+	Amount        int64
+	PeriodSeconds int64
+}
+
+// TurnsCap —— 若这是一个有效的 turns 闸，返回 *TurnsWindow；否则 nil（没挂 / 不是 turns /
+// 数值非法）。nil 接收者安全（没挂闸就是没挂闸）。用指针而不是 (amount, period, ok) 三返回值：
+// 返回值上限是 2，一个 nil 指针就把"有没有"说清楚了（跟 EmbedForCode 同一种取舍）。
+func (p *PeriodLimit) TurnsCap() *TurnsWindow {
+	if p == nil || p.Unit != "turns" || p.Amount <= 0 || p.PeriodSeconds <= 0 {
+		return nil
+	}
+	return &TurnsWindow{Amount: p.Amount, PeriodSeconds: p.PeriodSeconds}
 }
 
 // CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +

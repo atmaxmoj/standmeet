@@ -22,6 +22,7 @@ type AccessCode struct {
 	RequireGhostEvidence *bool
 	ProviderID           pgtype.UUID
 	CustomPageID         pgtype.UUID
+	LimitPerPeriod       []byte
 	CreatedAt            pgtype.Timestamptz
 	AssumedRoleID        pgtype.UUID
 	PromptID             pgtype.UUID
@@ -241,6 +242,18 @@ type Dialog struct {
 	ID             pgtype.UUID
 	ConversationID pgtype.UUID
 	CreatedAt      pgtype.Timestamptz
+}
+
+type Embed struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	CodeID         pgtype.UUID
+	Label          string
+	AllowedOrigins []byte
+	KeyID          pgtype.UUID
+	PublicKey      *string
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
 }
 
 type HandleAlias struct {

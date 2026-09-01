@@ -53,6 +53,7 @@ type Runtime struct {
 	JobRegistry        *stats.JobRegistry
 	Corpus             *corpus.Corpus
 	CodeRepo           *access.CodeRepo
+	EmbedRepo          *access.EmbedRepo
 	CodeDenialRepo     *access.CodeDenialRepo
 	ChatRepo           *conversation.ChatRepo
 	SEORepo            *corpus.SEORepo

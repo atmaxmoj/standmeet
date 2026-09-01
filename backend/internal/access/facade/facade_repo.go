@@ -8,6 +8,7 @@ type (
 	CapabilityRepo     = repo.CapabilityRepo
 	CodeDenialRepo     = repo.CodeDenialRepo
 	CodeRepo           = repo.CodeRepo
+	EmbedRepo          = repo.EmbedRepo
 	CreateCodeInput    = repo.CreateCodeInput
 	RequestRepo        = repo.RequestRepo
 	RoleRepo           = repo.RoleRepo
@@ -22,5 +23,6 @@ var (
 	NewCapabilityRepo    = repo.NewCapabilityRepo
 	NewCodeDenialRepo    = repo.NewCodeDenialRepo
 	NewCodeRepo          = repo.NewCodeRepo
+	NewEmbedRepo         = repo.NewEmbedRepo
 	NewRoleRepo          = repo.NewRoleRepo
 )

@@ -21,6 +21,8 @@ type (
 	SubmitAccessRequestInput = usecase.SubmitAccessRequestInput
 	VisitorSessionData       = usecase.VisitorSessionData
 	VisitorSessionStore      = usecase.VisitorSessionStore
+	EmbedTokenDeps           = usecase.EmbedTokenDeps
+	EmbedNonceStore          = usecase.NonceStore
 )
 
 // 构造/函数（实现:usecase）.
@@ -41,6 +43,7 @@ var (
 	UpdateAccessRequestStatus = usecase.UpdateAccessRequestStatus
 	UpdateCodeQuotas          = usecase.UpdateCodeQuotas
 	UpdateRole                = usecase.UpdateRole
+	VerifyEmbedToken          = usecase.VerifyEmbedToken
 )
 
 // 常量（实现:usecase）.

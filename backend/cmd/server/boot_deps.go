@@ -55,6 +55,7 @@ type repoSet struct {
 	growth         *stats.GrowthRepo
 	activity       *stats.ActivityRepo
 	code           *access.CodeRepo
+	embed          *access.EmbedRepo
 	codeDenial     *access.CodeDenialRepo
 	chat           *conversation.ChatRepo
 	seo            *corpus.SEORepo
@@ -96,6 +97,7 @@ func newRepos(db *pgstore.Pool) *repoSet {
 		growth:         stats.NewGrowthRepo(db),
 		activity:       stats.NewActivityRepo(db),
 		code:           access.NewCodeRepo(db),
+		embed:          access.NewEmbedRepo(db),
 		codeDenial:     access.NewCodeDenialRepo(db),
 		chat:           conversation.NewChatRepo(db),
 		seo:            corpus.NewSEORepo(db),
@@ -155,6 +157,7 @@ func assembleRuntimeDeps(
 		JobRegistry:      stats.NewJobRegistry(),
 		Corpus:           corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
 		CodeRepo:         repos.code, CodeDenialRepo: repos.codeDenial, ChatRepo: repos.chat,
+		EmbedRepo:          repos.embed,
 		SEORepo:            repos.seo,
 		CustomPageRepo:     repos.customPage,
 		CustomBuildRepo:    repos.customBuild,
@@ -203,9 +206,8 @@ func assembleRuntimeDeps(
 		MCPProber:      &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
 		ProviderModels: &providerModelLister{owners: repos.owner},
 		// capStores —— wireCapabilityStorage 按各能力的声明填(provision 一次)。
-		CapStores:     map[string]*capstore.Store{},
-		SearchClient:  searchClient,
-		CorpusIndexer: corpusIndexer,
+		CapStores:    map[string]*capstore.Store{},
+		SearchClient: searchClient, CorpusIndexer: corpusIndexer,
 		// J.5: pluginRegistry 在 assembleRuntimeDeps 返回后由 caller 用全
 		// 套 deps 构造 (jobs.Plugin 需要 *jobsuc.JobsDeps 等闭包持引用)。
 		// 这里留 nil 让 lint 看到字段被用；wirePluginRegistry 后再回填。

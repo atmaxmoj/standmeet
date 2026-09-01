@@ -49,6 +49,9 @@ var (
 	ErrCodeTaken                  = entity.ErrCodeTaken
 	ErrDockButtonEmptyTrigger     = entity.ErrDockButtonEmptyTrigger
 	ErrGasExhausted               = entity.ErrGasExhausted
+	ErrPeriodLimitReached         = entity.ErrPeriodLimitReached
+	ErrEmbedOriginNotAllowed      = entity.ErrEmbedOriginNotAllowed
+	ErrEmbedTokenInvalid          = entity.ErrEmbedTokenInvalid
 	ErrMemberNotFound             = entity.ErrMemberNotFound
 	ErrMemberQuotaReached         = entity.ErrMemberQuotaReached
 	ErrRoleBuiltinImmutable       = entity.ErrRoleBuiltinImmutable

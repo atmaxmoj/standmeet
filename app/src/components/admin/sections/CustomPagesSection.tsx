@@ -39,7 +39,7 @@ export function CustomPagesSection() {
         // （[[vocabulary-must-not-diverge]]）。真 prod 上眼验才看见。
         kicker="access · microsites"
         slug="custom-pages"
-        count={hook.status === 'ready' ? String(hook.rows.length) : ''}
+        count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
       />
       <Intro />
       <CustomPagesBody hook={hook} />

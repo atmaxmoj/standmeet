@@ -894,12 +894,14 @@ deps:
       - accessentity
       - accessdb
       - pgstore
+      - cryptobox        # 每-embed Ed25519 密钥生成（embed 防盗凭据）
     anyVendorDeps: true
   accessusecase:
     mayDependOn:
       - accessentity
       - accessrepo
       - apierr
+      - cryptobox        # 验 embed JWT 时解公钥（ParseEd25519Public）
     anyVendorDeps: true
 
   # owner —— #135 owner 模块：实体 + repo（连接器 OwnerLookup 消费 owner.Owner）。

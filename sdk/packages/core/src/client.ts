@@ -43,6 +43,9 @@ export interface IssueSessionInput {
   // 阈值后后端会锁 15 分钟，而带上一张有效票就能立刻过（`code_guard.go` 的
   // `Locked = enabled && overThreshold && captchaFails`）。captcha 没开时后端不看这个字段。
   captcha_token?: string;
+  // embed_token —— widget 的 EdDSA JWT 凭据（防盗）。带它就**不带明文 code**：服务端验签后
+  // 反查出 code。widget 用每-embed 私钥现签，绑定 origin + 短过期 + 一次性 jti。
+  embed_token?: string;
 }
 
 // BYOAIHeaders —— streamMessage 在 mode=byoai 时透传 4 个 header（**全部必填**，

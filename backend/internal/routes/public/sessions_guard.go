@@ -20,7 +20,7 @@ func (h *Handlers) guardedIssueSession(
 	w http.ResponseWriter, r *http.Request, req *createSessionRequest,
 ) (conversation.IssueCodeSessionResult, bool) {
 	ip := clientIP(r)
-	if h.codeLocked(w, r, req.Mode, req.CaptchaToken, ip) {
+	if h.preIssueBlocked(w, r, req, ip) {
 		return conversation.IssueCodeSessionResult{}, false
 	}
 	res, err := dispatchIssueSession(r.Context(), &h.Visitor, req, ip)
@@ -49,6 +49,50 @@ func (h *Handlers) guardedIntro(
 	}
 	h.CodeGuard.Reset(r.Context(), ip)
 	return res, true
+}
+
+// preIssueBlocked —— 签发前的两道拦截合成一个（各自在拦下时已写好响应）：
+// ① code 兑换失败锁定（429）② embed 来源白名单（403）。合成一个是为了让 guardedIssueSession
+// 的圈复杂度留在 3 以内 —— 顺序即优先级：先锁定，再来源。
+func (h *Handlers) preIssueBlocked(
+	w http.ResponseWriter, r *http.Request, req *createSessionRequest, ip string,
+) bool {
+	if h.codeLocked(w, r, req.Mode, req.CaptchaToken, ip) {
+		return true
+	}
+	return h.embedAuthBlocked(w, r, req)
+}
+
+// embedAuthBlocked —— 带 embed_token 就验 widget 的 JWT（code 明文不进客户端）；否则是**明文 code
+// 直连**——不受 origin 限制（白名单只 gate widget/token 那条路）。明文直连跟没有 embed 时一样：
+// QR / 分享链接落到实例页、直接粘码都能用，泄露了就 revoke（[[embed-direct-code-stays-open]]）。
+func (h *Handlers) embedAuthBlocked(
+	w http.ResponseWriter, r *http.Request, req *createSessionRequest,
+) bool {
+	if req.EmbedToken != "" {
+		return h.embedTokenBlocked(w, r, req)
+	}
+	return false
+}
+
+// embedTokenBlocked —— 验 JWT。通过 → 把它暴露的 code 填进 req（转成 code 模式），放行；
+// 失败 → 写 401/403 并拦下。code 明文只在这一步、服务端拿到（req 从没带过它）。
+func (h *Handlers) embedTokenBlocked(
+	w http.ResponseWriter, r *http.Request, req *createSessionRequest,
+) bool {
+	code, err := access.VerifyEmbedToken(
+		r.Context(), h.embedTokenDeps(), req.EmbedToken, r.Header.Get("Origin"))
+	if err != nil {
+		handleVisitorErr(h.Log, w, err)
+		return true
+	}
+	req.Code = code
+	req.Mode = "code"
+	return false
+}
+
+func (h *Handlers) embedTokenDeps() access.EmbedTokenDeps {
+	return access.EmbedTokenDeps{Embeds: h.Embeds, Nonce: h.EmbedNonce, Log: h.Log}
 }
 
 // codeLocked —— code-tier 且该 IP 已锁 → 写 429 并返 true;否则 false 放行。

@@ -336,6 +336,11 @@ CREATE TABLE access_codes (
     -- 两个面板都读它，谁也不存第二份。SET NULL —— 页删了码退回默认落地，而不是跟着消失。
     -- 外键在 custom_pages 建完之后补（这张表在它前面，内联写就是前向引用，新卷上直接失败）。
     custom_page_id            uuid,
+    -- limit_per_period —— 可再生的速率闸：{amount, unit:'turns'|'gas', period_seconds}。
+    -- NULL = 不限。max_turns_per_session 是**每场**（访客开新会话就重置）、gas 是**总量**
+    -- （花完手动续）；这一个是**每周期自动回满**的桶，按码共享（跟哪个访客/会话无关）。
+    -- 留在码上：公开 embed 码要它，但它是码级速率闸，任何用法都适用（embed 规划 2026-09-01）。
+    limit_per_period          jsonb,
     created_at                timestamptz   NOT NULL DEFAULT now()
 );
 
@@ -710,6 +715,34 @@ ALTER TABLE access_codes
     ADD CONSTRAINT access_codes_custom_page_id_fkey
     FOREIGN KEY (custom_page_id) REFERENCES custom_pages(id) ON DELETE SET NULL;
 CREATE INDEX access_codes_custom_page_idx ON access_codes(custom_page_id);
+
+-- embeds —— owner 的 embed widget 配置。一个 embed = "把某张码作为 <standmeet-chat> 暴露,
+-- 只在这些来源站上生效"。**embed 指向 code**（embed 是包着码的配置,它引用它暴露的那张码）,
+-- 不是码指向 embed。来源白名单住在这儿而不是码上：码是凭据,"widget 在哪渲染"是 embed 的属性
+-- （embed 规划 2026-09-01）。删码 → embed 跟着走（CASCADE）：没有码的 embed 无意义。
+CREATE TABLE embeds (
+    id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    -- code_id —— 这个 embed 暴露哪张码。widget 用这张码建会话,embed 在它外面加来源限制。
+    code_id          uuid          NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    label            text          NOT NULL DEFAULT '',
+    -- allowed_origins —— 允许这个 embed 在哪些来源站上建会话。空 = 不限。非空 = 只有 Origin
+    -- 在表里的请求能用这个 embed 暴露的码。embed 是公开 HTML,钉住来源才能让泄露的码不能到处用。
+    allowed_origins  jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    -- key_id / public_key —— 每-embed 的 Ed25519 凭据。widget 用私钥签 JWT，服务端按 key_id
+    -- 反查公钥验签，再反查出 code_id 发会话。**code 明文不进客户端**，只这把可撤销的密钥进。
+    -- nullable：没有 key 的 embed 退回明文 code 那条老路（向后兼容）。
+    key_id           uuid,
+    public_key       text,
+    created_at       timestamptz   NOT NULL DEFAULT now(),
+    updated_at       timestamptz   NOT NULL DEFAULT now()
+);
+CREATE INDEX embeds_owner_idx ON embeds(owner_id);
+-- key_id 唯一（NULL 各不相同，多个无 key 的 embed 可共存）：JWT 的 kid 反查必须命中唯一一行。
+CREATE UNIQUE INDEX embeds_key_id_uniq ON embeds(key_id);
+-- code_id 唯一：一张码最多被一个 embed 暴露，来源白名单才有唯一确定的那一份
+-- （两个 embed 挂同一张码时，GetEmbedForCode:one 取哪份白名单是未定义的）。
+CREATE UNIQUE INDEX embeds_code_uniq ON embeds(code_id);
 
 CREATE TABLE custom_page_builds (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),

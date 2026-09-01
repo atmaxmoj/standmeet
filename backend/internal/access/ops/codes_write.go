@@ -10,22 +10,24 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
 	"github.com/atmaxmoj/standmeet/internal/access/usecase"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
 type codeCreateArgs struct {
-	MaxMembers         *int32   `json:"max_members"`
-	MaxTurnsPerSession *int32   `json:"max_turns_per_session"`
-	PromptID           *string  `json:"prompt_id"`
-	Code               string   `json:"code"`
-	Label              string   `json:"label"`
-	Purpose            string   `json:"purpose"`
-	AssumedRoleID      string   `json:"assumed_role_id"`
-	ExpiresAt          string   `json:"expires_at"`
-	ProviderID         string   `json:"provider_id"`
-	Ghosts             []string `json:"ghosts"`
+	MaxMembers         *int32              `json:"max_members"`
+	MaxTurnsPerSession *int32              `json:"max_turns_per_session"`
+	PromptID           *string             `json:"prompt_id"`
+	LimitPerPeriod     *entity.PeriodLimit `json:"limit_per_period"`
+	Code               string              `json:"code"`
+	Label              string              `json:"label"`
+	Purpose            string              `json:"purpose"`
+	AssumedRoleID      string              `json:"assumed_role_id"`
+	ExpiresAt          string              `json:"expires_at"`
+	ProviderID         string              `json:"provider_id"`
+	Ghosts             []string            `json:"ghosts"`
 }
 
 func createCode(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
@@ -61,7 +63,8 @@ func decodeCodeCreate(raw json.RawMessage, ownerID string) (*repo.CreateCodeInpu
 		MaxMembers: in.MaxMembers, MaxTurnsPerSession: in.MaxTurnsPerSession,
 		ExpiresAt: expires,
 		// 空 = 没指:继承 role 的,再退 owner 默认那条。
-		ProviderID: in.ProviderID,
+		ProviderID:     in.ProviderID,
+		LimitPerPeriod: in.LimitPerPeriod,
 	}, nil
 }
 

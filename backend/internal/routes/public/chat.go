@@ -48,6 +48,11 @@ type Handlers struct {
 	Resolver     inference.Resolver
 	CodeGuard    CodeGuard
 	Sessions     *access.VisitorSessionStore
+	// Embeds —— embed 来源白名单：code 模式签发会话时,若这张码被某个 embed 暴露,
+	// 只放行 Origin 在白名单里的请求（embed 是公开 HTML,钉住来源才能防泄露的码乱用）。
+	Embeds *access.EmbedRepo
+	// EmbedNonce —— embed JWT 的一次性 jti 记录（防重放，fail-closed）。跟 Sigv1 共用 Redis store。
+	EmbedNonce   access.EmbedNonceStore
 	QueryQueue   *session.QueryQueue
 	Ledger       *conversation.WaypointLedger
 	Ghosts       conversation.GhostDeps
@@ -157,6 +162,22 @@ var visitorErrCases = []apierr.Case{
 		// 访客读到的那句。不说 token、不说油箱、不说是谁的钱 —— 他做不了任何事;
 		// 也不许诺"已通知 owner",那是一句没人去实现的承诺。
 		Message: "this conversation has reached its usage limit",
+	}},
+	{Match: access.ErrPeriodLimitReached, Envelope: apierr.Envelope{
+		Status:  http.StatusForbidden,
+		Code:    "period_limit_reached",
+		Message: "this code has reached its limit for now — try again later",
+	}},
+	{Match: access.ErrEmbedOriginNotAllowed, Envelope: apierr.Envelope{
+		Status:  http.StatusForbidden,
+		Code:    "origin_not_allowed",
+		Message: "this widget is not enabled for this site",
+	}},
+	{Match: access.ErrEmbedTokenInvalid, Envelope: apierr.Envelope{
+		Status: http.StatusUnauthorized,
+		Code:   "embed_token_invalid",
+		// 一句 sentinel，不说是签名坏 / 过期 / 重放 —— 不给探测预言机。widget 会重签一张。
+		Message: "this widget could not be verified — reload the page and try again",
 	}},
 	{Match: owner.ErrOwnerNotFound, Envelope: apierr.Envelope{
 		Status:  http.StatusNotFound,

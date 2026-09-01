@@ -17,7 +17,9 @@
 
 import { useTranslations } from 'next-intl';
 
-import { previewView, type CustomPageSummary } from '@/lib/admin/use-custom-pages';
+import {
+  previewView, usePinnedPreviewSrc, type CustomPageSummary,
+} from '@/lib/admin/use-custom-pages';
 
 export function PagePreview({ page }: { page: CustomPageSummary }) {
   const t = useTranslations('adminPages.customPages');
@@ -54,7 +56,9 @@ function PreviewFrame(
   { slug, buildID, src }: { slug: string; buildID: string; src: string },
 ) {
   const t = useTranslations('adminPages.customPages');
-  return src === '' ? (
+  // src 钉在 buildID 上：令牌每 3 秒 churn 一次不该重载 iframe（逻辑在 usePinnedPreviewSrc）。
+  const shownSrc = usePinnedPreviewSrc(buildID, src);
+  return shownSrc === '' ? (
     <div
       data-testid={`custom-page-preview-empty-${slug}`}
       className="sm-empty mono text-[11px] text-(--color-faint) px-4 pb-4"
@@ -67,7 +71,7 @@ function PreviewFrame(
       // 而不是让旧的自己去 reload。
       key={buildID}
       data-testid={`custom-page-preview-${slug}`}
-      src={src}
+      src={shownSrc}
       title={slug}
       // 沙箱：这是 owner 自己写的代码，但它跑在 admin 的来源上 ——
       // 不给 allow-same-origin，页面就碰不到 owner 的 session

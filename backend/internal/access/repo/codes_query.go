@@ -136,13 +136,26 @@ func CodeFromRow(c *db.AccessCode) entity.Code {
 		PromptID:             pgstore.OptUUIDStr(c.PromptID),
 		InlinePrompt:         c.InlinePrompt,
 		// 空串 = 没指(那一列 NULL,或者指着的那条被删了 —— ON DELETE SET NULL)。
-		ProviderID: pgstore.UUIDStrOrEmpty(c.ProviderID),
+		ProviderID:     pgstore.UUIDStrOrEmpty(c.ProviderID),
+		LimitPerPeriod: decodePeriodLimit(c.LimitPerPeriod),
 	}
 	if c.ExpiresAt.Valid {
 		t := c.ExpiresAt.Time
 		out.ExpiresAt = &t
 	}
 	return out
+}
+
+// decodePeriodLimit —— jsonb → *PeriodLimit。NULL / 空 / 坏 → nil（不限）。
+func decodePeriodLimit(raw []byte) *entity.PeriodLimit {
+	if len(raw) == 0 {
+		return nil
+	}
+	var p entity.PeriodLimit
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil
+	}
+	return &p
 }
 
 // DecodeStringJSON decodes a JSONB string-array column into a []string, ALWAYS non-nil so it

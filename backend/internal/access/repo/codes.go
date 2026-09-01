@@ -35,15 +35,15 @@ type CreateCodeInput struct {
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
 	PromptID           *string
-	OwnerID            string
-	Code               string
+	LimitPerPeriod     *entity.PeriodLimit
 	Label              string
+	Code               string
 	Purpose            string
 	AssumedRoleID      string
 	InlinePrompt       string
-	// ProviderID —— 这张码指定的 provider(空 = 继承 role,再默认)。
-	ProviderID string
-	Ghosts     []string
+	ProviderID         string
+	OwnerID            string
+	Ghosts             []string
 }
 
 // optStr —— 空串 → nil(ParseOptionalUUID 的"没给"形态);非空 → 指针。
@@ -152,6 +152,16 @@ func buildCreateCodeParams(in *CreateCodeInput) (*db.CreateAccessCodeParams, err
 	if jerr != nil {
 		return nil, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
+	// limit_per_period 是可空 jsonb：没设 → period 保持 nil → 存 SQL NULL（= 不限）。
+	// 内联而不抽 helper：一个返回 nil []byte 的 helper 会撞 no-nil-container（happy path
+	// 的容器返回不能是 nil），而这里 nil 恰恰是要的答案。局部 nil 变量不受那条守卫管。
+	var period []byte
+	if in.LimitPerPeriod != nil {
+		var plerr error
+		if period, plerr = json.Marshal(in.LimitPerPeriod); plerr != nil {
+			return nil, fmt.Errorf("marshal limit_per_period: %w", plerr)
+		}
+	}
 	return &db.CreateAccessCodeParams{
 		ProviderID:         ids.provider,
 		OwnerID:            ids.owner,
@@ -165,6 +175,7 @@ func buildCreateCodeParams(in *CreateCodeInput) (*db.CreateAccessCodeParams, err
 		AssumedRoleID:      ids.role,
 		PromptID:           ids.prompt,
 		InlinePrompt:       in.InlinePrompt,
+		LimitPerPeriod:     period,
 	}, nil
 }
 

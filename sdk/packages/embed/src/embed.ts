@@ -19,7 +19,7 @@
 
 import { createClient, parseAnswerText } from '@standmeet/sdk-core';
 import type {
-  StandMeetClient, SessionMode, SSEEvent, AnswerSpan,
+  StandMeetClient, SessionMode, SSEEvent, AnswerSpan, IssueSessionInput,
 } from '@standmeet/sdk-core';
 
 const TAG = 'standmeet-chat';
@@ -185,14 +185,29 @@ class StandMeetChatElement extends HTMLElement {
 
   private async ensureSession(): Promise<void> {
     if (this.session || !this.client) return;
-    const mode = toMode(this.getAttribute('mode') ?? 'public');
-    const code = this.getAttribute('code') ?? undefined;
-    const s = await this.client.issueSession({ mode, code });
+    const s = await this.client.issueSession(await this.sessionInput());
     // system prompt 一场拼一次：fragment + 这场的 persona。不拼的话模型收到的是空 system,
     // 于是它答得像个通用聊天机器人,跟这个 owner 无关（F-O-2）。
     this.session = {
       id: s.conversation_id, token: s.session_token,
       system: await this.client.composeSystem(s),
+    };
+  }
+
+  // sessionInput —— 这一场怎么开。**防盗路（首选）**：宿主页给了 embed 凭据（embed id + kid +
+  // 私钥），就现签一张 EdDSA JWT，只发 embed_token，**不发明文 code**。没给凭据 → 退回老路
+  // （mode + code / public）。见 [[embed-credential-never-carries-the-code]]。
+  private async sessionInput(): Promise<IssueSessionInput> {
+    const embed = this.getAttribute('embed');
+    const kid = this.getAttribute('kid');
+    const key = this.getAttribute('key');
+    if (embed && kid && key) {
+      const embedToken = await signEmbedJWT(kid, embed, window.location.origin, key);
+      return { mode: 'code', embed_token: embedToken };
+    }
+    return {
+      mode: toMode(this.getAttribute('mode') ?? 'public'),
+      code: this.getAttribute('code') ?? undefined,
     };
   }
 
@@ -290,6 +305,33 @@ function spanToNode(m: AnswerSpan): Node {
 const MODES: readonly SessionMode[] = ['public', 'code', 'byoai'];
 function toMode(s: string): SessionMode {
   return MODES.find((m) => m === s) ?? 'public';
+}
+
+// b64url —— base64url without padding (JWT segment encoding). Input is ASCII JSON / raw bytes.
+function b64url(bytes: Uint8Array): string {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// signEmbedJWT —— sign the per-embed EdDSA JWT in the browser with WebCrypto. The private key is a
+// base64 PKCS8 DER (what the owner pasted into the snippet); we import it as Ed25519 and sign
+// `header.payload`. Folds in the origin (read live) + a 2-min expiry + a one-time jti. The plaintext
+// access code is never here — the server resolves this token to the code.
+async function signEmbedJWT(
+  kid: string, embedID: string, origin: string, privateKeyB64: string,
+): Promise<string> {
+  const enc = new TextEncoder();
+  const pkcs8 = Uint8Array.from(atob(privateKeyB64), (c) => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'Ed25519' }, false, ['sign']);
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64url(enc.encode(JSON.stringify({ alg: 'EdDSA', typ: 'JWT', kid })));
+  const payload = b64url(enc.encode(JSON.stringify({
+    iss: embedID, iat: now, exp: now + 120, jti: crypto.randomUUID(), origin,
+  })));
+  const signingInput = `${header}.${payload}`;
+  const sig = await crypto.subtle.sign({ name: 'Ed25519' }, key, enc.encode(signingInput));
+  return `${signingInput}.${b64url(new Uint8Array(sig))}`;
 }
 
 if (typeof customElements !== 'undefined' && !customElements.get(TAG)) {
