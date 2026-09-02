@@ -1,0 +1,7 @@
+{"offers":[
+  {"id":5001,"title":"Engineering Manager","description":"<p>Lead a small team.</p>",
+   "requirements":"<p>5 years of experience.</p>","company_name":"Recruitee BV",
+   "careers_url":"https://acme.recruitee.com/o/5001","published_at":"2026-08-28T00:00:00Z",
+   "department":"Engineering","employment_type_code":"full_time","tags":["remote"],
+   "locations":[{"city":"Amsterdam","country":"Netherlands"}]}
+]}

@@ -110,6 +110,11 @@ services:
       - JBA_BASE_URL=http://external-mock:9000/jba
       - WORKDAY_BASE_URL=http://external-mock:9000/workday
       - BAMBOOHR_BASE_URL=http://external-mock:9000/bamboohr
+      - JOBICY_BASE_URL=http://external-mock:9000/jobicy
+      - REMOTIVE_BASE_URL=http://external-mock:9000/remotive
+      - HIMALAYAS_BASE_URL=http://external-mock:9000/himalayas
+      - WORKING_NOMADS_BASE_URL=http://external-mock:9000/working_nomads
+      - RECRUITEE_BASE_URL=http://external-mock:9000/recruitee
       # Skill-marketplace search proxy upstreams. Both point at the
       # external-mock service in dev/e2e so the search never touches
       # public internet (rate limits / determinism). Production leaves

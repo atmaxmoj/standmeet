@@ -1,0 +1,6 @@
+{"jobs":[
+  {"id":2001,"title":"Backend Developer","company_name":"Remotive Inc",
+   "category":"Software Development","job_type":"full_time","publication_date":"2026-08-27T14:36:09",
+   "candidate_required_location":"USA","url":"https://remotive.com/jobs/2001",
+   "description":"<p>Build and run APIs.</p>","tags":["go","postgres"]}
+]}

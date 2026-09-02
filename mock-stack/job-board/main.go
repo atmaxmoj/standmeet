@@ -175,6 +175,17 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /lever/v0/postings/{company}", s.serveLever)
 	mux.HandleFunc("GET /ashby/posting-api/job-board/{slug}", s.serveAshby)
 	mux.HandleFunc("GET /remoteok/api", s.serveRemoteOK)
+	// Remote-job aggregators + Recruitee (2026-09). Fixed fixture slugs; the
+	// adapters' query strings (?count=, ?limit=) are ignored by path routing.
+	mux.HandleFunc("GET /jobicy/api/v2/remote-jobs", s.serveJobicy)
+	mux.HandleFunc("GET /remotive/api/remote-jobs", s.serveRemotive)
+	mux.HandleFunc("GET /himalayas/jobs/api", s.serveHimalayas)
+	mux.HandleFunc("GET /working_nomads/api/exposed_jobs/{$}", s.serveWorkingNomads)
+	mux.HandleFunc("GET /recruitee/api/offers/{$}", s.serveRecruitee)
+	// Generic schema.org JobPosting JSON-LD: a sitemap of detail URLs + detail
+	// pages that embed a JobPosting ld+json block (the long-tail ingester).
+	mux.HandleFunc("GET /jsonld/sitemap.xml", s.serveJSONLDSitemap)
+	mux.HandleFunc("GET /jsonld/jobs/{id}", s.serveJSONLDDetail)
 	// Go 1.22+ ServeMux wildcards must terminate at end-of-segment, so we
 	// can't use `{slug}.rss`. Match the whole filename and strip .rss in
 	// the handler.
@@ -416,6 +427,56 @@ func (s *server) serveAshby(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) serveRemoteOK(w http.ResponseWriter, r *http.Request) {
 	s.serveJSONKind(w, r, "remoteok", "api", remoteOKDay2)
+}
+
+func (s *server) serveJobicy(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "jobicy", "remote-jobs", nil)
+}
+
+func (s *server) serveRemotive(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "remotive", "remote-jobs", nil)
+}
+
+func (s *server) serveHimalayas(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "himalayas", "jobs", nil)
+}
+
+func (s *server) serveWorkingNomads(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "working_nomads", "exposed", nil)
+}
+
+func (s *server) serveRecruitee(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "recruitee", "offers", nil)
+}
+
+// serveJSONLDSitemap — a sitemap listing two job detail URLs plus one non-job
+// URL (to prove the adapter's url_filter keeps only /jobs/). Locs use the
+// requesting host so they resolve back to this mock inside the compose network.
+func (s *server) serveJSONLDSitemap(w http.ResponseWriter, r *http.Request) {
+	base := "http://" + r.Host
+	body := `<?xml version="1.0" encoding="UTF-8"?><urlset>` +
+		`<url><loc>` + base + `/jsonld/jobs/1</loc></url>` +
+		`<url><loc>` + base + `/jsonld/jobs/2</loc></url>` +
+		`<url><loc>` + base + `/jsonld/about</loc></url></urlset>`
+	w.Header().Set("Content-Type", "application/xml")
+	writeBody(s.log, w, []byte(body))
+}
+
+// serveJSONLDDetail — a detail page embedding one JobPosting ld+json block, the
+// shape Ashby/Lever/Recruitee emit for Google for Jobs.
+func (s *server) serveJSONLDDetail(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	ld := `{"@context":"https://schema.org/","@type":"JobPosting",` +
+		`"title":"Platform Engineer ` + id + `","description":"<p>Ship platforms.</p>",` +
+		`"identifier":{"@type":"PropertyValue","value":"jsonld-` + id + `"},` +
+		`"datePosted":"2026-08-15",` +
+		`"hiringOrganization":{"@type":"Organization","name":"JSONLD Corp"},` +
+		`"jobLocation":{"@type":"Place","address":{"@type":"PostalAddress",` +
+		`"addressLocality":"Berlin","addressCountry":"DE"}},"employmentType":"FULL_TIME"}`
+	html := `<html><head><script type="application/ld+json">` + ld +
+		`</script></head><body>job</body></html>`
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	writeBody(s.log, w, []byte(html))
 }
 
 func (s *server) serveWWR(w http.ResponseWriter, r *http.Request) {

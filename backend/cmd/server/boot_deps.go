@@ -288,5 +288,10 @@ func newJobFetchRegistry(cfg *config.Config) *jobfetch.Registry {
 		JBA:             cfg.JobFetchJBABaseURL,
 		Workday:         cfg.JobFetchWorkdayBaseURL,
 		BambooHR:        cfg.JobFetchBambooHRBaseURL,
+		Jobicy:          cfg.JobFetchJobicyBaseURL,
+		Remotive:        cfg.JobFetchRemotiveBaseURL,
+		Himalayas:       cfg.JobFetchHimalayasBaseURL,
+		WorkingNomads:   cfg.JobFetchWorkingNomadsBaseURL,
+		Recruitee:       cfg.JobFetchRecruiteeBaseURL,
 	})
 }

@@ -38,6 +38,11 @@ type Config struct {
 	JobFetchJBABaseURL             string
 	JobFetchWorkdayBaseURL         string
 	JobFetchBambooHRBaseURL        string
+	JobFetchJobicyBaseURL          string
+	JobFetchRemotiveBaseURL        string
+	JobFetchHimalayasBaseURL       string
+	JobFetchWorkingNomadsBaseURL   string
+	JobFetchRecruiteeBaseURL       string
 	// Turnstile* —— Cloudflare Turnstile captcha 配置。两个都设才开启；
 	// 任一为空 = captcha 关闭。不是 fallback：env 是这个 opt-in feature 唯一
 	// 入口。后续若改 UI-driven 配置（DB-stored），这里整组删。
@@ -153,6 +158,11 @@ func Load() (*Config, error) {
 		JobFetchJBABaseURL:             os.Getenv("JBA_BASE_URL"),
 		JobFetchWorkdayBaseURL:         os.Getenv("WORKDAY_BASE_URL"),
 		JobFetchBambooHRBaseURL:        os.Getenv("BAMBOOHR_BASE_URL"),
+		JobFetchJobicyBaseURL:          os.Getenv("JOBICY_BASE_URL"),
+		JobFetchRemotiveBaseURL:        os.Getenv("REMOTIVE_BASE_URL"),
+		JobFetchHimalayasBaseURL:       os.Getenv("HIMALAYAS_BASE_URL"),
+		JobFetchWorkingNomadsBaseURL:   os.Getenv("WORKING_NOMADS_BASE_URL"),
+		JobFetchRecruiteeBaseURL:       os.Getenv("RECRUITEE_BASE_URL"),
 		TurnstileSiteKey:               os.Getenv("TURNSTILE_SITE_KEY"),
 		TurnstileSecret:                os.Getenv("TURNSTILE_SECRET"),
 		QueryQueueMaxConcurrent:        envInt("QUERY_QUEUE_MAX_CONCURRENT", 0),

@@ -43,6 +43,17 @@ const (
 	// 同 strategy)；不依赖 JBA。
 	KindWorkday  = "workday"
 	KindBambooHR = "bamboohr"
+	// KindJobicy / KindRemotive / KindHimalayas / KindWorkingNomads — remote-jobs
+	// aggregators (single public feed, no per-source config).
+	KindJobicy        = "jobicy"
+	KindRemotive      = "remotive"
+	KindHimalayas     = "himalayas"
+	KindWorkingNomads = "working_nomads"
+	// KindRecruitee — per-company ATS (public Careers Site API), like greenhouse.
+	KindRecruitee = "recruitee"
+	// KindJobPostingJSONLD — generic long-tail ingester: parses schema.org
+	// JobPosting JSON-LD off detail pages (config carries a sitemap or urls).
+	KindJobPostingJSONLD = "jobposting_jsonld"
 )
 
 const (
@@ -106,6 +117,11 @@ type BaseURLs struct {
 	JBA             string
 	Workday         string
 	BambooHR        string
+	Jobicy          string
+	Remotive        string
+	Himalayas       string
+	WorkingNomads   string
+	Recruitee       string
 }
 
 // New 构造 Registry。BaseURLs 可单独设（e2e mock 时塞 fake server 地址），
@@ -117,17 +133,23 @@ func New(b *BaseURLs) *Registry {
 	client := httpx.NewClient(httpx.Options{Timeout: defaultHTTPTimeout})
 	return &Registry{
 		fetchers: map[string]Fetcher{
-			KindGreenhouse:      newGreenhouseFetcher(client, b.Greenhouse),
-			KindLever:           newLeverFetcher(client, b.Lever),
-			KindAshby:           newAshbyFetcher(client, b.Ashby),
-			KindRemoteOK:        newRemoteOKFetcher(client, b.RemoteOK),
-			KindWWR:             newWWRFetcher(client, b.WWR),
-			KindHNHiring:        newHNHiringFetcher(client, b.HN),
-			KindSmartRecruiters: newSmartRecruitersFetcher(client, b.SmartRecruiters),
-			KindWorkable:        newWorkableFetcher(client, b.Workable),
-			KindJBA:             newJBAFetcher(client, b.JBA),
-			KindWorkday:         newWorkdayFetcher(client, b.Workday),
-			KindBambooHR:        newBambooHRFetcher(client, b.BambooHR),
+			KindGreenhouse:       newGreenhouseFetcher(client, b.Greenhouse),
+			KindLever:            newLeverFetcher(client, b.Lever),
+			KindAshby:            newAshbyFetcher(client, b.Ashby),
+			KindRemoteOK:         newRemoteOKFetcher(client, b.RemoteOK),
+			KindWWR:              newWWRFetcher(client, b.WWR),
+			KindHNHiring:         newHNHiringFetcher(client, b.HN),
+			KindSmartRecruiters:  newSmartRecruitersFetcher(client, b.SmartRecruiters),
+			KindWorkable:         newWorkableFetcher(client, b.Workable),
+			KindJBA:              newJBAFetcher(client, b.JBA),
+			KindWorkday:          newWorkdayFetcher(client, b.Workday),
+			KindBambooHR:         newBambooHRFetcher(client, b.BambooHR),
+			KindJobicy:           newJobicyFetcher(client, b.Jobicy),
+			KindRemotive:         newRemotiveFetcher(client, b.Remotive),
+			KindHimalayas:        newHimalayasFetcher(client, b.Himalayas),
+			KindWorkingNomads:    newWorkingNomadsFetcher(client, b.WorkingNomads),
+			KindRecruitee:        newRecruiteeFetcher(client, b.Recruitee),
+			KindJobPostingJSONLD: newJSONLDFetcher(client, ""),
 		},
 	}
 }
@@ -229,17 +251,23 @@ func ValidateKindConfig(kind string, cfgRaw []byte) error {
 // configValidators 是 kind → cfg-shape-check 的 dispatch 表。每个 entry
 // 复用 adapter 自己的 typed config struct，保持唯一真理源。
 var configValidators = map[string]func([]byte) error{
-	KindGreenhouse:      validateGreenhouseCfg,
-	KindLever:           validateLeverCfg,
-	KindAshby:           validateAshbyCfg,
-	KindSmartRecruiters: validateSmartRecruitersCfg,
-	KindWorkable:        validateWorkableCfg,
-	KindWWR:             validateWWRCfg,
-	KindRemoteOK:        validateEmptyCfg,
-	KindHNHiring:        validateEmptyCfg,
-	KindJBA:             validateJBACfg,
-	KindWorkday:         validateWorkdayCfg,
-	KindBambooHR:        validateBambooHRCfg,
+	KindGreenhouse:       validateGreenhouseCfg,
+	KindLever:            validateLeverCfg,
+	KindAshby:            validateAshbyCfg,
+	KindSmartRecruiters:  validateSmartRecruitersCfg,
+	KindWorkable:         validateWorkableCfg,
+	KindWWR:              validateWWRCfg,
+	KindRemoteOK:         validateEmptyCfg,
+	KindHNHiring:         validateEmptyCfg,
+	KindJBA:              validateJBACfg,
+	KindWorkday:          validateWorkdayCfg,
+	KindBambooHR:         validateBambooHRCfg,
+	KindJobicy:           validateEmptyCfg,
+	KindRemotive:         validateEmptyCfg,
+	KindHimalayas:        validateEmptyCfg,
+	KindWorkingNomads:    validateEmptyCfg,
+	KindRecruitee:        validateRecruiteeCfg,
+	KindJobPostingJSONLD: validateJSONLDCfg,
 }
 
 // validateEmptyCfg —— remoteok / hn_hiring 不需要任何 config，传啥都接受。
